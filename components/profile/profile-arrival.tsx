@@ -10,7 +10,7 @@
  * goes and this one comes. Two things make that a native push rather than a
  * flash:
  *
- *   THE PUSH     when the page was reached from a community (the page before
+ *   THE PUSH     on a phone, when the page was reached from a community (the page before
  *                it in this tab was /community/..., or the address says
  *                ?from=community), its root comes in from a little to the
  *                right as it fades up: 260ms on the iOS push curve, translate
@@ -36,13 +36,19 @@
  * way back the system draws (the app's edge swipe, a browser's swipe) is
  * never armed, so it never moves twice.
  *
+ * ON A COMPUTER (round J, the owner: "When I click Visit page, I don't like
+ * that slide animation taking me there. Get rid of it, fully."): no push at
+ * all, either way. The page it left stays drawn over this one until this one
+ * has painted, then goes in a 100ms fade (page-push.ts COMPUTER), and a page
+ * that came without it lands on the site's own fade, never from the side.
+ *
  * Renders an empty marker as the first child of the page's root and works
  * on that root (its parent), so no page's markup or position changes.
  * Reduced motion: no push and no fade, the page and its cover simply there.
  */
 import { useLayoutEffect, useRef } from "react"
 import { previousPath } from "@/lib/navigation/in-app-history"
-import { armPageMotion, arriveWithPageMotion, holdPageMotion, takeArmedMotion } from "@/lib/navigation/page-push"
+import { armPageMotion, arriveWithPageMotion, holdPageMotion, PAGE_PHONE, takeArmedMotion } from "@/lib/navigation/page-push"
 
 /** The push: how far from the right the page starts, and for how long it moves. */
 export const ARRIVAL_SHIFT_PX = 28
@@ -91,7 +97,8 @@ export function ProfileArrival() {
     /* Pushed by Visit page in this same commit: it moves with the community leaving, and nothing of its own. */
     if (arriveWithPageMotion(root)) {
       /* The cover below is still held until decoded. */
-    } else if (!reduced && arrivesFromCommunity(prev, window.location.search) && typeof root.animate === "function") {
+    } else if (!reduced && arrivesFromCommunity(prev, window.location.search) && window.matchMedia?.(PAGE_PHONE).matches && typeof root.animate === "function") {
+      /* A phone only (round J): on a computer nothing slides in, the page lands on the site's own short fade (html.nav-landing). */
       root.animate(
         [
           { translate: `${ARRIVAL_SHIFT_PX}px 0`, opacity: 0.001 },

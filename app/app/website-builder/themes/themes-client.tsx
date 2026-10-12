@@ -33,6 +33,7 @@ import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
 import { LIBRARY_FULL_CODE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "../library-full-dialog"
+import { tt } from "@/lib/i18n/text"
 
 export function ThemeMarketplaceClient({
   installedThemeIds,
@@ -77,7 +78,7 @@ export function ThemeMarketplaceClient({
           router.refresh()
           return
         }
-        toast({ title: d.error ?? "Could not add theme", variant: "destructive" })
+        toast({ title: d.error ?? tt("Could not add theme"), variant: "destructive" })
         return
       }
       /* Its first picture, for the Website page this tab goes back to: kept now, or looked for while its photograph is taken. */
@@ -86,10 +87,10 @@ export function ThemeMarketplaceClient({
       if (id && made.cover?.url) seedCover(id, made.cover)
       else if (id && made.cover_pending) void watchCover(id)
       setAdded((prev) => new Set(prev).add(def.id))
-      toast({ title: `${def.name} added` })
+      toast({ title: tt("{name} added", { name: def.name }) })
       router.refresh()
     } catch {
-      toast({ title: "Could not add theme", variant: "destructive" })
+      toast({ title: tt("Could not add theme"), variant: "destructive" })
     } finally {
       inFlight.current = false
       setAdding(null)
@@ -105,16 +106,16 @@ export function ThemeMarketplaceClient({
             <Link
               href="/app/website-builder"
               onClick={() => startNavigationLoading()}
-              aria-label="Back to Website"
+              aria-label={tt("Back to Website")}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e]"
             >
               <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.25} />
             </Link>
-            <h1 className="truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Themes</h1>
+            <h1 className="truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">{tt("Themes")}</h1>
           </div>
           <span className="shrink-0 rounded-md bg-white px-2 py-1 text-[12px] font-semibold tabular-nums text-[#4b5563] ring-1 ring-inset ring-[#e5e7eb]">
             {/* A library from before the limit can hold more than it allows, and "7 of 5" reads as broken. */}
-            {used > THEME_INSTALL_LIMIT ? `${used} in library` : `${used} of ${THEME_INSTALL_LIMIT} in library`}
+            {used > THEME_INSTALL_LIMIT ? tt("{used} in library", { used }) : tt("{used} of {themeInstallLimit} in library", { used, themeInstallLimit: THEME_INSTALL_LIMIT })}
           </span>
         </div>
 
@@ -154,7 +155,7 @@ function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; 
         {/* ── Preview ───────────────────────────────────────────── */}
         <div className="relative border-b border-[#eceef1] bg-[#f3f4f6] app-card-x py-4 sm:py-6 lg:border-b-0 lg:border-r">
           <div className="mb-4 flex justify-end">
-            <div role="group" aria-label="Preview on" className="flex rounded-lg bg-white p-0.5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-inset ring-[#e5e7eb]">
+            <div role="group" aria-label={tt("Preview on")} className="flex rounded-lg bg-white p-0.5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-inset ring-[#e5e7eb]">
               {(["desktop", "phone"] as const).map((d) => (
                 <button
                   key={d}
@@ -175,7 +176,7 @@ function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; 
           <div className={cn(device === "desktop" ? "block" : "hidden")}>
             <div className="overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_18px_40px_-20px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.06]">
               <div className="aspect-[16/10] w-full">
-                <ThemeCover spec={spec} className="h-full w-full" title={`${def.name} on a desktop`} />
+                <ThemeCover spec={spec} className="h-full w-full" title={tt("{name} on a desktop", { name: def.name })} />
               </div>
             </div>
           </div>
@@ -190,7 +191,7 @@ function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; 
 
         {/* ── What it is ────────────────────────────────────────── */}
         <div className="flex min-w-0 flex-col app-card-x py-5 sm:py-6">
-          <p className="text-[12px] font-medium text-[#6b7280]">Version {def.version}</p>
+          <p className="text-[12px] font-medium text-[#6b7280]">{tt("Version {version}", { version: def.version })}</p>
           <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-[#1a1a2e]">{def.name}</h2>
           <p className="mt-2 text-[14px] leading-[1.6] text-[#4b5563]">{def.description}</p>
 
@@ -199,28 +200,28 @@ function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; 
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-emerald-50 px-3 text-[13.5px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
                   <Check className="h-4 w-4" />
-                  In your library
+                  {tt("In your library")}
                 </span>
                 <Link
                   href="/app/website-builder"
                   onClick={() => startNavigationLoading()}
                   className="inline-flex h-10 items-center gap-1 rounded-lg px-2.5 text-[13.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
                 >
-                  Open library
+                  {tt("Open library")}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
             ) : (
               <Button onClick={onAdd} disabled={busy} className="h-10 w-full rounded-lg bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44] sm:w-auto sm:px-5">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Add to library
+                {tt("Add to library")}
               </Button>
             )}
           </div>
 
           <dl className="mt-6 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[13px]">
             <div className="flex items-center justify-between gap-4 py-2.5">
-              <dt className="text-[#6b7280]">Colours</dt>
+              <dt className="text-[#6b7280]">{tt("Colours")}</dt>
               <dd className="flex gap-1">
                 {[def.palette.primary, def.palette.accent, def.palette.heroBg, def.palette.bg, def.palette.surface].map((c, i) => (
                   <span key={`${c}-${i}`} className="h-5 w-5 rounded-full ring-1 ring-inset ring-black/10" style={{ background: c }} title={c} />
@@ -228,17 +229,17 @@ function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; 
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4 py-2.5">
-              <dt className="text-[#6b7280]">Headings</dt>
+              <dt className="text-[#6b7280]">{tt("Headings")}</dt>
               <dd className="font-medium text-[#1a1a2e]">{def.fonts.heading}</dd>
             </div>
             <div className="flex items-center justify-between gap-4 py-2.5">
-              <dt className="text-[#6b7280]">Body</dt>
+              <dt className="text-[#6b7280]">{tt("Body")}</dt>
               <dd className="font-medium text-[#1a1a2e]">{def.fonts.body}</dd>
             </div>
           </dl>
 
           <div className="mt-5">
-            <p className="text-[12.5px] font-medium text-[#6b7280]">On the home page</p>
+            <p className="text-[12.5px] font-medium text-[#6b7280]">{tt("On the home page")}</p>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {sections.map((s, i) => (
                 <li key={`${s}-${i}`} className="rounded-md bg-[#f3f4f6] px-2 py-1 text-[12px] font-medium text-[#4b5563]">

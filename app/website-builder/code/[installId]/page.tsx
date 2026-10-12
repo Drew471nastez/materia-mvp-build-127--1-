@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import { completionsAt, documentationAt, undeclaredNames } from "@/lib/website-builder/storelib-complete"
 import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
 import { DRAWER_EASING, drawerRelease } from "@/lib/website-builder/drawer-drag"
-import { buildThemeFileTree, flattenTree, detectLanguage } from "@/lib/website-builder/theme-file-tree"
+import { buildThemeFileTree, flattenTree, detectLanguage, shownPath } from "@/lib/website-builder/theme-file-tree"
 import { toast } from "sonner"
 import { reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
@@ -341,7 +341,8 @@ function NameField({
   const { dir, name, ext } = fileNameOf(path)
   return (
     <div className={cn("flex items-center focus-within:border-[var(--code-text)]/30", className)}>
-      {dir ? <span className="shrink-0 select-none text-[var(--code-faint)]">{dir}</span> : null}
+      {/* The folder as the tree names it (original/ for an imported theme's own files); the path written back keeps the stored one. */}
+      {dir ? <span className="shrink-0 select-none text-[var(--code-faint)]">{shownPath(dir)}</span> : null}
       <input
         autoFocus
         value={name}
@@ -1029,7 +1030,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       // The file the answer is for may not be the file that is open any more.
       // A slow answer must not land in whatever file is open by then.
       if (openPathRef.current !== path) {
-        toast.message("Fix not applied", { description: `You moved off ${path}.` })
+        toast.message("Fix not applied", { description: `You moved off ${shownPath(path)}.` })
         return
       }
       setFileContent(d.source)
@@ -1223,7 +1224,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     if (!to || to.includes("..") || to.startsWith("/") || to.includes("\\")) { toast.error("That is not a path inside the theme"); return }
     const node: ThemeFileNode = { path: to, name: to.split("/").pop()!, type: "file", isCustomized: false, language: detectLanguage(to) }
     if (pendingAction.kind === "new") {
-      if (flattenTree(fileTree).includes(to)) { toast.error(`${to} already exists`); return }
+      if (flattenTree(fileTree).includes(to)) { toast.error(`${shownPath(to)} already exists`); return }
       /**
        * CREATE WRITES THE FILE. It used to only open a tab: the starter was
        * put in the textarea, the tree drew the name, the preview found the
@@ -1999,7 +2000,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 {narrow ? (
                   <span className="truncate text-[12px] text-[var(--code-text)]">{selectedFile.name}</span>
                 ) : (
-                  selectedFile.path.split("/").map((part, i, arr) => (
+                  shownPath(selectedFile.path).split("/").map((part, i, arr) => (
                     <span key={i} className="flex items-center gap-1">
                       {i > 0 && <ChevronRight className="h-3 w-3 opacity-50" />}
                       <span className={i === arr.length - 1 ? "text-[var(--code-text)]" : ""}>{part}</span>

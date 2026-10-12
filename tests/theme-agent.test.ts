@@ -13,6 +13,7 @@
  * Run with:  npm run test:push
  */
 
+import { untt } from "./i18n-source"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import {
   applyOps,
@@ -757,7 +758,7 @@ section("One door to the AI, not two")
 // ===========================================================================
 
 {
-  const sidebar = readFileSync(join(root, "components/app/sidebar.tsx"), "utf8")
+  const sidebar = untt(readFileSync(join(root, "components/app/sidebar.tsx"), "utf8"), "components/app/sidebar.tsx")
   /**
    * The AI moved into the theme editor, where it edits the sections somebody
    * is already looking at. Two menu entries for "build my website with AI",
@@ -783,10 +784,10 @@ section("One door to the AI, not two")
   check(
     "and the theme editor is where the AI now lives",
     (() => {
-      const editor = readFileSync(
+      const editor = untt(readFileSync(
         join(root, "app/website-builder/editor/[installId]/page.tsx"),
         "utf8",
-      )
+      ), "app/website-builder/editor/[installId]/page.tsx")
       return /<ThemeChat/.test(editor) && /aria-label="Ask Storelib"/.test(editor)
     })(),
   )
@@ -797,7 +798,7 @@ section("The editor has one accent, and it is the app's own")
 // ===========================================================================
 
 {
-  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
 
   /**
    * Purple appeared in thirty-one places beside a Save button that is black,
@@ -989,10 +990,10 @@ section("It knows what the store sells")
 }
 
 {
-  const route = readFileSync(
+  const route = untt(readFileSync(
     join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"),
     "utf8",
-  )
+  ), "app/api/website-builder/themes/[installId]/agent/route.ts")
   check(
     "the catalogue is read as the user, so RLS decides what the model sees",
     (() => {
@@ -1020,12 +1021,12 @@ section("The conversation survives a refresh")
 // ===========================================================================
 
 {
-  const chat = readFileSync(join(root, "lib/website-builder/agent/chat.ts"), "utf8")
-  const route = readFileSync(
+  const chat = untt(readFileSync(join(root, "lib/website-builder/agent/chat.ts"), "utf8"), "lib/website-builder/agent/chat.ts")
+  const route = untt(readFileSync(
     join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"),
     "utf8",
-  )
-  const panel = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+  ), "app/api/website-builder/themes/[installId]/agent/route.ts")
+  const panel = untt(readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")
 
   check(
     "the question is recorded before the model is reached",
@@ -1074,8 +1075,8 @@ section("The conversation survives a refresh")
      * already has them. The transcript is a record, not a script.
      */
     /* Read back by lib/website-builder/ask-restore.ts, which the panel draws from. */
-    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8")) &&
-      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8")) &&
+    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(untt(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8"), "lib/website-builder/ask-restore.ts")) &&
+      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(untt(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8"), "lib/website-builder/ask-restore.ts")) &&
       /restoreExchanges\(body\.messages\)/.test(panel) &&
       !/onOp\(message/.test(panel),
   )
@@ -1092,10 +1093,10 @@ section("An AI edit behaves exactly like an edit made by hand")
  * skipped was a real defect that looked, on screen, like the edit had worked.
  */
 {
-  const editor = readFileSync(
+  const editor = untt(readFileSync(
     join(root, "app/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  )
+  ), "app/website-builder/editor/[installId]/page.tsx")
   const at = editor.indexOf("const applyAiOp = useCallback")
   const body = editor.slice(at, editor.indexOf("}, [sections])", at))
 
@@ -1176,7 +1177,7 @@ section("The panel does not drop what the run tells it")
 // ===========================================================================
 
 {
-  const panel = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+  const panel = untt(readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")
 
   check(
     "the agent's own words reach the screen",
@@ -1188,7 +1189,7 @@ section("The panel does not drop what the run tells it")
      */
     (() => {
       /* Every progress line goes to the activity reader, which keeps the latest commentary and says it as the line. */
-      const reader = readFileSync(join(root, "lib/website-builder/ask-activity.ts"), "utf8")
+      const reader = untt(readFileSync(join(root, "lib/website-builder/ask-activity.ts"), "utf8"), "lib/website-builder/ask-activity.ts")
       return (
         /const next = reduceActivity\(e\.activity, event\)/.test(panel) &&
         /if \(type === "thinking"\) \{/.test(reader) &&
@@ -1232,10 +1233,10 @@ section("Autosave writes the draft, never the live site")
 // ===========================================================================
 
 {
-  const editor = readFileSync(
+  const editor = untt(readFileSync(
     join(root, "app/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  )
+  ), "app/website-builder/editor/[installId]/page.tsx")
 
   check(
     "autosave calls saveDraft, not handleSave",
@@ -1287,10 +1288,10 @@ section("Autosave writes the draft, never the live site")
 }
 
 {
-  const editor = readFileSync(
+  const editor = untt(readFileSync(
     join(root, "app/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  )
+  ), "app/website-builder/editor/[installId]/page.tsx")
 
   check(
     "'saved' and 'published' are two different facts",
@@ -1343,10 +1344,10 @@ section("Switching pages does not lose or misfile work")
 // ===========================================================================
 
 {
-  const editor = readFileSync(
+  const editor = untt(readFileSync(
     join(root, "app/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  )
+  ), "app/website-builder/editor/[installId]/page.tsx")
   const at = editor.indexOf("const handlePageChange = async (page: PageKey)")
   const body = editor.slice(at, editor.indexOf("\n  }", editor.indexOf("switchingPage.current = false", at)))
 
@@ -1362,7 +1363,8 @@ section("Switching pages does not lose or misfile work")
        * AWAITED, so the write lands while `currentPage` and `sections` still
        * agree about which page they describe.
        */
-      return /await saveDraft\(\{ quiet: true \}\)/.test(body) && /if \(isDirty && !saving/.test(body)
+      /* Round 25 (tests/builder25.test.ts): started as the switch starts, beside the read of the next page, and awaited before the next page is put in. */
+      return /const leavingDirty = isDirty && !saving/.test(body) && /leavingDirty \? saveDraft\(\{ quiet: true \}\)/.test(body) && /const \[loaded, homeHF, savedOk\] = await Promise\.all\(\[[\s\S]*?saved,\s*\]\)/.test(body)
     })(),
   )
 
@@ -1424,10 +1426,10 @@ section("The mobile sheet snaps where it should")
  * file import the same functions.
  */
 {
-  const sheet = readFileSync(
+  const sheet = untt(readFileSync(
     join(root, "components/website-builder/mobile-editor-sheet.tsx"),
     "utf8",
-  )
+  ), "components/website-builder/mobile-editor-sheet.tsx")
 
   const snap = (offsets: number[], current: number, velocity: number, totalDelta: number) =>
     snapTarget({ offsets, current, velocity, totalDelta })
@@ -1709,10 +1711,10 @@ section("What a touch on the sheet is FOR")
  * gesture.
  */
 {
-  const sheet = readFileSync(
+  const sheet = untt(readFileSync(
     join(root, "components/website-builder/mobile-editor-sheet.tsx"),
     "utf8",
-  )
+  ), "components/website-builder/mobile-editor-sheet.tsx")
 
   check(
     "a touch that has barely moved is a tap, and moves nothing",
@@ -1757,7 +1759,7 @@ section("What a touch on the sheet is FOR")
   )
   check(
     "and the component no longer asks whether the sheet could grow",
-    !/canExpand/.test(sheet) && !/canExpand/.test(readFileSync(join(root, "components/website-builder/sheet-gestures.ts"), "utf8")),
+    !/canExpand/.test(sheet) && !/canExpand/.test(untt(readFileSync(join(root, "components/website-builder/sheet-gestures.ts"), "utf8"), "components/website-builder/sheet-gestures.ts")),
   )
   check(
     "a hand-off that turns back up gives the rest of the push to the list, and the sheet keeps its place",
@@ -1968,7 +1970,7 @@ section("What a touch on the sheet is FOR")
     (() => {
       const path = join(root, "node_modules/react-dom/cjs/react-dom-client.development.js")
       if (!existsSync(path)) return false
-      const react = readFileSync(path, "utf8")
+      const react = untt(readFileSync(path, "utf8"), path)
       return /passiveBrowserEventsSupported \|\|\s*\("touchstart" !== domEventName &&\s*"touchmove" !== domEventName/.test(
         react,
       )
@@ -2071,14 +2073,14 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
  */
 {
   const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
-  const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+  const chat = untt(readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")
   /* The run's code preview lives with the live activity now (the old work panel is gone). */
-  const panel = readFileSync(join(root, "components/website-builder/ask-activity.tsx"), "utf8")
-  const parts = readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")
-  const picker = readFileSync(join(root, "components/website-builder/ask-model-picker.tsx"), "utf8")
-  const sheet = readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8")
-  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
-  const css = readFileSync(join(root, "app/globals.css"), "utf8")
+  const panel = untt(readFileSync(join(root, "components/website-builder/ask-activity.tsx"), "utf8"), "components/website-builder/ask-activity.tsx")
+  const parts = untt(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8"), "components/website-builder/ask-parts.tsx")
+  const picker = untt(readFileSync(join(root, "components/website-builder/ask-model-picker.tsx"), "utf8"), "components/website-builder/ask-model-picker.tsx")
+  const sheet = untt(readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8"), "components/website-builder/mobile-editor-sheet.tsx")
+  const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
+  const css = untt(readFileSync(join(root, "app/globals.css"), "utf8"), "app/globals.css")
 
   check(
     "a new message scrolls the thread itself, never scrollIntoView, which also moved the sheet and the document",
@@ -2206,16 +2208,16 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
     "the panels that scroll inside the Sections sheet carry the room themselves",
     /* The Pages tab's scroller is the page list's own now (components/website-builder/page-switcher.tsx). */
     (editor.match(/<div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll/g) || []).length >= 5 &&
-      /data-page-list-scroll=""\s*\n\s*data-sheet-scroll=""/.test(readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")) &&
+      /data-page-list-scroll=""\s*\n\s*data-sheet-scroll=""/.test(untt(readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8"), "components/website-builder/page-switcher.tsx")) &&
       /\[data-mobile-bottom-sheet\] \[data-sheet-scroll\]:has\(\[data-sheet-scroll\]:last-child\)::after \{\s*height: 0;/.test(css),
   )
 }
 
 {
-  const editor = readFileSync(
+  const editor = untt(readFileSync(
     join(root, "app/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  )
+  ), "app/website-builder/editor/[installId]/page.tsx")
   check(
     "the AI exists on a phone",
     /**
@@ -2333,9 +2335,9 @@ section("Hiding a section is not deleting it")
 
 check(
   "the model is told delete means delete (every match), and hiding is for when they say hide, in the system prompt",
-  /DELETE MEANS DELETE/.test(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")) &&
-    /every one that matches/.test(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")) &&
-    /set_section_visibility/.test(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")),
+  /DELETE MEANS DELETE/.test(untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")) &&
+    /every one that matches/.test(untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")) &&
+    /set_section_visibility/.test(untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")),
 )
 
 /**
@@ -2605,7 +2607,7 @@ section("Building a section, with everything it needs to build it properly")
 check(
   "the model is told that adding a section is not finishing one",
   (() => {
-    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    const loop = untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")
     return (
       /Adding the section is the first of them, not the job/.test(loop) &&
       /DO NOT STOP EARLY/.test(loop) &&
@@ -2617,7 +2619,7 @@ check(
 check(
   "and that a value the control cannot take is as silent a failure as a wrong id",
   /EVERY SETTING IS A CONTROL/.test(
-    readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"),
+    untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts"),
   ),
 )
 
@@ -2659,7 +2661,7 @@ section("There is one script to run, and it survives being run twice")
  * messages, site_agent_questions and admin_moderation_log all still landed.
  */
 {
-  const script = readFileSync(join(root, "sql/RUN_THIS_ALL_PENDING.sql"), "utf8")
+  const script = untt(readFileSync(join(root, "sql/RUN_THIS_ALL_PENDING.sql"), "utf8"), "sql/RUN_THIS_ALL_PENDING.sql")
 
   for (const [name, needle] of [
     ["sites.document", "add column if not exists document jsonb"],
@@ -2724,7 +2726,7 @@ section("The panel says the true thing, and does not make you wait to type")
 // ===========================================================================
 
 {
-  const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+  const chat = untt(readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")
 
   /**
    * "We could not load this conversation" is right about a read that failed
@@ -2738,7 +2740,7 @@ section("The panel says the true thing, and does not make you wait to type")
   check(
     "the not-set-up message does not claim anything is broken: it says what turns it on",
     /History turns on once the database update is run\. Until then your messages here are kept as one chat\./.test(chat) &&
-      /History turns on once the database update is run\./.test(readFileSync(join(root, "components/website-builder/ask-history.tsx"), "utf8")),
+      /History turns on once the database update is run\./.test(untt(readFileSync(join(root, "components/website-builder/ask-history.tsx"), "utf8"), "components/website-builder/ask-history.tsx")),
   )
 
   /**
@@ -2772,7 +2774,7 @@ section("The panel says the true thing, and does not make you wait to type")
 }
 
 {
-  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
   check(
     "and so does the button that opens it",
     // One button at every size: the mark, with its own glow.
@@ -3081,7 +3083,7 @@ section("A locked section is the only thing that changes")
 check(
   "the lock is enforced in code, not requested in the prompt",
   (() => {
-    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    const loop = untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")
     return (
       /if \(locked\) \{/.test(loop) &&
       /const wholePage: Record<string, string> = \{/.test(loop) &&
@@ -3091,12 +3093,12 @@ check(
 )
 
 {
-  const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+  const chat = untt(readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")
   check(
     "the panel shows what the edit is limited to, before you type it, in two words and a title rather than a sentence",
     /<ScopeChip\s*\n\s*name=\{selectedSection\.name\}\s*\n\s*locked=\{locked\}/.test(chat) &&
-      /Editing:<\/span> \{name\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")) &&
-      /title=\{`Only \$\{name\} will change`\}/.test(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8")),
+      /Editing:<\/span> \{name\}/.test(untt(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8"), "components/website-builder/ask-parts.tsx")) &&
+      /title=\{`Only \$\{name\} will change`\}/.test(untt(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8"), "components/website-builder/ask-parts.tsx")),
   )
   check("it is on by default when a section is selected", /useState\(true\)/.test(chat))
   check(
@@ -3110,7 +3112,7 @@ check(
 check(
   "and the endpoint only honours it with a section actually selected, one that is on the page",
   /lockToSelection: body\.lockToSelection === true && !!selected/.test(
-    readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"),
+    untt(readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/agent/route.ts"),
   ),
 )
 
@@ -3568,7 +3570,7 @@ check(
 check(
   "the model is shown the page's system before it decides anything",
   (() => {
-    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    const loop = untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")
     // The call carries this install's own section types now: see ./schemas.
     const at = loop.indexOf("describeHouseStyle(readHouseStyle(state, [], schemas))")
     const settings = loop.indexOf("`THEME SETTINGS")
@@ -3662,7 +3664,7 @@ section("Asking for something good has to get the good model")
   /* 32 since the U round: a section's worth of turns, plus room to read the work back against the request and fix what it finds (SELF_CHECK). */
   check("and one section is still one section's worth of turns", classifyRequest("design a complete FAQ section").maxTurns === 32)
 
-  const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+  const loop = untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")
   check(
     "an ambitious run reads the catalogue up front, whatever the sentence says",
     /const aboutTheBusiness = STORE_WORDS\.test\(prompt\) \|\| images\.length > 0 \|\| !!input\.ambitious/.test(loop),
@@ -3680,7 +3682,7 @@ section("Asking for something good has to get the good model")
     /A WHOLE PAGE IS AN ORDER, NOT A PILE/.test(loop),
   )
 
-  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8")
+  const route = untt(readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/agent/route.ts")
   check(
     "the endpoint lifts an ambitious run to the stronger model, never lowers their choice, and says so",
     /\(shape\.ambitious \|\| bigIntent \|\| intent\.kind === "SECTION_REDESIGN"\) && body\.tier !== "strong" \? "strong" : body\.tier/.test(route) &&
@@ -3693,10 +3695,10 @@ section("Asking for something good has to get the good model")
 check(
   "the endpoint uses this editor's classifier, not the code agent's",
   (() => {
-    const route = readFileSync(
+    const route = untt(readFileSync(
       join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"),
       "utf8",
-    )
+    ), "app/api/website-builder/themes/[installId]/agent/route.ts")
     return (
       /classifyRequest\(body\.prompt\)/.test(route) &&
       /maxTurns: bigIntent \? Math\.max\(shape\.maxTurns, 56\) : shape\.maxTurns/.test(route) &&
@@ -3800,7 +3802,7 @@ section("A section that came out thin is not finished")
 check(
   "the model is told what building properly involves, in order",
   (() => {
-    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    const loop = untt(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")
     return (
       /WHEN THE ASK IS TO BUILD, DESIGN OR MAKE SOMETHING GOOD/.test(loop) &&
       /"COMPLEX" AND "COMPLETE" MEAN CONTENT, NOT DECORATION/.test(loop) &&
@@ -3826,8 +3828,8 @@ section("A setting is one way to make a change, not the limit of what is possibl
    * markup, CSS, a script and a schema. What the assistant lacked was a way
    * in, so it answered from the only thing it could see.
    */
-  const loop = readFileSync(join(process.cwd(), "lib/website-builder/agent/loop.ts"), "utf8")
-  const route = readFileSync(join(process.cwd(), "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8")
+  const loop = untt(readFileSync(join(process.cwd(), "lib/website-builder/agent/loop.ts"), "utf8"), "lib/website-builder/agent/loop.ts")
+  const route = untt(readFileSync(join(process.cwd(), "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/agent/route.ts")
 
   check(
     "it can read a section's source and write a new one",
@@ -3876,16 +3878,16 @@ section("A setting is one way to make a change, not the limit of what is possibl
     "and the canvas is told, so it stops drawing the old source",
     /if \(result\.wroteCode \|\| codeLost\) send\(\{ type: "sources-changed" \}\)/.test(route) &&
       /\{ type: "sources-changed" \}/.test(loop) &&
-      /onSourcesChanged\?\.\(\)/.test(readFileSync(join(process.cwd(), "components/website-builder/theme-chat.tsx"), "utf8")) &&
+      /onSourcesChanged\?\.\(\)/.test(untt(readFileSync(join(process.cwd(), "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")) &&
       /* A stable callback now, so the memoised chat is not re-rendered by a new arrow every edit. */
       ((editor: string) =>
         /const reloadAiSources = useCallback\(\(\) => \{\s*void loadStorelibSources\(\)\s*\}, \[loadStorelibSources\]\)/.test(editor) &&
         (editor.match(/onSourcesChanged=\{reloadAiSources\}/g) ?? []).length === 2)(
-        readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"),
+        untt(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx"),
       ),
   )
   check(
     "the section's own button says Ask AI",
-    /<Item label="Ask AI" onClick=\{onAskAi\}>/.test(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")),
+    /<Item label="Ask AI" onClick=\{onAskAi\}>/.test(untt(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")),
   )
 }

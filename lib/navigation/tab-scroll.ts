@@ -159,20 +159,39 @@ export function scrollPageToTop(opts?: { smooth?: boolean; frames?: number }): (
     document.documentElement.scrollTop = 0
     document.body.scrollTop = 0
   }
-  pin()
-  let n = 0
-  const max = Math.max(1, opts?.frames ?? 12)
-  let id = 0
-  const tick = () => {
-    if (cancelled) return clear()
+  /*
+    THE FIRST WRITE WAITS FOR THE FRAME (round 25). Called from a layout effect, as the arriving page is committed, a write
+    here made the browser lay the whole new page out on the spot, mid commit (130ms of the library's arrival at 4x CPU,
+    traced), and lay it out again for the frame. In the next animation frame the write comes before that frame's own
+    style, layout and paint, so the first frame painted is still at the top, and the page is laid out once.
+  */
+  let first = requestAnimationFrame(() => {
+    first = 0
     pin()
-    if (++n >= max) return clear()
-    id = requestAnimationFrame(tick)
+  })
+  /*
+    HELD BY LISTENING, NOT BY POLLING (round 25, the owner: "switching Home and Profile: snappier, smooth"). The hold used to
+    write the scroll on every frame for 12 to 14 frames, and each write made the browser finish the arriving page's style
+    and layout on the spot, in the middle of its arrival: traced at 4x CPU on Profile, 28, 11 and 13ms of forced style per
+    frame on top of the page's own. Something that moves the page off the top (the router's own scroll, a layout putting
+    a mid page scroll back) sends a scroll event, which comes in the same frame a poll would have, before it is painted;
+    the page is put back only then. The hold lasts as long as the frames did.
+  */
+  const max = Math.max(1, opts?.frames ?? 12)
+  const onScroll = () => {
+    if (cancelled) return
+    if (window.scrollY > 0) pin()
   }
-  id = requestAnimationFrame(tick)
+  window.addEventListener("scroll", onScroll, { passive: true })
+  const end = window.setTimeout(() => {
+    window.removeEventListener("scroll", onScroll)
+    clear()
+  }, Math.round(max * 16.7))
   return () => {
     cancelled = true
-    cancelAnimationFrame(id)
+    if (first) cancelAnimationFrame(first)
+    window.clearTimeout(end)
+    window.removeEventListener("scroll", onScroll)
     clear()
   }
 }

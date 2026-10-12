@@ -127,12 +127,12 @@ const PHONE = { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, h
 const DESK = { width: 1440, height: 900, deviceScaleFactor: 1 }
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--font-render-hinting=none"] })
 
-async function open(vp, hash, stored) {
+async function open(vp, hash, stored, pageCover = null) {
   const page = await browser.newPage()
   page.errors = []
   page.on("pageerror", (e) => page.errors.push(String(e)))
   await page.setViewport(vp)
-  await page.evaluateOnNewDocument((s) => { window.__stored = s }, stored)
+  await page.evaluateOnNewDocument((s, pc) => { window.__stored = s; window.__page = pc }, stored, pageCover)
   await page.goto(`${origin}/${hash}`, { waitUntil: "load" })
   await sleep(500)
   return page
@@ -270,6 +270,33 @@ for (const [label, vp] of [["1440", DESK], ["390", PHONE]]) {
   await empty.screenshot({ path: join(shots, `settings-empty-${label}.png`) })
   expect(empty.errors.length === 0, "no page errors", empty.errors)
   await empty.close()
+
+  /* ROUND J1: NO COVER OF THEIR OWN, A CREATOR PAGE COVER. Settings shows the page's, says where it is from, and does not offer to move or remove it. */
+  const PAGE_COVER = `${origin}/storage/v1/object/public/store-builder-images/c1/cover.svg#crop=30,40,1.2`
+  const fromPage = await open(vp, "#settings", null, PAGE_COVER)
+  await fromPage.waitForSelector('[data-account-cover-source="page"]')
+  await fromPage.evaluate(() => document.querySelector("[data-account-cover-field]").scrollIntoView({ block: "center" }))
+  await sleep(300)
+  const pageFacts = await fromPage.evaluate(() => {
+    const f = document.querySelector("[data-account-cover-field]")
+    return { text: f.innerText, adjust: !!f.querySelector("[data-account-cover-edit]"), remove: !!f.querySelector('[aria-label="Remove image"]'), usePage: !!f.querySelector("[data-account-cover-use-page]"), img: !!f.querySelector("img") }
+  })
+  expect(pageFacts.img && /From your creator page/.test(pageFacts.text) && !pageFacts.adjust && !pageFacts.remove && !pageFacts.usePage, "no cover of their own: their creator page's, said so, with Change only", pageFacts)
+  await fromPage.screenshot({ path: join(shots, `settings-page-cover-${label}.png`) })
+  expect(fromPage.errors.length === 0, "no page errors", fromPage.errors)
+  await fromPage.close()
+
+  /* Their own cover and a page cover: Use my creator page cover clears their own (PATCH coverUrl null), and the page's is shown. */
+  const both = await open(vp, "#settings", COVER_URL, PAGE_COVER)
+  await both.waitForSelector("[data-account-cover-use-page]")
+  await both.evaluate(() => document.querySelector("[data-account-cover-field]").scrollIntoView({ block: "center" }))
+  await both.click("[data-account-cover-use-page]")
+  await sleep(400)
+  const usedPage = await both.evaluate(() => ({ patches: window.__patches || [], source: document.querySelector("[data-account-cover-field]").getAttribute("data-account-cover-source"), refreshes: window.__refreshes || 0 }))
+  expect(usedPage.patches.length === 1 && usedPage.patches[0].coverUrl === null && usedPage.source === "page" && usedPage.refreshes >= 1, "Use my creator page cover: their own cleared, the page's back, the profile refreshed in place", usedPage)
+  await both.screenshot({ path: join(shots, `settings-use-page-${label}.png`) })
+  expect(both.errors.length === 0, "no page errors", both.errors)
+  await both.close()
 }
 
 await browser.close()

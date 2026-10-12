@@ -23,6 +23,7 @@ import * as React from "react"
 import { cleanFocalPoint } from "@/lib/storelib-theme/values"
 import { NOTE, TEXT_BUTTON } from "./styles"
 import { useSiblingSettings } from "./context"
+import { tt } from "@/lib/i18n/text"
 
 function parts(v: string): [number, number] {
   const m = cleanFocalPoint(v).match(/^([\d.]+)% ([\d.]+)%$/)
@@ -90,7 +91,7 @@ export function FocalPointControl({
   }
 
   if (!image) {
-    return <p className={NOTE}>Choose a picture first, then mark the part of it that should stay in view.</p>
+    return <p className={NOTE}>{tt("Choose a picture first, then mark the part of it that should stay in view.")}</p>
   }
 
   const [x, y] = point
@@ -100,8 +101,8 @@ export function FocalPointControl({
         ref={box}
         role="slider"
         tabIndex={0}
-        aria-label={label ?? "Focus"}
-        aria-valuetext={`${x}% from the left, ${y}% from the top`}
+        aria-label={label ?? tt("Focus")}
+        aria-valuetext={tt("{x}% from the left, {y}% from the top", { x, y })}
         aria-valuenow={x}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -134,10 +135,10 @@ export function FocalPointControl({
         />
       </div>
       <div className="flex items-center justify-between">
-        <p className={NOTE}>{x}% across, {y}% down</p>
+        <p className={NOTE}>{tt("{x}% across, {y}% down", { x, y })}</p>
         {(x !== 50 || y !== 50) && (
           <button type="button" className={TEXT_BUTTON} onClick={() => { setPoint([50, 50]); onChange("50% 50%") }}>
-            Centre
+            {tt("Centre")}
           </button>
         )}
       </div>

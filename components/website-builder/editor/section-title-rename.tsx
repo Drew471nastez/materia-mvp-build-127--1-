@@ -10,6 +10,7 @@
  */
 import * as React from "react"
 import { Pencil } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
 
 export function SectionTitleRename({ name, onRename }: { name: string; onRename: (next: string | null) => void }) {
   const [editing, setEditing] = React.useState(false)
@@ -36,7 +37,7 @@ export function SectionTitleRename({ name, onRename }: { name: string; onRename:
       <input
         ref={input}
         data-section-rename=""
-        aria-label="Section name"
+        aria-label={tt("Section name")}
         value={draft}
         maxLength={80}
         onChange={(e) => setDraft(e.target.value)}
@@ -54,7 +55,7 @@ export function SectionTitleRename({ name, onRename }: { name: string; onRename:
       type="button"
       data-section-title=""
       onClick={() => setEditing(true)}
-      title="Rename"
+      title={tt("Rename")}
       className="group/name relative z-[1] -ml-1 flex max-w-full min-w-0 cursor-text items-center gap-1.5 rounded-md px-1 py-0.5 text-left outline-none transition-colors hover:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
     >
       <span className="truncate text-[15px] font-semibold md:text-sm">{name}</span>

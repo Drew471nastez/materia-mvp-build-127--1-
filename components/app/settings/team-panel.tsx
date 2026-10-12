@@ -24,6 +24,8 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { MEMBER_ROLES, ROLE_LABEL, ROLE_SUMMARY, invitable, resendWait, teamEmail, type MemberRole } from "@/lib/team/roles"
+import { tt } from "@/lib/i18n/text"
+import { formatRelative } from "@/lib/i18n/format"
 
 interface Member {
   id: string
@@ -59,13 +61,9 @@ function ago(iso: string | null | undefined, now: number): string {
   const t = iso ? Date.parse(iso) : NaN
   if (!Number.isFinite(t)) return ""
   const s = Math.max(0, Math.round((now - t) / 1000))
-  if (s < 60) return "just now"
-  const m = Math.round(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.round(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.round(h / 24)
-  return d === 1 ? "yesterday" : `${d} days ago`
+  if (s < 60) return tt("just now")
+  /* "5 minutes ago", "yesterday", "vor 3 Tagen": Intl writes it in the dashboard's language. */
+  return formatRelative(t, now)
 }
 
 /** A clock that ticks once a second only while something on screen is counting down. */
@@ -131,11 +129,11 @@ export function TeamPanel() {
   const emailProblem = !email.trim()
     ? null
     : !cleanEmail
-      ? "Enter a full email address, like name@example.com."
+      ? tt("Enter a full email address, like name@example.com.")
       : cleanEmail === ownEmail
-        ? "That's your own email. You're already the owner."
+        ? tt("That's your own email. You're already the owner.")
         : members.some((m) => m.email === cleanEmail && m.status === "active")
-          ? "They're already on your team."
+          ? tt("They're already on your team.")
           : null
 
   const invite = async (e: React.FormEvent) => {
@@ -151,7 +149,7 @@ export function TeamPanel() {
     setSending(false)
     if (r.ok === false) {
       if (!existing) setMembers((list) => list.filter((m) => m.id !== temp.id))
-      toast({ title: "Invite not sent", description: r.error, variant: "destructive" })
+      toast({ title: tt("Invite not sent"), description: r.error, variant: "destructive" })
       return
     }
     setMembers((list) => {
@@ -160,7 +158,7 @@ export function TeamPanel() {
     })
     setEmail("")
     setTouched(false)
-    toast(r.data.emailed ? { title: "Invite sent", description: `To ${cleanEmail}. The link works for 7 days.` } : { title: "Invite saved", description: "The email didn't go out. Use Resend in a minute.", variant: "destructive" })
+    toast(r.data.emailed ? { title: tt("Invite sent"), description: tt("To {cleanEmail}. The link works for 7 days.", { cleanEmail }) } : { title: tt("Invite saved"), description: tt("The email didn't go out. Use Resend in a minute."), variant: "destructive" })
   }
 
   const change = async (m: Member, next: MemberRole) => {
@@ -171,10 +169,10 @@ export function TeamPanel() {
     setBusy(null)
     if (r.ok === false) {
       setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, role: m.role } : x)))
-      toast({ title: "Role not changed", description: r.error, variant: "destructive" })
+      toast({ title: tt("Role not changed"), description: r.error, variant: "destructive" })
       return
     }
-    toast({ title: `${m.name || m.email} is now ${ROLE_LABEL[next]}`, description: m.status === "active" ? "It applies right away." : undefined })
+    toast({ title: tt("{value} is now {role}", { value: m.name || m.email, role: ROLE_LABEL[next] }), description: m.status === "active" ? tt("It applies right away.") : undefined })
   }
 
   const remove = async (m: Member) => {
@@ -183,10 +181,10 @@ export function TeamPanel() {
     const r = await api(`/api/team/${m.id}`, { method: "DELETE" })
     if (r.ok === false) {
       setMembers((list) => [...list, m].sort((a, b) => Date.parse(a.invited_at) - Date.parse(b.invited_at)))
-      toast({ title: m.status === "invited" ? "Invite not cancelled" : "Not removed", description: r.error, variant: "destructive" })
+      toast({ title: m.status === "invited" ? tt("Invite not cancelled") : tt("Not removed"), description: r.error, variant: "destructive" })
       return
     }
-    toast({ title: m.status === "invited" ? "Invite cancelled" : `${m.name || m.email} removed`, description: m.status === "invited" ? "The link in their email stops working." : "They can't open your store any more." })
+    toast({ title: m.status === "invited" ? tt("Invite cancelled") : tt("{value} removed", { value: m.name || m.email }), description: m.status === "invited" ? tt("The link in their email stops working.") : tt("They can't open your store any more.") })
   }
 
   const resend = async (m: Member) => {
@@ -194,9 +192,9 @@ export function TeamPanel() {
     setBusy(m.id)
     const r = await api<{ member: Member; emailed: boolean }>("/api/team", { method: "POST", body: { email: m.email, role: m.role } })
     setBusy(null)
-    if (r.ok === false) return toast({ title: "Not sent", description: r.error, variant: "destructive" })
+    if (r.ok === false) return toast({ title: tt("Not sent"), description: r.error, variant: "destructive" })
     setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, ...r.data.member } : x)))
-    toast({ title: "Invite sent again", description: `A new link went to ${m.email}. The old one stops working.` })
+    toast({ title: tt("Invite sent again"), description: tt("A new link went to {email}. The old one stops working.", { email: m.email }) })
   }
 
   const work = async (store: string | null) => {
@@ -204,7 +202,7 @@ export function TeamPanel() {
     const r = await api("/api/team/act", { method: "POST", body: { store } })
     if (r.ok === false) {
       setBusy(null)
-      return toast({ title: "Couldn't switch", description: r.error, variant: "destructive" })
+      return toast({ title: tt("Couldn't switch"), description: r.error, variant: "destructive" })
     }
     /* The whole dashboard is drawn for the store now: a full load, not a refresh of this panel. */
     window.location.href = store ? "/app/orders" : "/app"
@@ -215,18 +213,18 @@ export function TeamPanel() {
     setBusy(s.creatorId)
     const r = await api("/api/team/leave", { method: "POST", body: { store: s.creatorId } })
     setBusy(null)
-    if (r.ok === false) return toast({ title: "Couldn't leave", description: r.error, variant: "destructive" })
+    if (r.ok === false) return toast({ title: tt("Couldn't leave"), description: r.error, variant: "destructive" })
     if (data?.acting?.creatorId === s.creatorId) {
       window.location.href = "/app"
       return
     }
     setData((d) => (d ? { ...d, stores: d.stores.filter((x) => x.creatorId !== s.creatorId) } : d))
-    toast({ title: `You left ${s.name}` })
+    toast({ title: tt("You left {name}", { name: s.name }) })
   }
 
   if (error) return <Notice>{error}</Notice>
   if (!data) return <TeamSkeleton />
-  if (!data.ready) return <Notice tone="gray">The team is not set up on Storelib yet. Try again later.</Notice>
+  if (!data.ready) return <Notice tone="gray">{tt("The team is not set up on Storelib yet. Try again later.")}</Notice>
 
   const team = data.team
   const used = members.length
@@ -241,43 +239,43 @@ export function TeamPanel() {
           <div className="flex items-center gap-3">
             <Face src={data.stores.find((s) => s.creatorId === data.acting?.creatorId)?.avatarUrl ?? null} name={data.acting.name} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">Working in {data.acting.name}</p>
-              <p className="truncate text-[13px] text-[#6b7280]">As {ROLE_LABEL[data.acting.role]}</p>
+              <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{tt("Working in {name}", { name: data.acting.name })}</p>
+              <p className="truncate text-[13px] text-[#6b7280]">{tt("As {role}", { role: ROLE_LABEL[data.acting.role] })}</p>
             </div>
             <button type="button" className={cn(BTN_SECONDARY, "h-9 px-3 text-[13px]")} disabled={busy !== null} onClick={() => work(null)}>
-              {busy === "own" ? "Going back" : "Back to my account"}
+              {busy === "own" ? tt("Going back") : tt("Back to my account")}
             </button>
           </div>
         </Card>
       )}
 
       {team && (
-        <Card title="Team" help="team" description={`People who help run your store. ${used} of ${team.limit} seats used.`}>
+        <Card title={tt("Team")} help="team" description={tt("People who help run your store. {used} of {limit} seats used.", { used, limit: team.limit })}>
           <ul className="-mx-1" data-team-list="">
             <li className="flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2">
-              <Face src={data.me?.avatarUrl ?? null} name={data.me?.name || data.me?.email || "You"} />
+              <Face src={data.me?.avatarUrl ?? null} name={data.me?.name || data.me?.email || tt("You")} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{data.me?.name ? `${data.me.name} (you)` : "You"}</p>
-                <p className="truncate text-[13px] text-[#6b7280]">Everything, payouts and billing too</p>
+                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{data.me?.name ? tt("{name} (you)", { name: data.me.name }) : tt("You")}</p>
+                <p className="truncate text-[13px] text-[#6b7280]">{tt("Everything, payouts and billing too")}</p>
               </div>
-              <Pill tone="gray">Owner</Pill>
+              <Pill tone="gray">{tt("Owner")}</Pill>
             </li>
             {members.map((m) => {
               const wait = m.status === "invited" ? resendWait(m.invited_at, now) : 0
               const isExpired = expired(m)
               const status =
-                m.pending ? "Sending invite" :
-                m.status === "active" ? (m.name ? m.email : `Joined ${ago(m.accepted_at, now)}`.trim()) :
-                isExpired ? `Expired, sent ${ago(m.invited_at, now)}` :
-                `Invited ${ago(m.invited_at, now)}`
+                m.pending ? tt("Sending invite") :
+                m.status === "active" ? (m.name ? m.email : tt("Joined {when}", { when: ago(m.accepted_at, now) }).trim()) :
+                isExpired ? tt("Expired, sent {value}", { value: ago(m.invited_at, now) }) :
+                tt("Invited {value}", { value: ago(m.invited_at, now) })
               const items: ActionMenuItem[] = [
                 ...(m.status === "invited"
-                  ? [{ label: wait > 0 ? `Resend in ${wait}s` : "Resend invite", icon: <RotateCw className="h-4 w-4" />, onClick: () => void resend(m) }]
+                  ? [{ label: wait > 0 ? tt("Resend in {wait}s", { wait }) : tt("Resend invite"), icon: <RotateCw className="h-4 w-4" />, onClick: () => void resend(m) }]
                   : []),
-                ...GIVABLE.filter((r) => r !== m.role && GIVABLE.length > 1).map((r) => ({ label: `Make ${ROLE_LABEL[r]}`, onClick: () => void change(m, r) })),
+                ...GIVABLE.filter((r) => r !== m.role && GIVABLE.length > 1).map((r) => ({ label: tt("Make {role}", { role: ROLE_LABEL[r] }), onClick: () => void change(m, r) })),
                 m.status === "invited"
-                  ? { label: "Cancel invite", icon: <X className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "cancel", member: m }) }
-                  : { label: "Remove from team", icon: <UserMinus className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "remove", member: m }) },
+                  ? { label: tt("Cancel invite"), icon: <X className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "cancel", member: m }) }
+                  : { label: tt("Remove from team"), icon: <UserMinus className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "remove", member: m }) },
               ]
               return (
                 <li key={m.id} className={cn("flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2 transition-opacity", m.pending && "opacity-60")} data-team-member={m.status}>
@@ -290,18 +288,18 @@ export function TeamPanel() {
                     </p>
                   </div>
                   {m.status === "invited" && !m.pending ? (
-                    <Pill tone={isExpired ? "amber" : "blue"} className="hidden sm:inline-flex">{isExpired ? "Expired" : "Invited"}</Pill>
+                    <Pill tone={isExpired ? "amber" : "blue"} className="hidden sm:inline-flex">{isExpired ? tt("Expired") : tt("Invited")}</Pill>
                   ) : null}
                   {GIVABLE.length > 1 ? (
-                    <SelectInput value={m.role} onChange={(v) => change(m, v as MemberRole)} disabled={busy === m.id || m.pending} aria-label={`Role for ${m.email}`} className="hidden w-[120px] sm:block">
+                    <SelectInput value={m.role} onChange={(v) => change(m, v as MemberRole)} disabled={busy === m.id || m.pending} aria-label={tt("Role for {email}", { email: m.email })} className="hidden w-[120px] sm:block">
                       {MEMBER_ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{ROLE_LABEL[r]}</option>)}
                     </SelectInput>
                   ) : (
                     <span className="hidden w-[72px] text-right text-[13px] text-[#4b5563] sm:inline">{ROLE_LABEL[m.role]}</span>
                   )}
                   {m.status === "invited" && !m.pending ? (
-                    <button type="button" className={cn(BTN_SECONDARY, "hidden h-9 min-w-[124px] px-3 text-[13px] tabular-nums sm:inline-flex")} disabled={busy === m.id || wait > 0} onClick={() => resend(m)} title={wait > 0 ? `You can resend in ${wait} seconds` : undefined}>
-                      {busy === m.id ? "Sending" : wait > 0 ? `Resend in ${wait}s` : "Resend"}
+                    <button type="button" className={cn(BTN_SECONDARY, "hidden h-9 min-w-[124px] px-3 text-[13px] tabular-nums sm:inline-flex")} disabled={busy === m.id || wait > 0} onClick={() => resend(m)} title={wait > 0 ? tt("You can resend in {wait} seconds", { wait }) : undefined}>
+                      {busy === m.id ? tt("Sending") : wait > 0 ? tt("Resend in {wait}s", { wait }) : tt("Resend")}
                     </button>
                   ) : null}
                   {m.pending ? (
@@ -313,7 +311,7 @@ export function TeamPanel() {
                       title={m.name || m.email}
                       items={items}
                       trigger={
-                        <button type="button" className={DOTS} aria-label={`Actions for ${m.email}`} disabled={busy === m.id}>
+                        <button type="button" className={DOTS} aria-label={tt("Actions for {email}", { email: m.email })} disabled={busy === m.id}>
                           <MoreHorizontal className="h-[18px] w-[18px]" />
                         </button>
                       }
@@ -326,7 +324,7 @@ export function TeamPanel() {
 
           <form onSubmit={invite} noValidate className="mt-3 border-t border-[#f1f2f4] pt-4" data-team-invite="">
             <label htmlFor="team-invite-email" className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">
-              Invite someone
+              {tt("Invite someone")}
             </label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <TextInput
@@ -346,27 +344,27 @@ export function TeamPanel() {
                 className={cn("sm:flex-1", showError && "border-[#fca5a5] focus:border-[#f87171]")}
               />
               {GIVABLE.length > 1 ? (
-                <SelectInput value={role} onChange={(v) => setRole(v as MemberRole)} aria-label="Role" disabled={full} className="sm:w-[140px]">
+                <SelectInput value={role} onChange={(v) => setRole(v as MemberRole)} aria-label={tt("Role")} disabled={full} className="sm:w-[140px]">
                   {MEMBER_ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{ROLE_LABEL[r]}</option>)}
                 </SelectInput>
               ) : null}
               <button type="submit" className={cn(BTN_PRIMARY, "sm:min-w-[120px]")} disabled={full || sending || !cleanEmail || !!emailProblem}>
-                {sending ? "Sending" : "Send invite"}
+                {sending ? tt("Sending") : tt("Send invite")}
               </button>
             </div>
             <p id="team-invite-hint" className={cn("mt-2 min-h-5 text-[13px] leading-5", showError ? "text-[#b42318]" : "text-[#6b7280]")} aria-live="polite">
               {full
-                ? "Every seat is taken. Remove someone, or upgrade your plan to invite more."
+                ? tt("Every seat is taken. Remove someone, or upgrade your plan to invite more.")
                 : showError
                   ? emailProblem
-                  : `They join as ${ROLE_LABEL[role]}: ${ROLE_SUMMARY[role].toLowerCase()}. They sign in with their own Storelib account.`}
+                  : tt("They join as {role}: {value}. They sign in with their own Storelib account.", { role: ROLE_LABEL[role], value: ROLE_SUMMARY[role].toLowerCase() })}
             </p>
           </form>
         </Card>
       )}
 
       {data.stores.length > 0 ? (
-        <Card title="Stores you're on" description="Stores whose owners invited you. Open one to work in it.">
+        <Card title={tt("Stores you're on")} description={tt("Stores whose owners invited you. Open one to work in it.")}>
           <ul className="-mx-1">
             {data.stores.map((s) => {
               const here = data.acting?.creatorId === s.creatorId
@@ -378,17 +376,17 @@ export function TeamPanel() {
                     <p className="truncate text-[13px] text-[#6b7280]">{ROLE_LABEL[s.role]}</p>
                   </div>
                   {here ? (
-                    <Pill tone="green">Working here</Pill>
+                    <Pill tone="green">{tt("Working here")}</Pill>
                   ) : (
                     <button type="button" className={cn(BTN_PRIMARY, "h-9 px-3.5 text-[13px]")} disabled={busy !== null} onClick={() => work(s.creatorId)}>
-                      {busy === s.creatorId ? "Opening" : "Open"}
+                      {busy === s.creatorId ? tt("Opening") : tt("Open")}
                     </button>
                   )}
                   <ResponsiveActionMenu
                     title={s.name}
-                    items={[{ label: `Leave ${s.name}`, icon: <LogOut className="h-4 w-4" />, variant: "destructive", onClick: () => setConfirm({ kind: "leave", store: s }) }]}
+                    items={[{ label: tt("Leave {name}", { name: s.name }), icon: <LogOut className="h-4 w-4" />, variant: "destructive", onClick: () => setConfirm({ kind: "leave", store: s }) }]}
                     trigger={
-                      <button type="button" className={DOTS} aria-label={`Actions for ${s.name}`} disabled={busy !== null}>
+                      <button type="button" className={DOTS} aria-label={tt("Actions for {name}", { name: s.name })} disabled={busy !== null}>
                         <MoreHorizontal className="h-[18px] w-[18px]" />
                       </button>
                     }
@@ -399,19 +397,19 @@ export function TeamPanel() {
           </ul>
         </Card>
       ) : !team ? (
-        <Card title="Team" help="team">
-          <Empty title="No team yet">When a store's owner invites you, it shows here and you can open it from your own account.</Empty>
+        <Card title={tt("Team")} help="team">
+          <Empty title={tt("No team yet")}>{tt("When a store's owner invites you, it shows here and you can open it from your own account.")}</Empty>
         </Card>
       ) : null}
 
       <Modal
         open={confirm !== null}
         onClose={() => setConfirm(null)}
-        title={confirm?.kind === "cancel" ? "Cancel this invite?" : confirm?.kind === "remove" ? "Remove from the team?" : "Leave this store?"}
+        title={confirm?.kind === "cancel" ? tt("Cancel this invite?") : confirm?.kind === "remove" ? tt("Remove from the team?") : tt("Leave this store?")}
         footer={
           <>
             <button type="button" className={BTN_SECONDARY} onClick={() => setConfirm(null)}>
-              Keep
+              {tt("Keep")}
             </button>
             <button
               type="button"
@@ -422,18 +420,18 @@ export function TeamPanel() {
                 else void remove(confirm.member)
               }}
             >
-              {confirm?.kind === "cancel" ? "Cancel invite" : confirm?.kind === "remove" ? "Remove" : "Leave"}
+              {confirm?.kind === "cancel" ? tt("Cancel invite") : confirm?.kind === "remove" ? tt("Remove") : tt("Leave")}
             </button>
           </>
         }
       >
         <p className="text-[14px] leading-[21px] text-[#4b5563]">
           {confirm?.kind === "cancel"
-            ? `The link sent to ${confirm.member.email} stops working. You can invite them again later.`
+            ? tt("The link sent to {email} stops working. You can invite them again later.", { email: confirm.member.email })
             : confirm?.kind === "remove"
-              ? `${confirm.member.name || confirm.member.email} can't open your store any more, starting now. Their own Storelib account stays as it is.`
+              ? tt("{value} can't open your store any more, starting now. Their own Storelib account stays as it is.", { value: confirm.member.name || confirm.member.email })
               : confirm?.kind === "leave"
-                ? `You won't be able to open ${confirm.store.name} until its owner invites you again. Your own account stays as it is.`
+                ? tt("You won't be able to open {name} until its owner invites you again. Your own account stays as it is.", { name: confirm.store.name })
                 : null}
         </p>
       </Modal>
@@ -444,7 +442,7 @@ export function TeamPanel() {
 /** The card's shape while the team loads, so nothing jumps when it arrives. */
 function TeamSkeleton() {
   return (
-    <Card title="Team" help="team" description="People who help run your store.">
+    <Card title={tt("Team")} help="team" description={tt("People who help run your store.")}>
       <div className="space-y-3" aria-hidden>
         {[0, 1].map((i) => (
           <div key={i} className="flex items-center gap-3 px-0 py-2">

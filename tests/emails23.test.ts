@@ -34,6 +34,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 process.env.MAILGUN_API_KEY = "key-test"
 process.env.MAILGUN_DOMAIN = "storelib.com"
@@ -46,7 +47,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 600)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /* ── The network: Mailgun answers, every message is kept ───────────────── */
 type Sent = { to: string; from: string; subject: string; html: string; text: string; replyTo: string; headers: Record<string, string> }

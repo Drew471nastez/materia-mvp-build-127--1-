@@ -33,7 +33,8 @@ import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { CommunityCard } from "@/lib/communities/types"
 import { communitiesQuery } from "@/lib/explore/communities-mode"
-import { cachedCommunities, COMMUNITIES_PAGE, forgetCommunities, hasMoreThanFirstPage, keepMoreCommunities, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
+import { cachedCommunities, COMMUNITIES_PAGE, forgetCommunities, hasMoreThanFirstPage, keepMoreCommunities, loadCommunities, prefetchCommunities, restoreKeptCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
+import { exploreDocumentReturn } from "@/lib/explore/use-explore-scroll"
 import { EXPLORE_REFRESH_SCOPE } from "@/lib/explore/refresh-scope"
 import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { prefetchBudget, whenIdle } from "@/lib/explore/prefetch-budget"
@@ -117,6 +118,16 @@ export function ExploreCommunitiesResults({
   })
   const [loading, setLoading] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
+  /*
+    A DOCUMENT LOADED AGAIN BY A BACK OR A RELOAD (round 25): the pages read with Show more are put back before the first paint,
+    so Explore's scroll (lib/explore/use-explore-scroll, after this) lands in the list as it was rather than past its end.
+  */
+  React.useLayoutEffect(() => {
+    if (!exploreDocumentReturn()) return
+    const kept = restoreKeptCommunities(query)
+    if (kept) setShown({ query, items: kept.items, next: kept.next, broadened: kept.broadened })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   React.useEffect(() => {
     let live = true
     const hit = cachedCommunities(query)

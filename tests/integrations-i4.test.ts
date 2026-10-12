@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { APP_STATE_LABEL, ESSENTIALS, STORELIB_APPS, STORELIB_CATALOG_APPS, appStatesFrom, essentialIds, essentialsProgress, storelibApps, type AppFacts } from "@/lib/integrations/storelib-apps"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -20,7 +21,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const unknown: AppFacts = { paymentsReady: null, shippingRates: null, pickupOrLocal: null, taxRegions: null, reviewsOn: null, emailMarketing: null, domainLive: null, coupons: null, activeOffers: null, abandonedRecovery: null, requireAccount: null, moreMarkets: null, codeConnected: null }
 

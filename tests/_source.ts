@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 /**
  * ===========================================================================
@@ -132,7 +133,8 @@ const root = process.cwd()
 
 /** The file, verbatim. */
 export function readSource(path: string): string {
-  return readFileSync(join(root, path), "utf8")
+  /* As it read before its words went into tt() (tests/i18n-source.ts). */
+  return untt(readFileSync(join(root, path), "utf8"), path)
 }
 
 /** The file with its comments removed — see the note above. Use this for every

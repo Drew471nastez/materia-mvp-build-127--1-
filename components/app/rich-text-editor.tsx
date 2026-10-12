@@ -77,6 +77,7 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 import { PictureControls, Tip } from "./rich-text/picture-controls"
 import { EmojiControl } from "./rich-text/emoji-picker"
 import { ScrollRow } from "./rich-text/scroll-row"
+import { tt } from "@/lib/i18n/text"
 
 export type RichTextTool =
   | "h2" | "h3"
@@ -99,22 +100,22 @@ const GROUPS: RichTextTool[][] = [
 export const ALL_TOOLS: RichTextTool[] = GROUPS.flat()
 
 const TOOL: Record<RichTextTool, { label: string; icon: LucideIcon }> = {
-  h2: { label: "Heading", icon: Heading2 },
-  h3: { label: "Subheading", icon: Heading3 },
-  bold: { label: "Bold", icon: Bold },
-  italic: { label: "Italic", icon: Italic },
-  underline: { label: "Underline", icon: Underline },
-  strike: { label: "Strikethrough", icon: Strikethrough },
-  bulletList: { label: "Bulleted list", icon: List },
-  numberedList: { label: "Numbered list", icon: ListOrdered },
-  quote: { label: "Quote", icon: Quote },
-  link: { label: "Link", icon: Link2 },
-  image: { label: "Picture", icon: ImagePlus },
-  emoji: { label: "Emoji", icon: Smile },
-  rule: { label: "Divider", icon: Minus },
-  clear: { label: "Clear formatting", icon: RemoveFormatting },
-  undo: { label: "Undo", icon: Undo2 },
-  redo: { label: "Redo", icon: Redo2 },
+  h2: { get label() { return tt("Heading") }, icon: Heading2 },
+  h3: { get label() { return tt("Subheading") }, icon: Heading3 },
+  bold: { get label() { return tt("Bold") }, icon: Bold },
+  italic: { get label() { return tt("Italic") }, icon: Italic },
+  underline: { get label() { return tt("Underline") }, icon: Underline },
+  strike: { get label() { return tt("Strikethrough") }, icon: Strikethrough },
+  bulletList: { get label() { return tt("Bulleted list") }, icon: List },
+  numberedList: { get label() { return tt("Numbered list") }, icon: ListOrdered },
+  quote: { get label() { return tt("Quote") }, icon: Quote },
+  link: { get label() { return tt("Link") }, icon: Link2 },
+  image: { get label() { return tt("Picture") }, icon: ImagePlus },
+  emoji: { get label() { return tt("Emoji") }, icon: Smile },
+  rule: { get label() { return tt("Divider") }, icon: Minus },
+  clear: { get label() { return tt("Clear formatting") }, icon: RemoveFormatting },
+  undo: { get label() { return tt("Undo") }, icon: Undo2 },
+  redo: { get label() { return tt("Redo") }, icon: Redo2 },
 }
 
 /** What the selection is in, for the toolbar's pressed states. */
@@ -558,7 +559,7 @@ export function RichTextEditor({
   const applyLink = (draft: LinkDraft, shortcut?: string) => {
     const href = shortcut ?? normaliseTypedHref(draft.url)
     if (!href) {
-      setLink({ ...draft, error: "Enter a web address, an email address or a phone number." })
+      setLink({ ...draft, error: tt("Enter a web address, an email address or a phone number.") })
       return
     }
     const root = rootRef.current
@@ -778,7 +779,7 @@ export function RichTextEditor({
     if (!uploadImage) return
     setNotice("")
     if (!file.type.startsWith("image/") || /svg/i.test(file.type)) {
-      setNotice("Choose a photo: a JPEG, PNG, WebP or GIF.")
+      setNotice(tt("Choose a photo: a JPEG, PNG, WebP or GIF."))
       return
     }
     const id = Math.random().toString(36).slice(2)
@@ -806,7 +807,7 @@ export function RichTextEditor({
     } catch (err) {
       rootRef.current?.querySelector(`img[data-uploading="${id}"]`)?.remove()
       commit()
-      setNotice(err instanceof Error && err.message ? err.message : "The picture did not upload. Try again.")
+      setNotice(err instanceof Error && err.message ? err.message : tt("The picture did not upload. Try again."))
     } finally {
       URL.revokeObjectURL(preview)
       setUploads((n) => n - 1)
@@ -1022,7 +1023,7 @@ export function RichTextEditor({
       <div
         ref={toolbarRef}
         role="toolbar"
-        aria-label={`${label} formatting`}
+        aria-label={tt("{label} formatting", { label })}
         aria-controls={id}
         onKeyDown={onToolbarKey}
         className={cn("rich-text-toolbar flex items-center border-b border-[#eef0f2] bg-white", stickyToolbar && "sticky z-[5]")}
@@ -1103,7 +1104,7 @@ export function RichTextEditor({
       </TooltipPrimitive.Provider>
 
       {link ? (
-        <div id={linkId} role="group" aria-label="Link" className="border-b border-[#eef0f2] px-3 py-2.5">
+        <div id={linkId} role="group" aria-label={tt("Link")} className="border-b border-[#eef0f2] px-3 py-2.5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               autoFocus
@@ -1120,7 +1121,7 @@ export function RichTextEditor({
                 }
               }}
               placeholder="example.com/page"
-              aria-label="Link address"
+              aria-label={tt("Link address")}
               aria-invalid={link.error ? true : undefined}
               aria-describedby={link.error ? `${linkId}-error` : undefined}
               inputMode="url"
@@ -1143,8 +1144,8 @@ export function RichTextEditor({
                     closeLink(true)
                   }
                 }}
-                placeholder="Text to show"
-                aria-label="Text to show"
+                placeholder={tt("Text to show")}
+                aria-label={tt("Text to show")}
                 className="h-11 min-w-0 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-9 sm:w-40 sm:text-[14px]"
               />
             ) : null}
@@ -1155,7 +1156,7 @@ export function RichTextEditor({
                   onClick={removeLink}
                   className="h-11 rounded-lg px-3 text-[14px] font-medium text-[#b42318] hover:bg-[#fef3f2] sm:h-9 sm:text-[13px]"
                 >
-                  Remove
+                  {tt("Remove")}
                 </button>
               ) : null}
               <button
@@ -1163,14 +1164,14 @@ export function RichTextEditor({
                 onClick={() => closeLink(true)}
                 className="ml-auto h-11 rounded-lg px-3 text-[14px] font-medium text-[#4b5563] hover:bg-[#eef0f2] sm:ml-0 sm:h-9 sm:text-[13px]"
               >
-                Cancel
+                {tt("Cancel")}
               </button>
               <button
                 type="button"
                 onClick={() => applyLink(link)}
                 className="h-11 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white hover:bg-[#2a2a40] sm:h-9 sm:text-[13px]"
               >
-                {link.editing ? "Save" : "Add link"}
+                {link.editing ? tt("Save") : tt("Add link")}
               </button>
             </div>
           </div>
@@ -1197,7 +1198,7 @@ export function RichTextEditor({
       ) : null}
 
       {picture?.altOpen ? (
-        <div role="group" aria-label="Picture description" className="border-b border-[#eef0f2] px-3 py-2.5">
+        <div role="group" aria-label={tt("Picture description")} className="border-b border-[#eef0f2] px-3 py-2.5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               value={picture.alt}
@@ -1214,8 +1215,8 @@ export function RichTextEditor({
                   setPicture({ ...picture, altOpen: false })
                 }
               }}
-              placeholder="Describe the picture for people who cannot see it"
-              aria-label="Picture description"
+              placeholder={tt("Describe the picture for people who cannot see it")}
+              aria-label={tt("Picture description")}
               className="h-11 w-full min-w-0 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-9 sm:w-auto sm:flex-1 sm:text-[14px]"
             />
             <div className="flex items-center gap-1.5">
@@ -1224,14 +1225,14 @@ export function RichTextEditor({
                 onClick={removePicture}
                 className="h-11 rounded-lg px-3 text-[14px] font-medium text-[#b42318] hover:bg-[#fef3f2] sm:h-9 sm:text-[13px]"
               >
-                Remove picture
+                {tt("Remove picture")}
               </button>
               <button
                 type="button"
                 onClick={() => setPicture({ ...picture, altOpen: false })}
                 className="ml-auto h-11 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white hover:bg-[#2a2a40] sm:ml-0 sm:h-9 sm:text-[13px]"
               >
-                Done
+                {tt("Done")}
               </button>
             </div>
           </div>
@@ -1313,11 +1314,11 @@ export function RichTextEditor({
         <div
           role="separator"
           aria-orientation="horizontal"
-          aria-label={`Resize ${label}`}
+          aria-label={tt("Resize {label}", { label })}
           aria-valuenow={dragHeight ?? undefined}
           aria-valuemin={minHeight}
           aria-valuemax={RESIZE_MAX}
-          aria-valuetext={dragHeight != null ? `${dragHeight} pixels tall` : "Its own height"}
+          aria-valuetext={dragHeight != null ? tt("{dragHeight} pixels tall", { dragHeight }) : tt("Its own height")}
           tabIndex={0}
           data-rich-text-resize=""
           onPointerDown={startResize}
@@ -1343,7 +1344,7 @@ export function RichTextEditor({
 
       {uploads > 0 || notice || sizeProblem ? (
         <div role="status" aria-live="polite" className="space-y-0.5 border-t border-[#eef0f2] px-3.5 py-2 text-[13px] leading-5">
-          {uploads > 0 ? <p className="text-[#6b7280]">{uploads === 1 ? "Uploading the picture" : `Uploading ${uploads} pictures`}</p> : null}
+          {uploads > 0 ? <p className="text-[#6b7280]">{uploads === 1 ? tt("Uploading the picture") : tt("Uploading {uploads} pictures", { uploads })}</p> : null}
           {notice ? <p className="text-[#b42318]">{notice}</p> : null}
           {sizeProblem ? <p className="text-[#b42318]">{sizeProblem}</p> : null}
         </div>

@@ -144,7 +144,7 @@ async function main() {
     const free = await shippedQuote(shop({ priceS: 0 }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: S, quantity: 1 }], country: "RO" }, null)
     check("a $0 option stays in the order at $0, with its shipping", free.ok === true && free.quote.lines.length === 1 && free.quote.lines[0].unitCents === 0 && free.quote.totals.shippingCents === 1500 && free.quote.dropped.length === 0, free.ok ? { lines: free.quote.lines, totals: free.quote.totals, dropped: free.quote.dropped } : free)
     const cards = code("components/physical/product-cards.tsx")
-    check("the editor takes $0, asks for a price only when there is none, and refuses only between nothing and $0.50", /if \(p === null\) return multi \? `Set a price for \$\{variantName\(r\.options\)\}` : "Set a price"/.test(cards) && /if \(p > 0 && p < 50\)/.test(cards) && !/p < 50\) return multi/.test(cards))
+    check("the editor takes $0, asks for a price only when there is none, and refuses only between nothing and $0.50", /if \(p === null\) return multi \? tt\("Set a price for \{name\}"/.test(cards) && /if \(p > 0 && p < 50\)/.test(cards) && !/p === null \|\| p < 50/.test(cards))
     const editor = code("app/app/products/new/product-editor.tsx")
     check("every card's change turns Save on, a saved product too (justSaved cleared with it)", /const markDirty = useCallback\(\(\) => \{\s*setHasUnsavedChanges\(true\)\s*setJustSaved\(false\)\s*\}, \[\]\)/.test(editor) && /const markPhysicalDirty = markDirty/.test(editor) && /onChange=\{markDirty\}/.test(editor) && !/setHasUnsavedChanges\(true\), \[\]\)/.test(editor))
   }

@@ -69,6 +69,7 @@ import { OrderDetail, type OrderAction } from "./order-detail"
 import { formatMoney } from "./order-parts"
 import { saveFile, savedMessage } from "@/lib/platform/save-file"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /** What every change on this page is measured against. */
 const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
@@ -483,23 +484,23 @@ export function OrdersClient(props: OrdersClientProps) {
           reason: action.reason,
           amount: action.amountCents / 100,
         })
-        if (!res.ok) throw new Error(data?.error || "The refund did not go through.")
+        if (!res.ok) throw new Error(data?.error || tt("The refund did not go through."))
         const cents = typeof data?.amount === "number" ? data.amount : action.amountCents
-        if (data?.pending) return `Refund of ${formatMoney(cents)} is processing. The order updates once it goes through.`
+        if (data?.pending) return tt("Refund of {amount} is processing. The order updates once it goes through.", { amount: formatMoney(cents) })
         patchRows([action.line.id], {
           status: "refunded",
           refund_amount_cents: cents,
           refunded_at: typeof data?.refundedAt === "string" ? data.refundedAt : new Date().toISOString(),
           refund_reason: action.reason,
         })
-        return `Refunded ${formatMoney(cents)}`
+        return tt("Refunded {amount}", { amount: formatMoney(cents) })
       }
       case "resend": {
         const { res, data } = await postJson(`/api/app/orders/${encodeURIComponent(order.id)}/resend`)
         applyDelivery(data?.lines)
-        if (!res.ok) throw new Error(data?.error || "The receipt was not sent. Try again.")
+        if (!res.ok) throw new Error(data?.error || tt("The receipt was not sent. Try again."))
         if (data?.failed > 0) return `Sent ${data.sent} of ${data.sent + data.failed} receipts. ${data.error ?? ""}`.trim()
-        return `Receipt sent to ${order.customerEmail || "the buyer"}`
+        return tt("Receipt sent to {value}", { value: order.customerEmail || tt("the buyer") })
       }
       case "invoice": {
         const outcome = await saveFile({
@@ -509,27 +510,27 @@ export function OrdersClient(props: OrdersClientProps) {
             const res = await fetch(`/api/invoice?orderId=${encodeURIComponent(order.id)}&tz=${encodeURIComponent(timeZone)}`)
             if (!res.ok) {
               const data = await res.json().catch(() => ({}))
-              throw new Error(data?.error || "The invoice could not be made. Try again.")
+              throw new Error(data?.error || tt("The invoice could not be made. Try again."))
             }
             return res.blob()
           },
           link: async (disposition) => {
             const { res, data } = await postJson("/api/invoice", { orderId: order.id, disposition, timeZone })
-            if (!res.ok || !data?.url) throw new Error(data?.error || "The invoice could not be made. Try again.")
+            if (!res.ok || !data?.url) throw new Error(data?.error || tt("The invoice could not be made. Try again."))
             return data.url as string
           },
         })
-        return savedMessage(outcome, "Invoice")
+        return savedMessage(outcome, tt("Invoice"))
       }
       case "email": {
         const { res, data } = await postJson(`/api/app/orders/${encodeURIComponent(order.id)}/email`, { email: action.email })
-        if (!res.ok) throw new Error(data?.error || "The email was not changed. Try again.")
+        if (!res.ok) throw new Error(data?.error || tt("The email was not changed. Try again."))
         const email = typeof data?.email === "string" ? data.email : action.email
         patchRows(Array.isArray(data?.ids) ? data.ids : order.lines.map((l) => l.id), { buyer_email: email })
         applyDelivery(data?.lines)
-        if (data?.sent > 0) return `Email changed. Receipt sent to ${email}`
+        if (data?.sent > 0) return tt("Email changed. Receipt sent to {email}", { email })
         if (data?.failed > 0) return `Email changed, but the receipt did not send. ${data.error ?? ""}`.trim()
-        return `Email changed to ${email}`
+        return tt("Email changed to {email}", { email })
       }
     }
   }
@@ -590,7 +591,7 @@ export function OrdersClient(props: OrdersClientProps) {
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
           role="region"
-          aria-label={`Order ${displayed.number}`}
+          aria-label={tt("Order {number}", { number: displayed.number })}
           data-arrival={arrival}
           data-leaving={shown ? undefined : ""}
           inert={!shown}

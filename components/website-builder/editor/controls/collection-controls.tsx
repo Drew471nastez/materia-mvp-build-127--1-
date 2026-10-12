@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { useEditorFieldEnv, type PickerCollection } from "./context"
 import { ADD_BUTTON, ICON_BUTTON, NOTE, TEXT_BUTTON } from "./styles"
 import { useReorder } from "./use-reorder"
+import { tt } from "@/lib/i18n/text"
 
 const DEFAULT_LIMIT = 12
 
@@ -37,8 +38,8 @@ function Thumb({ collection }: { collection?: PickerCollection }) {
 }
 
 function countLabel(c: PickerCollection): string {
-  const n = `${c.products_count} ${c.products_count === 1 ? "product" : "products"}`
-  return c.published ? n : `Hidden · ${n}`
+  const n = tt("{n, plural, one {# product} other {# products}}", { n: c.products_count })
+  return c.published ? n : tt("Hidden · {n}", { n })
 }
 
 /** One chosen collection: its picture, name and count, and the buttons beside it. */
@@ -48,7 +49,7 @@ function Row({ c, children }: { c?: PickerCollection; children: React.ReactNode 
       <Thumb collection={c} />
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate text-[13px] max-sm:text-[15px] font-medium", !c && "text-muted-foreground")}>
-          {c ? c.title : "A collection that is gone"}
+          {c ? c.title : tt("A collection that is gone")}
         </span>
         {c && <span className="block text-[11px] max-sm:text-[13px] text-muted-foreground tabular-nums">{countLabel(c)}</span>}
       </span>
@@ -90,7 +91,7 @@ function CollectionMenu({
             type="search"
             autoFocus={!phone}
             className="h-7 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            placeholder="Search your collections"
+            placeholder={tt("Search your collections")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -102,8 +103,8 @@ function CollectionMenu({
           />
         </label>
       </div>
-      <ul role="listbox" aria-label="Your collections" className="max-h-60 overflow-y-auto wb-slim-scroll py-1">
-        {shown.length === 0 && <li className="px-3 py-2.5 text-[13px] text-muted-foreground">{q ? "Nothing matches that." : emptyText}</li>}
+      <ul role="listbox" aria-label={tt("Your collections")} className="max-h-60 overflow-y-auto wb-slim-scroll py-1">
+        {shown.length === 0 && <li className="px-3 py-2.5 text-[13px] text-muted-foreground">{q ? tt("Nothing matches that.") : emptyText}</li>}
         {shown.map((c) => (
           <li key={c.id} role="option" aria-selected={false}>
             <button type="button" className="flex w-full items-center gap-2.5 px-2.5 py-1.5 max-sm:min-h-12 text-left transition-colors hover:bg-muted/60" onClick={() => pick(c.id)}>
@@ -120,7 +121,7 @@ function CollectionMenu({
 
 /** Said in place of the control when there is nothing it could pick from. */
 function Unavailable({ list }: { list: PickerCollection[] | null | undefined }) {
-  if (list === null) return <p className={NOTE}>Your collections could not be loaded. Reload the builder to try again.</p>
+  if (list === null) return <p className={NOTE}>{tt("Your collections could not be loaded. Reload the builder to try again.")}</p>
   return (
     <EmptyPicker kind="collection" />
   )
@@ -134,22 +135,22 @@ export function CollectionPickerControl({ value, onChange, label }: { value: str
   if (!list || list.length === 0) {
     return current ? (
       <div className="space-y-2" data-collection-picker="">
-        <Row><button type="button" className={ICON_BUTTON} aria-label="Remove the collection" onClick={() => onChange("")}><X className="h-3.5 w-3.5" /></button></Row>
+        <Row><button type="button" className={ICON_BUTTON} aria-label={tt("Remove the collection")} onClick={() => onChange("")}><X className="h-3.5 w-3.5" /></button></Row>
         <Unavailable list={list} />
       </div>
     ) : <Unavailable list={list} />
   }
   const picked = list.find((c) => c.id.toLowerCase() === current)
   const trigger = (
-    <button type="button" className={ADD_BUTTON} aria-expanded={open} aria-label={label ? `Choose ${label.toLowerCase()}` : "Choose a collection"} onClick={() => setOpen((o) => !o)}>
-      {current ? "Change" : <><Plus className="h-3.5 w-3.5" />Choose collection</>}
+    <button type="button" className={ADD_BUTTON} aria-expanded={open} aria-label={label ? tt("Choose {value}", { value: label.toLowerCase() }) : tt("Choose a collection")} onClick={() => setOpen((o) => !o)}>
+      {current ? tt("Change") : <><Plus className="h-3.5 w-3.5" />{tt("Choose collection")}</>}
     </button>
   )
   return (
     <div className="space-y-2" data-collection-picker="">
       {current && (
         <Row c={picked}>
-          <button type="button" className={ICON_BUTTON} aria-label={`Remove ${picked?.title ?? "the collection"}`} onClick={() => onChange("")}>
+          <button type="button" className={ICON_BUTTON} aria-label={tt("Remove {value}", { value: picked?.title ?? tt("the collection") })} onClick={() => onChange("")}>
             <X className="h-3.5 w-3.5" />
           </button>
         </Row>
@@ -160,9 +161,9 @@ export function CollectionPickerControl({ value, onChange, label }: { value: str
         trigger={trigger}
         offer={list.filter((c) => c.id.toLowerCase() !== current)}
         onPick={(id) => { onChange(id); setOpen(false) }}
-        emptyText="This is your only collection."
+        emptyText={tt("This is your only collection.")}
       />
-      {picked && !picked.published && <p className={NOTE}>Visitors see it once {picked.title} is published in Products › Collections.</p>}
+      {picked && !picked.published && <p className={NOTE}>{tt("Visitors see it once {title} is published in Products › Collections.", { title: picked.title })}</p>}
     </div>
   )
 }
@@ -205,24 +206,24 @@ export function CollectionListControl({
   return (
     <div className="space-y-2" data-collection-list="">
       {chosen.length > 0 && (
-        <ul ref={listRef} className="space-y-1.5" aria-label={label ? `${label}, in order` : "Chosen collections, in order"}>
+        <ul ref={listRef} className="space-y-1.5" aria-label={label ? tt("{label}, in order", { label }) : tt("Chosen collections, in order")}>
           {chosen.map((key, i) => {
             const c = byId.get(key.toLowerCase())
             const name = c?.title ?? "collection"
             return (
               <li key={`${key}-${i}`} data-reorder-row="" style={rowStyle(i)} className="flex items-center gap-1">
-                <button type="button" aria-label={`Move ${name}`} title="Drag to move" className="flex h-9 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 hover:text-foreground active:cursor-grabbing" {...gripProps(i)}>
+                <button type="button" aria-label={tt("Move {name}", { name })} title={tt("Drag to move")} className="flex h-9 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 hover:text-foreground active:cursor-grabbing" {...gripProps(i)}>
                   <GripVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </button>
                 <div className="min-w-0 flex-1">
                 <Row c={c}>
-                  <button type="button" className={ICON_BUTTON} aria-label={`Move ${name} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>
+                  <button type="button" className={ICON_BUTTON} aria-label={tt("Move {name} up", { name })} disabled={i === 0} onClick={() => move(i, i - 1)}>
                     <ArrowUp className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" className={ICON_BUTTON} aria-label={`Move ${name} down`} disabled={i === chosen.length - 1} onClick={() => move(i, i + 1)}>
+                  <button type="button" className={ICON_BUTTON} aria-label={tt("Move {name} down", { name })} disabled={i === chosen.length - 1} onClick={() => move(i, i + 1)}>
                     <ArrowDown className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" className={ICON_BUTTON} aria-label={`Remove ${name}`} onClick={() => remove(i)}>
+                  <button type="button" className={ICON_BUTTON} aria-label={tt("Remove {name}", { name })} onClick={() => remove(i)}>
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </Row>
@@ -235,7 +236,7 @@ export function CollectionListControl({
       {!list || list.length === 0 ? (
         <Unavailable list={list} />
       ) : chosen.length >= max ? (
-        <p className={NOTE}>This section shows {max} at most. Remove one to add another.</p>
+        <p className={NOTE}>{tt("This section shows {max} at most. Remove one to add another.", { max })}</p>
       ) : (
         <CollectionMenu
           open={open}
@@ -243,12 +244,12 @@ export function CollectionListControl({
           trigger={
             <button type="button" className={ADD_BUTTON} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
               <Plus className="h-3.5 w-3.5" />
-              Add collection
+              {tt("Add collection")}
             </button>
           }
           offer={list.filter((c) => !taken.has(c.id.toLowerCase()))}
           onPick={add}
-          emptyText="Every collection is already in the list."
+          emptyText={tt("Every collection is already in the list.")}
         />
       )}
     </div>

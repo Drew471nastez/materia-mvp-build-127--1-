@@ -16,15 +16,17 @@
 import { LEAVE_REASON_SHORT, type LeaveReason, type LeaveReasonsSummary } from "@/lib/communities/leave-reasons"
 import { relativeTime } from "@/lib/communities/format"
 import { Section } from "./parts"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export function LeaveReasonsCard({ summary }: { summary: LeaveReasonsSummary }) {
   const { total, counts, notes } = summary
   const shown = [...counts].sort((a, b) => b.count - a.count)
   return (
-    <Section title="Why people left" hint={total ? `${total.toLocaleString("en-US")} ${total === 1 ? "person said" : "people said"} why, when they left.` : "When members leave they can say why. Their answers show up here."} id="why-people-left">
+    <Section title={tt("Why people left")} hint={total ? tt("{value, plural, one {# person said} other {# people said}} why, when they left.", { value: total }) : tt("When members leave they can say why. Their answers show up here.")} id="why-people-left">
       {total > 0 ? (
         <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2" data-leave-reasons="">
-          <ul className="space-y-2.5" aria-label="Reasons">
+          <ul className="space-y-2.5" aria-label={tt("Reasons")}>
             {shown.map((c) => {
               const share = total ? Math.round((c.count / total) * 100) : 0
               return (
@@ -32,7 +34,7 @@ export function LeaveReasonsCard({ summary }: { summary: LeaveReasonsSummary }) 
                   <div className="flex items-baseline justify-between gap-3 text-[13.5px]">
                     <span className={c.count ? "font-medium text-[#1a1a2e]" : "text-[#9ca3af]"}>{LEAVE_REASON_SHORT[c.reason as LeaveReason]}</span>
                     <span className="shrink-0 tabular-nums text-[#6b7280]">
-                      {c.count.toLocaleString("en-US")}
+                      {c.count.toLocaleString(appLocale())}
                       {c.count ? <span className="text-[#9ca3af]"> · {share}%</span> : null}
                     </span>
                   </div>
@@ -44,7 +46,7 @@ export function LeaveReasonsCard({ summary }: { summary: LeaveReasonsSummary }) 
             })}
           </ul>
           <div>
-            <p className="text-[12.5px] font-medium text-[#6b7280]">Latest notes</p>
+            <p className="text-[12.5px] font-medium text-[#6b7280]">{tt("Latest notes")}</p>
             {notes.length ? (
               <ul className="mt-2 divide-y divide-[#f1f2f4]" data-leave-notes="">
                 {notes.map((n, i) => (
@@ -57,12 +59,12 @@ export function LeaveReasonsCard({ summary }: { summary: LeaveReasonsSummary }) 
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-[13.5px] text-[#6b7280]">Nobody has written a note yet.</p>
+              <p className="mt-2 text-[13.5px] text-[#6b7280]">{tt("Nobody has written a note yet.")}</p>
             )}
           </div>
         </div>
       ) : (
-        <p className="text-[13.5px] text-[#6b7280]" data-leave-reasons-empty="">Nobody has left with a reason yet.</p>
+        <p className="text-[13.5px] text-[#6b7280]" data-leave-reasons-empty="">{tt("Nobody has left with a reason yet.")}</p>
       )}
     </Section>
   )

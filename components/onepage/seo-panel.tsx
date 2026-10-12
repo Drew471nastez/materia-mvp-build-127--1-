@@ -49,13 +49,14 @@ import { createClient } from "@/lib/supabase/client"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { ChoiceMark, choiceOff, fieldInput } from "@/components/onepage/editor-kit"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 type SeoKey = "seo_title" | "seo_description" | "social_title" | "social_description"
 
 const SHARE_CHOICES: readonly { id: ShareImageMode; label: string }[] = [
-  { id: "profile", label: "Profile photo" },
-  { id: "card", label: "Share card" },
-  { id: "custom", label: "Custom image" },
+  { id: "profile", get label() { return tt("Profile photo") } },
+  { id: "card", get label() { return tt("Share card") } },
+  { id: "custom", get label() { return tt("Custom image") } },
 ]
 
 /** A picture re-encoded as a JPEG no wider than 2400px, which every app and the share image can read. Null when the browser cannot read it. */
@@ -143,7 +144,7 @@ function Field({
   max,
   multiline,
   resetLabel,
-  followsLabel = "Follows your page",
+  followsLabel = tt("Follows your page"),
   onChange,
   id,
 }: {
@@ -267,8 +268,8 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
   const handleImageUpload = async (file: File | undefined) => {
     setImageError(null)
     if (!file) return
-    if (!file.type.startsWith("image/")) return setImageError("Choose a picture: JPG, PNG or GIF")
-    if (file.size > 15 * 1024 * 1024) return setImageError("That picture is over 15 MB")
+    if (!file.type.startsWith("image/")) return setImageError(tt("Choose a picture: JPG, PNG or GIF"))
+    if (file.size > 15 * 1024 * 1024) return setImageError(tt("That picture is over 15 MB"))
     setUploading(true)
     try {
       const jpeg = await asJpeg(file)
@@ -278,7 +279,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (!user) throw new Error("signed out")
+      if (!user) throw new Error(tt("signed out"))
       const ext = jpeg ? "jpg" : (file.name.split(".").pop() || "img").toLowerCase().replace(/[^a-z0-9]/g, "")
       const path = `${user.id}/og-image-${Date.now()}.${ext}`
       const { error } = await supabase.storage.from("onepage-assets").upload(path, body, { upsert: true, contentType: jpeg ? "image/jpeg" : file.type })
@@ -297,7 +298,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
         "custom",
       )
     } catch (error) {
-      setImageError(error instanceof Error && error.message === "too large" ? "That picture is too large. Try one under 5 MB" : "The picture did not upload. Try again")
+      setImageError(error instanceof Error && error.message === "too large" ? tt("That picture is too large. Try one under 5 MB") : tt("The picture did not upload. Try again"))
     } finally {
       setUploading(false)
     }
@@ -330,9 +331,9 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
   return (
     <div className="space-y-6" data-onepage-seo="">
       <div>
-        <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Search and sharing</h3>
+        <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Search and sharing")}</h3>
         <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">
-          Made from your page and updated as you edit it. Change a field to write your own.
+          {tt("Made from your page and updated as you edit it. Change a field to write your own.")}
         </p>
       </div>
 
@@ -342,7 +343,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
         square photo sits beside the words; a wide picture sits above them.
       */}
       <figure className="space-y-2" data-share-preview="" data-share-source={image.source}>
-        <figcaption className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Shared link</figcaption>
+        <figcaption className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Shared link")}</figcaption>
         <div
           className={cn("overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]", image.source === "profile" && "flex items-stretch")}
           data-og-card=""
@@ -387,7 +388,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           ) : (
             <div className="relative aspect-[1200/630] bg-[#f3f4f6]" data-og-generated="">
               <ScaledCard>
-                <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily="Inter, system-ui, sans-serif" />
+                <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily={"Inter, system-ui, sans-serif"} />
               </ScaledCard>
             </div>
           )}
@@ -412,7 +413,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
         {/* WHICH PICTURE: three cards, the chosen one marked the way every choice in the editor is. */}
         <div className="pt-2" data-share-choices="">
           <p id="share-image-label" className="mb-2 text-[13px] font-medium text-[#374151]">
-            Picture
+            {tt("Picture")}
           </p>
           <div role="group" aria-labelledby="share-image-label" className="grid grid-cols-3 gap-2">
             {SHARE_CHOICES.map((choice) => (
@@ -443,7 +444,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
                     )
                   ) : choice.id === "card" ? (
                     <ScaledCard>
-                      <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily="Inter, system-ui, sans-serif" />
+                      <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily={"Inter, system-ui, sans-serif"} />
                     </ScaledCard>
                   ) : image.customUrl ? (
                     <img src={image.customUrl} alt="" draggable={false} className="h-full w-full object-cover" style={{ objectPosition: `${image.focal.x}% ${image.focal.y}%` }} />
@@ -468,14 +469,14 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
 
           <p className="mt-2.5 text-[12.5px] leading-snug text-[#6b7280]" data-share-note={image.fallback ?? image.mode}>
             {image.fallback === "no-photo"
-              ? "You have no profile photo yet, so links show the share card."
+              ? tt("You have no profile photo yet, so links show the share card.")
               : image.fallback === "no-upload"
-                ? `Upload a picture, 1200 x 630 works best. Until then, links show ${image.source === "profile" ? "your profile photo" : "the share card"}.`
+                ? tt("Upload a picture, 1200 x 630 works best. Until then, links show {value}.", { value: image.source === "profile" ? tt("your profile photo") : tt("the share card") })
                 : image.mode === "profile"
-                  ? "The photo at the top of your page, shown square."
+                  ? tt("The photo at the top of your page, shown square.")
                   : image.mode === "card"
-                    ? "Made from your name, photo and theme."
-                    : "Drag on the picture to move the crop."}
+                    ? tt("Made from your name, photo and theme.")
+                    : tt("Drag on the picture to move the crop.")}
           </p>
           {image.mode === "custom" ? (
             <div className="mt-2.5 flex items-center gap-1">
@@ -487,7 +488,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
                 className={cn(secondaryDepth, "h-9 rounded-lg px-3.5 text-[13px]")}
               >
                 {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                {uploading ? "Uploading" : image.customUrl ? "Replace" : "Upload picture"}
+                {uploading ? tt("Uploading") : image.customUrl ? tt("Replace") : tt("Upload picture")}
               </button>
               {image.customUrl && !uploading ? (
                 <button
@@ -496,7 +497,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
                   data-og-reset=""
                   className="h-9 cursor-pointer rounded-lg px-3 text-[13px] font-medium text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
                 >
-                  Remove
+                  {tt("Remove")}
                 </button>
               ) : null}
             </div>
@@ -546,22 +547,22 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
       <div className="space-y-4">
         <Field
           id="seo-title"
-          label="Search title"
+          label={tt("Search title")}
           field={seo.title}
           stored={stored("seo_title")}
           max={SEO_TITLE_MAX}
-          resetLabel="Use page name"
-          followsLabel={seo.derived.title === "name-and-handle" ?"From your page name and address" : "From your page name"}
+          resetLabel={tt("Use page name")}
+          followsLabel={seo.derived.title === "name-and-handle" ?tt("From your page name and address") : tt("From your page name")}
           onChange={write("seo_title")}
         />
         <Field
           id="seo-description"
-          label="Search description"
+          label={tt("Search description")}
           field={seo.description}
           stored={stored("seo_description")}
           max={SEO_DESCRIPTION_MAX}
           multiline
-          resetLabel={seo.derived.description.kind === "bio" ? "Use bio" : "Use page summary"}
+          resetLabel={seo.derived.description.kind === "bio" ? tt("Use bio") : tt("Use page summary")}
           followsLabel={descriptionSourceNote(seo.derived.description)}
           onChange={write("seo_description")}
         />
@@ -569,23 +570,23 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           <>
             <Field
               id="social-title"
-              label="Shared title"
-              followsLabel={seo.title.auto ? "From your page name" : "Same as search title"}
+              label={tt("Shared title")}
+              followsLabel={seo.title.auto ? tt("From your page name") : tt("Same as search title")}
               field={seo.socialTitle}
               stored={stored("social_title")}
               max={SEO_TITLE_MAX}
-              resetLabel={seo.title.auto ? "Use page name" : "Use search title"}
+              resetLabel={seo.title.auto ? tt("Use page name") : tt("Use search title")}
               onChange={write("social_title")}
             />
             <Field
               id="social-description"
-              label="Shared description"
-              followsLabel="Same as search description"
+              label={tt("Shared description")}
+              followsLabel={tt("Same as search description")}
               field={seo.socialDescription}
               stored={stored("social_description")}
               max={SEO_DESCRIPTION_MAX}
               multiline
-              resetLabel="Use search text"
+              resetLabel={tt("Use search text")}
               onChange={write("social_description")}
             />
           </>
@@ -596,7 +597,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
             data-seo-social-open=""
             className="cursor-pointer text-[13px] font-medium text-[#1a1a2e] underline decoration-[#d1d5db] underline-offset-[3px] hover:decoration-[#1a1a2e]"
           >
-            Use a different title when shared
+            {tt("Use a different title when shared")}
           </button>
         )}
       </div>

@@ -5,6 +5,7 @@ import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { headers } from "next/headers"
 import { after } from "next/server"
 import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
@@ -309,6 +310,8 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
           above, in onepage_views, is the OnePage editor's and is unchanged.
           Its links report their own clicks, with the block they came from. */}
       {resolvedCreatorId && <TrackView creatorId={resolvedCreatorId} links={false} />}
+      {/* The store's own Google Analytics and pixels (Settings › Integrations). */}
+      {resolvedCreatorId && <StoreTracking creatorId={resolvedCreatorId} />}
     </>
   )
 }

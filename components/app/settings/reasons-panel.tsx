@@ -23,19 +23,20 @@ import { cn } from "@/lib/utils"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { FALLBACK_REASON, MAX_REASONS, type Reason, type ReasonKind } from "@/lib/store/reasons"
 import { forgetReasons } from "@/lib/store/use-reasons"
+import { tt } from "@/lib/i18n/text"
 
 type Lists = { return: Reason[]; refund: Reason[]; ready: boolean }
 
 const COPY: Record<ReasonKind, { title: string; description: string; empty: string }> = {
   return: {
-    title: "Return reasons",
-    description: "What a buyer picks when they ask to send something back. You see it on the return.",
-    empty: "No return reasons yet.",
+    get title() { return tt("Return reasons") },
+    get description() { return tt("What a buyer picks when they ask to send something back. You see it on the return.") },
+    get empty() { return tt("No return reasons yet.") },
   },
   refund: {
-    title: "Refund reasons",
-    description: "What you pick when you refund an order. It stays on the order's timeline.",
-    empty: "No refund reasons yet.",
+    get title() { return tt("Refund reasons") },
+    get description() { return tt("What you pick when you refund an order. It stays on the order's timeline.") },
+    get empty() { return tt("No refund reasons yet.") },
   },
 }
 
@@ -51,7 +52,7 @@ export function ReasonsPanel({ kinds }: { kinds: ReasonKind[] }) {
   if (!lists) return <div className="min-h-[280px]" aria-busy="true" />
   return (
     <>
-      {!lists.ready ? <Notice tone="amber">Reasons need their database update (SQL part 109). Until it runs, these are Storelib's and can't be changed.</Notice> : null}
+      {!lists.ready ? <Notice tone="amber">{tt("Reasons need their database update (SQL part 109). Until it runs, these are Storelib's and can't be changed.")}</Notice> : null}
       {kinds.map((kind) => (
         <ReasonsCard
           key={kind}
@@ -106,7 +107,7 @@ function ReasonsCard({ kind, reasons, onChange }: { kind: ReasonKind; reasons: R
       action={
         <button type="button" className={cn(BTN_SECONDARY, "gap-1.5")} onClick={() => setEditing("new")} disabled={reasons.length >= MAX_REASONS} data-add-reason={kind}>
           <Plus className="h-4 w-4" aria-hidden />
-          Add reason
+          {tt("Add reason")}
         </button>
       }
     >
@@ -122,10 +123,10 @@ function ReasonsCard({ kind, reasons, onChange }: { kind: ReasonKind; reasons: R
                 {r.description ? <span className="mt-0.5 block truncate text-[12.5px] text-[#6b7280]">{r.description}</span> : null}
               </button>
               <div className="flex shrink-0 items-center">
-                <button type="button" aria-label={`Move ${r.label} up`} disabled={i === 0 || moving} onClick={() => void move(i, -1)} className="grid h-9 w-9 place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f1f2f4] hover:text-[#4b5563] disabled:opacity-30 disabled:hover:bg-transparent">
+                <button type="button" aria-label={tt("Move {label} up", { label: r.label })} disabled={i === 0 || moving} onClick={() => void move(i, -1)} className="grid h-9 w-9 place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f1f2f4] hover:text-[#4b5563] disabled:opacity-30 disabled:hover:bg-transparent">
                   <ChevronUp className="h-4 w-4" aria-hidden />
                 </button>
-                <button type="button" aria-label={`Move ${r.label} down`} disabled={i === reasons.length - 1 || moving} onClick={() => void move(i, 1)} className="grid h-9 w-9 place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f1f2f4] hover:text-[#4b5563] disabled:opacity-30 disabled:hover:bg-transparent">
+                <button type="button" aria-label={tt("Move {label} down", { label: r.label })} disabled={i === reasons.length - 1 || moving} onClick={() => void move(i, 1)} className="grid h-9 w-9 place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f1f2f4] hover:text-[#4b5563] disabled:opacity-30 disabled:hover:bg-transparent">
                   <ChevronDown className="h-4 w-4" aria-hidden />
                 </button>
               </div>
@@ -192,33 +193,33 @@ function ReasonForm({
     <Modal
       open={!!reason}
       onClose={onClose}
-      title={isNew ? (kind === "return" ? "Add return reason" : "Add refund reason") : "Edit reason"}
+      title={isNew ? (kind === "return" ? tt("Add return reason") : tt("Add refund reason")) : tt("Edit reason")}
       footer={
         <div className="flex w-full items-center gap-2">
           {!isNew && !fixed ? (
             <button type="button" className={cn(BTN_DANGER, "mr-auto")} disabled={busy} onClick={() => void run(onRemove)}>
-              Remove
+              {tt("Remove")}
             </button>
           ) : null}
           <div className="ml-auto flex gap-2">
             <button type="button" className={BTN_SECONDARY} onClick={onClose} disabled={busy}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" className={BTN_PRIMARY} disabled={busy || !label.trim()} onClick={() => void run(() => onSave(label.trim(), description.trim() || null))}>
-              {busy ? "Saving" : isNew ? "Add reason" : "Save"}
+              {busy ? tt("Saving") : isNew ? tt("Add reason") : tt("Save")}
             </button>
           </div>
         </div>
       }
     >
       <div className="space-y-3" data-reason-form="">
-        <Field label="Name" htmlFor="reason-label" hint={kind === "return" ? "What the buyer reads when they pick it." : undefined}>
-          <TextInput id="reason-label" value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} placeholder={kind === "return" ? "Too big" : "Item out of stock"} />
+        <Field label={tt("Name")} htmlFor="reason-label" hint={kind === "return" ? tt("What the buyer reads when they pick it.") : undefined}>
+          <TextInput id="reason-label" value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} placeholder={kind === "return" ? tt("Too big") : tt("Item out of stock")} />
         </Field>
-        <Field label="Description" htmlFor="reason-description" hint="Optional. A line under the name, for you.">
+        <Field label={tt("Description")} htmlFor="reason-description" hint={tt("Optional. A line under the name, for you.")}>
           <TextInput id="reason-description" value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} />
         </Field>
-        {fixed ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]">This one stays on the list: a reason that isn't on it is kept as this.</p> : null}
+        {fixed ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("This one stays on the list: a reason that isn't on it is kept as this.")}</p> : null}
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>

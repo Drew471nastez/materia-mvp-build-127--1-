@@ -11,6 +11,7 @@ import { siteTabTitle } from "@/lib/website-builder/tab-title"
 import { pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, buttonClass, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext, SitePage } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
 
@@ -27,6 +28,7 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
   const [open, setOpen] = useState<string | null>(null)
   /* The live page's own rule for its tab (lib/website-builder/tab-title.ts), so the placeholder is what the tab says. */
   const brand = storeNameFor(ctx)
+  /* What the site itself serves when none is written (render-site.tsx), word for word. i18n-ignore-next-line */
   const siteDescription = str(ctx.settings.seo_description) || `Visit ${brand}'s website on Storelib`
   const titleOf = (key: string) =>
     key === "home"
@@ -35,8 +37,8 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle aside={<button type="button" onClick={ctx.onAddPage} className={buttonClass}>Add page</button>}>
-        Pages
+      <PageTitle aside={<button type="button" onClick={ctx.onAddPage} className={buttonClass}>{tt("Add page")}</button>}>
+        {tt("Pages")}
       </PageTitle>
 
       <Card footer={GOES_LIVE}>
@@ -52,10 +54,10 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
         ))}
       </Card>
 
-      <Card title="Navigation">
-        <Row label="Menus and links" hint="The header's links, the footer's columns and every menu.">
+      <Card title={tt("Navigation")}>
+        <Row label={tt("Menus and links")} hint={tt("The header's links, the footer's columns and every menu.")}>
           <button type="button" onClick={() => ctx.go("navigation")} className={buttonClass}>
-            Edit navigation
+            {tt("Edit navigation")}
           </button>
         </Row>
       </Card>
@@ -100,8 +102,8 @@ function PageRow({
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <span className="truncate text-[15px] font-medium text-white md:text-[14.5px]">{page.name}</span>
-              {home && <Badge tone="neutral">Homepage</Badge>}
-              {seo.hidden && <Badge tone="attention">Hidden from search</Badge>}
+              {home && <Badge tone="neutral">{tt("Homepage")}</Badge>}
+              {seo.hidden && <Badge tone="attention">{tt("Hidden from search")}</Badge>}
             </span>
             <span className="mt-0.5 block truncate text-[13px] text-white/45">{page.path}</span>
           </span>
@@ -118,7 +120,7 @@ function PageRow({
           )}
         </button>
         <button type="button" onClick={() => ctx.onEditPage(page.key)} className={buttonClass}>
-          Edit
+          {tt("Edit")}
         </button>
       </div>
 
@@ -130,7 +132,7 @@ function PageRow({
 
           <label className="block">
             <span className="flex items-baseline justify-between gap-3 text-[14px] font-medium text-white">
-              Title
+              {tt("Title")}
               <Counter value={seo.title} max={PAGE_TITLE_MAX} />
             </span>
             <input
@@ -144,7 +146,7 @@ function PageRow({
 
           <label className="block">
             <span className="flex items-baseline justify-between gap-3 text-[14px] font-medium text-white">
-              Description
+              {tt("Description")}
               <Counter value={seo.description} max={PAGE_DESCRIPTION_MAX} />
             </span>
             <textarea
@@ -159,8 +161,8 @@ function PageRow({
 
           {/* The picture a link to this page shows when it is shared; the site's own social image when there is none. */}
           <div>
-            <p className="text-[14px] font-medium text-white">Social image</p>
-            <p className="mt-0.5 text-[13px] leading-snug text-white/45">Shown when a link to this page is shared. Leave it empty to use the site&apos;s.</p>
+            <p className="text-[14px] font-medium text-white">{tt("Social image")}</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-white/45">{tt("Shown when a link to this page is shared. Leave it empty to use the site's.")}</p>
             <div className="dark mt-2 max-w-[420px]">
               <WbImagePicker value={seo.image || undefined} onChange={(url) => set({ image: url ?? "" })} layout="row" folder="logos" />
             </div>
@@ -168,10 +170,10 @@ function PageRow({
 
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[14px] font-medium text-white">Show in search engines</p>
-              <p className="mt-0.5 text-[13px] leading-snug text-white/45">Off keeps this page out of Google and out of your sitemap.</p>
+              <p className="text-[14px] font-medium text-white">{tt("Show in search engines")}</p>
+              <p className="mt-0.5 text-[13px] leading-snug text-white/45">{tt("Off keeps this page out of Google and out of your sitemap.")}</p>
             </div>
-            <Toggle checked={!seo.hidden} onChange={(on) => set({ hidden: !on })} label={`Show ${page.name} in search engines`} />
+            <Toggle checked={!seo.hidden} onChange={(on) => set({ hidden: !on })} label={tt("Show {name} in search engines", { name: page.name })} />
           </div>
         </div>
         </Reveal>

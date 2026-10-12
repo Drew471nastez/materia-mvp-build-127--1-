@@ -35,6 +35,7 @@ import { isDarkScheme } from "../lib/store-builder/scheme-tone"
 import { productPageTone } from "../lib/store-builder/product-page-tone"
 import { canvasRefusesHref, embeddedHref } from "../lib/store-builder/editor-channel"
 import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
+import { untt } from "./i18n-source"
 
 const root = process.cwd()
 let passed = 0
@@ -52,7 +53,7 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 /**
  * Source with its comments taken out.
  *
@@ -2288,7 +2289,7 @@ function main() {
     check(
       "the keyboard resize is a move, not a snap",
       /resizeMove\.current = sheet\.animate\(/.test(sheet) &&
-        /translateY\(\$\{y \+ height - prev\}px\)/.test(sheet) &&
+        /* Round 25: from where the sheet is drawn when a resize is already moving it. */ /const from = \(drawn \?\? y\) \+ height - prev/.test(sheet) && /translateY\(\$\{from\}px\)/.test(sheet) &&
         /const ms = motionMs\(KEYBOARD_MS\)/.test(sheet) &&
         !/height \$\{KEYBOARD_MS\}ms/.test(sheet) &&
         !/padding-bottom \$\{KEYBOARD_MS\}ms/.test(sheet),

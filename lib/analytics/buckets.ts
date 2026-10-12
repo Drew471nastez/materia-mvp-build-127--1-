@@ -6,6 +6,7 @@
  * the other: it starts at the viewer's midnight, not the server's.
  */
 import { startOfDay } from "../orders/order-view"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -80,7 +81,7 @@ export function bucketIndex(starts: number[], at: number): number {
 }
 
 export function bucketLabel(ms: number, grain: Grain, timeZone: string): string {
-  const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { ...o, timeZone }).format(new Date(ms))
+  const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(appLocale(), zoned({ ...o, timeZone })).format(new Date(ms))
   if (grain === "hour") return fmt({ hour: "numeric" }).replace(" AM", " am").replace(" PM", " pm")
   if (grain === "day") return fmt({ month: "short", day: "numeric" })
   return fmt({ month: "short", year: "2-digit" }).replace(" ", " ’")

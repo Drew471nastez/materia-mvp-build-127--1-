@@ -31,6 +31,7 @@
  */
 import { readFileSync, existsSync } from "node:fs"
 import { stripComments } from "./_source"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -45,7 +46,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 const editor = code("app/app/products/new/product-editor.tsx")

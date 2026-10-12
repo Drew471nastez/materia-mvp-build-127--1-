@@ -22,6 +22,7 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, CourseView, PickProduct, RuleOptions } from "./view-types"
 import { AccessEditor, describeRule } from "./access-editor"
 import { Confirm, Dialog, Empty, ListCard, ListNote, Notice, RowMenu, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 const NEW_COURSE = "/app/products/new?type=course"
 
@@ -46,7 +47,7 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
     const res = await send(base, "POST", { productId: p.id })
     setBusy(null)
     if (!res.ok) return toast(errorText(res.data.error))
-    toast(`${p.title} added`)
+    toast(tt("{title} added", { title: p.title }))
     await reload()
     router.refresh()
   }
@@ -58,7 +59,7 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
     setData((x) => ({ ...x, attached: next }))
     const res = await send(base, "PUT", { ids: next.map((x) => x.productId) })
     if (!res.ok) {
-      toast(errorText(res.data.error, "The order was not saved."))
+      toast(errorText(res.data.error, tt("The order was not saved.")))
       await reload()
     }
   }
@@ -71,7 +72,7 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
     setBusy(null)
     if (!res.ok) return setError(errorText(res.data.error))
     setEditing(null)
-    toast("Saved")
+    toast(tt("Saved"))
     await reload()
   }
 
@@ -82,18 +83,18 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
     setBusy(null)
     if (!res.ok) return toast(errorText(res.data.error))
     setRemoving(null)
-    toast("Taken out of the classroom")
+    toast(tt("Taken out of the classroom"))
     await reload()
   }
 
   const menu = (c: CourseView, i: number): ActionMenuItem[] => {
     const items: ActionMenuItem[] = [
-      { label: "Who can see it", onClick: () => { setError(null); setEditing({ course: c, access: c.access, drip: c.dripDays ? String(c.dripDays) : "" }) } },
-      { label: "Edit the course", href: `/app/products/${c.productId}` },
+      { label: tt("Who can see it"), onClick: () => { setError(null); setEditing({ course: c, access: c.access, drip: c.dripDays ? String(c.dripDays) : "" }) } },
+      { label: tt("Edit the course"), href: `/app/products/${c.productId}` },
     ]
-    if (i > 0) items.push({ label: "Move up", onClick: () => void move(i, -1), separatorBefore: true })
-    if (i < data.attached.length - 1) items.push({ label: "Move down", onClick: () => void move(i, 1), separatorBefore: i === 0 })
-    items.push({ label: "Take out of the classroom", variant: "destructive", onClick: () => setRemoving(c), separatorBefore: true })
+    if (i > 0) items.push({ label: tt("Move up"), onClick: () => void move(i, -1), separatorBefore: true })
+    if (i < data.attached.length - 1) items.push({ label: tt("Move down"), onClick: () => void move(i, 1), separatorBefore: i === 0 })
+    items.push({ label: tt("Take out of the classroom"), variant: "destructive", onClick: () => setRemoving(c), separatorBefore: true })
     return items
   }
 
@@ -102,29 +103,29 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
       <ListCard
         head={
           <ListNote>
-            {data.attached.length} {data.attached.length === 1 ? "course" : "courses"}
-            <span className="max-sm:hidden"> members take inside the community</span>
+            {tt("{n, plural, one {# course} other {# courses}}", { n: data.attached.length })}
+            <span className="max-sm:hidden"> {tt("members take inside the community")}</span>
           </ListNote>
         }
         actions={
           <>
             <Link href={NEW_COURSE} className={cn(buttonSecondary, "max-sm:hidden")}>
-              New course
+              {tt("New course")}
             </Link>
             <button type="button" onClick={() => setAdding(true)} className={buttonPrimary} data-course-add="">
               <Plus aria-hidden className="h-4 w-4" />
-              Add a course
+              {tt("Add a course")}
             </button>
           </>
         }
       >
         {data.attached.length === 0 ? (
-          <Empty title="No courses yet." detail="Add a course you already sell, or make a new one. Members open it here without buying it separately.">
+          <Empty title={tt("No courses yet.")} detail={tt("Add a course you already sell, or make a new one. Members open it here without buying it separately.")}>
             <button type="button" onClick={() => setAdding(true)} className={cn(buttonPrimary, "h-10 px-4")}>
-              Add a course
+              {tt("Add a course")}
             </button>
             <Link href={NEW_COURSE} className={cn(buttonSecondary, "h-10 px-4")}>
-              New course
+              {tt("New course")}
             </Link>
           </Empty>
         ) : (
@@ -140,21 +141,21 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-2">
                     <span className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{c.title}</span>
-                    {c.status !== "published" ? <StatusBadge tone="attention">{c.status === "draft" ? "Draft" : "Not on sale"}</StatusBadge> : null}
+                    {c.status !== "published" ? <StatusBadge tone="attention">{c.status === "draft" ? tt("Draft") : tt("Not on sale")}</StatusBadge> : null}
                   </p>
-                  <p className="truncate text-[12.5px] text-[#6b7280]">{[describeRule(c.access, options), c.dripDays ? `opens ${c.dripDays} ${c.dripDays === 1 ? "day" : "days"} after joining` : null].filter(Boolean).join(" · ")}</p>
+                  <p className="truncate text-[12.5px] text-[#6b7280]">{[describeRule(c.access, options), c.dripDays ? tt("opens {dripDays, plural, one {# day} other {# days}} after joining", { dripDays: c.dripDays }) : null].filter(Boolean).join(" · ")}</p>
                 </div>
-                <RowMenu items={menu(c, i)} label={`Actions for ${c.title}`} />
+                <RowMenu items={menu(c, i)} label={tt("Actions for {title}", { title: c.title })} />
               </li>
             ))}
           </ul>
         )}
       </ListCard>
-      {data.attached.some((c) => c.status === "draft") ? <Notice tone="warn">A draft course is not ready for members yet. Publish it in the product editor first.</Notice> : null}
+      {data.attached.some((c) => c.status === "draft") ? <Notice tone="warn">{tt("A draft course is not ready for members yet. Publish it in the product editor first.")}</Notice> : null}
 
-      <Dialog open={adding} onClose={() => setAdding(false)} title="Add a course" footer={<Link href={NEW_COURSE} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>Make a new course</Link>}>
+      <Dialog open={adding} onClose={() => setAdding(false)} title={tt("Add a course")} footer={<Link href={NEW_COURSE} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>{tt("Make a new course")}</Link>}>
         {data.available.length === 0 ? (
-          <p className="text-[13.5px] leading-relaxed text-[#6b7280]">Every course you have is already in the classroom. Make a new one in the product editor.</p>
+          <p className="text-[13.5px] leading-relaxed text-[#6b7280]">{tt("Every course you have is already in the classroom. Make a new one in the product editor.")}</p>
         ) : (
           <ul className="-mx-1.5 space-y-0.5">
             {data.available.map((p) => (
@@ -167,10 +168,10 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] text-[#1a1a2e]">{p.title}</span>
-                  {p.status !== "published" ? <span className="block text-[12px] text-[#9ca3af]">Draft</span> : null}
+                  {p.status !== "published" ? <span className="block text-[12px] text-[#9ca3af]">{tt("Draft")}</span> : null}
                 </span>
                 <button type="button" onClick={() => void attach(p)} disabled={busy === p.id} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-                  {busy === p.id ? "Adding" : "Add"}
+                  {busy === p.id ? tt("Adding") : tt("Add")}
                 </button>
               </li>
             ))}
@@ -181,14 +182,14 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
       <Dialog
         open={editing !== null}
         onClose={() => setEditing(null)}
-        title={editing ? editing.course.title : "Course"}
+        title={editing ? editing.course.title : tt("Course")}
         footer={
           <>
             <button type="button" onClick={() => setEditing(null)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" onClick={() => void saveEdit()} disabled={busy === "edit"} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-              {busy === "edit" ? "Saving" : "Save"}
+              {busy === "edit" ? tt("Saving") : tt("Save")}
             </button>
           </>
         }
@@ -198,20 +199,20 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
             <AccessEditor value={editing.access} onChange={(v) => setEditing({ ...editing, access: v })} options={options} idPrefix="course" />
             <div>
               <label htmlFor="course-drip" className={label}>
-                Opens after joining
+                {tt("Opens after joining")}
               </label>
               <div className="flex items-center gap-2">
                 <input id="course-drip" inputMode="numeric" value={editing.drip} onChange={(e) => setEditing({ ...editing, drip: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="0" className={cn(field, "h-11 w-24 tabular-nums sm:h-10")} />
-                <span className="text-[13.5px] text-[#4b5563]">days</span>
+                <span className="text-[13.5px] text-[#4b5563]">{tt("days")}</span>
               </div>
-              <p className="mt-1 text-[12.5px] text-[#6b7280]">Leave empty to open it on the day they join.</p>
+              <p className="mt-1 text-[12.5px] text-[#6b7280]">{tt("Leave empty to open it on the day they join.")}</p>
             </div>
             {error ? <Notice>{error}</Notice> : null}
           </div>
         ) : null}
       </Dialog>
 
-      <Confirm open={removing !== null} onClose={() => setRemoving(null)} title={`Take ${removing?.title ?? "this course"} out?`} detail="Members stop seeing it in the classroom. The course and its buyers are not touched." action="Take out" danger busy={busy === "remove"} onConfirm={() => void detach()} />
+      <Confirm open={removing !== null} onClose={() => setRemoving(null)} title={tt("Take {value} out?", { value: removing?.title ?? tt("this course") })} detail={tt("Members stop seeing it in the classroom. The course and its buyers are not touched.")} action="Take out" danger busy={busy === "remove"} onConfirm={() => void detach()} />
     </div>
   )
 }

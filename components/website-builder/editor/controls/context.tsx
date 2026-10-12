@@ -78,6 +78,13 @@ export interface EditorFieldEnv {
    * themes, whose schemes are Storelib's.
    */
   colorSchemes?: { id: string; name: string; background: string; text: string; accent: string }[] | null
+  /**
+   * An imported theme's own pictures by name, where they are stored
+   * (shopify/config/assets.json): what a picture setting saved as
+   * `shopify://shop_images/<name>` is drawn from (lib/website-builder/
+   * picture-address.ts). Absent on Storelib's own themes.
+   */
+  pictureMedia?: Record<string, string> | null
 }
 
 const EditorFieldContext = createContext<EditorFieldEnv | null>(null)

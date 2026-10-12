@@ -1189,6 +1189,15 @@ export const CANVAS_REQUESTS = `
  * the next page drawn (window.__slSeed), so a heart pressed on one page is
  * still pressed on the next, and the wishlist count agrees, as on the site.
  */
+/*
+  A CHOICE IN THE CANVAS WRITES NO ADDRESS. The page is a sandboxed frame
+  with no origin of its own, where history.replaceState to
+  "/products/x?variant=…" throws a SecurityError; Dawn writes the address
+  before it updates the form, the price and the label, so in the canvas a
+  chosen M stayed with S's price, id and label. pushState and replaceState
+  keep the state and leave the address as it is when the browser refuses it.
+*/
 export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{display:none!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
-try{document.cookie}catch(e){try{Object.defineProperty(document,"cookie",{get:function(){return ""},set:function(){},configurable:true})}catch(e2){}}})();</script><script>${CANVAS_REQUESTS}</script>`
+try{document.cookie}catch(e){try{Object.defineProperty(document,"cookie",{get:function(){return ""},set:function(){},configurable:true})}catch(e2){}}
+["pushState","replaceState"].forEach(function(k){var f=history[k];if(typeof f!=="function")return;history[k]=function(s,t){try{return f.apply(this,arguments)}catch(e){try{return f.call(this,s,t)}catch(e2){}}}});})();</script><script>${CANVAS_REQUESTS}</script>`

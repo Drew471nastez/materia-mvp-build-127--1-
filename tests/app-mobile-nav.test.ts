@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { askBeforeLeaving, pageAsksBeforeLeaving, mayLeave } from "@/lib/ui/leave-guard"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -23,7 +24,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 async function main() {
   /*

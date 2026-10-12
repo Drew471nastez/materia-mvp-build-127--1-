@@ -11,12 +11,14 @@ import { useMemo } from "react"
 
 import { CUSTOM_CSS_MAX, cleanCustomCss } from "@/lib/storelib-theme/custom-css"
 import { PROBLEM } from "./styles"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /** Rules to start from: each one line of intent and the CSS that does it. */
 const CSS_EXAMPLES: { label: string; css: string }[] = [
-  { label: "Wider letter spacing on headings", css: "h1, h2, h3 {\n  letter-spacing: 0.02em;\n}" },
-  { label: "Rounder product images", css: "[data-card=\"product\"] img {\n  border-radius: 16px;\n}" },
-  { label: "Hide breadcrumbs on phones", css: "@media (max-width: 640px) {\n  [data-section-type=\"breadcrumbs\"] {\n    display: none;\n  }\n}" },
+  { get label() { return tt("Wider letter spacing on headings") }, css: "h1, h2, h3 {\n  letter-spacing: 0.02em;\n}" },
+  { get label() { return tt("Rounder product images") }, css: "[data-card=\"product\"] img {\n  border-radius: 16px;\n}" },
+  { get label() { return tt("Hide breadcrumbs on phones") }, css: "@media (max-width: 640px) {\n  [data-section-type=\"breadcrumbs\"] {\n    display: none;\n  }\n}" },
 ]
 
 export function CssControl({ value, onChange, placeholder, label }: { value: string; onChange: (v: string) => void; placeholder?: string; label?: string }) {
@@ -30,9 +32,9 @@ export function CssControl({ value, onChange, placeholder, label }: { value: str
         start from, added at the end of what is there.
       */}
       <div className="space-y-1 text-[11.5px] leading-[1.5] text-muted-foreground" data-css-help="">
-        <p>Applies to every page of your website, after the theme&apos;s own styles, so it wins.</p>
+        <p>{tt("Applies to every page of your website, after the theme's own styles, so it wins.")}</p>
         <p>
-          One kind of section: start the rule with <code className="rounded bg-muted px-1 font-mono text-[11px] text-foreground">[data-section-type=&quot;hero&quot;]</code>. Your own coded sections keep their own styles unless you target them.
+          <Rich text={tt("One kind of section: start the rule with {selector}. Your own coded sections keep their own styles unless you target them.")} parts={{ selector: <code className="rounded bg-muted px-1 font-mono text-[11px] text-foreground">{"[data-section-type=\"hero\"]"}</code> }} />
         </p>
       </div>
       <div className="flex flex-wrap gap-1.5" data-css-examples="">
@@ -48,7 +50,7 @@ export function CssControl({ value, onChange, placeholder, label }: { value: str
         ))}
       </div>
       <textarea
-        aria-label={label ?? "Custom CSS"}
+        aria-label={label ?? tt("Custom CSS")}
         spellCheck={false}
         autoCapitalize="off"
         autoCorrect="off"
@@ -62,7 +64,7 @@ export function CssControl({ value, onChange, placeholder, label }: { value: str
       {dropped.length > 0 ? (
         <ul className={PROBLEM + " list-none space-y-0.5"} aria-live="polite">
           {dropped.map((d) => (
-            <li key={d}>Left out: {d}</li>
+            <li key={d}>{tt("Left out: {d}", { d })}</li>
           ))}
         </ul>
       ) : null}

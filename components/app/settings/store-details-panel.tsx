@@ -35,6 +35,7 @@ import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, TextInput
 import { FilesLibraryChooser } from "@/components/files/files-library"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
+import { tt } from "@/lib/i18n/text"
 
 interface Settings {
   storeName: string | null
@@ -90,12 +91,12 @@ function SaveButton({ state, onClick, disabled }: { state: "idle" | "saving" | "
       {state === "saved" ? (
         <>
           <Check className="h-4 w-4" />
-          Saved
+          {tt("Saved")}
         </>
       ) : state === "saving" ? (
-        "Saving"
+        tt("Saving")
       ) : (
-        "Save"
+        tt("Save")
       )}
     </button>
   )
@@ -106,7 +107,7 @@ function Suggest({ code, onUse }: { code: string | null; onUse: (code: string) =
   if (!code) return null
   return (
     <button type="button" onClick={() => onUse(code)} className="mt-1.5 inline-flex h-7 items-center rounded-full bg-[#f1f2f4] px-2.5 text-[12.5px] font-medium text-[#374151] transition-colors hover:bg-[#e8e9ec]" data-suggest-country={code}>
-      Use {countryName(code)}, where you are now
+      {tt("Use {count}, where you are now", { count: countryName(code) })}
     </button>
   )
 }
@@ -141,7 +142,7 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
   }
   return (
     <div className="space-y-4 sm:space-y-6" data-store-details="">
-      {!data.settings.ready ? <Notice tone="amber">Store details need their database update (SQL part 109). Until it runs, what you see here is not saved.</Notice> : null}
+      {!data.settings.ready ? <Notice tone="amber">{tt("Store details need their database update (SQL part 109). Until it runs, what you see here is not saved.")}</Notice> : null}
       <Logo data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />
       <Identity data={data} onSaved={(s, email) => {
         setData((d) => (d ? { ...d, settings: s, supportEmail: email } : d))
@@ -165,31 +166,31 @@ function Logo({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => void 
   const [picking, setPicking] = React.useState(false)
   const { state, error, save } = useSave()
   const shown = saved ?? data.logoDefault?.url ?? null
-  const from = saved ? "Your store logo." : data.logoDefault?.from === "website" ? "From your website's logo. Choose another for receipts and emails if you like." : data.logoDefault?.from === "profile" ? "Your profile photo, until you choose a logo." : "No logo yet: receipts and emails show your store's name."
+  const from = saved ? tt("Your store logo.") : data.logoDefault?.from === "website" ? tt("From your website's logo. Choose another for receipts and emails if you like.") : data.logoDefault?.from === "profile" ? tt("Your profile photo, until you choose a logo.") : tt("No logo yet: receipts and emails show your store's name.")
   const set = async (url: string | null) => {
     const s = await save({ logoUrl: url })
     if (s) onSaved(s)
   }
   return (
-    <Card title="Logo" description="On receipts, order pages and every email your buyers get.">
+    <Card title={tt("Logo")} description={tt("On receipts, order pages and every email your buyers get.")}>
       <div className="flex flex-wrap items-center gap-4" data-store-logo="">
         <div className="grid h-16 w-28 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]">
           {shown ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={shown} alt="" className="max-h-12 max-w-[96px] object-contain" />
           ) : (
-            <span className="px-2 text-center text-[12px] font-semibold text-[#9ca3af]">{data.settings.storeName || data.suggested?.storeName || "Your store"}</span>
+            <span className="px-2 text-center text-[12px] font-semibold text-[#9ca3af]">{data.settings.storeName || data.suggested?.storeName || tt("Your store")}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] leading-[19px] text-[#4b5563]">{from}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" className={BTN_SECONDARY} onClick={() => setPicking(true)} disabled={state === "saving"}>
-              {saved ? "Change" : "Choose a logo"}
+              {saved ? tt("Change") : tt("Choose a logo")}
             </button>
             {saved ? (
               <button type="button" className="inline-flex h-9 items-center rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" onClick={() => void set(null)} disabled={state === "saving"}>
-                Use the default
+                {tt("Use the default")}
               </button>
             ) : null}
           </div>
@@ -212,19 +213,19 @@ function Identity({ data, onSaved }: { data: Loaded; onSaved: (s: Settings, emai
   const [phone, setPhone] = React.useState(s.phone ?? "")
   const { state, error, save } = useSave()
   return (
-    <Card title="Store details" description="How buyers see and reach your store." help="store">
+    <Card title={tt("Store details")} description={tt("How buyers see and reach your store.")} help="store">
       <div className="space-y-4">
-        <Field label="Store name" hint={nameFromAccount ? "Your Storelib name. Change it if your store goes by another." : "On receipts, order emails and checkout."} htmlFor="store-name">
+        <Field label={tt("Store name")} hint={nameFromAccount ? tt("Your Storelib name. Change it if your store goes by another.") : tt("On receipts, order emails and checkout.")} htmlFor="store-name">
           <TextInput id="store-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoComplete="organization" />
         </Field>
-        <Field label="Contact email" hint={emailFromAccount ? "The email you sign in with. Use another one if buyers should write somewhere else." : "Buyers write to it about their orders. The same address your receipts show."} htmlFor="store-email">
+        <Field label={tt("Contact email")} hint={emailFromAccount ? tt("The email you sign in with. Use another one if buyers should write somewhere else.") : tt("Buyers write to it about their orders. The same address your receipts show.")} htmlFor="store-email">
           <TextInput id="store-email" type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         </Field>
         <div className="space-y-1.5">
-          <span className="block text-[13px] font-medium text-[#374151] sm:text-[13.5px]">Phone</span>
+          <span className="block text-[13px] font-medium text-[#374151] sm:text-[13.5px]">{tt("Phone")}</span>
           <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
-            <SelectInput value={phoneCountry} onChange={setPhoneCountry} aria-label="Phone country">
-              <option value="">Country code</option>
+            <SelectInput value={phoneCountry} onChange={setPhoneCountry} aria-label={tt("Phone country")}>
+              <option value="">{tt("Country code")}</option>
               {DIAL.map((d) => (
                 <option key={d.code} value={d.code}>
                   {d.label}
@@ -233,7 +234,7 @@ function Identity({ data, onSaved }: { data: Loaded; onSaved: (s: Settings, emai
             </SelectInput>
             <PhoneField country={phoneCountry} value={phone} onChange={setPhone} id="store-phone" />
           </div>
-          <p className="text-[12.5px] leading-[18px] text-[#6b7280]">On order emails, so a buyer or a courier can reach you. It also helps your payment provider tell a real shop from a fraudulent one.</p>
+          <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("On order emails, so a buyer or a courier can reach you. It also helps your payment provider tell a real shop from a fraudulent one.")}</p>
           {!s.phoneCountry && !s.defaultCountry && data.detectedCountry && phoneCountry !== data.detectedCountry ? <Suggest code={data.detectedCountry} onUse={setPhoneCountry} /> : null}
         </div>
         {error ? <Notice>{error}</Notice> : null}
@@ -256,11 +257,11 @@ function BasedIn({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => vo
   const { state, error, save } = useSave()
   const changed = country !== (data.settings.defaultCountry ?? "")
   return (
-    <Card title="Where your store is based" description="New locations and tax start here. Buyers can be anywhere.">
+    <Card title={tt("Where your store is based")} description={tt("New locations and tax start here. Buyers can be anywhere.")}>
       <div className="space-y-3">
-        <Field label="Country" htmlFor="store-country">
+        <Field label={tt("Country")} htmlFor="store-country">
           <SelectInput id="store-country" value={country} onChange={setCountry}>
-            <option value="">Choose a country</option>
+            <option value="">{tt("Choose a country")}</option>
             {COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}
@@ -312,20 +313,20 @@ function Business({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => v
   const words = addressWordsFor(b.country)
   const tax = taxIdFor(b.country)
   return (
-    <Card title="Business details" description="Your legal name, address and tax number, on every receipt and invoice. Most countries require them.">
+    <Card title={tt("Business details")} description={tt("Your legal name, address and tax number, on every receipt and invoice. Most countries require them.")}>
       {!open ? (
         <button type="button" className={BTN_SECONDARY} onClick={() => setOpen(true)} data-business-add="">
-          Add business details
+          {tt("Add business details")}
         </button>
       ) : (
         <div className="space-y-4" data-business-details="">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Legal name" hint="As registered, like Studio Ana SRL." htmlFor="legal-name">
+            <Field label={tt("Legal name")} hint={tt("As registered, like Studio Ana SRL.")} htmlFor="legal-name">
               <TextInput id="legal-name" value={b.company} maxLength={120} onChange={(e) => set("company")(e.target.value)} autoComplete="organization" placeholder={data.settings.storeName ?? ""} />
             </Field>
-            <Field label="Country" htmlFor="legal-country">
+            <Field label={tt("Country")} htmlFor="legal-country">
               <SelectInput id="legal-country" value={b.country} onChange={set("country")}>
-                <option value="">Choose a country</option>
+                <option value="">{tt("Choose a country")}</option>
                 {COUNTRIES.map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.name}
@@ -334,24 +335,24 @@ function Business({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => v
               </SelectInput>
             </Field>
           </div>
-          <Field label="Street address" htmlFor="legal-line1">
+          <Field label={tt("Street address")} htmlFor="legal-line1">
             <TextInput id="legal-line1" value={b.line1} maxLength={120} onChange={(e) => set("line1")(e.target.value)} autoComplete="address-line1" placeholder={words.example.line1} />
           </Field>
-          <Field label="Apartment, suite (optional)" htmlFor="legal-line2">
+          <Field label={tt("Apartment, suite (optional)")} htmlFor="legal-line2">
             <TextInput id="legal-line2" value={b.line2} maxLength={120} onChange={(e) => set("line2")(e.target.value)} autoComplete="address-line2" />
           </Field>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="City" htmlFor="legal-city">
+            <Field label={tt("City")} htmlFor="legal-city">
               <TextInput id="legal-city" value={b.city} maxLength={80} onChange={(e) => set("city")(e.target.value)} autoComplete="address-level2" placeholder={words.example.city} />
             </Field>
-            <Field label={needsPostalCode(b.country) ? words.postal : `${words.postal} (optional)`} htmlFor="legal-postal">
+            <Field label={needsPostalCode(b.country) ? words.postal : tt("{postal} (optional)", { postal: words.postal })} htmlFor="legal-postal">
               <TextInput id="legal-postal" value={b.postalCode} maxLength={20} onChange={(e) => set("postalCode")(e.target.value)} autoComplete="postal-code" placeholder={words.example.postal} />
             </Field>
-            <Field label={`${words.region} (optional)`} htmlFor="legal-region">
+            <Field label={tt("{region} (optional)", { region: words.region })} htmlFor="legal-region">
               <TextInput id="legal-region" value={b.region} maxLength={80} onChange={(e) => set("region")(e.target.value)} autoComplete="address-level1" />
             </Field>
           </div>
-          <Field label={`${tax.label} (optional)`} hint="Printed on receipts and invoices when you have one." htmlFor="legal-tax-id">
+          <Field label={tt("{label} (optional)", { label: tax.label })} hint={tt("Printed on receipts and invoices when you have one.")} htmlFor="legal-tax-id">
             <TextInput id="legal-tax-id" value={b.taxId} maxLength={32} onChange={(e) => set("taxId")(e.target.value)} placeholder={tax.example} />
           </Field>
           {error ? <Notice>{error}</Notice> : null}
@@ -370,7 +371,7 @@ function Business({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => v
                   }
                 }}
               >
-                Remove
+                {tt("Remove")}
               </button>
             ) : null}
             <SaveButton
@@ -397,25 +398,25 @@ function OrdersFrom({ locations, value, onSaved }: { locations: Location[] | nul
   React.useEffect(() => setChosen(value), [value])
   if (locations === null) return null
   return (
-    <Card title="Where orders ship from" description="New orders are assigned to this location and their stock is taken from it, unless a product says otherwise.">
+    <Card title={tt("Where orders ship from")} description={tt("New orders are assigned to this location and their stock is taken from it, unless a product says otherwise.")}>
       {locations.length === 0 ? (
         <a href="/app/settings?tab=locations" className={BTN_SECONDARY}>
-          Add a location
+          {tt("Add a location")}
         </a>
       ) : locations.length === 1 ? (
         /* One location is the only place orders can ship from: a picker with one choice asks nothing. */
         <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] px-4 py-3">
           <div className="min-w-0">
             <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{locations[0].name}</p>
-            <p className="text-[13px] text-[#6b7280]">Your only location, so every order ships from here.</p>
+            <p className="text-[13px] text-[#6b7280]">{tt("Your only location, so every order ships from here.")}</p>
           </div>
           <a href="/app/settings?tab=locations" className="shrink-0 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-            Add another
+            {tt("Add another")}
           </a>
         </div>
       ) : (
         <div className="space-y-3">
-          <Field label="Default location" htmlFor="store-location">
+          <Field label={tt("Default location")} htmlFor="store-location">
             <SelectInput id="store-location" value={chosen} onChange={setChosen}>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>

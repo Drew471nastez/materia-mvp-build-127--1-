@@ -29,17 +29,18 @@ import { CARD_RAISED } from "@/components/community/member/ui"
 import { cn } from "@/lib/utils"
 import { noteProgramOpened } from "./learn-history"
 import { lessonsLabel, lockHint, opensOnLabel, type ProgramCard } from "./model"
+import { tt } from "@/lib/i18n/text"
 
 export function LearnLibrary({ programs, timeZone, manageHref = null }: { programs: ProgramCard[]; timeZone?: string; /** The builder, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
   return (
     <section data-learn aria-labelledby="learn-title">
       <header className="mb-3 flex items-baseline justify-between gap-3 sm:mb-4">
         <h1 id="learn-title" className="text-[19px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[21px]">
-          Learn
+          {tt("Learn")}
         </h1>
         {programs.length ? (
           <p className="text-[12.5px] tabular-nums text-[#6b7280]">
-            {programs.length} {programs.length === 1 ? "program" : "programs"}
+            {tt("{n, plural, one {# program} other {# programs}}", { n: programs.length })}
           </p>
         ) : null}
       </header>
@@ -48,9 +49,9 @@ export function LearnLibrary({ programs, timeZone, manageHref = null }: { progra
         <PlaceEmpty
           data-learn-empty=""
           place="classroom"
-          title="Nothing to learn here yet"
-          line={manageHref ? "Programs you make show up here for your members, lesson by lesson." : "Programs and their lessons show up here as soon as they are added."}
-          action={manageHref ? { href: manageHref, label: "Make a program" } : null}
+          title={tt("Nothing to learn here yet")}
+          line={manageHref ? tt("Programs you make show up here for your members, lesson by lesson.") : tt("Programs and their lessons show up here as soon as they are added.")}
+          action={manageHref ? { href: manageHref, label: tt("Make a program") } : null}
         />
       ) : (
         <ul
@@ -120,19 +121,19 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
         ) : p.status === "completed" ? (
           <span className="absolute right-2.5 top-2.5 hidden items-center gap-1 rounded-full bg-white/95 py-1 pl-1.5 pr-2.5 text-[12px] font-semibold text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.18)] min-[520px]:inline-flex">
             <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
-            Done
+            {tt("Done")}
           </span>
         ) : null}
         {p.draft ? (
           <span className="absolute left-2.5 top-2.5 hidden rounded-md bg-[#1a1a2e]/80 px-1.5 py-0.5 text-[11px] font-semibold text-white min-[520px]:inline-flex" data-draft>
-            Draft
+            {tt("Draft")}
           </span>
         ) : null}
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col min-[520px]:px-3 min-[520px]:pb-3 min-[520px]:pt-2.5">
         <h2 className="line-clamp-2 text-[14.5px] font-semibold leading-5 text-[#1a1a2e]">
-          {p.draft ? <span className="mr-1.5 inline-block rounded bg-[#eef0f3] px-1 align-[1px] text-[11px] font-semibold text-[#4b5563] min-[520px]:hidden">Draft</span> : null}
+          {p.draft ? <span className="mr-1.5 inline-block rounded bg-[#eef0f3] px-1 align-[1px] text-[11px] font-semibold text-[#4b5563] min-[520px]:hidden">{tt("Draft")}</span> : null}
           {p.title}
         </h2>
         <p className="mt-1 text-[13px] tabular-nums text-[#6b7280]">
@@ -142,7 +143,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
         <div className="mt-auto pt-2 min-[520px]:pt-3">
           {lock && p.locked ? (
             <p className="flex min-w-0 items-center gap-1.5 text-[13px] text-[#6b7280]">
-              <span className="sr-only">Locked: </span>
+              <span className="sr-only">{tt("Locked:")} </span>
               <span className="inline-flex min-w-0 items-center gap-1 font-semibold text-[#1a1a2e] min-[520px]:hidden" data-lock-line>
                 <Lock className="h-3 w-3 shrink-0" aria-hidden />
                 <span className="truncate tabular-nums">{lock}</span>
@@ -151,7 +152,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
             </p>
           ) : (
             <div className="flex items-center gap-2.5" data-progress={p.percent}>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#eceef1]" role="progressbar" aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${p.title} progress`}>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#eceef1]" role="progressbar" aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100} aria-label={tt("{title} progress", { title: p.title })}>
                 <div className="h-full origin-left rounded-full bg-[#1a1a2e]" style={{ scale: `${Math.max(0, Math.min(100, p.percent)) / 100} 1` }} />
               </div>
               <span className="w-9 shrink-0 text-right text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{p.percent}%</span>

@@ -23,6 +23,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /** Matches the `wb-settings-out` / `wb-scrim-out` durations in globals.css. */
 const EXIT_MS = 160
@@ -115,7 +116,7 @@ export function InlinePanel({
     <>
       <button
         type="button"
-        aria-label="Close"
+        aria-label={tt("Close")}
         onClick={onClose}
         className={cn("absolute inset-0 z-20 bg-black/10", leaving ? "wb-scrim-out" : "wb-scrim-in")}
       />

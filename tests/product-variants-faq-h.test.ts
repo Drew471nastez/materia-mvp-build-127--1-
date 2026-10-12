@@ -22,6 +22,7 @@ import { productFacts, dynamicContext } from "@/lib/website-builder/storefront-d
 import { fillSources, DYNAMIC_SOURCES } from "@/lib/storelib-theme/dynamic"
 import { FAQ_SEEDED, withProductBlocks, withProductFaq, mainProductSection } from "@/lib/website-builder/product-page"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -30,7 +31,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 type O = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 console.log("\nA photo for each variant: smooth in the editor")
@@ -69,7 +70,8 @@ console.log("\nThe chosen variant's photo on the storefront")
   const card = toCard({ id: "p", title: "Tee", slug: "tee", price_cents: 100, thumbnail_url: "https://img.test/a.png", gallery_urls: ["https://img.test/a.png"], type: "physical", status: "published" } as never, [{ id: "v1", product_id: "p", name: "Sand", price_cents: 100, image_url: "https://img.test/sand.png" }, { id: "v2", product_id: "p", name: "Black", price_cents: 100 }])
   const p = productObject(card) as O
   check("an imported theme: a variant's featured_media is its photo, one of the product's media", p.variants[0].featured_media?.src === "https://img.test/sand.png" && p.media.some((m: O) => m === p.variants[0].featured_media), p.variants[0].featured_media)
-  check("  a variant without one answers the product's first, as Shopify does", p.variants[1].featured_media === p.media[0])
+  /* Round 25: Shopify answers nil for a variant without its own photo (Dawn's `featured_media == nil`, Horizon's `| default: product.featured_image`), so a gallery stays where it is. */
+  check("  a variant without one answers none, as Shopify does, and the theme falls back to the product's", p.variants[1].featured_media === null && p.featured_media === p.media[0])
   check("  the picture knows its variant, by id only", p.media[1].attached_to_variant === true && p.media[1].variant_ids[0] === "v1" && !("variants" in p.media[1] && (p.media[1].variants as unknown[]).length))
   const chosen = productObject(card, { selectedVariantId: "v1" }) as O
   check("  ?variant= of a variant with a photo: the theme draws that photo first", chosen.selected_or_first_available_variant.featured_media.src === "https://img.test/sand.png")

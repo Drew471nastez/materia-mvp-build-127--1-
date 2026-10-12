@@ -10,6 +10,7 @@
  * automatic, both renderer families painting them, and the panels saying
  * what each colour is. Measured in a browser by scripts/check-button-colors.mjs.
  */
+import { untt } from "./i18n-source"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
@@ -32,7 +33,7 @@ function check(name: string, ok: boolean, detail = "") {
   if (ok) { passed++; console.log(`  ok    ${name}`) }
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 console.log("\nA scheme's hover colours")
 {

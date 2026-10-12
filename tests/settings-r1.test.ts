@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { discardAllUnsaved, hasUnsaved, markDirty, requestLeave, saveAllUnsaved, setLeaveAsker, subscribeUnsaved } from "../lib/settings/unsaved-guard"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -14,7 +15,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 async function guard() {
   console.log("\nLeaving with changes that aren't saved\n")

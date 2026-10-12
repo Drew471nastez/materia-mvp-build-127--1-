@@ -220,6 +220,15 @@ export const PHONE_ROW =
  *   older than a week (an Intl format) is worked out once per post.
  */
 export const FIRST_CARDS = 8
+/** How long a finger rests on a card before it counts as a press worth reading ahead for (a scroll cancels it sooner). */
+export const READ_AHEAD_TOUCH_MS = 90
+/*
+  NO LINK IN A CARD FETCHES AHEAD (round 25, scrolling "smooth ... and good on slow networks"). Next fetches a page ahead
+  for every link that scrolls into view; a card has six (the author twice, the post twice, its space, its comments), and
+  none of them is a page load inside the community: the post opens over the feed, the person and the space are places of
+  the shell. Profiled at 4x CPU, the scheduling alone was about 50ms of every few flicks, plus a server request per card
+  on a phone's network. So every Link here has prefetch={false}.
+*/
 /** A card never seen yet: about a card with a line of words and its footer. */
 const CARD_GUESS_PX = 320
 const REMEMBERED = new Map<string, number>()
@@ -344,6 +353,16 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     if (Math.abs(d) < 1 || full) return
     for (const x of followers(el)) x.animate([{ translate: `0 ${-d}px` }, { translate: "0 0" }], { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
   }, [editing, full])
+
+  /* Its media warmed and its comments asked for, once a press is a press (A FINGER THAT SCROLLS IS NOT A PRESS, below). */
+  const aheadTimer = useRef(0)
+  const readAhead = () => {
+    window.clearTimeout(aheadTimer.current)
+    aheadTimer.current = 0
+    warmPostMedia(media, post.communityId, post.id)
+    void readAheadComments(post.communityId, post.id)
+  }
+  useEffect(() => () => window.clearTimeout(aheadTimer.current), [])
 
   /* The card opens its post over the feed; a link or a button inside it does its own thing. */
   const openPost = (e: React.MouseEvent) => {
@@ -510,7 +529,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     <header className="flex items-start gap-3">
       <span className="relative shrink-0">
         {author ? (
-          <Link href={memberHref(slug, author)} className="block rounded-full" data-person-link="" data-person-id={author.id}>
+          <Link prefetch={false} href={memberHref(slug, author)} className="block rounded-full" data-person-link="" data-person-id={author.id}>
             <MemberAvatar src={author.avatarUrl} name={author.name} alt="" size={40} />
           </Link>
         ) : (
@@ -522,7 +541,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         {/* One line: a long name is cut short before the role ever drops under it. */}
         <div className="flex min-w-0 items-center gap-x-1.5 text-[14.5px] leading-5" data-post-name-line="">
           {author ? (
-            <Link href={memberHref(slug, author)} className="truncate font-semibold text-[#1a1a2e] hover:underline" data-person-link="" data-person-id={author.id}>
+            <Link prefetch={false} href={memberHref(slug, author)} className="truncate font-semibold text-[#1a1a2e] hover:underline" data-person-link="" data-person-id={author.id}>
               {author.name}
             </Link>
           ) : (
@@ -531,7 +550,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           <RoleBadge role={author?.role} />
         </div>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 text-[13px] leading-5 text-[#6b7280]">
-          <Link href={href} className="hover:underline" suppressHydrationWarning data-post-open="" onClick={openPost}>
+          <Link prefetch={false} href={href} className="hover:underline" suppressHydrationWarning data-post-open="" onClick={openPost}>
             <time dateTime={post.createdAt} suppressHydrationWarning>
               {whenLabel(post.createdAt)}
             </time>
@@ -540,7 +559,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           {post.space ? (
             <>
               <span aria-hidden>·</span>
-              <Link href={`${base}/space/${post.space.slug}`} className="inline-flex min-w-0 max-w-[200px] items-center gap-1 font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e] hover:underline" data-post-space="">
+              <Link prefetch={false} href={`${base}/space/${post.space.slug}`} className="inline-flex min-w-0 max-w-[200px] items-center gap-1 font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e] hover:underline" data-post-space="">
                 <span aria-hidden className="shrink-0 text-[12px] leading-none no-underline" data-space-glyph="">
                   {spaceGlyph(post.space.icon, post.space.kind)}
                 </span>
@@ -588,8 +607,22 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           /* The opened post is portalled, but its presses still bubble here through React: only the card's own read ahead. */
           if (!e.currentTarget.contains(e.target as Node)) return
           if (e.button !== 0 || (e.target as HTMLElement).closest("button, [role=menu]")) return
-          warmPostMedia(media, post.communityId, post.id)
-          void readAheadComments(post.communityId, post.id)
+          /*
+            A FINGER THAT SCROLLS IS NOT A PRESS (round 25, the owner: scrolling the community "smooth ... and good on slow
+            networks"). Every flick starts on a card, so every flick read that post's comments and decoded its full size
+            pictures, on the main thread and the network, while the feed was moving (profiled at 4x CPU). A mouse still
+            reads ahead at once; a finger after READ_AHEAD_TOUCH_MS still on the card, or on its lift if it was quicker.
+            The browser cancels the pointer the moment the touch becomes a scroll, and that cancels this.
+          */
+          if (e.pointerType !== "touch") return readAhead()
+          aheadTimer.current = window.setTimeout(readAhead, READ_AHEAD_TOUCH_MS)
+        }}
+        onPointerUp={() => {
+          if (aheadTimer.current) readAhead()
+        }}
+        onPointerCancel={() => {
+          window.clearTimeout(aheadTimer.current)
+          aheadTimer.current = 0
         }}
       >
         {pinnedLine}
@@ -602,7 +635,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
               {post.kind === "announcement" ? <div className="mb-1 text-[12.5px] font-medium text-[#6b7280]">Announcement</div> : null}
               {post.title ? (
                 <h2 className="text-[17px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] sm:text-[18px]">
-                  <Link href={href} className="min-w-0 [overflow-wrap:anywhere] hover:underline" data-post-open="" onClick={openPost}>
+                  <Link prefetch={false} href={href} className="min-w-0 [overflow-wrap:anywhere] hover:underline" data-post-open="" onClick={openPost}>
                     {post.title}
                   </Link>
                 </h2>
@@ -717,7 +750,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
             <span className="tabular-nums">{post.commentCount > 0 ? post.commentCount : "Comment"}</span>
           </button>
         ) : (
-          <Link href={`${href}#comments`} className={`${BTN_GHOST} gap-2`} data-comment-button="">
+          <Link prefetch={false} href={`${href}#comments`} className={`${BTN_GHOST} gap-2`} data-comment-button="">
             <MessageCircle className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
             <span className="tabular-nums">{post.commentCount > 0 ? post.commentCount : "Comment"}</span>
           </Link>

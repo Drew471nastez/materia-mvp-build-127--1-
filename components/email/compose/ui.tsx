@@ -14,6 +14,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { cn } from "@/lib/utils"
 import { SWATCHES, safeColor } from "@/lib/email-campaigns/blocks"
+import { tt } from "@/lib/i18n/text"
 
 export { buttonAccent, buttonPrimary, buttonSecondary, card, iconButton, StatusBadge } from "@/app/app/orders/order-parts"
 
@@ -102,7 +103,7 @@ export function ColorChoice({ value, onChange, brand, large = false }: { value: 
   const current = value ? safeColor(value) : ""
   /* `large`: a thumb's size, for the button's sheet on a phone (./panels.tsx). */
   return (
-    <div className={cn("flex flex-wrap items-center gap-1.5", large && "gap-2.5 [&_button]:h-10 [&_button[aria-label]]:w-10 [&_label]:h-10 [&_button]:text-[14px] [&_label]:text-[14px]")} role="radiogroup" aria-label="Color">
+    <div className={cn("flex flex-wrap items-center gap-1.5", large && "gap-2.5 [&_button]:h-10 [&_button[aria-label]]:w-10 [&_label]:h-10 [&_button]:text-[14px] [&_label]:text-[14px]")} role="radiogroup" aria-label={tt("Color")}>
       <button
         type="button"
         role="radio"
@@ -114,7 +115,7 @@ export function ColorChoice({ value, onChange, brand, large = false }: { value: 
         )}
       >
         <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: brand || "#1a1a2e" }} />
-        Brand
+        {tt("Brand")}
       </button>
       {SWATCHES.map((c) => (
         <button
@@ -132,8 +133,8 @@ export function ColorChoice({ value, onChange, brand, large = false }: { value: 
       ))}
       <label className="relative ml-1 inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-[#e3e4e8] bg-white pl-1 pr-2.5 text-[12px] font-medium text-[#4b5563] hover:bg-[#f7f7f8]">
         <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: current || brand || "#1a1a2e" }} />
-        Custom
-        <input type="color" value={current || brand || "#1a1a2e"} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Custom color" />
+        {tt("Custom")}
+        <input type="color" value={current || brand || "#1a1a2e"} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={tt("Custom color")} />
       </label>
     </div>
   )

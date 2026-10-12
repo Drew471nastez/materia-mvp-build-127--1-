@@ -11,6 +11,7 @@ import { join } from "node:path"
 
 import { datetimeFromNow, datetimeInWords, normaliseDatetime } from "@/components/website-builder/editor/controls/datetime-control"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -19,7 +20,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 check("a date as it was typed into the old text box still reads", normaliseDatetime("2026-05-01 18:00") === "2026-05-01T18:00", normaliseDatetime("2026-05-01 18:00"))
 check("  as does the stored form, a zone kept", normaliseDatetime("2026-05-01T18:00+02:00") === "2026-05-01T18:00+02:00")

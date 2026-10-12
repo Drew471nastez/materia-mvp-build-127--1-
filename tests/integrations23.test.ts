@@ -23,6 +23,7 @@ import { ProviderError, checkoutIdOf, externalIdOf, providerMessage } from "@/li
 import { readPrintfulOrder } from "@/lib/integrations/fulfilment/printful"
 import { readPrintifyOrder } from "@/lib/integrations/fulfilment/printify"
 import { isShippingApp } from "@/lib/integrations/shipping/connect-server"
+import { untt } from "./i18n-source"
 
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key-for-integrations-0123456789"
 process.env.NEXT_PUBLIC_MAIN_DOMAIN = "storelib.com"
@@ -34,7 +35,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /* ── a stub of the providers' APIs ─────────────────────────────────────── */
 

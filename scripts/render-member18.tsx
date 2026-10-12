@@ -170,11 +170,15 @@ function Place() {
 }
 
 function Journey() {
-  const [where, setWhere] = useState<"community" | "full">("community")
-  ;(window as unknown as { __go: (w: "community" | "full") => void }).__go = (w) => {
+  const [where, setWhere] = useState<"community" | "full" | "loading">("community")
+  /* `loadingMs`: the route's loading screen first (app/(marketing)/u/[username]/loading.tsx, a plain page colour), as a page not read ahead commits, and the page that long after. */
+  ;(window as unknown as { __go: (w: "community" | "full", loadingMs?: number) => void }).__go = (w, loadingMs = 0) => {
     noteClientNavigation(w === "full" ? "/community/clay" : "/@sam.kerr")
-    setWhere(w)
+    if (!loadingMs) return setWhere(w)
+    setWhere("loading")
+    window.setTimeout(() => setWhere(w), loadingMs)
   }
+  if (where === "loading") return <div aria-busy="true" data-probe-loading="" className="min-h-screen" style={{ backgroundColor: "#f6f6f7" }} />
   return where === "community" ? (
     <Shell>
       <Place />

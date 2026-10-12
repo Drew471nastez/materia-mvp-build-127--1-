@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { actorLabel, describeActivity, groupOf } from "@/lib/activity/actions"
 import { loadActivity, recordActivity, taxRegionLabel } from "@/lib/activity/log-server"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -16,7 +17,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const line = (action: string, subjectLabel: string | null = null, meta: Record<string, unknown> = {}) => describeActivity({ action, subjectLabel, meta })
 
 console.log("\nWhat a row says")

@@ -19,6 +19,7 @@ import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
+import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 
@@ -436,6 +437,9 @@ interface SiteLocalization {
   markets: { id: string; countries: string[] }[]
   /** Active markets with a published language of their own: their visitors start in it (marketLanguageStart). */
   starts: { language: string; countries: string[] }[]
+  /** The website's own language, and whether visitors are shown theirs (visitorLanguageStart, SQL part 173). */
+  defaultLanguage?: string
+  visitorLanguage?: boolean
 }
 const NO_LOCALIZATION: SiteLocalization = { languages: [], markets: [], starts: [] }
 const localizationHeld = new Map<string, { at: number; value: SiteLocalization }>()
@@ -452,16 +456,20 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
     if (failed) return hit?.value ?? NO_LOCALIZATION
     let value = NO_LOCALIZATION
     if (facts.creatorId) {
-      const { data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle()
+      /* With Show visitors their own language (part 173); a database without its column is read as before, with it off. */
+      let { data, error } = await db.from("store_localization").select("default_language, languages, markets, visitor_language").eq("creator_id", facts.creatorId).maybeSingle()
+      if (error && /visitor_language/.test(error.message ?? "")) ({ data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle())
       /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
       if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
-      const row = data as { default_language?: string; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; language?: unknown; active?: unknown; primary?: unknown }[] } | null
+      const row = data as { default_language?: string; visitor_language?: boolean | null; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; language?: unknown; active?: unknown; primary?: unknown }[] } | null
       const def = (row?.default_language ?? "").toLowerCase()
       const languages = (Array.isArray(row?.languages) ? row!.languages : [])
         .filter((l) => l?.published === true && typeof l.code === "string" && l.code.toLowerCase() !== def)
         .map((l) => String(l.code))
       value = {
         languages,
+        defaultLanguage: row?.default_language || "en",
+        visitorLanguage: row?.visitor_language === true,
         starts: (Array.isArray(row?.markets) ? row!.markets : [])
           .filter((m) => m && m.primary !== true && m.active !== false && typeof m.language === "string" && languages.some((l) => l.toLowerCase() === String(m.language).toLowerCase()))
           .map((m) => ({ language: String(m.language).toLowerCase(), countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string") })),
@@ -532,6 +540,57 @@ async function marketLanguageStart(request: NextRequest, username: string, pathn
   const r = NextResponse.redirect(to, 307)
   r.cookies.set("sl_lang", start.language, { path: "/", maxAge: 31_536_000, sameSite: "lax", secure: true })
   r.headers.set("Cache-Control", "private, no-store")
+  return r
+}
+
+/*
+  SHOW VISITORS THEIR OWN LANGUAGE (Settings › Markets and languages, part
+  173; lib/markets/visitor-language.ts). On a visitor's first page, with no
+  language of their own chosen yet (sl_lang): the first language their
+  browser asks for that the website has exactly sends them there once from
+  a page in the website's own language, remembered (sl_lang), like a
+  market's own language above. A near match, or only their country to go
+  by, is offered instead: the language is named for this visit
+  (sl_suggest, a session cookie) and the page's own card offers it
+  (lib/markets/suggest-script.ts). Never a crawler, a script, a form, the
+  cart, checkout or account, never a preview; the address always wins.
+*/
+async function visitorLanguageStart(request: NextRequest, username: string, pathname: string): Promise<{ redirect: NextResponse } | { suggest: string } | null> {
+  if (request.method !== "GET" || request.cookies.get("sl_lang")?.value || request.cookies.get("sl_suggest")?.value) return null
+  /* A script, a picture, a theme's /cart.js: not a page, and not worth the settings read. */
+  if (!(request.headers.get("accept") ?? "").includes("text/html")) return null
+  const loc = await siteLocalizationFor(username)
+  if (!loc.visitorLanguage || loc.languages.length === 0) return null
+  const seen = request.headers.get("x-vercel-ip-country")
+  const decided = visitorLanguageDecision({
+    method: request.method,
+    dest: request.headers.get("sec-fetch-dest"),
+    accept: request.headers.get("accept"),
+    userAgent: request.headers.get("user-agent"),
+    pathname,
+    skip: NEVER_STARTED.test(pathname) || request.nextUrl.searchParams.has("preview"),
+    chosen: null,
+    offered: null,
+    on: true,
+    defaultLanguage: loc.defaultLanguage || "en",
+    others: loc.languages,
+    acceptLanguage: request.headers.get("accept-language"),
+    country: seen && /^[A-Za-z]{2}$/.test(seen) ? seen : null,
+  })
+  if (!decided) return null
+  if (decided.kind === "suggest") return { suggest: decided.language }
+  const to = request.nextUrl.clone()
+  to.pathname = decided.to
+  const r = NextResponse.redirect(to, 307)
+  r.cookies.set("sl_lang", decided.language.toLowerCase(), { path: "/", maxAge: 31_536_000, sameSite: "lax", secure: true })
+  r.headers.set("Cache-Control", "private, no-store")
+  r.headers.set("Vary", "Accept-Language, Cookie")
+  return { redirect: r }
+}
+
+/** The language a visitor's page offers (visitorLanguageStart), named for this visit only (a session cookie). */
+function offerLanguage(r: NextResponse, suggest: string | null | undefined): NextResponse {
+  if (suggest) r.cookies.set("sl_suggest", suggest.toLowerCase(), { path: "/", sameSite: "lax", secure: true })
   return r
 }
 
@@ -667,6 +726,8 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   */
   const started = await marketLanguageStart(request, name, pathname)
   if (started) return started
+  const own = await visitorLanguageStart(request, name, pathname)
+  if (own && "redirect" in own) return own.redirect
   let locale: string | null = null
   let asked = pathname
   if (LANGUAGE_FIRST.test(pathname)) {
@@ -710,7 +771,7 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   if (market) headers.set(SITE_MARKET_HEADER, market)
   const seal = await sealSite(name, siteHostOf(request.headers))
   if (seal) headers.set(SITE_SEAL_HEADER, seal)
-  const r = NextResponse.rewrite(to, { request: { headers } })
+  const r = offerLanguage(NextResponse.rewrite(to, { request: { headers } }), own && "suggest" in own && !gated ? own.suggest : null)
   if (gated) r.headers.set("X-Robots-Tag", "noindex")
   /*
     No Cache-Control here: the handler sets its own on every answer (a page
@@ -1502,6 +1563,9 @@ export async function proxy(request: NextRequest) {
       /* A market's own language on a visitor's first page (marketLanguageStart). */
       const started = isWebsite && !seoFile && !looksLikeFile ? await marketLanguageStart(request, subdomain, pathname) : null
       if (started) return started
+      /* The visitor's own language: there once, or offered (visitorLanguageStart). */
+      const own = isWebsite && !seoFile && !looksLikeFile ? await visitorLanguageStart(request, subdomain, pathname) : null
+      if (own && "redirect" in own) return own.redirect
       /* /fr/about: the page in French, or /fr/cart on to /cart (inSiteLanguage). */
       const inLanguage = isWebsite && !seoFile && !looksLikeFile ? await inSiteLanguage(subdomain, pathname, request) : null
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
@@ -1510,7 +1574,7 @@ export async function proxy(request: NextRequest) {
           ? inLanguage.path
           : `/w/${subdomain}${pathname === "/" ? "" : pathname}`
         : `/site/${subdomain}${pathname === "/" ? "" : pathname}`
-      const rewritten = NextResponse.rewrite(url)
+      const rewritten = offerLanguage(NextResponse.rewrite(url), own && "suggest" in own ? own.suggest : null)
 
       /**
        * THE LANDING PAGE'S CACHE RULE WAS EATING EVERY SITE HOMEPAGE.
@@ -1851,6 +1915,8 @@ export async function proxy(request: NextRequest) {
     let rewritePath: string
     /* The website asks for a password and this visitor has a pass: their answer is not for a shared cache. */
     let guardedDomain = false
+    /* A language the visitor's page offers (visitorLanguageStart), on a connected domain as on the subdomain. */
+    let domainSuggest: string | null = null
 
     /**
      * ═════════════════════════════════════════════════════════════════════════
@@ -1921,6 +1987,9 @@ export async function proxy(request: NextRequest) {
       /* A market's own language on a visitor's first page, then /fr/about on a connected domain, as on the subdomain (inSiteLanguage). */
       const started = await marketLanguageStart(request, username, pathname)
       if (started) return started
+      const own = await visitorLanguageStart(request, username, pathname)
+      if (own && "redirect" in own) return own.redirect
+      if (own && "suggest" in own) domainSuggest = own.suggest
       const inLanguage = await inSiteLanguage(username, pathname, request)
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
       rewritePath = inLanguage?.kind === "page" ? inLanguage.path : `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
@@ -1958,7 +2027,7 @@ export async function proxy(request: NextRequest) {
       else if (/~m-/.test(rewritePath)) r.headers.set("Cache-Control", "private, no-cache")
       if (isCustomDomain) r.headers.set("x-custom-domain", host.split(":")[0])
       selfFramedWishlist(r, request)
-      return r
+      return offerLanguage(r, guardedDomain ? null : domainSuggest)
     }
     /* Why a storefront is no-cache, set in `respond` just above: */
 
@@ -2245,8 +2314,10 @@ export async function proxy(request: NextRequest) {
       origin posts to it, and it is framed on the same terms as the others.
     */
     /* And the page a website's cover is taken of, shown small on the owner's Website page while its photograph is on its way (a pass for one install, two minutes). */
+    /* And Settings' Google Analytics check, a blank page that loads the store's tag in a hidden frame of the settings page (app/api/store/ga-check). */
     const framableWhenEmbedded =
       url.pathname === "/onepage-preview" ||
+      url.pathname === "/api/store/ga-check" ||
       url.pathname.startsWith("/cover-render/") ||
       url.pathname.startsWith("/website-builder/code/") ||
       url.pathname.startsWith("/u/") ||

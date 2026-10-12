@@ -55,6 +55,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * How the page's sections are reordered: the row dragged, and the row whose
@@ -107,7 +108,7 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
 }
 
 /** "Add section": the tree's own Add line (tree-parts.tsx), so it sits on the grid every row sits on. */
-export function AddSectionButton({ onClick, label = "Add section" }: { onClick: () => void; label?: string }) {
+export function AddSectionButton({ onClick, label = tt("Add section") }: { onClick: () => void; label?: string }) {
   return <TreeAddRow data-add-section="" label={label} onClick={onClick} />
 }
 
@@ -123,7 +124,7 @@ function InsertSectionDivider({ onClick }: { onClick: () => void }) {
       data-insert-section=""
       role="button"
       tabIndex={-1}
-      aria-label="Add a section here"
+      aria-label={tt("Add a section here")}
       className="group/ins relative flex h-1.5 cursor-pointer select-none items-center justify-center"
       onClick={onClick}
     >
@@ -241,7 +242,7 @@ export function SectionRow({
         <TreeTwisty
           expanded={!!expanded}
           onToggle={() => onToggleExpand?.()}
-          label={expanded ? `Hide the blocks in ${displayName}` : `Show the blocks in ${displayName}`}
+          label={expanded ? tt("Hide the blocks in {displayName}", { displayName }) : tt("Show the blocks in {displayName}", { displayName })}
           data-section-expand={section.id}
         />
       ) : (
@@ -266,7 +267,7 @@ export function SectionRow({
           {...(dragHandleProps ?? {})}
           role="button"
           tabIndex={0}
-          aria-label={`Drag ${displayName} to reorder`}
+          aria-label={tt("Drag {displayName} to reorder", { displayName })}
           className={cn(
             "relative flex h-6 w-5 shrink-0 touch-none cursor-grab items-center justify-center rounded transition-colors active:cursor-grabbing max-sm:h-8",
             /*
@@ -287,12 +288,12 @@ export function SectionRow({
 
       <span className="flex shrink-0 items-center gap-0.5">
         {/* The eye: always shown on a hidden row, which needs a way back; under the pointer otherwise. */}
-        <RowAction label={hidden ? `Show ${displayName}` : `Hide ${displayName}`} onClick={onToggleHide} selected={isSelected} shown={hidden || isSelected}>
+        <RowAction label={hidden ? tt("Show {displayName}", { displayName }) : tt("Hide {displayName}", { displayName })} onClick={onToggleHide} selected={isSelected} shown={hidden || isSelected}>
           {hidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />}
         </RowAction>
 
         {!chrome && onRemove && (
-          <RowAction label={`Delete ${displayName}`} onClick={onRemove} selected={isSelected} shown={isSelected}>
+          <RowAction label={tt("Delete {displayName}", { displayName })} onClick={onRemove} selected={isSelected} shown={isSelected}>
             <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
           </RowAction>
         )}
@@ -303,7 +304,7 @@ export function SectionRow({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label={`More for ${displayName}`}
+              aria-label={tt("More for {displayName}", { displayName })}
               onClick={(e) => e.stopPropagation()}
               className={cn(
                 "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
@@ -318,31 +319,31 @@ export function SectionRow({
             {onDuplicate && (
               <DropdownMenuItem className={ItemClass} onClick={onDuplicate}>
                 <Copy className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                Duplicate
+                {tt("Duplicate")}
               </DropdownMenuItem>
             )}
             {onMoveUp && (
               <DropdownMenuItem className={ItemClass} onClick={onMoveUp}>
                 <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                Move up
+                {tt("Move up")}
               </DropdownMenuItem>
             )}
             {onMoveDown && (
               <DropdownMenuItem className={ItemClass} onClick={onMoveDown}>
                 <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                Move down
+                {tt("Move down")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem className={ItemClass} onClick={onToggleHide}>
               {hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />}
-              {hidden ? "Show" : "Hide"}
+              {hidden ? tt("Show") : tt("Hide")}
             </DropdownMenuItem>
             {onRemove && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className={ItemClass} onClick={onRemove}>
                   <Trash2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                  Delete
+                  {tt("Delete")}
                 </DropdownMenuItem>
               </>
             )}
@@ -453,7 +454,7 @@ export function SectionsList({
       <div data-section-group="template">
         <GroupLabel>{GROUP_LABELS.template}</GroupLabel>
         {body.length === 0 ? (
-          <p className="px-1 py-1.5 pl-[50px] text-[12px] text-[#6b7280]">No sections on this page yet.</p>
+          <p className="px-1 py-1.5 pl-[50px] text-[12px] text-[#6b7280]">{tt("No sections on this page yet.")}</p>
         ) : (
           <>
             <InsertSectionDivider onClick={() => onAdd(0, "template")} />

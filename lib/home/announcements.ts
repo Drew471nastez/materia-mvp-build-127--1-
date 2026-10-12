@@ -46,6 +46,8 @@ import { moneyOf } from "../analytics/reports"
 import { computeApplicationFee } from "../billing/fee-calculator"
 import { PRO_PRICE_CENTS } from "../billing/plans"
 import { homeProgress, nextSetupStep, type ProgressFacts } from "./progress"
+import { appLocale } from "@/lib/i18n/format"
+import { activeLanguage, tt } from "@/lib/i18n/text"
 
 export type AnnouncementId =
   | "welcome"
@@ -212,24 +214,31 @@ export const NO_SALES: SalesSummary = { count: 0, cents: 0, first: null, last30:
 export function money(cents: number): string {
   const whole = Math.round(cents) % 100 === 0 || Math.abs(cents) >= 100_000
   const dollars = whole ? Math.round(cents / 100) : cents / 100
-  return `$${dollars.toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })}`
+  /* Intl places the sign where the language does: $1,240 in English, 1.240 $ in German. */
+  return dollars.toLocaleString(appLocale(), { style: "currency", currency: "USD", minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })
 }
 
 /** How long ago, in the words a person uses. Hours and days since, never a weekday, so it reads the same in every time zone. */
 export function ago(at: number, now: number): string {
   const ms = Math.max(0, now - at)
-  if (ms < HOUR) return "in the last hour"
+  if (ms < HOUR) return tt("in the last hour")
   const hours = Math.floor(ms / HOUR)
-  if (hours < 24) return hours === 1 ? "an hour ago" : `${hours} hours ago`
+  if (hours < 24) return tt("{hours, plural, one {an hour ago} other {# hours ago}}", { hours })
   const days = Math.floor(ms / DAY)
-  return days === 1 ? "a day ago" : `${days} days ago`
+  return tt("{days, plural, one {a day ago} other {# days ago}}", { days })
 }
 
-/** 10th, 21st, 1,000th. */
+/** 10th, 21st, 1,000th; 10. in German and Polish, 10e in French, 10.ª, 10ª in Spanish, Italian and Portuguese (a sale is feminine there). */
 export function ordinal(n: number): string {
+  const num = n.toLocaleString(appLocale())
+  const lang = activeLanguage()
+  if (lang === "de" || lang === "pl") return `${num}.`
+  if (lang === "fr") return n === 1 ? "1re" : `${num}e`
+  if (lang === "es") return `${num}.ª`
+  if (lang === "it" || lang === "pt-BR" || lang === "pt") return `${num}ª`
   const tens = n % 100
   const suffix = tens >= 11 && tens <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")
-  return `${n.toLocaleString("en-US")}${suffix}`
+  return `${num}${suffix}`
 }
 
 /* ─── The rules ────────────────────────────────────────────────────────── */
@@ -273,10 +282,10 @@ export const RULES: readonly Rule[] = [
     applies: isNew,
     write: () => ({
       tone: "next",
-      eyebrow: "Welcome to Storelib",
-      title: "Your store opens in three steps",
-      line: "A product, payouts, then your link.",
-      cta: "Show me how",
+      eyebrow: tt("Welcome to Storelib"),
+      title: tt("Your store opens in three steps"),
+      line: tt("A product, payouts, then your link."),
+      cta: tt("Show me how"),
       href: "/app/products/new",
       action: "guide",
     }),
@@ -295,21 +304,21 @@ export const RULES: readonly Rule[] = [
     write: (p) => {
       const state = p.paymentsState ?? "not_started"
       if (state === "identity")
-        return { tone: "critical", eyebrow: "Action required", title: "Verify your identity", line: "We need a little more information before payouts can continue.", cta: "Verify now", href: "/app/payouts" }
+        return { tone: "critical", eyebrow: tt("Action required"), title: tt("Verify your identity"), line: tt("We need a little more information before payouts can continue."), cta: tt("Verify now"), href: "/app/payouts" }
       if (state === "info")
-        return { tone: "critical", eyebrow: "Action required", title: "More information needed", line: "Update your payout details to keep your account active.", cta: "Update details", href: "/app/payouts" }
+        return { tone: "critical", eyebrow: tt("Action required"), title: tt("More information needed"), line: tt("Update your payout details to keep your account active."), cta: tt("Update details"), href: "/app/payouts" }
       if (state === "paused")
-        return { tone: "critical", eyebrow: "Action required", title: "Payouts are temporarily paused", line: "Complete the requested verification to resume payouts.", cta: "Fix now", href: "/app/payouts" }
+        return { tone: "critical", eyebrow: tt("Action required"), title: tt("Payouts are temporarily paused"), line: tt("Complete the requested verification to resume payouts."), cta: tt("Fix now"), href: "/app/payouts" }
       if (state === "review")
-        return { tone: "next", eyebrow: "Payments", title: "Verification in progress", line: "We're checking your information. No action is needed right now.", cta: "View payouts", href: "/app/payouts" }
+        return { tone: "next", eyebrow: tt("Payments"), title: tt("Verification in progress"), line: tt("We're checking your information. No action is needed right now."), cta: tt("View payouts"), href: "/app/payouts" }
       if (state === "setup")
-        return { tone: "critical", eyebrow: "Needed to sell", title: "Finish setting up payments", line: "Add your payout account to start accepting payments.", cta: "Finish setup", href: "/app/payouts" }
+        return { tone: "critical", eyebrow: tt("Needed to sell"), title: tt("Finish setting up payments"), line: tt("Add your payout account to start accepting payments."), cta: tt("Finish setup"), href: "/app/payouts" }
       return {
         tone: "critical",
-        eyebrow: "Needed to sell",
-        title: "Set up payouts",
-        line: p.hasProduct ? "Buyers can't check out until you do." : "Get paid directly to your bank account.",
-        cta: "Set up payouts",
+        eyebrow: tt("Needed to sell"),
+        title: tt("Set up payouts"),
+        line: p.hasProduct ? tt("Buyers can't check out until you do.") : tt("Get paid directly to your bank account."),
+        cta: tt("Set up payouts"),
         href: "/app/payouts",
       }
     },
@@ -320,10 +329,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => !p.hasProduct,
     write: () => ({
       tone: "next",
-      eyebrow: "Start here",
-      title: "Add your first product",
-      line: "Upload a file, set a price, done.",
-      cta: "Add product",
+      eyebrow: tt("Start here"),
+      title: tt("Add your first product"),
+      line: tt("Upload a file, set a price, done."),
+      cta: tt("Add product"),
       href: "/app/products/new",
     }),
   },
@@ -335,10 +344,10 @@ export const RULES: readonly Rule[] = [
       const first = p.sales.first!
       return {
         tone: "celebrate",
-        eyebrow: "First sale",
-        title: "You made your first sale",
-        line: `${money(first.cents)}, ${ago(first.at, now)}. See who bought it.`,
-        cta: "View order",
+        eyebrow: tt("First sale"),
+        title: tt("You made your first sale"),
+        line: tt("{amount}, {when}. See who bought it.", { amount: money(first.cents), when: ago(first.at, now) }),
+        cta: tt("View order"),
         href: `/app/orders/${encodeURIComponent(first.id)}`,
       }
     },
@@ -351,12 +360,12 @@ export const RULES: readonly Rule[] = [
       const m = p.sales.milestone!
       return {
         tone: "celebrate",
-        eyebrow: "Milestone",
-        title: m.kind === "money" ? `You passed ${money(m.value)} in sales` : `Your ${ordinal(m.value)} sale`,
+        eyebrow: tt("Milestone"),
+        title: m.kind === "money" ? tt("You passed {amount} in sales", { amount: money(m.value) }) : tt("Your {nth} sale", { nth: ordinal(m.value) }),
         line: m.kind === "money"
-          ? `It happened ${ago(m.at, now)}, across ${p.sales.count.toLocaleString("en-US")} sales.`
-          : `It came in ${ago(m.at, now)}. ${money(p.sales.cents)} so far.`,
-        cta: "See analytics",
+          ? tt("It happened {when}, across {count, plural, one {# sale} other {# sales}}.", { when: ago(m.at, now), count: p.sales.count })
+          : tt("It came in {when}. {amount} so far.", { when: ago(m.at, now), amount: money(p.sales.cents) }),
+        cta: tt("See analytics"),
         href: "/app/analytics",
       }
     },
@@ -369,10 +378,10 @@ export const RULES: readonly Rule[] = [
       const { feeFreeCents, feeProCents } = p.sales.last30
       return {
         tone: "offer",
-        eyebrow: "Pro plan",
-        title: `Pro would have saved you ${money(proSaving(p))}`,
-        line: `Fees, 30 days: ${money(feeFreeCents)} on Free, ${money(feeProCents + PRO_PRICE_CENTS)} on Pro.`,
-        cta: "See Pro",
+        eyebrow: tt("Pro plan"),
+        title: tt("Pro would have saved you {amount}", { amount: money(proSaving(p)) }),
+        line: tt("Fees, 30 days: {amount} on Free, {amount2} on Pro.", { amount: money(feeFreeCents), amount2: money(feeProCents + PRO_PRICE_CENTS) }),
+        cta: tt("See Pro"),
         href: "/app/settings/billing/upgrade",
       }
     },
@@ -383,10 +392,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => p.hasProduct && p.hasPayouts && !hasSale(p) && p.canShare,
     write: () => ({
       tone: "next",
-      eyebrow: "Next step",
-      title: "Share your store",
-      line: "Put your link in your bio or a post.",
-      cta: "Share link",
+      eyebrow: tt("Next step"),
+      title: tt("Share your store"),
+      line: tt("Put your link in your bio or a post."),
+      cta: tt("Share link"),
       href: "/app",
       action: "share",
     }),
@@ -397,10 +406,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => p.hasProduct && !p.websitePublished,
     write: () => ({
       tone: "next",
-      eyebrow: "Next step",
-      title: "Publish your website",
-      line: "Pick a theme and put your site live.",
-      cta: "Open builder",
+      eyebrow: tt("Next step"),
+      title: tt("Publish your website"),
+      line: tt("Pick a theme and put your site live."),
+      cta: tt("Open builder"),
       href: "/app/website-builder",
     }),
   },
@@ -410,10 +419,10 @@ export const RULES: readonly Rule[] = [
     applies: isNew,
     write: () => ({
       tone: "tip",
-      eyebrow: "Website",
-      title: "Describe a section, get it built",
-      line: "Ask Storelib writes it. Change it after.",
-      cta: "Open builder",
+      eyebrow: tt("Website"),
+      title: tt("Describe a section, get it built"),
+      line: tt("Ask Storelib writes it. Change it after."),
+      cta: tt("Open builder"),
       href: "/app/website-builder",
     }),
   },
@@ -423,10 +432,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => hasSale(p) && p.activeAutomations === 0,
     write: () => ({
       tone: "tip",
-      eyebrow: "Emails",
-      title: "Thank every buyer by email",
-      line: "Email every new buyer, automatically.",
-      cta: "Choose automation",
+      eyebrow: tt("Emails"),
+      title: tt("Thank every buyer by email"),
+      line: tt("Email every new buyer, automatically."),
+      cta: tt("Choose automation"),
       href: "/app/emails/flow/new",
     }),
   },
@@ -436,10 +445,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => p.websitePublished && p.subscribers === 0,
     write: () => ({
       tone: "tip",
-      eyebrow: "Emails",
-      title: "Collect emails on your site",
-      line: "Add a Newsletter section to your site.",
-      cta: "Add section",
+      eyebrow: tt("Emails"),
+      title: tt("Collect emails on your site"),
+      line: tt("Add a Newsletter section to your site."),
+      cta: tt("Add section"),
       href: "/app/website-builder",
     }),
   },
@@ -449,10 +458,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => isPaidPlan(p.plan) && p.websitePublished && !p.hasDomain,
     write: () => ({
       tone: "next",
-      eyebrow: "Included in Pro",
-      title: "Connect your domain",
-      line: "Put your website on yourname.com.",
-      cta: "Connect domain",
+      eyebrow: tt("Included in Pro"),
+      title: tt("Connect your domain"),
+      line: tt("Put your website on yourname.com."),
+      cta: tt("Connect domain"),
       href: "/app/settings?tab=domains",
     }),
   },
@@ -463,10 +472,10 @@ export const RULES: readonly Rule[] = [
     applies: (p) => !isPaidPlan(p.plan) && p.websitePublished && !p.hasDomain && !proSaves(p),
     write: () => ({
       tone: "offer",
-      eyebrow: "Pro plan",
-      title: "Put your site on yourname.com",
-      line: "Your own domain, and 3% fees instead of 5%.",
-      cta: "See Pro",
+      eyebrow: tt("Pro plan"),
+      title: tt("Put your site on yourname.com"),
+      line: tt("Your own domain, and 3% fees instead of 5%."),
+      cta: tt("See Pro"),
       href: "/app/settings/billing/upgrade",
     }),
   },
@@ -479,10 +488,10 @@ const FALLBACK_FREE: Rule = {
   applies: (p) => !isPaidPlan(p.plan),
   write: () => ({
     tone: "offer",
-    eyebrow: "Pro plan",
-    title: "Keep more of every sale",
-    line: "3% fees instead of 5%, and your own domain.",
-    cta: "See Pro",
+    eyebrow: tt("Pro plan"),
+    title: tt("Keep more of every sale"),
+    line: tt("3% fees instead of 5%, and your own domain."),
+    cta: tt("See Pro"),
     href: "/app/settings/billing/upgrade",
   }),
 }
@@ -492,10 +501,10 @@ const FALLBACK_PAID: Rule = {
   applies: (p) => isPaidPlan(p.plan),
   write: () => ({
     tone: "tip",
-    eyebrow: "All set",
-    title: "Your store is set up",
-    line: "See where visitors come from and what sells.",
-    cta: "View analytics",
+    eyebrow: tt("All set"),
+    title: tt("Your store is set up"),
+    line: tt("See where visitors come from and what sells."),
+    cta: tt("View analytics"),
     href: "/app/analytics",
   }),
 }

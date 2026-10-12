@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Plus, X, AlertCircle } from "lucide-react"
 import Image from "next/image"
+import { tt } from "@/lib/i18n/text"
 
 interface GalleryUploadProps {
   folder: string
@@ -24,7 +25,7 @@ export function GalleryUpload({ folder, value = [], onChange, maxImages = 8, max
   const handleUpload = useCallback(
     async (files: FileList) => {
       if (value.length + files.length > maxImages) {
-        setError(`Maximum ${maxImages} images allowed`)
+        setError(tt("Maximum {maxImages} images allowed", { maxImages }))
         return
       }
 
@@ -42,7 +43,7 @@ export function GalleryUpload({ folder, value = [], onChange, maxImages = 8, max
           // Validate
           if (!file.type.startsWith("image/")) continue
           if (file.size > maxSizeMB * 1024 * 1024) {
-            setError(`${file.name} exceeds ${maxSizeMB}MB limit`)
+            setError(tt("{name} exceeds {maxSizeMB}MB limit", { name: file.name, maxSizeMB }))
             continue
           }
 
@@ -70,7 +71,7 @@ export function GalleryUpload({ folder, value = [], onChange, maxImages = 8, max
 
         onChange([...value, ...newUrls])
       } catch (err) {
-        setError("Failed to upload images")
+        setError(tt("Failed to upload images"))
       } finally {
         setUploading(false)
         setProgress(0)
@@ -93,7 +94,7 @@ export function GalleryUpload({ folder, value = [], onChange, maxImages = 8, max
       <div className="grid grid-cols-4 gap-3">
         {value.map((url, index) => (
           <div key={url} className="group relative aspect-square overflow-hidden rounded-lg border border-border">
-            <Image src={url || "/placeholder.svg"} alt={`Gallery image ${index + 1}`} fill className="object-cover" />
+            <Image src={url || "/placeholder.svg"} alt={tt("Gallery image {value}", { value: index + 1 })} fill className="object-cover" />
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
               <Button
                 type="button"
@@ -126,7 +127,7 @@ export function GalleryUpload({ folder, value = [], onChange, maxImages = 8, max
             ) : (
               <>
                 <Plus className="h-6 w-6 text-muted-foreground" />
-                <span className="mt-1 text-xs text-muted-foreground">Add</span>
+                <span className="mt-1 text-xs text-muted-foreground">{tt("Add")}</span>
               </>
             )}
           </button>
@@ -151,7 +152,7 @@ export function GalleryUpload({ folder, value = [], onChange, maxImages = 8, max
       )}
 
       <p className="text-xs text-muted-foreground">
-        {value.length}/{maxImages} images
+        {tt("{length}/{maxImages} images", { length: value.length, maxImages })}
       </p>
     </div>
   )

@@ -9,6 +9,7 @@ import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useFrameCommit } from "./use-frame-commit"
 import { liveGesture } from "@/lib/website-builder/live-settings"
+import { tt } from "@/lib/i18n/text"
 
 // ── HSV ↔ HEX helpers ────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -247,7 +248,7 @@ export function ColorPickerPanel({
 
       {existing.length > 0 && (
         <div className="mt-2.5">
-          <p className="text-[10px] font-medium text-muted-foreground mb-1">Existing colors</p>
+          <p className="text-[10px] font-medium text-muted-foreground mb-1">{tt("Existing colors")}</p>
           <div className="grid grid-cols-8 gap-1">
             {existing.map((c, i) => (
               <button
@@ -256,7 +257,7 @@ export function ColorPickerPanel({
                 onClick={() => { onChange(c); onDone?.() }}
                 className="h-5 w-5 rounded border border-border hover:scale-110 transition-transform"
                 style={{ background: c }}
-                aria-label={`Use ${c}`}
+                aria-label={tt("Use {c}", { c })}
               />
             ))}
           </div>
@@ -269,7 +270,7 @@ export function ColorPickerPanel({
         className="mt-2.5 w-full h-8 flex items-center justify-center gap-1.5 text-[12px] font-medium border border-border rounded-lg hover:bg-muted transition-colors"
       >
         <span className="inline-block h-3.5 w-3.5 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
-        Don&apos;t apply any color
+        {tt("Don't apply any color")}
       </button>
     </div>
   )
@@ -384,7 +385,7 @@ export function ColorChip({
           ref={triggerRef}
           type="button"
           onClick={() => setOpen(!open)}
-          aria-label={label ? `${label}: ${isTransparent ? "none" : value.toUpperCase()}${hint ? `, ${hint}` : ""}` : "Pick color"}
+          aria-label={label ? `${label}: ${isTransparent ? "none" : value.toUpperCase()}${hint ? `, ${hint}` : ""}` : tt("Pick color")}
           aria-expanded={open}
           data-color-field=""
           className={cn(
@@ -398,7 +399,7 @@ export function ColorChip({
             style={{ background: swatchBg }}
           />
           <span className={cn("min-w-0 flex-1 truncate text-[12px] tabular-nums", muted ? "text-muted-foreground" : "text-foreground")}>
-            {isTransparent ? "None" : value.toUpperCase()}
+            {isTransparent ? tt("None") : value.toUpperCase()}
           </span>
           {/* "Scheme" and "Default" are said by the grey of the value and read out to a screen reader; only "Auto" is written, and it fits beside a full hex. */}
           {hint === "Auto" ? <span className="shrink-0 text-[10.5px] text-muted-foreground/80">{hint}</span> : null}
@@ -415,7 +416,7 @@ export function ColorChip({
         type="button"
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 h-7 px-1.5 rounded border border-border hover:border-foreground/30 transition-colors cursor-pointer"
-        aria-label="Pick color"
+        aria-label={tt("Pick color")}
       >
         <span
           className="h-5 w-5 rounded-full border border-border shrink-0"

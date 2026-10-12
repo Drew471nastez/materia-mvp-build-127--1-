@@ -49,6 +49,7 @@ import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { PROFILE_AVATAR_PX } from "@/components/profile/profile-hero"
 import { isValidUsername } from "@/lib/reserved-words"
 import { NEW_PRODUCT_HREF, sectionsWithoutProducts, tabsWithoutProducts } from "@/components/storefront/no-products"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -65,7 +66,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 /* ── A small PostgREST stand in: enough of the builder for these readers ─── */
 
@@ -479,7 +480,7 @@ async function main() {
     check("arrived from another page: shown", cameFromElsewhere("/library", "/maya") && cameFromElsewhere("/community/x", ["/maya", "/u/maya"]) && cameFromElsewhere("/p/glaze", "/maya"))
     check("a reload of the same page, a sign in, nothing or another site: not shown", !cameFromElsewhere("/maya/", ["/maya", "/u/maya"]) && !cameFromElsewhere("/U/Maya?x=1", ["/maya", "/u/maya"]) && !cameFromElsewhere("/login", "/maya") && !cameFromElsewhere(null, "/maya") && !cameFromElsewhere("//evil.example/x", "/maya"))
     const creatorPage = read("app/(marketing)/u/[username]/page.tsx")
-    check("  the creator page asks the same rule of the Referer, with every address it answers to", /cameFromElsewhere\(refererPath\(requestHeaders\.get\("referer"\), requestHeaders\.get\("host"\)\), ownPaths\)/.test(creatorPage) && /ownPaths\.push\("\/"\)/.test(creatorPage))
+    check("  the creator page asks the same rule of the Referer, with every address it answers to", /const cameFrom = refererPath\(requestHeaders\.get\("referer"\), requestHeaders\.get\("host"\)\)/.test(creatorPage) && /cameFromElsewhere\(cameFrom, ownPaths\)/.test(creatorPage) && /ownPaths\.push\("\/"\)/.test(creatorPage)) // Changed on purpose (round 25): the Referer is read once into cameFrom, which the top bar rule also uses
     check("  and so does a profile", /cameFromElsewhere\(refererPath\(head\.get\("referer"\), head\.get\("host"\)\), ownPaths\)/.test(read("app/(marketing)/member/[username]/page.tsx")))
     /* Round 9: "the back icon next to the avatar in the profile top bar is smooth and works on the first tap". */
     check("the chevron answers the press at once, set on the element without a React render: a tint, no shrink", /onPointerDown=\{\(e\) => \{[\s\S]{0,80}e\.currentTarget\.dataset\.pressed = ""/.test(bar) && /data-\[pressed\]:duration-0/.test(bar) && !/setPressed|scale-\[/.test(stripComments(bar)) && /touch-manipulation/.test(bar))

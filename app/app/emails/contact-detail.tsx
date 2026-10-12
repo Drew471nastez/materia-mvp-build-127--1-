@@ -40,6 +40,8 @@ import { sourceView } from "@/lib/contacts/contact-source"
 import { cn } from "@/lib/utils"
 import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import type { SubscriberRow } from "./emails-home"
+import { tt, ttx } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 interface RunLite {
   id: string
@@ -169,28 +171,28 @@ export function contactReady(email: string): Promise<void> {
 
 /** Where a contact stands, in a word: the words the list's badge and Status filter use too. */
 export function contactStatusLabel(s: Pick<SubscriberRow, "status" | "unsubscribed_at">): string {
-  if (s.status === "subscribed") return s.unsubscribed_at ? "Resubscribed" : "Subscribed"
-  if (s.status === "customer") return "Customer"
+  if (s.status === "subscribed") return s.unsubscribed_at ? tt("Resubscribed") : tt("Subscribed")
+  if (s.status === "customer") return tt("Customer")
   /* Wrote through a website's contact form and did not ask for news. */
-  if (s.status === "wrote") return "Wrote to you"
-  if (s.status === "bounced") return "Bounced"
-  if (s.status === "complained") return "Marked as spam"
-  return "Unsubscribed"
+  if (s.status === "wrote") return tt("Wrote to you")
+  if (s.status === "bounced") return tt("Bounced")
+  if (s.status === "complained") return tt("Marked as spam")
+  return tt("Unsubscribed")
 }
 
 function day(iso?: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }))
 }
 
 export const RUN_STATUS: Record<string, { label: string; tone: "neutral" | "attention" | "critical" | "success" }> = {
-  active: { label: "In progress", tone: "attention" },
-  completed: { label: "Finished", tone: "success" },
-  exited: { label: "Left", tone: "neutral" },
-  cancelled: { label: "Stopped", tone: "neutral" },
-  failed: { label: "Failed", tone: "critical" },
+  active: { get label() { return tt("In progress") }, tone: "attention" },
+  completed: { get label() { return tt("Finished") }, tone: "success" },
+  exited: { get label() { return ttx("person", "Left") }, tone: "neutral" },
+  cancelled: { get label() { return tt("Stopped") }, tone: "neutral" },
+  failed: { get label() { return tt("Failed") }, tone: "critical" },
 }
 
 /**
@@ -209,14 +211,14 @@ export function ContactPage({
   onRemove: (id: string) => void
 }) {
   const back = (
-    <button type="button" onClick={onBack} aria-label="Back to subscribers" className={cn(iconButton, "h-9 w-9")}>
+    <button type="button" onClick={onBack} aria-label={tt("Back to subscribers")} className={cn(iconButton, "h-9 w-9")}>
       <ArrowLeft className="h-5 w-5" />
     </button>
   )
   if (!contact) {
     return (
       <>
-        <OrderBarFrame back={back} title={<h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">Contact</h1>} subtitle={null} />
+        <OrderBarFrame back={back} title={<h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">{tt("Contact")}</h1>} subtitle={null} />
         <div className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
           <WaitingArea className="h-[420px]" />
         </div>
@@ -241,12 +243,12 @@ export function ContactPage({
             title={contact.email}
             menuWidth="w-56"
             items={[
-              { label: "Copy email", onClick: () => onCopy(contact.email) },
-              ...(removable ? [{ label: "Remove", variant: "destructive" as const, separatorBefore: true, onClick: () => onRemove(contact.id) }] : []),
+              { label: tt("Copy email"), onClick: () => onCopy(contact.email) },
+              ...(removable ? [{ label: tt("Remove"), variant: "destructive" as const, separatorBefore: true, onClick: () => onRemove(contact.id) }] : []),
             ]}
             trigger={
-              <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} aria-label="More actions">
-                <span className="hidden sm:inline">More actions</span>
+              <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} aria-label={tt("More actions")}>
+                <span className="hidden sm:inline">{tt("More actions")}</span>
                 <MoreHorizontal className="h-4 w-4 sm:hidden" />
                 <ChevronDown className="hidden h-4 w-4 sm:block" />
               </button>
@@ -257,7 +259,7 @@ export function ContactPage({
           <>
             {contact.name ? contact.email : null}
             {contact.name && joined ? " · " : null}
-            {joined ? `${contact.status === "customer" ? "Added" : contact.status === "wrote" ? "First wrote" : "Joined"} ${joined}` : null}
+            {joined ? `${contact.status === "customer" ? tt("Added") : contact.status === "wrote" ? tt("First wrote") : tt("Joined")} ${joined}` : null}
           </>
         }
       />
@@ -295,12 +297,12 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
       {messages && messages.length > 0 ? (
         <section className={cn(card, "min-w-0 px-4 pb-3 pt-3.5 lg:col-start-1")} data-contact-messages="">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Messages</h2>
+            <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Messages")}</h2>
             <a
               href={`mailto:${encodeURIComponent(contact.email)}${messages[0].subject ? `?subject=${encodeURIComponent(`Re: ${messages[0].subject}`)}` : ""}`}
               className="text-[13px] font-medium text-[#1a1a2e] underline-offset-4 hover:underline"
             >
-              Reply
+              {tt("Reply")}
             </a>
           </div>
           <ul className="-mx-4 mt-2 divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]">
@@ -318,14 +320,14 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
         </section>
       ) : null}
       <section className={cn(card, "min-w-0 px-4 pb-3 pt-3.5 lg:col-start-1", messages && messages.length > 0 ? "" : "lg:row-start-1")}>
-        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Automations</h2>
+        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Automations")}</h2>
         {runs === null ? (
           <div className="mt-3 space-y-2" aria-busy="true">
             <div className="h-11 rounded-lg bg-[#f4f5f7]" />
             <div className="h-11 rounded-lg bg-[#f7f8f9]" />
           </div>
         ) : runs.length === 0 ? (
-          <p className="mt-1.5 pb-1 text-[13px] text-[#6b7280]">None yet. When an automation starts for them, it shows here.</p>
+          <p className="mt-1.5 pb-1 text-[13px] text-[#6b7280]">{tt("None yet. When an automation starts for them, it shows here.")}</p>
         ) : (
           <ul className="-mx-4 mt-2 divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]">
             {runs.map((r) => {
@@ -334,7 +336,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
                 <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">
                   <div className="min-w-0 flex-1">
                     <a href={`/app/emails/flow/${r.flow_id}`} className="block truncate text-[14px] font-medium text-[#1a1a2e] hover:underline">
-                      {r.email_flows?.name ?? "Deleted flow"}
+                      {r.email_flows?.name ?? tt("Deleted flow")}
                     </a>
                     <p className="truncate text-[12px] text-[#6b7280]">
                       {day(r.started_at)}
@@ -350,30 +352,30 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
       </section>
 
       <section className={cn(card, "min-w-0 px-4 pb-4 pt-3.5 lg:col-start-2 lg:row-start-1")}>
-        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Details</h2>
+        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Details")}</h2>
         <dl className="mt-3 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-3 text-[13px]">
-          <dt className="text-[#6b7280]">Email</dt>
+          <dt className="text-[#6b7280]">{tt("Email")}</dt>
           <dd className="min-w-0 break-words text-[#1a1a2e]">{contact.email}</dd>
           {contact.name ? (
             <>
-              <dt className="text-[#6b7280]">Name</dt>
+              <dt className="text-[#6b7280]">{tt("Name")}</dt>
               <dd className="min-w-0 break-words text-[#1a1a2e]">{contact.name}</dd>
             </>
           ) : null}
-          <dt className="text-[#6b7280]">Status</dt>
+          <dt className="text-[#6b7280]">{tt("Status")}</dt>
           <dd>
             <StatusBadge tone={contact.status === "subscribed" ? "success" : "neutral"}>{status}</StatusBadge>
           </dd>
-          <dt className="text-[#6b7280]">{contact.status === "customer" ? "Added" : contact.status === "wrote" ? "First wrote" : "Joined"}</dt>
-          <dd className="text-[#1a1a2e]">{day(contact.subscribed_at) || "Not recorded"}</dd>
-          <dt className="text-[#6b7280]">Source</dt>
+          <dt className="text-[#6b7280]">{contact.status === "customer" ? tt("Added") : contact.status === "wrote" ? tt("First wrote") : tt("Joined")}</dt>
+          <dd className="text-[#1a1a2e]">{day(contact.subscribed_at) || tt("Not recorded")}</dd>
+          <dt className="text-[#6b7280]">{tt("Source")}</dt>
           <dd className="min-w-0">
             <span className={cn("block break-words font-medium", source.recorded ? "text-[#1a1a2e]" : "text-[#6b7280]")}>{source.label}</span>
             {source.detail ? <span className="block break-words text-[#6b7280]">{source.detail}</span> : null}
           </dd>
           {contact.consent_text ? (
             <>
-              <dt className="text-[#6b7280]">Consent</dt>
+              <dt className="text-[#6b7280]">{tt("Consent")}</dt>
               <dd className="break-words text-[#4b5563]">{contact.consent_text}</dd>
             </>
           ) : null}

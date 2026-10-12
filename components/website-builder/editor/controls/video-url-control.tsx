@@ -10,6 +10,7 @@
 import { parseVideoUrl, VIDEO_HOSTS } from "@/lib/storelib-theme/values"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { INPUT, NOTE, PROBLEM } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 const HOST_NAME: Record<string, string> = { youtube: "YouTube", vimeo: "Vimeo" }
 
@@ -47,14 +48,14 @@ export function VideoUrlControl({
       />
       {text && found && (
         <p className={NOTE}>
-          {HOST_NAME[found.host]} video {found.id}
+          {HOST_NAME[found.host]} {tt("video {id}", { id: found.id })}
         </p>
       )}
       {text && !found && (
         <p className={PROBLEM} role="alert">
           {names.length === 1
-            ? `Paste a ${names[0]} link. This one is not a ${names[0]} video.`
-            : `Paste a ${names.join(" or ")} link. This one is not a video on ${names.length === 2 ? "either" : "any of them"}.`}
+            ? tt("Paste a {names} link. This one is not a {names2} video.", { names: names[0], names2: names[0] })
+            : tt("Paste a {value} link. This one is not a video on {value2}.", { value: names.join(" or "), value2: names.length === 2 ? "either" : tt("any of them") })}
         </p>
       )}
     </div>

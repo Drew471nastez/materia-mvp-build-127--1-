@@ -12,6 +12,7 @@ import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
 import { DEFAULT_COVER_CROP, coverEditorSrc, isDefaultCrop, type CoverCrop } from "@/lib/images/cover-crop"
 import { CoverCropFrame } from "@/components/app/cover-crop-frame"
 import { uploadWithProgress } from "@/lib/storage/upload-with-progress"
+import { tt } from "@/lib/i18n/text"
 
 interface ImageUploadProps {
   bucket: "product-images" | "avatars" | "covers" | "store-builder-images"
@@ -156,7 +157,7 @@ function PendingVeil({ pending, fading }: { pending: Pending; fading?: boolean }
       <span className="absolute inset-y-0 -left-1/2 w-1/2 animate-[media-sheen_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent motion-reduce:hidden" />
       <span
         role="progressbar"
-        aria-label="Uploading"
+        aria-label={tt("Uploading")}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(pending.progress)}
@@ -181,7 +182,7 @@ export function ImageUpload({
   maxSizeMB = 5,
   accept = "image/*",
   replaceOnly = false,
-  replaceLabel = "Change image",
+  replaceLabel = tt("Change image"),
   allowRemove = false,
   reposition,
   livePreview = false,
@@ -242,13 +243,13 @@ export function ImageUpload({
       // Validate file type
       if (isVideoMode) {
         if (!file.type.startsWith("video/")) {
-          setError("Please upload a video file")
+          setError(tt("Please upload a video file"))
           setUploading(false)
           return
         }
       } else {
         if (!file.type.startsWith("image/")) {
-          setError("Please upload an image file")
+          setError(tt("Please upload an image file"))
           setUploading(false)
           return
         }
@@ -257,7 +258,7 @@ export function ImageUpload({
       // Validate file size
       const maxBytes = maxSizeMB * 1024 * 1024
       if (file.size > maxBytes) {
-        setError(`${isVideoMode ? "Video" : "Image"} must be under ${maxSizeMB}MB`)
+        setError(tt("{value} must be under {maxSizeMB}MB", { value: isVideoMode ? tt("Video") : tt("Image"), maxSizeMB }))
         setUploading(false)
         return
       }
@@ -288,7 +289,7 @@ export function ImageUpload({
 
             if (!uploadResponse.ok) {
               const errorData = await uploadResponse.json()
-              throw new Error(errorData.error || "Upload failed")
+              throw new Error(errorData.error || tt("Upload failed"))
             }
 
             const { publicUrl } = await uploadResponse.json()
@@ -316,7 +317,7 @@ export function ImageUpload({
 
             if (!signedUrlResponse.ok) {
               const errorData = await signedUrlResponse.json()
-              throw new Error(errorData.error || "Failed to get upload URL")
+              throw new Error(errorData.error || tt("Failed to get upload URL"))
             }
 
             const { token, path, publicUrl, bucket } = await signedUrlResponse.json()
@@ -398,7 +399,7 @@ export function ImageUpload({
           } = await supabase.auth.getUser()
 
           if (!user) {
-            throw new Error("You must be logged in to upload images")
+            throw new Error(tt("You must be logged in to upload images"))
           }
 
           // Generate unique path with user folder
@@ -471,9 +472,9 @@ export function ImageUpload({
         if (errorMessage.toLowerCase().includes("exceeded the maximum allowed size") ||
             errorMessage.toLowerCase().includes("payload too large") ||
             errorMessage.toLowerCase().includes("file too large")) {
-          setError(`${isVideoMode ? "Video" : "File"} is too large. Please use a file under ${maxSizeMB}MB.`)
+          setError(tt("{value} is too large. Please use a file under {maxSizeMB}MB.", { value: isVideoMode ? tt("Video") : tt("File"), maxSizeMB }))
         } else {
-          setError(err instanceof Error ? err.message : `Failed to upload ${isVideoMode ? "video" : "image"}`)
+          setError(err instanceof Error ? err.message : tt("Failed to upload {value}", { value: isVideoMode ? "video" : "image" }))
         }
       } finally {
         setUploading(false)
@@ -560,7 +561,7 @@ export function ImageUpload({
               onClick={() => reposition.onChange(DEFAULT_COVER_CROP)}
               className="absolute bottom-2 left-2 h-8 rounded-full bg-black/60 px-3 text-[12px] font-medium text-white transition-colors pointer-fine:hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
-              Reset
+              {tt("Reset")}
             </button>
           )}
 
@@ -574,7 +575,7 @@ export function ImageUpload({
               <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
             </button>
             {allowRemove && !uploading && (
-              <button type="button" aria-label="Remove image" onClick={handleRemove} className={disc}>
+              <button type="button" aria-label={tt("Remove image")} onClick={handleRemove} className={disc}>
                 <X className="h-3.5 w-3.5" strokeWidth={2.25} />
               </button>
             )}
@@ -588,7 +589,7 @@ export function ImageUpload({
           */}
           {pending && <PendingVeil pending={pending} fading={pending.handedOver} />}
           {uploading && !pending && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-black/15" role="progressbar" aria-label="Uploading" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-black/15" role="progressbar" aria-label={tt("Uploading")} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
               <div
                 className="h-full origin-left bg-white transition-transform duration-200 ease-out"
                 data-keep-transform=""
@@ -640,7 +641,7 @@ export function ImageUpload({
           <span className="pointer-events-none flex flex-col items-center gap-1 px-4 text-center">
             <span className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#e4e7ec] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06)] transition-[scale] duration-150 group-active/band:scale-[0.97] motion-reduce:transition-none">
               <ImageIcon className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} aria-hidden />
-              {dragOver ? "Drop it here" : emptyBand.label}
+              {dragOver ? tt("Drop it here") : emptyBand.label}
             </span>
             {emptyBand.hint ? <span className="text-[12px] leading-[1.4] text-[#6b7280] max-[380px]:hidden">{emptyBand.hint}</span> : null}
           </span>
@@ -731,7 +732,7 @@ export function ImageUpload({
                 style={{ width: `${Math.max(progress, 8)}%` }}
               />
             </div>
-            <span className="text-xs font-medium text-white/90">Uploading…</span>
+            <span className="text-xs font-medium text-white/90">{tt("Uploading…")}</span>
           </div>
         )}
 
@@ -744,7 +745,7 @@ export function ImageUpload({
         {allowRemove && !uploading && (
           <button
             type="button"
-            aria-label="Remove image"
+            aria-label={tt("Remove image")}
             onClick={(e) => {
               e.stopPropagation()
               handleRemove()
@@ -763,7 +764,7 @@ export function ImageUpload({
   if (value) {
     return (
       <div className={`relative overflow-hidden rounded-lg border border-border ${aspectClasses[aspectRatio]}`}>
-        <Image src={value || "/placeholder.svg"} alt="Uploaded image" fill className="object-cover" />
+        <Image src={value || "/placeholder.svg"} alt={tt("Uploaded image")} fill className="object-cover" />
         <Button
           type="button"
           variant="destructive"
@@ -805,7 +806,7 @@ export function ImageUpload({
         {uploading ? (
           <div className="flex flex-col items-center gap-2 p-4">
             <Progress value={progress} className="h-2 w-32" />
-            <p className="text-sm text-muted-foreground">Uploading... {progress}%</p>
+            <p className="text-sm text-muted-foreground">{tt("Uploading... {progress}%", { progress })}</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 p-4">
@@ -816,9 +817,9 @@ export function ImageUpload({
                 <ImageIcon className="h-6 w-6 text-muted-foreground" />
               )}
             </div>
-            <p className="text-sm font-medium">Click to upload{!isVideoMode && " or drag and drop"}</p>
+            <p className="text-sm font-medium">{tt("Click to upload")}{!isVideoMode && tt(" or drag and drop")}</p>
             <p className="text-xs text-muted-foreground">
-              {isVideoMode ? `MP4, MOV, WebM up to ${maxSizeMB}MB` : `PNG, JPG, GIF up to ${maxSizeMB}MB`}
+              {isVideoMode ? tt("MP4, MOV, WebM up to {maxSizeMB}MB", { maxSizeMB }) : tt("PNG, JPG, GIF up to {maxSizeMB}MB", { maxSizeMB })}
             </p>
           </div>
         )}

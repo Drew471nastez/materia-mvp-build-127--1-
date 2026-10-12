@@ -20,14 +20,17 @@ import { formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type P
 import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 const TABS = [
-  { id: "general", label: "General", icon: Settings },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "payments", label: "Payments", icon: Wallet },
-  { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "domains", label: "Domains", icon: Globe },
-  { id: "privacy", label: "Privacy", icon: ToggleLeft },
+  { id: "general", get label() { return tt("General") }, icon: Settings },
+  { id: "security", get label() { return tt("Security") }, icon: Shield },
+  { id: "payments", get label() { return tt("Payments") }, icon: Wallet },
+  { id: "billing", get label() { return tt("Billing") }, icon: CreditCard },
+  { id: "domains", get label() { return tt("Domains") }, icon: Globe },
+  { id: "privacy", get label() { return tt("Privacy") }, icon: ToggleLeft },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
@@ -152,15 +155,15 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     const canceled = searchParams.get("canceled")
 
     if (success === "1" || success === "true") {
-      showNotification("success", "You are on Pro now")
+      showNotification("success", tt("You are on Pro now"))
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (setupSuccess === "1" || setupSuccess === "true") {
-      showNotification("success", "Card updated")
+      showNotification("success", tt("Card updated"))
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (canceled === "1" || canceled === "true") {
-      showNotification("error", "Checkout canceled. Nothing changed.")
+      showNotification("error", tt("Checkout canceled. Nothing changed."))
       window.history.replaceState({}, "", "/app/settings/billing")
     }
   }, [searchParams])
@@ -190,12 +193,12 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       const response = await fetch("/api/billing/customer-portal", { method: "POST" })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || "Failed to open portal")
+        throw new Error(err.error || tt("Failed to open portal"))
       }
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Could not open billing. Try again.")
+      showNotification("error", error.message || tt("Could not open billing. Try again."))
     } finally {
       setPortalLoading(false)
     }
@@ -207,12 +210,12 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       const response = await fetch("/api/billing/checkout/setup", { method: "POST" })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || "Failed to open payment setup")
+        throw new Error(err.error || tt("Failed to open payment setup"))
       }
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Could not open card setup. Try again.")
+      showNotification("error", error.message || tt("Could not open card setup. Try again."))
     } finally {
       setPortalLoading(false)
     }
@@ -234,14 +237,14 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         body: JSON.stringify({ reason: feedback.reason, note: feedback.note }),
       })
       const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || "Could not cancel. Nothing changed.")
+      if (!response.ok) throw new Error(result.error || tt("Could not cancel. Nothing changed."))
       const endsAt = liveSubscription?.current_period_end || result.cancelAt || null
       setLiveSubscription((prev: any) => (prev ? { ...prev, cancel_at_period_end: true, pending_plan_id: null, current_period_end: endsAt ?? prev.current_period_end } : prev))
       setCancelOpen(false)
-      showNotification("success", endsAt ? `${currentPlan.name} until ${formatDate(endsAt)}` : "Plan cancelled")
+      showNotification("success", endsAt ? tt("{name} until {date}", { name: currentPlan.name, date: formatDate(endsAt) }) : tt("Plan cancelled"))
       setTimeout(() => refreshBillingData(), 1000)
     } catch (error: any) {
-      setCancelError(error.message || "Could not cancel. Nothing changed.")
+      setCancelError(error.message || tt("Could not cancel. Nothing changed."))
     } finally {
       setCancelBusy(false)
     }
@@ -253,13 +256,13 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     try {
       const response = await fetch("/api/billing/subscription/resume", { method: "POST" })
       const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || "Could not resume. Try again.")
+      if (!response.ok) throw new Error(result.error || tt("Could not resume. Try again."))
       setLiveSubscription((prev: any) => (prev ? { ...prev, cancel_at_period_end: false } : prev))
       const renews = result.renewsAt || liveSubscription?.current_period_end
-      showNotification("success", renews ? `${currentPlan.name} renews on ${formatDate(renews)}` : `${currentPlan.name} is back on`)
+      showNotification("success", renews ? tt("{name} renews on {date}", { name: currentPlan.name, date: formatDate(renews) }) : tt("{name} is back on", { name: currentPlan.name }))
       setTimeout(() => refreshBillingData(), 1000)
     } catch (error: any) {
-      showNotification("error", error.message || "Could not resume. Try again.")
+      showNotification("error", error.message || tt("Could not resume. Try again."))
     } finally {
       setResumeBusy(false)
     }
@@ -278,7 +281,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         body: JSON.stringify({ newPlanId: planId, previewOnly: true }),
       })
       const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "Failed to preview plan change")
+      if (!response.ok) throw new Error(result.error || tt("Failed to preview plan change"))
       setUpgradePreview({
         amountDueTodayCents: result.amountDueTodayCents || 0,
         nextBillingDate: result.nextBillingDate,
@@ -286,7 +289,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         type: result.type,
       })
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to preview plan change")
+      showNotification("error", error.message || tt("Failed to preview plan change"))
     }
   }
 
@@ -297,23 +300,23 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       case "privacy": return t("settings.privacy")
       case "billing": return t("settings.billing")
       case "payments": return t("settings.payments")
-      case "domains": return "Domains"
+      case "domains": return tt("Domains")
       default: return tabId
     }
   }
 
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-  const formatDateLong = (dateString: string) => new Date(dateString).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }))
+  const formatDateLong = (dateString: string) => new Date(dateString).toLocaleDateString(appLocale(), zoned({ month: "long", day: "numeric", year: "numeric" }))
   const formatAmount = (cents: number) => `$${(cents / 100).toFixed(2)}`
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <StatusBadge tone="success">Paid</StatusBadge>
+        return <StatusBadge tone="success">{tt("Paid")}</StatusBadge>
       case "open":
-        return <StatusBadge tone="attention">Pending</StatusBadge>
+        return <StatusBadge tone="attention">{tt("Pending")}</StatusBadge>
       case "void": case "uncollectible":
-        return <StatusBadge tone="critical">Failed</StatusBadge>
+        return <StatusBadge tone="critical">{tt("Failed")}</StatusBadge>
       default:
         return <StatusBadge tone="neutral">{status.charAt(0).toUpperCase() + status.slice(1)}</StatusBadge>
     }
@@ -410,7 +413,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             for a plan that is simply on.
           */}
           <div data-billing-overview="">
-            <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Subscription Overview</h2>
+            <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">{tt("Subscription Overview")}</h2>
             {/* Side by side from 768px, where the plan cards pair up too, with the same 20px between them. */}
             <div data-billing-overview-grid="" className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
@@ -418,38 +421,38 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
               <div data-billing-plan="" className={cn(CARD, "flex flex-col app-card-x py-5")}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-medium text-[#6b7280]">Current plan</p>
+                    <p className="text-[13px] font-medium text-[#6b7280]">{tt("Current plan")}</p>
                     <p className="mt-1 text-[22px] font-bold leading-7 text-[#1a1a2e]">{currentPlan.name}</p>
                   </div>
                   {subscription?.status === "canceled" ? (
-                    <StatusBadge tone="critical">Canceled</StatusBadge>
+                    <StatusBadge tone="critical">{tt("Canceled")}</StatusBadge>
                   ) : subscription?.cancel_at_period_end ? (
-                    <StatusBadge tone="attention">Canceling</StatusBadge>
+                    <StatusBadge tone="attention">{tt("Canceling")}</StatusBadge>
                   ) : isSubscribed ? (
-                    <StatusBadge tone="success">Active</StatusBadge>
+                    <StatusBadge tone="success">{tt("Active")}</StatusBadge>
                   ) : null}
                 </div>
 
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-[34px] font-bold leading-none tracking-[-0.02em] text-[#1a1a2e] tabular-nums">{planPrice}</span>
-                  {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">/month</span>}
+                  {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">{tt("/month")}</span>}
                 </div>
 
                 <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[14px]">
                   <div className="flex items-center justify-between gap-3 py-2.5">
-                    <dt className="text-[#6b7280]">Fee per sale</dt>
+                    <dt className="text-[#6b7280]">{tt("Fee per sale")}</dt>
                     <dd className="font-medium text-[#1a1a2e] tabular-nums">{feeDisplay}</dd>
                   </div>
                   {subscription?.current_period_end && subscription.status !== "canceled" ? (
                     <div className="flex items-center justify-between gap-3 py-2.5">
-                      <dt className="text-[#6b7280]">{subscription.cancel_at_period_end ? "Ends" : "Renews"}</dt>
+                      <dt className="text-[#6b7280]">{subscription.cancel_at_period_end ? tt("Ends") : tt("Renews")}</dt>
                       <dd className={cn("font-medium tabular-nums", subscription.cancel_at_period_end ? "text-[#8a5a00]" : "text-[#1a1a2e]")}>{formatDate(subscription.current_period_end)}</dd>
                     </div>
                   ) : null}
                   {pendingPlan && subscription?.current_period_end ? (
                     <div className="flex items-center justify-between gap-3 py-2.5">
-                      <dt className="text-[#6b7280]">Then</dt>
-                      <dd className="font-medium text-[#1a1a2e]">{pendingPlan.name}, {formatPlanPrice(pendingPlan.price_cents)}/month</dd>
+                      <dt className="text-[#6b7280]">{tt("Then")}</dt>
+                      <dd className="font-medium text-[#1a1a2e]">{tt("{name}, {amount}/month", { name: pendingPlan.name, amount: formatPlanPrice(pendingPlan.price_cents) })}</dd>
                     </div>
                   ) : null}
                 </dl>
@@ -457,16 +460,16 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 {/* Cancelled at the period's end: the plan is on until its last day, then Free. Resume plan below undoes it. */}
                 {isEnding && (
                   <p data-billing-ends="" className="mt-4 rounded-xl bg-[#fff8e6] px-3.5 py-3 text-[13px] leading-5 text-[#7a5200]">
-                    <span className="font-semibold">{currentPlan.name} until {formatDate(subscription.current_period_end)}</span>, then Free. Nothing more is charged.
+                    <span className="font-semibold">{tt("{name} until {date}", { name: currentPlan.name, date: formatDate(subscription.current_period_end) })}</span>{tt(", then Free. Nothing more is charged.")}
                   </p>
                 )}
                 {/* Fully canceled subscription notice */}
                 {subscription?.status === "canceled" && (
                   <p className="mt-4 rounded-xl bg-[#fef3f2] px-3.5 py-3 text-[13px] leading-5 text-[#8a1c0f]">
                     {subscription.canceled_at
-                      ? `Your ${plans.find((p: any) => p.id === subscription.plan_id)?.name || "paid"} plan was canceled on ${formatDate(subscription.canceled_at)}.`
-                      : "Your paid plan was canceled."}{" "}
-                    You are on Free now.
+                      ? tt("Your {value} plan was canceled on {date}.", { value: plans.find((p: any) => p.id === subscription.plan_id)?.name || "paid", date: formatDate(subscription.canceled_at) })
+                      : tt("Your paid plan was canceled.")}{" "}
+                    {tt("You are on Free now.")}
                   </p>
                 )}
 
@@ -474,25 +477,25 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 <div className="mt-auto flex flex-col gap-2.5 pt-5 sm:flex-row sm:flex-wrap">
                   {(currentPlan.id === "free" || subscription?.status === "canceled") && !isSubscribed && (
                     <Link href="/app/settings/billing/upgrade" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline sm:flex-1")}>
-                      {subscription?.status === "canceled" ? "Start Pro again" : "Upgrade to Pro"}
+                      {subscription?.status === "canceled" ? tt("Start Pro again") : tt("Upgrade to Pro")}
                     </Link>
                   )}
                   {isEnding && (
                     <button type="button" onClick={resumePlan} disabled={resumeBusy} aria-busy={resumeBusy} data-billing-resume="" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] sm:flex-1")}>
                       {resumeBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-                      Resume plan
+                      {tt("Resume plan")}
                     </button>
                   )}
                   {/* Pro (id "growth") is the top plan on sale, so there is nothing to upgrade to from it. */}
                   {isSubscribed && (
                     <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] whitespace-nowrap sm:flex-1")}>
                       {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                      Manage subscription
+                      {tt("Manage subscription")}
                     </button>
                   )}
                   {canCancel ? (
                     <button type="button" onClick={() => { setCancelError(null); setCancelOpen(true) }} data-billing-cancel="" className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] text-[#b42318] whitespace-nowrap sm:flex-1")}>
-                      Cancel plan
+                      {tt("Cancel plan")}
                     </button>
                   ) : null}
                 </div>
@@ -501,10 +504,10 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
               {/* Right: Payment Details */}
               <div data-billing-card="" className={cn(CARD, "flex flex-col app-card-x py-5")}>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[13px] font-medium text-[#6b7280]">Payment method</p>
+                  <p className="text-[13px] font-medium text-[#6b7280]">{tt("Payment method")}</p>
                   <span className="inline-flex items-center gap-1 text-[12px] text-[#9ca3af]">
                     <Lock className="h-3 w-3" aria-hidden />
-                    Kept by Stripe
+                    {tt("Kept by Stripe")}
                   </span>
                 </div>
 
@@ -513,17 +516,17 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   <div className="relative mt-4 overflow-hidden rounded-[14px] bg-[#1a1a2e] px-4 pb-4 pt-3.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_24px_-14px_rgba(17,17,40,0.6),0_2px_6px_rgba(17,17,40,0.18)]">
                     <span aria-hidden className="pointer-events-none absolute -right-10 -top-14 h-36 w-36 rounded-full bg-white/[0.06]" />
                     <div className="flex items-center justify-between">
-                      <span className="text-[14px] font-semibold capitalize">{livePaymentMethod.card_brand || "Card"}</span>
+                      <span className="text-[14px] font-semibold capitalize">{livePaymentMethod.card_brand || tt("Card")}</span>
                       <CreditCard className="h-4 w-4 text-white/60" aria-hidden />
                     </div>
                     <p className="mt-6 font-mono text-[16px] tracking-[0.18em] tabular-nums">&bull;&bull;&bull;&bull; {livePaymentMethod.card_last4}</p>
-                    <p className="mt-1.5 text-[12px] text-white/65">Expires {String(livePaymentMethod.card_exp_month).padStart(2, "0")}/{String(livePaymentMethod.card_exp_year).slice(-2)}</p>
+                    <p className="mt-1.5 text-[12px] text-white/65">{tt("Expires")} {String(livePaymentMethod.card_exp_month).padStart(2, "0")}/{String(livePaymentMethod.card_exp_year).slice(-2)}</p>
                   </div>
                 ) : (
                   <div className="mt-4 rounded-[14px] border border-dashed border-[#d9dbe0] bg-[#fafafb] px-4 py-6 text-center">
                     <CreditCard className="mx-auto h-6 w-6 text-[#9ca3af]" aria-hidden />
-                    <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">No card on file</p>
-                    <p className="mt-0.5 text-[13px] text-[#6b7280]">Add one to pay for Pro.</p>
+                    <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">{tt("No card on file")}</p>
+                    <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Add one to pay for Pro.")}</p>
                   </div>
                 )}
 
@@ -534,7 +537,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 <div className="mt-auto flex pt-5">
                   <button type="button" onClick={handleAddPaymentMethod} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] max-sm:flex-1")}>
                     {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                    {livePaymentMethod ? "Update card" : "Add card"}
+                    {livePaymentMethod ? tt("Update card") : tt("Add card")}
                   </button>
                 </div>
               </div>
@@ -550,10 +553,10 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
           */}
           <div data-billing-history="" className={cn(CARD, "overflow-hidden")}>
             <div className="flex items-center justify-between gap-3 app-card-x pb-2 pt-5">
-              <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
+              <h2 className="text-[17px] font-bold text-[#1a1a2e]">{tt("Billing History")}</h2>
               {liveInvoices.length > 0 && (
                 <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
-                  View all
+                  {tt("View all")}
                 </button>
               )}
             </div>
@@ -561,26 +564,26 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             <div className="app-card-x pb-3">
               {subscription?.current_period_end && isSubscribed && !subscription.cancel_at_period_end ? (
                 <p className="text-[13px] text-[#6b7280]">
-                  Next charge on <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>
-                  {pendingPlan ? <>, then {pendingPlan.name} at {formatPlanPrice(pendingPlan.price_cents)}/month</> : null}.
+                  {tt("Next charge on")} <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>
+                  {pendingPlan ? <>{tt(", then {name} at {amount}/month", { name: pendingPlan.name, amount: formatPlanPrice(pendingPlan.price_cents) })}</> : null}.
                 </p>
               ) : subscription?.current_period_end && subscription.cancel_at_period_end ? (
-                <p className="text-[13px] text-[#7a5200]">No more charges. Pro ends on {formatDateLong(subscription.current_period_end)}.</p>
+                <p className="text-[13px] text-[#7a5200]">{tt("No more charges. Pro ends on {date}.", { date: formatDateLong(subscription.current_period_end) })}</p>
               ) : subscription?.status === "canceled" ? (
                 <p className="text-[13px] text-[#6b7280]">
-                  Your subscription was canceled.{" "}
-                  <Link href="/app/settings/billing/upgrade" className="font-medium text-[#1a1a2e] underline underline-offset-2">Start Pro again</Link>
+                  {tt("Your subscription was canceled.")}{" "}
+                  <Link href="/app/settings/billing/upgrade" className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Start Pro again")}</Link>
                 </p>
               ) : (
-                <p className="text-[13px] text-[#6b7280]">No subscription. Free has no monthly charge.</p>
+                <p className="text-[13px] text-[#6b7280]">{tt("No subscription. Free has no monthly charge.")}</p>
               )}
             </div>
 
             {liveInvoices.length === 0 ? (
               <div className="border-t border-[#f0f1f3] app-card-x py-8 text-center">
                 <FileText className="mx-auto h-6 w-6 text-[#c4c7cc]" aria-hidden />
-                <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">No invoices yet</p>
-                <p className="mt-0.5 text-[13px] text-[#6b7280]">Each charge lands here with its invoice.</p>
+                <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">{tt("No invoices yet")}</p>
+                <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Each charge lands here with its invoice.")}</p>
               </div>
             ) : (
               <>
@@ -596,7 +599,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] font-medium text-[#1a1a2e]">
-                            {invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} to ${formatDate(invoice.period_end)}` : "Subscription")}
+                            {invoice.description || (invoice.period_start && invoice.period_end ? tt("{date} to {date2}", { date: formatDate(invoice.period_start), date2: formatDate(invoice.period_end) }) : tt("Subscription"))}
                           </p>
                           <p className="mt-0.5 text-[13px] text-[#6b7280] tabular-nums">{formatDate(invoice.created_at)}</p>
                         </div>
@@ -609,7 +612,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              aria-label="Download invoice"
+                              aria-label={tt("Download invoice")}
                               className="hidden h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:inline-flex"
                             >
                               <Download className="h-4 w-4" aria-hidden />
@@ -626,7 +629,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                     onClick={() => setShowAllInvoices(!showAllInvoices)}
                     className="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 border-t border-[#f0f1f3] text-[13px] font-medium text-[#4b5563] transition-colors hover:bg-[#fafafb]"
                   >
-                    {showAllInvoices ? "Show fewer" : `Show all ${liveInvoices.length}`}
+                    {showAllInvoices ? tt("Show fewer") : tt("Show all {length}", { length: liveInvoices.length })}
                     <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
                   </button>
                 )}
@@ -652,11 +655,11 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       <BottomSheet
         isOpen={!!selectedInvoice}
         onClose={closeInvoice}
-        label="Invoice Details"
+        label={tt("Invoice Details")}
         header={
           <div className="flex items-center justify-between border-b border-[#e5e7eb] px-5 pb-3 pt-2">
-            <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Invoice Details</h3>
-            <button onClick={closeInvoice} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]"><X className="h-4 w-4" /></button>
+            <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Invoice Details")}</h3>
+            <button onClick={closeInvoice} aria-label={tt("Close")} className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]"><X className="h-4 w-4" /></button>
           </div>
         }
       >
@@ -706,8 +709,8 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
               if (isSubscribed) {
                 const response = await fetch("/api/billing/subscription/change", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPlanId: showUpgradeModal.planId }) })
                 const result = await response.json()
-                if (!response.ok) { throw new Error(result.error || "Failed to change plan") }
-                showNotification("success", result.message || `Now on ${showUpgradeModal.planName}`)
+                if (!response.ok) { throw new Error(result.error || tt("Failed to change plan")) }
+                showNotification("success", result.message || tt("Now on {planName}", { planName: showUpgradeModal.planName }))
                 // Optimistically update state
                 if (result.type === "downgrade") {
                   setLiveSubscription((prev: any) => prev ? { ...prev, pending_plan_id: showUpgradeModal.planId } : prev)
@@ -724,7 +727,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 setTimeout(() => refreshBillingData(), 1000)
               } else {
                 const response = await fetch("/api/billing/subscription/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: showUpgradeModal.planId }) })
-                if (!response.ok) { const error = await response.json(); throw new Error(error.error || "Failed to create checkout session") }
+                if (!response.ok) { const error = await response.json(); throw new Error(error.error || tt("Failed to create checkout session")) }
                 const { checkoutUrl } = await response.json()
                 if (checkoutUrl) {
                   if (isNativeApp()) {
@@ -736,7 +739,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
               }
             } catch (error: any) {
               setShowUpgradeModal(null)
-              showNotification("error", error.message || "An error occurred")
+              showNotification("error", error.message || tt("An error occurred"))
             } finally {
               setUpgradeLoading(false)
             }
@@ -820,7 +823,7 @@ function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBad
     <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-200 ${isVisible ? "bg-black/40 backdrop-blur-[2px]" : "bg-black/0"}`} onClick={handleClose}>
       <div className={`bg-white rounded-2xl w-full max-w-lg shadow-xl transition-all duration-200 ${isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[#e5e7eb]">
-          <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Invoice Details</h2>
+          <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{tt("Invoice Details")}</h2>
           <button onClick={handleClose} className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors cursor-pointer">
             <X className="h-4 w-4" />
           </button>
@@ -851,33 +854,33 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
       {/* Details */}
       <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
         <div className="flex justify-between text-[13px]">
-          <span className="text-[#6b7280]">Invoice ID</span>
+          <span className="text-[#6b7280]">{tt("Invoice ID")}</span>
           <span className="text-[#1a1a2e] font-mono text-[12px]">{invoice.stripe_invoice_id || invoice.id}</span>
         </div>
         <div className="flex justify-between text-[13px]">
-          <span className="text-[#6b7280]">Description</span>
-          <span className="text-[#1a1a2e]">{invoice.description || "Subscription"}</span>
+          <span className="text-[#6b7280]">{tt("Description")}</span>
+          <span className="text-[#1a1a2e]">{invoice.description || tt("Subscription")}</span>
         </div>
         {invoice.period_start && invoice.period_end && (
           <div className="flex justify-between text-[13px]">
-            <span className="text-[#6b7280]">Billing Period</span>
+            <span className="text-[#6b7280]">{tt("Billing Period")}</span>
             <span className="text-[#1a1a2e]">{formatDate(invoice.period_start)} - {formatDate(invoice.period_end)}</span>
           </div>
         )}
         <div className="flex justify-between text-[13px]">
-          <span className="text-[#6b7280]">Plan</span>
-          <span className="text-[#1a1a2e]">{currentPlan?.name || "Subscription"}</span>
+          <span className="text-[#6b7280]">{tt("Plan")}</span>
+          <span className="text-[#1a1a2e]">{currentPlan?.name || tt("Subscription")}</span>
         </div>
         <div className="border-t border-[#e5e7eb] pt-3 flex justify-between text-[13px] font-semibold">
-          <span className="text-[#1a1a2e]">Total</span>
+          <span className="text-[#1a1a2e]">{tt("Total")}</span>
           <span className="text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</span>
         </div>
       </div>
 
       {/* Legal footer */}
       <div className="text-[11px] text-[#9ca3af] leading-relaxed">
-        <p>Billed by Storelib (storelib.com). Charges appear as &quot;STORELIB&quot; on your statement.</p>
-        <p className="mt-1">For billing questions, contact support@storelib.com.</p>
+        <p>{tt("Billed by Storelib (storelib.com). Charges appear as \"STORELIB\" on your statement.")}</p>
+        <p className="mt-1">{tt("For billing questions, contact support@storelib.com.")}</p>
       </div>
 
       {/* Actions — "View on Stripe" opens Stripe portal, hidden on iOS */}
@@ -885,13 +888,13 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
         {invoice.invoice_pdf_url && (
           <a href={invoice.invoice_pdf_url} target="_blank" rel="noopener noreferrer" className="flex-1 h-10 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center justify-center gap-2 cursor-pointer">
             <Download className="h-3.5 w-3.5" />
-            Download PDF
+            {tt("Download PDF")}
           </a>
         )}
         {invoice.hosted_invoice_url && (
           <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="flex-1 h-10 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] transition-colors flex items-center justify-center gap-2 cursor-pointer">
             <ExternalLink className="h-3.5 w-3.5" />
-            View on Stripe
+            {tt("View on Stripe")}
           </a>
         )}
       </div>
@@ -913,7 +916,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
   const isDowngrade = !isReUpgrade && priceCents < currentPlan.price_cents
 
   const nextChargeText = preview?.nextBillingDate
-    ? `Your next charge will be $${((preview?.nextAmountCents || priceCents) / 100).toFixed(2)} on ${new Date(preview.nextBillingDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
+    ? tt("Your next charge will be ${value} on {date}.", { value: ((preview?.nextAmountCents || priceCents) / 100).toFixed(2), date: new Date(preview.nextBillingDate).toLocaleDateString(appLocale(), zoned({ month: "long", day: "numeric" })) })
     : ""
 
   return (
@@ -921,13 +924,13 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <h2 className="text-[18px] font-bold text-[#1a1a2e] mb-2">
-            {isReUpgrade ? `Upgrade Again to ${planName}` : isUpgrade ? `Upgrade to ${planName}` : isDowngrade ? `Downgrade to ${planName}` : `Switch to ${planName}`}
+            {isReUpgrade ? tt("Upgrade Again to {planName}", { planName }) : isUpgrade ? tt("Upgrade to {planName}", { planName }) : isDowngrade ? tt("Downgrade to {planName}", { planName }) : tt("Switch to {planName}", { planName })}
           </h2>
 
           {isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                Your cancellation will be reversed and you&apos;ll continue on the <span className="font-semibold text-[#7c3aed]">{planName}</span> plan at <span className="font-semibold text-[#7c3aed]">{formatPlanPrice(priceCents)}/month</span>.
+                <Rich text={tt("Your cancellation will be reversed and you'll continue on the {plan} plan at {price}.")} parts={{ plan: <span className="font-semibold text-[#7c3aed]">{planName}</span>, price: <span className="font-semibold text-[#7c3aed]">{tt("{amount}/month", { amount: formatPlanPrice(priceCents) })}</span> }} />
               </p>
             </div>
           )}
@@ -935,7 +938,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
           {isUpgrade && !isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                You&apos;ll be charged <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> today for the remaining time in your current billing cycle.
+                <Rich text={tt("You'll be charged {amount} today for the remaining time in your current billing cycle.")} parts={{ amount: <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> }} />
               </p>
               {nextChargeText && <p className="text-[13px] text-[#6b7280]">{nextChargeText}</p>}
             </div>
@@ -943,22 +946,22 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
 
           {isDowngrade && isSubscribed && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-              <p className="text-[13px] text-[#374151]">Your plan will downgrade at the end of your current billing cycle. You&apos;ll keep all current features until then.</p>
+              <p className="text-[13px] text-[#374151]">{tt("Your plan will downgrade at the end of your current billing cycle. You'll keep all current features until then.")}</p>
             </div>
           )}
 
           {!isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4">
-              <p className="text-[13px] text-[#374151]">You&apos;ll be redirected to Stripe to complete your subscription of <span className="font-semibold text-[#7c3aed]">{formatPlanPrice(priceCents)}/month</span>.</p>
+              <p className="text-[13px] text-[#374151]">{tt("You'll be redirected to Stripe to complete your subscription of")} <span className="font-semibold text-[#7c3aed]">{tt("{amount}/month", { amount: formatPlanPrice(priceCents) })}</span>.</p>
             </div>
           )}
 
           <div className="flex gap-3 mt-5">
             <button onClick={onClose} disabled={loading} className="flex-1 h-10 text-[13px] font-medium text-[#374151] bg-white border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] transition-colors cursor-pointer">
-              Cancel
+              {tt("Cancel")}
             </button>
             <button onClick={onConfirm} disabled={loading} className="flex-1 h-10 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors flex items-center justify-center gap-2 cursor-pointer">
-              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : isReUpgrade ? "Confirm Upgrade" : isUpgrade ? "Confirm Upgrade" : isDowngrade ? "Confirm Downgrade" : "Confirm"}
+              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />{tt("Processing...")}</> : isReUpgrade ? tt("Confirm Upgrade") : isUpgrade ? tt("Confirm Upgrade") : isDowngrade ? tt("Confirm Downgrade") : tt("Confirm")}
             </button>
           </div>
         </div>
@@ -996,7 +999,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
     const isDowngrade = priceCents < currentPlan.price_cents
     const isUpgrade = priceCents > currentPlan.price_cents
 
-    let label = `Upgrade to ${offered.name}`
+    let label = tt("Upgrade to {name}", { name: offered.name })
     if (isCurrentPlan) label = "Current plan"
     else if (isPendingPlan) label = isFree ? "Downgrade scheduled" : "Switch scheduled"
     else if (isCanceling && isFree) label = "Cancellation scheduled"
@@ -1025,8 +1028,8 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
       <PlanCards
         heading={
           <div className="mx-auto max-w-[560px] pt-1 text-center sm:pt-2" data-plans-header="">
-            <h2 className="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">Plans and pricing</h2>
-            <p className="mt-2 text-balance text-[14.5px] leading-[1.5] text-[#6b7280] sm:text-[15px]">Start free. Upgrade when you&apos;re ready, and change or cancel anytime.</p>
+            <h2 className="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">{tt("Plans and pricing")}</h2>
+            <p className="mt-2 text-balance text-[14.5px] leading-[1.5] text-[#6b7280] sm:text-[15px]">{tt("Start free. Upgrade when you're ready, and change or cancel anytime.")}</p>
           </div>
         }
         actions={{ free: actionFor("free"), growth: actionFor("growth") }}

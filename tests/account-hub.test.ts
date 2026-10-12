@@ -22,6 +22,7 @@ import { ACCOUNT_TABS, accountLoginPath, accountTabFor } from "../lib/account/ac
 import { sellerAccessFrom, hasSellerAccess } from "../lib/account/seller-access"
 import { buyerTabFor, buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
 import { ownerPillFor, showsProfileHeader } from "../lib/profile/owner-pills"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -29,7 +30,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 console.log("\nThe profile's pages")
@@ -96,7 +97,7 @@ console.log("\nThe hub: your own profile page, as everybody sees it, with your p
   /* Round 13: "a touch more depth": the same 2px ring with a hairline at its outer edge, and a shadow that travels further. */
   check("the photo is large: 125px on a phone, 142 from 640px, a thin crisp ring and a soft shadow with a little depth, the same class as /@handle", /h-\[125px\] w-\[125px\]/.test(hero) && /sm:h-\[142px\] sm:w-\[142px\]/.test(hero) && /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.08\),0_10px_22px_-12px_rgba\(16,24,40,0\.34\)\]/.test(hero) && /outline-1 outline-offset-2 outline-\[rgba\(16,24,40,0\.09\)\]/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub) && /export const PROFILE_AVATAR_CLASS/.test(hero))
   check("the owner's pills under it", /<ProfileOwnerPills communities=\{communities\}/.test(hub))
-  check("the bio, the cover and the counts reach the hub from the layout's own reads", /async function readBio\(userId: string\)/.test(layout) && /ownCover\(admin, user\.id\)/.test(layout) && /followCounts\(admin, user\.id\)/.test(layout))
+  check("the bio, the cover and the counts reach the hub from the layout's own reads", /async function readBio\(userId: string\)/.test(layout) && /personCover\(admin, user\.id\)/.test(layout) && /followCounts\(admin, user\.id\)/.test(layout))
   /* Round 5: "Library opens as its own page ... WITHOUT the profile hero above them (like /account/settings does)". */
   check("Settings and the whole library are pages of their own: the hub draws none of the person there, only the profile's column", /if \(!showsProfileHeader\(pathname\)\) return <AccountColumn>\{children\}<\/AccountColumn>/.test(hub))
   const where: Array<[string, boolean]> = [["/account", true], ["/account/communities", true], ["/account/library", false], ["/account/library/courses", false], ["/account/library/receipts/", false], ["/account/library/products/p1", false], ["/account/library/courses/c1", false], ["/account/library/memberships/m1", false], ["/account/settings", false]]

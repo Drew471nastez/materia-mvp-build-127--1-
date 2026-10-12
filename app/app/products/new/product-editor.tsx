@@ -84,6 +84,8 @@ import { Reveal } from "@/components/physical/ui"
 import { currencyMark, formatStoreMoney, markInset } from "@/lib/store/currency"
 import { StoreCurrencyProvider } from "@/lib/store/currency-context"
 import { ReadinessNote } from "@/components/physical/readiness-banner"
+import { msg, tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -102,14 +104,14 @@ const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[
 
 /** How a download can be sold, in the order the menu lists them. */
 const PRICE_MODES = [
-  { value: "fixed", label: "Fixed price" },
-  { value: "pwyw", label: "Pay what you want" },
+  { value: "fixed", get label() { return tt("Fixed price") } },
+  { value: "pwyw", get label() { return tt("Pay what you want") } },
   { value: "free", label: "Free" },
 ] as const
 const PRICE_MODE_HINT = {
-  fixed: "One price for every buyer.",
-  pwyw: "Buyers choose what to pay, from your minimum.",
-  free: "No payment needed.",
+  get fixed() { return tt("One price for every buyer.") },
+  get pwyw() { return tt("Buyers choose what to pay, from your minimum.") },
+  get free() { return tt("No payment needed.") },
 } as const
 
 /**
@@ -743,7 +745,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // Update document title based on edit mode
   useEffect(() => {
-    const pageTitle = editProductId ? "Edit Product | Storelib" : "Add Product | Storelib"
+    const pageTitle = editProductId ? tt("Edit Product | Storelib") : tt("Add Product | Storelib")
     document.title = pageTitle
 
     // Cleanup: restore default title on unmount
@@ -977,7 +979,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         }
 
         if (!updatedProduct) {
-          throw new Error("Product update failed - no data returned. Check RLS policies.")
+          throw new Error(tt("Product update failed - no data returned. Check RLS policies."))
         }
 
         // Verify description was saved
@@ -1012,7 +1014,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         }
 
         if (!product) {
-          throw new Error("Product creation failed - no data returned")
+          throw new Error(tt("Product creation failed - no data returned"))
         }
 
         setProductId(product.id)
@@ -1091,19 +1093,19 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     } catch (err: any) {
       console.error("Error saving product:", err)
       // Check for common database errors and provide helpful messages
-      const errorMessage = err.message || "Unknown error"
+      const errorMessage = err.message || tt("Unknown error")
 
       // Column doesn't exist error (PostgreSQL error code 42703)
       if (errorMessage.includes("column") && (errorMessage.includes("does not exist") || errorMessage.includes("undefined"))) {
-        setError("Database schema is outdated. Please run the SQL migration (scripts/049_add_missing_product_columns.sql) in your Supabase SQL Editor.")
+        setError(tt("Database schema is outdated. Please run the SQL migration (scripts/049_add_missing_product_columns.sql) in your Supabase SQL Editor."))
       }
       // Table doesn't exist
       else if (errorMessage.includes("relation") && errorMessage.includes("does not exist")) {
-        setError("Required database table is missing. Please run the SQL migration (scripts/049_add_missing_product_columns.sql) in your Supabase SQL Editor.")
+        setError(tt("Required database table is missing. Please run the SQL migration (scripts/049_add_missing_product_columns.sql) in your Supabase SQL Editor."))
       }
       // RLS policy error
       else if (errorMessage.includes("row-level security") || errorMessage.includes("RLS")) {
-        setError("Permission denied. Please check your database RLS policies.")
+        setError(tt("Permission denied. Please check your database RLS policies."))
       }
       // Generic error
       else {
@@ -1155,7 +1157,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         const ctx = canvas.getContext("2d")
 
         if (!ctx) {
-          reject(new Error("Could not get canvas context"))
+          reject(new Error(tt("Could not get canvas context")))
           return
         }
 
@@ -1192,7 +1194,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error("Failed to create blob"))
+              reject(new Error(tt("Failed to create blob")))
               return
             }
 
@@ -1210,8 +1212,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         )
       }
 
-      img.onerror = () => reject(new Error("Failed to load image"))
-      reader.onerror = () => reject(new Error("Failed to read file"))
+      img.onerror = () => reject(new Error(tt("Failed to load image")))
+      reader.onerror = () => reject(new Error(tt("Failed to read file")))
       reader.readAsDataURL(file)
     })
   }
@@ -1226,7 +1228,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     const { data: { session } } = await supabase.auth.getSession()
 
     if (!session) {
-      return { error: new Error("Not authenticated") }
+      return { error: new Error(tt("Not authenticated")) }
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -1251,7 +1253,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       })
 
       xhr.addEventListener("error", () => {
-        resolve({ error: new Error("Upload failed") })
+        resolve({ error: new Error(tt("Upload failed")) })
       })
 
       xhr.open("POST", uploadUrl)
@@ -1277,17 +1279,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (isVideoFile(file)) {
         const refused = videoRefusal(file)
         if (refused) setError(refused)
-        else if (mediaItems.filter(m => m.type === "video").length + videos.length >= MAX_VIDEO_FILES) setError(`Maximum ${MAX_VIDEO_FILES} videos allowed`)
+        else if (mediaItems.filter(m => m.type === "video").length + videos.length >= MAX_VIDEO_FILES) setError(tt("Maximum {maxVideoFiles} videos allowed", { maxVideoFiles: MAX_VIDEO_FILES }))
         else videos.push(file)
         continue
       }
       if (!file.type.startsWith("image/")) {
-        setError(`Only photos and MP4, WebM or MOV videos.`)
+        setError(tt("Only photos and MP4, WebM or MOV videos."))
         continue
       }
       const existingImages = mediaItems.filter(m => m.type === "image").length + pendingMedia.length
       if (existingImages + filesToUpload.length >= MAX_PHOTOS) {
-        setError(`Maximum ${MAX_PHOTOS} photos allowed`)
+        setError(tt("Maximum {maxPhotos} photos allowed", { maxPhotos: MAX_PHOTOS }))
         continue
       }
       filesToUpload.push(file)
@@ -1336,7 +1338,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       )
       if (uploadError) {
         console.error("Upload error:", uploadError)
-        setError(`Failed to upload ${file.name}: ${uploadError.message}`)
+        setError(tt("Failed to upload {name}: {message}", { name: file.name, message: uploadError.message }))
         drop(pending.id, pending.preview)
         continue
       }
@@ -1363,7 +1365,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         setMediaItems(prev => [...prev, { id: `video-${Date.now()}-${Math.random().toString(36).slice(2)}`, type: "video", url: v.url }])
       } catch (err) {
         console.error("Video upload error:", err)
-        setError(err instanceof Error && /MP4|MB|empty/.test(err.message) ? err.message : `Failed to upload ${file.name}`)
+        setError(err instanceof Error && /MP4|MB|empty/.test(err.message) ? err.message : tt("Failed to upload {name}", { name: file.name }))
       } finally {
         setPendingMedia(prev => prev.filter(p => p.id !== pending.id))
       }
@@ -1374,13 +1376,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const handleAddYouTube = () => {
     const videoId = parseYouTubeUrl(youtubeInput)
     if (!videoId) {
-      setError("Invalid YouTube URL")
+      setError(tt("Invalid YouTube URL"))
       return
     }
 
     const existingYouTube = mediaItems.filter(m => m.type === "youtube").length
     if (existingYouTube >= MAX_YOUTUBE_VIDEOS) {
-      setError(`Maximum ${MAX_YOUTUBE_VIDEOS} YouTube videos allowed`)
+      setError(tt("Maximum {maxYoutubeVideos} YouTube videos allowed", { maxYoutubeVideos: MAX_YOUTUBE_VIDEOS }))
       return
     }
 
@@ -1429,7 +1431,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const ensureProductForCourse = useCallback(async (): Promise<string | null> => {
     if (productIdRef.current) return productIdRef.current
     if (!titleRef.current.trim()) {
-      showToast("Add a title first")
+      showToast(tt("Add a title first"))
       scrollToSectionRef.current("about")
       return null
     }
@@ -1450,7 +1452,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     // Validate: max file count, counting the ones still uploading
     const inFlight = fileUploads.inFlight
     if (digitalFiles.length + inFlight.length + fileArray.length > MAX_DIGITAL_FILES) {
-      setError(`Maximum ${MAX_DIGITAL_FILES} digital files per product. You currently have ${digitalFiles.length + inFlight.length}.`)
+      setError(tt("Maximum {maxDigitalFiles} digital files per product. You currently have {value}.", { maxDigitalFiles: MAX_DIGITAL_FILES, value: digitalFiles.length + inFlight.length }))
       return
     }
 
@@ -1467,7 +1469,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       // Check for duplicate file names
       const isDuplicate = digitalFiles.some(f => f.file_name === file.name) || inFlight.some(u => u.file.name === file.name)
       if (isDuplicate) {
-        setError(`A file named "${file.name}" is already here. Rename it or remove the one already added.`)
+        setError(tt("A file named \"{name}\" is already here. Rename it or remove the one already added.", { name: file.name }))
         return
       }
     }
@@ -1476,7 +1478,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (!currentProductId) {
       // First, we need to save the product to get an ID
       if (!title.trim()) {
-        showToast("Add a title first")
+        showToast(tt("Add a title first"))
         scrollToSection("about")
         return
       }
@@ -1487,13 +1489,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         const saveResult = await saveProduct(false)
         if (!saveResult) {
           await new Promise(resolve => setTimeout(resolve, 50))
-          setError(prev => prev || "Failed to create product. Please check your connection and try again.")
+          setError(prev => prev || tt("Failed to create product. Please check your connection and try again."))
           return
         }
         currentProductId = saveResult.productId
       } catch (saveErr) {
         console.error("Error saving product before file upload:", saveErr)
-        setError(saveErr instanceof Error ? saveErr.message : "Failed to create product. Please try again.")
+        setError(saveErr instanceof Error ? saveErr.message : tt("Failed to create product. Please try again."))
         return
       }
     }
@@ -1506,10 +1508,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (!file.id) return
     /* This one is not undone by Cancel: the file leaves storage now, not on Save. */
     const sure = await ask({
-      title: "Delete this file?",
-      body: `${file.file_name} is deleted from storage right away, not when you save.`,
-      confirm: "Delete",
-      cancel: "Keep file",
+      title: tt("Delete this file?"),
+      body: tt("{file_name} is deleted from storage right away, not when you save.", { file_name: file.file_name }),
+      confirm: tt("Delete"),
+      cancel: tt("Keep file"),
     })
     if (!sure) return
 
@@ -1522,21 +1524,21 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (!response.ok) {
         const errorData = await response.json()
         console.error("Delete file error:", errorData)
-        setError(`Failed to delete "${file.file_name}": ${errorData.error || "Delete failed"}`)
+        setError(tt("Failed to delete \"{file_name}\": {value}", { file_name: file.file_name, value: errorData.error || tt("Delete failed") }))
         return
       }
 
       setDigitalFiles(prev => prev.filter(f => f.id !== file.id))
     } catch (err) {
       console.error("Delete file request error:", err)
-      setError(`Failed to delete "${file.file_name}": Network error`)
+      setError(tt("Failed to delete \"{file_name}\": Network error", { file_name: file.file_name }))
     }
   }
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
+    if (bytes === 0) return tt("0 Bytes")
     const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const sizes = [tt("Bytes"), "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
@@ -1591,8 +1593,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (!hasUnsavedChanges || answeredRef.current) return true
     const leave = await ask(
       productId
-        ? { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
-        : { title: "Discard this product?", body: "It has not been saved yet, so nothing you added will be kept.", confirm: "Discard", cancel: "Keep editing" },
+        ? { title: tt("Discard changes?"), body: tt("Your edits since the last save will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") }
+        : { title: tt("Discard this product?"), body: tt("It has not been saved yet, so nothing you added will be kept."), confirm: tt("Discard"), cancel: tt("Keep editing") },
     )
     if (leave) setHasUnsavedChanges(false)
     return leave
@@ -1630,8 +1632,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         const live = !!productId && isPublished
         const a = await choose(
           live
-            ? { title: "Save your changes first?", body: "This product is live. Save your changes before you go, or leave without them.", confirm: "Save and go", cancel: "Stay", alt: "Leave without saving", tone: "default" }
-            : { title: "Save a draft first?", body: "It's kept as a draft, so the title and photos can wait. You come back to it here.", confirm: "Save draft and go", cancel: "Stay", alt: "Leave without saving", tone: "default" },
+            ? { title: tt("Save your changes first?"), body: tt("This product is live. Save your changes before you go, or leave without them."), confirm: tt("Save and go"), cancel: tt("Stay"), alt: tt("Leave without saving"), tone: "default" }
+            : { title: tt("Save a draft first?"), body: tt("It's kept as a draft, so the title and photos can wait. You come back to it here."), confirm: tt("Save draft and go"), cancel: tt("Stay"), alt: tt("Leave without saving"), tone: "default" },
         )
         if (a === false) return
         if (a === true && !(await (live ? handleSaveChangesRef.current() : saveDraftRef.current()))) return
@@ -1669,14 +1671,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (isLoading || saveInFlight.current) return false
     // Validation 1: Title is required
     if (!title.trim()) {
-      showToast("Add a title")
+      showToast(tt("Add a title"))
       scrollToSection("about")
       return false
     }
 
     // Validation 2: At least 1 media (photo or video) is required
     if (mediaItems.length === 0) {
-      showToast("Add a photo or video")
+      showToast(tt("Add a photo or video"))
       scrollToSection("media")
       return false
     }
@@ -1684,7 +1686,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     // Validation 3: At least 1 digital file is required, or for a course, one lesson
     if (productType === "course") {
       if (lessonCount === 0) {
-        showToast("Add a lesson")
+        showToast(tt("Add a lesson"))
         scrollToSection("files")
         return false
       }
@@ -1697,7 +1699,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         return false
       }
     } else if (digitalFiles.length === 0) {
-      showToast("Upload a file")
+      showToast(tt("Upload a file"))
       /* The files' own card: the Content tab used to cover it, and the tabs are gone. */
       scrollToSection("files")
       return false
@@ -1705,14 +1707,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
     // Validation 4: Category is required
     if (!selectedCategory) {
-      showToast("Pick a category")
+      showToast(tt("Pick a category"))
       scrollToSection("category")
       return false
     }
 
     /* Custom fields: each value fits its type, and no two share a name (lib/products/custom-fields.ts). */
     const fieldNames = customFields.map((f) => fieldKey(f.key)).filter(Boolean)
-    const fieldIssue = customFields.map(fieldProblem).find(Boolean) ?? (new Set(fieldNames).size !== fieldNames.length ? "Two custom fields have the same name" : null)
+    const fieldIssue = customFields.map(fieldProblem).find(Boolean) ?? (new Set(fieldNames).size !== fieldNames.length ? tt("Two custom fields have the same name") : null)
     if (fieldIssue) {
       showToast(fieldIssue)
       document.getElementById("custom-fields")?.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -1721,7 +1723,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
     /* Limit sales on with no number: say so rather than saving "no limit" (lib/products/sales-limit.ts). */
     if (productType !== "physical" && limitSalesEnabled && readSalesLimit(salesLimit) === null) {
-      showToast("Enter how many copies can be sold")
+      showToast(tt("Enter how many copies can be sold"))
       document.getElementById("sales-limit")?.focus()
       return false
     }
@@ -1730,8 +1732,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (variants.length > 0 && digitalFiles.length > 1) {
       const variantWithoutFiles = variants.find(v => !v.assignedFiles || v.assignedFiles.length === 0)
       if (variantWithoutFiles) {
-        const variantName = variantWithoutFiles.name?.trim() || `Variant ${variants.indexOf(variantWithoutFiles) + 1}`
-        showToast(`Assign a file to ${variantName}`)
+        const variantName = variantWithoutFiles.name?.trim() || tt("Variant {value}", { value: variants.indexOf(variantWithoutFiles) + 1 })
+        showToast(tt("Assign a file to {variantName}", { variantName }))
         scrollToSection("variants")
         return false
       }
@@ -1811,7 +1813,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         navigation would have put up the loading outline in between; the
         "Product is live" it earned is carried across.
       */
-      const message = typeof window !== "undefined" && window.innerWidth < 640 ? "Product is live" : "Product is live and saved"
+      const message = typeof window !== "undefined" && window.innerWidth < 640 ? tt("Product is live") : tt("Product is live and saved")
       if (created) {
         carriedNotice = message
         const savedAt = performance.now()
@@ -1863,7 +1865,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       setSaveBusy(false)
     }
     if (!result) {
-      showToast("Couldn't save the draft. Try again.")
+      showToast(tt("Couldn't save the draft. Try again."))
       return false
     }
     setIsPublished(false)
@@ -1907,7 +1909,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       /* Off the page or back on it: what is cached of it is dropped either way (app/api/products/forget). */
       await forgetProduct(productId, slug)
       setIsPublished(!isPublished)
-      setNotificationMessage(isPublished ? "Product unpublished" : "Product is live")
+      setNotificationMessage(isPublished ? tt("Product unpublished") : tt("Product is live"))
       setShowNotification(true)
 
       setTimeout(() => {
@@ -1938,7 +1940,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     setDeleting(true)
     const kind = await previewProductDelete(productId)
     setDeleting(false)
-    const sure = await ask({ ...deleteQuestion(savedTitle, kind), cancel: "Cancel" })
+    const sure = await ask({ ...deleteQuestion(savedTitle, kind), cancel: tt("Cancel") })
     if (!sure) return
     setDeleting(true)
     try {
@@ -1946,7 +1948,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (result.outcome === "deleted") {
         if (isPublished && slug) announceChange({ removedProduct: slug })
         rememberDeleted(productId)
-        leaveNotice("Product deleted")
+        leaveNotice(tt("Product deleted"))
       } else {
         announceChange({ product: productId })
         rememberStatus(productId, result)
@@ -1954,7 +1956,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
     } catch (err) {
       setDeleting(false)
-      showToast(err instanceof Error && err.message ? err.message : "Could not delete the product")
+      showToast(err instanceof Error && err.message ? err.message : tt("Could not delete the product"))
       return
     }
     /* Nothing left to save: the way out asks nothing. */
@@ -1967,7 +1969,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // Handle redirect to live product page
   /* A product that ships is seen where it is bought: the store's website (app/api/app/products/[id]/live). */
-  const viewLabel = productType === "physical" ? "View on your store" : "View on your page"
+  const viewLabel = productType === "physical" ? tt("View on your store") : tt("View on your page")
   const handleRedirectToProduct = () => {
     if (slug && creator) {
       const sellerSubdomain = creator.username || creator.slug || 'store'
@@ -2019,38 +2021,38 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     nothing saved.
   */
   const saveState = saveBusy
-    ? "Saving"
+    ? msg("Saving")
     : hasUnsavedChanges
-      ? "Unsaved changes"
+      ? msg("Unsaved changes")
       : !productId
-        ? "Not saved yet"
+        ? msg("Not saved yet")
         : savedThisVisit
-          ? "Saved"
+          ? msg("Saved")
           : isPublished
-            ? "Live"
-            : "Draft"
+            ? msg("Live")
+            : msg("Draft")
 
   /* Live and paid, with nowhere to take the money yet: the status says so, and where. */
   const sellsForMoney = payWhatYouWant || (Number.parseFloat(price) || 0) > 0
-  const liveLine = creator.payments_ready === false && sellsForMoney ? "Live. Checkout opens once payments are set up" : productType === "physical" ? "Live on your store" : "Live on your page"
+  const liveLine = creator.payments_ready === false && sellsForMoney ? tt("Live. Checkout opens once payments are set up") : productType === "physical" ? tt("Live on your store") : tt("Live on your page")
 
   /* The more menu: in the top bar below lg, at the end of the page header from lg. */
   const moreMenu = productId ? (
     <ResponsiveActionMenu
-      title={savedTitle.trim() || "Product"}
+      title={savedTitle.trim() || tt("Product")}
       align="end"
       trigger={
-        <button type="button" aria-label={deleting ? "Deleting" : "More actions"} aria-busy={deleting || undefined} disabled={deleting} className={barIconButton}>
-          {deleting ? <ActivitySpinner size={18} label="Deleting" className="text-[#4b5563]" /> : <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />}
+        <button type="button" aria-label={deleting ? tt("Deleting") : tt("More actions")} aria-busy={deleting || undefined} disabled={deleting} className={barIconButton}>
+          {deleting ? <ActivitySpinner size={18} label={tt("Deleting")} className="text-[#4b5563]" /> : <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4" />}
         </button>
       }
       items={[
         ...[
           ...(isPublished && slug ? [{ label: viewLabel, onClick: handleRedirectToProduct }] : []),
-          { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
+          { label: isPublished ? tt("Unpublish") : tt("Publish"), onClick: handleTogglePublish },
         ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? liveLine : "Draft, hidden from your page" } : item)),
         /* Last and apart, as on the Products list's own row menu. */
-        { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => void handleDeleteProduct() },
+        { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => void handleDeleteProduct() },
       ]}
     />
   ) : null
@@ -2059,7 +2061,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const statusBadge = productId ? (
     <StatusBadge tone={isPublished ? "success" : "neutral"}>
       <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isPublished ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
-      {isPublished ? "Live" : "Draft"}
+      {isPublished ? tt("Live") : tt("Draft")}
     </StatusBadge>
   ) : null
 
@@ -2080,16 +2082,16 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <h2 className={CARD_TITLE}>Lessons</h2>
+                <h2 className={CARD_TITLE}>{tt("Lessons")}</h2>
                 <span className="text-red-500 text-sm">*</span>
               </div>
               <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                Buyers watch these in their library, and pick up where they left off.
+                {tt("Buyers watch these in their library, and pick up where they left off.")}
               </p>
             </div>
             {lessonCount === 0 ? (
               <button type="button" data-make-digital onClick={() => switchKind("digital")} className="shrink-0 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
-                Sell files instead
+                {tt("Sell files instead")}
               </button>
             ) : null}
           </div>
@@ -2105,11 +2107,11 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       ) : (
       <div>
         <div className="flex items-center gap-1.5">
-          <h2 className={CARD_TITLE}>Digital Files</h2>
+          <h2 className={CARD_TITLE}>{tt("Digital Files")}</h2>
           <span className="text-red-500 text-sm">*</span>
         </div>
         <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-          Files customers receive after purchase. Several files? A ZIP keeps them together.
+          {tt("Files customers receive after purchase. Several files? A ZIP keeps them together.")}
         </p>
 
         <DigitalFiles
@@ -2124,9 +2126,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         {digitalFiles.length === 0 && fileUploads.inFlight.length === 0 ? (
           /* A quiet way across, for a product started as the wrong kind: the question before the editor is where a course is chosen now (./kind-chooser.tsx). */
           <p className="mt-3 text-[13px] text-[#9ca3af]">
-            Video lessons instead of files?{" "}
+            {tt("Video lessons instead of files?")}{" "}
             <button type="button" data-make-course onClick={() => switchKind("course")} className="font-medium text-[#6b7280] underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
-              Make it a course
+              {tt("Make it a course")}
             </button>
           </p>
         ) : null}
@@ -2176,7 +2178,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
       {/* Saving and Saved for a screen reader, at every width: the two bars come and go with the breakpoint. */}
       <p data-editor-announce="" className="sr-only" aria-live="polite" aria-atomic="true">
-        {savePhase === "saving" ? "Saving" : savePhase === "saved" ? "Saved" : ""}
+        {savePhase === "saving" ? tt("Saving") : savePhase === "saved" ? tt("Saved") : ""}
       </p>
 
       {/*
@@ -2234,7 +2236,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
           isScrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "",
         )}
       >
-        <h1 className="sr-only">{productId ? "Edit product" : productType === "course" ? "New course" : "New product"}</h1>
+        <h1 className="sr-only">{productId ? tt("Edit product") : productType === "course" ? tt("New course") : tt("New product")}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 app-gutter sm:h-16 sm:px-6">
           <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
@@ -2262,20 +2264,20 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         <header data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex">
           <button
             type="button"
-            aria-label="Back to products"
+            aria-label={tt("Back to products")}
             aria-busy={leaving || undefined}
-            title="Products"
+            title={tt("Products")}
             disabled={saveBusy}
             onClick={() => void handleCancel()}
             className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]", leaving && "bg-[#eceef1]")}
           >
             <span className="grid place-items-center">
               <ArrowLeft className={cn("col-start-1 row-start-1 h-5 w-5", leaving && PRESS_CONTENT_OUT)} />
-              {leaving ? <ActivitySpinner size={18} label="Going back to products" className={cn("col-start-1 row-start-1 text-[#4b5563]", PRESS_SPINNER_IN)} /> : null}
+              {leaving ? <ActivitySpinner size={18} label={tt("Going back to products")} className={cn("col-start-1 row-start-1 text-[#4b5563]", PRESS_SPINNER_IN)} /> : null}
             </span>
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">
-            {productId ? savedTitle.trim() || "Untitled" : productType === "course" ? "New course" : "New product"}
+            {productId ? savedTitle.trim() || tt("Untitled") : productType === "course" ? tt("New course") : tt("New product")}
           </h1>
           {statusBadge ? <span className="ml-1 shrink-0">{statusBadge}</span> : null}
           <div className="ml-auto flex shrink-0 items-center pl-2">{moreMenu}</div>
@@ -2296,9 +2298,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         */}
         {creator.payments_ready === false && sellsForMoney ? (
           <div data-payout-setup-notice="" className="mb-3 flex items-center gap-3 rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-2.5 lg:mb-4">
-            <p className="min-w-0 flex-1 text-[13.5px] leading-5 text-[#93370d]">Finish your payout setup to start accepting payments.</p>
+            <p className="min-w-0 flex-1 text-[13.5px] leading-5 text-[#93370d]">{tt("Finish your payout setup to start accepting payments.")}</p>
             <Link href="/app/payouts" className="shrink-0 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-[#93370d] underline-offset-2 hover:underline">
-              Finish setup
+              {tt("Finish setup")}
             </Link>
           </div>
         ) : null}
@@ -2314,19 +2316,19 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 className={CARD}
               >
                 <div>
-                  <h2 className={CARD_TITLE}>About</h2>
+                  <h2 className={CARD_TITLE}>{tt("About")}</h2>
                 </div>
 
                 {/* Title Field */}
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <Label htmlFor="title" className="text-sm font-medium text-gray-700">
-                      Title
+                      {tt("Title")}
                     </Label>
                   </div>
                   <Input
                     id="title"
-                    placeholder={productType === "course" ? "Course title" : "Product title"}
+                    placeholder={productType === "course" ? tt("Course title") : tt("Product title")}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="h-11 border-gray-200 bg-white text-sm sm:text-base"
@@ -2343,11 +2345,11 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className={CARD_TITLE}>Photos and video</h2>
+                    <h2 className={CARD_TITLE}>{tt("Photos and video")}</h2>
                     <span className="text-red-500">*</span>
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Add up to {MAX_PHOTOS} photos and {MAX_VIDEO_FILES} videos, uploaded or from YouTube. The first one is the cover.{productType === "physical" ? " Any shape: nothing is cropped." : ""}{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
+                    {tt("Add up to")} {MAX_PHOTOS} {tt("photos and")} {MAX_VIDEO_FILES} {tt("videos, uploaded or from YouTube. The first one is the cover.")}{productType === "physical" ? tt(" Any shape: nothing is cropped.") : ""}{mediaItems.length > 1 ? tt(" Hold and drag to reorder.") : ""}
                   </p>
                 </div>
 
@@ -2412,12 +2414,12 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)]">
                         <Plus className="h-5 w-5 text-[#1a1a2e]" />
                       </div>
-                      <p className="text-sm font-medium text-[#1a1a2e]">Drop to add photos and videos</p>
+                      <p className="text-sm font-medium text-[#1a1a2e]">{tt("Drop to add photos and videos")}</p>
                     </div>
                   ) : (
                     <>
                       <p className="text-gray-500 text-xs sm:text-sm mb-2 sm:mb-3">
-                        Drag and drop files or
+                        {tt("Drag and drop files or")}
                       </p>
 
                       <Button
@@ -2431,7 +2433,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         }}
                       >
                         <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
-                        Upload
+                        {tt("Upload")}
                       </Button>
                       <button
                         type="button"
@@ -2443,7 +2445,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         }}
                         data-product-media-files=""
                       >
-                        Choose from your files
+                        {tt("Choose from your files")}
                       </button>
 
                       {/* YouTube add — inline toggle */}
@@ -2490,7 +2492,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           <svg viewBox="0 -7 48 48" className="h-4 w-4 sm:h-5 sm:w-5" fill="none">
                             <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
                           </svg>
-                          Add YouTube video
+                          {tt("Add YouTube video")}
                         </button>
                       ) : (
                         <div id="youtube-inline-input" className="mt-3 space-y-3 pointer-events-auto" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
@@ -2502,7 +2504,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             </div>
                             <Input
                               id="youtube-url-field"
-                              placeholder="Paste YouTube URL..."
+                              placeholder={tt("Paste YouTube URL...")}
                               value={youtubeInput}
                               onChange={(e) => setYoutubeInput(e.target.value)}
                               className="flex-1 h-9 text-sm border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1 placeholder:text-gray-400"
@@ -2517,7 +2519,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           </div>
                           {youtubeInput && parseYouTubeUrl(youtubeInput) && (
                             <div className="relative aspect-video max-w-[200px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-                              <img src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`} alt="Video preview" className="w-full h-full object-cover" />
+                              <img src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`} alt={tt("Video preview")} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                                 <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center shadow-lg"><Play className="h-5 w-5 text-white ml-0.5" /></div>
                               </div>
@@ -2529,7 +2531,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
                             className="w-full h-9 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg disabled:bg-gray-200 disabled:text-gray-400"
                           >
-                            Add Video
+                            {tt("Add Video")}
                           </Button>
                         </div>
                       )}
@@ -2538,7 +2540,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 </div>
 
                 <p className="text-xs text-gray-400">
-                  {existingImages}/{MAX_PHOTOS} images · {mediaItems.filter(m => m.type === "video").length}/{MAX_VIDEO_FILES} videos · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube videos
+                  {existingImages}/{MAX_PHOTOS} {tt("images · {length}/", { length: mediaItems.filter(m => m.type === "video").length })}{MAX_VIDEO_FILES} {tt("videos · {existingYouTube}/", { existingYouTube })}{MAX_YOUTUBE_VIDEOS} {tt("YouTube videos")}
                 </p>
                 <FilesLibraryChooser
                   open={choosingFiles}
@@ -2557,9 +2559,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 className={CARD}
               >
                 <div>
-                  <h2 className={CARD_TITLE}>Content</h2>
+                  <h2 className={CARD_TITLE}>{tt("Content")}</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Describe your product to attract customers.
+                    {tt("Describe your product to attract customers.")}
                   </p>
                 </div>
 
@@ -2570,7 +2572,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 */}
                 <div ref={(el) => { sectionRefs.current.category = el }} data-editor-category="" className="scroll-mt-4 space-y-1.5">
                   <Label className="text-sm font-medium text-gray-700">
-                    Category
+                    {tt("Category")}
                   </Label>
                   <CategoryPicker
                     kind={categoryKind}
@@ -2585,14 +2587,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <Label className="text-sm font-medium text-gray-700">
-                      Description
+                      {tt("Description")}
                     </Label>
                   </div>
                   <RichTextEditor
                     value={description}
                     onChange={setDescription}
-                    label="Description"
-                    placeholder="What it is, who it is for, and what they get"
+                    label={tt("Description")}
+                    placeholder={tt("What it is, who it is for, and what they get")}
                     uploadImage={(file) => uploadDescriptionImage(file, { creatorId, productId })}
                     checkSize={descriptionTooLong}
                     resizable
@@ -2607,10 +2609,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className={CARD_TITLE}>What's Included</h2>
+                    <h2 className={CARD_TITLE}>{tt("What's Included")}</h2>
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Show customers what they'll get (max {MAX_WHATS_INCLUDED} items).
+                    {tt("Show customers what they'll get (max")} {MAX_WHATS_INCLUDED} {tt("items).")}
                   </p>
                 </div>
 
@@ -2626,20 +2628,20 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       <Check aria-hidden strokeWidth={2} className="h-4 w-4 shrink-0 text-[#6b7280]" />
                       <Input
                         value={item}
-                        aria-label={`Included item ${index + 1}`}
+                        aria-label={tt("Included item {value}", { value: index + 1 })}
                         onChange={(e) => {
                           setWhatsIncluded(prev => prev.map((it, i) =>
                             i === index ? e.target.value : it
                           ))
                         }}
                         className="h-8 flex-1 border-0 bg-transparent px-1 text-[15px] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-sm"
-                        placeholder="Enter item..."
+                        placeholder={tt("Enter item...")}
                       />
                       <button
                         type="button"
                         onClick={() => setWhatsIncluded(prev => prev.filter((_, i) => i !== index))}
                         className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]"
-                        aria-label="Remove item"
+                        aria-label={tt("Remove item")}
                       >
                         <X className="h-3.5 w-3.5" aria-hidden />
                       </button>
@@ -2656,7 +2658,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     className="text-gray-600 border-gray-300 h-9 rounded-xl"
                   >
                     <Plus className="h-4 w-4 mr-1.5" />
-                    Add Item
+                    {tt("Add Item")}
                   </Button>
                 )}
               </div>
@@ -2677,17 +2679,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className={CARD_TITLE}>Variants</h2>
-                      {variants.length === 0 ? <span className="text-[13px] font-normal text-[#9ca3af]">Optional</span> : null}
+                      <h2 className={CARD_TITLE}>{tt("Variants")}</h2>
+                      {variants.length === 0 ? <span className="text-[13px] font-normal text-[#9ca3af]">{tt("Optional")}</span> : null}
                     </div>
                     {variants.length > 0 ? (
-                      <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">Different versions or tiers, each with its own price.</p>
+                      <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("Different versions or tiers, each with its own price.")}</p>
                     ) : null}
                   </div>
                   {variants.length > 0 && variants.length < MAX_VARIANTS && (
                     <button type="button" onClick={addVariant} className={cn(secondaryDepth, "h-8 shrink-0 rounded-lg px-3 text-[13px]")}>
                       <Plus className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-                      Add variant
+                      {tt("Add variant")}
                     </button>
                   )}
                 </div>
@@ -2711,7 +2713,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           }}
                         >
                           <div className="min-w-0 flex-1 truncate">
-                            <span className="text-sm font-medium text-[#1a1a2e]">{variant.name || "Untitled"}</span>
+                            <span className="text-sm font-medium text-[#1a1a2e]">{variant.name || tt("Untitled")}</span>
                             {variantPriceLabel(variant, creator.currency) ? (
                               <span className="ml-2 text-xs tabular-nums text-[#6b7280]">{variantPriceLabel(variant, creator.currency)}</span>
                             ) : null}
@@ -2721,7 +2723,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                               <>
                                 <button
                                   type="button"
-                                  aria-label={`Move ${variant.name || "variant"} up`}
+                                  aria-label={tt("Move {value} up", { value: variant.name || "variant" })}
                                   disabled={index === 0}
                                   onClick={(e) => { e.stopPropagation(); moveVariant(variant.id, -1) }}
                                   className={VARIANT_TOOL}
@@ -2730,7 +2732,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                 </button>
                                 <button
                                   type="button"
-                                  aria-label={`Move ${variant.name || "variant"} down`}
+                                  aria-label={tt("Move {value} down", { value: variant.name || "variant" })}
                                   disabled={index === variants.length - 1}
                                   onClick={(e) => { e.stopPropagation(); moveVariant(variant.id, 1) }}
                                   className={VARIANT_TOOL}
@@ -2741,7 +2743,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             ) : null}
                             <button
                               type="button"
-                              aria-label={`Delete ${variant.name || "variant"}`}
+                              aria-label={tt("Delete {value}", { value: variant.name || "variant" })}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setVariants(prev => prev.filter(v => v.id !== variant.id))
@@ -2752,7 +2754,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             </button>
                             <button
                               type="button"
-                              aria-label={variant.isExpanded ? "Close" : "Edit"}
+                              aria-label={variant.isExpanded ? tt("Close") : tt("Edit")}
                               aria-expanded={variant.isExpanded}
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -2772,9 +2774,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           <div className="p-4 sm:p-5 space-y-5 border-t border-gray-100 bg-white">
                             {/* Name */}
                             <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</Label>
+                              <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{tt("Name")}</Label>
                               <Input
-                                placeholder="e.g. Basic, Pro, Enterprise"
+                                placeholder={tt("e.g. Basic, Pro, Enterprise")}
                                 value={variant.name}
                                 onChange={(e) => {
                                   setVariants(prev => prev.map(v =>
@@ -2787,9 +2789,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
                             {/* Description */}
                             <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Description</Label>
+                              <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{tt("Description")}</Label>
                               <Textarea
-                                placeholder="What's included in this variant..."
+                                placeholder={tt("What's included in this variant...")}
                                 value={variant.description}
                                 onChange={(e) => {
                                   setVariants(prev => prev.map(v =>
@@ -2804,7 +2806,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                                  {variant.payWhatYouWant ? "Min amount" : "Price"}
+                                  {variant.payWhatYouWant ? tt("Min amount") : tt("Price")}
                                 </Label>
                                 <div className="relative">
                                   {priceMark.node}
@@ -2830,14 +2832,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                                  {variant.payWhatYouWant ? "Suggested" : "Compare-at"}
+                                  {variant.payWhatYouWant ? tt("Suggested") : tt("Compare-at")}
                                 </Label>
                                 <div className="relative">
                                   {priceMark.node}
                                   <Input
                                     type="text"
                                     inputMode="decimal"
-                                    placeholder="Optional"
+                                    placeholder={tt("Optional")}
                                     value={variant.payWhatYouWant ? (variant.pwywSuggestedPrice || "") : (variant.compareAtPrice || "")}
                                     onChange={(e) => {
                                       const value = e.target.value.replace(/[^0-9.]/g, '')
@@ -2855,11 +2857,11 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                 </div>
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Max purchases</Label>
+                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{tt("Max purchases")}</Label>
                                 <Input
                                   type="text"
                                   inputMode="numeric"
-                                  placeholder="Unlimited"
+                                  placeholder={tt("Unlimited")}
                                   value={variant.maxPurchases}
                                   onChange={(e) => {
                                     const value = e.target.value.replace(/[^0-9]/g, '')
@@ -2875,8 +2877,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             {/* Pay what you want for this option: the form's own switch row, its hint where the old info circle was. */}
                             <div className={SWITCH_GROUP}>
                               <SwitchRow
-                                title="Buyers choose the price"
-                                hint="Any amount from your minimum."
+                                title={tt("Buyers choose the price")}
+                                hint={tt("Any amount from your minimum.")}
                                 checked={variant.payWhatYouWant || false}
                                 onChange={(checked) => {
                                   const targetId = variant.id
@@ -2891,10 +2893,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             <div className="space-y-3 pt-4 border-t border-gray-100">
                               <div>
                                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                                  Assigned Files
+                                  {tt("Assigned Files")}
                                 </Label>
                                 <p className="text-[10px] text-gray-400 mt-0.5">
-                                  Select which files buyers of this variant will receive
+                                  {tt("Select which files buyers of this variant will receive")}
                                 </p>
                               </div>
 
@@ -2915,7 +2917,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                         key={`${variantId}-${fileId}`}
                                         fileId={fileId}
                                         variantId={variantId}
-                                        fileName={file.file_name || 'Unnamed file'}
+                                        fileName={file.file_name || tt("Unnamed file")}
                                         fileSize={file.file_size || 0}
                                         isAssigned={isAssigned}
                                         onToggle={handleToggleVariantFile}
@@ -2927,7 +2929,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                 <div className="p-4 rounded-xl bg-gray-50 border border-dashed border-gray-200 text-center">
                                   <FileText className="h-5 w-5 text-gray-300 mx-auto mb-1" />
                                   <p className="text-xs text-gray-400">
-                                    No files uploaded yet
+                                    {tt("No files uploaded yet")}
                                   </p>
                                 </div>
                               )}
@@ -2940,7 +2942,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 )}
 
                 {variants.length >= MAX_VARIANTS && (
-                  <p className="text-xs text-gray-400 text-center">Maximum {MAX_VARIANTS} variants allowed</p>
+                  <p className="text-xs text-gray-400 text-center">{tt("Maximum")} {MAX_VARIANTS} {tt("variants allowed")}</p>
                 )}
 
                 {variants.length === 0 && (
@@ -2953,7 +2955,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     <span className="grid h-5 w-5 place-items-center rounded-full border-[1.5px] border-[#4b5563] text-[#4b5563]">
                       <Plus className="h-3 w-3" strokeWidth={2.5} aria-hidden />
                     </span>
-                    Add variants for this product
+                    {tt("Add variants for this product")}
                   </button>
                 )}
               </div>
@@ -2970,14 +2972,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className={CARD_TITLE}>Pricing</h2>
+                    <h2 className={CARD_TITLE}>{tt("Pricing")}</h2>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      {productType === "physical" ? "What buyers pay. Variants can each have their own price." : PRICE_MODE_HINT[priceMode]}
+                      {productType === "physical" ? tt("What buyers pay. Variants can each have their own price.") : PRICE_MODE_HINT[priceMode]}
                     </p>
                   </div>
                   {productType === "physical" ? null : (
                     <ResponsiveActionMenu
-                      title="How it is sold"
+                      title={tt("How it is sold")}
                       menuWidth="w-[13.5rem]"
                       items={PRICE_MODES.map((m) => ({
                         label: m.label,
@@ -2990,7 +2992,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         <button
                           type="button"
                           data-price-mode=""
-                          aria-label={`How it is sold: ${PRICE_MODES.find((m) => m.value === priceMode)?.label}`}
+                          aria-label={tt("How it is sold: {label}", { label: PRICE_MODES.find((m) => m.value === priceMode)?.label })}
                           className="-mr-1 inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f1f2f4] active:bg-[#e9eaed] data-[state=open]:bg-[#f1f2f4] sm:h-8 sm:text-[13px] [-webkit-tap-highlight-color:transparent]"
                         >
                           {PRICE_MODES.find((m) => m.value === priceMode)?.label}
@@ -3010,7 +3012,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         <div className="space-y-3">
                           <div className={cn("grid gap-3 sm:gap-4", compareOpen ? "grid-cols-2" : "grid-cols-1 sm:max-w-[calc(50%-8px)]")}>
                             <div className="space-y-1.5">
-                              <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">Price</Label>
+                              <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">{tt("Price")}</Label>
                               <div className="relative">
                                 {priceMark.node}
                                 <Input
@@ -3029,10 +3031,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             {compareOpen && (
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
-                                  <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">Compare-at price</Label>
+                                  <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">{tt("Compare-at price")}</Label>
                                   <button
                                     type="button"
-                                    aria-label="Remove the compare-at price"
+                                    aria-label={tt("Remove the compare-at price")}
                                     onClick={() => {
                                       setCompareAtPrice("")
                                       setCompareOpen(false)
@@ -3061,7 +3063,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             )}
                           </div>
                           {compareOpen && compareAtPrice && Number.parseFloat(compareAtPrice) <= Number.parseFloat(price || "0") ? (
-                            <p className="text-[13px] leading-[18px] text-[#b45309]">Buyers only see it struck through when it is higher than the price.</p>
+                            <p className="text-[13px] leading-[18px] text-[#b45309]">{tt("Buyers only see it struck through when it is higher than the price.")}</p>
                           ) : null}
                           {!compareOpen && (
                             <div className="flex flex-wrap gap-2">
@@ -3075,7 +3077,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                 className={OPTION_CHIP}
                               >
                                 <Plus className="h-3.5 w-3.5" aria-hidden />
-                                Compare-at price
+                                {tt("Compare-at price")}
                               </button>
                             </div>
                           )}
@@ -3088,7 +3090,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         <div className="space-y-2.5">
                           <div className="grid grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-1.5">
-                              <Label htmlFor="pwywMin" className="text-xs sm:text-sm font-medium text-gray-700">Minimum amount</Label>
+                              <Label htmlFor="pwywMin" className="text-xs sm:text-sm font-medium text-gray-700">{tt("Minimum amount")}</Label>
                               <div className="relative">
                                 {priceMark.node}
                                 <Input
@@ -3105,7 +3107,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                               </div>
                             </div>
                             <div className="space-y-1.5">
-                              <Label htmlFor="pwywSuggested" className="text-xs sm:text-sm font-medium text-gray-700">Suggested amount</Label>
+                              <Label htmlFor="pwywSuggested" className="text-xs sm:text-sm font-medium text-gray-700">{tt("Suggested amount")}</Label>
                               <div className="relative">
                                 {priceMark.node}
                                 <Input
@@ -3122,7 +3124,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                               </div>
                             </div>
                           </div>
-                          <p className="text-[13px] leading-[18px] text-[#6b7280]">Buyers see &ldquo;Name a fair price&rdquo;, starting at your suggested amount.</p>
+                          <p className="text-[13px] leading-[18px] text-[#6b7280]">{tt("Buyers see “Name a fair price”, starting at your suggested amount.")}</p>
                         </div>
                       ),
                     },
@@ -3130,7 +3132,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       key: "free",
                       node: (
                         <p className="rounded-xl bg-[#f6f7f8] px-4 py-3 text-[14px] leading-5 text-[#4b5563]">
-                          No payment. Buyers enter their name and email and get the files right away.
+                          {tt("No payment. Buyers enter their name and email and get the files right away.")}
                         </p>
                       ),
                     },
@@ -3157,10 +3159,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h2 className={CARD_TITLE}>FAQ</h2>
+                      <h2 className={CARD_TITLE}>{tt("FAQ")}</h2>
                     </div>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      {faqOpen ? "Answer common questions. Hold and drag to reorder." : faqs.length === 0 ? "Answer the questions buyers ask." : `${faqs.length} ${faqs.length === 1 ? "question" : "questions"} on the product page.`}
+                      {faqOpen ? tt("Answer common questions. Hold and drag to reorder.") : faqs.length === 0 ? tt("Answer the questions buyers ask.") : tt("{length, plural, one {# question} other {# questions}} on the product page.", { length: faqs.length })}
                     </p>
                   </div>
                   <button
@@ -3184,7 +3186,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     className={cn(secondaryDepth, "h-10 rounded-[10px] px-3 text-[14px] sm:h-8 sm:rounded-lg sm:text-[13px]")}
                   >
                     <Plus className="h-4 w-4 text-[#6b7280]" />
-                    Add FAQ
+                    {tt("Add FAQ")}
                   </button>
                 </div>
 
@@ -3194,7 +3196,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     <FaqList faqs={faqs} onChange={setFaqs} />
                     <button type="button" onClick={() => setFaqOpen(false)} className="flex items-center gap-1 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
                       <ChevronUp className="h-4 w-4" aria-hidden />
-                      Hide questions
+                      {tt("Hide questions")}
                     </button>
                   </>
                 ) : faqs.length > 0 ? (
@@ -3204,21 +3206,21 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     onClick={() => setFaqOpen(true)}
                     className="flex w-full items-center justify-between rounded-xl bg-[#f6f7f8] px-4 py-3 text-left text-[14px] text-[#4b5563] transition-colors hover:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
                   >
-                    <span className="min-w-0 truncate">{faqs.map((f) => f.question).filter(Boolean).slice(0, 2).join(" · ") || "Your questions"}</span>
+                    <span className="min-w-0 truncate">{faqs.map((f) => f.question).filter(Boolean).slice(0, 2).join(" · ") || tt("Your questions")}</span>
                     <span className="flex shrink-0 items-center gap-1 pl-3 font-medium text-[#1a1a2e]">
-                      Show
+                      {tt("Show")}
                       <ChevronDown className="h-4 w-4" aria-hidden />
                     </span>
                   </button>
                 ) : null}
                 {/* Where they go (lib/products/product-faqs.ts): the product page, wherever it is drawn. */}
                 <p className="text-[12.5px] leading-5 text-[#9ca3af]" data-faq-where="">
-                  Shows on your product page under the description.
+                  {tt("Shows on your product page under the description.")}
                   {productId && isPublished && slug ? (
                     <>
                       {" "}
                       <button type="button" onClick={handleRedirectToProduct} className="font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-                        See it
+                        {tt("See it")}
                       </button>
                     </>
                   ) : null}
@@ -3237,13 +3239,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               <div data-editor-status="" className={cn(CARD, "hidden lg:block")}>
                 {/* The badge is in the page header, right above: here it is said once, in words. */}
                 <div>
-                  <h2 className={CARD_TITLE}>Status</h2>
+                  <h2 className={CARD_TITLE}>{tt("Status")}</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
                     {!productId
-                      ? "Goes on your page when you save it."
+                      ? tt("Goes on your page when you save it.")
                       : isPublished
-                        ? productType === "physical" ? "Live on your store." : "Live on your page."
-                        : "Draft, hidden from your page. Saving publishes it."}
+                        ? productType === "physical" ? tt("Live on your store.") : tt("Live on your page.")
+                        : tt("Draft, hidden from your page. Saving publishes it.")}
                   </p>
                 </div>
                 {productId ? (
@@ -3254,7 +3256,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       </button>
                     ) : null}
                     <button type="button" disabled={isLoading} onClick={() => void handleTogglePublish()} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
-                      {isPublished ? "Unpublish" : "Publish"}
+                      {isPublished ? tt("Unpublish") : tt("Publish")}
                     </button>
                   </div>
                 ) : null}
@@ -3267,9 +3269,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 className={CARD}
               >
                 <div>
-                  <h2 className={CARD_TITLE}>Settings</h2>
+                  <h2 className={CARD_TITLE}>{tt("Settings")}</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    {productType === "physical" ? "How much one order can take." : "Configure product display and policies."}
+                    {productType === "physical" ? tt("How much one order can take.") : tt("Configure product display and policies.")}
                   </p>
                 </div>
 
@@ -3285,31 +3287,31 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     <div className={SWITCH_GROUP} data-physical-settings="">
                       <div>
                         <SwitchRow
-                          title="Limit sales"
-                          hint="The most one buyer can take in one order"
+                          title={tt("Limit sales")}
+                          hint={tt("The most one buyer can take in one order")}
                           checked={orderLimit.on}
                           onChange={(on) => setOrderLimit({ on, count: on && !orderLimit.count ? "2" : orderLimit.count })}
                         />
                         <Reveal open={orderLimit.on}>
                           <div className="flex items-center gap-2 px-4 pb-3" data-order-limit="">
-                            <span className="text-[14px] text-[#4b5563]">Up to</span>
+                            <span className="text-[14px] text-[#4b5563]">{tt("Up to")}</span>
                             <Input
                               type="text"
                               inputMode="numeric"
                               autoComplete="off"
                               placeholder="2"
-                              aria-label="Most per order"
+                              aria-label={tt("Most per order")}
                               value={orderLimit.count}
                               onChange={(e) => setOrderLimit({ on: true, count: e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3) })}
                               className="h-10 w-[72px] rounded-[10px] border-[#e5e7eb] text-center text-[15px] tabular-nums sm:h-9 sm:rounded-lg sm:text-sm"
                             />
-                            <span className="text-[14px] text-[#4b5563]">per order</span>
+                            <span className="text-[14px] text-[#4b5563]">{tt("per order")}</span>
                           </div>
                         </Reveal>
                       </div>
                     </div>
                     <p className="text-[13px] leading-5 text-[#6b7280]" data-returns-line="">
-                      Returns and refunds for things that ship are set for your whole store in{" "}
+                      {tt("Returns and refunds for things that ship are set for your whole store in")}{" "}
                       <a
                         href="/app/settings?tab=returns"
                         data-settings-link=""
@@ -3320,7 +3322,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         }}
                         className="font-medium text-[#1a1a2e] underline underline-offset-2"
                       >
-                        Settings › Returns and refunds
+                        {tt("Settings › Returns and refunds")}
                       </a>
                       .
                     </p>
@@ -3331,7 +3333,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
-                      Call to action
+                      {tt("Call to action")}
                     </Label>
                   </div>
                   {/* Mobile: button opens bottom sheet */}
@@ -3341,7 +3343,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     onClick={() => setShowCtaSheet(true)}
                     className="sm:hidden w-full h-10 justify-between text-sm border-gray-200 font-normal"
                   >
-                    <span className="text-gray-900">{callToAction || "I want this!"}</span>
+                    <span className="text-gray-900">{callToAction || tt("I want this!")}</span>
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </Button>
                   {/* Desktop: native select — guaranteed to work */}
@@ -3352,15 +3354,15 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       onChange={(e) => setCallToAction(e.target.value)}
                       className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer outline-none transition-[border-color,box-shadow]"
                     >
-                      <option value="I want this!">I want this!</option>
-                      <option value="Buy Now">Buy Now</option>
-                      <option value="Get Access">Get Access</option>
-                      <option value="Download Now">Download Now</option>
-                      <option value="Purchase">Purchase</option>
-                      <option value="Add to Cart">Add to Cart</option>
-                      <option value="Join Now">Join Now</option>
-                      <option value="Get it Now">Get it Now</option>
-                      <option value="Start Now">Start Now</option>
+                      <option value="I want this!">{tt("I want this!")}</option>
+                      <option value="Buy Now">{tt("Buy Now")}</option>
+                      <option value="Get Access">{tt("Get Access")}</option>
+                      <option value="Download Now">{tt("Download Now")}</option>
+                      <option value="Purchase">{tt("Purchase")}</option>
+                      <option value="Add to Cart">{tt("Add to Cart")}</option>
+                      <option value="Join Now">{tt("Join Now")}</option>
+                      <option value="Get it Now">{tt("Get it Now")}</option>
+                      <option value="Start Now">{tt("Start Now")}</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -3368,15 +3370,15 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
                 <div className={SWITCH_GROUP}>
                   <SwitchRow
-                    title="Show sales count"
-                    hint="The number sold, on the product page"
+                    title={tt("Show sales count")}
+                    hint={tt("The number sold, on the product page")}
                     checked={showSalesBadge}
                     onChange={setShowSalesBadge}
                   />
                   <div>
                     <SwitchRow
-                      title="Limit sales"
-                      hint="Stop selling after a number of copies"
+                      title={tt("Limit sales")}
+                      hint={tt("Stop selling after a number of copies")}
                       checked={limitSalesEnabled}
                       onChange={setLimitSalesEnabled}
                     />
@@ -3389,13 +3391,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             inputMode="numeric"
                             autoComplete="off"
                             placeholder="100"
-                            aria-label="Copies"
+                            aria-label={tt("Copies")}
                             aria-describedby={copiesSoldCount !== null ? "sales-limit-sold" : undefined}
                             value={salesLimit}
                             onChange={(e) => setSalesLimit(typedSalesLimit(e.target.value))}
                             className="h-11 w-32 rounded-[10px] border-[#e5e7eb] text-[15px] tabular-nums sm:h-9 sm:rounded-lg sm:text-sm"
                           />
-                          <span className="text-[14px] text-[#6b7280]">copies</span>
+                          <span className="text-[14px] text-[#6b7280]">{tt("copies")}</span>
                         </div>
                         {/* Sold so far, from the paid orders, against the number typed: the seller sees where a new limit lands before saving it. */}
                         {copiesSoldCount !== null && (() => {
@@ -3403,21 +3405,21 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           const over = typed !== null && copiesSoldCount >= typed
                           return (
                             <p id="sales-limit-sold" data-sales-sold="" className="mt-1.5 text-[13px] leading-5 text-[#6b7280] tabular-nums">
-                              {typed !== null ? soldOfText(copiesSoldCount, typed) : `${copiesSoldCount.toLocaleString("en-US")} sold so far`}
-                              {over && <span className="font-medium text-[#b42318]"> · Sold out</span>}
+                              {typed !== null ? soldOfText(copiesSoldCount, typed) : tt("{value} sold so far", { value: copiesSoldCount.toLocaleString(appLocale()) })}
+                              {over && <span className="font-medium text-[#b42318]"> · {tt("Sold out")}</span>}
                             </p>
                           )
                         })()}
                         {salesLimit.length >= 7 && readSalesLimit(salesLimit) === MAX_SALES_LIMIT && (
-                          <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">At most {MAX_SALES_LIMIT.toLocaleString("en-US")}.</p>
+                          <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">{tt("At most {value}.", { value: MAX_SALES_LIMIT.toLocaleString(appLocale()) })}</p>
                         )}
                       </div>
                     )}
                   </div>
                   <div>
                     <SwitchRow
-                      title="Refund policy"
-                      hint="Shown on the product page"
+                      title={tt("Refund policy")}
+                      hint={tt("Shown on the product page")}
                       checked={refundPolicyEnabled}
                       onChange={setRefundPolicyEnabled}
                     />
@@ -3429,7 +3431,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         onClick={() => setShowRefundPolicySheet(true)}
                         className="sm:hidden w-full h-11 justify-between rounded-[10px] text-[16px] border-[#e5e7eb] font-normal"
                       >
-                        <span className="text-gray-900">{refundPolicyType === "no_refunds" ? "No refunds allowed" : refundPolicyType === "7_day" ? "7-day money back guarantee" : refundPolicyType === "14_day" ? "14-day money back guarantee" : "30-day money back guarantee"}</span>
+                        <span className="text-gray-900">{refundPolicyType === "no_refunds" ? tt("No refunds allowed") : refundPolicyType === "7_day" ? "7-day money back guarantee" : refundPolicyType === "14_day" ? "14-day money back guarantee" : "30-day money back guarantee"}</span>
                         <ChevronDown className="h-4 w-4 text-gray-400" />
                       </Button>
                       <div className="hidden sm:block relative">
@@ -3438,10 +3440,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           onChange={(e) => setRefundPolicyType(e.target.value)}
                           className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer outline-none transition-[border-color,box-shadow]"
                         >
-                          <option value="no_refunds">No refunds allowed</option>
-                          <option value="7_day">7-day money back guarantee</option>
-                          <option value="14_day">14-day money back guarantee</option>
-                          <option value="30_day">30-day money back guarantee</option>
+                          <option value="no_refunds">{tt("No refunds allowed")}</option>
+                          <option value="7_day">{tt("7-day money back guarantee")}</option>
+                          <option value="14_day">{tt("14-day money back guarantee")}</option>
+                          <option value="30_day">{tt("30-day money back guarantee")}</option>
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                       </div>
@@ -3473,12 +3475,12 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               <div className={CARD} data-seo-card="">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className={CARD_TITLE}>Search engine listing</h2>
-                    <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">How it can look in Google.</p>
+                    <h2 className={CARD_TITLE}>{tt("Search engine listing")}</h2>
+                    <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("How it can look in Google.")}</p>
                   </div>
                   <button
                     type="button"
-                    aria-label={seoOpen ? "Close the search engine listing" : "Edit the search engine listing"}
+                    aria-label={seoOpen ? tt("Close the search engine listing") : tt("Edit the search engine listing")}
                     aria-expanded={seoOpen}
                     aria-controls="seo-fields"
                     data-seo-edit=""
@@ -3491,11 +3493,11 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-[13px] text-[#4b5563]">
-                    storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/{slug || "product-url"}
+                    {tt("storelib.com/")}{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/{slug || "product-url"}
                   </p>
-                  <p className="mt-0.5 truncate text-[16px] leading-6 text-[#1a0dab]">{seoTitle || title || "Product title"}</p>
+                  <p className="mt-0.5 truncate text-[16px] leading-6 text-[#1a0dab]">{seoTitle || title || tt("Product title")}</p>
                   <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-[#4d5156]">
-                    {plainSearchPreviewDescription || "Add a description and it shows here."}
+                    {plainSearchPreviewDescription || tt("Add a description and it shows here.")}
                   </p>
                 </div>
                 <div
@@ -3521,27 +3523,27 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     >
                       <div className="space-y-1.5 border-t border-[#eceef1] pt-4 sm:pt-5">
                         <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
-                          SEO title
+                          {tt("SEO title")}
                         </Label>
                         <Input
                           id="seoTitle"
-                          placeholder="Product title for search engines"
+                          placeholder={tt("Product title for search engines")}
                           value={seoTitle}
                           onChange={(e) => setSeoTitle(e.target.value)}
                           className="h-11 border-gray-200 text-sm sm:text-base"
                         />
                         <p className="text-[10px] sm:text-xs text-gray-400">
-                          {seoTitle.length}/60 characters
+                          {tt("{length}/60 characters", { length: seoTitle.length })}
                         </p>
                       </div>
 
                       <div className="space-y-1.5">
                         <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
-                          SEO description
+                          {tt("SEO description")}
                         </Label>
                         <Textarea
                           id="seoDescription"
-                          placeholder="Auto-generated from your product description"
+                          placeholder={tt("Auto-generated from your product description")}
                           value={seoDescription}
                           onChange={(e) => {
                             seoManuallyEditedRef.current = true // Track that user manually edited
@@ -3550,20 +3552,20 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
                         />
                         <p className="text-[10px] sm:text-xs text-gray-400">
-                          {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">Recommended: under 160</span>}
+                          {tt("{length}/160 characters", { length: seoDescription.length })} {seoDescription.length > 160 && <span className="text-amber-500">{tt("Recommended: under 160")}</span>}
                         </p>
                       </div>
 
                       <div className="space-y-1.5">
                         <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
-                          Product URL
+                          {tt("Product URL")}
                         </Label>
                         {/* The address in front of the slug, the way every link to it reads. */}
                         <div className="flex items-center gap-0">
                           <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
                             <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
                               {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
-                              storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
+                              {tt("storelib.com/")}{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
                             </span>
                           </div>
                           <Input
@@ -3583,7 +3585,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           />
                         </div>
                         <p className="text-[10px] sm:text-xs text-gray-400">
-                          Lowercase letters, numbers and hyphens only.
+                          {tt("Lowercase letters, numbers and hyphens only.")}
                         </p>
                       </div>
                     </div>
@@ -3626,7 +3628,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 saveState === "Live" ? "bg-[#22a06b]" : saveState === "Draft" ? "bg-[#e0a100]" : saveState === "Unsaved changes" ? "bg-[#8b5cf6]" : "bg-[#b6bac1]",
               )}
             />
-            <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{saveState}</span>
+            <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{tt(saveState)}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />
@@ -3638,8 +3640,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       {/* CTA Bottom Sheet */}
       <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)} kept={isMobileViewport}>
         <div className="px-5 pb-6 space-y-1">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
-          {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now", "Get it Now", "Start Now"].map((cta) => (
+          <h3 className="text-base font-semibold text-gray-900 mb-3">{tt("Call to Action")}</h3>
+          {[tt("I want this!"), tt("Buy Now"), tt("Get Access"), tt("Download Now"), tt("Purchase"), tt("Add to Cart"), tt("Join Now"), tt("Get it Now"), tt("Start Now")].map((cta) => (
             <button
               key={cta}
               type="button"
@@ -3660,9 +3662,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       {/* Refund Policy Bottom Sheet */}
       <MobileSheet isOpen={showRefundPolicySheet} onClose={() => setShowRefundPolicySheet(false)} maxHeight="85vh" kept={isMobileViewport}>
         <div className="px-5 pb-6 space-y-1">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">{tt("Refund Policy")}</h3>
           {[
-            { value: "no_refunds", label: "No refunds allowed" },
+            { value: "no_refunds", label: tt("No refunds allowed") },
             { value: "7_day", label: "7-day money back guarantee" },
             { value: "14_day", label: "14-day money back guarantee" },
             { value: "30_day", label: "30-day money back guarantee" },

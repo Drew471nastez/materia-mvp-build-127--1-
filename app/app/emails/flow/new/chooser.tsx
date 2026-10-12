@@ -35,6 +35,7 @@ import { canReturnTo } from "@/lib/navigation/in-app-history"
 import { backThen } from "@/lib/navigation/go-back"
 import { leaveLayer } from "../../layer-nav"
 import { refreshMatching } from "@/components/email/emails-cache"
+import { tt } from "@/lib/i18n/text"
 
 /** Where Back goes: the Emails page, on the tab this flow belongs to. */
 const FLOWS_HREF = "/app/emails?tab=flows"
@@ -47,9 +48,9 @@ const FLOWS_HREF = "/app/emails?tab=flows"
 const WIDTH = "max-w-[760px] lg:max-w-[1200px]"
 
 const GROUPS: Array<{ title: string; triggers: TriggerType[] }> = [
-  { title: "When someone joins your list", triggers: ["new_subscriber"] },
-  { title: "When someone leaves checkout", triggers: ["abandoned_checkout"] },
-  { title: "After an order", triggers: ["first_purchase", "purchase"] },
+  { get title() { return tt("When someone joins your list") }, triggers: ["new_subscriber"] },
+  { get title() { return tt("When someone leaves checkout") }, triggers: ["abandoned_checkout"] },
+  { get title() { return tt("After an order") }, triggers: ["first_purchase", "purchase"] },
 ]
 
 /**
@@ -77,7 +78,7 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
     try {
       const res = await fetch("/api/automations/flows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       const out = await res.json().catch(() => ({}))
-      if (!res.ok || !out.id) throw new Error(out.error || "Could not create it. Try again.")
+      if (!res.ok || !out.id) throw new Error(out.error || tt("Could not create it. Try again."))
       /* The Emails list has a new row to show when it is seen again. */
       refreshMatching("emails:flows")
       /* Replace, not push: Back from the new flow goes to the Emails page,
@@ -85,7 +86,7 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
       router.replace(`/app/emails/flow/${out.id}`)
     } catch (error) {
       setBusy(null)
-      toast({ title: "Not created", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" })
+      toast({ title: tt("Not created"), description: error instanceof Error ? error.message : tt("Try again."), variant: "destructive" })
     }
   }
 
@@ -105,17 +106,17 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
   return (
     <div className="orders-pane page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] app-page-enter">
       <FlowTopBar width={WIDTH} className="flex h-14 items-center gap-1.5 md:h-auto md:gap-2 md:pt-6">
-        <button type="button" aria-label="Back to Emails" title="Emails" className={cn(backButton, "-ml-2.5 md:-ml-1.5")} onClick={back}>
+        <button type="button" aria-label={tt("Back to Emails")} title={tt("Emails")} className={cn(backButton, "-ml-2.5 md:-ml-1.5")} onClick={back}>
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="min-w-0 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e] md:text-[24px] md:font-bold md:leading-9 lg:text-[28px]">New automation</h1>
+        <h1 className="min-w-0 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e] md:text-[24px] md:font-bold md:leading-9 lg:text-[28px]">{tt("New automation")}</h1>
       </FlowTopBar>
 
       <div className={cn("mx-auto w-full app-gutter pb-[calc(24px+env(safe-area-inset-bottom))] pt-1 md:pb-10 md:pt-2", WIDTH)}>
-        <p className="text-[14px] leading-5 text-[#6b7280]">Pick one to start from. You can change every step, and nothing is sent until you turn it on.</p>
+        <p className="text-[14px] leading-5 text-[#6b7280]">{tt("Pick one to start from. You can change every step, and nothing is sent until you turn it on.")}</p>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-5">
-          <ul aria-label="Starting points">
+          <ul aria-label={tt("Starting points")}>
             {GROUPS.map((g, gi) => {
               const list = TEMPLATES.filter((t) => g.triggers.includes(t.trigger))
               return (
@@ -132,23 +133,23 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
               )
             })}
             <li aria-hidden className={cn(groupHead, "border-t border-[#eef0f2]")}>
-              Or build your own
+              {tt("Or build your own")}
             </li>
             <li>
               <ResponsiveActionMenu
-                title="What starts it?"
+                title={tt("What starts it?")}
                 align="end"
                 menuWidth="w-72"
                 items={TRIGGER_ORDER.map((trigger) => ({ label: TRIGGERS[trigger].sentence, onClick: () => void start(`blank:${trigger}`, { template: BLANK_TEMPLATE, trigger }) }))}
                 trigger={
-                  <button type="button" className={row} disabled={busy !== null} aria-label="Start from scratch">
+                  <button type="button" className={row} disabled={busy !== null} aria-label={tt("Start from scratch")}>
                     <ListIcon icon={TEMPLATE_ICON.blank} dashed />
                     <span className="min-w-0 self-center">
-                      <span className="block text-[14px] font-semibold leading-5 text-[#1a1a2e]">Start from scratch</span>
-                      <span className="block text-[13px] leading-5 text-[#6b7280]">Choose what starts it, then add your own steps.</span>
+                      <span className="block text-[14px] font-semibold leading-5 text-[#1a1a2e]">{tt("Start from scratch")}</span>
+                      <span className="block text-[13px] leading-5 text-[#6b7280]">{tt("Choose what starts it, then add your own steps.")}</span>
                     </span>
                     <span aria-hidden className="hidden lg:block" />
-                    <RowEnd busy={busy?.startsWith("blank:") ?? false} label="Start" />
+                    <RowEnd busy={busy?.startsWith("blank:") ?? false} label={tt("Start")} />
                   </button>
                 }
               />
@@ -165,7 +166,7 @@ const groupHead = "flex h-9 items-center border-b border-[#eef0f2] bg-[#fafbfb] 
 function RowEnd({ busy, label }: { busy: boolean; label: string }) {
   return (
     <span className="ml-1 flex min-h-10 shrink-0 items-center gap-1 self-center text-[13px] font-medium text-[#1a1a2e] lg:ml-0 lg:justify-end">
-      <span className="hidden sm:inline">{busy ? "Opening" : label}</span>
+      <span className="hidden sm:inline">{busy ? tt("Opening") : label}</span>
       <ChevronRight aria-hidden className="h-4 w-4 text-[#9ca3af] transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-[#4b5563]" />
     </span>
   )
@@ -180,20 +181,20 @@ function TemplateRow({ template, mine, busy, disabled, onPick }: { template: Flo
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[14px] font-semibold leading-5 text-[#1a1a2e]">{template.name}</span>
-          {mine ? <StatusBadge tone="neutral">You have this</StatusBadge> : null}
+          {mine ? <StatusBadge tone="neutral">{tt("You have this")}</StatusBadge> : null}
         </span>
         <span className="block text-[13px] leading-5 text-[#6b7280]">{template.purpose}</span>
         <span className="mt-1 block text-[12px] leading-4 text-[#6b7280] lg:hidden">
           <span className="text-[#4b5563]">{steps}</span>
-          {forNews ? <span> · Only to people who asked for your news</span> : null}
+          {forNews ? <span> · {tt("Only to people who asked for your news")}</span> : null}
         </span>
       </span>
       {/* From lg, the steps in a column of their own. */}
       <span className="hidden min-w-0 text-[13px] leading-5 lg:block">
         <span className="block text-[#374151]">{steps}</span>
-        {forNews ? <span className="block text-[12px] leading-4 text-[#6b7280]">Only to people who asked for your news</span> : null}
+        {forNews ? <span className="block text-[12px] leading-4 text-[#6b7280]">{tt("Only to people who asked for your news")}</span> : null}
       </span>
-      <RowEnd busy={busy} label={mine ? "Open yours" : "Use"} />
+      <RowEnd busy={busy} label={mine ? tt("Open yours") : tt("Use")} />
     </button>
   )
 }

@@ -51,6 +51,7 @@ function suggestedJoinHandle(name: string): string {
   return joinHandleFromDisplayName(name)
 }
 import { askPushPermission, inNativeApp, nativePlatform, phoneSettingsPath, type PushPermission } from "@/lib/native-push"
+import { msg, tt } from "@/lib/i18n/text"
 
 /*
   ONE CLOCK FOR EVERY MOVE IN THE ONBOARDING. A step change is a crossfade:
@@ -168,165 +169,165 @@ const CATEGORY_OFF = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2p
 const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px_-1px_rgba(26,26,46,0.35)]"
 
 // Primary categories (first 16)
-const PRIMARY_CATEGORIES = [
-  "Templates",
-  "Courses",
-  "Guides",
-  "Software",
-  "Assets",
-  "Communities",
-  "Design Kits",
-  "Audio",
-  "Video",
-  "Education",
-  "Productivity",
-  "Marketing",
-  "Business",
-  "Photography",
-  "Writing",
-  "Finance"
+const PRIMARY_CATEGORIES: string[] = [
+  msg("Templates"),
+  msg("Courses"),
+  msg("Guides"),
+  msg("Software"),
+  msg("Assets"),
+  msg("Communities"),
+  msg("Design Kits"),
+  msg("Audio"),
+  msg("Video"),
+  msg("Education"),
+  msg("Productivity"),
+  msg("Marketing"),
+  msg("Business"),
+  msg("Photography"),
+  msg("Writing"),
+  msg("Finance")
 ]
 
 // Extended categories (30+ more)
-const EXTENDED_CATEGORIES = [
-  "3D Models",
-  "Animations",
-  "Apps",
-  "Art",
-  "Branding",
-  "Coaching",
-  "Consulting",
-  "Content",
-  "Crafts",
-  "Data",
-  "Developer Tools",
-  "E-books",
-  "Fashion",
-  "Fitness",
-  "Food & Recipes",
-  "Gaming",
-  "Graphics",
-  "Health",
-  "Illustrations",
-  "Investing",
-  "Legal",
-  "Lifestyle",
-  "Music",
-  "Newsletter",
-  "Notion Templates",
-  "Podcast",
-  "Print on Demand",
-  "Real Estate",
-  "SaaS",
-  "Social Media",
-  "Spreadsheets",
-  "Startup",
-  "Stock Photos",
-  "Themes",
-  "Trading",
-  "UI Kits",
-  "Web Design",
-  "Wellness",
-  "Workshops",
+const EXTENDED_CATEGORIES: string[] = [
+  msg("3D Models"),
+  msg("Animations"),
+  msg("Apps"),
+  msg("Art"),
+  msg("Branding"),
+  msg("Coaching"),
+  msg("Consulting"),
+  msg("Content"),
+  msg("Crafts"),
+  msg("Data"),
+  msg("Developer Tools"),
+  msg("E-books"),
+  msg("Fashion"),
+  msg("Fitness"),
+  msg("Food & Recipes"),
+  msg("Gaming"),
+  msg("Graphics"),
+  msg("Health"),
+  msg("Illustrations"),
+  msg("Investing"),
+  msg("Legal"),
+  msg("Lifestyle"),
+  msg("Music"),
+  msg("Newsletter"),
+  msg("Notion Templates"),
+  msg("Podcast"),
+  msg("Print on Demand"),
+  msg("Real Estate"),
+  msg("SaaS"),
+  msg("Social Media"),
+  msg("Spreadsheets"),
+  msg("Startup"),
+  msg("Stock Photos"),
+  msg("Themes"),
+  msg("Trading"),
+  msg("UI Kits"),
+  msg("Web Design"),
+  msg("Wellness"),
+  msg("Workshops"),
   // 30 more categories
-  "Automation",
-  "Beauty",
-  "Blogging",
-  "Calendars",
-  "Checklists",
-  "Copywriting",
-  "Crypto",
-  "Dance",
-  "Digital Art",
-  "Email Marketing",
-  "Engineering",
-  "Entrepreneurship",
-  "Events",
-  "Figma Templates",
-  "Fonts",
-  "Freelancing",
-  "Home & Garden",
-  "Icons",
-  "Interior Design",
-  "Journaling",
-  "Language Learning",
-  "Meditation",
-  "Mindfulness",
-  "Mockups",
-  "Parenting",
-  "Personal Finance",
-  "Planners",
-  "Presentation Templates",
-  "Project Management",
-  "Remote Work",
-  "Resume Templates",
-  "Self-Improvement",
-  "SEO",
-  "Side Hustle",
-  "Spirituality",
-  "Sports",
-  "Study Notes",
-  "Travel",
-  "Video Editing",
-  "Yoga",
+  msg("Automation"),
+  msg("Beauty"),
+  msg("Blogging"),
+  msg("Calendars"),
+  msg("Checklists"),
+  msg("Copywriting"),
+  msg("Crypto"),
+  msg("Dance"),
+  msg("Digital Art"),
+  msg("Email Marketing"),
+  msg("Engineering"),
+  msg("Entrepreneurship"),
+  msg("Events"),
+  msg("Figma Templates"),
+  msg("Fonts"),
+  msg("Freelancing"),
+  msg("Home & Garden"),
+  msg("Icons"),
+  msg("Interior Design"),
+  msg("Journaling"),
+  msg("Language Learning"),
+  msg("Meditation"),
+  msg("Mindfulness"),
+  msg("Mockups"),
+  msg("Parenting"),
+  msg("Personal Finance"),
+  msg("Planners"),
+  msg("Presentation Templates"),
+  msg("Project Management"),
+  msg("Remote Work"),
+  msg("Resume Templates"),
+  msg("Self-Improvement"),
+  msg("SEO"),
+  msg("Side Hustle"),
+  msg("Spirituality"),
+  msg("Sports"),
+  msg("Study Notes"),
+  msg("Travel"),
+  msg("Video Editing"),
+  msg("Yoga"),
   // 50 additional popular categories
-  "AI Tools",
-  "AI Prompts",
-  "Amazon KDP",
-  "Android Apps",
-  "Arduino",
-  "Astrology",
-  "Bookkeeping",
-  "Brand Strategy",
-  "Canva Templates",
-  "Career Coaching",
-  "Children's Education",
-  "Cinema LUTs",
-  "Coding Courses",
-  "Comic Art",
-  "Conversion Optimization",
-  "Cooking Classes",
-  "Customer Support",
-  "Cybersecurity",
-  "Data Science",
-  "Discord Communities",
-  "Dropshipping",
-  "Etsy Printables",
-  "Excel Dashboards",
-  "Game Assets",
-  "Gumroad Templates",
-  "HR & Recruiting",
-  "iOS Apps",
-  "Illustrator Brushes",
-  "Interview Prep",
-  "Kids Activities",
-  "Kotlin Development",
-  "Lead Magnets",
-  "LinkedIn Growth",
-  "Machine Learning",
-  "Meal Plans",
-  "Micro SaaS",
-  "No-Code Tools",
-  "Online Tutoring",
-  "Packaging Design",
-  "Paid Ads",
-  "Pitch Decks",
-  "Podcast Editing",
-  "Prayer & Faith",
-  "Procreate Brushes",
-  "Product Research",
-  "Public Speaking",
-  "React Templates",
-  "Sales Funnels",
-  "Script Writing",
-  "Shopify Apps",
-  "Startup Legal",
-  "Teaching Resources",
-  "UI Animation",
-  "Virtual Assistance",
-  "Wedding Templates",
-  "WordPress Themes",
-  "YouTube Growth"
+  msg("AI Tools"),
+  msg("AI Prompts"),
+  msg("Amazon KDP"),
+  msg("Android Apps"),
+  msg("Arduino"),
+  msg("Astrology"),
+  msg("Bookkeeping"),
+  msg("Brand Strategy"),
+  msg("Canva Templates"),
+  msg("Career Coaching"),
+  msg("Children's Education"),
+  msg("Cinema LUTs"),
+  msg("Coding Courses"),
+  msg("Comic Art"),
+  msg("Conversion Optimization"),
+  msg("Cooking Classes"),
+  msg("Customer Support"),
+  msg("Cybersecurity"),
+  msg("Data Science"),
+  msg("Discord Communities"),
+  msg("Dropshipping"),
+  msg("Etsy Printables"),
+  msg("Excel Dashboards"),
+  msg("Game Assets"),
+  msg("Gumroad Templates"),
+  msg("HR & Recruiting"),
+  msg("iOS Apps"),
+  msg("Illustrator Brushes"),
+  msg("Interview Prep"),
+  msg("Kids Activities"),
+  msg("Kotlin Development"),
+  msg("Lead Magnets"),
+  msg("LinkedIn Growth"),
+  msg("Machine Learning"),
+  msg("Meal Plans"),
+  msg("Micro SaaS"),
+  msg("No-Code Tools"),
+  msg("Online Tutoring"),
+  msg("Packaging Design"),
+  msg("Paid Ads"),
+  msg("Pitch Decks"),
+  msg("Podcast Editing"),
+  msg("Prayer & Faith"),
+  msg("Procreate Brushes"),
+  msg("Product Research"),
+  msg("Public Speaking"),
+  msg("React Templates"),
+  msg("Sales Funnels"),
+  msg("Script Writing"),
+  msg("Shopify Apps"),
+  msg("Startup Legal"),
+  msg("Teaching Resources"),
+  msg("UI Animation"),
+  msg("Virtual Assistance"),
+  msg("Wedding Templates"),
+  msg("WordPress Themes"),
+  msg("YouTube Growth")
 ]
 
 // Confetti animation component
@@ -543,7 +544,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       await switchBack.onSwitch()
     } catch (e) {
       setSwitchingBack(false)
-      setSwitchBackError(e instanceof Error ? e.message : "That business could not be opened. Try again.")
+      setSwitchBackError(e instanceof Error ? e.message : tt("That business could not be opened. Try again."))
     }
   }
   const supabase = createClient()
@@ -829,7 +830,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         const res = await fetch(`/api/profile/username?handle=${encodeURIComponent(handle)}`, { signal: controller.signal })
         const data = (await res.json().catch(() => ({}))) as { available?: boolean; error?: string }
         setJoinHandleState(data.available ? "free" : "taken")
-        setJoinHandleError(data.available ? null : data.error || "This username is taken")
+        setJoinHandleError(data.available ? null : data.error || tt("This username is taken"))
       } catch {
         if (!controller.signal.aborted) setJoinHandleState("same")
       }
@@ -853,14 +854,14 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as { error?: string }
           setJoinHandleState("taken")
-          setJoinHandleError(data.error || "This username is taken")
+          setJoinHandleError(data.error || tt("This username is taken"))
           return false
         }
       }
       const res = await fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, bio: cleanBio(joinBio) }) })
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string }
-        setJoinError(data.error || "That did not save. Try again in a moment.")
+        setJoinError(data.error || tt("That did not save. Try again in a moment."))
         return false
       }
       await fetch("/api/account/welcome", {
@@ -870,7 +871,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       }).catch(() => null)
       return true
     } catch {
-      setJoinError("Could not reach Storelib. Check your connection and try again.")
+      setJoinError(tt("Could not reach Storelib. Check your connection and try again."))
       return false
     }
   }
@@ -888,20 +889,20 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as { error?: string }
           setJoinHandleState("taken")
-          setJoinHandleError(data.error || "This username is taken")
+          setJoinHandleError(data.error || tt("This username is taken"))
           return false
         }
       }
       const res = await fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: cleanName(joinName), bio: cleanBio(joinBio) }) })
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string }
-        setJoinError(data.error || "That did not save. Try again in a moment.")
+        setJoinError(data.error || tt("That did not save. Try again in a moment."))
         return false
       }
       await saveJoinSocials()
       return true
     } catch {
-      setJoinError("Could not reach Storelib. Check your connection and try again.")
+      setJoinError(tt("Could not reach Storelib. Check your connection and try again."))
       return false
     }
   }
@@ -1010,7 +1011,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           done(dest)
           return
         }
-        setJoinNote("Preview only. Nothing was saved.")
+        setJoinNote(tt("Preview only. Nothing was saved."))
         window.setTimeout(() => setJoinNote(null), 2200)
         setCurrentStep(JOIN_NAME)
       }, 680)
@@ -1327,7 +1328,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       setAvatarUrl(preview)
 
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error(tt("Not authenticated"))
 
       const fileName = `${user.id}/creator-avatar-${Date.now()}.png`
       const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true })
@@ -1358,7 +1359,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       const img = new Image()
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
-        img.onerror = () => reject(new Error("Failed to load image"))
+        img.onerror = () => reject(new Error(tt("Failed to load image")))
         img.src = url
       })
       const side = Math.min(img.naturalWidth, img.naturalHeight)
@@ -1368,10 +1369,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       canvas.width = 512
       canvas.height = 512
       const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("No canvas")
+      if (!ctx) throw new Error(tt("No canvas"))
       ctx.drawImage(img, sx, sy, side, side, 0, 0, 512, 512)
       return await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Failed to create blob"))), "image/jpeg", 0.92)
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(tt("Failed to create blob")))), "image/jpeg", 0.92)
       })
     } finally {
       URL.revokeObjectURL(url)
@@ -1408,7 +1409,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     try {
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('No canvas context')
+      if (!ctx) throw new Error(tt("No canvas context"))
 
       const outputSize = 512
       canvas.width = outputSize
@@ -1419,7 +1420,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
-        img.onerror = () => reject(new Error('Failed to load image'))
+        img.onerror = () => reject(new Error(tt("Failed to load image")))
         img.src = tempImageUrl
       })
 
@@ -1436,7 +1437,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
-          (b) => b ? resolve(b) : reject(new Error('Failed to create blob')),
+          (b) => b ? resolve(b) : reject(new Error(tt("Failed to create blob"))),
           'image/png',
           0.95
         )
@@ -1448,7 +1449,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       setShowCropModal(false)
 
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error(tt("Not authenticated"))
 
       const fileName = `${user.id}/creator-avatar-${Date.now()}.png` // the owner's folder first: storage only lets a person write there
       const { error: uploadError } = await supabase.storage
@@ -1481,7 +1482,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       setCropBox({ x: 50, y: 50, size: 200 })
     } catch (e) {
       console.error("Error uploading avatar:", e)
-      alert('Failed to upload image')
+      alert(tt("Failed to upload image"))
     } finally {
       setUploadingAvatar(false)
     }
@@ -1730,7 +1731,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     // Actually save the data
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error(tt("Not authenticated"))
 
       // Get creator ID (use maybeSingle to not throw error if no record exists)
       const { data: creator } = await supabase
@@ -2047,7 +2048,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // Filter categories for search
   const allCategories = [...PRIMARY_CATEGORIES, ...EXTENDED_CATEGORIES]
   const filteredCategories = categorySearch
-    ? allCategories.filter(c => c.toLowerCase().includes(categorySearch.toLowerCase()))
+    ? allCategories.filter(c => tt(c).toLowerCase().includes(categorySearch.toLowerCase()) || c.toLowerCase().includes(categorySearch.toLowerCase()))
     : EXTENDED_CATEGORIES
 
   /**
@@ -2059,8 +2060,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
           <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="profile">
-            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">Create a profile</h1>
-            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
+            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">{tt("Create a profile")}</h1>
+            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">{tt("Add a name, photo and links to get started.")}</p>
             {/* Avatar stays on the column centerline; photo control sits to its right on sm+ without shifting the circle. */}
             <div className="relative mt-5 w-full">
               <div className="flex justify-center">
@@ -2069,7 +2070,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   onClick={openJoinPhoto}
                   disabled={uploadingAvatar}
                   data-onboarding-join-photo=""
-                  aria-label={avatarUrl ? "Change photo" : "Add a photo"}
+                  aria-label={avatarUrl ? tt("Change photo") : tt("Add a photo")}
                   className={cn(
                     "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
                     AVATAR_RING,
@@ -2102,16 +2103,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 )}
               >
                 <ImagePlus className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />
-                {avatarUrl ? "Change" : "Add"}
+                {avatarUrl ? tt("Change") : tt("Add")}
               </button>
             </div>
             <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[14px] px-4 text-left", FIELD_WELL)}>
-              <span className="sr-only">Your name</span>
+              <span className="sr-only">{tt("Your name")}</span>
               <input
                 type="text"
                 value={joinName}
                 onChange={(e) => setJoinName(e.target.value)}
-                placeholder="Your name"
+                placeholder={tt("Your name")}
                 maxLength={60}
                 autoComplete="name"
                 data-onboarding-join-name=""
@@ -2174,7 +2175,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       key={id}
                       type="button"
                       aria-expanded={on}
-                      aria-label={on ? `Close ${label}` : `Add ${label}`}
+                      aria-label={on ? tt("Close {label}", { label }) : tt("Add {label}", { label })}
                       onClick={() => toggleSocial(id)}
                       className="relative grid h-[48px] w-[48px] shrink-0 place-items-center [-webkit-tap-highlight-color:transparent]"
                     >
@@ -2202,10 +2203,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             <span className={cn("relative mb-3 block h-[72px] w-[72px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af]", AVATAR_RING)}>
               {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" /> : <DefaultAvatarGlyph fill />}
             </span>
-            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Pick a username</h1>
-            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Claim your unique Storelib link.</p>
+            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">{tt("Pick a username")}</h1>
+            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">{tt("Claim your unique Storelib link.")}</p>
             <label className={cn("mt-4 flex h-[52px] w-full items-center gap-1.5 rounded-[14px] px-4 text-left", FIELD_WELL)}>
-              <span className="sr-only">Username</span>
+              <span className="sr-only">{tt("Username")}</span>
               <AtSign className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" strokeWidth={2} aria-hidden />
               <input
                 type="text"
@@ -2231,11 +2232,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               {joinHandleError ?? (normalizeHandle(joinHandle) ? `storelib.com/${normalizeHandle(joinHandle)}` : "storelib.com/username")}
             </p>
             <label className={cn("mt-3 flex w-full items-start rounded-[14px] px-4 py-3 text-left", FIELD_WELL)}>
-              <span className="sr-only">Bio, optional</span>
+              <span className="sr-only">{tt("Bio, optional")}</span>
               <textarea
                 value={joinBio}
                 onChange={(e) => setJoinBio(e.target.value.slice(0, 160))}
-                placeholder="Add a short bio"
+                placeholder={tt("Add a short bio")}
                 rows={2}
                 maxLength={160}
                 data-onboarding-join-bio=""
@@ -2252,19 +2253,19 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               <Bell className="h-7 w-7" strokeWidth={1.8} />
             </span>
             <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>Don&apos;t miss a thing</h1>
-              <p className={SUBHEADING}>Get notified about replies, messages, updates and things you follow.</p>
+              <h1 className={HEADING}>{tt("Don't miss a thing")}</h1>
+              <p className={SUBHEADING}>{tt("Get notified about replies, messages, updates and things you follow.")}</p>
             </div>
             {pushAnswer === "granted" ? (
               <p className="inline-flex h-12 items-center gap-2 text-[15px] font-medium text-[#1a1a2e]">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a]">
                   <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
                 </span>
-                Notifications are on
+                {tt("Notifications are on")}
               </p>
             ) : pushAnswer === "denied" ? (
               <p className="max-w-[360px] text-[14px] leading-[20px] text-[#6b7280]">
-                They are off for now. You can turn them on in {phoneSettingsPath(nativePlatform())}.
+                {tt("They are off for now. You can turn them on in")} {phoneSettingsPath(nativePlatform())}.
               </p>
             ) : null}
           </div>
@@ -2276,11 +2277,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               <StorelibLogo size={56} fluid className="mx-auto block h-[52px] w-[52px] sm:h-14 sm:w-14" />
             </span>
             <h1 data-join-done-rise="" className={cn(SETUP_LINE, "mt-5")}>
-              You&apos;re all set
+              {tt("You're all set")}
             </h1>
             {preview ? (
               <button type="button" data-join-done-rise="" onClick={() => setCurrentStep(JOIN_NAME)} className="mt-6 text-[14px] font-semibold text-[#6d28d9]">
-                Play it again
+                {tt("Play it again")}
               </button>
             ) : (
               <div data-join-done-rise="" className="mt-6 h-[3px] w-16 overflow-hidden rounded-full bg-[#eceef1]" aria-hidden>
@@ -2295,10 +2296,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="flex flex-col items-center">
             <div className={HEADING_BLOCK}>
               <h1 className={HEADING}>
-                Name your store
+                {tt("Name your store")}
               </h1>
               <p className={SUBHEADING}>
-                You can change it later, and everything else too.
+                {tt("You can change it later, and everything else too.")}
               </p>
             </div>
 
@@ -2322,7 +2323,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     }}
                     onFocus={() => setUsernameFocused(true)}
                     onBlur={() => setUsernameFocused(false)}
-                    placeholder="Your store name"
+                    placeholder={tt("Your store name")}
                     className="flex-1 text-base outline-none bg-transparent"
                     autoFocus={false}
                     autoComplete="off"
@@ -2338,7 +2339,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   )}
                 </div>
                 {usernameAvailable === false && (
-                  <p className="text-red-500 text-xs mt-1.5 ml-1">This name is not available</p>
+                  <p className="text-red-500 text-xs mt-1.5 ml-1">{tt("This name is not available")}</p>
                 )}
               </div>
 
@@ -2349,7 +2350,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </svg>
                 <span className="text-base">
                   <span className="text-black font-medium">{getSlug() || "username"}</span>
-                  <span className="text-gray-400">.storelib.com</span>
+                  <span className="text-gray-400">{".storelib.com"}</span>
                 </span>
               </div>
 
@@ -2361,7 +2362,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell us a few words about you..."
+                  placeholder={tt("Tell us a few words about you...")}
                   rows={2}
                   className="flex-1 text-base outline-none bg-transparent resize-none"
                 />
@@ -2375,10 +2376,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="flex flex-col items-center">
             <div className={HEADING_BLOCK}>
               <h1 className={HEADING}>
-                Store category
+                {tt("Store category")}
               </h1>
               <p className={SUBHEADING}>
-                Choose what best fits your store.
+                {tt("Choose what best fits your store.")}
               </p>
             </div>
 
@@ -2400,7 +2401,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   onClick={() => setSelectedCategory(selectedCategory === category ? null : category)}
                   className={cn(CATEGORY_PILL, selectedCategory === category ? CATEGORY_ON : CATEGORY_OFF)}
                 >
-                  {category}
+                  {tt(category)}
                 </button>
               ))}
 
@@ -2413,7 +2414,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   onClick={() => setSelectedCategory(null)}
                   className={cn(CATEGORY_PILL, CATEGORY_ON)}
                 >
-                  {selectedCategory}
+                  {tt(selectedCategory)}
                 </button>
               )}
 
@@ -2424,7 +2425,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   onClick={() => setShowCategoryModal(true)}
                   className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
                 >
-                  See more
+                  {tt("See more")}
                 </button>
                 <span aria-hidden="true" className="h-4 w-px bg-[#e5e7eb]" />
                 <button
@@ -2436,7 +2437,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   }}
                   className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
                 >
-                  Other
+                  {tt("Other")}
                 </button>
               </div>
             </div>
@@ -2449,10 +2450,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="flex flex-col items-center">
             <div className={HEADING_BLOCK}>
               <h1 className={HEADING}>
-                Add your socials
+                {tt("Add your socials")}
               </h1>
               <p className={SUBHEADING}>
-                These will appear on your OnePage
+                {tt("These will appear on your OnePage")}
               </p>
             </div>
 
@@ -2473,7 +2474,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   className="mt-2 sm:mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
                 >
                   <Pencil className="w-4 h-4" />
-                  Edit
+                  {tt("Edit")}
                 </button>
                 <input
                   ref={avatarInputRef}
@@ -2533,10 +2534,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="flex flex-col">
             <div className={HEADING_BLOCK}>
               <h1 className={HEADING}>
-                Choose your plan
+                {tt("Choose your plan")}
               </h1>
               <p className={SUBHEADING}>
-                Start free and upgrade when you need to.
+                {tt("Start free and upgrade when you need to.")}
               </p>
             </div>
 
@@ -2550,8 +2551,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 },
                 loadingPlan: planCheckoutLoading,
                 ctaLabels: {
-                  free: "Start free",
-                  growth: "Get Pro",
+                  free: tt("Start free"),
+                  growth: tt("Get Pro"),
                 },
               }}
             />
@@ -2601,12 +2602,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   /* Half a line of roll, not a third: the line going and the one coming pass each other instead of sitting on top of each other mid way. */
                   lift="0.55em"
                   items={{
-                    creating: <h1 className={SETUP_LINE}>Creating your store</h1>,
-                    applying: <h1 className={SETUP_LINE}>Applying your settings</h1>,
-                    almost: <h1 className={SETUP_LINE}>Almost ready</h1>,
+                    creating: <h1 className={SETUP_LINE}>{tt("Creating your store")}</h1>,
+                    applying: <h1 className={SETUP_LINE}>{tt("Applying your settings")}</h1>,
+                    almost: <h1 className={SETUP_LINE}>{tt("Almost ready")}</h1>,
                     done: (
                       <h1 className={cn(SETUP_LINE, "inline-flex items-center gap-2.5")}>
-                        Your store is ready
+                        {tt("Your store is ready")}
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a] shadow-[0_1px_2px_rgba(22,163,74,0.35)]">
                           <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
                         </span>
@@ -2614,8 +2615,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     ),
                     error: (
                       <div>
-                        <h1 className={SETUP_LINE}>Your store was not saved</h1>
-                        <p className="mt-1.5 text-[15px] leading-[21px] text-[#6b7280]">Check your connection and try again.</p>
+                        <h1 className={SETUP_LINE}>{tt("Your store was not saved")}</h1>
+                        <p className="mt-1.5 text-[15px] leading-[21px] text-[#6b7280]">{tt("Check your connection and try again.")}</p>
                       </div>
                     ),
                   }}
@@ -2651,7 +2652,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       }}
                       className={cn("h-11 rounded-xl px-6 text-[14px] font-semibold transition-[background-color,box-shadow]", NEXT_ON)}
                     >
-                      Try again
+                      {tt("Try again")}
                     </button>
                   ),
                 }}
@@ -2776,7 +2777,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     onClick={goBackToFirstBusiness}
                     disabled={switchingBack}
                     data-onboarding-switch-back=""
-                    aria-label={`Back to ${switchBack.name}`}
+                    aria-label={tt("Back to {name}", { name: switchBack.name })}
                     className="inline-flex h-11 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60 max-sm:w-11 sm:h-10 sm:justify-start sm:px-2"
                   >
                     {switchingBack ? <Loader2 className="h-[18px] w-[18px] shrink-0 animate-spin" /> : <ArrowLeft className="h-[18px] w-[18px] shrink-0" />}
@@ -2950,7 +2951,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     )}
                   >
                     <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-                    Back
+                    {tt("Back")}
                   </button>
                   <button
                     type="button"
@@ -2967,9 +2968,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     {joinSaving || askingPush ? (
                       <ActivitySpinner size={20} className="mx-auto text-white" />
                     ) : currentStep === JOIN_NOTIFY ? (
-                      "Turn on notifications"
+                      tt("Turn on notifications")
                     ) : (
-                      "Continue"
+                      tt("Continue")
                     )}
                   </button>
                 </div>
@@ -2984,7 +2985,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       style={fadeWith(backFrom(currentStep) !== null, `background-color 150ms, box-shadow 150ms, color 150ms`)}
                       className={cn("px-5 sm:px-6 py-3 text-sm font-medium rounded-xl max-[384px]:px-4 disabled:cursor-not-allowed motion-reduce:!transition-none", BACK_LOOK, currentStep === 4 && planCheckoutLoading && "text-[#9ca3af]")}
                     >
-                      Back
+                      {tt("Back")}
                     </button>
                   </div>
                   <div
@@ -2999,7 +3000,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       data-onboarding-skip=""
                       className="px-4 sm:px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 max-[384px]:px-2.5 motion-reduce:!transition-none"
                     >
-                      {currentStep === JOIN_NOTIFY ? "Not now" : "Skip"}
+                      {currentStep === JOIN_NOTIFY ? tt("Not now") : tt("Skip")}
                     </button>
                     <button
                       type="button"
@@ -3019,11 +3020,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       {isJoinStep(currentStep) && (joinSaving || askingPush) ? (
                         <ActivitySpinner size={20} className="mx-auto text-white" />
                       ) : currentStep === JOIN_NOTIFY ? (
-                        "Turn on notifications"
+                        tt("Turn on notifications")
                       ) : currentStep === JOIN_NAME || currentStep === JOIN_SOCIAL ? (
-                        "Continue"
+                        tt("Continue")
                       ) : (
-                        "Next"
+                        tt("Next")
                       )}
                     </button>
                   </div>
@@ -3035,13 +3036,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             <div className="absolute inset-0 z-30 flex items-end" data-onboarding-photo-sheet="">
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={tt("Close")}
                 className="absolute inset-0 bg-black/40 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
                 onClick={() => setPhotoSheet(false)}
               />
               <div className="relative z-10 w-full rounded-t-[20px] bg-white px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_30px_-12px_rgba(17,24,39,0.28)] motion-safe:animate-in motion-safe:slide-in-from-bottom-6 motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]">
                 <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-neutral-300" />
-                <p className="px-1 pb-3 text-[15px] font-semibold text-[#1a1a2e]">Photo Library</p>
+                <p className="px-1 pb-3 text-[15px] font-semibold text-[#1a1a2e]">{tt("Photo Library")}</p>
                 <button
                   type="button"
                   onClick={chooseJoinLibrary}
@@ -3049,7 +3050,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   className={cn(secondaryDepth, "mb-1 h-12 w-full rounded-xl px-4 text-[15px]")}
                 >
                   <ImagePlus className="h-4 w-4" strokeWidth={2} aria-hidden />
-                  Photo Library
+                  {tt("Photo Library")}
                 </button>
               </div>
             </div>
@@ -3067,7 +3068,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-lg font-semibold flex-1 text-center pr-8">More Categories</h2>
+            <h2 className="text-lg font-semibold flex-1 text-center pr-8">{tt("More Categories")}</h2>
           </div>
 
           {/* Search */}
@@ -3078,7 +3079,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 type="text"
                 value={categorySearch}
                 onChange={(e) => setCategorySearch(e.target.value)}
-                placeholder="Search categories..."
+                placeholder={tt("Search categories...")}
                 className="flex-1 text-sm outline-none bg-transparent"
               />
             </div>
@@ -3102,7 +3103,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       : "bg-gray-100 border-2 border-transparent text-gray-700 hover:bg-gray-200"
                   )}
                 >
-                  {category}
+                  {tt(category)}
                 </button>
               ))}
             </div>
@@ -3128,7 +3129,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</h2>
+            <h2 className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Image")}</h2>
           </div>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -3201,7 +3202,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   {/* Image */}
                   <img
                     src={tempImageUrl}
-                    alt="Preview"
+                    alt={tt("Preview")}
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
                     style={{
                       width: imageSizeCrop.width,
@@ -3286,7 +3287,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </div>
 
                 <p className="text-xs text-center text-gray-500">
-                  Drag to move, drag bottom-right corner to resize
+                  {tt("Drag to move, drag bottom-right corner to resize")}
                 </p>
 
                 <canvas ref={canvasRef} className="hidden" />
@@ -3296,14 +3297,14 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     onClick={() => { setShowCropModal(false); setTempImageUrl(null); setAvatarFile(null); setCropBox({ x: 50, y: 50, size: 200 }) }}
                     className="flex-1 py-3 rounded-xl font-medium text-sm border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    {tt("Cancel")}
                   </button>
                   <button
                     onClick={handleCropComplete}
                     disabled={uploadingAvatar}
                     className="flex-1 py-3 rounded-xl font-medium text-sm bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />Saving...</> : "Save"}
+                    {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                   </button>
                 </div>
               </>
@@ -3345,15 +3346,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               <ActivitySpinner label="" />
             </span>
             <div className="absolute left-1/2 top-full ml-[-150px] mt-4 w-[300px] text-center">
-              <p className="text-[15px] font-medium leading-[22px] text-[#1a1a2e]">Opening your dashboard</p>
+              <p className="text-[15px] font-medium leading-[22px] text-[#1a1a2e]">{tt("Opening your dashboard")}</p>
               {redirectFailed && (
                 <div className="mt-4 animate-in fade-in duration-200 motion-reduce:animate-none">
-                  <p className="text-[14px] leading-5 text-[#6b7280]">This is taking longer than usual.</p>
+                  <p className="text-[14px] leading-5 text-[#6b7280]">{tt("This is taking longer than usual.")}</p>
                   <button
                     onClick={startDashboardRedirect}
                     className={cn("mt-3 inline-flex h-11 items-center justify-center rounded-xl px-5 text-[14px] font-semibold transition-[background-color,box-shadow]", NEXT_ON)}
                   >
-                    Go to dashboard
+                    {tt("Go to dashboard")}
                   </button>
                 </div>
               )}

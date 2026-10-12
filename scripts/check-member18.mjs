@@ -21,8 +21,12 @@
  *   POP        the full page's back arrow at 4x CPU: the page slides off to
  *              the right over the community, which comes from a third of the
  *              way left; the page's left edge always over the community.
- *   COMPUTER   the same two as a short fade and move, nothing across the
- *              whole window.
+ *   COMPUTER   round J: nothing moves at all. The community stays drawn
+ *              (its copy, fully opaque) until the full page is painted under
+ *              it, then the copy goes in a 100ms fade; the same way back.
+ *              Also with the route's loading screen first (LOADING_MS): the
+ *              plain loading colour is never what is on screen, and the
+ *              page never slides in from the side.
  *
  *   PROBE_CSS=source node scripts/check-member18.mjs
  * Screenshots and frames go to SHOTS_DIR (printed at the end): look at them.
@@ -221,9 +225,10 @@ function sampleMotion(p, ms) {
           const r = (el) => {
             if (!el) return null
             const b = el.getBoundingClientRect()
-            return { l: Math.round(b.left * 10) / 10, r: Math.round(b.right * 10) / 10, op: Number(getComputedStyle(el).opacity) }
+            const t = getComputedStyle(el).translate
+            return { l: Math.round(b.left * 10) / 10, r: Math.round(b.right * 10) / 10, op: Number(getComputedStyle(el).opacity), tx: t && t !== "none" ? parseFloat(t.split(" ")[0]) || 0 : 0 }
           }
-          out.push({ t: Math.round(performance.now() - t0), vw: document.documentElement.clientWidth, motion: document.documentElement.getAttribute("data-page-motion"), still: r(still), inner: r(inner), page: r(page), shell: r(shell) })
+          out.push({ t: Math.round(performance.now() - t0), vw: document.documentElement.clientWidth, motion: document.documentElement.getAttribute("data-page-motion"), still: r(still), inner: r(inner), page: r(page), shell: r(shell), loading: !!live("[data-probe-loading]") })
           if (performance.now() - t0 < ms) requestAnimationFrame(tick)
           else done(out)
         }
@@ -433,10 +438,9 @@ try {
       const lefts = moving.map((s) => s.page.l)
       expect(lefts[0] > W.phone * 0.5 && lefts.every((x, i) => i === 0 || x <= lefts[i - 1] + 0.5), `${label}: the page comes in from the right edge, never backwards`, { first: lefts[0], last: lefts[lefts.length - 1] })
     } else {
-      expect(moving.length >= 2, `${label}: the push is drawn over more than one frame`, moving.length)
-      expect(moving.every((s) => s.still.l <= 0.5 && s.still.l >= -24.5), `${label}: on a computer the community only moves 24px as it fades`, moving.map((s) => s.still.l).slice(0, 6))
-      expect(moving.every((s) => !(s.still.op > 0.35 && s.page.op > 0.35)), `${label}: the two are never seen through each other`, moving.map((s) => [s.still.op, s.page.op]))
-      expect(moving.every((s) => s.page.l >= -0.5 && s.page.l <= 24.5), `${label}: and the page comes in from 24px`, moving.map((s) => s.page.l).slice(0, 6))
+      expect(moving.length >= 1, `${label}: the community's copy is over the page as it arrives`, moving.length)
+      expect(push.samples.every((s) => (!s.still || Math.abs(s.still.l) < 0.5) && (!s.page || Math.abs(s.page.l) < 0.5)), `${label}: on a computer nothing moves sideways, the copy or the page`, push.samples.map((s) => [s.still?.l, s.page?.l]).slice(0, 6))
+      expect(push.samples.every((s) => !s.page || s.page.op > 0.999), `${label}: the page is simply there under the copy, no fade of its own`, push.samples.map((s) => s.page?.op).slice(0, 6))
     }
     const blank = push.samples.filter((s) => !s.page && !s.shell)
     expect(blank.length === 0, `${label}: never a frame with no page`, blank.length)
@@ -458,13 +462,29 @@ try {
       const gapped = popping.filter((s) => s.inner.l < W.phone && s.shell.r < s.inner.l - 0.5)
       expect(!gapped.length, `${label}: never a gap between the two`, gapped.slice(0, 2))
     } else {
-      expect(popping.length >= 2, `${label}: the pop is drawn over more than one frame`, popping.length)
-      expect(popping.every((s) => s.inner.l >= -0.5 && s.inner.l <= 24.5), `${label}: on a computer the page only moves 24px as it fades`)
+      expect(popping.length >= 1, `${label}: the full page's copy is over the community as it comes back`, popping.length)
+      expect(pop.samples.every((s) => (!s.still || Math.abs(s.still.l) < 0.5) && (!s.shell || Math.abs(s.shell.l) < 0.5)), `${label}: on a computer nothing moves sideways on the way back`, pop.samples.map((s) => [s.still?.l, s.shell?.l]).slice(0, 6))
     }
     const endPop = pop.samples[pop.samples.length - 1]
     expect(!endPop.still && endPop.shell && Math.abs(endPop.shell.l) < 0.5, `${label}: the pop ends with the community in place and the copy gone`, endPop)
     expect(await p.evaluate(() => !!window.__shellPopped), `${label}: the community arrived with the pop, not with its own push`)
     expect(!errors.length, `${label} journey: no page errors`, errors)
+    await p.close()
+  }
+
+  /* ── COMPUTER, A PAGE NOT READ AHEAD: its loading screen commits first, the page 400ms later (round J). ── */
+  {
+    const { p, errors } = await open(DESK, `/community/clay?profile=sam.kerr&case=journey&board=full&cover=1`, { coverDelay: 0 })
+    await p.waitForSelector("[data-member-profile-page]")
+    await sleep(600)
+    await p.click("[data-member-profile-page]")
+    const push = await film(p, `push-desktop-loading`, 1600, () => p.evaluate(() => { history.pushState({ probe: 1 }, "", "/@sam.kerr?from=community"); window.__go("full", 400) }), sampleMotion)
+    const bare = push.samples.filter((s) => s.loading && (!s.still || s.still.op < 0.5))
+    expect(bare.length === 0, "desktop, page after its loading screen: the loading colour is never what is on screen (the community stays until the page is there)", bare.length)
+    expect(push.samples.every((s) => (!s.still || Math.abs(s.still.l) < 0.5) && (!s.page || (Math.abs(s.page.l) < 0.5 && Math.abs(s.page.tx) < 0.5))), "desktop, page after its loading screen: it never slides in", push.samples.filter((s) => s.page).map((s) => [s.page.l, s.page.tx]).slice(0, 6))
+    const end = push.samples[push.samples.length - 1]
+    expect(!end.still && end.page && end.page.op > 0.999, "desktop, page after its loading screen: ends with the page and no copy", end)
+    expect(!errors.length, "desktop loading journey: no page errors", errors)
     await p.close()
   }
 

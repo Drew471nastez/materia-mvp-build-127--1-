@@ -47,6 +47,7 @@ import { TrackingTimeline, estimatedDay } from "./tracking-timeline"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/app/orders/order-parts"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet } from "./ui"
 import { LabelFields, ShipModeSwitch, useLabelFlow, useOrderLabels, voidLabelRequest } from "./buy-label"
+import { tt } from "@/lib/i18n/text"
 
 export interface PhysicalLine {
   orderId: string
@@ -175,7 +176,7 @@ export function usePhysicalOrder(orderRowId: string | null, revision = 0) {
 
   const act = React.useCallback(
     async (body: Record<string, unknown>): Promise<string | null> => {
-      if (!orderId) return "The order is still loading."
+      if (!orderId) return tt("The order is still loading.")
       setBusy(true)
       const r = await api<{ order: PhysicalOrder }>(pathOf(orderId), { body })
       setBusy(false)
@@ -208,7 +209,7 @@ export function historyOf(order: PhysicalOrder): PhysicalHistory {
 /* ─── Main column: to fulfil, shipments, returns ─────────────────────── */
 
 const lineName = (l: PhysicalLine) => `${l.title}${l.variantName ? `, ${l.variantName}` : ""}`
-const countLabel = (n: number) => `${n} ${n === 1 ? "item" : "items"}`
+const countLabel = (n: number) => tt("{n, plural, one {# item} other {# items}}", { n })
 
 type Dialog = { fulfil: { lines: string[]; locationId: string | null } } | { tracking: PhysicalShipment } | "return" | "cancel" | null
 
@@ -274,21 +275,21 @@ export function PhysicalFulfillment({
 
   return (
     <div className={cn("grid min-w-0 gap-4", className)} data-physical-order="">
-      {order.cancelledAt ? <Notice tone="gray">This order was cancelled and its stock released. Refund the payment with Refund if you haven&apos;t.</Notice> : null}
+      {order.cancelledAt ? <Notice tone="gray">{tt("This order was cancelled and its stock released. Refund the payment with Refund if you haven't.")}</Notice> : null}
 
       {/* The buyer pressed Cancel order on their order page (lib/physical/buyer-cancel.ts): the shop's answer, here. */}
       {request ? (
         <section className={cn(card, "min-w-0 px-4 py-3.5")} data-cancel-request="">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge tone="attention">Cancel requested</StatusBadge>
+            <StatusBadge tone="attention">{tt("Cancel requested")}</StatusBadge>
             <span className="text-[12px] text-[#6b7280]">{dateTime(request.at)}</span>
           </div>
-          <p className="mt-2 text-[13.5px] leading-5 text-[#1a1a2e]">{order.buyerName?.trim() || "The buyer"} asked to cancel this order before it ships. Don&apos;t send it yet.</p>
-          {request.reason ? <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">Reason: {request.reason}</p> : null}
-          {order.events.some((e) => e.kind === "fulfillment.forwarded") ? <p className="mt-1 text-[13px] leading-5 text-[#b45309]">It was already sent to your print partner. Cancel it there too.</p> : null}
+          <p className="mt-2 text-[13.5px] leading-5 text-[#1a1a2e]">{order.buyerName?.trim() || tt("The buyer")} {tt("asked to cancel this order before it ships. Don't send it yet.")}</p>
+          {request.reason ? <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">{tt("Reason: {reason}", { reason: request.reason })}</p> : null}
+          {order.events.some((e) => e.kind === "fulfillment.forwarded") ? <p className="mt-1 text-[13px] leading-5 text-[#b45309]">{tt("It was already sent to your print partner. Cancel it there too.")}</p> : null}
           <div className="mt-3 flex flex-wrap justify-end gap-2">
-            <button type="button" className={cn(buttonSecondary, "h-9 sm:h-8")} disabled={busy} data-cancel-keep="" onClick={() => void run({ action: "cancel_decline" }, "Order kept. Let the buyer know you're sending it.")}>
-              Keep order
+            <button type="button" className={cn(buttonSecondary, "h-9 sm:h-8")} disabled={busy} data-cancel-keep="" onClick={() => void run({ action: "cancel_decline" }, tt("Order kept. Let the buyer know you're sending it."))}>
+              {tt("Keep order")}
             </button>
             <button
               type="button"
@@ -296,13 +297,13 @@ export function PhysicalFulfillment({
               disabled={busy}
               data-cancel-approve=""
               onClick={async () => {
-                if (!window.confirm(onRefundAll ? "Cancel this order and refund the buyer in full? Its stock goes back on sale." : "Cancel this order? Its stock goes back on sale. The owner refunds it.")) return
+                if (!window.confirm(onRefundAll ? tt("Cancel this order and refund the buyer in full? Its stock goes back on sale.") : tt("Cancel this order? Its stock goes back on sale. The owner refunds it."))) return
                 const e = await act({ action: "cancel", reason: CANCELLED_AT_BUYERS_REQUEST })
                 if (e) return setError(e)
-                onNotice?.(onRefundAll ? await onRefundAll() : "Order cancelled. The buyer was emailed.")
+                onNotice?.(onRefundAll ? await onRefundAll() : tt("Order cancelled. The buyer was emailed."))
               }}
             >
-              {onRefundAll ? "Cancel and refund" : "Cancel order"}
+              {onRefundAll ? tt("Cancel and refund") : tt("Cancel order")}
             </button>
           </div>
         </section>
@@ -310,23 +311,23 @@ export function PhysicalFulfillment({
 
       {[...groups.values()].map((g, gi) => {
         const left = g.lines.reduce((n, l) => n + l.quantity - l.fulfilled, 0)
-        const from = pickup ? `Pickup at ${order.pickup?.name ?? "your location"}` : g.method === "self" ? (locName(g.locationId) ? `Ships from ${locName(g.locationId)}` : "Shipped by you") : shippedByLabel(g.method, locName(g.locationId))
+        const from = pickup ? tt("Pickup at {value}", { value: order.pickup?.name ?? tt("your location") }) : g.method === "self" ? (locName(g.locationId) ? tt("Ships from {name}", { name: locName(g.locationId) }) : tt("Shipped by you")) : shippedByLabel(g.method, locName(g.locationId))
         const menu: ActionMenuItem[] = [
-          { label: "Packing slip", icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, g.lines) },
+          { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, g.lines) },
           ...(gi === 0 && canFulfil && live.length === 0
             ? [order.processingAt
-                ? { label: "Back to unfulfilled", icon: <Undo2 className="h-4 w-4" />, onClick: () => void run({ action: "processing", on: false }) }
-                : { label: "Mark as in progress", icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "processing", on: true }, "Marked as in progress") }]
+                ? { label: tt("Back to unfulfilled"), icon: <Undo2 className="h-4 w-4" />, onClick: () => void run({ action: "processing", on: false }) }
+                : { label: tt("Mark as in progress"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "processing", on: true }, tt("Marked as in progress")) }]
             : []),
-          ...(gi === 0 && !order.cancelledAt && live.length === 0 ? [{ label: "Cancel order", icon: <X className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setDialog("cancel") }] : []),
+          ...(gi === 0 && !order.cancelledAt && live.length === 0 ? [{ label: tt("Cancel order"), icon: <X className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setDialog("cancel") }] : []),
         ]
         return (
           <section key={`${g.method}:${g.locationId}`} className={cn(card, "min-w-0")} data-ship-group={g.method} data-unfulfilled-card="">
             <CardTop
-              badge={<StatusBadge tone="attention">{order.processingAt ? "In progress" : "Unfulfilled"}</StatusBadge>}
+              badge={<StatusBadge tone="attention">{order.processingAt ? tt("In progress") : tt("Unfulfilled")}</StatusBadge>}
               count={left}
               sub={from}
-              menu={<CardMenu title="Unfulfilled" items={menu} />}
+              menu={<CardMenu title={tt("Unfulfilled")} items={menu} />}
             />
             <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
               {g.lines.map((l) => (
@@ -342,7 +343,7 @@ export function PhysicalFulfillment({
                 disabled={busy || !canFulfil}
                 data-fulfil=""
               >
-                {pickup ? "Mark ready for pickup" : "Fulfill items"}
+                {pickup ? tt("Mark ready for pickup") : tt("Fulfill items")}
               </button>
             </div>
           </section>
@@ -355,56 +356,56 @@ export function PhysicalFulfillment({
         const delivered = s.status === "delivered"
         const problem = s.status === "failed"
         const badge = cancelled ? (
-          <StatusBadge tone="neutral">Cancelled</StatusBadge>
+          <StatusBadge tone="neutral">{tt("Cancelled")}</StatusBadge>
         ) : problem ? (
-          <StatusBadge tone="critical">Delivery problem</StatusBadge>
+          <StatusBadge tone="critical">{tt("Delivery problem")}</StatusBadge>
         ) : s.unconfirmedAt && !delivered ? (
-          <StatusBadge tone="attention">Delivery not confirmed</StatusBadge>
+          <StatusBadge tone="attention">{tt("Delivery not confirmed")}</StatusBadge>
         ) : delivered ? (
-          <StatusBadge tone="success">{pickup ? "Picked up" : "Delivered"}</StatusBadge>
+          <StatusBadge tone="success">{pickup ? tt("Picked up") : tt("Delivered")}</StatusBadge>
         ) : (
-          <StatusBadge tone="success">{pickup ? "Ready for pickup" : "Fulfilled"}</StatusBadge>
+          <StatusBadge tone="success">{pickup ? tt("Ready for pickup") : tt("Fulfilled")}</StatusBadge>
         )
-        const transit = s.status === "in_transit" ? "In transit" : s.status === "out_for_delivery" ? "Out for delivery" : s.status === "failed" ? "Delivery problem" : null
+        const transit = s.status === "in_transit" ? tt("In transit") : s.status === "out_for_delivery" ? tt("Out for delivery") : s.status === "failed" ? tt("Delivery problem") : null
         const label = labels.find((l) => l.fulfillmentId === s.id && l.status !== "voided") ?? null
         const labelUnused = !!label && (label.status === "purchased" || label.status === "void_rejected") && (s.status === "shipped" || s.status === "pending" || s.status === "submitted")
         const menu: ActionMenuItem[] = cancelled
           ? []
           : [
-              ...(label?.labelUrl && label.status === "purchased" ? [{ label: "Print label", icon: <Printer className="h-4 w-4" />, onClick: () => window.open(label.labelUrl!, "_blank", "noopener") }] : []),
+              ...(label?.labelUrl && label.status === "purchased" ? [{ label: tt("Print label"), icon: <Printer className="h-4 w-4" />, onClick: () => window.open(label.labelUrl!, "_blank", "noopener") }] : []),
               ...(labelUnused
                 ? [{
-                    label: "Void label",
+                    label: tt("Void label"),
                     icon: <X className="h-4 w-4" />,
                     onClick: async () => {
-                      if (!window.confirm(`Void this ${label!.providerName} label? ${label!.cost} is refunded once the carrier agrees it wasn't used, and the items go back to unfulfilled.`)) return
+                      if (!window.confirm(tt("Void this {providerName} label? {cost} is refunded once the carrier agrees it wasn't used, and the items go back to unfulfilled.", { providerName: label!.providerName, cost: label!.cost }))) return
                       const r = await voidLabelRequest(order.id, label!.id)
                       if (r.ok === false) return setError(r.error)
                       replace(r.order)
                       setLabels(labels.map((l) => (l.id === r.label.id ? r.label : l)))
-                      onNotice?.(r.label.status === "voided" ? "Label voided and refunded" : "Label void requested")
+                      onNotice?.(r.label.status === "voided" ? tt("Label voided and refunded") : tt("Label void requested"))
                     },
                   }]
                 : []),
-              ...(!pickup && !delivered ? [{ label: s.trackingNumber ? "Edit tracking" : "Add tracking", icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
+              ...(!pickup && !delivered ? [{ label: s.trackingNumber ? tt("Edit tracking") : tt("Add tracking"), icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
               /* Where the parcel is, set by hand when no carrier reports it: each step a buyer reads on their order page, the last two emailed. */
-              ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "failed") ? [{ label: "Mark as in transit", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, "Marked as in transit") }] : []),
-              ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "in_transit" || s.status === "failed") ? [{ label: "Mark as out for delivery", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "out_for_delivery" }, "Marked as out for delivery. The buyer was emailed.") }] : []),
-              ...(!pickup && !delivered && s.status !== "failed" ? [{ label: "Report a delivery problem", icon: <X className="h-4 w-4" />, onClick: () => { if (window.confirm("Mark this package as having a delivery problem? The buyer sees it on their order page.")) void run({ action: "shipment", fulfillmentId: s.id, status: "failed" }, "Marked as a delivery problem") } }] : []),
+              ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "failed") ? [{ label: tt("Mark as in transit"), icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, tt("Marked as in transit")) }] : []),
+              ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "in_transit" || s.status === "failed") ? [{ label: tt("Mark as out for delivery"), icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "out_for_delivery" }, tt("Marked as out for delivery. The buyer was emailed.")) }] : []),
+              ...(!pickup && !delivered && s.status !== "failed" ? [{ label: tt("Report a delivery problem"), icon: <X className="h-4 w-4" />, onClick: () => { if (window.confirm(tt("Mark this package as having a delivery problem? The buyer sees it on their order page."))) void run({ action: "shipment", fulfillmentId: s.id, status: "failed" }, tt("Marked as a delivery problem")) } }] : []),
               /* Courier tracking moves this shipment by itself; the seller can stop that for this one parcel and set it by hand. */
-              ...(!pickup && !delivered && s.tracking?.mode === "auto" ? [{ label: "Pause automatic updates", icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: false }, "Automatic updates paused for this package") }] : []),
-              ...(!pickup && !delivered && s.tracking?.mode === "paused" ? [{ label: "Resume automatic updates", icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: true }, "Automatic updates on again") }] : []),
-              ...(returnable ? [{ label: "Start return", icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
-              { label: "Packing slip", icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, s.items.map((i) => ({ ...order.lines.find((l) => l.orderId === i.orderId)!, quantity: i.quantity, fulfilled: 0 })).filter((l) => l.title)) },
+              ...(!pickup && !delivered && s.tracking?.mode === "auto" ? [{ label: tt("Pause automatic updates"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: false }, tt("Automatic updates paused for this package")) }] : []),
+              ...(!pickup && !delivered && s.tracking?.mode === "paused" ? [{ label: tt("Resume automatic updates"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: true }, tt("Automatic updates on again")) }] : []),
+              ...(returnable ? [{ label: tt("Start return"), icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
+              { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, s.items.map((i) => ({ ...order.lines.find((l) => l.orderId === i.orderId)!, quantity: i.quantity, fulfilled: 0 })).filter((l) => l.title)) },
               ...(!delivered
                 ? [{
-                    label: pickup ? "Not ready after all" : "Cancel fulfillment",
+                    label: pickup ? tt("Not ready after all") : tt("Cancel fulfillment"),
                     icon: <X className="h-4 w-4" />,
                     variant: "destructive" as const,
                     separatorBefore: true,
                     onClick: () => {
-                      if (!window.confirm(pickup ? "Undo ready for pickup? The items go back to unfulfilled." : "Cancel this fulfillment? Its items go back to unfulfilled and back in stock.")) return
-                      void run({ action: "shipment", fulfillmentId: s.id, status: "cancelled", notifyBuyer: false }, "Fulfillment cancelled")
+                      if (!window.confirm(pickup ? tt("Undo ready for pickup? The items go back to unfulfilled.") : tt("Cancel this fulfillment? Its items go back to unfulfilled and back in stock."))) return
+                      void run({ action: "shipment", fulfillmentId: s.id, status: "cancelled", notifyBuyer: false }, tt("Fulfillment cancelled"))
                     },
                   }]
                 : []),
@@ -417,13 +418,13 @@ export function PhysicalFulfillment({
             {label && !cancelled ? (
               <p className="mx-4 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] leading-[18px] text-[#6b7280]" data-shipment-label={label.status}>
                 <span>
-                  {label.providerName} label · {label.cost} your cost{label.testMode ? " · test" : ""}
-                  {label.status === "void_pending" ? " · void requested" : label.status === "void_rejected" ? " · void refused" : ""}
+                  {tt("{providerName} label · {cost} your cost", { providerName: label.providerName, cost: label.cost })}{label.testMode ? tt(" · test") : ""}
+                  {label.status === "void_pending" ? tt(" · void requested") : label.status === "void_rejected" ? tt(" · void refused") : ""}
                 </span>
                 {label.labelUrl && label.status === "purchased" ? (
                   <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
                     <Printer className="h-3.5 w-3.5" aria-hidden />
-                    Print label
+                    {tt("Print label")}
                   </a>
                 ) : null}
               </p>
@@ -431,15 +432,15 @@ export function PhysicalFulfillment({
             {/* What the buyer reads on their order page and in the Delivery problem email, said here in the shop's words, with the next step. */}
             {problem ? (
               <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
-                The carrier reported a problem delivering this package. The buyer sees it and gets the Delivery problem email. Contact them or the carrier, then mark it in transit or delivered when it moves.
+                {tt("The carrier reported a problem delivering this package. The buyer sees it and gets the Delivery problem email. Contact them or the carrier, then mark it in transit or delivered when it moves.")}
               </p>
             ) : null}
             {s.unconfirmedAt && !delivered && !problem && !cancelled ? (
               <p className="mx-4 mt-2 rounded-lg bg-[#fffaeb] px-3 py-2 text-[12.5px] leading-[18px] text-[#93370d]" data-delivery-unconfirmed="">
-                Shipped 60 days ago and never marked delivered. Check with the carrier or the buyer, then mark it delivered or report a delivery problem.
+                {tt("Shipped 60 days ago and never marked delivered. Check with the carrier or the buyer, then mark it delivered or report a delivery problem.")}
               </p>
             ) : null}
-            {pickup && !cancelled && order.pickup ? <p className="px-4 pt-2 text-[13px] text-[#4b5563]">At {order.pickup.name}</p> : null}
+            {pickup && !cancelled && order.pickup ? <p className="px-4 pt-2 text-[13px] text-[#4b5563]">{tt("At {name}", { name: order.pickup.name })}</p> : null}
             <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
               {s.items.map((i) => {
                 const l = order.lines.find((x) => x.orderId === i.orderId)
@@ -453,15 +454,15 @@ export function PhysicalFulfillment({
                   className={cn(buttonSecondary, "h-9 sm:h-8")}
                   disabled={busy}
                   data-mark-delivered=""
-                  onClick={() => void run({ action: "shipment", fulfillmentId: s.id, status: "delivered" }, pickup ? "Marked as picked up" : "Marked as delivered")}
+                  onClick={() => void run({ action: "shipment", fulfillmentId: s.id, status: "delivered" }, pickup ? tt("Marked as picked up") : tt("Marked as delivered"))}
                 >
                   {pickup ? <Check className="h-3.5 w-3.5" /> : <PackageCheck className="h-3.5 w-3.5" />}
-                  {pickup ? "Mark picked up" : "Mark as delivered"}
+                  {pickup ? tt("Mark picked up") : tt("Mark as delivered")}
                 </button>
               </div>
             ) : delivered && s.deliveredAt ? (
               <p className="px-4 py-3 text-[12px] text-[#6b7280]">
-                {pickup ? "Picked up" : "Delivered"} {dateTime(s.deliveredAt)}
+                {pickup ? tt("Picked up") : tt("Delivered")} {dateTime(s.deliveredAt)}
               </p>
             ) : (
               <div className="h-3" />
@@ -483,22 +484,22 @@ export function PhysicalFulfillment({
           onLabel={(next, label) => {
             replace(next)
             setLabels([...labels.filter((l) => l.id !== label.id), label])
-            onNotice?.("Label bought. The items are marked shipped.")
+            onNotice?.(tt("Label bought. The items are marked shipped."))
           }}
           onClose={() => setDialog(null)}
           onSubmit={async (body) => {
             const e = await act({ action: "fulfil", locationId: dialog.fulfil.locationId, ...body })
             if (!e) {
               setDialog(null)
-              onNotice?.(pickup ? "Marked ready for pickup" : "Items fulfilled")
+              onNotice?.(pickup ? tt("Marked ready for pickup") : tt("Items fulfilled"))
             }
             return e
           }}
         />
       ) : null}
-      {dialog === "return" ? <ReturnDialog order={order} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "return", ...body }); if (!e) { setDialog(null); onNotice?.("Return opened") } return e }} /> : null}
-      {dialog === "cancel" ? <CancelDialog onClose={() => setDialog(null)} onSubmit={async (reason) => { const e = await act({ action: "cancel", reason }); if (!e) { setDialog(null); onNotice?.("Order cancelled") } return e }} /> : null}
-      {dialog && typeof dialog === "object" && "tracking" in dialog ? <TrackingDialog shipment={dialog.tracking} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "shipment", fulfillmentId: dialog.tracking.id, ...body }); if (!e) { setDialog(null); onNotice?.("Tracking saved") } return e }} /> : null}
+      {dialog === "return" ? <ReturnDialog order={order} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "return", ...body }); if (!e) { setDialog(null); onNotice?.(tt("Return opened")) } return e }} /> : null}
+      {dialog === "cancel" ? <CancelDialog onClose={() => setDialog(null)} onSubmit={async (reason) => { const e = await act({ action: "cancel", reason }); if (!e) { setDialog(null); onNotice?.(tt("Order cancelled")) } return e }} /> : null}
+      {dialog && typeof dialog === "object" && "tracking" in dialog ? <TrackingDialog shipment={dialog.tracking} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "shipment", fulfillmentId: dialog.tracking.id, ...body }); if (!e) { setDialog(null); onNotice?.(tt("Tracking saved")) } return e }} /> : null}
     </div>
   )
 }
@@ -538,9 +539,9 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
   if (!s.trackingNumber) {
     return (
       <div className="mx-4 mt-2 flex items-center justify-between gap-3 rounded-lg bg-[#f7f7f8] px-3 py-2">
-        <span className="text-[12px] text-[#6b7280]">{transit ? `${transit}, no tracking number` : "No tracking number"}</span>
+        <span className="text-[12px] text-[#6b7280]">{transit ? tt("{transit}, no tracking number", { transit }) : tt("No tracking number")}</span>
         <button type="button" onClick={onAdd} className="text-[12px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-          Add tracking
+          {tt("Add tracking")}
         </button>
       </div>
     )
@@ -557,16 +558,16 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
       </div>
       <button
         type="button"
-        aria-label="Copy tracking number"
-        title="Copy tracking number"
+        aria-label={tt("Copy tracking number")}
+        title={tt("Copy tracking number")}
         className={cn(iconButton, "h-7 w-7 shrink-0")}
-        onClick={async () => onNotice?.((await copyText(s.trackingNumber!)) ? "Tracking number copied" : "Could not copy the tracking number")}
+        onClick={async () => onNotice?.((await copyText(s.trackingNumber!)) ? tt("Tracking number copied") : tt("Could not copy the tracking number"))}
       >
         <Copy className="h-3.5 w-3.5" />
       </button>
       {s.trackingUrl ? (
         <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-7 shrink-0 px-2.5 text-[12px]")}>
-          Track
+          {tt("Track")}
           <ExternalLink className="h-3 w-3" />
         </a>
       ) : null}
@@ -589,7 +590,7 @@ function CarrierUpdates({ shipment: s }: { shipment: PhysicalShipment }) {
     if (delivered) return null
     return (
       <p className="mx-4 mt-2 text-[12px] leading-[17px] text-[#6b7280]" data-tracking-mode="off">
-        Automatic updates turn on when Storelib's tracking is set up. Until then, set the status from the menu.
+        {tt("Automatic updates turn on when Storelib's tracking is set up. Until then, set the status from the menu.")}
       </p>
     )
   }
@@ -599,16 +600,16 @@ function CarrierUpdates({ shipment: s }: { shipment: PhysicalShipment }) {
         {t.mode === "auto" ? (
           <span className="inline-flex items-center gap-1 font-medium text-[#166534]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#16a34a]" />
-            Updated automatically
+            {tt("Updated automatically")}
           </span>
         ) : (
-          <span className="font-medium text-[#92400e]">Automatic updates paused</span>
+          <span className="font-medium text-[#92400e]">{tt("Automatic updates paused")}</span>
         )}
-        {said ? <span>· {said}</span> : t.mode === "auto" && !checked ? <span>· Checking with the carrier</span> : null}
-        {eta ? <span>· Estimated delivery {eta}</span> : null}
-        {checked && t.mode === "auto" && !delivered ? <span className="text-[#9ca3af]">· Checked {checked}</span> : null}
+        {said ? <span>· {said}</span> : t.mode === "auto" && !checked ? <span>· {tt("Checking with the carrier")}</span> : null}
+        {eta ? <span>· {tt("Estimated delivery {eta}", { eta })}</span> : null}
+        {checked && t.mode === "auto" && !delivered ? <span className="text-[#9ca3af]">· {tt("Checked {checked}", { checked })}</span> : null}
       </p>
-      {t.error && t.mode === "auto" && !delivered ? <p className="mt-1 text-[12px] leading-[17px] text-[#92400e]">The carrier couldn't be read last time: {t.error} Storelib tries again.</p> : null}
+      {t.error && t.mode === "auto" && !delivered ? <p className="mt-1 text-[12px] leading-[17px] text-[#92400e]">{tt("The carrier couldn't be read last time: {error} Storelib tries again.", { error: t.error })}</p> : null}
       {s.checkpoints && s.checkpoints.length > 0 ? <TrackingTimeline checkpoints={s.checkpoints} size="seller" className="mt-2 rounded-lg border border-[#f0f1f3] px-3 py-2.5" /> : null}
     </div>
   )
@@ -632,7 +633,7 @@ function LineRow({ line, quantity, currency }: { line: PhysicalLine; quantity: n
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{line.title}</p>
-        {line.variantName || line.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[line.variantName, line.sku ? `SKU ${line.sku}` : null].filter(Boolean).join(" · ")}</p> : null}
+        {line.variantName || line.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[line.variantName, line.sku ? tt("SKU {sku}", { sku: line.sku }) : null].filter(Boolean).join(" · ")}</p> : null}
       </div>
       <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">
         {money(unit, currency)} &times; {quantity}
@@ -671,7 +672,7 @@ export function ShippingCard({
     <section className={cn(card, "px-4 py-3.5", className)} data-shipping-card="">
       {pickup && order.pickup ? (
         <>
-          <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Pickup at</h2>
+          <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Pickup at")}</h2>
           <p className="mt-2 text-[13px] leading-[19px] text-[#303036]">
             {[order.pickup.name, ...order.pickup.address].map((l, i) => (
               <span key={`${i}:${l}`} className="block">
@@ -680,25 +681,25 @@ export function ShippingCard({
             ))}
           </p>
           <p className="mt-1 text-[12px] text-[#6b7280]">{PICKUP_READY_LABEL[order.pickup.ready]}</p>
-          {order.pickup.hours ? <p className="text-[12px] text-[#6b7280]">Open {order.pickup.hours}</p> : null}
+          {order.pickup.hours ? <p className="text-[12px] text-[#6b7280]">{tt("Open {hours}", { hours: order.pickup.hours })}</p> : null}
         </>
       ) : (
         <>
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Shipping address</h2>
+            <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Shipping address")}</h2>
             <span className="-mr-1.5 flex items-center">
             {editable ? (
               <button type="button" onClick={() => setEditing(true)} className="h-7 rounded-md px-2 text-[12.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e]" data-edit-address="">
-                Edit
+                {tt("Edit")}
               </button>
             ) : null}
             {lines.length ? (
               <button
                 type="button"
-                aria-label="Copy shipping address"
-                title="Copy shipping address"
+                aria-label={tt("Copy shipping address")}
+                title={tt("Copy shipping address")}
                 className={cn(iconButton, "h-7 w-7")}
-                onClick={async () => onNotice?.((await copyText(lines.join("\n"))) ? "Address copied" : "Could not copy the address")}
+                onClick={async () => onNotice?.((await copyText(lines.join("\n"))) ? tt("Address copied") : tt("Could not copy the address"))}
                 data-copy-address=""
               >
                 <ClipboardCopy className="h-3.5 w-3.5" />
@@ -715,7 +716,7 @@ export function ShippingCard({
               ))}
             </address>
           ) : (
-            <p className="mt-1.5 text-[13px] text-[#9ca3af]">No address</p>
+            <p className="mt-1.5 text-[13px] text-[#9ca3af]">{tt("No address")}</p>
           )}
           {lines.length && order.address?.country ? (
             <a
@@ -725,19 +726,19 @@ export function ShippingCard({
               className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-[#6d4ae0] hover:underline"
             >
               <MapPin className="h-3 w-3" />
-              View map
+              {tt("View map")}
             </a>
           ) : null}
         </>
       )}
       <div className="mt-3 border-t border-[#f0f1f3] pt-3">
-        <h3 className="text-[12px] font-medium text-[#6b7280]">{pickup ? "Delivery" : "Shipping method"}</h3>
+        <h3 className="text-[12px] font-medium text-[#6b7280]">{pickup ? tt("Delivery") : tt("Shipping method")}</h3>
         <p className="mt-0.5 flex items-baseline justify-between gap-3 text-[13px] text-[#303036]" data-shipping-method="">
-          <span className="min-w-0 truncate">{pickup ? "Local pickup" : (order.delivery?.name ?? "Not recorded")}</span>
+          <span className="min-w-0 truncate">{pickup ? tt("Local pickup") : (order.delivery?.name ?? tt("Not recorded"))}</span>
           <span className="shrink-0 tabular-nums">{pickup || paid <= 0 ? "Free" : money(paid, order.currency)}</span>
         </p>
         {!pickup && order.delivery && deliveryEstimate(order.delivery) ? <p className="text-[12px] text-[#6b7280]">{deliveryEstimate(order.delivery)}</p> : null}
-        {order.delivery?.kind === "local" ? <p className="text-[12px] text-[#6b7280]" data-local-delivery="">You deliver this one yourself. Mark it delivered when it&apos;s handed over.</p> : null}
+        {order.delivery?.kind === "local" ? <p className="text-[12px] text-[#6b7280]" data-local-delivery="">{tt("You deliver this one yourself. Mark it delivered when it's handed over.")}</p> : null}
       </div>
       {editable && onEditAddress ? (
         <AddressEditor
@@ -748,7 +749,7 @@ export function ShippingCard({
             const problem = await onEditAddress(address, notify)
             if (!problem) {
               setEditing(false)
-              onNotice?.(notify ? "Address saved. The buyer was emailed." : "Address saved")
+              onNotice?.(notify ? tt("Address saved. The buyer was emailed.") : tt("Address saved"))
             }
             return problem
           }}
@@ -812,51 +813,51 @@ function AddressEditor({
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit shipping address"
+      title={tt("Edit shipping address")}
       footer={
         <div className="flex justify-end gap-2">
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => void save()} data-save-address="">
-            {busy ? "Saving" : "Save"}
+            {busy ? tt("Saving") : tt("Save")}
           </button>
         </div>
       }
     >
       <div className="space-y-3" data-address-editor="">
-        <Field label="Name">
+        <Field label={tt("Name")}>
           <TextInput value={form.name} onChange={set("name")} autoComplete="off" maxLength={120} />
         </Field>
         {form.company || address.company ? (
-          <Field label="Company">
+          <Field label={tt("Company")}>
             <TextInput value={form.company} onChange={set("company")} autoComplete="off" maxLength={120} />
           </Field>
         ) : null}
-        <Field label="Address">
+        <Field label={tt("Address")}>
           <TextInput value={form.line1} onChange={set("line1")} autoComplete="off" maxLength={200} />
         </Field>
-        <Field label="Apartment, suite, etc.">
+        <Field label={tt("Apartment, suite, etc.")}>
           <TextInput value={form.line2} onChange={set("line2")} autoComplete="off" maxLength={200} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="City">
+          <Field label={tt("City")}>
             <TextInput value={form.city} onChange={set("city")} autoComplete="off" maxLength={120} />
           </Field>
-          <Field label="Region">
+          <Field label={tt("Region")}>
             <TextInput value={form.region} onChange={set("region")} autoComplete="off" maxLength={120} />
           </Field>
-          <Field label="Postal code">
+          <Field label={tt("Postal code")}>
             <TextInput value={form.postalCode} onChange={set("postalCode")} autoComplete="off" maxLength={20} />
           </Field>
         </div>
-        <Field label="Phone">
+        <Field label={tt("Phone")}>
           <TextInput value={form.phone} onChange={set("phone")} autoComplete="off" inputMode="tel" maxLength={40} />
         </Field>
         <p className="text-[12.5px] text-[#6b7280]">
-          Country: {form.country ? countryName(form.country) : "Not recorded"}. It stays the same: shipping and tax were worked out for it at checkout.
+          {tt("Country:")} {form.country ? countryName(form.country) : tt("Not recorded")}{tt(". It stays the same: shipping and tax were worked out for it at checkout.")}
         </p>
-        <Toggle label="Email the buyer the new address" checked={notify} onChange={setNotify} />
+        <Toggle label={tt("Email the buyer the new address")} checked={notify} onChange={setNotify} />
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
@@ -874,16 +875,16 @@ export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | nul
   if (!order || (!order.buyerNote && !order.merchantNote && !attributes.length && !lineProps.length)) return null
   return (
     <section className={cn(card, "px-4 py-3.5", className)} data-order-notes="">
-      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Notes</h2>
+      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Notes")}</h2>
       {order.buyerNote ? (
         <>
-          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">From the buyer</p>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">{tt("From the buyer")}</p>
           <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] text-[#303036]">{order.buyerNote}</p>
         </>
       ) : null}
       {attributes.length ? (
         <>
-          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">From the cart</p>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">{tt("From the cart")}</p>
           <dl className="mt-0.5 space-y-0.5 text-[13px]" data-order-attributes="">
             {attributes.map(([k, v]) => (
               <div key={k} className="flex flex-wrap gap-x-1.5">
@@ -896,7 +897,7 @@ export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | nul
       ) : null}
       {lineProps.length ? (
         <>
-          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">On the items</p>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">{tt("On the items")}</p>
           <ul className="mt-0.5 space-y-1 text-[13px]" data-order-line-properties="">
             {lineProps.map((l) => (
               <li key={l.orderId} className="break-words text-[#303036]">
@@ -912,7 +913,7 @@ export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | nul
       ) : null}
       {order.merchantNote ? (
         <>
-          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">Yours</p>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">{tt("Yours")}</p>
           <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] text-[#303036]">{order.merchantNote}</p>
         </>
       ) : null}
@@ -954,8 +955,8 @@ export function NoteComposer({ onPost }: { onPost: (text: string, key: string) =
           value={text}
           rows={1}
           maxLength={NOTE_MAX}
-          aria-label="Add a note to this order"
-          placeholder="Add a note"
+          aria-label={tt("Add a note to this order")}
+          placeholder={tt("Add a note")}
           onChange={(e) => {
             setText(e.target.value)
             const el = e.currentTarget
@@ -971,9 +972,9 @@ export function NoteComposer({ onPost }: { onPost: (text: string, key: string) =
           className="block min-h-[40px] w-full resize-none bg-transparent px-3 pt-2.5 text-[16px] leading-5 text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px]"
         />
         <div className="flex items-center justify-between gap-2 px-2 pb-2 pl-3">
-          <span className="text-[11.5px] text-[#9ca3af]">Only you can see notes</span>
+          <span className="text-[11.5px] text-[#9ca3af]">{tt("Only you can see notes")}</span>
           <button type="button" className={cn(buttonPrimary, "h-7 px-2.5 text-[12px]")} disabled={!text.trim() || busy} onClick={() => void post()} data-note-post="">
-            {busy ? "Posting…" : "Post"}
+            {busy ? tt("Posting…") : tt("Post")}
           </button>
         </div>
       </div>
@@ -989,13 +990,13 @@ function Stepper({ value, max, onChange, label }: { value: number; max: number; 
   const step = "grid h-9 w-9 place-items-center rounded-lg text-[18px] leading-none text-[#1a1a2e] transition-colors hover:bg-[#f1f2f4] active:bg-[#e8e9ec] disabled:opacity-30 sm:h-8 sm:w-8"
   return (
     <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-[#e3e4e8] bg-white p-0.5" role="group" aria-label={label}>
-      <button type="button" className={step} aria-label="One fewer" disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 1))}>
+      <button type="button" className={step} aria-label={tt("One fewer")} disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 1))}>
         &minus;
       </button>
       <span className="min-w-[52px] text-center text-[13px] tabular-nums text-[#1a1a2e]" aria-live="polite">
-        {value} <span className="text-[#9ca3af]">of {max}</span>
+        {value} <span className="text-[#9ca3af]">{tt("of {max}", { max })}</span>
       </span>
-      <button type="button" className={step} aria-label="One more" disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>
+      <button type="button" className={step} aria-label={tt("One more")} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>
         +
       </button>
     </div>
@@ -1031,14 +1032,14 @@ function TrackingFields({
   const link = carrier && carrier !== "Other" ? trackingLink(carrier, tracking) : null
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Tracking number">
+      <Field label={tt("Tracking number")}>
         <TextInput
           value={tracking}
           maxLength={60}
           autoCapitalize="characters"
           autoCorrect="off"
           spellCheck={false}
-          placeholder="Optional"
+          placeholder={tt("Optional")}
           onChange={(e) => {
             const v = e.target.value.replace(/\s/g, "")
             setTracking(v)
@@ -1046,7 +1047,7 @@ function TrackingFields({
           }}
         />
       </Field>
-      <Field label="Carrier">
+      <Field label={tt("Carrier")}>
         <SelectInput
           value={carrier}
           onChange={(v) => {
@@ -1054,27 +1055,27 @@ function TrackingFields({
             setCarrier(v)
           }}
         >
-          <option value="">Choose a carrier</option>
+          <option value="">{tt("Choose a carrier")}</option>
           {CARRIERS.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {c === "Other" ? tt("Other") : c}
             </option>
           ))}
         </SelectInput>
       </Field>
       {carrier === "Other" ? (
         <>
-          <Field label="Carrier name">
+          <Field label={tt("Carrier name")}>
             <TextInput value={other} maxLength={40} onChange={(e) => setOther(e.target.value)} />
           </Field>
-          <Field label="Tracking link" hint="Optional, https://">
+          <Field label={tt("Tracking link")} hint={tt("Optional, https://")}>
             <TextInput value={url} maxLength={500} inputMode="url" onChange={(e) => setUrl(e.target.value)} />
           </Field>
         </>
       ) : null}
       {link ? (
         <p className="truncate text-[12.5px] text-[#6b7280] sm:col-span-2" data-tracking-link="">
-          The buyer can follow it at <span className="text-[#1a1a2e]">{new URL(link).hostname.replace(/^www\./, "")}</span>
+          {tt("The buyer can follow it at")} <span className="text-[#1a1a2e]">{new URL(link).hostname.replace(/^www\./, "")}</span>
         </p>
       ) : null}
     </div>
@@ -1094,7 +1095,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
   const [busy, setBusy] = React.useState(false)
   const key = React.useRef(actionKey())
   const chosen = Object.values(qty).reduce((n, q) => n + q, 0)
-  const verb = pickup ? "Mark ready" : "Fulfill"
+  const verb = pickup ? tt("Mark ready") : tt("Fulfill")
   /* Buy a label (Shippo, EasyPost), beside Add tracking, while one is connected: ./buy-label.tsx. */
   const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: !pickup, onBought: (o, l) => onLabel?.(o, l) })
   const labelMode = !pickup && flow.available && (flow.mode === "label" || !!flow.bought)
@@ -1102,17 +1103,17 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
     <Modal
       open
       onClose={onClose}
-      title={pickup ? "Ready for pickup" : flow.bought ? "Label bought" : "Fulfill items"}
+      title={pickup ? tt("Ready for pickup") : flow.bought ? tt("Label bought") : tt("Fulfill items")}
       footer={
         labelMode ? (
           flow.bought ? (
             <button type="button" className={BTN_SECONDARY} onClick={onClose} data-label-done="">
-              Done
+              {tt("Done")}
             </button>
           ) : (
             <>
               <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-                Cancel
+                {tt("Cancel")}
               </button>
               <button type="button" className={BTN_PRIMARY} disabled={!flow.footer || flow.footer.disabled} onClick={flow.footer?.onClick} data-label-submit="">
                 {flow.footer?.label}
@@ -1121,7 +1122,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
           )
         ) : <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button
             type="button"
@@ -1142,13 +1143,13 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
               setError(e)
             }}
           >
-            {busy ? "Saving…" : chosen === 0 ? verb : `${verb} ${countLabel(chosen)}`}
+            {busy ? tt("Saving…") : chosen === 0 ? verb : `${verb} ${countLabel(chosen)}`}
           </button>
         </>
       }
     >
       <div className="space-y-4">
-        {from && !flow.bought ? <p className="text-[13px] text-[#6b7280]">{pickup ? `Pickup at ${from}` : `Ships from ${from}`}</p> : null}
+        {from && !flow.bought ? <p className="text-[13px] text-[#6b7280]">{pickup ? tt("Pickup at {from}", { from }) : tt("Ships from {from}", { from })}</p> : null}
         <ul className={cn("divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]", flow.bought && "hidden")}>
           {open.map((l) => (
             <li key={l.orderId} className="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -1165,10 +1166,10 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-[14px] text-[#1a1a2e]">{l.title}</p>
-                  {l.variantName || l.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[l.variantName, l.sku ? `SKU ${l.sku}` : null].filter(Boolean).join(" · ")}</p> : null}
+                  {l.variantName || l.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[l.variantName, l.sku ? tt("SKU {sku}", { sku: l.sku }) : null].filter(Boolean).join(" · ")}</p> : null}
                 </div>
               </div>
-              <Stepper value={qty[l.orderId] ?? 0} max={l.quantity - l.fulfilled} onChange={(n) => setQty((q) => ({ ...q, [l.orderId]: n }))} label={`Units of ${l.title}`} />
+              <Stepper value={qty[l.orderId] ?? 0} max={l.quantity - l.fulfilled} onChange={(n) => setQty((q) => ({ ...q, [l.orderId]: n }))} label={tt("Units of {title}", { title: l.title })} />
             </li>
           ))}
         </ul>
@@ -1176,8 +1177,8 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
         {pickup ? null : labelMode ? <LabelFields flow={flow} /> : <TrackingFields tracking={tracking} setTracking={setTracking} carrier={carrier} setCarrier={setCarrier} other={other} setOther={setOther} url={url} setUrl={setUrl} />}
         {flow.bought ? null : (
           <Toggle
-            label={pickup ? "Tell the buyer it's ready" : "Send shipment details to the buyer"}
-            description={pickup ? "With your pickup address and instructions." : tracking.trim() || labelMode ? "An email with the tracking link." : "An email saying it's on the way."}
+            label={pickup ? tt("Tell the buyer it's ready") : tt("Send shipment details to the buyer")}
+            description={pickup ? tt("With your pickup address and instructions.") : tracking.trim() || labelMode ? tt("An email with the tracking link.") : tt("An email saying it's on the way.")}
             checked={notify}
             onChange={setNotify}
           />
@@ -1189,7 +1190,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
 }
 
 function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShipment; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
-  const known = CARRIERS.includes(shipment.carrier ?? "") ? (shipment.carrier ?? "") : shipment.carrier ? "Other" : ""
+  const known = CARRIERS.includes(shipment.carrier ?? "") ? (shipment.carrier ?? "") : shipment.carrier ? "Other" : "" // i18n-ignore: the carrier's value, shown through tt()
   const [carrier, setCarrier] = React.useState(known)
   const [other, setOther] = React.useState(known === "Other" ? (shipment.carrier ?? "") : "")
   const [tracking, setTracking] = React.useState(shipment.trackingNumber ?? "")
@@ -1201,11 +1202,11 @@ function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShi
     <Modal
       open
       onClose={onClose}
-      title={shipment.trackingNumber ? "Edit tracking" : "Add tracking"}
+      title={shipment.trackingNumber ? tt("Edit tracking") : tt("Add tracking")}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button
             type="button"
@@ -1217,14 +1218,14 @@ function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShi
               setBusy(false)
             }}
           >
-            {busy ? "Saving…" : "Save"}
+            {busy ? tt("Saving…") : tt("Save")}
           </button>
         </>
       }
     >
       <div className="space-y-4">
         <TrackingFields tracking={tracking} setTracking={setTracking} carrier={carrier} setCarrier={setCarrier} other={other} setOther={setOther} url={url} setUrl={setUrl} />
-        <Toggle label="Email the buyer the new number" checked={notify} onChange={setNotify} />
+        <Toggle label={tt("Email the buyer the new number")} checked={notify} onChange={setNotify} />
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
@@ -1246,11 +1247,11 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: PhysicalOrder; onCl
     <Modal
       open
       onClose={onClose}
-      title="Start a return"
+      title={tt("Start a return")}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button
             type="button"
@@ -1269,7 +1270,7 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: PhysicalOrder; onCl
               )
             }
           >
-            Create return
+            {tt("Create return")}
           </button>
         </>
       }
@@ -1285,12 +1286,12 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: PhysicalOrder; onCl
                     <p className="truncate text-[14px] text-[#1a1a2e]">{l.title}</p>
                     {l.variantName ? <p className="truncate text-[12px] text-[#6b7280]">{l.variantName}</p> : null}
                   </div>
-                  <Stepper value={qty[l.orderId] ?? 0} max={can} onChange={(n) => setQty((q) => ({ ...q, [l.orderId]: n }))} label={`Units of ${l.title} to return`} />
+                  <Stepper value={qty[l.orderId] ?? 0} max={can} onChange={(n) => setQty((q) => ({ ...q, [l.orderId]: n }))} label={tt("Units of {title} to return", { title: l.title })} />
                 </div>
                 {l.type === "physical" && (qty[l.orderId] ?? 0) > 0 ? (
                   <label className="flex items-center gap-2 text-[13px] text-[#4b5563]">
                     <input type="checkbox" checked={restock[l.orderId] !== false} onChange={(e) => setRestock((r) => ({ ...r, [l.orderId]: e.target.checked }))} className="h-4 w-4 accent-[#1a1a2e]" />
-                    Put back in stock when received
+                    {tt("Put back in stock when received")}
                   </label>
                 ) : null}
               </li>
@@ -1298,7 +1299,7 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: PhysicalOrder; onCl
           })}
         </ul>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Reason">
+          <Field label={tt("Reason")}>
             <SelectInput value={reason} onChange={setReason}>
               {reasons.map(({ value: v, label: l }) => (
                 <option key={v} value={v}>
@@ -1307,18 +1308,18 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: PhysicalOrder; onCl
               ))}
             </SelectInput>
           </Field>
-          <Field label="How it comes back">
+          <Field label={tt("How it comes back")}>
             <SelectInput value={method} onChange={setMethod}>
-              <option value="ship_back">The buyer ships it back</option>
-              <option value="drop_off">The buyer drops it off</option>
-              <option value="no_return_needed">Keep it, no need to send</option>
+              <option value="ship_back">{tt("The buyer ships it back")}</option>
+              <option value="drop_off">{tt("The buyer drops it off")}</option>
+              <option value="no_return_needed">{tt("Keep it, no need to send")}</option>
             </SelectInput>
           </Field>
         </div>
-        <Field label="Instructions for the buyer" hint="Emailed with the approval">
+        <Field label={tt("Instructions for the buyer")} hint={tt("Emailed with the approval")}>
           <textarea value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} rows={3} className="w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-[16px] outline-none focus:border-[#9ca3af] sm:text-[14px]" />
         </Field>
-        <p className="text-[12.5px] text-[#6b7280]">Refund the money with Refund on this order when you&apos;re ready. A return doesn&apos;t refund by itself.</p>
+        <p className="text-[12.5px] text-[#6b7280]">{tt("Refund the money with Refund on this order when you're ready. A return doesn't refund by itself.")}</p>
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
@@ -1328,12 +1329,12 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: PhysicalOrder; onCl
 function ReturnsCard({ order, busy, onMove, onRefund }: { order: PhysicalOrder; busy: boolean; onMove: (returnId: string, status: string, extra?: Record<string, unknown>) => void; onRefund?: (() => void) | null }) {
   const nameOfLine = (id: string) => {
     const l = order.lines.find((x) => x.orderId === id)
-    return l ? lineName(l) : "Item"
+    return l ? lineName(l) : tt("Item")
   }
   return (
     <section className={cn(card, "min-w-0")} data-returns="">
       <div className="flex min-h-[44px] items-center gap-2 px-4 pt-3">
-        <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Returns</h3>
+        <h3 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Returns")}</h3>
         {order.returnStatus !== "none" ? <StatusBadge tone={order.returnStatus === "requested" ? "attention" : "neutral"}>{RETURN_LABEL[order.returnStatus].label}</StatusBadge> : null}
       </div>
       <ul className="space-y-3 px-4 pb-4 pt-1">
@@ -1363,7 +1364,7 @@ function ReturnBlock({
   onMove: (status: string, extra?: Record<string, unknown>) => void
 }) {
   const tone = r.status === "requested" ? "attention" : r.status === "completed" ? "success" : "neutral"
-  const label: Record<string, string> = { requested: "Requested", approved: "Approved", rejected: "Declined", in_transit: "On its way back", received: "Received", completed: "Closed", cancelled: "Cancelled" }
+  const label: Record<string, string> = { requested: tt("Requested"), approved: tt("Approved"), rejected: tt("Declined"), in_transit: tt("On its way back"), received: tt("Received"), completed: tt("Closed"), cancelled: tt("Cancelled") }
   const reasons = useReasons("return")
   const small = "h-8 px-3 text-[12.5px]"
   /* Approving or declining asks for the words the buyer's email carries: how to send it back, or why not. */
@@ -1374,7 +1375,7 @@ function ReturnBlock({
         <p className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-[#1a1a2e]">
           <StatusBadge tone={tone}>{label[r.status] ?? r.status}</StatusBadge>
           <span className="truncate">{r.reasonLabel || reasonLabel(r.reason, "return", reasons)}</span>
-          {r.requestedBy === "buyer" ? <span className="shrink-0 text-[12px] font-normal text-[#6b7280]">asked by the buyer</span> : null}
+          {r.requestedBy === "buyer" ? <span className="shrink-0 text-[12px] font-normal text-[#6b7280]">{tt("asked by the buyer")}</span> : null}
         </p>
         <span className="text-[12px] text-[#9ca3af]">{dateTime(r.createdAt)}</span>
       </div>
@@ -1382,17 +1383,17 @@ function ReturnBlock({
         {r.items.map((i) => (
           <li key={i.id}>
             {i.quantity} &times; {nameOfLine(i.orderId)}
-            {i.restockedQuantity ? <span className="text-[#166534]"> · back in stock</span> : i.restock ? <span className="text-[#6b7280]"> · restock on receipt</span> : null}
+            {i.restockedQuantity ? <span className="text-[#166534]"> · {tt("back in stock")}</span> : i.restock ? <span className="text-[#6b7280]"> · {tt("restock on receipt")}</span> : null}
           </li>
         ))}
       </ul>
       {r.customerNote ? <p className="mt-1.5 text-[13px] italic text-[#4b5563]">&ldquo;{r.customerNote}&rdquo;</p> : null}
-      {r.merchantNote && !answer ? <p className="mt-1.5 text-[13px] text-[#4b5563]"><span className="font-medium text-[#1a1a2e]">Your note:</span> {r.merchantNote}</p> : null}
-      {r.refundedCents > 0 ? <p className="mt-1.5 text-[13px] text-[#166534]" data-return-refunded="">Refunded {money(r.refundedCents, currency)}</p> : null}
+      {r.merchantNote && !answer ? <p className="mt-1.5 text-[13px] text-[#4b5563]"><span className="font-medium text-[#1a1a2e]">{tt("Your note:")}</span> {r.merchantNote}</p> : null}
+      {r.refundedCents > 0 ? <p className="mt-1.5 text-[13px] text-[#166534]" data-return-refunded="">{tt("Refunded {amount}", { amount: money(r.refundedCents, currency) })}</p> : null}
       {answer ? (
         <div className="mt-2 space-y-2" data-return-answer={answer.to}>
           <label className="block text-[12.5px] font-medium text-[#1a1a2e]" htmlFor={`return-note-${r.id}`}>
-            {answer.to === "approved" ? "Instructions for the buyer" : "Why it can't be returned"}
+            {answer.to === "approved" ? tt("Instructions for the buyer") : tt("Why it can't be returned")}
           </label>
           <textarea
             id={`return-note-${r.id}`}
@@ -1401,10 +1402,10 @@ function ReturnBlock({
             maxLength={1000}
             value={answer.note}
             onChange={(e) => setAnswer({ ...answer, note: e.target.value })}
-            placeholder={answer.to === "approved" ? "Pack it in its box, write the order number inside and post it to the address in this email." : "It was used, or it's past the return window."}
+            placeholder={answer.to === "approved" ? tt("Pack it in its box, write the order number inside and post it to the address in this email.") : tt("It was used, or it's past the return window.")}
             className="w-full rounded-lg border border-[#d9dce1] px-3 py-2 text-[13.5px] leading-5 focus:border-[#1a1a2e] focus:outline-none"
           />
-          <p className="text-[12px] text-[#6b7280]">{answer.to === "approved" ? "Emailed to the buyer with your default location's address." : "Emailed to the buyer."}</p>
+          <p className="text-[12px] text-[#6b7280]">{answer.to === "approved" ? tt("Emailed to the buyer with your default location's address.") : tt("Emailed to the buyer.")}</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -1415,10 +1416,10 @@ function ReturnBlock({
                 setAnswer(null)
               }}
             >
-              {answer.to === "approved" ? "Approve and email" : "Decline and email"}
+              {answer.to === "approved" ? tt("Approve and email") : tt("Decline and email")}
             </button>
             <button type="button" className={cn(BTN_SECONDARY, small)} disabled={busy} onClick={() => setAnswer(null)}>
-              Back
+              {tt("Back")}
             </button>
           </div>
         </div>
@@ -1427,31 +1428,31 @@ function ReturnBlock({
         {r.status === "requested" ? (
           <>
             <button type="button" className={cn(BTN_PRIMARY, small)} disabled={busy} onClick={() => setAnswer({ to: "approved", note: r.merchantNote ?? "" })}>
-              Approve
+              {tt("Approve")}
             </button>
             <button type="button" className={cn(BTN_DANGER, small)} disabled={busy} onClick={() => setAnswer({ to: "rejected", note: "" })}>
-              Decline
+              {tt("Decline")}
             </button>
           </>
         ) : null}
         {r.status === "approved" || r.status === "in_transit" ? (
           <button type="button" className={cn(BTN_PRIMARY, small)} disabled={busy} onClick={() => onMove("received")}>
-            Mark received
+            {tt("Mark received")}
           </button>
         ) : null}
         {r.status === "received" && canRefund && onRefund ? (
           <button type="button" className={cn(BTN_PRIMARY, small)} disabled={busy} onClick={onRefund} data-return-refund="">
-            Refund
+            {tt("Refund")}
           </button>
         ) : null}
         {r.status === "received" ? (
           <button type="button" className={cn(BTN_SECONDARY, small)} disabled={busy} onClick={() => onMove("completed")}>
-            {r.refundedCents > 0 ? "Close return" : "Close without refund"}
+            {r.refundedCents > 0 ? tt("Close return") : tt("Close without refund")}
           </button>
         ) : null}
         {r.status === "approved" || r.status === "requested" ? (
           <button type="button" className={cn(BTN_SECONDARY, small)} disabled={busy} onClick={() => onMove("cancelled")}>
-            Cancel return
+            {tt("Cancel return")}
           </button>
         ) : null}
       </div>
@@ -1466,20 +1467,20 @@ function CancelDialog({ onClose, onSubmit }: { onClose: () => void; onSubmit: (r
     <Modal
       open
       onClose={onClose}
-      title="Cancel this order?"
+      title={tt("Cancel this order?")}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Keep order
+            {tt("Keep order")}
           </button>
           <button type="button" className={BTN_DANGER} onClick={async () => setError(await onSubmit(reason))}>
-            Cancel order
+            {tt("Cancel order")}
           </button>
         </>
       }
     >
-      <p className="text-[14px] leading-[21px] text-[#4b5563]">Its stock goes back on sale. The payment isn&apos;t refunded by this: use Refund on the order for that.</p>
-      <Field label="Reason" hint="Optional, for your history" className="mt-3">
+      <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("Its stock goes back on sale. The payment isn't refunded by this: use Refund on the order for that.")}</p>
+      <Field label={tt("Reason")} hint={tt("Optional, for your history")} className="mt-3">
         <TextInput value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
       </Field>
       {error ? <Notice className="mt-3">{error}</Notice> : null}
@@ -1496,7 +1497,7 @@ function printSlip(order: PhysicalOrder, lines: PhysicalLine[]) {
     .filter((l) => l.quantity - l.fulfilled > 0)
     .map((l) => `<tr><td>${esc(l.title)}${l.variantName ? `<br><small>${esc(l.variantName)}</small>` : ""}</td><td>${esc(l.sku ?? "")}</td><td style="text-align:right">${l.quantity - l.fulfilled}</td></tr>`)
     .join("")
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Packing slip ${esc(orderNumber(order.id))}</title><style>body{font-family:Inter,Arial,sans-serif;color:#1a1a2e;padding:32px}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border-bottom:1px solid #e5e7eb;padding:8px 4px;text-align:left;font-size:14px}small{color:#6b7280}.addr{margin-top:16px;font-size:14px;line-height:1.5}</style></head><body><h1>Packing slip</h1><div>Order ${esc(orderNumber(order.id))}</div><div class="addr">${order.deliveryMethod === "pickup" ? `<strong>Pickup by</strong><br>${esc(order.buyerName ?? "The buyer")}<br>at ${esc(order.pickup?.name ?? "your location")}` : `<strong>Ship to</strong><br>${addressLines(order.address as any).map(esc).join("<br>")}`}</div><table><thead><tr><th>Item</th><th>SKU</th><th style="text-align:right">Qty</th></tr></thead><tbody>${rows}</tbody></table>${order.buyerNote ? `<p class="addr"><strong>Note</strong><br>${esc(order.buyerNote)}</p>` : ""}<script>window.onload=function(){window.print()}</script></body></html>`)
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Packing slip ${esc(orderNumber(order.id))}</title><style>body{font-family:Inter,Arial,sans-serif;color:#1a1a2e;padding:32px}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border-bottom:1px solid #e5e7eb;padding:8px 4px;text-align:left;font-size:14px}small{color:#6b7280}.addr{margin-top:16px;font-size:14px;line-height:1.5}</style></head><body><h1>Packing slip</h1><div>Order ${esc(orderNumber(order.id))}</div><div class="addr">${order.deliveryMethod === "pickup" ? tt("<strong>Pickup by</strong><br>{value}<br>at {value2}", { value: esc(order.buyerName ?? tt("The buyer")), value2: esc(order.pickup?.name ?? tt("your location")) }) : tt("<strong>Ship to</strong><br>{value}", { value: addressLines(order.address as any).map(esc).join("<br>") })}</div><table><thead><tr><th>Item</th><th>SKU</th><th style="text-align:right">Qty</th></tr></thead><tbody>${rows}</tbody></table>${order.buyerNote ? `<p class="addr"><strong>Note</strong><br>${esc(order.buyerNote)}</p>` : ""}<script>window.onload=function(){window.print()}</script></body></html>`)
   w.document.close()
 }
 
@@ -1520,7 +1521,7 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
       <BuyerNoteCard order={order} />
       {order ? (
         <section className={cn(card, "min-w-0 px-4 py-4")}>
-          <h3 className="mb-2 text-[13px] font-semibold text-[#1a1a2e]">Order history</h3>
+          <h3 className="mb-2 text-[13px] font-semibold text-[#1a1a2e]">{tt("Order history")}</h3>
           <ol className="space-y-2.5">
             {order.events.slice(0, 8).map((e) => (
               <li key={e.id} className="flex gap-3">
@@ -1531,7 +1532,7 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
                 </div>
               </li>
             ))}
-            {order.events.length === 0 ? <li className="text-[13px] text-[#6b7280]">Nothing yet.</li> : null}
+            {order.events.length === 0 ? <li className="text-[13px] text-[#6b7280]">{tt("Nothing yet.")}</li> : null}
           </ol>
         </section>
       ) : null}

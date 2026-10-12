@@ -69,6 +69,8 @@ import { PaymentsHub } from "@/components/app/settings/payments-hub"
 import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
 import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
 import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
@@ -82,35 +84,35 @@ import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
   under its name in the phone's list.
 */
 const TABS = [
-  { id: "general", label: "Profile", icon: User, group: "account", line: "Name, photo, username and addresses" },
-  { id: "security", label: "Security", icon: Shield, group: "account", line: "Password, sign in and devices" },
-  { id: "privacy", label: "Privacy", icon: ToggleLeft, group: "account", line: "What others see and what we send" },
-  { id: "notifications", label: "Notifications", icon: Bell, group: "account", line: "Emails and alerts you get" },
-  { id: "billing", label: "Plan", icon: CreditCard, group: "account", line: "Your plan, invoices and payment card" },
+  { id: "general", get label() { return tt("Profile") }, icon: User, group: "account", get line() { return tt("Name, photo, username and addresses") } },
+  { id: "security", get label() { return tt("Security") }, icon: Shield, group: "account", get line() { return tt("Password, sign in and devices") } },
+  { id: "privacy", get label() { return tt("Privacy") }, icon: ToggleLeft, group: "account", get line() { return tt("What others see and what we send") } },
+  { id: "notifications", get label() { return tt("Notifications") }, icon: Bell, group: "account", get line() { return tt("Emails and alerts you get") } },
+  { id: "billing", get label() { return tt("Plan") }, icon: CreditCard, group: "account", get line() { return tt("Your plan, invoices and payment card") } },
   /* Who helps run the store, and the stores you help run (components/app/settings/team-panel.tsx, lib/team). */
-  { id: "team", label: "Team", icon: Users, group: "account", line: "People who help run your store" },
-  { id: "store", label: "Store details", icon: Store, group: "store", line: "Name, contact, phone and country" },
-  { id: "payments", label: "Payments", icon: Wallet, group: "store", line: "How buyers pay you and payouts" },
-  { id: "checkout", label: "Checkout", icon: ShoppingCart, group: "store", line: "Accounts, news box and what is asked" },
+  { id: "team", get label() { return tt("Team") }, icon: Users, group: "account", get line() { return tt("People who help run your store") } },
+  { id: "store", get label() { return tt("Store details") }, icon: Store, group: "store", get line() { return tt("Name, contact, phone and country") } },
+  { id: "payments", get label() { return tt("Payments") }, icon: Wallet, group: "store", get line() { return tt("How buyers pay you and payouts") } },
+  { id: "checkout", get label() { return tt("Checkout") }, icon: ShoppingCart, group: "store", get line() { return tt("Accounts, news box and what is asked") } },
   /* Where products are listed: the Online store, the Creator page, Explore and the store's own (components/app/settings/channels-panel.tsx). */
-  { id: "channels", label: "Sales channels", icon: Share2, group: "store", line: "Where your products are listed" },
+  { id: "channels", get label() { return tt("Sales channels") }, icon: Share2, group: "store", get line() { return tt("Where your products are listed") } },
   /* Every email a buyer gets from the store, with a preview (components/app/settings/customer-emails-panel.tsx). */
-  { id: "emails", label: "Customer emails", icon: Mail, group: "store", line: "What buyers get from you, and when" },
+  { id: "emails", get label() { return tt("Customer emails") }, icon: Mail, group: "store", get line() { return tt("What buyers get from you, and when") } },
   /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
-  { id: "taxes", label: "Taxes", icon: Receipt, group: "store", line: "Tax you charge, by country" },
+  { id: "taxes", get label() { return tt("Taxes") }, icon: Receipt, group: "store", get line() { return tt("Tax you charge, by country") } },
   /* The website's languages, and the countries it sells to with their currency (components/app/settings/markets-panel.tsx, lib/markets). */
-  { id: "markets", label: "Markets and languages", icon: Languages, group: "store", line: "Languages, countries and currencies" },
-  { id: "domains", label: "Domains", icon: Globe, group: "store", line: "Your own web address" },
+  { id: "markets", get label() { return tt("Markets and languages") }, icon: Languages, group: "store", get line() { return tt("Languages, countries and currencies") } },
+  { id: "domains", get label() { return tt("Domains") }, icon: Globe, group: "store", get line() { return tt("Your own web address") } },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
-  { id: "ai_memory", label: "AI Memory", icon: Brain, group: "store", line: "What Storelib AI remembers about your store" },
+  { id: "ai_memory", get label() { return tt("AI Memory") }, icon: Brain, group: "store", get line() { return tt("What Storelib AI remembers about your store") } },
   /* Every change made to the store, who made it and when (components/app/settings/activity-panel.tsx). */
-  { id: "activity", label: "Activity", icon: History, group: "store", line: "Every change made to your store" },
+  { id: "activity", get label() { return tt("Activity") }, icon: History, group: "store", get line() { return tt("Every change made to your store") } },
   /* Shipping and delivery, locations and returns: only while physical commerce is on in /admin. */
-  { id: "shipping", label: "Shipping and delivery", icon: Truck, group: "commerce", line: "Rates, zones and packages" },
-  { id: "locations", label: "Locations", icon: MapPin, group: "commerce", line: "Where stock is kept and ships from" },
-  { id: "returns", label: "Returns and refunds", icon: Undo2, group: "commerce", line: "Return window and reasons" },
+  { id: "shipping", get label() { return tt("Shipping and delivery") }, icon: Truck, group: "commerce", get line() { return tt("Rates, zones and packages") } },
+  { id: "locations", get label() { return tt("Locations") }, icon: MapPin, group: "commerce", get line() { return tt("Where stock is kept and ships from") } },
+  { id: "returns", get label() { return tt("Returns and refunds") }, icon: Undo2, group: "commerce", get line() { return tt("Return window and reasons") } },
   /* Analytics and ad pixels for every store; Shippo, Printful, Gelato and the rest while physical commerce is on (components/app/settings/integrations-directory.tsx). */
-  { id: "integrations", label: "Integrations", icon: Plug, group: "integrations", line: "Analytics, pixels and services you connect" },
+  { id: "integrations", get label() { return tt("Integrations") }, icon: Plug, group: "integrations", get line() { return tt("Analytics, pixels and services you connect") } },
 ] as const
 
 /*
@@ -118,10 +120,10 @@ const TABS = [
   the sheet's left column, and over its rows in the phone's list).
 */
 const TAB_GROUPS = [
-  { id: "account", label: "Account" },
-  { id: "store", label: "Store" },
-  { id: "commerce", label: "Commerce" },
-  { id: "integrations", label: "Integrations" },
+  { id: "account", get label() { return tt("Account") } },
+  { id: "store", get label() { return tt("Store") } },
+  { id: "commerce", get label() { return tt("Commerce") } },
+  { id: "integrations", get label() { return tt("Integrations") } },
 ] as const
 /*
   NO STORES TAB. "Get rid of the Stores tab in Settings. It doesn't make any
@@ -357,7 +359,7 @@ function DesktopSettingsModal({
             <h2 className="text-[18px] font-semibold text-[#1a1a2e]">{title}</h2>
             <button
               onClick={onClose}
-              aria-label="Close"
+              aria-label={tt("Close")}
               className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
@@ -457,10 +459,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   */
   /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
   /* Every store refunds; only a store with physical products takes returns, so without them the section is Refunds. */
-  const shownTabs = TABS.filter((tab) => (!COMMERCE_TABS.has(tab.id) || physicalCommerce) && (!teamActing || tab.group === "account")).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: "Refunds", line: "Why you refund" } : tab))
+  const shownTabs = TABS.filter((tab) => (!COMMERCE_TABS.has(tab.id) || physicalCommerce) && (!teamActing || tab.group === "account")).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: tt("Refunds"), line: tt("Why you refund") } : tab))
   /* Each section's own name, from the one list (a name missing from a chain of cases used to fall through to "Domains"). */
   const labelOf = (id: TabId): string =>
-    id === "general" ? t("settings.general") === "General" ? "Profile" : t("settings.general") :
+    id === "general" ? t("settings.general") === "General" ? tt("Profile") : t("settings.general") :
     id === "security" ? t("settings.security") :
     id === "privacy" ? t("settings.privacy") :
     id === "notifications" ? t("settings.notifications") :
@@ -875,13 +877,13 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     setUsernameError(null)
 
     if (cleanValue.length < 3) {
-      setUsernameError("Username must be at least 3 characters")
+      setUsernameError(tt("Username must be at least 3 characters"))
       return
     }
 
     const validation = isValidUsername(cleanValue)
     if (!validation.valid) {
-      setUsernameError(validation.error || "Invalid username")
+      setUsernameError(validation.error || tt("Invalid username"))
     }
   }
 
@@ -1111,7 +1113,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         .limit(1)
 
       if (existingUsers && existingUsers.length > 0) {
-        setError("This username is already taken")
+        setError(tt("This username is already taken"))
         setIsLoading(false)
         return false
       }
@@ -1122,7 +1124,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       if (cleanUsername !== profile.username) {
         const { data: handleTaken } = await supabase.rpc("website_handle_taken", { p_handle: cleanUsername })
         if (handleTaken === true) {
-          setError("A website already uses this name")
+          setError(tt("A website already uses this name"))
           setIsLoading(false)
           return false
         }
@@ -1238,7 +1240,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         }, WAIT_MS.write).catch(() => null)
         const data = res ? ((await res.json().catch(() => null)) as { timeZone?: string; error?: string } | null) : null
         if (!res || !res.ok || !data?.timeZone) {
-          throw new Error(data?.error || "Your details were saved, but the time zone was not. Try again in a moment.")
+          throw new Error(data?.error || tt("Your details were saved, but the time zone was not. Try again in a moment."))
         }
         try {
           localStorage.setItem(TIME_ZONE_STORAGE_KEY, data.timeZone)
@@ -1305,7 +1307,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       return !onepageWarning
     } catch (error: unknown) {
       console.error("[Settings] Save error:", error)
-      const msg = error instanceof Error ? error.message : "An error occurred while saving. Please try again."
+      const msg = error instanceof Error ? error.message : tt("An error occurred while saving. Please try again.")
       setError(msg)
       setShowSaveToast(false)
       return false
@@ -1394,10 +1396,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         setDeleteStep("verify")
         setDeleteVerificationCode(["", "", "", "", "", ""])
       } else {
-        setDeleteError(data.error || "Failed to send verification code")
+        setDeleteError(data.error || tt("Failed to send verification code"))
       }
     } catch {
-      setDeleteError("An error occurred. Please try again.")
+      setDeleteError(tt("An error occurred. Please try again."))
     } finally {
       setDeleteLoading(false)
     }
@@ -1424,7 +1426,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const handleConfirmDelete = async () => {
     const code = deleteVerificationCode.join("")
     if (code.length !== 6) {
-      setDeleteError("Please enter the complete verification code")
+      setDeleteError(tt("Please enter the complete verification code"))
       return
     }
 
@@ -1463,10 +1465,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           router.push("/")
         }
       } else {
-        setDeleteError(data.error || "Invalid verification code")
+        setDeleteError(data.error || tt("Invalid verification code"))
       }
     } catch {
-      setDeleteError("An error occurred. Please try again.")
+      setDeleteError(tt("An error occurred. Please try again."))
     } finally {
       setDeleteLoading(false)
     }
@@ -1495,7 +1497,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const list: ShareAddress[] = [
       {
         surface: "creator",
-        label: "Creator page",
+        label: tt("Creator page"),
         url: domainIsPage ? `https://${connectedDomain}` : getStoreShareUrl(settingsHandleBase),
         display: domainIsPage ? (connectedDomain as string) : getStoreUrlDisplay(settingsHandleBase),
       },
@@ -1510,7 +1512,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     if (websitePublished) {
       list.push({
         surface: "website",
-        label: "Website",
+        label: tt("Website"),
         url: domainIsWebsite ? `https://${websiteDomain}` : getWebsiteShareUrl(websiteHandle),
         display: domainIsWebsite ? (websiteDomain as string) : getWebsiteUrlDisplay(websiteHandle),
       })
@@ -1530,8 +1532,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       >
         <div className="bg-[#1a1a2e] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 whitespace-nowrap max-w-[calc(100vw-2rem)]">
           <Check className="h-4.5 w-4.5 text-emerald-400 shrink-0" />
-          <span className="text-[14px] font-medium hidden sm:inline">Your settings are saved</span>
-          <span className="text-[14px] font-medium sm:hidden">Settings saved</span>
+          <span className="text-[14px] font-medium hidden sm:inline">{tt("Your settings are saved")}</span>
+          <span className="text-[14px] font-medium sm:hidden">{tt("Settings saved")}</span>
         </div>
       </div>
 
@@ -1595,7 +1597,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         */}
         <div data-settings-columns="" className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start lg:gap-12">
         {/* A plain list, not a card in the sheet: the groups' names and their sections, the open one filled. */}
-        <nav aria-label="Settings" data-settings-groups="" className="sticky top-6 hidden lg:block">
+        <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-6 hidden lg:block">
           <div className="py-1">
             {TAB_GROUPS.map((group) => {
               const list = shownTabs.filter((tab) => tab.group === group.id)
@@ -1649,7 +1651,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           ref={pillRowRef}
           data-settings-tabs=""
           role="tablist"
-          aria-label="Settings"
+          aria-label={tt("Settings")}
           className="-mx-4 mb-5 overflow-x-auto px-4 sm:mb-6 sm:-mx-6 sm:px-6 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {/*
@@ -1741,16 +1743,16 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 <BillingPageClient initialData={billingData as never} embedded />
               ) : billingError ? (
                 <div className="bg-white rounded-2xl app-card-x py-6 shadow-sm border border-[#e5e7eb]">
-                  <p className="text-[14px] font-medium text-[#1a1a2e]">We could not load your billing.</p>
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("We could not load your billing.")}</p>
                   <p className="mt-1 text-[13px] text-[#6b7280]">
-                    Nothing has changed on your account. This is a problem reading it.
+                    {tt("Nothing has changed on your account. This is a problem reading it.")}
                   </p>
                   <button
                     type="button"
                     onClick={() => void loadBilling()}
                     className="mt-3 h-9 px-4 text-[13px] font-semibold text-white bg-[#1a1a2e] rounded-lg"
                   >
-                    Try again
+                    {tt("Try again")}
                   </button>
                 </div>
               ) : (
@@ -1764,7 +1766,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 <div className="bg-white rounded-2xl app-card-x py-6 shadow-sm border border-[#e5e7eb]">
                   <div className="flex items-center gap-2.5 text-[#6b7280]">
                     <span className="h-3.5 w-3.5 rounded-full border-2 border-[#e5e7eb] border-t-[#7c3aed] animate-spin" />
-                    <span className="text-[13.5px]">Checking your plan and invoices</span>
+                    <span className="text-[13.5px]">{tt("Checking your plan and invoices")}</span>
                   </div>
                 </div>
               )}
@@ -1780,8 +1782,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   <div className="flex items-center gap-3 min-w-0">
                     <Wallet className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white">
-                      <span className="sm:hidden">Set up Storelib Payments</span>
-                      <span className="hidden sm:inline">Set up Storelib Payments to accept sales and receive payouts.</span>
+                      <span className="sm:hidden">{tt("Set up Storelib Payments")}</span>
+                      <span className="hidden sm:inline">{tt("Set up Storelib Payments to accept sales and receive payouts.")}</span>
                     </p>
                   </div>
                   <button
@@ -1789,7 +1791,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     onClick={() => handleTabChange("payments")}
                     className="shrink-0 h-9 px-5 text-[13px] font-semibold text-[#1a1a2e] bg-white rounded-lg hover:bg-[#f3f4f6] transition-colors shadow-sm cursor-pointer"
                   >
-                    Set up
+                    {tt("Set up")}
                   </button>
                 </div>
               )}
@@ -1809,7 +1811,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 <ProfilePhoto
                   userId={profile.id}
                   src={avatarUrl || null}
-                  name={`${firstName} ${lastName}`.trim() || username || "You"}
+                  name={`${firstName} ${lastName}`.trim() || username || tt("You")}
                   onChanged={() => {
                     /* Saved and announced already (the header has it); the server's pages catch up. */
                     router.refresh()
@@ -1833,7 +1835,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   {/* The username first, as asked: the handle every address is built from, then the name the pages show. */}
                   <div className="space-y-1.5">
                     <Label htmlFor="username" className="text-[13px] font-medium text-[#374151]">
-                      Username
+                      {tt("Username")}
                     </Label>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#9ca3af]">@</span>
@@ -1856,12 +1858,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         {usernameError}
                       </p>
                     ) : (
-                      <p className="text-[12px] text-[#9ca3af]">The address of your creator page and your OnePage</p>
+                      <p className="text-[12px] text-[#9ca3af]">{tt("The address of your creator page and your OnePage")}</p>
                     )}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
-                      Name
+                      {tt("Name")}
                     </Label>
                     {/*
                       WHAT IS TYPED IS WHAT IS SHOWN. The field showed first and
@@ -1881,14 +1883,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         setLastName(rest.join(" "))
                       }}
                       onBlur={() => setNameDraft(null)}
-                      placeholder="Your name or your brand's"
+                      placeholder={tt("Your name or your brand's")}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
-                    <p className="text-[12px] text-[#9ca3af]">Shown on your pages and on receipts</p>
+                    <p className="text-[12px] text-[#9ca3af]">{tt("Shown on your pages and on receipts")}</p>
                   </div>
                 </div>
                 <div className="mt-5">
-                  <p className="mb-2 text-[13px] font-medium text-[#374151]">Your addresses</p>
+                  <p className="mb-2 text-[13px] font-medium text-[#374151]">{tt("Your addresses")}</p>
                   <AddressList username={username} website={website} websiteDomain={websiteDomain} />
                 </div>
               </div>
@@ -1896,12 +1898,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               {/* Emails Card - Email + Support Email */}
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  Emails
+                  {tt("Emails")}
                 </h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
-                      Email
+                      {tt("Email")}
                     </Label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -1909,7 +1911,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         {emailVerified && (
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Check className="h-3 w-3" />
-                            Verified
+                            {tt("Verified")}
                           </span>
                         )}
                       </div>
@@ -1921,13 +1923,13 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         }}
                         className="px-4 h-11 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors whitespace-nowrap cursor-pointer"
                       >
-                        Change
+                        {tt("Change")}
                       </button>
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="supportEmailProfile" className="text-[13px] font-medium text-[#374151]">
-                      Support Email
+                      {tt("Support Email")}
                     </Label>
                     <Input
                       id="supportEmailProfile"
@@ -1938,10 +1940,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                     <div className="flex items-center gap-1">
-                      <p className="text-[12px] text-[#9ca3af]">Shown to customers on receipts</p>
+                      <p className="text-[12px] text-[#9ca3af]">{tt("Shown to customers on receipts")}</p>
                       {/* On the body, kept inside the screen, wrapping (components/ui/tooltip): it was clipped at "customer receip". */}
-                      <InfoTip label="About the support email">
-                        This email appears on customer receipts and order confirmations. Customers write to it for support.
+                      <InfoTip label={tt("About the support email")}>
+                        {tt("This email appears on customer receipts and order confirmations. Customers write to it for support.")}
                       </InfoTip>
                     </div>
                   </div>
@@ -1951,17 +1953,17 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               {/* Language Card */}
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  Language
+                  {tt("Language")}
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">The language of your dashboard</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">{tt("The language of your dashboard")}</p>
                 {/* A popover with a search on a computer, the shared sheet on a phone (components/ui/choice-list). */}
                 <ChoicePicker
                   name="language"
-                  title="Language"
+                  title={tt("Language")}
                   choices={appLanguageChoices}
                   value={selectedLanguage}
                   onChange={(code) => setSelectedLanguage(code as LanguageCode)}
-                  placeholder="Search languages"
+                  placeholder={tt("Search languages")}
                   fieldLabel={appLanguageName(selectedLanguage)}
                 />
               </div>
@@ -1969,9 +1971,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               {/* Timezone Card */}
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  Time zone
+                  {tt("Time zone")}
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Your days and times in Home, Orders, Analytics, Emails and Payouts, and in the sale emails we send you</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">{tt("Your days and times in Home, Orders, Analytics, Emails and Payouts, and in the sale emails we send you")}</p>
                 {/* Saved to the account and followed by the server too (lib/account/time-zone). */}
                 <TimeZonePicker value={selectedTimezone} onChange={setSelectedTimezone} />
               </div>
@@ -1979,72 +1981,72 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               {/* Address Card */}
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  Address
+                  {tt("Address")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="addressLine1" className="text-[13px] font-medium text-[#374151]">
-                      Address Line 1
+                      {tt("Address Line 1")}
                     </Label>
                     <Input
                       id="addressLine1"
                       value={addressLine1}
                       onChange={(e) => setAddressLine1(e.target.value)}
-                      placeholder="Street address"
+                      placeholder={tt("Street address")}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="addressLine2" className="text-[13px] font-medium text-[#374151]">
-                      Address Line 2
+                      {tt("Address Line 2")}
                     </Label>
                     <Input
                       id="addressLine2"
                       value={addressLine2}
                       onChange={(e) => setAddressLine2(e.target.value)}
-                      placeholder="Apt, suite, etc. (optional)"
+                      placeholder={tt("Apt, suite, etc. (optional)")}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="city" className="text-[13px] font-medium text-[#374151]">
-                      City
+                      {tt("City")}
                     </Label>
                     <Input
                       id="city"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      placeholder="City"
+                      placeholder={tt("City")}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="state" className="text-[13px] font-medium text-[#374151]">
-                      State / Province
+                      {tt("State / Province")}
                     </Label>
                     <Input
                       id="state"
                       value={state}
                       onChange={(e) => setState(e.target.value)}
-                      placeholder="State"
+                      placeholder={tt("State")}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="postalCode" className="text-[13px] font-medium text-[#374151]">
-                      Postal Code
+                      {tt("Postal Code")}
                     </Label>
                     <Input
                       id="postalCode"
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
-                      placeholder="Postal code"
+                      placeholder={tt("Postal code")}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="country" className="text-[13px] font-medium text-[#374151]">
-                      Country
+                      {tt("Country")}
                     </Label>
                     {/* The Language and Time zone field: a popover on a computer, the shared sheet on a phone, every country with its flag. */}
                     <CountryPicker id="country" value={country} onChange={setCountry} />
@@ -2054,7 +2056,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
               {/* Resources Card */}
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Resources</h3>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{tt("Resources")}</h3>
                 <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
                   <a
                     href="/app/changelog"
@@ -2067,10 +2069,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         <rect x="3" y="14" width="7" height="7" rx="1" />
                         <rect x="14" y="14" width="7" height="7" rx="1" />
                       </svg>
-                      <span className="text-[14px] text-[#374151]">Change log</span>
+                      <span className="text-[14px] text-[#374151]">{tt("Change log")}</span>
                     </div>
                     <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
-                      View change log
+                      {tt("View change log")}
                     </button>
                   </a>
                   <button
@@ -2080,10 +2082,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   >
                     <div className="flex items-center gap-3">
                       <Globe className="h-5 w-5 text-[#6b7280]" />
-                      <span className="text-[14px] text-[#374151]">Custom Domain</span>
+                      <span className="text-[14px] text-[#374151]">{tt("Custom Domain")}</span>
                     </div>
                     <span className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                      Set up domain
+                      {tt("Set up domain")}
                     </span>
                   </button>
                   <a
@@ -2104,20 +2106,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
                         <line x1="12" y1="17" x2="12.01" y2="17" />
                       </svg>
-                      <span className="text-[14px] text-[#374151]">Storelib Help Center</span>
+                      <span className="text-[14px] text-[#374151]">{tt("Storelib Help Center")}</span>
                     </div>
                     <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
-                      Get help
+                      {tt("Get help")}
                     </button>
                   </a>
                   {/* A request to Storelib, answered by a person (app/app/support, lib/support). */}
                   <SmartLink href="/app/support" className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors" data-settings-support="">
                     <div className="flex items-center gap-3">
                       <Mail className="h-5 w-5 text-[#6b7280]" />
-                      <span className="text-[14px] text-[#374151]">Contact Storelib support</span>
+                      <span className="text-[14px] text-[#374151]">{tt("Contact Storelib support")}</span>
                     </div>
                     <span className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                      Open a request
+                      {tt("Open a request")}
                     </span>
                   </SmartLink>
                 </div>
@@ -2140,8 +2142,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="font-semibold text-[#1a1a2e] text-[15px]">Log out</p>
-                    <p className="text-[13px] text-[#6b7280]">Sign out of Storelib on this device.</p>
+                    <p className="font-semibold text-[#1a1a2e] text-[15px]">{tt("Log out")}</p>
+                    <p className="text-[13px] text-[#6b7280]">{tt("Sign out of Storelib on this device.")}</p>
                   </div>
                   <button
                     type="button"
@@ -2149,7 +2151,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     className="shrink-0 inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#374151] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer"
                   >
                     <LogOut className="h-4 w-4 text-[#6b7280]" />
-                    Log out
+                    {tt("Log out")}
                   </button>
                 </div>
               </div>
@@ -2222,9 +2224,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-5 shadow-sm border border-[#e5e7eb]">
                 <div className="space-y-1.5 max-w-[420px]">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">Name on bank statements</Label>
-                    <InfoTip label="About statement descriptor">
-                      This text appears on your customer&apos;s bank statement to identify who charged them.
+                    <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">{tt("Name on bank statements")}</Label>
+                    <InfoTip label={tt("About statement descriptor")}>
+                      {tt("This text appears on your customer's bank statement to identify who charged them.")}
                     </InfoTip>
                   </div>
                   <Input
@@ -2241,10 +2243,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-mono text-[13px] font-medium text-[#1a1a2e]">{bankStatementLine(statementDescriptor || defaultStatementDescriptor)}</p>
-                      <p className="text-[12px] text-[#6b7280]">How a sale reads in your buyer&apos;s bank app</p>
+                      <p className="text-[12px] text-[#6b7280]">{tt("How a sale reads in your buyer's bank app")}</p>
                     </div>
                   </div>
-                  <p className="text-[12px] text-[#9ca3af]">Letters, numbers and spaces. Up to {STATEMENT_NAME_MAX} characters.</p>
+                  <p className="text-[12px] text-[#9ca3af]">{tt("Letters, numbers and spaces. Up to")} {STATEMENT_NAME_MAX} {tt("characters.")}</p>
                 </div>
               </div>
 
@@ -2252,8 +2254,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 /* On the body, so Settings' own layer (under the app's header below 1024px) does not hold it under the header. */
                 <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
                   <div className="w-full max-w-[420px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                    <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
-                    <p className="text-[12px] text-[#6b7280] mb-3">Choose your payout settlement currency.</p>
+                    <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">{tt("Select payout currency")}</h4>
+                    <p className="text-[12px] text-[#6b7280] mb-3">{tt("Choose your payout settlement currency.")}</p>
                     <div className="space-y-2 max-h-[52vh] overflow-y-auto pr-1">
                       {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
                         <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${payoutCurrency === currency ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] hover:bg-[#f3f4f6]"}`}>
@@ -2270,7 +2272,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               <MobileBottomSheet
                 isOpen={showCurrencyPicker && isMobileViewport}
                 onClose={() => setShowCurrencyPicker(false)}
-                title="Select payout currency"
+                title={tt("Select payout currency")}
               >
                 <div className="space-y-2 pb-2">
                   {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
@@ -2331,7 +2333,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       >
         <div
           role="region"
-          aria-label="Unsaved changes"
+          aria-label={tt("Unsaved changes")}
           /* Rises 16px and fades in over 320ms on the iOS curve, on the compositor; leaves the same way, a little quicker. */
           className={`flex w-full max-w-[520px] items-center gap-2.5 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[transform,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
             barUp ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]"
@@ -2352,7 +2354,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             className={`${primaryDepth} h-9 gap-2 rounded-xl px-4 text-[14px] disabled:opacity-70`}
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isLoading ? "Saving" : t("settings.save")}
+            {isLoading ? tt("Saving") : t("settings.save")}
           </button>
         </div>
       </div>
@@ -2360,7 +2362,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       })()}
 
       {/* Email Change Modal: a code to each address (account-panels.tsx) */}
-      <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title="Change email">
+      <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title={tt("Change email")}>
         <EmailChangeFlow key={emailChangeRun} currentEmail={currentEmail} onChanged={(next) => {
           setCurrentEmail(next)
           router.refresh()
@@ -2376,7 +2378,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           setDeleteVerificationCode(["", "", "", "", "", ""])
           setDeleteError(null)
         }}
-        title={deleteStep === "confirm" ? "Delete Account" : "Verify Deletion"}
+        title={deleteStep === "confirm" ? tt("Delete Account") : tt("Verify Deletion")}
       >
         {deleteStep === "confirm" ? (
           <div className="space-y-4">
@@ -2386,7 +2388,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   <Trash2 className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium text-white text-[14px]">This action cannot be undone</p>
+                  <p className="font-medium text-white text-[14px]">{tt("This action cannot be undone")}</p>
                   {/*
                     What goes, in one sentence, the way it always read. The
                     last clause appears only on a login that has other stores
@@ -2396,17 +2398,17 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     a feature being explained.
                   */}
                   <p className="text-[13px] text-[#9ca3af] mt-1">
-                    Your store, products, customers and details are removed. People who bought from you keep what they bought, and your sales and payout records are kept.
+                    {tt("Your store, products, customers and details are removed. People who bought from you keep what they bought, and your sales and payout records are kept.")}
                     {otherStores > 0 &&
                       (otherStores === 1
-                        ? " The other store on this login goes with it."
-                        : ` The other ${countWord(otherStores)} stores on this login go with it.`)}
+                        ? tt(" The other store on this login goes with it.")
+                        : tt(" The other {count} stores on this login go with it.", { count: countWord(otherStores) }))}
                   </p>
                 </div>
               </div>
             </div>
             <p className="text-[13px] text-[#6b7280]">
-              We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm this action.
+              <Rich text={tt("We'll send a verification code to {email} to confirm this action.")} parts={{ email: <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> }} />
             </p>
             {deleteError && <p className="text-[13px] text-white bg-[#1a1a2e] p-3 rounded-xl">{deleteError}</p>}
             <div className="flex gap-3">
@@ -2418,7 +2420,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 }}
                 className="flex-1 h-11 text-[14px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer"
               >
-                Cancel
+                {tt("Cancel")}
               </button>
               <button
                 type="button"
@@ -2429,10 +2431,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 {deleteLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending...
+                    {tt("Sending...")}
                   </>
                 ) : (
-                  "Send Code"
+                  tt("Send Code")
                 )}
               </button>
             </div>
@@ -2440,7 +2442,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         ) : (
           <div className="space-y-4">
             <p className="text-[13px] text-[#6b7280]">
-              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
+              {tt("Enter the 6-digit code we sent to")} <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
             </p>
             <div className="flex justify-center gap-2">
               {deleteVerificationCode.map((digit, index) => (
@@ -2469,10 +2471,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               {deleteLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Deleting...
+                  {tt("Deleting...")}
                 </>
               ) : (
-                "Permanently Delete Account"
+                tt("Permanently Delete Account")
               )}
             </button>
             <button
@@ -2483,7 +2485,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               }}
               className="w-full text-[13px] text-[#6b7280] hover:text-[#374151] py-2 cursor-pointer"
             >
-              Go back
+              {tt("Go back")}
             </button>
           </div>
         )}

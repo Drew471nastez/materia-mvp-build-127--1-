@@ -20,8 +20,10 @@ import { AccountSettings } from "@/components/account/account-settings"
 import { AccountColumn } from "@/components/account/account-column"
 import { ProfileHero } from "@/components/profile/profile-hero"
 
-const w = window as unknown as { __stored?: string | null; __patches?: unknown[] }
+const w = window as unknown as { __stored?: string | null; __page?: string | null; __patches?: unknown[] }
 const stored = w.__stored ?? null
+/* Round J1: their creator page's cover (window.__page), which Settings shows when they have none of their own. */
+const pageCover = w.__page ?? null
 
 const realFetch = window.fetch.bind(window)
 window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -55,7 +57,7 @@ function Settings() {
             newsletter={false}
             personalized
             username="alexmorgan"
-            cover={{ url: stored, supported: true }}
+            cover={{ url: stored, supported: true, page: pageCover }}
             privacy={{ showActivity: true, showCommunities: true, supported: true }}
             initialSection="profile"
           />

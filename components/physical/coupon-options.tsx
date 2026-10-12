@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { Check } from "lucide-react"
 import { NumberInput, Toggle, api } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 export interface CouponOptionsHandle {
   freeShipping: () => boolean
@@ -74,18 +75,18 @@ export function PhysicalCouponOptions({
   return (
     <section className={cardClass} aria-labelledby="coupon-physical-title">
       <h2 id="coupon-physical-title" className={titleClass}>
-        Shipping and physical products
+        {tt("Shipping and physical products")}
       </h2>
       <div className="mt-3 space-y-4">
-        <Toggle label="Free shipping" description="Delivery costs nothing with this code. The discount above can be 0." checked={freeShipping} onChange={touch(setFreeShipping)} />
-        <Toggle label="Physical products only" description="It takes nothing off downloads or courses in the same cart." checked={physicalOnly} onChange={touch(setPhysicalOnly)} />
+        <Toggle label={tt("Free shipping")} description={tt("Delivery costs nothing with this code. The discount above can be 0.")} checked={freeShipping} onChange={touch(setFreeShipping)} />
+        <Toggle label={tt("Physical products only")} description={tt("It takes nothing off downloads or courses in the same cart.")} checked={physicalOnly} onChange={touch(setPhysicalOnly)} />
         <div className="space-y-2">
-          <Toggle label="Limit uses per customer" description="Counted by the buyer's email." checked={limitOn} onChange={touch(setLimitOn)} />
-          {limitOn ? <NumberInput value={perCustomer} onChange={touch(setPerCustomer)} className="max-w-[140px]" aria-label="Uses per customer" /> : null}
+          <Toggle label={tt("Limit uses per customer")} description={tt("Counted by the buyer's email.")} checked={limitOn} onChange={touch(setLimitOn)} />
+          {limitOn ? <NumberInput value={perCustomer} onChange={touch(setPerCustomer)} className="max-w-[140px]" aria-label={tt("Uses per customer")} /> : null}
         </div>
         {all && all.length ? (
           <div className="space-y-2">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">Only for collections</p>
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Only for collections")}</p>
             <div className="flex flex-wrap gap-1.5">
               {all.map((c) => {
                 const on = collections.includes(c.id)
@@ -103,7 +104,7 @@ export function PhysicalCouponOptions({
                 )
               })}
             </div>
-            <p className="text-[12.5px] text-[#6b7280]">{collections.length ? "It applies only to products in these collections." : "None picked: the products above decide."}</p>
+            <p className="text-[12.5px] text-[#6b7280]">{collections.length ? tt("It applies only to products in these collections.") : tt("None picked: the products above decide.")}</p>
           </div>
         ) : null}
       </div>

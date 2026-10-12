@@ -41,6 +41,7 @@ import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
 import { MAX_OPTIONS, MAX_VALUES } from "@/lib/physical/variants"
 import { AUTO_SCROLL, GRIP_TOUCH, liftTick, useGripDragSensors } from "@/app/app/products/new/hold-to-drag"
 import { BTN_GHOST, BTN_SECONDARY, FIELD_COMPACT, Reveal } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 export interface OptionDraft {
   /** Stable for the drag and for React: never shown or saved. */
@@ -51,6 +52,7 @@ export interface OptionDraft {
 }
 
 /** The names most products use, offered as the name field is typed; any other name is fine. */
+/* Saved as the option's name, which buyers read and isColorOption() matches, so they stay English here (for V25: option labels on the storefront). i18n-ignore-next-line */
 export const OPTION_NAMES = ["Size", "Color", "Material", "Style", "Pattern", "Scent", "Flavor", "Length", "Fit", "Finish"]
 
 /** The options most products have, with their usual values to keep or remove. */
@@ -73,9 +75,9 @@ export const LEAVE_MS = 140
 
 /** What an option still needs before it can be closed, or null. */
 export function optionProblem(o: { name: string; values: string[] }, taken: boolean): string | null {
-  if (!o.name.trim()) return "Name this option, like Size or Color"
-  if (taken) return "Another option has this name"
-  if (o.values.length === 0) return "Add at least one value"
+  if (!o.name.trim()) return tt("Name this option, like Size or Color")
+  if (taken) return tt("Another option has this name")
+  if (o.values.length === 0) return tt("Add at least one value")
   return null
 }
 
@@ -122,7 +124,7 @@ export function OptionsEditor({ options, setOptions, renameValue, moveOption, re
           autoScroll={AUTO_SCROLL}
           onDragStart={(e) => liftTick(e.activatorEvent)}
           onDragEnd={onDragEnd}
-          accessibility={{ screenReaderInstructions: { draggable: "To move an option, press Space on its handle, then the up and down arrow keys, then Space again." } }}
+          accessibility={{ screenReaderInstructions: { draggable: tt("To move an option, press Space on its handle, then the up and down arrow keys, then Space again.") } }}
         >
           <SortableContext items={options.map((o) => o.id)} strategy={verticalListSortingStrategy}>
             <div className="rounded-xl border border-[#eceef1] bg-white" data-option-list="">
@@ -159,13 +161,13 @@ export function OptionsEditor({ options, setOptions, renameValue, moveOption, re
               </button>
             ))}
             <button type="button" onClick={() => add()} className={cn(BTN_GHOST, "h-9 px-3 text-[13.5px]")}>
-              Your own option
+              {tt("Your own option")}
             </button>
           </div>
         ) : (
           <button type="button" data-add-option="" onClick={() => add(OPTION_PRESETS.find((p) => !used.has(p.name.toLowerCase()))?.name ?? "")} className={cn(BTN_GHOST, "-ml-2 h-9 px-2 text-[13.5px]")}>
             <Plus className="h-4 w-4" />
-            Add another option
+            {tt("Add another option")}
           </button>
         )
       ) : null}
@@ -246,18 +248,18 @@ function OptionRow({
     >
       {/* The line: the same height open or closed. */}
       <div className="flex min-h-[48px] items-stretch gap-1 py-1 pl-1 pr-2 sm:min-h-[44px]">
-        {canMove ? <Grip label={`Move ${option.name || "option"}`} activator={setActivatorNodeRef} attributes={attributes} listeners={listeners} /> : <span className="w-2 shrink-0" />}
+        {canMove ? <Grip label={tt("Move {value}", { value: option.name || "option" })} activator={setActivatorNodeRef} attributes={attributes} listeners={listeners} /> : <span className="w-2 shrink-0" />}
         <button
           type="button"
           onClick={() => (option.open ? !problem && update({ open: false }) : open())}
           aria-expanded={option.open}
-          aria-label={option.open ? `Done with ${option.name || "this option"}` : `Edit ${option.name || "option"}`}
+          aria-label={option.open ? tt("Done with {value}", { value: option.name || tt("this option") }) : tt("Edit {value}", { value: option.name || "option" })}
           className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40"
         >
-          <span className="min-w-0 truncate text-[14.5px] font-medium text-[#1a1a2e] sm:text-[14px]">{option.name.trim() || "New option"}</span>
+          <span className="min-w-0 truncate text-[14.5px] font-medium text-[#1a1a2e] sm:text-[14px]">{option.name.trim() || tt("New option")}</span>
           {/* Open, the one Done is the button at its foot; closed, Edit says the line opens. */}
           <span className={cn("shrink-0 text-[13px] font-medium text-[#6b7280] transition-opacity duration-150", option.open && "opacity-0")} aria-hidden={option.open}>
-            Edit
+            {tt("Edit")}
           </span>
         </button>
       </div>
@@ -273,7 +275,7 @@ function OptionRow({
               </span>
             ))
           ) : (
-            <span className="text-[12.5px] text-[#b45309]">No values yet</span>
+            <span className="text-[12.5px] text-[#b45309]">{tt("No values yet")}</span>
           )}
         </div>
       </Reveal>
@@ -283,7 +285,7 @@ function OptionRow({
         <div className="space-y-3 pb-3 pl-9 pr-3" data-option-fields="">
           <div className="space-y-1">
             <label htmlFor={nameId} className="block text-[12.5px] font-medium text-[#6b7280]">
-              Name
+              {tt("Name")}
             </label>
             <input
               id={nameId}
@@ -292,7 +294,7 @@ function OptionRow({
               value={option.name}
               maxLength={40}
               autoComplete="off"
-              placeholder={index === 0 ? "Size" : index === 1 ? "Color" : "Material"}
+              placeholder={index === 0 ? tt("Size") : index === 1 ? tt("Color") : tt("Material")}
               onChange={(e) => update({ name: e.target.value.replace(/\s{2,}/g, " ").slice(0, 40) })}
               className={FIELD_COMPACT}
               data-option-name=""
@@ -304,7 +306,7 @@ function OptionRow({
             </datalist>
           </div>
           <div className="space-y-1">
-            <p className="text-[12.5px] font-medium text-[#6b7280]">Values</p>
+            <p className="text-[12.5px] font-medium text-[#6b7280]">{tt("Values")}</p>
             <ValueList option={option} color={color} update={update} renameValue={renameValue} />
           </div>
           {problem ? (
@@ -315,7 +317,7 @@ function OptionRow({
           {/* The foot, as Shopify's: a quiet Delete, and Done. */}
           <div className="flex items-center justify-between gap-3 pt-0.5">
             <button type="button" onClick={remove} className="-ml-1.5 h-8 shrink-0 rounded-md px-1.5 text-[13px] font-medium text-[#6b7280] outline-none transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40" data-option-delete="">
-              Delete
+              {tt("Delete")}
             </button>
             <button
               type="button"
@@ -324,7 +326,7 @@ function OptionRow({
               className="h-8 shrink-0 rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white shadow-[0_1px_2px_rgba(17,24,39,0.2)] outline-none transition-[background-color,opacity] hover:bg-[#2a2a40] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/50 disabled:opacity-40"
               data-option-done=""
             >
-              Done
+              {tt("Done")}
             </button>
           </div>
         </div>
@@ -401,8 +403,8 @@ function ValueList({ option, color, update, renameValue }: { option: OptionDraft
       {option.values.length < MAX_VALUES ? (
         <div className="flex items-center gap-1 pl-7">
           <input
-            aria-label={`Add a value to ${option.name || "this option"}`}
-            placeholder={option.values.length ? "Add another value" : "Type a value, like Small"}
+            aria-label={tt("Add a value to {value}", { value: option.name || tt("this option") })}
+            placeholder={option.values.length ? tt("Add another value") : tt("Type a value, like Small")}
             value={draft}
             maxLength={101}
             autoComplete="off"
@@ -425,7 +427,7 @@ function ValueList({ option, color, update, renameValue }: { option: OptionDraft
           <span className="w-8 shrink-0" />
         </div>
       ) : null}
-      {dupe ? <p className="pl-7 text-[12.5px] text-[#b45309]">{dupe} is already a value.</p> : null}
+      {dupe ? <p className="pl-7 text-[12.5px] text-[#b45309]">{tt("{dupe} is already a value.", { dupe })}</p> : null}
     </div>
   )
 }
@@ -473,7 +475,7 @@ function ValueField({
     >
       {canMove ? (
         <Grip
-          label={`Move ${value}`}
+          label={tt("Move {value}", { value })}
           activator={setActivatorNodeRef}
           attributes={attributes}
           listeners={listeners}
@@ -489,7 +491,7 @@ function ValueField({
           </span>
         ) : null}
         <input
-          aria-label={`Value ${value}`}
+          aria-label={tt("Value {value}", { value })}
           value={text}
           maxLength={100}
           autoComplete="off"
@@ -508,7 +510,7 @@ function ValueField({
       {/* Always there on a touch screen; with a mouse, on the row the pointer is on. */}
       <button
         type="button"
-        aria-label={`Remove ${value}`}
+        aria-label={tt("Remove {value}", { value })}
         onClick={onRemove}
         className="grid h-10 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] outline-none transition-[color,background-color,opacity] hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 sm:h-9 [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/value:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/value:opacity-100"
       >

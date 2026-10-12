@@ -6,9 +6,13 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { loadCreatorCommunities } from "@/lib/communities/server/creator"
 import { CommunityList } from "@/components/community/creator/community-list"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
-export const metadata: Metadata = { title: "Community" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("Community") }
+}
 
 /** /app/community: the creator's communities, and the ones they help run. A 404 while communities are switched off. */
 export default async function CreatorCommunitiesPage() {

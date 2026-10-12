@@ -24,21 +24,22 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { DRAFT_LIMIT } from "@/lib/website-builder/library-limit"
 import { cn } from "@/lib/utils"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type LibraryAction = "import" | "add" | "duplicate"
 
 const VERB: Record<LibraryAction, string> = {
-  import: "import another theme",
-  add: "add another theme",
-  duplicate: "make a copy",
+  get import() { return tt("import another theme") },
+  get add() { return tt("add another theme") },
+  get duplicate() { return tt("make a copy") },
 }
 
-export const LIBRARY_FULL_TITLE = "Your library is full"
+export const LIBRARY_FULL_TITLE = msg("Your library is full")
 
 /** The one sentence under the title, from the limit rather than written out. */
 export function libraryFullSentence(action: LibraryAction | null): string {
-  const drafts = `${DRAFT_LIMIT} ${DRAFT_LIMIT === 1 ? "draft" : "drafts"}`
-  return `You can keep one live website and ${drafts}, so remove a draft to ${action ? VERB[action] : "add another"}.`
+  const drafts = tt("{n, plural, one {# draft} other {# drafts}}", { n: DRAFT_LIMIT })
+  return tt("You can keep one live website and {drafts}, so remove a draft to {value}.", { drafts, value: action ? VERB[action] : tt("add another") })
 }
 
 export interface LibraryEntry {
@@ -73,7 +74,7 @@ function StatusBadge({ live, offline }: { live: boolean; offline?: boolean }) {
         live ? "bg-[#cdfee1] text-[#0c5132]" : offline ? "bg-[#ffef9d] text-[#4f4700]" : "bg-[#f1f2f4] text-[#3f3f46]",
       )}
     >
-      {live ? "Live" : offline ? "Offline" : "Draft"}
+      {live ? tt("Live") : offline ? tt("Offline") : tt("Draft")}
     </span>
   )
 }
@@ -91,10 +92,10 @@ function EntryList({ entries, onRemove }: { entries: LibraryEntry[]; onRemove?: 
             <button
               type="button"
               onClick={() => onRemove(e.id)}
-              aria-label={`Remove ${e.name}`}
+              aria-label={tt("Remove {name}", { name: e.name })}
               className="-mr-2 inline-flex h-11 shrink-0 items-center rounded-lg px-2 text-[14px] font-medium text-[#c4290c] outline-none transition-colors duration-150 hover:bg-[#fef1ee] focus-visible:ring-2 focus-visible:ring-[#c4290c]/25 active:bg-[#fde4df] sm:h-8 sm:text-[13px]"
             >
-              Remove
+              {tt("Remove")}
             </button>
           ) : null}
         </li>
@@ -128,10 +129,10 @@ export function LibraryFullDialog({
       <BottomSheet
         isOpen={open}
         onClose={onClose}
-        label={LIBRARY_FULL_TITLE}
+        label={tt(LIBRARY_FULL_TITLE)}
         header={
           <div className="px-5 pb-4 pt-3">
-            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{LIBRARY_FULL_TITLE}</h2>
+            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{tt(LIBRARY_FULL_TITLE)}</h2>
             <p className="mt-1 text-[14px] leading-[1.45] text-[#6b7280]">{sentence}</p>
           </div>
         }
@@ -144,7 +145,7 @@ export function LibraryFullDialog({
               onClick={onClose}
               className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-[#e5e7eb] bg-white text-[15px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors duration-150 active:bg-[#f3f4f6]"
             >
-              Close
+              {tt("Close")}
             </button>
           </div>
         </div>
@@ -160,13 +161,13 @@ export function LibraryFullDialog({
         className="block max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl border-[#e5e7eb] p-0 shadow-[0_20px_48px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[440px]"
       >
         <div className="px-5 pb-4 pt-5">
-          <AlertDialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{LIBRARY_FULL_TITLE}</AlertDialogTitle>
+          <AlertDialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{tt(LIBRARY_FULL_TITLE)}</AlertDialogTitle>
           <AlertDialogDescription className="mt-1 text-[13.5px] leading-[1.5] text-[#6b7280]">{sentence}</AlertDialogDescription>
         </div>
         <EntryList entries={entries} onRemove={onRemove} />
         <div className="flex justify-end px-5 py-3">
           <AlertDialogCancel className="mt-0 h-9 rounded-lg border-[#e5e7eb] px-3.5 text-[13px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            Close
+            {tt("Close")}
           </AlertDialogCancel>
         </div>
       </AlertDialogContent>

@@ -26,6 +26,7 @@ import { briefFrom } from "@/lib/agent-access/site-brief"
 import { readBodyCapped } from "@/lib/agent-access/body"
 import { FIRST_ASK, afterSetup, detectOs, openTerminalGuide, setupCommands } from "@/lib/agent-access/setup-commands"
 import { agentStatus, toolForName } from "@/components/website-builder/agent-connections-panel"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -34,7 +35,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /** Operations that record what they were asked, standing in for a site. */
 function fakeOps() {
@@ -313,7 +314,7 @@ async function main() {
       keys("linux") === "Ctrl Alt T" && /PowerShell/.test(openTerminalGuide("windows").aside ?? ""))
   check("then what to ask, and how to see it worked",
     FIRST_ASK === "Add a pricing section to my Storelib site" && afterSetup("claude")?.check === "claude mcp list" && afterSetup("other") === null &&
-      /Type <Code>\{next\.start\}<\/Code>, press \{enter\}, then ask:/.test(panel) && /is connected\. What it writes shows up here as a draft\./.test(panel))
+      /Type \{command\}, press \$?\{enter\}, then ask:/.test(panel) && /command: <Code>\{next\.start\}<\/Code>/.test(panel) && /is connected\. What it writes shows up here as a draft\./.test(panel))
 
   console.log("\nHolding up at scale, and keeping to its own site")
 

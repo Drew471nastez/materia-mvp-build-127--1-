@@ -40,6 +40,7 @@ import { jobBackoffMs, JOB_MAX_ATTEMPTS } from "@/lib/communities/server/notify"
 import { buyerTabsBelongOn } from "@/lib/nav/buyer-tabs"
 import { CUSTOM_DOMAIN_DISALLOW, PLATFORM_DISALLOW } from "@/lib/seo/indexing"
 import { RESERVED_ROOT_EXTRAS, RESERVED_ROOT_SEGMENTS, isReservedRootSegment } from "@/lib/routes/reserved-segments"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -54,7 +55,7 @@ function check(name: string, ok: boolean, detail?: string) {
     console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 async function main() {

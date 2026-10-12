@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { CANCEL_NOTE_MAX, CANCEL_REASONS, isCancelReason, readCancelFeedback, stripeCancellationDetails } from "@/lib/billing/cancel-reasons"
 import * as plans from "@/lib/billing/plans"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -17,7 +18,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 /* Source with comments taken out, so a rule is about the code and not about what a comment says. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 

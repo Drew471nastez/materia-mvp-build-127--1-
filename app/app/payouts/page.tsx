@@ -11,15 +11,21 @@ import { pickBalance, salesCurrencyOf } from "@/lib/payments/display-currency";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
 import { PaneBar } from "@/app/app/orders/order-parts"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export const metadata = {
-  title: "Payouts",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Payouts"),
+  }
+}
 
 export default async function PayoutsPage() {
+  const { tt } = await getServerTt()
   const adminSupabase = createAdminClient();
 
   /* The same answer the /app layout got, through the per-request cache
@@ -49,19 +55,19 @@ export default async function PayoutsPage() {
         <>
           <PaneBar width="max-w-[1200px]" className="flex min-h-[66px] items-center justify-between gap-3 pb-2 pt-[14px]">
             <div className="min-w-0">
-              <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
+              <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">{tt("Payouts")}</h1>
             </div>
             <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
           </PaneBar>
           <div className="mx-auto max-w-[1200px] app-gutter pb-8">
-            <Suspense fallback={<PayoutsWaiting />}>{PayoutsBody({ creator, paymentsReady })}</Suspense>
+            <Suspense fallback={<PayoutsWaiting label={tt("Loading payouts")} />}>{PayoutsBody({ creator, paymentsReady })}</Suspense>
           </div>
         </>
       ) : (
         <div className="mx-auto min-h-full max-w-[1200px] app-gutter pb-24 md:pb-8" data-payouts-setup="">
           <header className="pb-1 pt-2">
-            <h1 className="flex min-h-[48px] items-center text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Payouts</h1>
-            <p className="-mt-1 text-[13px] leading-5 text-[#6b7280]">Set up payments to start selling</p>
+            <h1 className="flex min-h-[48px] items-center text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Payouts")}</h1>
+            <p className="-mt-1 text-[13px] leading-5 text-[#6b7280]">{tt("Set up payments to start selling")}</p>
           </header>
           <div className="mt-4">
             <StorelibPaymentsInline compact />
@@ -93,9 +99,9 @@ export default async function PayoutsPage() {
  * card with its figure, the period and the plot, and the list card with its
  * toolbar and rows.
  */
-function PayoutsWaiting() {
+function PayoutsWaiting({ label }: { label: string }) {
   return (
-    <Shimmer className="space-y-4 pt-2" label="Loading payouts">
+    <Shimmer className="space-y-4 pt-2" label={label}>
       <div className={WAIT_CARD}>
         <div className="flex h-10 items-center justify-between pl-4 pr-3.5 pt-1">
           <ShimmerBlock className="h-3 w-16 rounded-full" />
@@ -142,6 +148,7 @@ const WAIT_CARD = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-whi
 const STRIPE_WAIT_MS = 2_500;
 
 async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsReady: boolean }) {
+  const { tt } = await getServerTt()
   const adminSupabase = createAdminClient();
 
   /*
@@ -185,7 +192,7 @@ async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsR
           ),
           /* Stripe does not hold the page: past this the page draws without its balance and the client reads it (PayoutsClient refreshBalances). */
           new Promise<{ ok: false; error: unknown }>((resolve) =>
-            setTimeout(() => resolve({ ok: false as const, error: new Error("Stripe took too long") }), STRIPE_WAIT_MS),
+            setTimeout(() => resolve({ ok: false as const, error: new Error(tt("Stripe took too long")) }), STRIPE_WAIT_MS),
           ),
         ])
       : Promise.resolve(null),

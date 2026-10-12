@@ -55,6 +55,8 @@ import {
   PaneBar,
 } from "./order-parts"
 import { HOVER_PREFETCH_MS, prefetchOrder } from "./order-prefetch"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export interface OrdersListProps {
   allOrders: Order[]
@@ -91,7 +93,7 @@ export function OrdersList(props: OrdersListProps) {
     <>
       {/* The top bar: the same bar, the pane's full width, as an order's own. */}
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Orders</h1>
+        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Orders")}</h1>
         <button
           type="button"
           /* 32px to see, 44px to tap on a phone: the reach is a box around it. */
@@ -102,16 +104,16 @@ export function OrdersList(props: OrdersListProps) {
           aria-haspopup="dialog"
         >
           <Download className="h-4 w-4" />
-          Export
+          {tt("Export")}
         </button>
       </PaneBar>
       <div className={cn("mx-auto pb-6", LIST_WIDTH, GUTTER)}>
 
       {!stripeConnected ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-[#f3e3b3] bg-[#fffaeb] px-4 py-3 text-[13px] text-[#5c4300]">
-          <span>Payouts are not set up, so paid orders cannot be paid out to you yet.</span>
+          <span>{tt("Payouts are not set up, so paid orders cannot be paid out to you yet.")}</span>
           <Link href="/app/payouts" className="font-medium underline underline-offset-2">
-            Set up payouts
+            {tt("Set up payouts")}
           </Link>
         </div>
       ) : null}
@@ -137,7 +139,7 @@ export function OrdersList(props: OrdersListProps) {
 
 function MetricsStrip({ metrics, comparable }: { metrics: MetricReading[]; comparable: boolean }) {
   return (
-    <section aria-label="Order metrics" className={cn(card, "mt-3 overflow-hidden")}>
+    <section aria-label={tt("Order metrics")} className={cn(card, "mt-3 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
         {metrics.map((reading, i) => {
           const meta = METRICS.find((m) => m.key === reading.key)!
@@ -145,14 +147,15 @@ function MetricsStrip({ metrics, comparable }: { metrics: MetricReading[]; compa
             <div
               key={reading.key}
               className={cn(
-                "flex min-w-[150px] flex-1 shrink-0 flex-col justify-between px-4 pb-2 pt-3",
+                /* At least 150px, and as wide as its figure: "257,00 USD Nowe" is longer than "$257.00 New". */
+                "flex flex-[1_0_150px] flex-col justify-between px-4 pb-2 pt-3",
                 i > 0 && "border-l border-[#eef0f2]",
               )}
             >
               <HelpLabel label={meta.label} description={meta.help} className="text-[12px] font-medium text-[#4b5563]" />
-              <div className="mt-1 flex h-6 items-baseline gap-2">
+              <div className="mt-1 flex h-6 items-baseline gap-2 whitespace-nowrap">
                 <span className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]">
-                  {meta.money ? formatMoney(reading.value) : Math.round(reading.value).toLocaleString("en-US")}
+                  {meta.money ? formatMoney(reading.value) : Math.round(reading.value).toLocaleString(appLocale())}
                 </span>
                 {comparable ? <Change reading={reading} upIsBad={!!meta.upIsBad} /> : null}
               </div>
@@ -169,7 +172,7 @@ function MetricsStrip({ metrics, comparable }: { metrics: MetricReading[]; compa
 
 function Change({ reading, upIsBad }: { reading: MetricReading; upIsBad: boolean }) {
   if (reading.change === null) {
-    return <span className="text-[12px] text-[#9ca3af]">{reading.value > 0 ? "New" : "–"}</span>
+    return <span className="text-[12px] text-[#9ca3af]">{reading.value > 0 ? tt("New") : "–"}</span>
   }
   const pct = Math.round(reading.change * 100)
   if (pct === 0) return <span className="text-[12px] text-[#9ca3af]">0%</span>
@@ -211,7 +214,7 @@ function OrdersTable(props: OrdersListProps) {
   const allOnPage = pageIds.length > 0 && selectedOnPage === pageIds.length
 
   return (
-    <section aria-label="Orders" className={cn(card, "mt-4 overflow-hidden")}>
+    <section aria-label={tt("Orders")} className={cn(card, "mt-4 overflow-hidden")}>
       {/* Toolbar: one row, the same height whether searching or not. */}
       <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
         {searching ? (
@@ -224,11 +227,11 @@ function OrdersTable(props: OrdersListProps) {
                 type="search"
                 value={props.searchText}
                 onChange={(e) => props.onSearchText(e.target.value)}
-                placeholder="Search by order, customer or product"
+                placeholder={tt("Search by order, customer or product")}
                 className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden"
               />
               {props.searchText ? (
-                <button type="button" aria-label="Clear search" className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => props.onSearchText("")}>
+                <button type="button" aria-label={tt("Clear search")} className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => props.onSearchText("")}>
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
@@ -242,7 +245,7 @@ function OrdersTable(props: OrdersListProps) {
                 setSearching(false)
               }}
             >
-              Cancel
+              {tt("Cancel")}
             </button>
           </>
         ) : (
@@ -251,8 +254,8 @@ function OrdersTable(props: OrdersListProps) {
             <button
               type="button"
               className={cn(iconButton, "ml-auto w-auto gap-1 px-2")}
-              aria-label="Search and filter"
-              title="Search and filter"
+              aria-label={tt("Search and filter")}
+              title={tt("Search and filter")}
               onClick={() => setSearching(true)}
             >
               <Search className="h-4 w-4" />
@@ -288,7 +291,7 @@ function OrdersTable(props: OrdersListProps) {
                 <th scope="col" className="orders-sticky left-0 w-10 bg-[#f7f7f8] p-0">
                   <label className="flex h-9 w-10 cursor-pointer items-center pl-3">
                     <Checkbox
-                      label={allOnPage ? "Deselect all on this page" : "Select all on this page"}
+                      label={allOnPage ? tt("Deselect all on this page") : tt("Select all on this page")}
                       checked={allOnPage}
                       indeterminate={selectedOnPage > 0 && !allOnPage}
                       onChange={(on) => onSelect(pageIds, on)}
@@ -298,23 +301,23 @@ function OrdersTable(props: OrdersListProps) {
                 {selected.size > 0 ? (
                   <th scope="col" colSpan={columns.length + 1} className="orders-sticky left-10 bg-[#f7f7f8] px-2 font-normal">
                     <div className="flex items-center gap-3">
-                      <span className="font-medium text-[#1a1a2e]">{selected.size} selected</span>
+                      <span className="font-medium text-[#1a1a2e]">{tt("{size} selected", { size: selected.size })}</span>
                       <button type="button" className={cn(buttonSecondary, "h-7 px-2.5 text-[12px]")} onClick={() => props.onExport()}>
-                        Export selected
+                        {tt("Export selected")}
                       </button>
                       <button
                         type="button"
                         className="h-7 rounded-lg px-2 text-[12px] font-medium text-[#4b5563] hover:bg-[#ececef]"
                         onClick={() => onSelect([...selected], false)}
                       >
-                        Clear
+                        {tt("Clear")}
                       </button>
                     </div>
                   </th>
                 ) : (
                   <>
                     <th scope="col" data-scroll-edge="" className="orders-sticky left-10 bg-[#f7f7f8] pl-2 pr-4">
-                      Order
+                      {tt("Order")}
                     </th>
                     {columns.map((c) => (
                       <th
@@ -356,7 +359,7 @@ function OrdersTable(props: OrdersListProps) {
                     <td className={cn("orders-sticky left-0 w-10 border-t border-[#f0f1f3] p-0", rowBg)}>
                       <label className="flex h-10 w-10 cursor-pointer items-center pl-3">
                         <Checkbox
-                          label={`Select order ${order.number}`}
+                          label={tt("Select order {number}", { number: order.number })}
                           checked={isSelected}
                           onChange={(on) => onSelect([order.id], on)}
                         />
@@ -398,12 +401,12 @@ function OrdersTable(props: OrdersListProps) {
       {allOrders.length > 0 ? (
         <div className="flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] px-3">
           <span className="text-[12px] tabular-nums text-[#6b7280]">
-            {matching > 0 ? `${range.from}–${range.to} of ${matching.toLocaleString("en-US")}` : "0 orders"}
+            {matching > 0 ? tt("{from}–{to} of {value}", { from: range.from, to: range.to, value: matching.toLocaleString(appLocale()) }) : tt("0 orders")}
           </span>
           <div className="flex items-center gap-1">
             <button
               type="button"
-              aria-label="Previous page"
+              aria-label={tt("Previous page")}
               className={cn(buttonSecondary, "h-7 w-8 px-0")}
               disabled={range.page <= 1}
               onClick={() => onQuery({ page: range.page - 1 })}
@@ -412,7 +415,7 @@ function OrdersTable(props: OrdersListProps) {
             </button>
             <button
               type="button"
-              aria-label="Next page"
+              aria-label={tt("Next page")}
               className={cn(buttonSecondary, "h-7 w-8 px-0")}
               disabled={range.page >= range.pages}
               onClick={() => onQuery({ page: range.page + 1 })}
@@ -434,7 +437,7 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
       return order.customerName || order.customerEmail ? (
         <span className="block max-w-[200px] truncate">{order.customerName || order.customerEmail}</span>
       ) : (
-        <span className="text-[#9ca3af]">No customer</span>
+        <span className="text-[#9ca3af]">{tt("No customer")}</span>
       )
     case "source":
       /* The channel, and where the visit came from when that was seen; the
@@ -446,7 +449,7 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
           {order.sourceDetail?.from ? <span className="text-[#6b7280]"> · {fromLabel(order.sourceDetail.from)}</span> : null}
         </span>
       ) : (
-        <span className="text-[#9ca3af]" title="Not recorded for this order">
+        <span className="text-[#9ca3af]" title={tt("Not recorded for this order")}>
           &ndash;
         </span>
       )
@@ -462,14 +465,14 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
     case "delivery":
       if (order.shipping) {
         const { stage, pickup } = order.shipping
-        if (stage === "delivered" || stage === "returned" || stage === "partially_returned") return <span>{pickup ? "Picked up" : "Delivered"}</span>
-        if (stage === "fulfilled" || stage === "partially_fulfilled") return <span>{pickup ? "Ready for pickup" : "Shipped"}</span>
+        if (stage === "delivered" || stage === "returned" || stage === "partially_returned") return <span>{pickup ? tt("Picked up") : tt("Delivered")}</span>
+        if (stage === "fulfilled" || stage === "partially_fulfilled") return <span>{pickup ? tt("Ready for pickup") : tt("Shipped")}</span>
         return <span className="text-[#9ca3af]">&ndash;</span>
       }
       return <DeliveryBadge status={order.delivery} />
     case "method":
-      if (order.shipping) return <span className="block max-w-[180px] truncate">{order.shipping.pickup ? "Local pickup" : order.shipping.method || "Shipping"}</span>
-      return order.customerEmail ? <span>Email</span> : <span className="text-[#9ca3af]">&ndash;</span>
+      if (order.shipping) return <span className="block max-w-[180px] truncate">{order.shipping.pickup ? tt("Local pickup") : order.shipping.method || tt("Shipping")}</span>
+      return order.customerEmail ? <span>{tt("Email")}</span> : <span className="text-[#9ca3af]">&ndash;</span>
   }
 }
 
@@ -485,7 +488,7 @@ function ViewTabs({
   /* Only the views that have something in them, plus the one that is open. */
   const views = VIEWS.filter((v) => v.value === "all" || v.value === query.view || allOrders.some((o) => inView(o, v.value)))
   return (
-    <div role="tablist" aria-label="Views" className="orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2">
+    <div role="tablist" aria-label={tt("Views")} className="orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2">
       {views.map((v) => {
         const active = v.value === query.view
         return (
@@ -525,32 +528,32 @@ function FilterRow({
     <div className="orders-strip flex items-center gap-2 overflow-x-auto border-b border-[#eef0f2] px-3 py-2">
       {ships || fulfillment ? (
         <FilterChip
-          label="Fulfillment"
+          label={tt("Fulfillment")}
           value={fulfillment ? fulfillment.label : null}
           onClear={() => onQuery({ fulfillment: "any", page: 1 })}
-          options={[{ value: "any", label: "Any status" }, ...SHIP_FILTERS]}
+          options={[{ value: "any", label: tt("Any status") }, ...SHIP_FILTERS]}
           selected={query.fulfillment ?? "any"}
           onSelect={(v) => onQuery({ fulfillment: v as ListQuery["fulfillment"], page: 1 })}
         />
       ) : null}
       <FilterChip
-        label="Source"
+        label={tt("Source")}
         value={query.source === "any" ? null : SOURCE_LABEL[query.source]}
         onClear={() => onQuery({ source: "any", page: 1 })}
         options={[
-          { value: "any", label: "Any source" },
+          { value: "any", label: tt("Any source") },
           { value: "storelib", label: "Storelib" },
-          { value: "website", label: "Website" },
+          { value: "website", label: tt("Website") },
         ]}
         selected={query.source}
         onSelect={(v) => onQuery({ source: v as ListQuery["source"], page: 1 })}
       />
       {products.length > 1 ? (
         <FilterChip
-          label="Product"
+          label={tt("Product")}
           value={product ? product.title : null}
           onClear={() => onQuery({ product: "", page: 1 })}
-          options={[{ value: "", label: "Any product" }, ...products.map((p) => ({ value: p.id, label: p.title }))]}
+          options={[{ value: "", label: tt("Any product") }, ...products.map((p) => ({ value: p.id, label: p.title }))]}
           selected={query.product}
           onSelect={(v) => onQuery({ product: v, page: 1 })}
         />
@@ -590,7 +593,7 @@ function FilterChip({
           </button>
         </PopoverTrigger>
         {value ? (
-          <button type="button" aria-label={`Clear ${label}`} className="flex h-full cursor-pointer items-center pr-2 text-[#6b7280] hover:text-[#1a1a2e]" onClick={onClear}>
+          <button type="button" aria-label={tt("Clear {label}", { label })} className="flex h-full cursor-pointer items-center pr-2 text-[#6b7280] hover:text-[#1a1a2e]" onClick={onClear}>
             <X className="h-3.5 w-3.5" />
           </button>
         ) : null}
@@ -619,12 +622,12 @@ function ColumnsMenu({ hidden, onToggle }: { hidden: Set<ColumnKey>; onToggle: (
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className={cn(iconButton, "shrink-0")} aria-label="Columns" title="Columns">
+        <button type="button" className={cn(iconButton, "shrink-0")} aria-label={tt("Columns")} title={tt("Columns")}>
           <Columns3 className="h-4 w-4" />
         </button>
       </PopoverTrigger>
       <MenuSurface align="end" className="w-[220px]">
-        <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">Columns</p>
+        <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">{tt("Columns")}</p>
         {COLUMNS.map((c) => (
           <label
             key={c.key}
@@ -655,12 +658,12 @@ function EmptyState({
   /* Say which of the three it is: nothing sold yet, nothing in these dates,
      or nothing through these filters. Each has its own way out. */
   const physical = usePhysicalCommerceEnabled()
-  const title = !hasOrders ? "No orders yet" : filtering ? "No orders match" : "No orders in this period"
+  const title = !hasOrders ? tt("No orders yet") : filtering ? tt("No orders match") : tt("No orders in this period")
   const body = !hasOrders
-    ? "Orders from your Storelib page and your website show up here as soon as someone buys."
+    ? tt("Orders from your Storelib page and your website show up here as soon as someone buys.")
     : filtering
-      ? "Try another search, or clear the filters."
-      : `Nothing from ${rangeName ?? "these dates"}. Your earlier orders are still here.`
+      ? tt("Try another search, or clear the filters.")
+      : tt("Nothing from {value}. Your earlier orders are still here.", { value: rangeName ?? tt("these dates") })
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
@@ -668,19 +671,19 @@ function EmptyState({
       {!hasOrders && physical ? (
         /* A store about to sell things that ship: what will happen to its first order, step by step. */
         <a href="/help/physical-products/playbook" target="_blank" rel="noreferrer" className="mt-3 text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2" data-orders-playbook="">
-          What happens when someone orders
+          {tt("What happens when someone orders")}
         </a>
       ) : null}
       {hasOrders ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {filtering ? (
             <button type="button" className={buttonSecondary} onClick={onClear}>
-              Clear filters
+              {tt("Clear filters")}
             </button>
           ) : null}
           {rangeName ? (
             <button type="button" className={buttonSecondary} onClick={onAllTime}>
-              Show all time
+              {tt("Show all time")}
             </button>
           ) : null}
         </div>
@@ -697,15 +700,15 @@ function SortMenu({ value, onChange }: { value: ListQuery["sort"]; onChange: (s:
         <button
           type="button"
           className={cn(iconButton, "shrink-0", value !== "newest" && "bg-[#eceef1] text-[#1a1a2e]")}
-          aria-label="Sort"
-          title="Sort"
+          aria-label={tt("Sort")}
+          title={tt("Sort")}
         >
           <ArrowUpDown className="h-4 w-4" />
         </button>
       </PopoverTrigger>
       <MenuSurface align="end" className="w-[200px]">
-        <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">Sort by</p>
-        <div role="menu" aria-label="Sort">
+        <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">{tt("Sort by")}</p>
+        <div role="menu" aria-label={tt("Sort")}>
           {SORTS.map((o) => (
             <MenuOption
               key={o.value}

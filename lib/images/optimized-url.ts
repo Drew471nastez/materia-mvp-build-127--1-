@@ -53,7 +53,10 @@ export function isOptimizableImage(src?: string | null): boolean {
   if (src.startsWith("/") && !src.startsWith("//")) return true
   try {
     const url = new URL(src)
-    return url.protocol === "https:" && OPTIMIZABLE_HOSTS.some((host) => host.test(url.hostname))
+    if (url.protocol !== "https:") return false
+    /* Storelib's own address for a public file (https://storelib.com/media/..., lib/storage/media-url.ts): next.config lists it, path and all. */
+    if (url.hostname === (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com") && url.pathname.startsWith("/media/")) return true
+    return OPTIMIZABLE_HOSTS.some((host) => host.test(url.hostname))
   } catch {
     return false
   }

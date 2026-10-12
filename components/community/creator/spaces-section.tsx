@@ -22,9 +22,10 @@ import type { CommunityHead, RuleOptions, SpaceView } from "./view-types"
 import { SPACE_KIND_LABEL, checkSpace } from "./logic"
 import { AccessEditor, describeRule } from "./access-editor"
 import { Confirm, Dialog, Empty, ListCard, ListNote, Notice, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 const KIND_ICON: Record<SpaceKind, string> = { feed: "💬", chat: "⚡", announcements: "📣", resources: "📚" }
-const POST_ROLE_LABEL: Record<PostRole, string> = { member: "Members post", moderator: "Moderators post", admin: "Admins post" }
+const POST_ROLE_LABEL: Record<PostRole, string> = { get member() { return tt("Members post") }, get moderator() { return tt("Moderators post") }, get admin() { return tt("Admins post") } }
 
 /** A stored icon is an emoji (shown) or an older word name (the kind's emoji is shown instead). */
 export function spaceGlyph(s: { icon: string | null; kind: SpaceKind }): string {
@@ -67,9 +68,9 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     setError(null)
     const res = draft.id ? await send(`${base}/${draft.id}`, "PATCH", draft) : await send(base, "POST", draft)
     setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error, "The space could not be saved."))
+    if (!res.ok) return setError(errorText(res.data.error, tt("The space could not be saved.")))
     setDraft(null)
-    toast(draft.id ? "Space saved" : "Space added")
+    toast(draft.id ? tt("Space saved") : tt("Space added"))
     await reload()
     router.refresh()
   }
@@ -81,7 +82,7 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     setSpaces(next)
     const res = await send(base, "PUT", { ids: next.map((x) => x.id) })
     if (!res.ok) {
-      toast(errorText(res.data.error, "The order was not saved."))
+      toast(errorText(res.data.error, tt("The order was not saved.")))
       await reload()
     }
   }
@@ -89,7 +90,7 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
   const setArchived = async (s: SpaceView, archived: boolean) => {
     const res = await send(`${base}/${s.id}`, "PATCH", { ...s, archived })
     if (!res.ok) return toast(errorText(res.data.error))
-    toast(archived ? "Space archived" : "Space restored")
+    toast(archived ? tt("Space archived") : tt("Space restored"))
     await reload()
   }
 
@@ -100,16 +101,16 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     setBusy(false)
     if (!res.ok) return toast(errorText(res.data.error))
     setDeleting(null)
-    toast("Space deleted")
+    toast(tt("Space deleted"))
     await reload()
   }
 
   const menu = (s: SpaceView, i: number): ActionMenuItem[] => {
-    const items: ActionMenuItem[] = [{ label: "Edit", onClick: () => setDraft({ id: s.id, name: s.name, description: s.description ?? "", icon: s.icon && !/^[a-z-]+$/i.test(s.icon) ? s.icon : "", kind: s.kind, postRole: s.postRole, commentsEnabled: s.commentsEnabled, viewAccess: s.viewAccess }) }]
-    if (i > 0) items.push({ label: "Move up", onClick: () => void move(i, -1) })
-    if (i < spaces.length - 1) items.push({ label: "Move down", onClick: () => void move(i, 1) })
-    items.push(s.archived ? { label: "Restore", onClick: () => void setArchived(s, false), separatorBefore: true } : { label: "Archive", onClick: () => void setArchived(s, true), separatorBefore: true })
-    if (s.posts === 0) items.push({ label: "Delete", variant: "destructive", onClick: () => setDeleting(s) })
+    const items: ActionMenuItem[] = [{ label: tt("Edit"), onClick: () => setDraft({ id: s.id, name: s.name, description: s.description ?? "", icon: s.icon && !/^[a-z-]+$/i.test(s.icon) ? s.icon : "", kind: s.kind, postRole: s.postRole, commentsEnabled: s.commentsEnabled, viewAccess: s.viewAccess }) }]
+    if (i > 0) items.push({ label: tt("Move up"), onClick: () => void move(i, -1) })
+    if (i < spaces.length - 1) items.push({ label: tt("Move down"), onClick: () => void move(i, 1) })
+    items.push(s.archived ? { label: tt("Restore"), onClick: () => void setArchived(s, false), separatorBefore: true } : { label: tt("Archive"), onClick: () => void setArchived(s, true), separatorBefore: true })
+    if (s.posts === 0) items.push({ label: tt("Delete"), variant: "destructive", onClick: () => setDeleting(s) })
     return items
   }
 
@@ -118,19 +119,19 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
       <ListCard
         head={
           <ListNote>
-            {spaces.length} {spaces.length === 1 ? "space" : "spaces"}
-            <span className="max-sm:hidden">, in the order members see them</span>
+            {tt("{n, plural, one {# space} other {# spaces}}", { n: spaces.length })}
+            <span className="max-sm:hidden">{tt(", in the order members see them")}</span>
           </ListNote>
         }
         actions={
           <button type="button" onClick={() => { setError(null); setDraft({ ...blank }) }} className={buttonPrimary} data-space-new="">
             <Plus aria-hidden className="h-4 w-4" />
-            New space
+            {tt("New space")}
           </button>
         }
       >
         {spaces.length === 0 ? (
-          <Empty title="No spaces yet." detail="Add a space for members to post in." />
+          <Empty title={tt("No spaces yet.")} detail={tt("Add a space for members to post in.")} />
         ) : (
           <ul className="divide-y divide-[#f1f2f4]">
             {spaces.map((s, i) => (
@@ -141,21 +142,21 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-2">
                     <span className={cn("truncate text-[14.5px] font-medium", s.archived ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{s.name}</span>
-                    {s.archived ? <StatusBadge tone="neutral">Archived</StatusBadge> : null}
+                    {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
                   </p>
                   <p className="truncate text-[12.5px] text-[#6b7280]">
-                    {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), `${s.posts.toLocaleString("en-US")} ${s.kind === "chat" ? "messages" : s.posts === 1 ? "post" : "posts"}`].filter(Boolean).join(" · ")}
+                    {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), (s.kind === "chat" ? tt("{n, plural, one {# message} other {# messages}}", { n: s.posts }) : tt("{n, plural, one {# post} other {# posts}}", { n: s.posts }))].filter(Boolean).join(" · ")}
                   </p>
                 </div>
                 <div className="hidden items-center gap-0.5 sm:flex">
-                  <button type="button" aria-label={`Move ${s.name} up`} disabled={i === 0} onClick={() => void move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
+                  <button type="button" aria-label={tt("Move {name} up", { name: s.name })} disabled={i === 0} onClick={() => void move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
                     <ArrowUp aria-hidden className="h-4 w-4" />
                   </button>
-                  <button type="button" aria-label={`Move ${s.name} down`} disabled={i === spaces.length - 1} onClick={() => void move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
+                  <button type="button" aria-label={tt("Move {name} down", { name: s.name })} disabled={i === spaces.length - 1} onClick={() => void move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
                     <ArrowDown aria-hidden className="h-4 w-4" />
                   </button>
                 </div>
-                <RowMenu items={menu(s, i)} label={`Actions for ${s.name}`} />
+                <RowMenu items={menu(s, i)} label={tt("Actions for {name}", { name: s.name })} />
               </li>
             ))}
           </ul>
@@ -165,14 +166,14 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
       <Dialog
         open={draft !== null}
         onClose={() => setDraft(null)}
-        title={draft?.id ? "Edit space" : "New space"}
+        title={draft?.id ? tt("Edit space") : tt("New space")}
         footer={
           <>
             <button type="button" onClick={() => setDraft(null)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-space-save="">
-              {busy ? "Saving" : draft?.id ? "Save" : "Add space"}
+              {busy ? tt("Saving") : draft?.id ? tt("Save") : tt("Add space")}
             </button>
           </>
         }
@@ -182,27 +183,27 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
             <div className="grid grid-cols-[64px_1fr] gap-3">
               <div>
                 <label htmlFor="sp-icon" className={label}>
-                  Icon
+                  {tt("Icon")}
                 </label>
                 <input id="sp-icon" value={draft.icon} onChange={(e) => setDraft({ ...draft, icon: [...e.target.value].slice(-2).join("") })} placeholder={KIND_ICON[draft.kind]} className={cn(field, "h-11 text-center text-[18px] sm:h-10")} />
               </div>
               <div>
                 <label htmlFor="sp-name" className={label}>
-                  Name
+                  {tt("Name")}
                 </label>
-                <input id="sp-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value.slice(0, 40) })} placeholder="Wins" className={cn(field, "h-11 sm:h-10")} />
+                <input id="sp-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value.slice(0, 40) })} placeholder={tt("Wins")} className={cn(field, "h-11 sm:h-10")} />
               </div>
             </div>
             <div>
               <label htmlFor="sp-desc" className={label}>
-                About it
+                {tt("About it")}
               </label>
-              <input id="sp-desc" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value.slice(0, 200) })} placeholder="Share what went well this week" className={cn(field, "h-11 sm:h-10")} />
+              <input id="sp-desc" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value.slice(0, 200) })} placeholder={tt("Share what went well this week")} className={cn(field, "h-11 sm:h-10")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="sp-kind" className={label}>
-                  Kind
+                  {tt("Kind")}
                 </label>
                 <select id="sp-kind" value={draft.kind} onChange={(e) => { const kind = e.target.value as SpaceKind; setDraft({ ...draft, kind, postRole: kind === "announcements" ? "admin" : draft.postRole }) }} className={selectField}>
                   {(["feed", "chat", "announcements", "resources"] as const).map((k) => (
@@ -215,25 +216,25 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
               {draft.kind !== "chat" ? (
                 <div>
                   <label htmlFor="sp-role" className={label}>
-                    Who posts
+                    {tt("Who posts")}
                   </label>
                   <select id="sp-role" value={draft.postRole} onChange={(e) => setDraft({ ...draft, postRole: e.target.value as PostRole })} className={selectField}>
-                    <option value="member">Every member</option>
-                    <option value="moderator">Moderators and up</option>
-                    <option value="admin">Admins only</option>
+                    <option value="member">{tt("Every member")}</option>
+                    <option value="moderator">{tt("Moderators and up")}</option>
+                    <option value="admin">{tt("Admins only")}</option>
                   </select>
                 </div>
               ) : null}
             </div>
-            {draft.kind !== "chat" ? <Toggle checked={draft.commentsEnabled} onChange={(v) => setDraft({ ...draft, commentsEnabled: v })} title="Comments" hint="Members can comment on posts here." /> : null}
+            {draft.kind !== "chat" ? <Toggle checked={draft.commentsEnabled} onChange={(v) => setDraft({ ...draft, commentsEnabled: v })} title={tt("Comments")} hint={tt("Members can comment on posts here.")} /> : null}
             <AccessEditor value={draft.viewAccess} onChange={(v) => setDraft({ ...draft, viewAccess: v })} options={options} idPrefix="sp" />
-            {draft.kind === "chat" && !head.can.manage_settings ? null : draft.kind === "chat" ? <p className="text-[12.5px] text-[#6b7280]">Chat shows only while chat is on in Settings.</p> : null}
+            {draft.kind === "chat" && !head.can.manage_settings ? null : draft.kind === "chat" ? <p className="text-[12.5px] text-[#6b7280]">{tt("Chat shows only while chat is on in Settings.")}</p> : null}
             {error ? <Notice>{error}</Notice> : null}
           </div>
         ) : null}
       </Dialog>
 
-      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={`Delete ${deleting?.name ?? "this space"}?`} detail="Nothing was posted in it, so nothing is lost." action="Delete" danger busy={busy} onConfirm={() => void remove()} />
+      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this space") })} detail={tt("Nothing was posted in it, so nothing is lost.")} action="Delete" danger busy={busy} onConfirm={() => void remove()} />
     </div>
   )
 }

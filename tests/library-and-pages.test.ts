@@ -44,6 +44,7 @@ import { afterAddSettles, sheetCoverAbovePeek } from "@/lib/website-builder/sect
 import { PREVIEW_MIN_HEIGHT, previewCardHeight, previewCentered } from "@/lib/website-builder/preview-markup"
 import { SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -58,7 +59,7 @@ function check(label: string, ok: boolean, detail?: string) {
     console.log(`  FAIL  ${label}${detail ? `: ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 /** A source without its comments, so a comment describing what was removed does not count as it being there. */
 const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 

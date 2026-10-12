@@ -21,6 +21,7 @@
  * The developer's own line for each file stays on the commit comment.
  */
 import type { FileProblem, FileProblemKind, GitHubLink, LastSync } from "./sync"
+import { tt } from "@/lib/i18n/text"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -142,29 +143,27 @@ function checkerWords(path: string, error: string): string | null {
   return t ? t : null
 }
 
-const ONE_OF_OURS = "Storelib's"
-
 function fileCopy(kind: FileProblemKind, line: number | null): { title: string; fix: string; showDetail: boolean } {
   switch (kind) {
     case "invalid":
-      return { title: line ? `Has a mistake on line ${line}` : "Has a mistake", fix: "Fix it on GitHub and push again.", showDetail: true }
+      return { title: line ? tt("Has a mistake on line {line}", { line }) : tt("Has a mistake"), fix: tt("Fix it on GitHub and push again."), showDetail: true }
     case "page":
-      return { title: "This page file has a mistake", fix: "The page kept its last version. Fix the file on GitHub and push again.", showDetail: true }
+      return { title: tt("This page file has a mistake"), fix: tt("The page kept its last version. Fix the file on GitHub and push again."), showDetail: true }
     case "wrong-kind":
-      return { title: "Not in this theme's format", fix: "Copy the first line and the settings layout from another file in the same folder, then push again.", showDetail: false }
+      return { title: tt("Not in this theme's format"), fix: tt("Copy the first line and the settings layout from another file in the same folder, then push again."), showDetail: false }
     case "built-in":
-      return { title: line ? `Has a mistake on line ${line}` : `Changes one of ${ONE_OF_OURS} sections in a way it can't use`, fix: `Fix it on GitHub, or put back ${ONE_OF_OURS} version.`, showDetail: true }
+      return { title: line ? tt("Has a mistake on line {line}", { line }) : tt("Changes one of Storelib's sections in a way it can't use"), fix: tt("Fix it on GitHub, or put back Storelib's version."), showDetail: true }
     case "theme-settings":
-      return { title: "Its settings came with the theme and can't change here", fix: "Change the rest of the file, or put back the version your site has.", showDetail: false }
+      return { title: tt("Its settings came with the theme and can't change here"), fix: tt("Change the rest of the file, or put back the version your site has."), showDetail: false }
     case "binary":
-      return { title: "This kind of file isn't read from GitHub", fix: "Upload pictures and videos in Files in the builder.", showDetail: false }
+      return { title: tt("This kind of file isn't read from GitHub"), fix: tt("Upload pictures and videos in Files in the builder."), showDetail: false }
     case "too-large":
-      return { title: "Over 20 MB, too big to bring in", fix: "Make it smaller, or keep it out of the theme folders.", showDetail: false }
+      return { title: tt("Over 20 MB, too big to bring in"), fix: tt("Make it smaller, or keep it out of the theme folders."), showDetail: false }
     case "unreadable":
-      return { title: "Couldn't be read from GitHub", fix: "Try again in a minute.", showDetail: false }
+      return { title: tt("Couldn't be read from GitHub"), fix: tt("Try again in a minute."), showDetail: false }
     case "not-saved":
     default:
-      return { title: "Couldn't be saved just now", fix: "Try again. Nothing else was lost.", showDetail: false }
+      return { title: tt("Couldn't be saved just now"), fix: tt("Try again. Nothing else was lost."), showDetail: false }
   }
 }
 
@@ -198,11 +197,11 @@ function commitOnGitHub(repo: string | null, sha: string | null): string | null 
 
 /** A name a person recognises: "hero" for sections/hero.storelib, "Home page" for templates/index.json. */
 export function friendlyName(path: string): string {
-  if (path === "config/settings.json" || path === "config/settings_data.json") return "Theme settings"
+  if (path === "config/settings.json" || path === "config/settings_data.json") return tt("Theme settings")
   const page = /^templates\/([^/]+)\.json$/.exec(path)
-  if (page) return `${page[1] === "index" ? "Home" : page[1].charAt(0).toUpperCase() + page[1].slice(1).replace(/[-_]/g, " ")} page`
-  if (/^sections\/header-group\.json$/.test(path)) return "Header"
-  if (/^sections\/footer-group\.json$/.test(path)) return "Footer"
+  if (page) return tt("{value} page", { value: page[1] === "index" ? tt("Home") : page[1].charAt(0).toUpperCase() + page[1].slice(1).replace(/[-_]/g, " ") })
+  if (/^sections\/header-group\.json$/.test(path)) return tt("Header")
+  if (/^sections\/footer-group\.json$/.test(path)) return tt("Footer")
   const base = path.split("/").pop() ?? path
   return base.replace(/\.(storelib|liquid|json|css|js|scss)$/i, "").replace(/[-_]/g, " ")
 }
@@ -211,36 +210,36 @@ function wholeProblem(kind: string, ctx: { repo: string; branch: string; directi
   const { repo, branch } = ctx
   switch (kind) {
     case "app-key":
-      return { title: "GitHub needs you to reconnect", body: "Storelib couldn't sign in to your repository. Reconnect GitHub and try again. Nothing on your site was lost.", actions: ["reconnect", "retry"] }
+      return { title: tt("GitHub needs you to reconnect"), body: tt("Storelib couldn't sign in to your repository. Reconnect GitHub and try again. Nothing on your site was lost."), actions: ["reconnect", "retry"] }
     case "installation-gone":
-      return { title: "GitHub is disconnected", body: "The Storelib app was removed from your GitHub account. Reconnect GitHub to keep syncing.", actions: ["reconnect"] }
+      return { title: tt("GitHub is disconnected"), body: tt("The Storelib app was removed from your GitHub account. Reconnect GitHub to keep syncing."), actions: ["reconnect"] }
     case "no-access":
-      return { title: "Storelib can't reach your repository", body: `Give the Storelib app access to ${repo} on GitHub, then try again.`, actions: ["reconnect", "retry"] }
+      return { title: tt("Storelib can't reach your repository"), body: tt("Give the Storelib app access to {repo} on GitHub, then try again.", { repo }), actions: ["reconnect", "retry"] }
     case "repo-missing":
-      return { title: "Repository not found", body: `${repo} was renamed, deleted, or taken away from Storelib. Pick it again to keep syncing.`, actions: ["repo"] }
+      return { title: tt("Repository not found"), body: tt("{repo} was renamed, deleted, or taken away from Storelib. Pick it again to keep syncing.", { repo }), actions: ["repo"] }
     case "branch-deleted":
-      return { title: `The ${branch} branch was deleted`, body: "Send your site to GitHub to make it again, or pick another branch.", actions: ["push", "repo"] }
+      return { title: tt("The {branch} branch was deleted", { branch }), body: tt("Send your site to GitHub to make it again, or pick another branch."), actions: ["push", "repo"] }
     case "branch-protected":
-      return { title: `${branch} is protected on GitHub`, body: "GitHub won't let Storelib write to it. Pick a branch of its own, like storelib.", actions: ["repo"] }
+      return { title: tt("{branch} is protected on GitHub", { branch }), body: tt("GitHub won't let Storelib write to it. Pick a branch of its own, like storelib."), actions: ["repo"] }
     case "moved-on":
-      return { title: "Someone pushed while Storelib was sending", body: "Try again. Their commit stays and your changes go on top.", actions: ["push"] }
+      return { title: tt("Someone pushed while Storelib was sending"), body: tt("Try again. Their commit stays and your changes go on top."), actions: ["push"] }
     case "rate-limited":
-      return { title: "GitHub asked Storelib to slow down", body: "Nothing is lost. Try again in a few minutes.", actions: ["retry"] }
+      return { title: tt("GitHub asked Storelib to slow down"), body: tt("Nothing is lost. Try again in a few minutes."), actions: ["retry"] }
     case "too-many":
-      return { title: `${ctx.unread || "Many"} files changed in one push`, body: "That's more than Storelib reads from a single push. Bring them all in now.", actions: ["pull"] }
+      return { title: tt("{value} files changed in one push", { value: ctx.unread || tt("Many") }), body: tt("That's more than Storelib reads from a single push. Bring them all in now."), actions: ["pull"] }
     case "unread":
-      return { title: `${ctx.unread} file${ctx.unread === 1 ? "" : "s"} still to bring in`, body: "The push was large, so Storelib stopped part way. Bring in the rest now.", actions: ["pull"] }
+      return { title: tt("{unread, plural, one {# file} other {# files}} still to bring in", { unread: ctx.unread }), body: tt("The push was large, so Storelib stopped part way. Bring in the rest now."), actions: ["pull"] }
     case "too-large":
-      return { title: "A file was too big for GitHub", body: "Files over 20 MB stay on Storelib. Try sending again.", actions: ["push"] }
+      return { title: tt("A file was too big for GitHub"), body: tt("Files over 20 MB stay on Storelib. Try sending again."), actions: ["push"] }
     case "site-unreadable":
-      return { title: "Storelib couldn't open your site to take the push", body: "Nothing changed. Try again in a moment.", actions: ["pull"] }
+      return { title: tt("Storelib couldn't open your site to take the push"), body: tt("Nothing changed. Try again in a moment."), actions: ["pull"] }
     case "github-down":
     case "unreachable":
-      return { title: "GitHub didn't answer", body: "Nothing is lost. Try again in a minute.", actions: ["retry"] }
+      return { title: tt("GitHub didn't answer"), body: tt("Nothing is lost. Try again in a minute."), actions: ["retry"] }
     default:
       return {
-        title: ctx.direction === "to_github" ? "Your changes didn't reach GitHub" : "The last push didn't come in",
-        body: "Nothing on your site was lost. Try again.",
+        title: ctx.direction === "to_github" ? tt("Your changes didn't reach GitHub") : tt("The last push didn't come in"),
+        body: tt("Nothing on your site was lost. Try again."),
         actions: ["retry"],
       }
   }
@@ -284,11 +283,11 @@ export function editorReport(link: ReportLink | null): EditorSyncReport | null {
   let problem: EditorSyncReport["problem"] = null
   const unread = typeof last?.unread === "number" ? last.unread : 0
   const kind = last && last.ok === false && last.problem ? last.problem : null
-  if (kind) problem = { kind, ...wholeProblem(kind, { repo: repo ?? "the repository", branch: branch ?? "the branch", direction: direction ?? "from_github", unread }) }
+  if (kind) problem = { kind, ...wholeProblem(kind, { repo: repo ?? tt("the repository"), branch: branch ?? tt("the branch"), direction: direction ?? "from_github", unread }) }
   else if (unread > 0) problem = { kind: "unread", ...wholeProblem("unread", { repo: repo ?? "", branch: branch ?? "", direction: "from_github", unread }) }
   else if (!last && link.last_error) {
     /* A failure from before failures were kept whole: its own line, cleaned. */
-    problem = { kind: "unknown", title: "The last sync didn't finish", body: plainWords(link.last_error), actions: ["retry"] }
+    problem = { kind: "unknown", title: tt("The last sync didn't finish"), body: plainWords(link.last_error), actions: ["retry"] }
   }
 
   const notes = (last?.notes ?? [])

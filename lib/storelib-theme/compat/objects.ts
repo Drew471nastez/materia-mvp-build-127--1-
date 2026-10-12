@@ -114,6 +114,8 @@ export interface CardLike {
 
 /** How the options of a variant read: "Small / Red" is Size Small, Colour Red. */
 function variantOptions(name: string, optionCount: number): string[] {
+  /* One option: the whole name is its value ("PDF / EPUB bundle" is one licence, not "PDF"). */
+  if (optionCount <= 1) return [name.trim() || "Default Title"]
   const parts = name.split(/\s*\/\s*/).map((p) => p.trim())
   return Array.from({ length: Math.max(1, optionCount) }, (_, i) => parts[i] ?? parts[0] ?? "Default Title")
 }
@@ -132,12 +134,70 @@ function storeAvailabilities(points: unknown): O[] {
   })
 }
 
-export function productObject(card: CardLike, extra: { descriptionHtml?: string; selectedVariantId?: string | null } = {}): O {
+/**
+ * What a theme is told about one variant's stock, from what Storelib's
+ * loader put on it (./product-facts.ts withPageFacts):
+ * whether it sells, how many are left when that is at or under the store's
+ * low stock line (Settings), the most one order may take, and whether it
+ * keeps selling when none are left. As Shopify answers it:
+ *
+ *   sold out              inventory_management "shopify", quantity 0
+ *   few left              "shopify", the number, so "Only 3 left" shows
+ *   plenty, or uncounted  no management, so the theme says In stock and
+ *                         never prints a count Storelib keeps to itself
+ *
+ * `quantity_rule.max` is the most one order may take when that is a real
+ * stop (Limit sales, or the last few), never the whole stock, and never 0:
+ * a sold out variant is refused by its button, not by a quantity of 0.
+ */
+function stockOf(v: O, lowAt: number): { management: string | null; quantity: number; policy: string; max: number | null } {
+  const available = v.available !== false
+  const keeps = v.policy === "continue"
+  const left = typeof v.left === "number" && Number.isFinite(v.left) ? Math.max(0, Math.floor(v.left)) : null
+  const few = available && !keeps && left !== null && left > 0 && left <= lowAt ? left : null
+  const max = typeof v.max === "number" && Number.isFinite(v.max) && v.max > 0 ? Math.floor(v.max) : null
+  return {
+    management: !available ? "shopify" : few !== null ? "shopify" : null,
+    quantity: !available ? 0 : few ?? Math.max(10, lowAt) + 1,
+    policy: keeps ? "continue" : "deny",
+    max: available ? max : null,
+  }
+}
+
+/**
+ * Each variant's option values: the product editor's own (option1 to
+ * option3, `v.options`), else read from its name ("Small / Red" is Size
+ * Small, Colour Red), one per option the product has.
+ */
+function optionValuesOf(v: O, count: number): string[] {
+  const byName = variantOptions(String(v.name ?? "Default Title"), count)
+  const own = Array.isArray(v.options) ? (v.options as unknown[]) : []
+  if (!own.some((x) => typeof x === "string" && x.trim() !== "")) return byName
+  return Array.from({ length: Math.max(1, count) }, (_, i) => (typeof own[i] === "string" && (own[i] as string).trim() !== "" ? (own[i] as string).trim() : byName[i]))
+}
+
+/**
+ * A numeric id for an option value, as Shopify's are numbers: what a theme
+ * puts in `data-option-value-id` and sends back as `?option_values=`
+ * (./site.ts variantForOptionValues reads it). Option `pos`, value `vi`.
+ */
+export function optionValueId(pos: number, vi: number): number {
+  return (pos + 1) * 1000 + vi
+}
+
+export function productObject(card: CardLike, extra: { descriptionHtml?: string; selectedVariantId?: string | null; selectedValues?: (string | null)[] | null } = {}): O {
   const s = card.settings
   const title = String(s.title ?? "")
   const handle = String(s.slug ?? "") || handleize(title)
   const ownImages = Array.isArray(s.images) && s.images.length ? (s.images as string[]) : s.image ? [String(s.image)] : []
-  const rawVariants = Array.isArray(s.variants) ? (s.variants as O[]) : []
+  const listed = Array.isArray(s.variants) ? (s.variants as O[]) : []
+  /*
+    A product without options has one variant, "Default" (lib/physical/
+    variants.ts): Shopify's has_only_default_variant, which a theme draws
+    with no picker, bought by that variant's own id.
+  */
+  const defaultOnly = listed.length === 1 && !(Array.isArray(s.options) && s.options.length) && /^default( title)?$/i.test(String(listed[0].name ?? "").trim())
+  const rawVariants = defaultOnly ? [] : listed
   /*
     A VARIANT'S PHOTO IS ONE OF THE PRODUCT'S MEDIA, as on Shopify: a theme
     finds the picture to show for the chosen variant by
@@ -157,47 +217,54 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   const mediaFor = (src: unknown): O | null => (typeof src === "string" && src ? media.find((m) => sameImage(String(m.src), src)) ?? null : null)
   const price = priceCents(s.price)
   const compare = priceCents(s.compare_price)
-  const optionsIn = Array.isArray(s.options) ? (s.options as { name: string; values: string[] }[]) : []
+  const optionsIn = Array.isArray(s.options) ? (s.options as { name: string; values: string[] }[]).filter((o) => o && typeof o.name === "string" && o.name.trim() !== "").slice(0, 3) : []
   const optionNames = optionsIn.length ? optionsIn.map((o) => o.name) : rawVariants.length ? ["Option"] : ["Title"]
+  /* The store's low stock line (Settings › Locations, or the product's own): a count is said at or under it. */
+  const lowAt = typeof s.low_stock_at === "number" && s.low_stock_at > 0 ? Math.floor(s.low_stock_at) : 5
 
-  const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left, max: s.max }]).map((v, i) => {
-    const vName = String(v.name ?? "Default Title")
-    const opts = variantOptions(vName, optionNames.length)
+  const variants: O[] = (rawVariants.length ? rawVariants : defaultOnly ? [{ ...listed[0], name: "Default Title" }] : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left, max: s.max, policy: s.policy, sku: s.sku }]).map((v, i) => {
+    const opts = rawVariants.length ? optionValuesOf(v, optionNames.length) : ["Default Title"]
+    const vTitle = rawVariants.length ? opts.join(" / ") : "Default Title"
     const vPrice = v.price !== undefined && v.price !== "" ? priceCents(v.price) : price
     const vCompare = priceCents(v.compare_price) || compare
+    const stock = stockOf(v, lowAt)
+    /* Its own photo, or none: Shopify answers nil for a variant without one, and a theme falls back to the product's (`| default: product.featured_media`). */
+    const own = mediaFor(v.image)
     const variant: O = {
       [OUTPUT]: String(v.id ?? card.id),
       id: String(v.id ?? card.id),
-      title: vName,
-      name: `${title}${vName === "Default Title" ? "" : ` - ${vName}`}`,
+      title: vTitle,
+      public_title: vTitle === "Default Title" ? null : vTitle,
+      name: `${title}${vTitle === "Default Title" ? "" : ` - ${vTitle}`}`,
       price: vPrice,
       compare_at_price: vCompare > vPrice ? vCompare : null,
       available: v.available !== false,
-      /* Counted by Storelib and few left (lib/website-builder/compat-site.ts compatStock): the number, so a theme's "Only 3 left" shows. */
-      inventory_management: typeof v.left === "number" ? "shopify" : null,
-      inventory_policy: "deny",
-      inventory_quantity: typeof v.left === "number" ? v.left : v.available === false ? 0 : 10,
+      inventory_management: stock.management,
+      inventory_policy: stock.policy,
+      inventory_quantity: stock.quantity,
       option1: opts[0] ?? null,
       option2: opts[1] ?? null,
       option3: opts[2] ?? null,
       options: opts,
-      sku: "",
-      barcode: "",
-      weight: 0,
+      sku: typeof v.sku === "string" ? v.sku : "",
+      barcode: typeof v.barcode === "string" ? v.barcode : "",
+      weight: typeof v.weight === "number" ? v.weight : 0,
+      weight_unit: "g",
       requires_shipping: String(s.kind ?? "") === "physical",
       taxable: true,
       url: `${String(s.url ?? `/products/${handle}`)}?variant=${encodeURIComponent(String(v.id ?? card.id))}`,
-      /* Its own photo, else the product's first, as Shopify answers for a variant without one. */
-      featured_image: mediaFor(v.image) ?? pictures[0] ?? null,
-      featured_media: mediaFor(v.image) ?? media[0] ?? null,
-      image: mediaFor(v.image) ?? pictures[0] ?? null,
+      featured_image: own && own.media_type === "image" ? own : null,
+      featured_media: own,
+      image: own && own.media_type === "image" ? own : null,
       selected: false,
       matched: true,
-      /* The most one order may take: what is left, held to Limit sales (lib/website-builder/compat-site.ts compatStock). A theme's quantity picker stops there. */
-      quantity_rule: { min: 1, max: typeof v.max === "number" && v.max >= 0 ? v.max : null, increment: 1 },
+      incoming: false,
+      next_incoming_date: null,
+      quantity_rule: { min: 1, max: stock.max, increment: 1 },
       quantity_price_breaks: [],
       unit_price_measurement: null,
       selling_plan_allocations: [],
+      requires_selling_plan: false,
       /* The pickup points that hold this option (lib/physical/storefront-facts.ts), as Shopify's pickup availability block reads them. */
       store_availabilities: storeAvailabilities(v.pickup),
       metafields: {},
@@ -208,32 +275,54 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     return variant
   })
 
-  const selected = (extra.selectedVariantId ? variants.find((v) => v.id === extra.selectedVariantId) : undefined) ?? variants.find((v) => v.available) ?? variants[0]
-  if (selected) selected.selected = true
+  /*
+    WHAT IS CHOSEN. `?variant=` names a variant; `?option_values=` names
+    values, which may be a set no variant has (Ocean in M when Ocean comes
+    in S only): then the values stay chosen and there is no variant, so the
+    theme says Unavailable, as on Shopify. With neither, the first variant
+    that can be bought.
+  */
+  const asked = extra.selectedVariantId ? variants.find((v) => v.id === extra.selectedVariantId) : undefined
+  const valuesAsked = !asked && extra.selectedValues && extra.selectedValues.some((x) => typeof x === "string") ? extra.selectedValues : null
+  const byValues = valuesAsked ? variants.find((v) => (v.options as string[]).every((o, k) => valuesAsked[k] === undefined || valuesAsked[k] === null || valuesAsked[k] === o)) : undefined
+  const firstAvailable = variants.find((v) => v.available) ?? variants[0]
+  const selectedVariant = asked ?? byValues ?? null
+  const shownVariant = selectedVariant ?? (valuesAsked ? null : firstAvailable)
+  const chosenValues: (string | null)[] = optionNames.map((_, k) => (shownVariant ? (shownVariant.options as string[])[k] : valuesAsked?.[k] ?? (firstAvailable?.options as string[] | undefined)?.[k] ?? null))
+  if (shownVariant) shownVariant.selected = true
 
   const options_with_values = optionNames.map((name, pos) => {
-    const values = optionsIn[pos]?.values ?? [...new Set(variants.map((v) => (v.options as string[])[pos]))]
-    /* A colour option's values as colours, as Storelib's own product page draws them (lib/products/product-page-model.ts): the swatch a theme's card and picker read. */
+    /* The values the product editor lists, in its order, that some variant has; then any a variant has that the list missed. */
+    const had = new Set(variants.map((v) => (v.options as string[])[pos]))
+    const listed = (optionsIn[pos]?.values ?? []).filter((x) => had.has(x))
+    const values = [...listed, ...[...had].filter((x) => typeof x === "string" && !listed.includes(x))]
+    /* A colour option's values as colours, as Storelib's own product page draws them (lib/products/product-page-model.ts): the swatch a theme's card and picker read; a colour without a colour name shows its variant's photo. */
     const colour = isColorOption(name)
     const optionValues = values.map((value, vi) => {
       const hex = colour ? swatchColor(String(value)) : null
-      const match = variants.find((v) => (v.options as string[])[pos] === value)
+      /* Shopify: the variant this value makes with the values chosen for the other options, or none. */
+      const match = variants.find((v) => (v.options as string[]).every((o, k) => (k === pos ? o === value : chosenValues[k] === null || o === chosenValues[k]))) ?? null
+      /* Shopify: available when a variant with this value, and with the values chosen for the options before it, can be bought. */
+      const available = variants.some((v) => v.available && (v.options as string[])[pos] === value && (v.options as string[]).every((o, k) => k >= pos || chosenValues[k] === null || o === chosenValues[k]))
+      const photo = colour && !hex ? ((variants.find((v) => (v.options as string[])[pos] === value && v.featured_image)?.featured_image as O | undefined) ?? null) : null
       return {
         [OUTPUT]: value,
-        id: `${pos}-${vi}`,
+        id: optionValueId(pos, vi),
         name: value,
         position: vi + 1,
-        selected: (selected?.options as string[] | undefined)?.[pos] === value,
-        available: variants.some((v) => (v.options as string[])[pos] === value && v.available),
-        variant: match ?? null,
+        selected: chosenValues[pos] === value,
+        available,
+        variant: match,
         product_url: null,
-        swatch: hex ? { [OUTPUT]: hex, color: colorObject(hex), image: null } : null,
+        swatch: hex ? { [OUTPUT]: hex, color: colorObject(hex), image: null } : photo ? { [OUTPUT]: String(photo.src), color: null, image: photo } : null,
       }
     })
-    return { [OUTPUT]: name, name, position: pos + 1, values: optionValues, selected_value: optionValues.find((v) => v.selected)?.name ?? null }
+    const selectedValue = optionValues.find((v) => v.selected) ?? null
+    return { [OUTPUT]: name, name, position: pos + 1, values: optionValues, selected_value: selectedValue }
   })
 
   const prices = variants.map((v) => v.price as number)
+  const compares = variants.map((v) => v.compare_at_price).filter((c): c is number => typeof c === "number" && c > 0)
   const description = extra.descriptionHtml ?? (typeof s.description === "string" ? descriptionHtmlOf(s.description) : "")
   const product: O = {
     [OUTPUT]: title,
@@ -251,17 +340,19 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     price_min: prices.length ? Math.min(...prices) : price,
     price_max: prices.length ? Math.max(...prices) : price,
     price_varies: new Set(prices).size > 1,
-    compare_at_price: compare > price ? compare : null,
-    compare_at_price_min: compare > price ? compare : null,
-    compare_at_price_max: compare > price ? compare : null,
-    compare_at_price_varies: false,
+    /* Across the variants, as Shopify's are: the lowest and highest compare at price of any variant that has one. */
+    compare_at_price: compares.length ? Math.min(...compares) : compare > price ? compare : null,
+    compare_at_price_min: compares.length ? Math.min(...compares) : compare > price ? compare : null,
+    compare_at_price_max: compares.length ? Math.max(...compares) : compare > price ? compare : null,
+    compare_at_price_varies: new Set(compares).size > 1,
     featured_image: pictures[0] ?? null,
     featured_media: media[0] ?? null,
     images: pictures,
     media,
-    first_available_variant: variants.find((v) => v.available) ?? variants[0],
-    selected_variant: extra.selectedVariantId ? selected ?? null : null,
-    selected_or_first_available_variant: selected ?? null,
+    first_available_variant: firstAvailable,
+    selected_variant: selectedVariant,
+    /* None when the values asked for make no variant: Dawn and Horizon read that as Unavailable, as on Shopify. */
+    selected_or_first_available_variant: shownVariant,
     variants,
     variants_count: variants.length,
     has_only_default_variant: !rawVariants.length,
@@ -283,7 +374,11 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     checkout_url: String(s.checkout_url ?? ""),
     pay_what_you_want: s.pay_what_you_want === true,
   }
-  for (const v of variants) v.product = { id: product.id, title, handle, url: product.url }
+  for (const v of variants) {
+    v.product = { id: product.id, title, handle, url: product.url }
+    asJson(v, () => variantJson(v, product.id))
+  }
+  asJson(product, () => productJson(product))
   /* Each picture knows the variants that show it (`attached_to_variant?`, `variant_ids`), as Shopify's does; ids only, so `| json` never walks a loop. */
   for (const m of media) {
     const own = rawVariants.length ? variants.filter((_, i) => sameImage(String(m.src), String(rawVariants[i]?.image ?? ""))) : []
@@ -293,6 +388,104 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     }
   }
   return product
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   `product | json` AS SHOPIFY WRITES IT
+  ═══════════════════════════════════════════════════════════════════════════
+  A theme's script reads the product from `{{ product | json }}` (or a
+  variant from `{{ product.selected_or_first_available_variant | json }}`)
+  and expects Shopify's shape, which is not the Liquid object's: `images` a
+  list of addresses, `featured_image` an address, a variant's
+  `featured_image` a small picture record and `featured_media` with its
+  `preview_image`, `public_title`, no loops back to the product. Written
+  here, once, and used by the json filter (./filters.ts jsonSafe).
+*/
+
+/** The JSON Shopify writes for a product or a variant made here, or null for anything else. */
+export function shopifyJson(o: unknown): O | null {
+  const write = o && typeof o === "object" ? (o as { __json__?: unknown }).__json__ : undefined
+  return typeof write === "function" ? (write() as O) : null
+}
+
+/** Gives an object the JSON Shopify writes for it, unseen by Liquid. */
+function asJson(o: O, write: () => unknown) {
+  Object.defineProperty(o, "__json__", { value: write, enumerable: false, configurable: true })
+}
+
+function previewJson(m: O | null): O | null {
+  if (!m) return null
+  const preview = (m.preview_image as O | null) ?? m
+  const ratio = (x: unknown) => (x instanceof LFloat ? x.v : typeof x === "number" ? x : 1)
+  return { aspect_ratio: ratio(preview.aspect_ratio), height: preview.height ?? null, width: preview.width ?? null, src: preview.src ?? null }
+}
+
+function mediaJson(m: O): O {
+  const base = { alt: m.alt ?? null, id: m.id, position: m.position, preview_image: previewJson(m), aspect_ratio: previewJson(m)?.aspect_ratio ?? 1 }
+  if (m.media_type === "video") return { ...base, media_type: "video", duration: m.duration ?? null, sources: m.sources ?? [] }
+  return { ...base, height: m.height ?? null, media_type: "image", src: m.src, width: m.width ?? null }
+}
+
+function variantJson(v: O, productId: unknown): O {
+  const image = v.featured_image as O | null
+  const media = v.featured_media as O | null
+  return {
+    id: v.id,
+    title: v.title,
+    option1: v.option1,
+    option2: v.option2,
+    option3: v.option3,
+    sku: v.sku,
+    requires_shipping: v.requires_shipping,
+    taxable: v.taxable,
+    featured_image: image ? { id: image.id, product_id: productId, position: image.position, created_at: null, updated_at: null, alt: image.alt ?? null, width: image.width ?? null, height: image.height ?? null, src: image.src, variant_ids: Array.isArray(image.variant_ids) ? image.variant_ids : [v.id] } : null,
+    available: v.available,
+    name: v.name,
+    public_title: v.public_title,
+    options: v.options,
+    price: v.price,
+    weight: v.weight,
+    compare_at_price: v.compare_at_price,
+    inventory_management: v.inventory_management,
+    barcode: v.barcode,
+    featured_media: media ? { alt: media.alt ?? null, id: media.id, position: media.position, preview_image: previewJson(media) } : null,
+    requires_selling_plan: false,
+    selling_plan_allocations: [],
+    quantity_rule: v.quantity_rule,
+  }
+}
+
+function productJson(p: O): O {
+  const images = ((p.images as O[]) ?? []).map((i) => i.src)
+  return {
+    id: p.id,
+    title: p.title,
+    handle: p.handle,
+    description: p.description,
+    published_at: p.published_at,
+    created_at: p.created_at,
+    vendor: p.vendor,
+    type: p.type,
+    tags: p.tags,
+    price: p.price,
+    price_min: p.price_min,
+    price_max: p.price_max,
+    available: p.available,
+    price_varies: p.price_varies,
+    compare_at_price: p.compare_at_price,
+    compare_at_price_min: p.compare_at_price_min ?? 0,
+    compare_at_price_max: p.compare_at_price_max ?? 0,
+    compare_at_price_varies: p.compare_at_price_varies,
+    variants: ((p.variants as O[]) ?? []).map((v) => variantJson(v, p.id)),
+    images,
+    featured_image: images[0] ?? null,
+    options: p.options,
+    media: ((p.media as O[]) ?? []).map(mediaJson),
+    requires_selling_plan: false,
+    selling_plan_groups: [],
+    content: p.content,
+  }
 }
 
 /**
@@ -1015,8 +1208,9 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       variant,
       variant_id: variant?.id ?? product.id,
       url: String(variant?.url ?? product.url),
-      image: product.featured_image ?? null,
-      featured_image: product.featured_image ?? null,
+      /* The chosen variant's own photo, else the product's: the colour in the cart is the colour chosen, as on Shopify. */
+      image: variant?.featured_image ?? product.featured_image ?? null,
+      featured_image: variant?.featured_image ?? product.featured_image ?? null,
       price,
       original_price: price,
       final_price: price,
@@ -1033,7 +1227,7 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       requires_shipping: variant?.requires_shipping === true,
       unit_price: null,
       unit_price_measurement: null,
-      sku: "",
+      sku: typeof variant?.sku === "string" ? variant.sku : "",
       vendor: "",
       gift_card: false,
       has_components: false,

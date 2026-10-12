@@ -8,6 +8,7 @@ import { HtmlClassScript } from "@/components/platform/html-class"
 import { routerStartCount } from "@/lib/ui/router-starts"
 import { getAppNavigation, holdLanding } from "@/lib/ui/app-navigation"
 import { LAYER_ATTR, openLayer, sweepLayers } from "@/lib/ui/layers"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -915,7 +916,7 @@ function spinnerNode(size: number): HTMLElement {
   const wrap = document.createElement("span")
   wrap.dataset.layerPressSpinner = ""
   wrap.setAttribute("role", "status")
-  wrap.setAttribute("aria-label", "Loading")
+  wrap.setAttribute("aria-label", tt("Loading"))
   wrap.innerHTML = `<span class="activity-spinner" data-keep-transform="" aria-hidden="true" style="width:${size}px;height:${size}px"><svg width="${size}" height="${size}" viewBox="0 0 20 20" class="block">${spokes}</svg></span>`
   return wrap
 }

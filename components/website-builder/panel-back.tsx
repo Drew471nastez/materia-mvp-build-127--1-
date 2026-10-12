@@ -25,6 +25,7 @@
 import * as React from "react"
 import { ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function PanelBack({
   onBack,
@@ -41,7 +42,7 @@ export function PanelBack({
       <button
         type="button"
         onClick={onBack}
-        aria-label="Back"
+        aria-label={tt("Back")}
         className={cn(
           "group/back flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl outline-none md:h-9 md:w-9",
           /* The press area: the whole row, the name included. */

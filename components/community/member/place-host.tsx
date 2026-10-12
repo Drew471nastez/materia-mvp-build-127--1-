@@ -38,6 +38,13 @@
  * over 180ms (opacity and translate, on the compositor; from 35% so its
  * first frame is never an empty middle); Back and Forward put the place
  * back as it was, with no motion. None for reduced motion.
+ * ON A COMPUTER, SOFTER (round J, the owner: switching between Community,
+ * Learn, Calendar, Members and About "things are a little too bumpy. Reduce
+ * them just a little, not so much"). From 1024px, where the left column
+ * holds the places, it rises 3px from 55% over 150ms on an ease out that
+ * does not front load the move (the phone's curve covers most of its 6px in
+ * the first two frames, which read as a hop on a big screen). Measured in
+ * scratchpad j2/probe-tabs.mjs. A phone keeps its own numbers.
  *
  * READ AHEAD. Once the first screen has painted and the phone is idle, every
  * place's first screen (and its code) is read, two at a time, never on
@@ -71,6 +78,14 @@ const Activity = (ReactRuntime as unknown as { Activity: React.ComponentType<{ m
 /** The arrival: a few px up and in, on the compositor. */
 export const ARRIVE_MS = 180
 const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+export const ARRIVE_RISE_PX = 6
+export const ARRIVE_FROM_OPACITY = 0.35
+/** From 1024px (the frame's left column, lg): the same arrival, a little quieter. */
+export const ARRIVE_WIDE = "(min-width: 1024px)"
+export const ARRIVE_WIDE_MS = 150
+export const ARRIVE_WIDE_RISE_PX = 3
+export const ARRIVE_WIDE_FROM_OPACITY = 0.55
+const ARRIVE_WIDE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 
 /* ── The seed a place's route page renders ── */
 
@@ -326,7 +341,8 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
     const el = routedOwns(shown.key) ? routedRef.current : screenEls.current.get(shown.key)
     if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     /* From 35%, not from nothing: the first frame after the tap already shows the place (a fade from 0 is a blank frame). */
-    el.animate([{ opacity: 0.35, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
+    if (window.matchMedia?.(ARRIVE_WIDE).matches) el.animate([{ opacity: ARRIVE_WIDE_FROM_OPACITY, translate: `0 ${ARRIVE_WIDE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }], { duration: ARRIVE_WIDE_MS, easing: ARRIVE_WIDE_EASE })
+    else el.animate([{ opacity: ARRIVE_FROM_OPACITY, translate: `0 ${ARRIVE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
   }, [shown.key])
 
   /*

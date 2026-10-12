@@ -48,6 +48,7 @@ import { emailIdForJob } from "@/lib/emails/customer-custom"
 import { returnFactsHtml } from "@/lib/website-builder/site-commerce"
 import { lowStockLine } from "@/lib/physical/storefront-stock"
 import type { Location, ShippingProfile, ShippingRate } from "@/lib/physical/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -57,7 +58,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 500)}`}`)
 }
 const section = (t: string) => console.log(`\n${t}\n`)
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const SHOP = "5b1c0000-0000-4000-8000-000000000001"
 const HOODIE = "5b1c0000-0000-4000-8000-0000000000a1"
@@ -275,7 +276,7 @@ async function main() {
     const ui = read("components/physical/shipping-settings.tsx")
     check('"Custom shipping profile Reload": the hidden Reload button beside it is gone', !/>\s*Reload\s*</.test(ui) && !/className="sr-only" onClick=\{reload\}/.test(ui))
     check("the location form has local delivery (codes, price, minimum, free over, note) and pickup hours", /label="Local delivery"/.test(ui) && /label="Postal codes"/.test(ui) && /label="Minimum order"/.test(ui) && /label="Opening hours"/.test(ui) && /localDelivery/.test(ui))
-    check("the empty shipping warning says buyers can't check out without a rate", /Buyers can't check out a physical product until it has a rate for their address/.test(ui))
+    check("the empty shipping warning says buyers can't check out without a rate", /Buyers can('|&apos;)t check out a physical product until it has a rate for their address/.test(ui))
     const ok = readLocation({ name: "Studio", kind: "home", country: "RO", pickupHours: "Mon to Fri 9 to 5", localDelivery: { enabled: true, codes: "400, 401", priceCents: 500, minOrderCents: 2000, freeOverCents: null, note: "Evenings" } })
     check("a location's local delivery and hours are read apart from the location", ok.ok && ok.extra.local_delivery_enabled === true && JSON.stringify(ok.extra.local_delivery_codes) === '["400","401"]' && ok.extra.pickup_hours === "Mon to Fri 9 to 5" && !("local_delivery_enabled" in ok.row))
     const noCodes = readLocation({ name: "Studio", kind: "home", country: "RO", localDelivery: { enabled: true, codes: "" } })

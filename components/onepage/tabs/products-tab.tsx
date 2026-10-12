@@ -33,6 +33,7 @@ import {
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { tt } from "@/lib/i18n/text"
 
 interface Product {
   id: string
@@ -58,31 +59,31 @@ const productTypeOptions = [
   {
     id: "digital",
     type: "product",
-    title: "Digital Product",
-    description: "PDFs, Guides, Templates, eBooks, etc.",
+    get title() { return tt("Digital Product") },
+    get description() { return tt("PDFs, Guides, Templates, eBooks, etc.") },
     icon: Package,
     color: QUICK_TILE,
-    badge: "Digital",
+    get badge() { return tt("Digital") },
     badgeColor: "bg-gray-100 text-gray-600",
   },
   {
     id: "course",
     type: "product",
-    title: "Video course",
-    description: "Lessons, a player and each buyer's progress",
+    get title() { return tt("Video course") },
+    get description() { return tt("Lessons, a player and each buyer's progress") },
     icon: GraduationCap,
     color: QUICK_TILE,
-    badge: "Course",
+    get badge() { return tt("Course") },
     badgeColor: "bg-gray-100 text-gray-600",
   },
   {
     id: "email_capture",
     type: "email_capture",
-    title: "Email Capture Form",
-    description: "Collect emails from your visitors",
+    get title() { return tt("Email Capture Form") },
+    get description() { return tt("Collect emails from your visitors") },
     icon: Mail,
     color: QUICK_TILE,
-    badge: "Email",
+    get badge() { return tt("Email") },
     badgeColor: "bg-gray-100 text-gray-600",
   },
 ]
@@ -170,10 +171,10 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         return { label: 'eCourse', color: 'bg-gray-100 text-gray-600' }
       case 'lead_magnet':
       case 'email_capture':
-        return { label: 'Email', color: 'bg-gray-100 text-gray-600' }
+        return { label: tt("Email"), color: 'bg-gray-100 text-gray-600' }
       case 'digital':
       default:
-        return { label: 'Digital', color: 'bg-gray-100 text-gray-600' }
+        return { label: tt("Digital"), color: 'bg-gray-100 text-gray-600' }
     }
   }
 
@@ -211,7 +212,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
             product_id: product.id,
             show_price: true,
             show_description: true,
-            cta_text: "Get My Guide",
+            cta_text: tt("Get My Guide"),
             style: "callout",
             product_title: product.title,
             product_thumbnail: product.thumbnail_url || null,
@@ -229,7 +230,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               product_id: product.id,
               show_price: true,
               show_description: true,
-              cta_text: "Get My Guide",
+              cta_text: tt("Get My Guide"),
               style: "callout",
               product_title: product.title,
               product_thumbnail: product.thumbnail_url || null,
@@ -264,12 +265,12 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
 
     if (option.type === "email_capture") {
       addBlock("email_capture")
-      showNotification("Email form added")
+      showNotification(tt("Email form added"))
       closeAddProductSheet()
       goToLinks()
     } else if (option.id === "digital") {
       addBlock("product")
-      showNotification("Product added")
+      showNotification(tt("Product added"))
       closeAddProductSheet()
       goToLinks()
     } else {
@@ -313,9 +314,9 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Products & Lead Forms</h2>
+          <h2 className="text-lg font-semibold">{tt("Products & Lead Forms")}</h2>
           <p className="text-sm text-muted-foreground">
-            Add products to sell or forms to collect leads
+            {tt("Add products to sell or forms to collect leads")}
           </p>
         </div>
       </div>
@@ -327,7 +328,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         size="lg"
       >
         <Plus className="h-5 w-5 mr-2" />
-        Add Product
+        {tt("Add Product")}
       </Button>
 
       {/* Existing Products Section */}
@@ -339,7 +340,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         ) : products.length > 0 ? (
           <div>
             <div className="p-4 border-b bg-gray-50/50">
-              <h3 className="text-sm font-medium text-muted-foreground">Your Products ({products.length})</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">{tt("Your Products ({length})", { length: products.length })}</h3>
             </div>
             <div className="divide-y max-h-[400px] overflow-y-auto">
               {products.map((product) => {
@@ -377,7 +378,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                     {addedProductIds.has(product.id) ? (
                       <div className="shrink-0 min-w-[70px] h-8 px-3 flex items-center justify-center rounded-md bg-gray-100 text-gray-400 text-sm cursor-not-allowed">
                         <Check className="h-4 w-4 mr-1" />
-                        Added
+                        {tt("Added")}
                       </div>
                     ) : (
                       <Button
@@ -393,10 +394,10 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                         {isAdding ? (
                           <>
                             <Check className="h-4 w-4 mr-1" />
-                            Adding...
+                            {tt("Adding...")}
                           </>
                         ) : (
-                          "Add"
+                          tt("Add")
                         )}
                       </Button>
                     )}
@@ -408,12 +409,12 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         ) : (
           <div className="text-center py-12 px-4">
             <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-muted-foreground">No products yet</h3>
+            <h3 className="font-medium text-muted-foreground">{tt("No products yet")}</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Create a product to sell on your page
+              {tt("Create a product to sell on your page")}
             </p>
             <Button variant="outline" className="mt-4" asChild>
-              <a href="/app/products/new">Create Product</a>
+              <a href="/app/products/new">{tt("Create Product")}</a>
             </Button>
           </div>
         )}
@@ -421,13 +422,13 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
 
       {/* Quick Add Section */}
       <div className="border-t pt-6">
-        <h3 className="text-sm font-medium mb-4">Quick Add</h3>
+        <h3 className="text-sm font-medium mb-4">{tt("Quick Add")}</h3>
         <div className="grid gap-3">
           {/* Email Capture Form */}
           <button
             onClick={() => {
               addBlock("email_capture")
-              showNotification("Email form added")
+              showNotification(tt("Email form added"))
               goToLinks()
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
@@ -436,9 +437,9 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               <Mail className="h-5 w-5" strokeWidth={1.75} />
             </div>
             <div className="flex-1">
-              <p className="font-medium">Email Capture Form</p>
+              <p className="font-medium">{tt("Email Capture Form")}</p>
               <p className="text-sm text-muted-foreground">
-                Collect emails from your visitors
+                {tt("Collect emails from your visitors")}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -448,7 +449,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
           <button
             onClick={() => {
               addBlock("product")
-              showNotification("Product added")
+              showNotification(tt("Product added"))
               goToLinks()
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
@@ -457,9 +458,9 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               <Package className="h-5 w-5" strokeWidth={1.75} />
             </div>
             <div className="flex-1">
-              <p className="font-medium">Digital Product</p>
+              <p className="font-medium">{tt("Digital Product")}</p>
               <p className="text-sm text-muted-foreground">
-                PDFs, Guides, Templates, eBooks
+                {tt("PDFs, Guides, Templates, eBooks")}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -469,7 +470,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
           <button
             onClick={() => {
               addBlock("pdf_document")
-              showNotification("PDF added")
+              showNotification(tt("PDF added"))
               goToLinks()
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
@@ -480,7 +481,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
             <div className="flex-1">
               <p className="font-medium">PDF</p>
               <p className="text-sm text-muted-foreground">
-                Upload or link to a PDF document
+                {tt("Upload or link to a PDF document")}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -498,15 +499,15 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         open={showAddModal}
         onClose={closeAddProductSheet}
         phone={isMobileViewport}
-        label="Add Product"
+        label={tt("Add Product")}
         onOpenAutoFocus={(e) => e.preventDefault()}
         className="p-0 gap-0 overflow-hidden border-[#ececf1] max-w-[520px] max-h-[680px] rounded-2xl"
       >
           {isMobileViewport ? (
             <>
               <div className="px-4 pt-2 pb-3 border-b border-gray-100">
-                <SheetDialogTitle className="text-base font-semibold">Add Product</SheetDialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Choose what you want to add to your page</p>
+                <SheetDialogTitle className="text-base font-semibold">{tt("Add Product")}</SheetDialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{tt("Choose what you want to add to your page")}</p>
               </div>
               {/* The sheet keeps clear of the home indicator itself. */}
               <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain p-4">
@@ -539,9 +540,9 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
           ) : (
             <>
               <div className="p-6 pb-4 border-b">
-                <SheetDialogTitle className="text-lg font-semibold">Add Product</SheetDialogTitle>
+                <SheetDialogTitle className="text-lg font-semibold">{tt("Add Product")}</SheetDialogTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Choose what you want to add to your page
+                  {tt("Choose what you want to add to your page")}
                 </p>
               </div>
 
@@ -573,7 +574,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                             </span>
                             {isComingSoon && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-200 text-gray-500">
-                                Coming Soon
+                                {tt("Coming Soon")}
                               </span>
                             )}
                           </div>

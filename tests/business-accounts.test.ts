@@ -23,6 +23,7 @@
  *   SCREEN    a switch puts its screen up at the press, says each real step,
  *             carries it across the reload, and hands over to a ready page
  */
+import { untt } from "./i18n-source"
 import { readFileSync, existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { businessAlias, isBusinessAlias, ownerAddress, BUSINESS_TAG_PATTERN } from "../lib/businesses/email-alias"
@@ -58,7 +59,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   }
 }
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 /**
  * THE SWITCH'S SCREEN (lib/businesses/switch-screen, components/app/

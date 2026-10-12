@@ -91,6 +91,7 @@ import { BuyerNoteCard, NoteComposer, PhysicalFulfillment, ShippingCard, history
 import { useReasons } from "@/lib/store/use-reasons"
 import { OrderMessagesCard } from "@/components/support/order-messages-card"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { tt } from "@/lib/i18n/text"
 
 export type OrderAction =
   | { kind: "refund"; line: OrderRow; amountCents: number; reason: string }
@@ -191,7 +192,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
       setRevision((r) => r + 1)
       return true
     } catch (error) {
-      onNotice((error as Error)?.message || "Something went wrong. Try again.")
+      onNotice((error as Error)?.message || tt("Something went wrong. Try again."))
       return false
     } finally {
       setBusy(null)
@@ -213,16 +214,16 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         await onAction(order, { kind: "refund", line, amountCents: cents, reason: "cancelled" })
         total += cents
       }
-      return total > 0 ? `Order cancelled and ${formatMoney(total)} refunded` : "Order cancelled"
+      return total > 0 ? tt("Order cancelled and {amount} refunded", { amount: formatMoney(total) }) : tt("Order cancelled")
     } catch (error) {
-      return `Order cancelled. ${(error as Error)?.message || "The refund did not go through."} Refund it with Refund.`
+      return tt("Order cancelled. {value} Refund it with Refund.", { value: (error as Error)?.message || tt("The refund did not go through.") })
     } finally {
       setBusy(null)
       setRevision((r) => r + 1)
     }
   }
 
-  const copy = async (text: string, what: string) => onNotice((await copyText(text)) ? `${what} copied` : `Could not copy the ${what.toLowerCase()}`)
+  const copy = async (text: string, what: string) => onNotice((await copyText(text)) ? tt("{what} copied", { what }) : tt("Could not copy the {value}", { value: what.toLowerCase() }))
 
   /* Arrow keys step through the list on a keyboard, as the chevrons do. */
   React.useEffect(() => {
@@ -244,21 +245,21 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
 
   const items: ActionMenuItem[] = [
     ...(canRefund && refundable.length > 0
-      ? [{ label: "Refund", icon: <RotateCcw className="h-4 w-4" />, onClick: () => fromMenu("refund") }]
+      ? [{ label: tt("Refund"), icon: <RotateCcw className="h-4 w-4" />, onClick: () => fromMenu("refund") }]
       : []),
     ...(emailable
-      ? [{ label: "Resend receipt", icon: <Send className="h-4 w-4" />, onClick: () => void run("resend", { kind: "resend" }) }]
+      ? [{ label: tt("Resend receipt"), icon: <Send className="h-4 w-4" />, onClick: () => void run("resend", { kind: "resend" }) }]
       : []),
-    { label: "Download invoice", icon: <Download className="h-4 w-4" />, onClick: () => void run("invoice", { kind: "invoice" }) },
-    { label: "Change customer email", icon: <Mail className="h-4 w-4" />, onClick: () => fromMenu("email") },
+    { label: tt("Download invoice"), icon: <Download className="h-4 w-4" />, onClick: () => void run("invoice", { kind: "invoice" }) },
+    { label: tt("Change customer email"), icon: <Mail className="h-4 w-4" />, onClick: () => fromMenu("email") },
     ...(firstReceipt
-      ? [{ label: "View receipt", icon: <ExternalLink className="h-4 w-4" />, href: `/receipt/${firstReceipt}`, target: "_blank" as const, separatorBefore: true }]
+      ? [{ label: tt("View receipt"), icon: <ExternalLink className="h-4 w-4" />, href: `/receipt/${firstReceipt}`, target: "_blank" as const, separatorBefore: true }]
       : []),
     {
-      label: "Copy order ID",
+      label: tt("Copy order ID"),
       icon: <Copy className="h-4 w-4" />,
       separatorBefore: !firstReceipt,
-      onClick: () => void copy(order.id, "Order ID"),
+      onClick: () => void copy(order.id, tt("Order ID")),
     },
   ]
 
@@ -268,7 +269,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
           width, and drawn on the first frame the order is. */}
       <OrderBarFrame
         back={
-          <button type="button" onClick={onBack} aria-label="Back to orders" className={cn(iconButton, "h-9 w-9")}>
+          <button type="button" onClick={onBack} aria-label={tt("Back to orders")} className={cn(iconButton, "h-9 w-9")}>
             <ArrowLeft className="h-5 w-5" />
           </button>
         }
@@ -284,12 +285,12 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         actions={
           <>
             <ResponsiveActionMenu
-              title={`Order #${order.number}`}
+              title={tt("Order #{number}", { number: order.number })}
               menuWidth="w-56"
               items={items}
               trigger={
-                <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} disabled={busy !== null} aria-label="More actions">
-                  <span className="hidden sm:inline">More actions</span>
+                <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} disabled={busy !== null} aria-label={tt("More actions")}>
+                  <span className="hidden sm:inline">{tt("More actions")}</span>
                   <MoreHorizontal className="h-4 w-4 sm:hidden" />
                   <ChevronDown className="hidden h-4 w-4 sm:block" />
                 </button>
@@ -299,13 +300,13 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
               <span className="flex shrink-0 items-center">
                 {position ? (
                   <span className="ml-1 mr-1 hidden text-[12px] tabular-nums text-[#6b7280] md:inline">
-                    {position.index + 1} of {position.count}
+                    {tt("{value} of {count}", { value: position.index + 1, count: position.count })}
                   </span>
                 ) : null}
-                <button type="button" aria-label="Previous order" title="Previous order" disabled={!canStep.previous} onClick={() => onStep(-1)} className={iconButton}>
+                <button type="button" aria-label={tt("Previous order")} title={tt("Previous order")} disabled={!canStep.previous} onClick={() => onStep(-1)} className={iconButton}>
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <button type="button" aria-label="Next order" title="Next order" disabled={!canStep.next} onClick={() => onStep(1)} className={iconButton}>
+                <button type="button" aria-label={tt("Next order")} title={tt("Next order")} disabled={!canStep.next} onClick={() => onStep(1)} className={iconButton}>
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </span>
@@ -315,7 +316,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         subtitle={
           <>
             {fullDate(order.createdAt, timeZone)}
-            {order.source ? ` from ${SOURCE_LABEL[order.source]}` : ""}
+            {order.source ? tt(" from {source}", { source: SOURCE_LABEL[order.source] }) : ""}
           </>
         }
       />
@@ -354,7 +355,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
           <PaymentCard
             className="lg:col-start-1 lg:row-start-2"
             order={order}
-            shippingName={parcel ? (parcel.deliveryMethod === "pickup" ? "Local pickup" : (parcel.delivery?.name ?? null)) : order.shipping ? (order.shipping.pickup ? "Local pickup" : order.shipping.method) : null}
+            shippingName={parcel ? (parcel.deliveryMethod === "pickup" ? tt("Local pickup") : (parcel.delivery?.name ?? null)) : order.shipping ? (order.shipping.pickup ? tt("Local pickup") : order.shipping.method) : null}
             busy={busy}
             onRefund={canRefund && refundable.length > 0 ? () => setDialog("refund") : null}
             onInvoice={() => void run("invoice", { kind: "invoice" })}
@@ -435,10 +436,10 @@ function Thumb({ line }: { line: OrderRow }) {
 }
 
 function accessLine(order: Order, timeZone: string, fulfilled = order.fulfillment === "fulfilled"): string {
-  if (!fulfilled) return order.payment === "failed" ? "No access: the payment failed" : "Access is given when the payment goes through"
-  if (order.deliveredAt) return `Receipt emailed ${fullDate(order.deliveredAt, timeZone)}`
-  if (order.delivery === "failed") return "Access given, but the receipt email did not arrive"
-  return "Access given when the payment went through"
+  if (!fulfilled) return order.payment === "failed" ? tt("No access: the payment failed") : tt("Access is given when the payment goes through")
+  if (order.deliveredAt) return tt("Receipt emailed {date}", { date: fullDate(order.deliveredAt, timeZone) })
+  if (order.delivery === "failed") return tt("Access given, but the receipt email did not arrive")
+  return tt("Access given when the payment went through")
 }
 
 function FulfillmentCard({
@@ -469,7 +470,7 @@ function FulfillmentCard({
       </CardHead>
       <div className="px-4 pb-1 pt-2 text-[13px] text-[#4b5563]">
         <p>{accessLine(order, timeZone, fulfilled)}</p>
-        <p className="text-[#6b7280]">{!mixed && lines.some((l) => l.product?.type === "physical") ? "Ships to the buyer" : "Digital download, no shipping"}</p>
+        <p className="text-[#6b7280]">{!mixed && lines.some((l) => l.product?.type === "physical") ? tt("Ships to the buyer") : tt("Digital download, no shipping")}</p>
       </div>
       <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
         {lines.map((line) => {
@@ -480,10 +481,10 @@ function FulfillmentCard({
             <li key={line.id} className="flex items-center gap-3 py-3">
               <Thumb line={line} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{line.product?.title || "Product removed"}</p>
+                <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{line.product?.title || tt("Product removed")}</p>
                 <p className="truncate text-[12px] text-[#6b7280]">
-                  {[line.variant_name, kind].filter(Boolean).join(" · ") || "Digital"}
-                  {line.status === "refunded" ? <span className="text-[#b42318]"> · Refunded</span> : null}
+                  {[line.variant_name, kind].filter(Boolean).join(" · ") || tt("Digital")}
+                  {line.status === "refunded" ? <span className="text-[#b42318]"> · {tt("Refunded")}</span> : null}
                 </p>
               </div>
               <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">{formatMoney(cents)} &times; 1</span>
@@ -496,7 +497,7 @@ function FulfillmentCard({
         <div className="flex justify-end px-4 py-3">
           <button type="button" className={buttonSecondary} onClick={onResend} disabled={busy !== null}>
             <Send className="h-3.5 w-3.5" />
-            {busy === "resend" ? "Sending…" : "Resend receipt"}
+            {busy === "resend" ? tt("Sending…") : tt("Resend receipt")}
           </button>
         </div>
       ) : (
@@ -544,30 +545,30 @@ function PaymentCard({
         <PaymentBadge status={order.payment} />
       </CardHead>
       <div className="mx-4 mt-2 rounded-xl border border-[#eceef1] px-3 py-2">
-        <Row label="Subtotal" middle={itemsLabel(order.itemCount)} value={formatMoney(order.subtotalCents)} />
-        {order.shipping || order.shippingCents > 0 ? <Row label="Shipping" middle={shippingName ?? undefined} value={order.shippingCents > 0 ? formatMoney(order.shippingCents) : "Free"} /> : null}
-        {order.tipCents > 0 ? <Row label="Tip" value={formatMoney(order.tipCents)} /> : null}
-        {order.taxCents > 0 && !order.taxIncluded ? <Row label={order.taxLabel || "Tax"} value={formatMoney(order.taxCents)} /> : null}
-        <Row label="Total" value={formatMoney(order.totalCents)} strong />
+        <Row label={tt("Subtotal")} middle={itemsLabel(order.itemCount)} value={formatMoney(order.subtotalCents)} />
+        {order.shipping || order.shippingCents > 0 ? <Row label={tt("Shipping")} middle={shippingName ?? undefined} value={order.shippingCents > 0 ? formatMoney(order.shippingCents) : "Free"} /> : null}
+        {order.tipCents > 0 ? <Row label={tt("Tip")} value={formatMoney(order.tipCents)} /> : null}
+        {order.taxCents > 0 && !order.taxIncluded ? <Row label={order.taxLabel || tt("Tax")} value={formatMoney(order.taxCents)} /> : null}
+        <Row label={tt("Total")} value={formatMoney(order.totalCents)} strong />
         {order.taxCents > 0 && order.taxIncluded ? <Row label={includedTaxLabel(order.taxLabel)} value={formatMoney(order.taxCents)} muted /> : null}
         <div className="my-1.5 border-t border-[#f0f1f3]" />
-        <Row label={order.payment === "pending" ? "Due" : "Paid"} middle={method || undefined} value={formatMoney(order.payment === "pending" ? order.totalCents : received)} />
-        {order.refundedCents > 0 ? <Row label="Refunded" value={`−${formatMoney(order.refundedCents)}`} /> : null}
+        <Row label={order.payment === "pending" ? tt("Due") : tt("Paid")} middle={method || undefined} value={formatMoney(order.payment === "pending" ? order.totalCents : received)} />
+        {order.refundedCents > 0 ? <Row label={tt("Refunded")} value={`−${formatMoney(order.refundedCents)}`} /> : null}
         {received > 0 ? (
           <>
-            {order.feeCents > 0 ? <Row label="Storelib fee" value={`−${formatMoney(fee)}`} muted /> : null}
-            <Row label="You receive" value={formatMoney(earnings)} strong />
+            {order.feeCents > 0 ? <Row label={tt("Storelib fee")} value={`−${formatMoney(fee)}`} muted /> : null}
+            <Row label={tt("You receive")} value={formatMoney(earnings)} strong />
           </>
         ) : null}
       </div>
       <div className="flex justify-end gap-2 px-4 py-3">
         <button type="button" className={buttonSecondary} onClick={onInvoice} disabled={busy !== null}>
           <Download className="h-3.5 w-3.5" />
-          {busy === "invoice" ? "Preparing…" : "Invoice"}
+          {busy === "invoice" ? tt("Preparing…") : tt("Invoice")}
         </button>
         {onRefund ? (
           <button type="button" className={buttonPrimary} onClick={onRefund} disabled={busy !== null}>
-            Refund
+            {tt("Refund")}
           </button>
         ) : null}
       </div>
@@ -607,40 +608,40 @@ function CustomerCard({
   return (
     <section className={cn(card, "px-4 py-3.5")}>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Customer</h2>
+        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Customer")}</h2>
         <button type="button" onClick={onEdit} className="-mr-1 rounded-md px-1 text-[12px] font-medium text-[#6d4ae0] hover:underline">
-          Change email
+          {tt("Change email")}
         </button>
       </div>
       <dl className="mt-2 grid gap-2.5">
-        <Field label="Name">{order.customerName || <span className="text-[#9ca3af]">Not given</span>}</Field>
-        <Field label="Email">
+        <Field label={tt("Name")}>{order.customerName || <span className="text-[#9ca3af]">{tt("Not given")}</span>}</Field>
+        <Field label={tt("Email")}>
           {order.customerEmail ? (
             <button
               type="button"
-              title="Copy email"
-              onClick={() => onCopy(order.customerEmail!, "Email")}
+              title={tt("Copy email")}
+              onClick={() => onCopy(order.customerEmail!, tt("Email"))}
               className="block max-w-full truncate text-left text-[#6d4ae0] hover:underline"
             >
               {order.customerEmail}
             </button>
           ) : (
-            <span className="text-[#9ca3af]">No email</span>
+            <span className="text-[#9ca3af]">{tt("No email")}</span>
           )}
         </Field>
         {phone ? (
-          <Field label="Phone">
+          <Field label={tt("Phone")}>
             <a href={`tel:${phone.replace(/[^+0-9]/g, "")}`} className="text-[#6d4ae0] hover:underline">
               {phone}
             </a>
           </Field>
         ) : null}
         {country ? (
-          <Field label="Country">
+          <Field label={tt("Country")}>
             {flagOf(line.buyer_country_code)} {country}
           </Field>
         ) : null}
-        {device ? <Field label="Device">{device}</Field> : null}
+        {device ? <Field label={tt("Device")}>{device}</Field> : null}
       </dl>
     </section>
   )
@@ -662,38 +663,38 @@ function DetailsCard({
 }) {
   return (
     <section className={cn(card, "px-4 py-3.5")}>
-      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Order details</h2>
+      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Order details")}</h2>
       <dl className="mt-2 grid gap-2.5">
-        <Field label="Placed">{fullDate(order.createdAt, timeZone)}</Field>
-        <Field label="Source">
+        <Field label={tt("Placed")}>{fullDate(order.createdAt, timeZone)}</Field>
+        <Field label={tt("Source")}>
           <span className={order.source ? undefined : "text-[#9ca3af]"}>{sourceText(order.source, order.sourceDetail)}</span>
           {originCampaign(order.sourceDetail) ? (
             <span className="mt-0.5 block break-words text-[12px] text-[#6b7280]">{originCampaign(order.sourceDetail)}</span>
           ) : null}
         </Field>
-        <Field label="Delivery">
+        <Field label={tt("Delivery")}>
           {order.shipping
-            ? [order.shipping.pickup ? "Local pickup" : "Shipped to the buyer", digital ? "downloads by email" : null].filter(Boolean).join(", ")
+            ? [order.shipping.pickup ? tt("Local pickup") : tt("Shipped to the buyer"), digital ? tt("downloads by email") : null].filter(Boolean).join(", ")
             : order.customerEmail
-              ? "Email, and the buyer's library"
-              : "The buyer's library"}
+              ? tt("Email, and the buyer's library")
+              : tt("The buyer's library")}
         </Field>
         {receipt ? (
-          <Field label="Receipt">
+          <Field label={tt("Receipt")}>
             <a href={`/receipt/${receipt}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#6d4ae0] hover:underline">
-              View the buyer&apos;s receipt
+              {tt("View the buyer's receipt")}
               <ExternalLink className="h-3 w-3" />
             </a>
           </Field>
         ) : null}
-        <Field label="Order ID">
+        <Field label={tt("Order ID")}>
           <span className="flex min-w-0 items-center gap-1">
             <span className="truncate font-mono text-[12px]">{order.id}</span>
             <button
               type="button"
-              aria-label="Copy order ID"
-              title="Copy order ID"
-              onClick={() => onCopy(order.id, "Order ID")}
+              aria-label={tt("Copy order ID")}
+              title={tt("Copy order ID")}
+              onClick={() => onCopy(order.id, tt("Order ID"))}
               className={cn(iconButton, "h-7 w-7 shrink-0")}
             >
               <Copy className="h-3.5 w-3.5" />
@@ -843,7 +844,7 @@ function Timeline({
 
   return (
     <section className={cn("min-w-0", className)} data-order-timeline="">
-      <h2 className="px-1 text-[13px] font-semibold text-[#1a1a2e]">Timeline</h2>
+      <h2 className="px-1 text-[13px] font-semibold text-[#1a1a2e]">{tt("Timeline")}</h2>
       <div data-timeline-panel="" className="mt-2 rounded-[14px] px-3.5 pb-1.5 pt-1 sm:px-4" style={PANEL_STYLE}>
         <ol>
           {rows.map((row, i) => {
@@ -881,7 +882,7 @@ function Timeline({
                 <div className="min-w-0 pt-[2px]">
                   {event.note ? (
                     <>
-                      <p className="text-[13px] font-semibold leading-[18px] text-[#1a1a2e]">You added a note</p>
+                      <p className="text-[13px] font-semibold leading-[18px] text-[#1a1a2e]">{tt("You added a note")}</p>
                       <p data-timeline-note="" className="mt-1 whitespace-pre-wrap break-words rounded-lg border border-[#e7e8ec] bg-white px-2.5 py-1.5 text-[13px] leading-[18px] text-[#303036] shadow-[0_1px_1px_rgba(17,24,39,0.03)]">
                         {event.text}
                       </p>
@@ -907,7 +908,7 @@ function Timeline({
                     type="button"
                     title={exact}
                     aria-expanded={expanded}
-                    aria-label={`${short}. Show the exact time`}
+                    aria-label={tt("{short}. Show the exact time", { short })}
                     onClick={() => setOpen(expanded ? null : event.id)}
                     className="-mr-1 rounded-md px-1 pt-[3px] text-[12px] leading-4 tabular-nums text-[#6b7280] hover:text-[#1a1a2e] hover:underline hover:decoration-dotted hover:underline-offset-2"
                   >
@@ -1046,18 +1047,18 @@ function RefundDialog({
       open={open}
       busy={busy}
       onClose={onClose}
-      title="Refund"
-      description="The money goes back to the buyer's original payment method, and they get an email about it."
+      title={tt("Refund")}
+      description={tt("The money goes back to the buyer's original payment method, and they get an email about it.")}
       onSubmit={() => {
         if (valid && line) onSubmit(line, Math.round(value * 100), reason)
       }}
       footer={
         <>
           <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
-            {busy ? "Refunding…" : valid ? `Refund ${formatMoney(Math.round(value * 100))}` : "Refund"}
+            {busy ? tt("Refunding…") : valid ? tt("Refund {amount}", { amount: formatMoney(Math.round(value * 100)) }) : tt("Refund")}
           </button>
         </>
       }
@@ -1065,7 +1066,7 @@ function RefundDialog({
       <div className="grid gap-3 px-5 py-4">
         {lines.length > 1 ? (
           <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-            Item
+            {tt("Item")}
             <select
               value={line?.id}
               onChange={(e) => {
@@ -1077,14 +1078,14 @@ function RefundDialog({
             >
               {lines.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {(l.product?.title || "Product") + ", " + formatMoney(l.amount_cents || 0)}
+                  {(l.product?.title || tt("Product")) + ", " + formatMoney(l.amount_cents || 0)}
                 </option>
               ))}
             </select>
           </label>
         ) : null}
         <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-          Amount
+          {tt("Amount")}
           <div className="flex h-9 items-center rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e]">
             <span className="text-[13px] text-[#6b7280]">$</span>
             <input
@@ -1093,11 +1094,11 @@ function RefundDialog({
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
               className="min-w-0 flex-1 bg-transparent pl-1 text-[16px] tabular-nums text-[#1a1a2e] outline-none sm:text-[13px]"
             />
-            <span className="text-[12px] text-[#9ca3af]">of {formatMoney(Math.round(max * 100))}</span>
+            <span className="text-[12px] text-[#9ca3af]">{tt("of {amount}", { amount: formatMoney(Math.round(max * 100)) })}</span>
           </div>
         </label>
         <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-          Reason
+          {tt("Reason")}
           <select value={reason} onChange={(e) => setReason(e.target.value)} className={field}>
             {reasons.map((r) => (
               <option key={r.value} value={r.value}>
@@ -1142,11 +1143,11 @@ function EmailDialog({
       open={open}
       busy={busy}
       onClose={onClose}
-      title="Change customer email"
+      title={tt("Change customer email")}
       description={
         sendsReceipt
-          ? "The order moves to the new address, and the receipt with the download link is sent there now."
-          : "The order moves to the new address. Nothing is sent, as nothing in it has been paid for yet."
+          ? tt("The order moves to the new address, and the receipt with the download link is sent there now.")
+          : tt("The order moves to the new address. Nothing is sent, as nothing in it has been paid for yet.")
       }
       onSubmit={() => {
         if (valid) onSubmit(trimmed)
@@ -1154,10 +1155,10 @@ function EmailDialog({
       footer={
         <>
           <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
-            {busy ? "Saving…" : sendsReceipt ? "Save and send" : "Save"}
+            {busy ? tt("Saving…") : sendsReceipt ? tt("Save and send") : tt("Save")}
           </button>
         </>
       }
@@ -1169,13 +1170,13 @@ function EmailDialog({
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
-          aria-label="New email address"
+          aria-label={tt("New email address")}
           autoFocus={!phone}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={cn(field, "w-full")}
         />
-        {trimmed && !wellFormed ? <p className="mt-1.5 text-[12px] text-[#b42318]">Enter a full address, like name@example.com</p> : null}
+        {trimmed && !wellFormed ? <p className="mt-1.5 text-[12px] text-[#b42318]">{tt("Enter a full address, like name@example.com")}</p> : null}
       </div>
     </DialogShell>
   )

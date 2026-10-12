@@ -15,18 +15,19 @@ import { cn } from "@/lib/utils"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { readRules, type CollectionRule, type RuleField, type RuleOp, type RuleProduct } from "@/lib/physical/collections"
 import type { CollectionProduct, CollectionView } from "@/lib/physical/collections-server"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type Collection = CollectionView
 export type { CollectionProduct }
 
 /** The kinds a product can be, as a rule on Product type reads them. */
 export const PRODUCT_KINDS = [
-  ["digital", "Digital product"],
-  ["course", "Course"],
-  ["membership", "Membership"],
-  ["community", "Community"],
-  ["service", "Service"],
-  ["physical", "Physical product"],
+  ["digital", msg("Digital product")],
+  ["course", msg("Course")],
+  ["membership", msg("Membership")],
+  ["community", msg("Community")],
+  ["service", msg("Service")],
+  ["physical", msg("Physical product")],
 ] as const
 export const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS)
 
@@ -38,13 +39,13 @@ export const NUMERIC_FIELDS: ReadonlySet<RuleField> = new Set(["price", "compare
 /** The words between a field and its value, as a sentence reads them. */
 export const OP_WORDS: Record<RuleOp, string> = {
   equals: "is",
-  not_equals: "is not",
+  get not_equals() { return tt("is not") },
   contains: "contains",
   not_contains: "does not contain",
-  starts_with: "starts with",
-  ends_with: "ends with",
-  greater_than: "is more than",
-  less_than: "is less than",
+  get starts_with() { return tt("starts with") },
+  get ends_with() { return tt("ends with") },
+  get greater_than() { return tt("is more than") },
+  get less_than() { return tt("is less than") },
 }
 
 /** Which conditions make sense for a field: a number compares, a kind is or is not, words match. */
@@ -56,46 +57,46 @@ export function opsFor(field: RuleField): RuleOp[] {
 }
 
 export const SORTS = [
-  ["manual", "Your order"],
-  ["best_selling", "Best selling"],
-  ["newest", "Newest"],
-  ["price_asc", "Price, low to high"],
-  ["price_desc", "Price, high to low"],
-  ["title", "Name, A to Z"],
+  ["manual", msg("Your order")],
+  ["best_selling", msg("Best selling")],
+  ["newest", msg("Newest")],
+  ["price_asc", msg("Price, low to high")],
+  ["price_desc", msg("Price, high to low")],
+  ["title", msg("Name, A to Z")],
 ] as const
 
 /** A rule's value as a person would say it: Course, not course; $30, not 30. */
 export function valueWords(rule: CollectionRule): string {
-  if (rule.field === "type") return KIND_LABEL[rule.value] ?? rule.value
+  if (rule.field === "type") return KIND_LABEL[rule.value] ? tt(KIND_LABEL[rule.value]) : rule.value
   if (rule.field === "price" || rule.field === "compare_at_price") return `$${rule.value}`
   if (rule.field === "weight") return `${rule.value} g`
   return rule.value
 }
 
 const FIELD_WORDS: Record<RuleField, string> = {
-  title: "Title",
+  get title() { return tt("Title") },
   type: "Product type",
-  tag: "Tag",
-  vendor: "Vendor",
-  price: "Price",
-  compare_at_price: "Compare at price",
-  inventory: "Stock",
-  weight: "Weight",
-  category: "Category",
+  get tag() { return tt("Tag") },
+  get vendor() { return tt("Vendor") },
+  get price() { return tt("Price") },
+  get compare_at_price() { return tt("Compare at price") },
+  get inventory() { return tt("Stock") },
+  get weight() { return tt("Weight") },
+  get category() { return tt("Category") },
 }
 
 export const fieldWords = (field: RuleField) => FIELD_WORDS[field]
 
 /** What decides a collection's products, in one line: "Product type is Course and 1 more", or "Picked by hand". */
 export function howWords(c: Pick<Collection, "kind" | "rules" | "match">): string {
-  if (c.kind !== "smart") return "Picked by hand"
+  if (c.kind !== "smart") return tt("Picked by hand")
   const [first, ...rest] = c.rules
-  if (!first) return "No conditions yet"
+  if (!first) return tt("No conditions yet")
   const lead = `${FIELD_WORDS[first.field]} ${OP_WORDS[first.op]} ${valueWords(first)}`
-  return rest.length ? `${lead} ${c.match === "any" ? "or" : "and"} ${rest.length} more` : lead
+  return rest.length ? tt("{lead} {value} {length} more", { lead, value: c.match === "any" ? "or" : "and", length: rest.length }) : lead
 }
 
-export const countWords = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "product" : "products"}`
+export const countWords = (n: number) => tt("{n, plural, one {# product} other {# products}}", { n })
 
 /** A product as a rule reads it (lib/physical/collections), from what the server sent. */
 export function ruleProduct(p: CollectionProduct): RuleProduct {
@@ -231,7 +232,7 @@ export function StatusMark({ published, strong = false }: { published: boolean; 
   return (
     <span data-status={published ? "published" : "hidden"} className={cn("inline-flex items-center gap-1.5 align-top", strong ? "text-[#303036]" : "text-[#6b7280]")}>
       <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", published ? "bg-[#22a06b]" : "bg-[#b6bac1]")} />
-      <span>{published ? "Published" : "Hidden"}</span>
+      <span>{published ? tt("Published") : tt("Hidden")}</span>
     </span>
   )
 }

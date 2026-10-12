@@ -11,9 +11,12 @@ export function LevelBadge({
   size = "sm",
   className = "",
   ...rest
-}: { level: number; size?: "sm" | "md"; className?: string } & HTMLAttributes<HTMLSpanElement>) {
+}: { level: number; size?: "sm" | "md" | "lg"; className?: string } & HTMLAttributes<HTMLSpanElement>) {
+  /* "lg": a member's profile photo, 96 to 112px (round 25): the same mark, sized to the face it sits on. */
   const box =
-    size === "md"
+    size === "lg"
+      ? "absolute bottom-[3px] right-[3px] h-[26px] min-w-[26px] px-1.5 text-[13px] !rounded-[8px] sm:bottom-1 sm:right-1 sm:h-[28px] sm:min-w-[28px] sm:text-[14px]"
+      : size === "md"
       ? "absolute -bottom-0.5 -right-0.5 h-[19px] min-w-[19px] px-1 text-[10.5px]"
       : "absolute -bottom-px -right-px h-[15px] min-w-[15px] px-0.5 text-[9px]"
   return (

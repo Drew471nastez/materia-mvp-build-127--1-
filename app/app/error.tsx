@@ -11,6 +11,7 @@
 
 import { ErrorScreen } from "@/components/platform/error-screen"
 import { PageLanded } from "@/components/app/app-stage"
+import { tt } from "@/lib/i18n/text"
 
 export default function AppError({
   error,
@@ -24,7 +25,7 @@ export default function AppError({
   return (
     <>
       <PageLanded />
-      <ErrorScreen error={error} reset={reset} home="/app" homeLabel="Back to dashboard" />
+      <ErrorScreen error={error} reset={reset} home="/app" homeLabel={tt("Back to dashboard")} />
     </>
   )
 }

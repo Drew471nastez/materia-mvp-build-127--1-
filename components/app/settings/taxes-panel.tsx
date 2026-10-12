@@ -28,6 +28,7 @@ import { TAX_REGION_RULES, percentText } from "@/lib/tax/rules"
 import { CountryFlag } from "@/components/app/settings/country-picker"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, Field, Modal, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
+import { tt } from "@/lib/i18n/text"
 
 interface Region {
   id: string
@@ -104,22 +105,22 @@ export function TaxesPanel() {
 
   return (
     <div className="space-y-4 sm:space-y-6" data-taxes="">
-      {!setup.ready ? <Notice tone="amber">Taxes need their database update (SQL parts 78 and 110). Until they run, nothing here is kept.</Notice> : null}
+      {!setup.ready ? <Notice tone="amber">{tt("Taxes need their database update (SQL parts 78 and 110). Until they run, nothing here is kept.")}</Notice> : null}
 
-      <Card title="Tax" description="Storelib charges what you set here and nothing more. Check which rates apply to you with an accountant." help="taxes">
+      <Card title={tt("Tax")} description={tt("Storelib charges what you set here and nothing more. Check which rates apply to you with an accountant.")} help="taxes">
         <div className="space-y-4">
-          <Toggle label="Charge tax" description="Off, buyers pay your prices and nothing more." checked={setup.enabled} onChange={(v) => void flip({ enabled: v })} />
+          <Toggle label={tt("Charge tax")} description={tt("Off, buyers pay your prices and nothing more.")} checked={setup.enabled} onChange={(v) => void flip({ enabled: v })} />
           {setup.enabled ? (
             <>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-[#eceef1] px-3.5 py-3" data-tax-inclusive="">
                 <div className="min-w-0">
                   <p className="text-[14px] font-medium text-[#1a1a2e]">{currency}</p>
-                  <p className="text-[13px] text-[#6b7280]">{setup.included ? "Prices already include tax" : "Tax is added on top of prices"}</p>
+                  <p className="text-[13px] text-[#6b7280]">{setup.included ? tt("Prices already include tax") : tt("Tax is added on top of prices")}</p>
                 </div>
-                <div role="radiogroup" aria-label="Tax inclusivity" className="inline-flex shrink-0 gap-1 rounded-xl bg-[#f1f2f4] p-1">
+                <div role="radiogroup" aria-label={tt("Tax inclusivity")} className="inline-flex shrink-0 gap-1 rounded-xl bg-[#f1f2f4] p-1">
                   {[
-                    { id: false, label: "Added on top" },
-                    { id: true, label: "Included" },
+                    { id: false, label: tt("Added on top") },
+                    { id: true, label: tt("Included") },
                   ].map((o) => (
                     <button
                       key={String(o.id)}
@@ -134,10 +135,10 @@ export function TaxesPanel() {
                   ))}
                 </div>
               </div>
-              {physical ? <Toggle label="Charge tax on shipping" description="Delivery is taxed at the same rate as the items." checked={setup.onShipping} onChange={(v) => void flip({ onShipping: v })} /> : null}
+              {physical ? <Toggle label={tt("Charge tax on shipping")} description={tt("Delivery is taxed at the same rate as the items.")} checked={setup.onShipping} onChange={(v) => void flip({ onShipping: v })} /> : null}
               <Toggle
-                label="Charge tax on digital products"
-                description="Downloads, courses and memberships. In the EU, VAT on digital sales is charged at the rate of the buyer's country, so add a region for each country you sell to."
+                label={tt("Charge tax on digital products")}
+                description={tt("Downloads, courses and memberships. In the EU, VAT on digital sales is charged at the rate of the buyer's country, so add a region for each country you sell to.")}
                 checked={setup.digital}
                 onChange={(v) => void flip({ digital: v })}
               />
@@ -147,23 +148,23 @@ export function TaxesPanel() {
       </Card>
 
       <Card
-        title="Tax regions"
-        description="Where you collect tax, and the rate in each."
+        title={tt("Tax regions")}
+        description={tt("Where you collect tax, and the rate in each.")}
         action={
           <button type="button" className={BTN_SECONDARY} onClick={() => setCreating(setup.detectedCountry ?? "")} data-create-region="">
             <Plus className="h-4 w-4" />
-            Create region
+            {tt("Create region")}
           </button>
         }
       >
         {setup.regions.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[#e3e5e8] px-4 py-6 text-center" data-tax-regions-empty="">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">No tax regions yet</p>
-            <p className="mt-0.5 text-[13px] text-[#6b7280]">Add the countries where you have to charge tax.</p>
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No tax regions yet")}</p>
+            <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Add the countries where you have to charge tax.")}</p>
             {suggested ? (
               <button type="button" onClick={() => setCreating(suggested)} className="mt-3 inline-flex h-8 items-center gap-2 rounded-full bg-[#f1f2f4] px-3 text-[13px] font-medium text-[#374151] hover:bg-[#e8e9ec]" data-suggest-region={suggested}>
                 <CountryFlag code={suggested} />
-                Add {countryName(suggested)}
+                {tt("Add {count}", { count: countryName(suggested) })}
               </button>
             ) : null}
           </div>
@@ -180,7 +181,7 @@ export function TaxesPanel() {
                       <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{regionName(r)}</span>
                       <span className="block text-[12.5px] text-[#6b7280]">
                         {r.name}
-                        {own.length ? ` · ${own.length} product ${own.length === 1 ? "rate" : "rates"}` : ""}
+                        {own.length ? tt(" · {length} product {length, plural, one {rate} other {rates}}", { length: own.length }) : ""}
                       </span>
                     </span>
                     <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{percentText(r.rateBps)}</span>
@@ -219,7 +220,7 @@ function RegionsExplained({ physical }: { physical: boolean }) {
   const lines = [TAX_REGION_RULES.what, ...(physical ? [TAX_REGION_RULES.physical] : []), TAX_REGION_RULES.digital, TAX_REGION_RULES.elsewhere]
   return (
     <div className="mt-4 rounded-xl bg-[#f8f9fa] px-3.5 py-3" data-tax-regions-explained="">
-      <p className="text-[13px] font-semibold text-[#1a1a2e]">How tax regions work</p>
+      <p className="text-[13px] font-semibold text-[#1a1a2e]">{tt("How tax regions work")}</p>
       <ul className="mt-1.5 space-y-1 text-[12.5px] leading-[18px] text-[#4b5563]">
         {lines.map((l) => (
           <li key={l} className="flex gap-2">
@@ -231,7 +232,7 @@ function RegionsExplained({ physical }: { physical: boolean }) {
       {/* The full guide, with worked examples. It lives in the physical products part of the Help Center, which is only there while physical commerce is on. */}
       {physical ? (
         <a href="/help/physical-products/taxes" target="_blank" rel="noreferrer" className="mt-2 inline-block text-[12.5px] font-medium text-[#1a1a2e] underline underline-offset-2" data-tax-guide="">
-          Read the tax guide
+          {tt("Read the tax guide")}
         </a>
       ) : null}
     </div>
@@ -244,7 +245,7 @@ function RegionsExplained({ physical }: { physical: boolean }) {
  * India, Singapore and Canada (HST in some provinces, so it says both),
  * Sales tax in the US, Consumption tax in Japan, VAT almost everywhere else.
  */
-const TAX_NAME: Record<string, string> = { US: "Sales tax", CA: "GST/HST", AU: "GST", NZ: "GST", IN: "GST", SG: "GST", MY: "SST", JP: "Consumption tax", CH: "MWST/TVA", NO: "MVA" }
+const TAX_NAME: Record<string, string> = { get US() { return tt("Sales tax") }, CA: "GST/HST", AU: "GST", NZ: "GST", IN: "GST", SG: "GST", MY: "SST", get JP() { return tt("Consumption tax") }, CH: "MWST/TVA", NO: "MVA" }
 function taxNameFor(country: string | null | undefined): string {
   return (country && TAX_NAME[country.toUpperCase()]) || "VAT"
 }
@@ -270,11 +271,11 @@ function CreateRegion({ country, onClose, onCreated, taken }: { country: string 
     <Modal
       open={country !== null}
       onClose={onClose}
-      title="Create tax region"
+      title={tt("Create tax region")}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button
             type="button"
@@ -288,15 +289,15 @@ function CreateRegion({ country, onClose, onCreated, taken }: { country: string 
               onCreated(r.data)
             }}
           >
-            {busy ? "Creating" : "Create region"}
+            {busy ? tt("Creating") : tt("Create region")}
           </button>
         </>
       }
     >
       <div className="space-y-3" data-create-region-form="">
-        <Field label="Country" htmlFor="tax-country">
+        <Field label={tt("Country")} htmlFor="tax-country">
           <SelectInput id="tax-country" value={c} onChange={(v) => { setC(v); setState(""); setName(taxNameFor(v)) }}>
-            <option value="">Select country</option>
+            <option value="">{tt("Select country")}</option>
             {COUNTRIES.map((x) => (
               <option key={x.code} value={x.code}>
                 {x.name}
@@ -305,9 +306,9 @@ function CreateRegion({ country, onClose, onCreated, taken }: { country: string 
           </SelectInput>
         </Field>
         {states.length ? (
-          <Field label={c === "CA" ? "Province" : "State"} hint="Leave as the whole country unless the rate is different there." htmlFor="tax-state">
+          <Field label={c === "CA" ? tt("Province") : tt("State")} hint={tt("Leave as the whole country unless the rate is different there.")} htmlFor="tax-state">
             <SelectInput id="tax-state" value={state} onChange={setState}>
-              <option value="">Whole country</option>
+              <option value="">{tt("Whole country")}</option>
               {states.map((s) => (
                 <option key={s.code} value={s.code}>
                   {s.name}
@@ -317,14 +318,14 @@ function CreateRegion({ country, onClose, onCreated, taken }: { country: string 
           </Field>
         ) : null}
         <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
-          <Field label="Name" hint="What receipts call it." htmlFor="tax-name">
+          <Field label={tt("Name")} hint={tt("What receipts call it.")} htmlFor="tax-name">
             <TextInput id="tax-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="Rate" htmlFor="tax-rate">
+          <Field label={tt("Rate")} htmlFor="tax-rate">
             <DecimalInput id="tax-rate" value={rate} onChange={setRate} suffix="%" placeholder="19" />
           </Field>
         </div>
-        {exists ? <Notice tone="amber">{state ? "That state" : "That country"} already has a region. Open it to change its rate.</Notice> : null}
+        {exists ? <Notice tone="amber">{state ? tt("That state") : tt("That country")} {tt("already has a region. Open it to change its rate.")}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
@@ -343,10 +344,10 @@ function RegionEditor({ region, overrides, products, onChange, onRemoved }: { re
   return (
     <div className="space-y-3 border-t border-[#f1f2f4] bg-[#fafafa] px-3.5 py-3.5" data-region-editor="">
       <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
-        <Field label="Name">
+        <Field label={tt("Name")}>
           <TextInput value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="Rate">
+        <Field label={tt("Rate")}>
           <DecimalInput value={rate} onChange={setRate} suffix="%" />
         </Field>
       </div>
@@ -362,7 +363,7 @@ function RegionEditor({ region, overrides, products, onChange, onRemoved }: { re
           }}
         >
           <Trash2 className="h-4 w-4" />
-          Remove region
+          {tt("Remove region")}
         </button>
         {changed ? (
           <button
@@ -375,31 +376,31 @@ function RegionEditor({ region, overrides, products, onChange, onRemoved }: { re
               onChange(r.data)
             }}
           >
-            Save
+            {tt("Save")}
           </button>
         ) : null}
       </div>
 
       <div className="border-t border-[#eceef1] pt-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[13.5px] font-medium text-[#1a1a2e]">Product rates</p>
+          <p className="text-[13.5px] font-medium text-[#1a1a2e]">{tt("Product rates")}</p>
           {!adding && free.length ? (
             <button type="button" className={BTN_GHOST} onClick={() => setAdding(true)}>
               <Plus className="h-4 w-4" />
-              Add product rate
+              {tt("Add product rate")}
             </button>
           ) : null}
         </div>
-        <p className="text-[12.5px] text-[#6b7280]">A product taxed differently here, like books or food at a reduced rate.</p>
+        <p className="text-[12.5px] text-[#6b7280]">{tt("A product taxed differently here, like books or food at a reduced rate.")}</p>
         {overrides.length ? (
           <ul className="mt-2 divide-y divide-[#f1f2f4] rounded-lg border border-[#eceef1] bg-white">
             {overrides.map((o) => (
               <li key={o.id} className="flex items-center gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#1a1a2e]">{o.productTitle ?? "A product"}</span>
+                <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#1a1a2e]">{o.productTitle ?? tt("A product")}</span>
                 <span className="text-[13.5px] font-medium tabular-nums">{percentText(o.rateBps)}</span>
                 <button
                   type="button"
-                  aria-label="Remove this product's rate"
+                  aria-label={tt("Remove this product's rate")}
                   className={cn(BTN_GHOST, "w-9 px-0")}
                   onClick={async () => {
                     const r = await api<Setup>(`/api/store/taxes/overrides/${o.id}`, { method: "DELETE" })
@@ -415,9 +416,9 @@ function RegionEditor({ region, overrides, products, onChange, onRemoved }: { re
         ) : null}
         {adding ? (
           <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_auto] sm:items-end">
-            <Field label="Product">
+            <Field label={tt("Product")}>
               <SelectInput value={product} onChange={setProduct}>
-                <option value="">Choose a product</option>
+                <option value="">{tt("Choose a product")}</option>
                 {free.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.title}
@@ -425,12 +426,12 @@ function RegionEditor({ region, overrides, products, onChange, onRemoved }: { re
                 ))}
               </SelectInput>
             </Field>
-            <Field label="Rate">
+            <Field label={tt("Rate")}>
               <DecimalInput value={productRate} onChange={setProductRate} suffix="%" />
             </Field>
             <div className="flex gap-2">
               <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(false)}>
-                Cancel
+                {tt("Cancel")}
               </button>
               <button
                 type="button"
@@ -446,7 +447,7 @@ function RegionEditor({ region, overrides, products, onChange, onRemoved }: { re
                   onChange(r.data)
                 }}
               >
-                Add
+                {tt("Add")}
               </button>
             </div>
           </div>

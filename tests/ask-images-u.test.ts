@@ -62,6 +62,7 @@ import { anchorAt, composeDictation, joinHeard, shouldRestart, spokenSince, tran
 import { typeToward } from "@/lib/website-builder/ask-typing"
 import { MODES } from "@/components/website-builder/ask-parts"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -77,7 +78,7 @@ function check(name: string, ok: boolean, detail: unknown = "") {
   }
 }
 const section = (name: string) => console.log(`\n${name}`)
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /** A real 4x4 PNG, as the composer sends one. */
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFElEQVR42mP8z8BQz0AEYBxVSF+FAP5FDvcfRYWgAAAAAElFTkSuQmCC"

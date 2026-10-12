@@ -1,5 +1,7 @@
 "use client"
 
+import { tt } from "@/lib/i18n/text"
+
 /**
  * ===========================================================================
  *  THE PRODUCTS LIST CHANGING VIEW, WITHOUT A JUMP

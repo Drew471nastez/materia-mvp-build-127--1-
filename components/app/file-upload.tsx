@@ -25,6 +25,7 @@ import {
 import { precheckUpload, userMessage } from "@/lib/security/uploads"
 import { uploadRowState, uploadStatusLabel, useUploadChecking } from "@/lib/storage/upload-state"
 import { plainError } from "@/app/app/products/new/file-uploads"
+import { tt } from "@/lib/i18n/text"
 
 interface UploadedFile {
   id?: string
@@ -63,9 +64,9 @@ export function FileUpload({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
+    if (bytes === 0) return tt("0 Bytes")
     const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const sizes = [tt("Bytes"), "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
@@ -240,7 +241,7 @@ export function FileUpload({
 
       if (!response.ok) {
         const errorData = await response.json()
-        setError(errorData.error && !/error|failed/i.test(errorData.error) ? errorData.error : "The file could not be removed. Try again.")
+        setError(errorData.error && !/error|failed/i.test(errorData.error) ? errorData.error : tt("The file could not be removed. Try again."))
         return
       }
 
@@ -249,7 +250,7 @@ export function FileUpload({
       onUploadComplete?.(updatedFiles)
     } catch (err) {
       console.error("[file-upload] Delete error:", err)
-      setError("The file could not be removed. Try again.")
+      setError(tt("The file could not be removed. Try again."))
     }
   }
 
@@ -294,10 +295,10 @@ export function FileUpload({
         />
         <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
         <p className="mt-2 text-sm font-medium">
-          {isUploading ? "Uploading…" : "Click to upload or drag and drop"}
+          {isUploading ? tt("Uploading…") : tt("Click to upload or drag and drop")}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Up to {formatFileSize(maxSizeBytes)} each
+          {tt("Up to {maxSizeBytes} each", { maxSizeBytes: formatFileSize(maxSizeBytes) })}
         </p>
       </div>
 
@@ -329,7 +330,7 @@ export function FileUpload({
       {/* Uploaded Files List */}
       {files.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">Uploaded files</p>
+          <p className="text-sm font-medium">{tt("Uploaded files")}</p>
           {files.map((file, idx) => (
             <div
               key={file.id || idx}
@@ -403,7 +404,7 @@ function UploadRow({
             <p className="text-xs text-muted-foreground">
               {uploadStatusLabel(upload.status, checking)}
               {upload.status === "uploading" && upload.bytesTotal > 0 && (
-                <> · {formatFileSize(upload.bytesUploaded)} of {formatFileSize(upload.bytesTotal)}</>
+                <> · {tt("{bytesUploaded} of {bytesTotal}", { bytesUploaded: formatFileSize(upload.bytesUploaded), bytesTotal: formatFileSize(upload.bytesTotal) })}</>
               )}
             </p>
           </div>
@@ -417,7 +418,7 @@ function UploadRow({
               size="icon"
               className="h-7 w-7"
               onClick={(e) => { e.stopPropagation(); onPause() }}
-              title="Pause upload"
+              title={tt("Pause upload")}
             >
               <Pause className="h-3.5 w-3.5" />
             </Button>
@@ -429,7 +430,7 @@ function UploadRow({
               size="icon"
               className="h-7 w-7"
               onClick={(e) => { e.stopPropagation(); onResume() }}
-              title="Resume upload"
+              title={tt("Resume upload")}
             >
               <Play className="h-3.5 w-3.5" />
             </Button>
@@ -441,7 +442,7 @@ function UploadRow({
               size="icon"
               className="h-7 w-7"
               onClick={(e) => { e.stopPropagation(); onRetry() }}
-              title="Retry upload"
+              title={tt("Retry upload")}
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
@@ -453,7 +454,7 @@ function UploadRow({
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-destructive"
               onClick={(e) => { e.stopPropagation(); onCancel() }}
-              title="Cancel upload"
+              title={tt("Cancel upload")}
             >
               <X className="h-3.5 w-3.5" />
             </Button>

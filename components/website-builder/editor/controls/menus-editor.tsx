@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils"
 import { useEditorFieldEnv } from "./context"
 import { LinkListEditor, NEW_LINK_LABEL, type LinkItem } from "./link-list-editor"
 import { INPUT, NOTE, TEXT_BUTTON } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 /* A thumb's height on a phone, inside the phone sheet and outside it (Website Settings). */
 const FIELD = cn(INPUT, "max-sm:h-11")
@@ -201,10 +202,10 @@ export function MenusEditor({
           data-menu-back=""
         >
           <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          All menus
+          {tt("All menus")}
         </button>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Name</span>
+          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{tt("Name")}</span>
           <input
             className={FIELD}
             value={menu.title}
@@ -212,10 +213,10 @@ export function MenusEditor({
             placeholder={isMain ? MAIN_MENU_TITLE : undefined}
             onChange={(e) => put(open, { ...menu, title: e.target.value })}
           />
-          {isMain && headerHandle === MAIN_MENU && <span className={cn(NOTE, "mt-1.5 block")}>Your header shows this menu.</span>}
+          {isMain && headerHandle === MAIN_MENU && <span className={cn(NOTE, "mt-1.5 block")}>{tt("Your header shows this menu.")}</span>}
         </label>
         <div>
-          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Links</span>
+          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{tt("Links")}</span>
           <div className={cn(BOX, !plain && "px-1")} data-menu-links="">
             <MenuLinksEditor links={menu.links ?? []} onLinks={(links) => put(open, { ...menu, links })} />
           </div>
@@ -224,13 +225,13 @@ export function MenusEditor({
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-3 dark:border-white/[0.07]">
             {confirming ? (
               <>
-                <span className="mr-auto text-[12px] text-muted-foreground max-sm:text-[13px]">Sections showing it will show none.</span>
-                <button type="button" className={ACTION} onClick={() => setConfirming(false)}>Keep</button>
-                <button type="button" className={cn(ACTION, "text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b] dark:text-red-300 dark:hover:bg-red-500/10")} onClick={() => remove(open)}>Delete</button>
+                <span className="mr-auto text-[12px] text-muted-foreground max-sm:text-[13px]">{tt("Sections showing it will show none.")}</span>
+                <button type="button" className={ACTION} onClick={() => setConfirming(false)}>{tt("Keep")}</button>
+                <button type="button" className={cn(ACTION, "text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b] dark:text-red-300 dark:hover:bg-red-500/10")} onClick={() => remove(open)}>{tt("Delete")}</button>
               </>
             ) : (
               <button type="button" className={cn(ACTION, "-ml-1.5 text-muted-foreground hover:bg-red-50 hover:text-[#b91c1c] dark:hover:bg-red-500/10 dark:hover:text-red-300")} onClick={() => setConfirming(true)}>
-                Delete menu
+                {tt("Delete menu")}
               </button>
             )}
           </div>
@@ -247,7 +248,7 @@ export function MenusEditor({
         {rows.map((handle, i) => {
           const menu = menuOf(handle)
           const links = menu.links ?? []
-          const preview = links.length ? links.map((l) => l.title).filter(Boolean).join(", ") : "No links yet"
+          const preview = links.length ? links.map((l) => l.title).filter(Boolean).join(", ") : tt("No links yet")
           return (
             <button
               key={handle}
@@ -267,7 +268,7 @@ export function MenusEditor({
                     {menu.title || (handle === MAIN_MENU ? MAIN_MENU_TITLE : handle)}
                   </span>
                   {headerHandle === handle && (
-                    <span className="shrink-0 rounded bg-muted px-1.5 py-px text-[10.5px] font-medium text-muted-foreground dark:bg-white/[0.08]">Header</span>
+                    <span className="shrink-0 rounded bg-muted px-1.5 py-px text-[10.5px] font-medium text-muted-foreground dark:bg-white/[0.08]">{tt("Header")}</span>
                   )}
                 </span>
                 <span className="mt-0.5 block truncate text-[12px] text-muted-foreground max-sm:text-[13px]">{preview}</span>
@@ -282,9 +283,9 @@ export function MenusEditor({
           /* Not a <form>: Website Settings is one already, and a form in a form sent Enter to the wrong one. */
           <div className="flex items-center gap-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none" data-menu-new="">
             <input
-              aria-label="New menu name"
+              aria-label={tt("New menu name")}
               className={FIELD}
-              placeholder="Footer"
+              placeholder={tt("Footer")}
               autoFocus
               value={name}
               maxLength={MENU_LIMITS.titleLength}
@@ -312,7 +313,7 @@ export function MenusEditor({
               disabled={!name.trim()}
               className="h-8 max-sm:h-11 shrink-0 rounded-md bg-[#1a1a2e] px-3 text-[13px] max-sm:text-[15px] font-medium text-white transition-colors hover:bg-[#2d2d4e] disabled:opacity-40 dark:bg-white dark:text-[#0f0f0f] dark:hover:bg-white/90"
             >
-              Add
+              {tt("Add")}
             </button>
           </div>
         ) : (
@@ -325,11 +326,11 @@ export function MenusEditor({
             <span aria-hidden className="flex h-4 w-4 items-center justify-center rounded-full border border-border">
               <Plus className="h-2.5 w-2.5" strokeWidth={2.5} />
             </span>
-            Add menu
+            {tt("Add menu")}
           </button>
         )
       ) : (
-        <p className={NOTE}>A store holds {MENU_LIMITS.menus} menus.</p>
+        <p className={NOTE}>{tt("A store holds {menus} menus.", { menus: MENU_LIMITS.menus })}</p>
       )}
     </div>
   )

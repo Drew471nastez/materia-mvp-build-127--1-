@@ -10,6 +10,7 @@ import { join } from "node:path"
 import { TRACKERS, TRACKER_HOSTS, TRACKER_ORDER, readTracking, tidyId, trackingTags } from "@/lib/store/tracking"
 import { INTEGRATIONS, integrationById, searchIntegrations, visibleIntegrations } from "@/lib/integrations/catalog"
 import { CONTENT_SECURITY_POLICY } from "@/lib/security/csp"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -18,7 +19,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 console.log("\nAn ID, never code\n")
 {
@@ -37,7 +38,7 @@ console.log("\nAn ID, never code\n")
 console.log("\nOn the website, and only there\n")
 {
   const comp = read("components/website-builder/store-tracking.tsx")
-  check("the tags load after the page is interactive, each with its own id", /strategy="afterInteractive"/.test(comp) && /id=\{`storelib-\$\{t\.key\}`\}/.test(comp))
+  check("the tags load after the page is interactive, each with its own id", /strategy="afterInteractive"/.test(comp) && /* Round 25 (G25): each tag's id also names the store's IDs, so a second store's page opened without a full load gets its own tag. */ /id=\{`storelib-\$\{x\.key\}-\$\{tagged\}`\}/.test(comp))
   const pages = ["app/(site)/w/[username]/render-site.tsx", "app/(site)/w/[username]/search/page.tsx", "app/(site)/w/[username]/products/page.tsx", "app/(site)/w/[username]/products/[slug]/page.tsx", "app/(site)/w/[username]/collections/page.tsx", "app/(site)/w/[username]/collections/[handle]/page.tsx", "app/(site)/w/[username]/cart/page.tsx", "app/(site)/w/[username]/render-account.tsx"]
   const missing = pages.filter((p) => !/<StoreTracking creatorId=\{/.test(read(p)))
   check("every published page of the website carries them", missing.length === 0, missing)

@@ -39,9 +39,10 @@ import { FooterSection } from "@/components/website-builder/sections/renderers/F
 import { StorefrontProvider } from "@/components/website-builder/theme/storefront-context"
 import { DEVELOPER_DOCS } from "@/lib/developers/content.generated"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -216,7 +217,7 @@ console.log("\nLayout reaches the page")
   const css = themeStylesheet(t)
   check("Section gap puts a margin between body sections", /\[data-section-box\]:not\(\[data-chrome\]\) ~ \[data-section-box\]:not\(\[data-chrome\]\)\{margin-top:var\(--theme-section-gap\);\}/.test(css))
   check("and none when it is 0", !/--theme-section-gap\)/.test(themeStylesheet({ section_gap: 0 } as unknown as ThemeSettingsValues)))
-  const sections = readFileSync(join(root, "themes/default/sources.generated.ts"), "utf8")
+  const sections = untt(readFileSync(join(root, "themes/default/sources.generated.ts"), "utf8"), "themes/default/sources.generated.ts")
   check("the shipped sections read the page width, the side padding and the spacing scale", /var\(--theme-page-width/.test(sections) && /var\(--theme-padding-x/.test(sections) && /var\(--theme-spacing-scale/.test(sections))
 
   check("Card shadow, untouched, draws nothing", !("--theme-container-shadow" in parityVars({})))

@@ -28,6 +28,7 @@ import { COURSE_FAQS, COURSE_WHATS_INCLUDED, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDE
 import { countLine, courseSeconds, lengthLabel, lessonClock, lessonsIn, previewLessons, secondsIn } from "../lib/courses/outline"
 import { PUT_RETRY_DELAYS_MS, putFailure } from "../lib/courses/upload-client"
 import { stripComments } from "./_source"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -40,7 +41,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 console.log("\nThe kinds and where each opens")

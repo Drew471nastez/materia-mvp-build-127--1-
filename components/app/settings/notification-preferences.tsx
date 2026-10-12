@@ -13,6 +13,7 @@ import {
 } from "@/lib/notify/preference-view"
 import type { PreferenceCategory } from "@/lib/notify/types"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -117,7 +118,7 @@ export function NotificationPreferencesPanel() {
     show(category, channel, enabled)
     setErrors((e) => ({ ...e, [category]: undefined }))
     let ok = false
-    let message = "That did not save. Try again."
+    let message = tt("That did not save. Try again.")
     try {
       const res = await fetch("/api/notifications/preferences", {
         method: "PUT",
@@ -147,23 +148,23 @@ export function NotificationPreferencesPanel() {
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <h3 id="notifications-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
-            Email and notifications
+            {tt("Email and notifications")}
             <Saved at={savedAt} />
           </h3>
-          <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">What Storelib tells you about, and where.</p>
+          <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{tt("What Storelib tells you about, and where.")}</p>
         </div>
       </div>
 
       <div aria-hidden="true" className="mt-3 flex justify-end border-b border-[#f0f1f3] pb-2 text-[12px] font-medium text-[#6b7280]">
-        <span className={EMAIL_COL}>Email</span>
-        <span className={APP_COL}>In app</span>
+        <span className={EMAIL_COL}>{tt("Email")}</span>
+        <span className={APP_COL}>{tt("In app")}</span>
       </div>
 
       {load.state === "error" ? (
         <div className="flex min-h-[120px] flex-col items-start justify-center gap-3 py-4" data-notification-prefs-error="">
-          <p className="text-[13px] leading-[1.45] text-[#6b7280]">Your notification settings did not load.</p>
+          <p className="text-[13px] leading-[1.45] text-[#6b7280]">{tt("Your notification settings did not load.")}</p>
           <button type="button" onClick={() => void read()} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[13px]")}>
-            Try again
+            {tt("Try again")}
           </button>
         </div>
       ) : (
@@ -186,7 +187,7 @@ export function NotificationPreferencesPanel() {
                   <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{c.detail}</p>
                 </div>
                 {c.required ? (
-                  <span className="flex w-[148px] shrink-0 justify-center text-[13px] text-[#9ca3af]">Always on</span>
+                  <span className="flex w-[148px] shrink-0 justify-center text-[13px] text-[#9ca3af]">{tt("Always on")}</span>
                 ) : (
                   <div className="flex shrink-0 items-center" aria-hidden="true">
                     <span className={EMAIL_COL}>
@@ -203,7 +204,7 @@ export function NotificationPreferencesPanel() {
       )}
 
       <p className="mt-3 border-t border-[#f0f1f3] pt-3 text-[12.5px] leading-[1.45] text-[#6b7280]" data-required-why="">
-        {REQUIRED_WHY}
+        {tt(REQUIRED_WHY)}
       </p>
     </section>
   )
@@ -231,16 +232,16 @@ function PreferenceRow({
       </div>
       {row.required ? (
         <span className="flex w-[148px] shrink-0 justify-center text-[13px] text-[#9ca3af]" data-always-on="">
-          Always on
+          {tt("Always on")}
         </span>
       ) : (
         <div className="flex shrink-0 items-center">
           <span className={EMAIL_COL}>
             {/* Sales too: its email was a small "Every sale" menu wider than the column, which ran into the In app switch. On is every sale. */}
-            <Switch label={`${row.label} by email`} checked={row.channels.email.enabled} onChange={(v) => onChange(row.category, "email", v)} />
+            <Switch label={tt("{label} by email", { label: row.label })} checked={row.channels.email.enabled} onChange={(v) => onChange(row.category, "email", v)} />
           </span>
           <span className={APP_COL}>
-            <Switch label={`${row.label} in app`} checked={row.channels.in_app.enabled} onChange={(v) => onChange(row.category, "in_app", v)} />
+            <Switch label={tt("{label} in app", { label: row.label })} checked={row.channels.in_app.enabled} onChange={(v) => onChange(row.category, "in_app", v)} />
           </span>
         </div>
       )}

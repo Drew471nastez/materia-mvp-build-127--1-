@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react"
+import { tt } from "@/lib/i18n/text"
 
 export type OwnSource = "anthropic" | "openai"
 
@@ -61,7 +62,7 @@ export function ownFor(keys: OwnKey[], vendor: "anthropic" | "openai"): OwnSourc
 }
 
 export function ownLabel(source: OwnSource): string {
-  return source === "anthropic" ? "Your Claude key" : "Your OpenAI key"
+  return source === "anthropic" ? tt("Your Claude key") : tt("Your OpenAI key")
 }
 
 export function useOwnAi(): OwnAiState & { refresh: () => Promise<void> } {

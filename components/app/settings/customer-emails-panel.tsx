@@ -44,6 +44,7 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { GROUP_NAMES, GROUP_ORDER, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail } from "@/lib/emails/customer-catalog"
 import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, PLACEHOLDERS, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
+import { tt } from "@/lib/i18n/text"
 
 export const CUSTOMER_EMAILS_PATH = "/api/store/emails"
 
@@ -110,7 +111,7 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
                           {e.name}
                           {edited ? (
                             <span className="text-[12px] font-normal text-[#6b7280]" data-email-edited="">
-                              · Edited
+                              · {tt("Edited")}
                             </span>
                           ) : null}
                         </span>
@@ -134,7 +135,7 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
       {bare ? (
         list
       ) : (
-        <Card title="Customer emails" description="What your buyers get from you, and when. Open one to see it and change its words. Each goes out with your store's name, and a reply comes to your contact email.">
+        <Card title={tt("Customer emails")} description={tt("What your buyers get from you, and when. Open one to see it and change its words. Each goes out with your store's name, and a reply comes to your contact email.")}>
           {list}
         </Card>
       )}
@@ -151,7 +152,7 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
 }
 
 type Draft = Required<EmailCopy>
-const LABELS: Record<CopyField, string> = { subject: "Subject", heading: "Heading", body: "Text", button: "Button" }
+const LABELS: Record<CopyField, string> = { get subject() { return tt("Subject") }, get heading() { return tt("Heading") }, get body() { return tt("Text") }, get button() { return tt("Button") } }
 
 function draftOf(id: string | undefined, saved: EmailCopy | undefined): Draft {
   const def = id ? DEFAULT_COPY[id] : undefined
@@ -222,7 +223,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
   const isDefault = !saved
 
   const close = () => {
-    if (dirty && !window.confirm("Leave without saving your changes to this email?")) return
+    if (dirty && !window.confirm(tt("Leave without saving your changes to this email?"))) return
     onClose()
   }
 
@@ -273,7 +274,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
 
   const fields = editable ? (
     <div className="space-y-3.5" data-email-editor={id}>
-      {!ready ? <Notice tone="amber">Saving changes needs the database update (SQL part 129). You can try words out here meanwhile.</Notice> : null}
+      {!ready ? <Notice tone="amber">{tt("Saving changes needs the database update (SQL part 129). You can try words out here meanwhile.")}</Notice> : null}
       {COPY_FIELDS.map((f) => (
         <Field key={f} label={LABELS[f]} htmlFor={`email-${f}`}>
           {f === "body" ? (
@@ -286,7 +287,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
               onSelect={remember(f)}
               onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
               className={cn(FIELD, PHONE_SAFE, "h-auto min-h-[132px] resize-y py-2.5 leading-[21px] sm:h-auto")}
-              placeholder="No opening text"
+              placeholder={tt("No opening text")}
               data-email-field={f}
             />
           ) : (
@@ -307,7 +308,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
         </Field>
       ))}
       <div>
-        <p className="text-[12.5px] text-[#6b7280]">Placeholders fill in for each order. Tap one to add it where you&apos;re typing.</p>
+        <p className="text-[12.5px] text-[#6b7280]">{tt("Placeholders fill in for each order. Tap one to add it where you're typing.")}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {PLACEHOLDERS.map((p) => (
             <button
@@ -327,9 +328,9 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
       </div>
       {checked && checked.ok === false ? <Notice>{checked.error}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">The items, totals, tracking and links stay as they are, filled in from each order.</p>
+      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("The items, totals, tracking and links stay as they are, filled in from each order.")}</p>
       <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset}>
-        Reset to default
+        {tt("Reset to default")}
       </button>
     </div>
   ) : null
@@ -338,23 +339,23 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
     <div className="space-y-2.5" data-email-preview={id}>
       {mail ? (
         <p className="text-[13px] text-[#6b7280]" data-email-subject="">
-          <span className="font-medium text-[#374151]">Subject:</span> {mail.subject}
+          <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}
         </p>
       ) : null}
-      <PreviewFrame title={`${email?.name ?? "Email"} preview`} html={mail?.html ?? ""} paused={!active} />
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">A sample order with your store&apos;s name. The real email has the buyer&apos;s own items, address and order.</p>
+      <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail?.html ?? ""} paused={!active} />
+      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("A sample order with your store's name. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )
 
   const testButton = (
     <button type="button" className={BTN_GHOST} disabled={!id || test?.state === "sending"} onClick={() => void sendTest()} data-email-test="">
-      {test?.state === "sending" ? "Sending" : "Send test"}
+      {test?.state === "sending" ? tt("Sending") : tt("Send test")}
     </button>
   )
   const testNote =
     test?.state === "sent" ? (
       <span className="truncate text-[13px] text-[#6b7280]" aria-live="polite" data-email-test-note="">
-        Sent to {test.to}
+        {tt("Sent to {to}", { to: test.to })}
       </span>
     ) : test?.state === "failed" ? (
       <span className="truncate text-[13px] text-[#b42318]" aria-live="polite" data-email-test-note="">
@@ -367,7 +368,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
       <div className="flex min-w-0 items-center gap-1">
         {editable ? (
           <button type="button" className={cn(BTN_GHOST, "hidden sm:inline-flex")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset} data-email-reset="">
-            Reset to default
+            {tt("Reset to default")}
           </button>
         ) : null}
         {testButton}
@@ -376,12 +377,12 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
       <div className="flex shrink-0 items-center gap-3">
         {savedNote && !dirty ? (
           <span className="text-[13px] text-[#6b7280]" aria-live="polite">
-            Saved
+            {tt("Saved")}
           </span>
         ) : null}
         {editable ? (
           <button type="button" className={BTN_PRIMARY} disabled={!dirty || busy || !ready || (checked !== null && checked.ok === false)} onClick={() => void save(draft)} data-email-save="">
-            {busy ? "Saving" : "Save"}
+            {busy ? tt("Saving") : tt("Save")}
           </button>
         ) : null}
       </div>
@@ -393,7 +394,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
   const header = (
     <div className="flex shrink-0 items-center gap-3 border-b border-[#f1f2f4] px-4 py-3 pr-12 sm:px-5 sm:py-4">
       <div className="min-w-0">
-        <SheetDialogTitle className="text-[16px] font-semibold leading-6 text-[#1a1a2e]">{email?.name ?? "Email"}</SheetDialogTitle>
+        <SheetDialogTitle className="text-[16px] font-semibold leading-6 text-[#1a1a2e]">{email?.name ?? tt("Email")}</SheetDialogTitle>
         <p className="truncate text-[12.5px] text-[#6b7280]">{email?.sentWhen}</p>
       </div>
     </div>
@@ -404,7 +405,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
       open={!!email}
       onClose={close}
       phone={phone}
-      label={email?.name ?? "Email"}
+      label={email?.name ?? tt("Email")}
       sheet={{ height: PHONE_SHEET_HEIGHT, maxHeight: PHONE_SHEET_HEIGHT }}
       /* Nothing is chosen for the person on open: a subject selected as the dialog came up was one key from being typed over. */
       onOpenAutoFocus={(e) => e.preventDefault()}
@@ -445,7 +446,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
 /** Preview and Edit, with the chosen one's white thumb sliding under the words rather than jumping. */
 function PaneSwitch({ tab, onTab }: { tab: "preview" | "edit"; onTab: (t: "preview" | "edit") => void }) {
   return (
-    <div role="tablist" aria-label="Preview or edit" className="relative mx-4 mt-3 flex shrink-0 rounded-xl bg-[#f1f2f4] p-1" data-email-switch="">
+    <div role="tablist" aria-label={tt("Preview or edit")} className="relative mx-4 mt-3 flex shrink-0 rounded-xl bg-[#f1f2f4] p-1" data-email-switch="">
       <span
         aria-hidden
         className="absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_1px_1px_rgba(16,24,40,0.04)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
@@ -461,7 +462,7 @@ function PaneSwitch({ tab, onTab }: { tab: "preview" | "edit"; onTab: (t: "previ
           className={cn("relative z-[1] h-8 flex-1 rounded-lg px-3 text-[13px] font-medium transition-colors duration-200 [-webkit-tap-highlight-color:transparent]", tab === t ? "text-[#1a1a2e]" : "text-[#6b7280]")}
           data-email-tab={t}
         >
-          {t === "preview" ? "Preview" : "Edit"}
+          {t === "preview" ? tt("Preview") : tt("Edit")}
         </button>
       ))}
     </div>

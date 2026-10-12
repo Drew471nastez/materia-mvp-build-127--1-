@@ -7,12 +7,45 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
  *
  * ONE PLACE PER PAGE, NOT ONE FOR ALL OF THEM. It held a single number, so
  * Explore, then a category, then Back put Explore at the category's offset.
- * It holds `{ "<path>": y }` now (explore-scroll-boot reads the same shape).
+ *
+ * AND ONE PLACE PER VISIT, NOT PER PATH (round 25). It was keyed by the path
+ * alone, so Explore, its search results (/explore?q=), Discover communities
+ * (/explore?type=communities) and a second visit to Explore further back in
+ * the history all shared one number: Back from a product opened in the
+ * results put Explore at the results' offset. A place is kept now under the
+ * history entry it belongs to (the Navigation API's entry key, which a
+ * replaceState keeps and a push never shares) and under the full address
+ * (path and query) for a browser without that API. `{ "<key>": y }`, the
+ * entry keys starting with "#" so they never meet an address, which starts
+ * with "/" (explore-scroll-boot reads the same shape).
  */
 export const EXPLORE_SCROLL_KEY = "explore-scroll-position"
+/** The places kept at most: an entry key per visit adds up over a long session, the oldest go first. */
+const MAX_PLACES = 60
 
 function isExploreSurface(path = ""): boolean {
   return path === "/explore" || path.startsWith("/explore/")
+}
+
+/** The history entry on screen, where the browser names it (the Navigation API: Chrome, Edge, Safari 26). */
+export function exploreEntryKey(): string | null {
+  try {
+    const key = (window as { navigation?: { currentEntry?: { key?: unknown } | null } }).navigation?.currentEntry?.key
+    return typeof key === "string" && key ? `#${key}` : null
+  } catch {
+    return null
+  }
+}
+
+/** The address on screen, with its query: Explore and its search results are different places. */
+export function exploreAddressKey(): string {
+  return window.location.pathname + (window.location.search || "")
+}
+
+/** Where the place on screen is kept, most exact first: its history entry, then its address. */
+export function explorePlaceKeys(): string[] {
+  const entry = exploreEntryKey()
+  return entry ? [entry, exploreAddressKey()] : [exploreAddressKey()]
 }
 
 function readPlaces(): Record<string, number> {
@@ -26,15 +59,24 @@ function readPlaces(): Record<string, number> {
 }
 
 function readSavedScroll(): number | null {
-  const y = readPlaces()[window.location.pathname]
-  return typeof y === "number" && Number.isFinite(y) && y >= 0 ? y : null
+  const places = readPlaces()
+  for (const key of explorePlaceKeys()) {
+    const y = places[key]
+    if (typeof y === "number" && Number.isFinite(y) && y >= 0) return y
+  }
+  return null
 }
 
-/** `path` is the page the position belongs to: read when its listeners were set, because on the way out the address is already the next page's. */
-function writeScroll(y: number, path: string = window.location.pathname) {
+/** Written under the keys of the place on screen, the newest last so the oldest are the ones let go. */
+function writeScroll(y: number, keys: string[] = explorePlaceKeys()) {
   try {
     const places = readPlaces()
-    places[path] = Math.max(0, Math.round(y))
+    for (const key of keys) {
+      delete places[key]
+      places[key] = Math.max(0, Math.round(y))
+    }
+    const all = Object.keys(places)
+    for (const key of all.slice(0, Math.max(0, all.length - MAX_PLACES))) delete places[key]
     sessionStorage.setItem(EXPLORE_SCROLL_KEY, JSON.stringify(places))
   } catch {
     /* Private mode, or storage that is full. */
@@ -68,6 +110,47 @@ export const EXPLORE_HOLD_MAX_MS = 700
  * useExploreScrollRestore.
  */
 let backTraversal = false
+/**
+ * WHERE THE LAST BACK OR FORWARD WENT, kept until a push or until Explore
+ * has acted on it. The flag above is cleared by the router's own history
+ * write in the commit; this is not (a replaceState keeps the entry), so a
+ * Back between two addresses of the same mounted Explore (its results and
+ * Explore itself) is still known in the layout effect that follows it, and
+ * so is a Back whose Explore mounts a commit later (after its loading
+ * screen). While it names the address on screen, no scroll is written for
+ * it: in the moment between the address
+ * changing and the page under it being drawn, the scroll belongs to the
+ * page that is going.
+ */
+let traversalTo: string | null = null
+/** The Backs the boot script has numbered (window.__explorePop) that are already acted on, or overtaken by a push. */
+let seenPop = 0
+
+function bootPop(): { seq: number; to: string | null } | null {
+  try {
+    const pop = (window as { __explorePop?: { seq?: unknown; to?: unknown } }).__explorePop
+    return pop && typeof pop.seq === "number" ? { seq: pop.seq, to: typeof pop.to === "string" ? pop.to : null } : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Where a Back or Forward that nothing has acted on yet went, or null. The
+ * boot script's count first (it hears a Back before the router does); this
+ * module's own listener for a page without it.
+ */
+function pendingTraversal(): string | null {
+  const pop = bootPop()
+  if (pop && pop.seq > seenPop && pop.to) return pop.to
+  return traversalTo
+}
+
+/** The Back is acted on, or a push has overtaken it. */
+function settleTraversal() {
+  traversalTo = null
+  seenPop = bootPop()?.seq ?? seenPop
+}
 /** The document's own arrival (a reload, or a back that loaded the page again) is honoured once, not on every later visit in the tab. */
 let documentArrivalUsed = false
 
@@ -79,9 +162,33 @@ if (typeof window !== "undefined") {
   } catch {
     /* no timing entry: the arrival rule below simply finds nothing */
   }
+  /* A Back from before this code was loaded is not one of Explore's: Explore had not been shown in this document. */
+  seenPop = bootPop()?.seq ?? 0
+  /*
+    HEARD TOO LATE ON ITS OWN (round 25). This is why Back to Explore landed
+    at the top on the live site while every probe against `next dev` passed.
+    The router's popstate listener (Next's app-router.js) was added when the
+    app started, this one only when Explore's code first loaded, so the
+    router heard each Back first; and it starts its update inside the
+    popstate event, which React 19 renders and commits there and then. Explore
+    was drawn, and asked whether this was a return, before this listener had
+    run: no, so the top (a production build at 1440: first frame back at 0,
+    not 2000). A capture listener does not help: Chromium runs a window's
+    popstate listeners in the order they were added. So the Back is read
+    from the boot script's listener in <head>, the first on the window
+    (pendingTraversal); this one stays for a page without it.
+  */
   window.addEventListener("popstate", () => {
-    backTraversal = true
     documentArrivalUsed = true
+    /* The boot script has it, and heard it first; marking it here, after the router's commit, would mark a Back Explore has already acted on. */
+    if (bootPop()) return
+    backTraversal = true
+    /*
+      NO CLOCK ON IT. It had one (1.5s), and a Back whose page took longer to come (the router drawing Explore's loading
+      screen first, then Explore once its data was in) reached an Explore that no longer knew it was a return: it landed at
+      the top. It lasts until Explore acts on it, the next Back or Forward, or a push.
+    */
+    traversalTo = exploreAddressKey()
   })
   /*
     A PAGE BROUGHT BACK WHOLE FROM THE BROWSER'S CACHE IS ALREADY WHERE IT
@@ -99,6 +206,7 @@ if (typeof window !== "undefined") {
   const { pushState, replaceState } = history
   history.pushState = function (...args) {
     clearTraversal()
+    settleTraversal()
     /* A page pushed after the document's first one is a visit by a link, never the document's own arrival. */
     documentArrivalUsed = true
     return pushState.apply(this, args)
@@ -149,8 +257,24 @@ function documentArrivedByHistory(): boolean {
  * Pure reads, nothing consumed, so it is safe to call while rendering.
  */
 function arrivingByHistory(): boolean {
-  if (backTraversal) return true
+  if (backTraversal || pendingTraversal() === exploreAddressKey()) return true
   return documentArrivedByHistory() && peekRestorePending()
+}
+
+/**
+ * This render is of a Back or Forward to the page on screen, as a client
+ * navigation (the page's state can be drawn as it was left, from its first
+ * frame). Read while rendering, like backTraversal; nothing consumed.
+ */
+export function exploreReturning(): boolean {
+  if (typeof window === "undefined") return false
+  return backTraversal || pendingTraversal() === exploreAddressKey()
+}
+
+/** This document was loaded by a reload or a Back or Forward that nothing has acted on yet: state is put back from a layout effect, never while hydrating. */
+export function exploreDocumentReturn(): boolean {
+  if (typeof window === "undefined") return false
+  return documentArrivedByHistory()
 }
 
 /** True while explore is putting scroll back after back from a product. */
@@ -175,10 +299,15 @@ export function decideExploreRestore(cameBack: boolean): number | null {
   const byDocument = documentArrivedByHistory() && peekRestorePending()
   /* The boot script (explore-scroll-boot) already holds for a document arrival: that is an arrival too. */
   const held = document.documentElement.classList.contains(HOLD_CLASS)
+  /* A Back or Forward to this very address that the render did not see (the router wrote the entry first). */
+  const traversed = pendingTraversal() === exploreAddressKey()
   documentArrivalUsed = true
   backTraversal = false
+  settleTraversal()
   clearRestorePending()
-  if (!cameBack && !byDocument && !held) return null
+  if (!cameBack && !traversed && !byDocument && !held) return null
+  /* A return, at the top or not: it is drawn as it was left, so the landing fade of a new visit is not played on it. */
+  setSettling(true)
   const target = readSavedScroll()
   return target != null && target > 0 ? target : null
 }
@@ -208,7 +337,7 @@ function scrollToSaved(target: number): boolean {
   const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
   const y = Math.min(target, maxY)
   window.scrollTo(0, y)
-  return Math.abs(window.scrollY - y) < 2
+  return Math.abs(window.scrollY - y) < 2 && y === target
 }
 
 let holdTimer = 0
@@ -221,7 +350,7 @@ function setExploreHold(on: boolean) {
 
 /*
   ===========================================================================
-   COMING BACK IS ONE STILL PICTURE, THEN A GENTLE FADE
+   COMING BACK IS THE PAGE AS IT WAS LEFT, AND NOTHING MOVES
   ===========================================================================
   Filmed on the way back from a product (round 11): Explore's first frame
   stood at 1516 with the card the visitor had left at 291px showing at
@@ -230,19 +359,43 @@ function setExploreHold(on: boolean) {
   parts above the fold settled, and the restore loop then pulling it back.
   With anchoring off the same back lands at 1500, card at 291, on its first
   frame. So while Explore is putting itself back (and for a moment after,
-  while the pictures above settle) anchoring is off, and the page comes in
-  with a short fade from most of the way there rather than a hard cut.
-  (globals.css: html.explore-scroll-settling.)
+  while the pictures above settle) anchoring is off (globals.css:
+  html.explore-scroll-settling).
+
+  NO FADE WHEN NOTHING WAS HIDDEN (round 25, the owner: "it must return
+  exactly where I was, smoothly, not jump to the top or glitch"). Every
+  return used to come in on a fade from 0.55, so the first frame back was a
+  washed out copy of the page (filmed at 390 with 4x CPU: one pale frame,
+  then the page). A Back on a phone shows the screen as it was, so that is
+  what this does: when the place is put back before the first frame is
+  painted, the page is simply there. Only a return that had to be held out
+  of sight for painted frames (the page still growing, or a document load
+  the boot script hid) comes in on the short fade, from most of the way
+  there (html.explore-scroll-revealing).
 */
 const SETTLE_CLASS = "explore-scroll-settling"
-/** Long enough for the fade (220ms) and the first pictures above to settle. */
+const REVEAL_CLASS = "explore-scroll-revealing"
+/** Long enough for the pictures above the place to settle with anchoring off. */
 export const EXPLORE_SETTLE_MS = 420
+/** The fade after a hold (220ms) and a frame to spare. */
+export const EXPLORE_REVEAL_MS = 260
 let settleTimer = 0
+let revealTimer = 0
 
 function setSettling(on: boolean) {
   window.clearTimeout(settleTimer)
   document.documentElement.classList.toggle(SETTLE_CLASS, on)
   if (on) settleTimer = window.setTimeout(() => document.documentElement.classList.remove(SETTLE_CLASS), EXPLORE_SETTLE_MS)
+}
+
+/** The fade in after a hold: started as the page shows, not back when it was hidden. */
+function reveal() {
+  const root = document.documentElement
+  window.clearTimeout(revealTimer)
+  root.classList.remove(REVEAL_CLASS)
+  void root.offsetWidth
+  root.classList.add(REVEAL_CLASS)
+  revealTimer = window.setTimeout(() => root.classList.remove(REVEAL_CLASS), EXPLORE_REVEAL_MS)
 }
 
 /**
@@ -258,6 +411,8 @@ function setSettling(on: boolean) {
  * page, and when Explore unmounts.
  */
 function restoreScrollPosition(target: number, onDone?: () => void): () => void {
+  /* Hidden before this ran (the boot script, for a document load): frames were painted hidden. */
+  const bootHeld = document.documentElement.classList.contains(HOLD_CLASS)
   primeExploreScrollRestore(target)
 
   let attempts = 0
@@ -266,7 +421,7 @@ function restoreScrollPosition(target: number, onDone?: () => void): () => void 
   let over = false
   const path = window.location.pathname
   const stopEvents = ["touchstart", "wheel", "keydown"] as const
-  const finish = (reveal: boolean) => {
+  const finish = (show: boolean) => {
     if (over) return
     over = true
     cancelAnimationFrame(frame)
@@ -275,13 +430,10 @@ function restoreScrollPosition(target: number, onDone?: () => void): () => void 
     const root = document.documentElement
     const held = root.classList.contains(HOLD_CLASS)
     setExploreHold(false)
-    if (reveal) {
-      /* Held out of sight while the page grew: the fade starts now, as it shows, not back when it was hidden. */
-      if (held) {
-        root.classList.remove(SETTLE_CLASS)
-        void root.offsetWidth
-      }
+    if (show) {
       setSettling(true)
+      /* The first try runs before the first frame is painted: a page put back there was never seen hidden, and needs no fade. */
+      if (held && (bootHeld || attempts > 1)) reveal()
     }
     onDone?.()
   }
@@ -306,6 +458,7 @@ function restoreScrollPosition(target: number, onDone?: () => void): () => void 
  */
 export function saveExploreScrollNow(): void {
   if (typeof window === "undefined" || !isExploreSurface(window.location.pathname)) return
+  if (pendingTraversal() === exploreAddressKey()) return
   writeScroll(window.scrollY)
   try {
     sessionStorage.setItem(RESTORE_PENDING_KEY, "1")
@@ -331,6 +484,23 @@ export function useExploreScrollRestore(): void {
   const [cameBack] = useState(() => typeof window !== "undefined" && backTraversal)
   /* Decided once per arrival, so an effect run twice (development) puts the place back the same way. */
   const decided = useRef<number | null | undefined>(undefined)
+  /* The address this Explore is drawing, for a Back or Forward that stays on the same mounted page (results and Explore). */
+  const address = typeof window === "undefined" ? "" : exploreAddressKey()
+  const drawnAddress = useRef(address)
+  const cancelRef = useRef<(() => void) | null>(null)
+
+  const putBack = (target: number) => {
+    cancelRef.current?.()
+    restoringRef.current = true
+    const cancel = restoreScrollPosition(target, () => {
+      restoringRef.current = false
+      decided.current = null
+      if (cancelRef.current === cancel) cancelRef.current = null
+      bump((n) => n + 1)
+    })
+    cancelRef.current = cancel
+    return cancel
+  }
 
   /* Before paint: scroll back to where you were so the top of Explore never flashes. */
   useLayoutEffect(() => {
@@ -343,31 +513,58 @@ export function useExploreScrollRestore(): void {
       return
     }
 
-    restoringRef.current = true
-    const cancel = restoreScrollPosition(target, () => {
-      restoringRef.current = false
-      decided.current = null
-      bump((n) => n + 1)
-    })
+    const cancel = putBack(target)
     return cancel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /*
+    A BACK THAT STAYS ON THIS PAGE. Explore and its search results are one
+    route, so going back from the results to Explore (or forward again) does
+    not mount Explore again: the same page draws the other address, and the
+    layout effect above never runs. The place of the entry it goes to is put
+    back here, before paint, the same way. A push or a pill (a replaceState)
+    is not a return and leaves the scroll to the page.
+  */
+  useLayoutEffect(() => {
+    if (drawnAddress.current === address) return
+    drawnAddress.current = address
+    if (!isExploreSurface(window.location.pathname)) return
+    if (pendingTraversal() !== address) return
+    settleTraversal()
+    backTraversal = false
+    setSettling(true)
+    const target = readSavedScroll()
+    if (target != null && target > 0) putBack(target)
+    else window.scrollTo(0, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address])
+
+  useEffect(() => () => cancelRef.current?.(), [])
+
   useEffect(() => {
     if (!isExploreSurface(window.location.pathname)) return
     const path = window.location.pathname
+    /*
+      WRITTEN ONLY FOR THE PAGE ON SCREEN. Not while it is being put back,
+      not while a Back or Forward is on its way (the address is already the
+      next entry's, the page under it not yet), and not once the address is
+      another page's (the scroll then belongs to that page).
+    */
+    const mine = () => !restoringRef.current && pendingTraversal() !== exploreAddressKey() && window.location.pathname === path
 
     let frame = 0
     const write = () => {
       frame = 0
-      if (restoringRef.current) return
-      writeScroll(window.scrollY, path)
+      if (!mine()) return
+      writeScroll(window.scrollY)
     }
     const handleLeave = () => {
       if (frame) cancelAnimationFrame(frame)
       frame = 0
+      if (!mine()) return
       const y = window.scrollY
-      writeScroll(y, path)
+      writeScroll(y)
       if (y > 0) {
         try {
           sessionStorage.setItem(RESTORE_PENDING_KEY, "1")
@@ -388,12 +585,17 @@ export function useExploreScrollRestore(): void {
     window.addEventListener("beforeunload", handleLeave)
     window.addEventListener("pagehide", handleLeave)
     window.addEventListener("scroll", handleScroll, { passive: true })
+    /* A press that leaves (a card, a creator, a community, a search sent): the place as it is at that moment, before the address changes. */
+    document.addEventListener("click", handleLeave, true)
+    document.addEventListener("submit", handleLeave, true)
 
     return () => {
       history.scrollRestoration = beforeRestoration
       window.removeEventListener("beforeunload", handleLeave)
       window.removeEventListener("pagehide", handleLeave)
       window.removeEventListener("scroll", handleScroll)
+      document.removeEventListener("click", handleLeave, true)
+      document.removeEventListener("submit", handleLeave, true)
       if (frame) handleLeave()
       setExploreHold(false)
     }

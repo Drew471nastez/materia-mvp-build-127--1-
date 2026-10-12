@@ -61,34 +61,36 @@ import {
   choiceOff,
   fieldInput,
 } from "@/components/onepage/editor-kit"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
 // Body text fonts
 const FONTS = [
-  { name: "Inter", category: "sans", style: "Clean & Professional", value: "'Inter', sans-serif" },
-  { name: "Poppins", category: "sans", style: "Rounded & Friendly", value: "'Poppins', sans-serif" },
-  { name: "Montserrat", category: "sans", style: "Elegant & Bold", value: "'Montserrat', sans-serif" },
-  { name: "Lato", category: "sans", style: "Balanced & Warm", value: "'Lato', sans-serif" },
-  { name: "Open Sans", category: "sans", style: "Web Standard", value: "'Open Sans', sans-serif" },
-  { name: "Roboto", category: "sans", style: "Modern & Versatile", value: "'Roboto', sans-serif" },
-  { name: "Raleway", category: "sans", style: "Elegant & Thin", value: "'Raleway', sans-serif" },
-  { name: "Nunito", category: "sans", style: "Soft & Rounded", value: "'Nunito', sans-serif" },
-  { name: "Quicksand", category: "sans", style: "Geometric & Friendly", value: "'Quicksand', sans-serif" },
-  { name: "Comfortaa", category: "sans", style: "Round & Geometric", value: "'Comfortaa', cursive" },
-  { name: "DM Sans", category: "sans", style: "Modern & Clean", value: "'DM Sans', sans-serif" },
-  { name: "Space Grotesk", category: "sans", style: "Geometric Modern", value: "'Space Grotesk', sans-serif" },
-  { name: "Sora", category: "sans", style: "Contemporary Clean", value: "'Sora', sans-serif" },
-  { name: "Playfair Display", category: "serif", style: "Elegant & Editorial", value: "'Playfair Display', serif" },
-  { name: "Merriweather", category: "serif", style: "Traditional & Warm", value: "'Merriweather', serif" },
-  { name: "Lora", category: "serif", style: "Classic & Readable", value: "'Lora', serif" },
-  { name: "Crimson Text", category: "serif", style: "Old Style & Elegant", value: "'Crimson Text', serif" },
-  { name: "Source Serif Pro", category: "serif", style: "Transitional Serif", value: "'Source Serif Pro', serif" },
-  { name: "Oswald", category: "display", style: "Strong & Narrow", value: "'Oswald', sans-serif" },
-  { name: "Archivo Black", category: "display", style: "Bold & Impact", value: "'Archivo Black', sans-serif" },
-  { name: "Barlow Condensed", category: "display", style: "Modern Condensed", value: "'Barlow Condensed', sans-serif" },
-  { name: "Dancing Script", category: "script", style: "Elegant Script", value: "'Dancing Script', cursive" },
-  { name: "Caveat", category: "script", style: "Natural Handwriting", value: "'Caveat', cursive" },
+  { name: "Inter", category: "sans", get style() { return tt("Clean & Professional") }, value: "'Inter', sans-serif" },
+  { name: "Poppins", category: "sans", get style() { return tt("Rounded & Friendly") }, value: "'Poppins', sans-serif" },
+  { name: "Montserrat", category: "sans", get style() { return tt("Elegant & Bold") }, value: "'Montserrat', sans-serif" },
+  { name: "Lato", category: "sans", get style() { return tt("Balanced & Warm") }, value: "'Lato', sans-serif" },
+  { name: "Open Sans", category: "sans", get style() { return tt("Web Standard") }, value: "'Open Sans', sans-serif" },
+  { name: "Roboto", category: "sans", get style() { return tt("Modern & Versatile") }, value: "'Roboto', sans-serif" },
+  { name: "Raleway", category: "sans", get style() { return tt("Elegant & Thin") }, value: "'Raleway', sans-serif" },
+  { name: "Nunito", category: "sans", get style() { return tt("Soft & Rounded") }, value: "'Nunito', sans-serif" },
+  { name: "Quicksand", category: "sans", get style() { return tt("Geometric & Friendly") }, value: "'Quicksand', sans-serif" },
+  { name: "Comfortaa", category: "sans", get style() { return tt("Round & Geometric") }, value: "'Comfortaa', cursive" },
+  { name: "DM Sans", category: "sans", get style() { return tt("Modern & Clean") }, value: "'DM Sans', sans-serif" },
+  { name: "Space Grotesk", category: "sans", get style() { return tt("Geometric Modern") }, value: "'Space Grotesk', sans-serif" },
+  { name: "Sora", category: "sans", get style() { return tt("Contemporary Clean") }, value: "'Sora', sans-serif" },
+  { name: "Playfair Display", category: "serif", get style() { return tt("Elegant & Editorial") }, value: "'Playfair Display', serif" },
+  { name: "Merriweather", category: "serif", get style() { return tt("Traditional & Warm") }, value: "'Merriweather', serif" },
+  { name: "Lora", category: "serif", get style() { return tt("Classic & Readable") }, value: "'Lora', serif" },
+  { name: "Crimson Text", category: "serif", get style() { return tt("Old Style & Elegant") }, value: "'Crimson Text', serif" },
+  { name: "Source Serif Pro", category: "serif", get style() { return tt("Transitional Serif") }, value: "'Source Serif Pro', serif" },
+  { name: "Oswald", category: "display", get style() { return tt("Strong & Narrow") }, value: "'Oswald', sans-serif" },
+  { name: "Archivo Black", category: "display", get style() { return tt("Bold & Impact") }, value: "'Archivo Black', sans-serif" },
+  { name: "Barlow Condensed", category: "display", get style() { return tt("Modern Condensed") }, value: "'Barlow Condensed', sans-serif" },
+  { name: "Dancing Script", category: "script", get style() { return tt("Elegant Script") }, value: "'Dancing Script', cursive" },
+  { name: "Caveat", category: "script", get style() { return tt("Natural Handwriting") }, value: "'Caveat', cursive" },
 ]
 
 // Display fonts for Title customization
@@ -123,33 +125,33 @@ const TITLE_FONTS = [
 const FONT_SAMPLE_HREF = onePageFontSampleHref([...FONTS.map((f) => f.name), ...TITLE_FONTS.map((f) => f.name)])
 
 const FONT_CATEGORIES = [
-  { id: "all", label: "All Fonts" },
-  { id: "sans", label: "Sans Serif" },
-  { id: "serif", label: "Serif" },
-  { id: "display", label: "Display" },
-  { id: "script", label: "Script" },
+  { id: "all", get label() { return tt("All Fonts") } },
+  { id: "sans", get label() { return tt("Sans Serif") } },
+  { id: "serif", get label() { return tt("Serif") } },
+  { id: "display", get label() { return tt("Display") } },
+  { id: "script", get label() { return tt("Script") } },
 ]
 
 const SOCIAL_STYLES = [
-  { id: "filled", label: "Solid" },
-  { id: "outline", label: "Outline" },
-  { id: "minimal", label: "Glass" },
+  { id: "filled", get label() { return tt("Solid") } },
+  { id: "outline", get label() { return tt("Outline") } },
+  { id: "minimal", get label() { return tt("Glass") } },
 ]
 
 const BACKGROUND_IMAGES = [
   // Nature image (kept)
-  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Nature" },
+  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", get label() { return tt("Nature") } },
   // Space image (kept)
-  { id: "space-stars", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", label: "Space" },
+  { id: "space-stars", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", get label() { return tt("Space") } },
   // New Supabase images
-  { id: "blocks-gradient", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/download.png", label: "Gradient Blocks" },
-  { id: "abstract-pink", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/c78fa2c87ca69f52361687fa7b27b909.jpg", label: "Abstract Pink" },
-  { id: "black-solid", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/black_background.jpg", label: "Black" },
-  { id: "dark-texture", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/b607af5996db7b6b9af70e1a777aa808.jpg", label: "Dark Texture" },
-  { id: "gradient-warm", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/510e061be1f3d8c7a56a9cff56c8ae24.jpg", label: "Warm Gradient" },
-  { id: "fusion-gradient", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg", label: "Fusion" },
-  { id: "blue-texture", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/214ffad10a8306624600af8823503d46.jpg", label: "Blue Texture" },
-  { id: "abstract-dark", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/19fef3f73560866d37752eb95418f4bb.jpg", label: "Abstract Dark" },
+  { id: "blocks-gradient", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/download.png", get label() { return tt("Gradient Blocks") } },
+  { id: "abstract-pink", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/c78fa2c87ca69f52361687fa7b27b909.jpg", get label() { return tt("Abstract Pink") } },
+  { id: "black-solid", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/black_background.jpg", get label() { return tt("Black") } },
+  { id: "dark-texture", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/b607af5996db7b6b9af70e1a777aa808.jpg", get label() { return tt("Dark Texture") } },
+  { id: "gradient-warm", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/510e061be1f3d8c7a56a9cff56c8ae24.jpg", get label() { return tt("Warm Gradient") } },
+  { id: "fusion-gradient", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg", get label() { return tt("Fusion") } },
+  { id: "blue-texture", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/214ffad10a8306624600af8823503d46.jpg", get label() { return tt("Blue Texture") } },
+  { id: "abstract-dark", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/19fef3f73560866d37752eb95418f4bb.jpg", get label() { return tt("Abstract Dark") } },
 ]
 
 /*
@@ -806,13 +808,13 @@ function previewSize(id: string, color: string, level: string): string | undefin
 }
 
 const SECTION_LABEL: Record<DesignSection, string> = {
-  theme: "Theme",
-  header: "Header",
-  wallpaper: "Wallpaper",
-  text: "Text",
-  buttons: "Buttons",
-  socials: "Social icons",
-  footer: "Footer",
+  get theme() { return tt("Theme") },
+  get header() { return tt("Header") },
+  get wallpaper() { return tt("Wallpaper") },
+  get text() { return tt("Text") },
+  get buttons() { return tt("Buttons") },
+  get socials() { return tt("Social icons") },
+  get footer() { return tt("Footer") },
 }
 
 /**
@@ -1066,10 +1068,10 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const titleFont = t.title_font ? familyOf(t.title_font) : null
   const patternName = isPatternId(t.background_pattern) && (theme.background_type === "solid" || theme.background_type === "gradient") ? WALLPAPER_PATTERNS.find((x) => x.id === t.background_pattern)?.name.toLowerCase() : null
   const wallpaperSummary =
-    theme.background_type === "gradient" ? `Gradient${patternName ? `, ${patternName}` : t.gradient_noise ? ", with grain" : ""}` :
-    theme.background_type === "image" ? (theme.background_image_url ? "Image" : "Image, none chosen yet") :
-    theme.background_type === "video" ? "Video" :
-    `Fill, ${(normalizeHex(theme.background_color) || theme.background_color || "").toUpperCase()}${patternName ? `, ${patternName}` : ""}`
+    theme.background_type === "gradient" ? tt("Gradient{value}", { value: patternName ? `, ${patternName}` : t.gradient_noise ? tt(", with grain") : "" }) :
+    theme.background_type === "image" ? (theme.background_image_url ? tt("Image") : tt("Image, none chosen yet")) :
+    theme.background_type === "video" ? tt("Video") :
+    tt("Fill, {value}{value2}", { value: (normalizeHex(theme.background_color) || theme.background_color || "").toUpperCase(), value2: patternName ? `, ${patternName}` : "" })
   const swatch = (bg: string) => <span aria-hidden className="h-7 w-7 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ background: bg }} />
 
   /* Which panel is drawn: the one open, or the one on its way out. */
@@ -1117,14 +1119,14 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
       >
         {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
         <div className={readingClass}>
-          <PanelHeader title="Design" />
-          <nav aria-label="Design" className="flex flex-col" onPointerDown={onRowDown} onPointerCancel={onRowCancel}>
-            <NavRow dataKey="theme" icon={Layers} title="Theme" subtitle={templateName || "Your own"} onClick={() => setSection("theme")} />
-            <NavRow dataKey="header" icon={CircleUserRound} title="Header" subtitle={`${(t.header_layout || "classic") === "hero" ? "Hero" : "Classic"} layout, ${t.title_style === "logo" ? "logo title" : "text title"}`} onClick={() => setSection("header")} />
+          <PanelHeader title={tt("Design")} />
+          <nav aria-label={tt("Design")} className="flex flex-col" onPointerDown={onRowDown} onPointerCancel={onRowCancel}>
+            <NavRow dataKey="theme" icon={Layers} title={tt("Theme")} subtitle={templateName || tt("Your own")} onClick={() => setSection("theme")} />
+            <NavRow dataKey="header" icon={CircleUserRound} title={tt("Header")} subtitle={tt("{value} layout, {value2}", { value: (t.header_layout || "classic") === "hero" ? tt("Hero") : tt("Classic"), value2: t.title_style === "logo" ? tt("logo title") : tt("text title") })} onClick={() => setSection("header")} />
             <NavRow
               dataKey="wallpaper"
               icon={PaintBucket}
-              title="Wallpaper"
+              title={tt("Wallpaper")}
               subtitle={wallpaperSummary}
               trailing={theme.background_type === "solid" || theme.background_type === "gradient" ? swatch(theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color) : null}
               onClick={() => setSection("wallpaper")}
@@ -1132,13 +1134,13 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
             <NavRow
               dataKey="text"
               icon={Type}
-              title="Text"
-              subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? `${bodyFont}, titles in ${titleFont}` : bodyFont}</span>}
+              title={tt("Text")}
+              subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? tt("{bodyFont}, titles in {titleFont}", { bodyFont, titleFont }) : bodyFont}</span>}
               onClick={() => setSection("text")}
             />
-            <NavRow dataKey="buttons" icon={RectangleHorizontal} title="Buttons" subtitle={`${theme.button_style === "filled" ? "Solid" : theme.button_style === "outline" ? "Outline" : "Glass"}, ${theme.button_border_radius ?? 8}px corners`} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
-            <NavRow dataKey="socials" icon={AtSign} title="Social icons" subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || "Solid"} onClick={() => setSection("socials")} />
-            <NavRow dataKey="footer" icon={PanelBottom} title="Footer" subtitle={settings.show_branding === false ? "Storelib badge hidden" : "Storelib badge shown"} onClick={() => setSection("footer")} />
+            <NavRow dataKey="buttons" icon={RectangleHorizontal} title={tt("Buttons")} subtitle={tt("{value}, {value2}px corners", { value: theme.button_style === "filled" ? tt("Solid") : theme.button_style === "outline" ? tt("Outline") : tt("Glass"), value2: theme.button_border_radius ?? 8 })} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
+            <NavRow dataKey="socials" icon={AtSign} title={tt("Social icons")} subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || tt("Solid")} onClick={() => setSection("socials")} />
+            <NavRow dataKey="footer" icon={PanelBottom} title={tt("Footer")} subtitle={settings.show_branding === false ? tt("Storelib badge hidden") : tt("Storelib badge shown")} onClick={() => setSection("footer")} />
           </nav>
         </div>
       </div>
@@ -1171,7 +1173,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         }
       >
         <div className={readingClass}>
-          {drawnSection ? <PanelHeader title={SECTION_LABEL[drawnSection]} onBack={() => setSection(null)} backLabel="Back to Design" /> : null}
+          {drawnSection ? <PanelHeader title={SECTION_LABEL[drawnSection]} onBack={() => setSection(null)} backLabel={tt("Back to Design")} /> : null}
           {DESIGN_SECTIONS.filter((id) => built.includes(id)).map((id) => (
             <Activity key={id} mode={id === drawnSection ? "visible" : "hidden"}>
               <div data-panel-body={id}>
@@ -1271,13 +1273,13 @@ function HeaderSection() {
     // Validate file type
     const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg']
     if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
-      alert('Please select a valid video file (MP4, WebM, or MOV)')
+      alert(tt("Please select a valid video file (MP4, WebM, or MOV)"))
       return
     }
     
     // Validate file size (max 100MB)
     if (file.size > 100 * 1024 * 1024) {
-      alert('Video file must be less than 100MB')
+      alert(tt("Video file must be less than 100MB"))
       return
     }
     
@@ -1480,7 +1482,7 @@ function HeaderSection() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        alert('Please sign in to upload videos')
+        alert(tt("Please sign in to upload videos"))
         setUploadingVideo(false)
         return
       }
@@ -1504,7 +1506,7 @@ function HeaderSection() {
         
         if (uploadError) {
           console.error("Upload error:", uploadError)
-          alert(`Failed to upload video: ${uploadError.message}. Please make sure the storage bucket is configured correctly by running the SQL migration.`)
+          alert(tt("Failed to upload video: {message}. Please make sure the storage bucket is configured correctly by running the SQL migration.", { message: uploadError.message }))
           setUploadingVideo(false)
           return
         }
@@ -1522,7 +1524,7 @@ function HeaderSection() {
       setTempVideoFile(null)
     } catch (error) {
       console.error("Video save error:", error)
-      alert('Failed to save video. Please try again.')
+      alert(tt("Failed to save video. Please try again."))
     } finally {
       setUploadingVideo(false)
     }
@@ -1952,7 +1954,7 @@ function HeaderSection() {
       setShowLogoCropModal(false)
     } catch (error) {
       console.error("Logo upload error:", error)
-      alert('Failed to save logo. Please try again.')
+      alert(tt("Failed to save logo. Please try again."))
     } finally {
       setUploadingLogo(false)
       if (tempLogoUrl) {
@@ -2044,13 +2046,13 @@ function HeaderSection() {
   return (
     <div>
       <PanelSection>
-        <SettingRow label="Profile image" description={avatarVideoUrl ? "A video, playing on a loop" : onepage.avatar_url ? "An image or GIF" : "Add a photo, a logo or a short video"}>
+        <SettingRow label={tt("Profile image")} description={avatarVideoUrl ? tt("A video, playing on a loop") : onepage.avatar_url ? tt("An image or GIF") : tt("Add a photo, a logo or a short video")}>
           {/* The picture itself is the button, with a pencil on its corner, as Linktree draws it. */}
           <button
             type="button"
             onClick={() => setShowEditModal(true)}
             disabled={uploading}
-            aria-label="Change profile image"
+            aria-label={tt("Change profile image")}
             data-avatar-edit
             className="relative aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
           >
@@ -2092,26 +2094,26 @@ function HeaderSection() {
         open={showEditModal}
         onClose={() => setShowEditModal(false)}
         phone={sheetPhone}
-        label="Profile Image"
+        label={tt("Profile Image")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b">
-            <SheetDialogTitle className="text-lg font-semibold text-center">Profile Image</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Profile Image")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => { setShowEditModal(false); setShowUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><ImageIcon className="h-6 w-6 text-gray-600" /></div>
-              <div className="flex-1 text-left"><p className="font-medium">Select image or GIF</p></div>
+              <div className="flex-1 text-left"><p className="font-medium">{tt("Select image or GIF")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
             <button onClick={() => { setShowEditModal(false); setShowVideoModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center"><Video className="h-6 w-6 text-yellow-600" /></div>
-              <div className="flex-1 text-left"><p className="font-medium">Select video</p></div>
+              <div className="flex-1 text-left"><p className="font-medium">{tt("Select video")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
             {(onepage.avatar_url || avatarVideoUrl) && (
               <button onClick={() => { handleRemoveImage(); handleRemoveVideo(); }} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors">
-                <Trash2 className="h-4 w-4" /><span className="font-medium">Remove current media</span>
+                <Trash2 className="h-4 w-4" /><span className="font-medium">{tt("Remove current media")}</span>
               </button>
             )}
           </div>
@@ -2122,19 +2124,19 @@ function HeaderSection() {
         open={showVideoModal}
         onClose={() => setShowVideoModal(false)}
         phone={sheetPhone}
-        label="Profile Video"
+        label={tt("Profile Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoModal(false); setShowEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Profile Video</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Profile Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => videoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left">
-                <p className="font-medium">Upload video</p>
-                <p className="text-sm text-gray-500">MP4, WebM up to 100MB</p>
+                <p className="font-medium">{tt("Upload video")}</p>
+                <p className="text-sm text-gray-500">{tt("MP4, WebM up to 100MB")}</p>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
@@ -2155,13 +2157,13 @@ function HeaderSection() {
           setVideoDimensions({ width: 0, height: 0 })
         }}
         phone={sheetPhone}
-        label="Crop Video"
+        label={tt("Crop Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
         dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempVideoUrl && (
@@ -2246,13 +2248,13 @@ function HeaderSection() {
                 </div>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Drag to move, drag bottom-right corner to resize
+                  {tt("Drag to move, drag bottom-right corner to resize")}
                 </p>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">Cancel</Button>
+                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">{tt("Cancel")}</Button>
                   <Button onClick={handleVideoCropSave} className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]" disabled={uploadingVideo}>
-                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                   </Button>
                 </div>
               </>
@@ -2264,19 +2266,19 @@ function HeaderSection() {
         open={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         phone={sheetPhone}
-        label="Upload media"
+        label={tt("Upload media")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowUploadModal(false); setShowEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload media")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
             <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
               <Upload className="h-12 w-12 text-gray-300 mb-4" />
-              <p className="font-medium text-gray-600">Select file to upload,</p>
-              <p className="font-medium text-gray-600">or drag-and-drop file</p>
-              <p className="text-sm text-gray-400 mt-2">Please upload an image</p>
+              <p className="font-medium text-gray-600">{tt("Select file to upload,")}</p>
+              <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
+              <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
           </div>
@@ -2286,12 +2288,12 @@ function HeaderSection() {
         open={showCropModal}
         onClose={() => { setShowCropModal(false); if (tempImageUrl) { URL.revokeObjectURL(tempImageUrl); setTempImageUrl(null); setTempImageFile(null) } }}
         phone={sheetPhone}
-        label="Crop Image"
+        label={tt("Crop Image")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowCropModal(false); setShowUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Image")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -2304,7 +2306,7 @@ function HeaderSection() {
                   {/* Image */}
                   <img 
                     src={tempImageUrl} 
-                    alt="Preview" 
+                    alt={tt("Preview")} 
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
                     style={{ 
                       width: imageSize.width, 
@@ -2364,13 +2366,13 @@ function HeaderSection() {
                 </div>
                 
                 <p className="text-xs text-center text-muted-foreground">
-                  Drag to move, drag bottom-right corner to resize
+                  {tt("Drag to move, drag bottom-right corner to resize")}
                 </p>
                 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowCropModal(false); setShowUploadModal(true) }} className="flex-1">Cancel</Button>
+                  <Button variant="outline" onClick={() => { setShowCropModal(false); setShowUploadModal(true) }} className="flex-1">{tt("Cancel")}</Button>
                   <Button onClick={handleCropSave} className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]" disabled={uploading}>
-                    {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                    {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                   </Button>
                 </div>
               </>
@@ -2383,19 +2385,19 @@ function HeaderSection() {
         open={showLogoUploadModal}
         onClose={() => setShowLogoUploadModal(false)}
         phone={sheetPhone}
-        label="Upload Logo"
+        label={tt("Upload Logo")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => setShowLogoUploadModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Logo</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload Logo")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
             <div onClick={() => logoFileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
               <Upload className="h-12 w-12 text-gray-300 mb-4" />
-              <p className="font-medium text-gray-600">Select logo to upload,</p>
-              <p className="font-medium text-gray-600">or drag-and-drop file</p>
-              <p className="text-sm text-gray-400 mt-2">PNG with transparent background recommended</p>
+              <p className="font-medium text-gray-600">{tt("Select logo to upload,")}</p>
+              <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
+              <p className="text-sm text-gray-400 mt-2">{tt("PNG with transparent background recommended")}</p>
             </div>
             <input ref={logoFileInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} className="hidden" />
           </div>
@@ -2415,12 +2417,12 @@ function HeaderSection() {
           }
         }}
         phone={sheetPhone}
-        label="Crop Logo"
+        label={tt("Crop Logo")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowLogoCropModal(false); setShowLogoUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Logo</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Logo")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempLogoUrl && (
@@ -2433,7 +2435,7 @@ function HeaderSection() {
                   {/* Image fills container */}
                   <img
                     src={tempLogoUrl}
-                    alt="Preview"
+                    alt={tt("Preview")}
                     className="w-full h-full object-contain pointer-events-none select-none"
                     draggable={false}
                   />
@@ -2516,10 +2518,10 @@ function HeaderSection() {
                   </div>
                 </div>
 
-                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize freely</p>
+                <p className="text-xs text-center text-gray-500">{tt("Drag to move, use corners to resize freely")}</p>
 
                 <Button onClick={handleLogoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingLogo}>
-                  {uploadingLogo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                  {uploadingLogo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                 </Button>
               </>
             )}
@@ -2527,24 +2529,24 @@ function HeaderSection() {
         </SheetDialog>
 
       <PanelSection>
-        <SectionTitle title="Profile image layout" />
+        <SectionTitle title={tt("Profile image layout")} />
         {(() => {
           /* Hero puts the picture behind the top of the page, so it cannot sit on a gradient, a photo, a video or a pattern. */
           const heroBlockedBy =
-            theme.background_type === "image" ? "an image wallpaper" :
-            theme.background_type === "gradient" ? "a gradient wallpaper" :
-            theme.background_type === "video" ? "a video wallpaper" :
-            (theme as any).background_pattern && (theme as any).background_pattern !== "none" ? "a pattern" : null
+            theme.background_type === "image" ? tt("an image wallpaper") :
+            theme.background_type === "gradient" ? tt("a gradient wallpaper") :
+            theme.background_type === "video" ? tt("a video wallpaper") :
+            (theme as any).background_pattern && (theme as any).background_pattern !== "none" ? tt("a pattern") : null
           return (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <ChoiceCard selected={effectiveLayout === "classic"} onClick={() => handleLayoutChange("classic")} label="Classic">
+                <ChoiceCard selected={effectiveLayout === "classic"} onClick={() => handleLayoutChange("classic")} label={tt("Classic")}>
                   <div className="flex h-[76px] flex-col items-center justify-center gap-1.5 rounded-xl bg-[#f7f7f8]">
                     <span data-layout-avatar="" className="h-7 w-7 aspect-square shrink-0 rounded-full bg-[#d9dbe0]" />
                     <span className="h-1.5 w-12 rounded-full bg-[#d9dbe0]" />
                   </div>
                 </ChoiceCard>
-                <ChoiceCard selected={effectiveLayout === "hero"} onClick={() => handleLayoutChange("hero")} disabled={!!heroBlockedBy} label="Hero">
+                <ChoiceCard selected={effectiveLayout === "hero"} onClick={() => handleLayoutChange("hero")} disabled={!!heroBlockedBy} label={tt("Hero")}>
                   <div className="relative flex h-[76px] flex-col items-center justify-end overflow-hidden rounded-xl bg-[#f7f7f8] pb-2.5">
                     <span className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#c9cbd1] to-[#f7f7f8]" />
                     <span className="relative h-1.5 w-12 rounded-full bg-[#d9dbe0]" />
@@ -2553,17 +2555,17 @@ function HeaderSection() {
               </div>
               {heroBlockedBy ? (
                 <p className="mt-3 text-[13.5px] text-[#6b7280]">
-                  Hero is off while the page uses {heroBlockedBy}.{" "}
+                  {tt("Hero is off while the page uses {heroBlockedBy}.", { heroBlockedBy })}{" "}
                   <button
                     type="button"
                     onClick={() => (heroBlockedBy === "a pattern" ? updateTheme({ background_pattern: "none" } as any) : updateTheme({ background_type: "solid" }))}
                     className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
                   >
-                    {heroBlockedBy === "a pattern" ? "Remove the pattern" : "Use a flat colour"}
+                    {heroBlockedBy === "a pattern" ? tt("Remove the pattern") : tt("Use a flat colour")}
                   </button>
                 </p>
               ) : effectiveLayout === "hero" ? (
-                <p className="mt-3 text-[13.5px] text-[#6b7280]">Your picture fills the top of the page and fades into it.</p>
+                <p className="mt-3 text-[13.5px] text-[#6b7280]">{tt("Your picture fills the top of the page and fades into it.")}</p>
               ) : null}
             </>
           )
@@ -2573,23 +2575,23 @@ function HeaderSection() {
       {effectiveLayout !== "hero" ? (
         <PanelSection>
           <SwitchRow
-            label="Glowing ring"
-            description="A light that circles your profile image"
+            label={tt("Glowing ring")}
+            description={tt("A light that circles your profile image")}
             checked={(theme as any).laser_glow_enabled || false}
             onChange={(checked) => updateTheme({ laser_glow_enabled: checked } as any)}
           />
           {(theme as any).laser_glow_enabled ? (
             <div className="mt-4 space-y-4">
               <ColorRow
-                label="Glow colour"
+                label={tt("Glow colour")}
                 value={(theme as any).laser_glow_color || "#3b82f6"}
                 onChange={(color) => updateTheme({ laser_glow_color: color } as any)}
                 suggestions={["#1a1a2e", "#3b82f6", "#b2846c", "#f59e0b", "#10b981", "#ffffff"]}
               />
               <Segmented
-                label="Glow strength"
+                label={tt("Glow strength")}
                 value={((theme as any).laser_glow_intensity || "medium") as "low" | "medium" | "hard"}
-                options={[{ id: "low", label: "Soft" }, { id: "medium", label: "Medium" }, { id: "hard", label: "Bright" }] as const}
+                options={[{ id: "low", label: tt("Soft") }, { id: "medium", label: tt("Medium") }, { id: "hard", label: tt("Bright") }] as const}
                 onChange={(id) => updateTheme({ laser_glow_intensity: id } as any)}
               />
             </div>
@@ -2600,16 +2602,16 @@ function HeaderSection() {
       <PanelSection>
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-2 block text-[15px] font-medium text-[#1a1a2e]">Title</span>
-            <input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" maxLength={60} className={fieldInput} />
+            <span className="mb-2 block text-[15px] font-medium text-[#1a1a2e]">{tt("Title")}</span>
+            <input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder={tt("Your name")} maxLength={60} className={fieldInput} />
           </label>
           <label className="block">
-            <span className="mb-2 block text-[15px] font-medium text-[#1a1a2e]">Bio</span>
+            <span className="mb-2 block text-[15px] font-medium text-[#1a1a2e]">{tt("Bio")}</span>
             <span className="relative block">
               <textarea
                 value={onepage.bio || ""}
                 onChange={(e) => updateProfile({ bio: e.target.value.slice(0, 160) })}
-                placeholder="Add a short bio"
+                placeholder={tt("Add a short bio")}
                 rows={3}
                 maxLength={160}
                 className={cn(fieldInput, "h-auto min-h-[104px] resize-none py-3 pb-7 leading-[1.45]")}
@@ -2621,12 +2623,12 @@ function HeaderSection() {
       </PanelSection>
 
       <PanelSection>
-        <SectionTitle title="Title style" />
+        <SectionTitle title={tt("Title style")} />
         <div className="grid grid-cols-2 gap-3">
-          <ChoiceCard selected={((theme as any).title_style || "text") === "text"} onClick={() => updateTheme({ title_style: "text" } as any)} label="Text">
-            <div className="grid h-12 place-items-center text-[22px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack((theme as any).title_font || theme.font_family) }}>Aa</div>
+          <ChoiceCard selected={((theme as any).title_style || "text") === "text"} onClick={() => updateTheme({ title_style: "text" } as any)} label={tt("Text")}>
+            <div className="grid h-12 place-items-center text-[22px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack((theme as any).title_font || theme.font_family) }}>{tt("Aa")}</div>
           </ChoiceCard>
-          <ChoiceCard selected={(theme as any).title_style === "logo"} onClick={() => updateTheme({ title_style: "logo" } as any)} label="Logo">
+          <ChoiceCard selected={(theme as any).title_style === "logo"} onClick={() => updateTheme({ title_style: "logo" } as any)} label={tt("Logo")}>
             <div className="grid h-12 place-items-center text-[#1a1a2e]"><ImageIcon className="h-6 w-6" strokeWidth={1.6} /></div>
           </ChoiceCard>
         </div>
@@ -2636,11 +2638,11 @@ function HeaderSection() {
             {(theme as any).title_logo_url ? (
               <div className="flex items-center gap-3">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#e3e4e8] bg-[repeating-conic-gradient(#eef0f2_0_90deg,#fff_90deg_180deg)_0_0/10px_10px]">
-                  <img src={(theme as any).title_logo_url} alt="Logo" className="h-full w-full object-contain" />
+                  <img src={(theme as any).title_logo_url} alt={tt("Logo")} className="h-full w-full object-contain" />
                 </div>
                 <div className="flex flex-1 gap-2">
-                  <button type="button" onClick={() => setShowLogoUploadModal(true)} className={cn(secondaryDepth, "h-11 flex-1 rounded-xl text-[14px]")}>Change logo</button>
-                  <button type="button" onClick={handleRemoveLogo} aria-label="Remove logo" className={cn(secondaryDepth, "h-11 w-11 rounded-xl text-[#b42318]")}><Trash2 className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => setShowLogoUploadModal(true)} className={cn(secondaryDepth, "h-11 flex-1 rounded-xl text-[14px]")}>{tt("Change logo")}</button>
+                  <button type="button" onClick={handleRemoveLogo} aria-label={tt("Remove logo")} className={cn(secondaryDepth, "h-11 w-11 rounded-xl text-[#b42318]")}><Trash2 className="h-4 w-4" /></button>
                 </div>
               </div>
             ) : (
@@ -2650,28 +2652,28 @@ function HeaderSection() {
                 className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-6 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]"
               >
                 <Upload className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />
-                <span className="text-[14px] font-medium">Upload a logo</span>
-                <span className="text-[13px] text-[#6b7280]">A PNG with a clear background looks best</span>
+                <span className="text-[14px] font-medium">{tt("Upload a logo")}</span>
+                <span className="text-[13px] text-[#6b7280]">{tt("A PNG with a clear background looks best")}</span>
               </button>
             )}
-            <SettingRow label="Logo position">
+            <SettingRow label={tt("Logo position")}>
               <Segmented
                 className="w-[220px]"
-                label="Logo position"
+                label={tt("Logo position")}
                 value={(theme as any).logo_position === "more_up" ? "more_up" : "default"}
-                options={[{ id: "default", label: "Default" }, { id: "more_up", label: "Higher" }] as const}
+                options={[{ id: "default", label: tt("Default") }, { id: "more_up", label: tt("Higher") }] as const}
                 onChange={(id) => updateTheme({ logo_position: id } as any)}
               />
             </SettingRow>
           </div>
         ) : null}
 
-        <SettingRow label="Title size" className="mt-5">
+        <SettingRow label={tt("Title size")} className="mt-5">
           <Segmented
             className="w-[220px]"
-            label="Title size"
+            label={tt("Title size")}
             value={(theme as any).title_size === "large" ? "large" : "default"}
-            options={[{ id: "default", label: "Default" }, { id: "large", label: "Large" }] as const}
+            options={[{ id: "default", label: tt("Default") }, { id: "large", label: tt("Large") }] as const}
             onChange={(id) => updateTheme({ title_size: id } as any)}
           />
         </SettingRow>
@@ -2720,7 +2722,7 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
       type="button"
       onClick={onPick}
       aria-pressed={selected}
-      aria-label={`${template.name} theme`}
+      aria-label={tt("{name} theme", { name: template.name })}
       data-theme-card={template.id}
       className={cn(
         "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
@@ -2774,11 +2776,11 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
 
 type ThemeFilter = "all" | "light" | "dark" | "gradient" | "image"
 const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  { id: "gradient", label: "Gradient" },
-  { id: "image", label: "Image" },
+  { id: "all", get label() { return tt("All") } },
+  { id: "light", get label() { return tt("Light") } },
+  { id: "dark", get label() { return tt("Dark") } },
+  { id: "gradient", get label() { return tt("Gradient") } },
+  { id: "image", get label() { return tt("Image") } },
 ]
 
 /** The themes of a new kind come in on a short fade in place. */
@@ -2956,7 +2958,7 @@ function ThemeSection() {
       */}
       <PillTabs
         dataRow="theme-kinds"
-        label="Theme kind"
+        label={tt("Theme kind")}
         items={THEME_KINDS}
         value={filter}
         onChange={pickFilter}
@@ -2980,11 +2982,11 @@ function ThemeSection() {
         open={showLayoutChangeDialog}
         onClose={() => setShowLayoutChangeDialog(false)}
         phone={sheetPhone}
-        label="Update profile image style?"
+        label={tt("Update profile image style?")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 pb-0">
-            <SheetDialogTitle className="text-lg font-semibold text-center">Update profile image style?</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Update profile image style?")}</SheetDialogTitle>
           </DialogHeader>
           
           <div className="p-5 space-y-4">
@@ -3006,7 +3008,7 @@ function ThemeSection() {
             </div>
 
             <p className="text-sm text-muted-foreground text-center">
-              This wallpaper option requires a <strong>Classic</strong> profile image layout.
+              <Rich text={tt("This wallpaper option requires a {layout} profile image layout.")} parts={{ layout: <strong>{tt("Classic")}</strong> }} />
             </p>
 
             <div className="space-y-2">
@@ -3014,14 +3016,14 @@ function ThemeSection() {
                 onClick={handleConfirmLayoutChange}
                 className="w-full py-3 px-4 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 transition-colors"
               >
-                Update to Classic
+                {tt("Update to Classic")}
               </button>
               
               <button
                 onClick={() => { setShowLayoutChangeDialog(false); setPendingTemplate(null); }}
                 className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
               >
-                Cancel
+                {tt("Cancel")}
               </button>
             </div>
           </div>
@@ -3065,11 +3067,11 @@ function DirectionDial({ value, onChange }: { value: number; onChange: (v: numbe
         ref={dialRef}
         role="slider"
         tabIndex={0}
-        aria-label="Gradient direction"
+        aria-label={tt("Gradient direction")}
         aria-valuemin={0}
         aria-valuemax={345}
         aria-valuenow={value}
-        aria-valuetext={`${value} degrees`}
+        aria-valuetext={tt("{value} degrees", { value })}
         data-sheet-no-drag=""
         onPointerDown={(e) => {
           e.preventDefault()
@@ -3229,13 +3231,13 @@ function WallpaperSection() {
     // Validate file type
     const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg']
     if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
-      alert('Please select a valid video file (MP4, WebM, or MOV)')
+      alert(tt("Please select a valid video file (MP4, WebM, or MOV)"))
       return
     }
 
     // Validate file size (max 100MB)
     if (file.size > 100 * 1024 * 1024) {
-      alert('Video file must be less than 100MB')
+      alert(tt("Video file must be less than 100MB"))
       return
     }
 
@@ -3382,7 +3384,7 @@ function WallpaperSection() {
       setShowWallpaperVideoCropModal(false)
     } catch (error) {
       console.error("Wallpaper video upload error:", error)
-      alert('Failed to upload video. Please try again.')
+      alert(tt("Failed to upload video. Please try again."))
     } finally {
       setUploadingWallpaperVideo(false)
       if (tempWallpaperVideoUrl) {
@@ -3415,7 +3417,7 @@ function WallpaperSection() {
       type === "image" ? (theme.background_image_url ? <img src={theme.background_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><ImageIcon className="h-5 w-5" strokeWidth={1.6} /></span>) :
       <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><Video className="h-5 w-5" strokeWidth={1.6} /></span>
     return (
-      <ChoiceCard key={type} selected={bgType === type} onClick={() => handleBgTypeChange(type)} label={type === "solid" ? "Fill" : type === "gradient" ? "Gradient" : type === "image" ? "Image" : "Video"} className="p-1.5">
+      <ChoiceCard key={type} selected={bgType === type} onClick={() => handleBgTypeChange(type)} label={type === "solid" ? tt("Fill") : type === "gradient" ? tt("Gradient") : type === "image" ? tt("Image") : tt("Video")} className="p-1.5">
         <span className="relative block aspect-square overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">{art}</span>
       </ChoiceCard>
     )
@@ -3473,29 +3475,29 @@ function WallpaperSection() {
   }
   const patternSection = (
     <PanelSection>
-      <SectionTitle title="Pattern and texture" description="Drawn over the colour, on the whole page" />
-      <p className="mb-2 text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Textures</p>
+      <SectionTitle title={tt("Pattern and texture")} description={tt("Drawn over the colour, on the whole page")} />
+      <p className="mb-2 text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Textures")}</p>
       <div className="grid grid-cols-4 gap-2" data-pattern-group="textures">
         {WALLPAPER_PATTERNS.filter((p) => p.kind !== "pattern").map(patternTile)}
       </div>
-      <p className="mb-2 mt-5 text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Patterns</p>
+      <p className="mb-2 mt-5 text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Patterns")}</p>
       <div className="grid grid-cols-4 gap-2" data-pattern-group="patterns">
         {WALLPAPER_PATTERNS.filter((p) => p.kind === "pattern").map(patternTile)}
       </div>
       {isPatternId(currentPattern) ? (
         <div className="mt-5 space-y-4">
           <ColorRow
-            label="Pattern colour"
+            label={tt("Pattern colour")}
             value={normalizeHex(ink)}
             onChange={(color) => updateTheme({ pattern_color: color + patternAlpha } as any)}
             suggestions={["#000000", "#ffffff", "#1a1a2e", theme.text_color, theme.button_color, "#b2846c"]}
           />
-          <SettingRow label="Strength" stackOnPhone>
+          <SettingRow label={tt("Strength")} stackOnPhone>
             <Segmented
               className="w-full sm:w-[300px]"
-              label="Pattern strength"
+              label={tt("Pattern strength")}
               value={((theme as any).pattern_opacity || "medium") as PatternOpacity}
-              options={[{ id: "low", label: "Light" }, { id: "medium", label: "Medium" }, { id: "hard", label: "Strong" }, { id: "very_hard", label: "Bold" }] as const}
+              options={[{ id: "low", label: tt("Light") }, { id: "medium", label: tt("Medium") }, { id: "hard", label: tt("Strong") }, { id: "very_hard", label: tt("Bold") }] as const}
               onChange={(id) => updateTheme({ pattern_opacity: id } as any)}
             />
           </SettingRow>
@@ -3507,14 +3509,14 @@ function WallpaperSection() {
   const noiseRows = (field: "gradient_noise" | "image_noise") => (
     <>
       <SwitchRow
-        label="Film grain"
-        description="A fine grain over the whole wallpaper"
+        label={tt("Film grain")}
+        description={tt("A fine grain over the whole wallpaper")}
         checked={!!(theme as any)[field]}
         onChange={(checked) => updateTheme({ [field]: checked } as any)}
       />
       {(theme as any)[field] ? (
         <div className="mt-3">
-          <RangeRow label="Grain strength" value={(theme as any).noise_strength || 15} min={5} max={50} step={5} onChange={(v) => updateTheme({ noise_strength: v } as any)} unit="%" ends={["Subtle", "Strong"]} />
+          <RangeRow label={tt("Grain strength")} value={(theme as any).noise_strength || 15} min={5} max={50} step={5} onChange={(v) => updateTheme({ noise_strength: v } as any)} unit="%" ends={[tt("Subtle"), tt("Strong")]} />
         </div>
       ) : null}
     </>
@@ -3523,7 +3525,7 @@ function WallpaperSection() {
   return (
     <div>
       <PanelSection>
-        <SectionTitle title="Wallpaper style" />
+        <SectionTitle title={tt("Wallpaper style")} />
         <div className="grid grid-cols-4 gap-2.5">{(["solid", "gradient", "image", "video"] as const).map(styleTile)}</div>
       </PanelSection>
 
@@ -3531,7 +3533,7 @@ function WallpaperSection() {
         <>
           <PanelSection>
             <ColorRow
-              label="Background colour"
+              label={tt("Background colour")}
               value={theme.background_color}
               onChange={(color) => updateTheme({ background_color: color })}
               suggestions={["#ffffff", "#f8f9fa", "#f4efe9", "#e9ecef", "#1a1a2e", "#0f172a", "#b2846c", "#fef3c7"]}
@@ -3548,13 +3550,13 @@ function WallpaperSection() {
             <div className="mt-5 flex items-center gap-5">
               <DirectionDial value={gradientInfo.direction} onChange={(dir) => handleGradientChange(dir, gradientInfo.color1, gradientInfo.color2)} />
               <div className="min-w-0 flex-1 space-y-3">
-                <ColorRow label="Start" value={gradientInfo.color1} onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)} />
-                <ColorRow label="End" value={gradientInfo.color2} onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)} />
+                <ColorRow label={tt("Start")} value={gradientInfo.color1} onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)} />
+                <ColorRow label={tt("End")} value={gradientInfo.color2} onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)} />
               </div>
             </div>
           </PanelSection>
           <PanelSection>
-            <SectionTitle title="Ready made" />
+            <SectionTitle title={tt("Ready made")} />
             <div className="grid grid-cols-6 gap-2">
               {[
                 "linear-gradient(160deg, #f7c59f 0%, #c4553b 100%)",
@@ -3573,7 +3575,7 @@ function WallpaperSection() {
                 <button
                   key={i}
                   type="button"
-                  aria-label={`Gradient ${i + 1}`}
+                  aria-label={tt("Gradient {value}", { value: i + 1 })}
                   aria-pressed={theme.background_gradient === grad}
                   onClick={() => updateTheme({ background_gradient: grad })}
                   className="relative aspect-square min-h-11 cursor-pointer rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
@@ -3585,7 +3587,7 @@ function WallpaperSection() {
             </div>
           </PanelSection>
           <PanelSection>
-            <SwitchRow label="Animate" description="The colours drift slowly across the page" checked={theme.animated_gradient || false} onChange={(checked) => updateTheme({ animated_gradient: checked })} />
+            <SwitchRow label={tt("Animate")} description={tt("The colours drift slowly across the page")} checked={theme.animated_gradient || false} onChange={(checked) => updateTheme({ animated_gradient: checked })} />
             <div className="mt-5">{noiseRows("gradient_noise")}</div>
           </PanelSection>
           {patternSection}
@@ -3597,20 +3599,20 @@ function WallpaperSection() {
           <PanelSection>
             {theme.background_image_url ? (
               <div className="relative aspect-video overflow-hidden rounded-2xl">
-                <img src={theme.background_image_url} alt="Wallpaper" className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
+                <img src={theme.background_image_url} alt={tt("Wallpaper")} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
                 <div className="absolute bottom-3 right-3 flex gap-2">
                   <button type="button" onClick={() => fileInputRef.current?.click()} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")} disabled={uploading}>
                     {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    Replace
+                    {tt("Replace")}
                   </button>
-                  <button type="button" aria-label="Remove image" onClick={() => updateTheme({ background_image_url: "" })} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
+                  <button type="button" aria-label={tt("Remove image")} onClick={() => updateTheme({ background_image_url: "" })} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
                 </div>
               </div>
             ) : (
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
                 {uploading ? <Loader2 className="h-6 w-6 animate-spin text-[#6b7280]" /> : <Upload className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />}
-                <span className="text-[14px] font-medium">{uploading ? "Uploading" : "Upload an image"}</span>
-                <span className="text-[13px] text-[#6b7280]">JPG, PNG or GIF. Tall pictures fit a phone best</span>
+                <span className="text-[14px] font-medium">{uploading ? tt("Uploading") : tt("Upload an image")}</span>
+                <span className="text-[13px] text-[#6b7280]">{tt("JPG, PNG or GIF. Tall pictures fit a phone best")}</span>
               </button>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
@@ -3618,14 +3620,14 @@ function WallpaperSection() {
           {theme.background_image_url ? (
             <PanelSection>
               <div className="space-y-5">
-                <RangeRow label="Brightness" value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} unit="%" />
-                <RangeRow label="Blur" value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} unit="px" />
+                <RangeRow label={tt("Brightness")} value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} unit="%" />
+                <RangeRow label={tt("Blur")} value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} unit="px" />
                 <div>{noiseRows("image_noise")}</div>
               </div>
             </PanelSection>
           ) : null}
           <PanelSection>
-            <SectionTitle title="From the library" />
+            <SectionTitle title={tt("From the library")} />
             <div className="grid grid-cols-3 gap-2.5">
               {BACKGROUND_IMAGES.map((bg) => (
                 <button
@@ -3653,27 +3655,27 @@ function WallpaperSection() {
             <div className="space-y-5">
               <div className="relative mx-auto aspect-[9/16] max-h-[300px] overflow-hidden rounded-2xl">
                 <video src={(theme as any).background_video_url} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).video_brightness || 100}%)` }} autoPlay loop muted playsInline />
-                <button type="button" aria-label="Remove video" onClick={handleRemoveWallpaperVideo} className={cn(secondaryDepth, "absolute right-3 top-3 h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
+                <button type="button" aria-label={tt("Remove video")} onClick={handleRemoveWallpaperVideo} className={cn(secondaryDepth, "absolute right-3 top-3 h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
               </div>
-              <SettingRow label="Brightness" stackOnPhone>
+              <SettingRow label={tt("Brightness")} stackOnPhone>
                 <Segmented
                   className="w-full sm:w-[320px]"
-                  label="Video brightness"
+                  label={tt("Video brightness")}
                   value={String((theme as any).video_brightness || 100) as "100" | "85" | "70" | "40"}
-                  options={[{ id: "100", label: "Normal" }, { id: "85", label: "Dim" }, { id: "70", label: "Darker" }, { id: "40", label: "Dark" }] as const}
+                  options={[{ id: "100", label: tt("Normal") }, { id: "85", label: tt("Dim") }, { id: "70", label: tt("Darker") }, { id: "40", label: tt("Dark") }] as const}
                   onChange={(id) => updateTheme({ video_brightness: Number(id) } as any)}
                 />
               </SettingRow>
               <button type="button" onClick={() => setShowWallpaperVideoModal(true)} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[14px]")}>
                 <Video className="h-4 w-4" />
-                Change video
+                {tt("Change video")}
               </button>
             </div>
           ) : (
             <button type="button" onClick={() => setShowWallpaperVideoModal(true)} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
               <Video className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />
-              <span className="text-[14px] font-medium">Upload a video</span>
-              <span className="text-[13px] text-[#6b7280]">MP4, WebM or MOV, up to 100MB</span>
+              <span className="text-[14px] font-medium">{tt("Upload a video")}</span>
+              <span className="text-[13px] text-[#6b7280]">{tt("MP4, WebM or MOV, up to 100MB")}</span>
             </button>
           )}
         </PanelSection>
@@ -3684,19 +3686,19 @@ function WallpaperSection() {
         open={showWallpaperVideoModal}
         onClose={() => setShowWallpaperVideoModal(false)}
         phone={sheetPhone}
-        label="Upload Video"
+        label={tt("Upload Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => setShowWallpaperVideoModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Video</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => wallpaperVideoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left">
-                <p className="font-medium">Upload from device</p>
-                <p className="text-sm text-gray-500">MP4, WebM, or MOV</p>
+                <p className="font-medium">{tt("Upload from device")}</p>
+                <p className="text-sm text-gray-500">{tt("MP4, WebM, or MOV")}</p>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
@@ -3716,13 +3718,13 @@ function WallpaperSection() {
           setIsWallpaperVideoResizing(null)
         }}
         phone={sheetPhone}
-        label="Crop Video"
+        label={tt("Crop Video")}
         className="w-[calc(100%-32px)] max-w-md sm:max-w-lg md:max-w-xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
         dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowWallpaperVideoCropModal(false); setShowWallpaperVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempWallpaperVideoUrl && (
@@ -3789,10 +3791,10 @@ function WallpaperSection() {
                   </div>
                 </div>
 
-                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize (9:16 portrait ratio locked)</p>
+                <p className="text-xs text-center text-gray-500">{tt("Drag to move, use corners to resize (9:16 portrait ratio locked)")}</p>
 
                 <Button onClick={handleWallpaperVideoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingWallpaperVideo}>
-                  {uploadingWallpaperVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                  {uploadingWallpaperVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                 </Button>
               </>
             )}
@@ -3804,11 +3806,11 @@ function WallpaperSection() {
         open={showLayoutChangeDialog}
         onClose={() => setShowLayoutChangeDialog(false)}
         phone={sheetPhone}
-        label="Update profile image style?"
+        label={tt("Update profile image style?")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 pb-0">
-            <SheetDialogTitle className="text-lg font-semibold text-center">Update profile image style?</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Update profile image style?")}</SheetDialogTitle>
           </DialogHeader>
           
           <div className="p-5 space-y-4">
@@ -3830,7 +3832,7 @@ function WallpaperSection() {
             </div>
 
             <p className="text-sm text-muted-foreground text-center">
-              This wallpaper option requires a <strong>Classic</strong> profile image layout.
+              <Rich text={tt("This wallpaper option requires a {layout} profile image layout.")} parts={{ layout: <strong>{tt("Classic")}</strong> }} />
             </p>
 
             <div className="space-y-2">
@@ -3838,14 +3840,14 @@ function WallpaperSection() {
                 onClick={handleConfirmLayoutChange}
                 className="w-full py-3 px-4 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 transition-colors"
               >
-                Update to Classic
+                {tt("Update to Classic")}
               </button>
               
               <button
                 onClick={() => { setShowLayoutChangeDialog(false); setPendingBgType(null); }}
                 className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
               >
-                Cancel
+                {tt("Cancel")}
               </button>
             </div>
           </div>
@@ -3949,7 +3951,7 @@ function FontPicker({
     if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) box.animate?.([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" })
   }
   const current = fonts.find((f) => f.value === value)
-  const name = value ? current?.name || familyOf(value) || value : defaultLabel || "Default"
+  const name = value ? current?.name || familyOf(value) || value : defaultLabel || tt("Default")
   const withCategories = fonts.some((f) => f.category)
   const shown = fonts.filter((f) => (family === "all" || f.category === family) && f.name.toLowerCase().includes(query.trim().toLowerCase()))
   const choose = (v: string | null) => {
@@ -3974,13 +3976,13 @@ function FontPicker({
       <div className="shrink-0 space-y-3 px-4 pb-3">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search fonts" aria-label="Search fonts" className={cn(fieldInput, "h-11 pl-10")} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search fonts")} aria-label={tt("Search fonts")} className={cn(fieldInput, "h-11 pl-10")} />
         </label>
         {withCategories ? (
           /* The editor's one pill-tab row (components/onepage/pill-tabs): the pill slides to the pressed kind from the press. */
           <PillTabs
             dataRow="font-kinds"
-            label="Kind of font"
+            label={tt("Kind of font")}
             items={FONT_CATEGORIES}
             value={family}
             onChange={chooseFamily}
@@ -3993,7 +3995,7 @@ function FontPicker({
         ) : null}
       </div>
       <div ref={listRef} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2">
-        {shown.length === 0 ? <p className="px-3 py-6 text-center text-[14px] text-[#6b7280]">No font by that name</p> : null}
+        {shown.length === 0 ? <p className="px-3 py-6 text-center text-[14px] text-[#6b7280]">{tt("No font by that name")}</p> : null}
         {shown.map((f) => {
           const on = f.value === value
           return (
@@ -4028,7 +4030,7 @@ function FontPicker({
       aria-expanded={open}
       className="flex min-h-[64px] w-full cursor-pointer items-center gap-4 rounded-2xl border border-[#e3e4e8] bg-white px-4 py-3 text-left transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] outline-none"
     >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[20px] text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }} aria-hidden>Aa</span>
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[20px] text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }} aria-hidden>{tt("Aa")}</span>
       <span className="min-w-0 flex-1">
         <span className="block text-[13px] text-[#6b7280]">{label}</span>
         <span className="block truncate text-[16px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }}>{name}</span>
@@ -4077,47 +4079,47 @@ function TextSection() {
     <div>
       <PanelSection>
         {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
-        <SectionTitle title="Fonts" />
+        <SectionTitle title={tt("Fonts")} />
         <div className="space-y-3">
           <FontPicker
-            label="Page font"
+            label={tt("Page font")}
             value={bodyValue}
             fonts={FONTS}
             sampleFamily={theme.font_family}
             onPick={(v) => v && updateTheme({ font_family: v })}
           />
           <FontPicker
-            label="Title font"
+            label={tt("Title font")}
             value={titleFont}
             fonts={TITLE_FONTS.map((f) => ({ ...f, name: f.value ? f.name : "Same as page font" }))}
             sampleFamily={theme.font_family}
-            defaultLabel="Same as page font"
+            defaultLabel={tt("Same as page font")}
             onPick={(v) => updateTheme({ title_font: v } as any)}
           />
         </div>
       </PanelSection>
 
       <PanelSection>
-        <SectionTitle title="Colours" />
+        <SectionTitle title={tt("Colours")} />
         <div className="space-y-4">
           <ColorRow
-            label="Title"
+            label={tt("Title")}
             value={(theme as any).title_color || null}
-            emptyLabel="Text colour"
+            emptyLabel={tt("Text colour")}
             fallback={theme.text_color}
             onChange={(color) => updateTheme({ title_color: color } as any)}
             onClear={() => updateTheme({ title_color: null } as any)}
             suggestions={["#ffffff", "#000000", "#1a1a2e", theme.text_color, theme.button_color, "#b2846c"]}
           />
           <ColorRow
-            label="Text"
+            label={tt("Text")}
             value={theme.text_color}
             onChange={(color) => updateTheme({ text_color: color })}
             suggestions={["#ffffff", "#000000", "#1a1a2e", "#374151", "#f4efe9", theme.button_color]}
           />
           <ColorRow
-            label="Secondary text"
-            description="The bio and small print"
+            label={tt("Secondary text")}
+            description={tt("The bio and small print")}
             value={theme.secondary_text_color || theme.text_color}
             onChange={(color) => updateTheme({ secondary_text_color: color })}
             suggestions={["#6b7280", "#9ca3af", "#d1d5db", "#374151", "#1f2937", "#e5e7eb"]}
@@ -4188,10 +4190,10 @@ function ButtonsSection() {
   return (
     <div>
       <PanelSection>
-        <SectionTitle title="Button style" />
+        <SectionTitle title={tt("Button style")} />
         <div className="grid grid-cols-3 gap-3">
           {(["filled", "outline", "glass"] as const).map((style) => (
-            <ChoiceCard key={style} selected={theme.button_style === style} onClick={() => handleButtonStyleChange(style)} label={style === "filled" ? "Solid" : style === "outline" ? "Outline" : "Glass"}>
+            <ChoiceCard key={style} selected={theme.button_style === style} onClick={() => handleButtonStyleChange(style)} label={style === "filled" ? tt("Solid") : style === "outline" ? tt("Outline") : tt("Glass")}>
               {sample(style)}
             </ChoiceCard>
           ))}
@@ -4200,29 +4202,29 @@ function ButtonsSection() {
 
       <PanelSection>
         <div className="space-y-5">
-          <RangeRow label="Corners" value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" ends={["Square", "Round"]} />
-          <RangeRow label="Border" value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} unit="px" />
+          <RangeRow label={tt("Corners")} value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" ends={[tt("Square"), tt("Round")]} />
+          <RangeRow label={tt("Border")} value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} unit="px" />
         </div>
       </PanelSection>
 
       <PanelSection>
-        <SectionTitle title="Colours" />
+        <SectionTitle title={tt("Colours")} />
         <div className="space-y-4">
           <ColorRow
-            label="Button"
+            label={tt("Button")}
             value={theme.button_color}
             onChange={(color) => updateTheme(theme.button_style === "outline" ? { button_color: color, button_border_color: color } : { button_color: color })}
             suggestions={["#1a1a2e", "#000000", "#ffffff", "#6b7280", "#b2846c", "#2f6f4f", "#e4572e", "#3b82f6"]}
           />
           <ColorRow
-            label="Button text"
+            label={tt("Button text")}
             value={theme.button_text_color}
             onChange={(color) => updateTheme({ button_text_color: color })}
             suggestions={["#ffffff", "#000000", "#1a1a2e", "#f8fafc", "#fef3c7"]}
           />
           {(theme.button_border_width ?? 0) > 0 || theme.button_style === "outline" ? (
             <ColorRow
-              label="Border"
+              label={tt("Border")}
               value={theme.button_border_color}
               onChange={(color) => updateTheme({ button_border_color: color })}
               suggestions={["#000000", "#ffffff", "#1a1a2e", "#e5e7eb", theme.button_color]}
@@ -4232,26 +4234,26 @@ function ButtonsSection() {
       </PanelSection>
 
       <PanelSection>
-        <SectionTitle title="Shadow" />
+        <SectionTitle title={tt("Shadow")} />
         <Segmented
-          label="Shadow"
+          label={tt("Shadow")}
           value={shadow}
-          options={[{ id: "none", label: "None" }, { id: "subtle", label: "Soft" }, { id: "strong", label: "Strong" }, { id: "hard", label: "Hard" }] as const}
+          options={[{ id: "none", label: tt("None") }, { id: "subtle", label: tt("Soft") }, { id: "strong", label: tt("Strong") }, { id: "hard", label: tt("Hard") }] as const}
           onChange={(id) => updateTheme({ button_shadow: id } as any)}
         />
         {shadow !== "none" ? (
           <div className="mt-4">
-            <ColorRow label="Shadow colour" value={(theme as any).button_shadow_color || "#000000"} onChange={(color) => updateTheme({ button_shadow_color: color } as any)} suggestions={["#000000", "#1a1a2e", "#ffffff", theme.button_color]} />
+            <ColorRow label={tt("Shadow colour")} value={(theme as any).button_shadow_color || "#000000"} onChange={(color) => updateTheme({ button_shadow_color: color } as any)} suggestions={["#000000", "#1a1a2e", "#ffffff", theme.button_color]} />
           </div>
         ) : null}
       </PanelSection>
 
       <PanelSection>
-        <SectionTitle title="On hover" description="How a button answers a pointer on a computer" />
+        <SectionTitle title={tt("On hover")} description={tt("How a button answers a pointer on a computer")} />
         <Segmented
-          label="On hover"
+          label={tt("On hover")}
           value={((theme as any).button_hover_animation || "default") as "default" | "fade" | "zoom"}
-          options={[{ id: "default", label: "Lift", hint: "Scales up" }, { id: "fade", label: "Fade", hint: "Dims" }, { id: "zoom", label: "Zoom", hint: "Grows" }] as const}
+          options={[{ id: "default", label: tt("Lift"), hint: tt("Scales up") }, { id: "fade", label: tt("Fade"), hint: tt("Dims") }, { id: "zoom", label: "Zoom", hint: tt("Grows") }] as const}
           onChange={(id) => updateTheme({ button_hover_animation: id } as any)}
         />
       </PanelSection>
@@ -4269,7 +4271,7 @@ function SocialsSection() {
   return (
     <div>
       <PanelSection>
-        <SectionTitle title="Icon style" />
+        <SectionTitle title={tt("Icon style")} />
         <div className="grid grid-cols-3 gap-3">
           {SOCIAL_STYLES.map((style) => (
             <ChoiceCard key={style.id} selected={socialStyle === style.id} onClick={() => updateTheme({ social_icon_style: style.id } as any)} label={style.label}>
@@ -4293,9 +4295,9 @@ function SocialsSection() {
       </PanelSection>
       <PanelSection>
         <ColorRow
-          label="Icon colour"
+          label={tt("Icon colour")}
           value={(theme as any).social_icon_color || null}
-          emptyLabel="Text colour"
+          emptyLabel={tt("Text colour")}
           fallback={theme.text_color}
           onChange={(color) => updateTheme({ social_icon_color: color } as any)}
           onClear={() => updateTheme({ social_icon_color: null } as any)}
@@ -4331,18 +4333,18 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
       <PanelSection>
         <div className="space-y-5">
           <SwitchRow
-            label="Hide the Storelib badge"
-            description={userHasPaidPlan ? "Removes \u201con Storelib\u201d from the foot of your page" : "Preview it here; saving it needs a paid plan"}
+            label={tt("Hide the Storelib badge")}
+            description={userHasPaidPlan ? tt("Removes “on Storelib” from the foot of your page") : tt("Preview it here; saving it needs a paid plan")}
             checked={hideBrandingEnabled}
             onChange={handleHideBrandingChange}
-            extra={<ProMark title={userHasPaidPlan ? "Included in your plan" : "Pro"} />}
+            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Pro"} />}
           />
           <SwitchRow
-            label="Verified badge"
-            description={userHasPaidPlan ? "A check mark beside your name" : "A check mark beside your name. Saving it needs a paid plan"}
+            label={tt("Verified badge")}
+            description={userHasPaidPlan ? tt("A check mark beside your name") : tt("A check mark beside your name. Saving it needs a paid plan")}
             checked={verifiedEnabled}
             onChange={handleVerifiedBadgeChange}
-            extra={<ProMark title={userHasPaidPlan ? "Included in your plan" : "Pro"} />}
+            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Pro"} />}
           />
         </div>
       </PanelSection>

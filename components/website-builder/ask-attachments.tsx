@@ -21,6 +21,7 @@ import { Film, RotateCcw, TriangleAlert, X } from "lucide-react"
 import type { AllowedImageType } from "@/lib/sites/agent/attachments"
 import { progressLabel } from "@/lib/website-builder/ask-attach"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export interface ComposerPicture {
   id: string
@@ -161,11 +162,11 @@ export function PictureTray({
             aria-label={
               item.state === "failed"
                 ? item.source
-                  ? `Try ${item.name} again`
+                  ? tt("Try {name} again", { name: item.name })
                   : item.name
                 : item.state === "preparing"
                   ? `${item.name}, ${progressLabel("preparing", item.progress)}`
-                  : `Open ${item.name}`
+                  : tt("Open {name}", { name: item.name })
             }
             title={item.error}
             className={cn(
@@ -194,7 +195,7 @@ export function PictureTray({
           <button
             type="button"
             onClick={() => onRemove(item.id)}
-            aria-label={`Remove ${item.name}`}
+            aria-label={tt("Remove {name}", { name: item.name })}
             className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[#e5e7eb] bg-white text-[#6b7280] shadow-sm transition-colors after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e]"
           >
             <X className="h-3 w-3" strokeWidth={2.5} />

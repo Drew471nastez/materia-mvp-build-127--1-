@@ -21,6 +21,8 @@ import { AnalyticsChartWithTooltip, type AnalyticsChartData } from "@/components
 import { MetricTab } from "@/components/app/metric-tab"
 import { longDate } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface LinkStats {
   total_clicks: number
@@ -35,7 +37,7 @@ function dayLabel(d: string): string {
   const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(d)
   const at = new Date(dateOnly ? `${d}T12:00:00Z` : d)
   if (Number.isNaN(at.getTime())) return d
-  return at.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(dateOnly ? { timeZone: "UTC" } : {}) })
+  return at.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", ...(dateOnly ? { timeZone: "UTC" } : {}) }))
 }
 
 /** The days of a period, for the placeholder before the first answer: the same dates the answer will have. */
@@ -72,14 +74,14 @@ export function LinkStatsChart({
     if (stats) return stats.chart_data.map((d) => ({ date: dayLabel(d.date), views: d.views, clicks: d.clicks, sales: 0, revenue: 0 }))
     return daysOf(start, end).map((d) => ({ date: dayLabel(d), views: 0, clicks: 0, sales: 0, revenue: 0 }))
   }, [stats, start, end])
-  const count = (n: number | undefined) => (n ?? 0).toLocaleString("en-US")
+  const count = (n: number | undefined) => (n ?? 0).toLocaleString(appLocale())
   const labels = React.useMemo(() => ({ clicks: clicksLabel }), [clicksLabel])
 
   return (
     <div data-link-stats="" className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" aria-busy={loading}>
-      <div role="tablist" aria-label="Metric" className="grid grid-cols-2 divide-x divide-[#e5e7eb]/60">
-        <MetricTab tab="views" label="Views" value={count(stats?.total_views)} foot="Times it was seen" selected={metric === "views"} loading={first} soft={loading && !first} onSelect={() => setMetric("views")} />
-        <MetricTab tab="clicks" label={clicksLabel} value={count(stats?.total_clicks)} foot={clicksLabel === "Clicks" ? "Taps on it" : clicksLabel === "Opens" ? "Times it was opened" : "Emails left"} selected={metric === "clicks"} loading={first} soft={loading && !first} onSelect={() => setMetric("clicks")} />
+      <div role="tablist" aria-label={tt("Metric")} className="grid grid-cols-2 divide-x divide-[#e5e7eb]/60">
+        <MetricTab tab="views" label={tt("Views")} value={count(stats?.total_views)} foot={tt("Times it was seen")} selected={metric === "views"} loading={first} soft={loading && !first} onSelect={() => setMetric("views")} />
+        <MetricTab tab="clicks" label={clicksLabel} value={count(stats?.total_clicks)} foot={clicksLabel === "Clicks" ? tt("Taps on it") : clicksLabel === "Opens" ? tt("Times it was opened") : tt("Emails left")} selected={metric === "clicks"} loading={first} soft={loading && !first} onSelect={() => setMetric("clicks")} />
       </div>
       <div className="border-t border-[#e5e7eb]/60 px-2 pb-3 pt-6 sm:px-3">
         <div className={cn("transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)]", loading && !first ? "opacity-40 blur-[1.5px]" : "opacity-100 blur-0")}>
@@ -96,7 +98,7 @@ export function LinkStatsChart({
         </div>
         <div className="mt-2 flex justify-between px-1 text-[11px] text-[#9ca3af]">
           <span>{longDate(start)}</span>
-          <span>{endIsToday ? "Now" : longDate(end)}</span>
+          <span>{endIsToday ? tt("Now") : longDate(end)}</span>
         </div>
       </div>
     </div>

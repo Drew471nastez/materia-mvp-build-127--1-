@@ -1,4 +1,5 @@
 import { CheckCircle2 } from "lucide-react"
+import { getServerTt } from "@/lib/i18n/server"
 
 /**
  * WHERE STRIPE'S OWN ID CHECK SENDS SOMEBODY BACK TO. In the phone app the
@@ -12,15 +13,16 @@ import { CheckCircle2 } from "lucide-react"
  */
 export const dynamic = "force-static"
 
-export default function IdentityDonePage() {
+export default async function IdentityDonePage() {
+  const { tt } = await getServerTt()
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-white px-8 text-center">
       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ecfdf3] text-[#067647]">
         <CheckCircle2 className="h-7 w-7" strokeWidth={2} />
       </span>
-      <h1 className="mt-5 text-[20px] font-semibold text-[#1a1a2e]">That is sent</h1>
+      <h1 className="mt-5 text-[20px] font-semibold text-[#1a1a2e]">{tt("That is sent")}</h1>
       <p className="mt-2 max-w-[320px] text-[15px] leading-6 text-[#6b7280]">
-        Stripe is checking your ID. You can close this and go back to Storelib; we will tell you the moment it is done.
+        {tt("Stripe is checking your ID. You can close this and go back to Storelib; we will tell you the moment it is done.")}
       </p>
     </main>
   )

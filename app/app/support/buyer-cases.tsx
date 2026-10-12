@@ -17,6 +17,7 @@ import { BTN_PRIMARY, BTN_SECONDARY, Empty, FIELD, Notice, Pill, api, dateTime }
 import { CASE_REASON_LABELS, STATUS_FOR_STORE, type CaseMessage, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
 import { card } from "../orders/order-parts"
 import { CasePhotoStrip } from "@/components/support/case-photos"
+import { tt } from "@/lib/i18n/text"
 
 const TONE: Record<CaseStatus, "blue" | "amber" | "gray" | "red"> = { store: "amber", buyer: "blue", storelib: "red", resolved: "gray" }
 const AREA = cn(FIELD, "h-auto min-h-[120px] py-2.5 leading-[21px] sm:h-auto")
@@ -27,13 +28,13 @@ export function BuyerCasesList({ cases, error, onOpen }: { cases: CaseSummary[] 
   if (cases.length === 0)
     return (
       <section className={cn(card, "p-2")}>
-        <Empty title="No buyer has asked for help">
-          When a buyer has a problem with an order (it hasn&apos;t arrived, it came damaged, they want a refund), they ask from their order page and it lands here and in your email. You answer first; either of you can ask Storelib to step in.
+        <Empty title={tt("No buyer has asked for help")}>
+          {tt("When a buyer has a problem with an order (it hasn't arrived, it came damaged, they want a refund), they ask from their order page and it lands here and in your email. You answer first; either of you can ask Storelib to step in.")}
         </Empty>
       </section>
     )
   return (
-    <section aria-label="Buyer cases" className={cn(card, "overflow-hidden")}>
+    <section aria-label={tt("Buyer cases")} className={cn(card, "overflow-hidden")}>
       <ul className="divide-y divide-[#f1f2f4]" data-buyer-cases="">
         {cases.map((c) => (
           <li key={c.id}>
@@ -51,7 +52,7 @@ export function BuyerCasesList({ cases, error, onOpen }: { cases: CaseSummary[] 
                 </span>
               </span>
               <Pill tone={TONE[c.status]} className="shrink-0">
-                {c.unread ? "New message" : STATUS_FOR_STORE[c.status]}
+                {c.unread ? tt("New message") : STATUS_FOR_STORE[c.status]}
               </Pill>
             </button>
           </li>
@@ -93,18 +94,18 @@ export function BuyerCaseThread({ id, onBack, onChanged, embedded }: { id: strin
     if (action !== "resolve") setReply("")
     if (r.data.case) setCase(r.data.case)
     if (r.data.messages) setMessages(r.data.messages)
-    toast.success(action === "reply" ? "Sent to the buyer by email." : action === "escalate" ? "Storelib will look at the case and write to you both." : "Marked resolved.")
+    toast.success(action === "reply" ? tt("Sent to the buyer by email.") : action === "escalate" ? tt("Storelib will look at the case and write to you both.") : tt("Marked resolved."))
     onChanged()
   }
 
-  const who = (m: CaseMessage) => (m.author === "store" ? "You" : m.author === "buyer" ? c?.buyerName || "The buyer" : "Storelib")
+  const who = (m: CaseMessage) => (m.author === "store" ? tt("You") : m.author === "buyer" ? c?.buyerName || tt("The buyer") : "Storelib")
 
   return (
     <div className="space-y-3" data-buyer-case={id}>
       {onBack ? (
         <button type="button" onClick={onBack} className="-ml-2 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#4b5563] hover:bg-white">
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          All buyer cases
+          {tt("All buyer cases")}
         </button>
       ) : null}
       {error ? <Notice>{error}</Notice> : null}
@@ -116,14 +117,14 @@ export function BuyerCaseThread({ id, onBack, onChanged, embedded }: { id: strin
             <div className="min-w-0">
               <h2 className="break-words text-[17px] font-semibold text-[#1a1a2e]">{CASE_REASON_LABELS[c.reason]}</h2>
               <p className="mt-0.5 text-[13px] text-[#6b7280] [overflow-wrap:anywhere]">
-                {c.sellerNumber ? `Order ${c.sellerNumber}${c.orderRef ? ` (buyer's reference ${c.orderRef})` : ""} · ` : c.orderRef ? `Order #${c.orderRef} · ` : ""}
+                {c.sellerNumber ? tt("Order {sellerNumber}{value} · ", { sellerNumber: c.sellerNumber, value: c.orderRef ? tt(" (buyer's reference {orderRef})", { orderRef: c.orderRef }) : "" }) : c.orderRef ? tt("Order #{orderRef} · ", { orderRef: c.orderRef }) : ""}
                 {c.buyerName ? `${c.buyerName}, ` : ""}
-                {c.buyerEmail} · Opened {dateTime(c.createdAt)}
+                {tt("{buyerEmail} · Opened {date}", { buyerEmail: c.buyerEmail, date: dateTime(c.createdAt) })}
               </p>
             </div>
             <Pill tone={TONE[c.status]}>{STATUS_FOR_STORE[c.status]}</Pill>
           </div>
-          {c.escalated ? <p className="border-b border-[#f1f2f4] bg-[#fafafa] px-4 py-2.5 text-[13px] text-[#4b5563] sm:px-5">Storelib is helping with this case. Its messages go to you and the buyer.</p> : null}
+          {c.escalated ? <p className="border-b border-[#f1f2f4] bg-[#fafafa] px-4 py-2.5 text-[13px] text-[#4b5563] sm:px-5">{tt("Storelib is helping with this case. Its messages go to you and the buyer.")}</p> : null}
           <ol className="space-y-3 px-4 py-4 sm:px-5">
             {messages.map((m) => (
               <li key={m.id} className={cn("max-w-[88%] rounded-2xl px-3.5 py-2.5", m.author === "store" ? "ml-auto bg-[#1a1a2e] text-white" : m.author === "storelib" ? "border border-[#e5e7eb] bg-white text-[#1a1a2e]" : "bg-[#f3f4f6] text-[#1a1a2e]")} data-message={m.author}>
@@ -137,13 +138,13 @@ export function BuyerCaseThread({ id, onBack, onChanged, embedded }: { id: strin
           </ol>
           <div className="space-y-2 border-t border-[#f1f2f4] px-4 py-4 sm:px-5">
             <label htmlFor="case-reply" className="sr-only">
-              Your reply
+              {tt("Your reply")}
             </label>
-            <textarea id="case-reply" className={AREA} value={reply} maxLength={5000} onChange={(e) => setReply(e.target.value)} placeholder={c.status === "resolved" ? "Write to open it again" : "Write to the buyer. A replacement, a refund, a tracking number: say what you'll do."} />
+            <textarea id="case-reply" className={AREA} value={reply} maxLength={5000} onChange={(e) => setReply(e.target.value)} placeholder={c.status === "resolved" ? tt("Write to open it again") : tt("Write to the buyer. A replacement, a refund, a tracking number: say what you'll do.")} />
             <div className="flex flex-wrap items-center justify-between gap-2">
               {!c.escalated && c.status !== "resolved" ? (
                 <button type="button" className="text-[13.5px] font-medium text-[#4b5563] underline underline-offset-4 hover:text-[#1a1a2e]" onClick={() => void act("escalate")} disabled={busy}>
-                  Ask Storelib to step in
+                  {tt("Ask Storelib to step in")}
                 </button>
               ) : (
                 <span />
@@ -151,11 +152,11 @@ export function BuyerCaseThread({ id, onBack, onChanged, embedded }: { id: strin
               <div className="flex flex-wrap gap-2">
                 {c.status !== "resolved" ? (
                   <button type="button" className={BTN_SECONDARY} onClick={() => void act("resolve")} disabled={busy}>
-                    Mark resolved
+                    {tt("Mark resolved")}
                   </button>
                 ) : null}
                 <button type="button" className={BTN_PRIMARY} onClick={() => void act("reply")} disabled={busy || !reply.trim()} data-case-reply="">
-                  Send to buyer
+                  {tt("Send to buyer")}
                 </button>
               </div>
             </div>

@@ -20,6 +20,7 @@ import { STATUS_FOR_STORE, TOPICS, TOPIC_LABELS, type TicketMessage, type Ticket
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, card } from "../orders/order-parts"
 import { BuyerCaseThread, BuyerCasesList } from "./buyer-cases"
 import type { CaseSummary } from "@/lib/support/cases"
+import { tt } from "@/lib/i18n/text"
 
 const TONE: Record<TicketStatus, "blue" | "amber" | "gray"> = { open: "blue", waiting: "amber", resolved: "gray" }
 const AREA = cn(FIELD, "h-auto min-h-[132px] py-2.5 leading-[21px] sm:h-auto")
@@ -65,16 +66,16 @@ export function SupportClient() {
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-support="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Support</h1>
+        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Support")}</h1>
         <button type="button" className={cn(BTN_PRIMARY, "gap-1.5")} onClick={() => setCreating(true)} data-support-new="">
           <Plus className="h-4 w-4" aria-hidden />
-          New request
+          {tt("New request")}
         </button>
       </PaneBar>
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        <div role="tablist" aria-label="Support" className="mb-4 inline-flex rounded-xl bg-[#eef0f2] p-1" data-support-tabs="">
+        <div role="tablist" aria-label={tt("Support")} className="mb-4 inline-flex rounded-xl bg-[#eef0f2] p-1" data-support-tabs="">
           {([
-            ["buyers", waiting ? `From buyers (${waiting})` : "From buyers"],
+            ["buyers", waiting ? tt("From buyers ({waiting})", { waiting }) : tt("From buyers")],
             ["storelib", "Storelib"],
           ] as const).map(([id, label]) => (
             <button
@@ -97,12 +98,12 @@ export function SupportClient() {
           <div className="min-h-[240px]" aria-busy="true" />
         ) : tickets.length === 0 ? (
           <section className={cn(card, "p-2")}>
-            <Empty title="Ask us anything" action={<button type="button" className={BTN_PRIMARY} onClick={() => setCreating(true)}>New request</button>}>
-              An order, a payout, a dispute, your website or something that isn&apos;t working. A real person at Storelib reads every one and replies here.
+            <Empty title={tt("Ask us anything")} action={<button type="button" className={BTN_PRIMARY} onClick={() => setCreating(true)}>{tt("New request")}</button>}>
+              {tt("An order, a payout, a dispute, your website or something that isn't working. A real person at Storelib reads every one and replies here.")}
             </Empty>
           </section>
         ) : (
-          <section aria-label="Your requests" className={cn(card, "overflow-hidden")}>
+          <section aria-label={tt("Your requests")} className={cn(card, "overflow-hidden")}>
             <ul className="divide-y divide-[#f1f2f4]" data-support-list="">
               {tickets.map((t) => (
                 <li key={t.id}>
@@ -117,7 +118,7 @@ export function SupportClient() {
                       </span>
                     </span>
                     <Pill tone={TONE[t.status]} className="shrink-0">
-                      {t.unread ? "New reply" : STATUS_FOR_STORE[t.status]}
+                      {t.unread ? tt("New reply") : STATUS_FOR_STORE[t.status]}
                     </Pill>
                   </button>
                 </li>
@@ -156,7 +157,7 @@ function NewRequest({ open, onClose, onCreated }: { open: boolean; onClose: () =
     setSubject("")
     setMessage("")
     setOrderRef("")
-    toast.success("Sent. We'll reply here and by email.")
+    toast.success(tt("Sent. We'll reply here and by email."))
     onCreated(r.data.ticket)
   }
 
@@ -165,21 +166,21 @@ function NewRequest({ open, onClose, onCreated }: { open: boolean; onClose: () =
     <Modal
       open={open}
       onClose={onClose}
-      title="New request"
+      title={tt("New request")}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" className={BTN_PRIMARY} onClick={() => void send()} disabled={sending} data-support-send="">
-            {sending ? "Sending" : "Send"}
+            {sending ? tt("Sending") : tt("Send")}
           </button>
         </>
       }
     >
       <div className="space-y-4" data-support-form="">
         {error ? <Notice>{error}</Notice> : null}
-        <Field label="What's it about?" htmlFor="support-topic">
+        <Field label={tt("What's it about?")} htmlFor="support-topic">
           <SelectInput id="support-topic" value={topic} onChange={(v) => setTopic(v as Topic)}>
             {TOPICS.map((t) => (
               <option key={t} value={t}>
@@ -188,18 +189,18 @@ function NewRequest({ open, onClose, onCreated }: { open: boolean; onClose: () =
             ))}
           </SelectInput>
         </Field>
-        <Field label="Subject" htmlFor="support-subject">
-          <TextInput id="support-subject" value={subject} maxLength={150} onChange={(e) => setSubject(e.target.value)} placeholder="Payout hasn't arrived" />
+        <Field label={tt("Subject")} htmlFor="support-subject">
+          <TextInput id="support-subject" value={subject} maxLength={150} onChange={(e) => setSubject(e.target.value)} placeholder={tt("Payout hasn't arrived")} />
         </Field>
         {showsOrder ? (
-          <Field label="Order number" hint="Optional. The code after # on the order." htmlFor="support-order">
+          <Field label={tt("Order number")} hint={tt("Optional. The code after # on the order.")} htmlFor="support-order">
             <TextInput id="support-order" value={orderRef} maxLength={61} onChange={(e) => setOrderRef(e.target.value)} placeholder="#1A2B3C4D" />
           </Field>
         ) : null}
-        <Field label="Details" hint="What happened, what you expected, and anything you've tried." htmlFor="support-message">
+        <Field label={tt("Details")} hint={tt("What happened, what you expected, and anything you've tried.")} htmlFor="support-message">
           <textarea id="support-message" className={AREA} value={message} maxLength={5000} onChange={(e) => setMessage(e.target.value)} />
         </Field>
-        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">Never send passwords or card details. We&apos;ll never ask for them.</p>
+        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Never send passwords or card details. We'll never ask for them.")}</p>
       </div>
     </Modal>
   )
@@ -252,7 +253,7 @@ function Thread({ id, onBack, onChanged }: { id: string; onBack: () => void; onC
     <div className="space-y-3" data-support-thread={id}>
       <button type="button" onClick={onBack} className="-ml-2 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#4b5563] hover:bg-white">
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        All requests
+        {tt("All requests")}
       </button>
       {error ? <Notice>{error}</Notice> : null}
       {!ticket ? (
@@ -264,7 +265,7 @@ function Thread({ id, onBack, onChanged }: { id: string; onBack: () => void; onC
               <h2 className="break-words text-[17px] font-semibold text-[#1a1a2e]">{ticket.subject}</h2>
               <p className="mt-0.5 text-[13px] text-[#6b7280]">
                 {TOPIC_LABELS[ticket.topic]}
-                {ticket.orderRef ? ` · Order #${ticket.orderRef}` : ""} · Opened {dateTime(ticket.createdAt)}
+                {ticket.orderRef ? tt(" · Order #{orderRef}", { orderRef: ticket.orderRef }) : ""} · {tt("Opened {date}", { date: dateTime(ticket.createdAt) })}
               </p>
             </div>
             <Pill tone={TONE[ticket.status]}>{STATUS_FOR_STORE[ticket.status]}</Pill>
@@ -273,7 +274,7 @@ function Thread({ id, onBack, onChanged }: { id: string; onBack: () => void; onC
             {messages.map((m) => (
               <li key={m.id} className={cn("max-w-[88%] rounded-2xl px-3.5 py-2.5", m.author === "creator" ? "ml-auto bg-[#1a1a2e] text-white" : "bg-[#f3f4f6] text-[#1a1a2e]")} data-message={m.author}>
                 <p className={cn("mb-1 text-[12px] font-medium", m.author === "creator" ? "text-white/70" : "text-[#6b7280]")}>
-                  {m.author === "creator" ? "You" : "Storelib support"} · {dateTime(m.createdAt)}
+                  {m.author === "creator" ? tt("You") : tt("Storelib support")} · {dateTime(m.createdAt)}
                 </p>
                 <p className="whitespace-pre-wrap break-words text-[14px] leading-[21px]">{m.body}</p>
               </li>
@@ -281,17 +282,17 @@ function Thread({ id, onBack, onChanged }: { id: string; onBack: () => void; onC
           </ol>
           <div className="space-y-2 border-t border-[#f1f2f4] px-4 py-4 sm:px-5">
             <label htmlFor="support-reply" className="sr-only">
-              Your reply
+              {tt("Your reply")}
             </label>
-            <textarea id="support-reply" className={AREA} value={reply} maxLength={5000} onChange={(e) => setReply(e.target.value)} placeholder={ticket.status === "resolved" ? "Write to open it again" : "Write a reply"} />
+            <textarea id="support-reply" className={AREA} value={reply} maxLength={5000} onChange={(e) => setReply(e.target.value)} placeholder={ticket.status === "resolved" ? tt("Write to open it again") : tt("Write a reply")} />
             <div className="flex flex-wrap justify-end gap-2">
               {ticket.status !== "resolved" ? (
                 <button type="button" className={BTN_SECONDARY} onClick={() => void resolve()} disabled={busy}>
-                  Mark resolved
+                  {tt("Mark resolved")}
                 </button>
               ) : null}
               <button type="button" className={BTN_PRIMARY} onClick={() => void send()} disabled={busy || !reply.trim()} data-support-reply="">
-                Send reply
+                {tt("Send reply")}
               </button>
             </div>
           </div>

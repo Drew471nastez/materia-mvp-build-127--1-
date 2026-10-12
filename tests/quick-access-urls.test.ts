@@ -19,6 +19,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -27,7 +28,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const helpers = read("lib/url-helpers.ts")
 const dash = read("components/app/dashboard-client.tsx")
 const header = read("components/platform/platform-header-client.tsx")

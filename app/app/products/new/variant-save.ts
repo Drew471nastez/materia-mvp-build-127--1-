@@ -1,4 +1,5 @@
 import type { ProductVariant } from "./editor-form"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -75,7 +76,7 @@ function saveError(name: string, error: NonNullable<DbError>): Error {
     return new Error(`Database schema error: run supabase/sql/run-now/35_product_variants_columns.sql in the Supabase SQL editor, then refresh the page. (Error: ${msg})`)
   }
   if (error.code === "42501" || msg.includes("row-level security") || msg.includes("permission")) {
-    return new Error("Permission denied saving variants. Check RLS policies for product_variants table.")
+    return new Error(tt("Permission denied saving variants. Check RLS policies for product_variants table."))
   }
   return new Error(`Failed to save variant "${name}": ${msg}`)
 }

@@ -35,17 +35,19 @@
  * NOTHING HERE LOGS THE QUERY. It can be somebody's email address.
  */
 import { groupOrders, matchesSearch, type Order, type OrderRow } from "@/lib/orders/order-view"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export type SearchGroupId = "orders" | "customers" | "products" | "emails" | "automations"
 
 export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "emails", "automations"]
 
 export const GROUP_LABELS: Record<SearchGroupId, string> = {
-  orders: "Orders",
-  customers: "Customers",
-  products: "Products",
-  emails: "Emails",
-  automations: "Automations",
+  get orders() { return tt("Orders") },
+  get customers() { return tt("Customers") },
+  get products() { return tt("Products") },
+  get emails() { return tt("Emails") },
+  get automations() { return tt("Automations") },
 }
 
 /** At most this many of each kind. A search is for finding one thing, not a list. */
@@ -135,7 +137,7 @@ async function readWithFallback(group: SearchGroupId, run: (columns: string) => 
 
 const text = (v: unknown): string => (typeof v === "string" ? v : "")
 
-const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const usd = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
 
 function sentenceCase(v: string): string {
   const t = v.replace(/_/g, " ").trim()
@@ -159,7 +161,7 @@ async function readProducts(db: Db, creatorId: string): Promise<ProductIndex[]> 
   )
   return rows.map((p) => ({
     id: text(p.id),
-    title: text(p.title) || "Untitled product",
+    title: text(p.title) || tt("Untitled product"),
     status: text(p.status),
     price_cents: typeof p.price_cents === "number" ? p.price_cents : null,
   }))
@@ -214,11 +216,11 @@ async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow
 
 function orderHit(order: Order): SearchHit {
   const titles = order.lines.map((l) => l.product?.title).filter((t): t is string => !!t)
-  const what = titles.length > 1 ? `${titles[0]} and ${titles.length - 1} more` : titles[0] || ""
+  const what = titles.length > 1 ? tt("{titles} and {value} more", { titles: titles[0], value: titles.length - 1 }) : titles[0] || ""
   const who = order.customerName || order.customerEmail || ""
   return {
     id: order.id,
-    title: `Order #${order.number}`,
+    title: tt("Order #{number}", { number: order.number }),
     detail: [who, what, usd.format(order.totalCents / 100)].filter(Boolean).join(" · "),
     href: `/app/orders?order=${encodeURIComponent(order.id)}`,
   }
@@ -308,8 +310,8 @@ async function readEmails(db: Db, creatorId: string, q: string): Promise<SearchH
   )
   return rows.map((r) => ({
     id: text(r.id),
-    title: text(r.subject) || "No subject",
-    detail: sentenceCase(text(r.status)) || "Email",
+    title: text(r.subject) || tt("No subject"),
+    detail: sentenceCase(text(r.status)) || tt("Email"),
     href: emailHref(text(r.id), text(r.status)),
   }))
 }
@@ -325,7 +327,7 @@ export function emailHref(id: string, status: string): string {
   return `/app/emails?tab=${status === "scheduled" ? "scheduled" : "published"}&email=${key}`
 }
 
-const FLOW_STATE: Record<string, string> = { active: "On", paused: "Paused", draft: "Draft" }
+const FLOW_STATE: Record<string, string> = { get active() { return tt("On") }, get paused() { return tt("Paused") }, get draft() { return tt("Draft") } }
 
 async function readAutomations(db: Db, creatorId: string, q: string): Promise<SearchHit[]> {
   const rows = await readWithFallback(
@@ -342,8 +344,8 @@ async function readAutomations(db: Db, creatorId: string, q: string): Promise<Se
   )
   return rows.map((r) => ({
     id: text(r.id),
-    title: text(r.name) || "Untitled automation",
-    detail: FLOW_STATE[text(r.status)] ?? (sentenceCase(text(r.status)) || "Automation"),
+    title: text(r.name) || tt("Untitled automation"),
+    detail: FLOW_STATE[text(r.status)] ?? (sentenceCase(text(r.status)) || tt("Automation")),
     href: `/app/emails/flow/${encodeURIComponent(text(r.id))}`,
   }))
 }
@@ -412,8 +414,8 @@ export async function searchCreator(db: Db, creatorId: string, rawQuery: string)
     const seen = new Set(buyers.map((b) => b.key))
     const people: SearchHit[] = buyers.map((b) => ({
       id: `buyer:${b.key}`,
-      title: b.name || b.email || "Customer",
-      detail: [b.name ? b.email : null, `${b.orders} ${b.orders === 1 ? "order" : "orders"}`].filter(Boolean).join(" · "),
+      title: b.name || b.email || tt("Customer"),
+      detail: [b.name ? b.email : null, tt("{n, plural, one {# order} other {# orders}}", { n: b.orders })].filter(Boolean).join(" · "),
       href: customerHref(b.email || b.name || ""),
     }))
     for (const c of contacts) {
@@ -423,7 +425,7 @@ export async function searchCreator(db: Db, creatorId: string, rawQuery: string)
       people.push({
         id: `contact:${key}`,
         title: c.name || c.email,
-        detail: [c.name ? c.email : null, "On your email list"].filter(Boolean).join(" · "),
+        detail: [c.name ? c.email : null, tt("On your email list")].filter(Boolean).join(" · "),
         href: "/app/emails",
       })
     }

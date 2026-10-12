@@ -626,7 +626,7 @@ async function importShopifyTheme(
     migrated: false,
     media: describeMedia(imported),
     left_out: [],
-    shopify: { ...report, summary: `${conversionSummary(report)}${report.notes.length || report.skipped.length ? " The full report is in the code editor, shopify/import-report.json." : ""}`, license: SHOPIFY_LICENSE_NOTICE },
+    shopify: { ...report, summary: `${conversionSummary(report)}${report.notes.length || report.skipped.length ? " The full report is in the code editor, original/import-report.json." : ""}`, license: SHOPIFY_LICENSE_NOTICE },
     ...first,
   })
 }

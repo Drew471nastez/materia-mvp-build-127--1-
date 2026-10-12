@@ -21,6 +21,7 @@ import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, card } from "../orders/order-par
 import { REASON_LABEL } from "@/lib/physical/inventory-server-labels"
 import type { Location } from "@/lib/physical/types"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Empty, Field, Modal, Notice, NumberInput, Pill, SelectInput, TextInput, actionKey, api, dateTime } from "@/components/physical/ui"
+import { tt } from "@/lib/i18n/text"
 
 interface Level {
   variantId: string
@@ -70,10 +71,10 @@ interface Transfer {
 
 type View = "all" | "low" | "out" | "incoming"
 const VIEWS: { id: View; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "low", label: "Low stock" },
-  { id: "out", label: "Out of stock" },
-  { id: "incoming", label: "Incoming" },
+  { id: "all", get label() { return tt("All") } },
+  { id: "low", get label() { return tt("Low stock") } },
+  { id: "out", get label() { return tt("Out of stock") } },
+  { id: "incoming", get label() { return tt("Incoming") } },
 ]
 
 function levelAt(r: Row, loc: string): { onHand: number; committed: number; available: number; incoming: number } {
@@ -129,18 +130,18 @@ export function InventoryClient() {
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Inventory</h1>
+        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Inventory")}</h1>
         <button type="button" className={BTN_SECONDARY} onClick={() => setTransfers(true)}>
           <ArrowRightLeft className="h-4 w-4" />
-          Transfers
+          {tt("Transfers")}
         </button>
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         {error ? <Notice className="mt-3">{error}</Notice> : null}
-        <section aria-label="Inventory" className={cn(card, "mt-3 overflow-hidden")}>
+        <section aria-label={tt("Inventory")} className={cn(card, "mt-3 overflow-hidden")}>
           <div className="flex flex-col gap-2 border-b border-[#eef0f2] px-2 py-2 md:flex-row md:items-center">
-            <div role="tablist" aria-label="Views" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
+            <div role="tablist" aria-label={tt("Views")} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
               {VIEWS.map((v) => (
                 <button
                   key={v.id}
@@ -158,11 +159,11 @@ export function InventoryClient() {
             <div className="flex gap-2 px-1 md:px-0">
               <div className="relative flex-1 md:w-[220px] md:flex-none">
                 <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-                <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products or SKU" className="h-10 pl-9 sm:h-9" />
+                <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search products or SKU")} className="h-10 pl-9 sm:h-9" />
               </div>
               {locations.length > 1 ? (
-                <SelectInput value={loc} onChange={setLoc} className="w-[160px]" aria-label="Location">
-                  <option value="">All locations</option>
+                <SelectInput value={loc} onChange={setLoc} className="w-[160px]" aria-label={tt("Location")}>
+                  <option value="">{tt("All locations")}</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
@@ -181,26 +182,26 @@ export function InventoryClient() {
             </div>
           ) : rows && rows.length === 0 ? (
             <Empty
-              title="No physical products yet"
+              title={tt("No physical products yet")}
               action={
                 <Link href="/app/products/new?type=physical" className={BTN_PRIMARY}>
                   <Package className="h-4 w-4" />
-                  Add a physical product
+                  {tt("Add a physical product")}
                 </Link>
               }
             >
-              Stock shows here once you add a product you ship.
+              {tt("Stock shows here once you add a product you ship.")}
             </Empty>
           ) : shown.length === 0 ? (
-            <Empty title="Nothing here">No product matches this view.</Empty>
+            <Empty title={tt("Nothing here")}>{tt("No product matches this view.")}</Empty>
           ) : (
             <>
               <div className="hidden grid-cols-[minmax(0,2.4fr)_repeat(4,minmax(0,0.8fr))_auto] gap-3 border-b border-[#eef0f2] bg-[#fafafb] px-4 py-2 text-[12px] font-medium uppercase tracking-[0.02em] text-[#6b7280] md:grid">
-                <span>Product</span>
-                <span className="text-right">On hand</span>
-                <span className="text-right">Committed</span>
-                <span className="text-right">Available</span>
-                <span className="text-right">Incoming</span>
+                <span>{tt("Product")}</span>
+                <span className="text-right">{tt("On hand")}</span>
+                <span className="text-right">{tt("Committed")}</span>
+                <span className="text-right">{tt("Available")}</span>
+                <span className="text-right">{tt("Incoming")}</span>
                 <span className="w-[120px]" />
               </div>
               <ul className="divide-y divide-[#f1f2f4]">
@@ -226,11 +227,11 @@ export function InventoryClient() {
                           <p className="flex flex-wrap items-center gap-x-2 text-[12.5px] text-[#6b7280]">
                             {r.variantName !== "Default" ? <span>{r.variantName}</span> : null}
                             {r.sku ? <span>SKU {r.sku}</span> : null}
-                            {!r.trackInventory ? <span>Not tracked</span> : out ? <Pill tone="red">Out of stock</Pill> : low ? <Pill tone="amber">Low</Pill> : null}
+                            {!r.trackInventory ? <span>{tt("Not tracked")}</span> : out ? <Pill tone="red">{tt("Out of stock")}</Pill> : low ? <Pill tone="amber">{tt("Low")}</Pill> : null}
                           </p>
                           <p className="mt-0.5 text-[12.5px] text-[#4b5563] md:hidden">
-                            <span className="font-medium text-[#1a1a2e]">{l.available}</span> available · {l.onHand} on hand{l.committed ? ` · ${l.committed} committed` : ""}
-                            {l.incoming ? ` · ${l.incoming} incoming` : ""}
+                            <span className="font-medium text-[#1a1a2e]">{l.available}</span> {tt("available · {onHand} on hand", { onHand: l.onHand })}{l.committed ? tt(" · {committed} committed", { committed: l.committed }) : ""}
+                            {l.incoming ? tt(" · {incoming} incoming", { incoming: l.incoming }) : ""}
                           </p>
                         </div>
                       </div>
@@ -239,12 +240,12 @@ export function InventoryClient() {
                       <span className={cn("hidden text-right text-[14px] font-medium tabular-nums md:block", out ? "text-[#b42318]" : "text-[#1a1a2e]")}>{l.available}</span>
                       <span className="hidden text-right text-[14px] tabular-nums text-[#6b7280] md:block">{l.incoming}</span>
                       <div className="flex w-auto items-center justify-end gap-1 md:w-[120px]">
-                        <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={`History of ${r.productTitle}`} onClick={() => setHistory(r)}>
+                        <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={tt("History of {productTitle}", { productTitle: r.productTitle })} onClick={() => setHistory(r)}>
                           <History className="h-4 w-4" />
                         </button>
                         <button type="button" className={cn(BTN_SECONDARY, "h-9 px-3")} onClick={() => setAdjusting(r)} disabled={locations.length === 0}>
                           <SlidersHorizontal className="h-4 w-4" />
-                          <span className="hidden sm:inline">Adjust</span>
+                          <span className="hidden sm:inline">{tt("Adjust")}</span>
                         </button>
                       </div>
                     </li>
@@ -295,20 +296,20 @@ function AdjustModal({ row, locations, defaultLocation, onClose, onDone }: { row
     <Modal
       open
       onClose={onClose}
-      title={`Adjust ${row.productTitle}${row.variantName !== "Default" ? `, ${row.variantName}` : ""}`}
+      title={tt("Adjust {productTitle}{value}", { productTitle: row.productTitle, value: row.variantName !== "Default" ? `, ${row.variantName}` : "" })}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" className={BTN_PRIMARY} onClick={save} disabled={busy || !amount || !locationId || (mode !== "set" && Number(amount) === 0)}>
-            {busy ? "Saving" : "Save"}
+            {busy ? tt("Saving") : tt("Save")}
           </button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Location">
+        <Field label={tt("Location")}>
           <SelectInput value={locationId} onChange={setLocationId}>
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
@@ -318,14 +319,14 @@ function AdjustModal({ row, locations, defaultLocation, onClose, onDone }: { row
           </SelectInput>
         </Field>
         <p className="text-[13px] text-[#6b7280]">
-          Now: <span className="font-medium text-[#1a1a2e]">{level?.onHand ?? 0}</span> on hand, {level?.committed ?? 0} committed, {level?.incoming ?? 0} incoming
+          {tt("Now:")} <span className="font-medium text-[#1a1a2e]">{level?.onHand ?? 0}</span> {tt("on hand,")} {level?.committed ?? 0} {tt("committed,")} {level?.incoming ?? 0} {tt("incoming")}
         </p>
         <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#f1f2f4] p-1">
           {(
             [
-              ["delta", "Add or remove"],
-              ["set", "Set count"],
-              ["incoming", "Incoming"],
+              ["delta", tt("Add or remove")],
+              ["set", tt("Set count")],
+              ["incoming", tt("Incoming")],
             ] as const
           ).map(([m, label]) => (
             <button key={m} type="button" onClick={() => setMode(m)} className={cn("h-9 rounded-lg text-[13px] font-medium", mode === m ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280]")}>
@@ -333,11 +334,11 @@ function AdjustModal({ row, locations, defaultLocation, onClose, onDone }: { row
             </button>
           ))}
         </div>
-        <Field label={mode === "set" ? "Counted on hand" : mode === "incoming" ? "Units on order (use a minus to cancel)" : "Change (use a minus to remove)"}>
+        <Field label={mode === "set" ? tt("Counted on hand") : mode === "incoming" ? tt("Units on order (use a minus to cancel)") : tt("Change (use a minus to remove)")}>
           <NumberInput allowNegative={mode !== "set"} value={amount} onChange={setAmount} placeholder={mode === "set" ? String(level?.onHand ?? 0) : "+10"} />
         </Field>
         {mode !== "incoming" ? (
-          <Field label="Reason">
+          <Field label={tt("Reason")}>
             <SelectInput value={reason} onChange={(v) => setReason(v as (typeof REASONS)[number])}>
               {REASONS.map((r) => (
                 <option key={r} value={r}>
@@ -347,7 +348,7 @@ function AdjustModal({ row, locations, defaultLocation, onClose, onDone }: { row
             </SelectInput>
           </Field>
         ) : null}
-        <Field label="Note" hint="Optional, for your history">
+        <Field label={tt("Note")} hint={tt("Optional, for your history")}>
           <TextInput value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
         </Field>
         {error ? <Notice>{error}</Notice> : null}
@@ -368,7 +369,7 @@ function HistoryModal({ row, locations, onClose }: { row: Row; locations: Locati
       {moves === null ? (
         <div className="h-24 animate-pulse rounded-lg bg-[#f4f5f7]" />
       ) : moves.length === 0 ? (
-        <Empty title="No changes yet" />
+        <Empty title={tt("No changes yet")} />
       ) : (
         <ul className="divide-y divide-[#f1f2f4]">
           {moves.map((m) => (
@@ -376,14 +377,14 @@ function HistoryModal({ row, locations, onClose }: { row: Row; locations: Locati
               <div className="min-w-0">
                 <p className="text-[14px] font-medium text-[#1a1a2e]">{REASON_LABEL[m.reason] ?? m.reason}</p>
                 <p className="text-[12.5px] text-[#6b7280]">
-                  {[dateTime(m.createdAt), name(m.locationId), m.actor === "creator" ? "You" : m.actor === "buyer" ? "Checkout" : "Storelib", m.note].filter(Boolean).join(" · ")}
+                  {[dateTime(m.createdAt), name(m.locationId), m.actor === "creator" ? tt("You") : m.actor === "buyer" ? tt("Checkout") : "Storelib", m.note].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <div className="shrink-0 text-right text-[13px] tabular-nums">
-                {m.deltaOnHand ? <p className={m.deltaOnHand > 0 ? "text-[#166534]" : "text-[#b42318]"}>{delta(m.deltaOnHand)} on hand</p> : null}
-                {m.deltaCommitted ? <p className="text-[#6b7280]">{delta(m.deltaCommitted)} committed</p> : null}
-                {m.deltaIncoming ? <p className="text-[#6b7280]">{delta(m.deltaIncoming)} incoming</p> : null}
-                {m.onHandAfter !== null ? <p className="text-[12px] text-[#9ca3af]">{m.onHandAfter} after</p> : null}
+                {m.deltaOnHand ? <p className={m.deltaOnHand > 0 ? "text-[#166534]" : "text-[#b42318]"}>{delta(m.deltaOnHand)} {tt("on hand")}</p> : null}
+                {m.deltaCommitted ? <p className="text-[#6b7280]">{delta(m.deltaCommitted)} {tt("committed")}</p> : null}
+                {m.deltaIncoming ? <p className="text-[#6b7280]">{delta(m.deltaIncoming)} {tt("incoming")}</p> : null}
+                {m.onHandAfter !== null ? <p className="text-[12px] text-[#9ca3af]">{tt("{onHandAfter} after", { onHandAfter: m.onHandAfter })}</p> : null}
               </div>
             </li>
           ))}
@@ -394,11 +395,11 @@ function HistoryModal({ row, locations, onClose }: { row: Row; locations: Locati
 }
 
 const TRANSFER_STATUS: Record<string, { label: string; tone: "gray" | "blue" | "green" | "amber" }> = {
-  draft: { label: "Draft", tone: "gray" },
-  in_transit: { label: "On its way", tone: "blue" },
-  partially_received: { label: "Partly received", tone: "amber" },
-  received: { label: "Received", tone: "green" },
-  cancelled: { label: "Cancelled", tone: "gray" },
+  draft: { get label() { return tt("Draft") }, tone: "gray" },
+  in_transit: { get label() { return tt("On its way") }, tone: "blue" },
+  partially_received: { get label() { return tt("Partly received") }, tone: "amber" },
+  received: { get label() { return tt("Received") }, tone: "green" },
+  cancelled: { get label() { return tt("Cancelled") }, tone: "gray" },
 }
 
 function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; locations: Location[]; onClose: () => void; onChanged: () => void }) {
@@ -416,10 +417,10 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
   React.useEffect(() => {
     void load()
   }, [load])
-  const name = (id: string | null) => locations.find((l) => l.id === id)?.name ?? "A location"
+  const name = (id: string | null) => locations.find((l) => l.id === id)?.name ?? tt("A location")
   const variantName = (id: string) => {
     const r = rows.find((x) => x.variantId === id)
-    return r ? `${r.productTitle}${r.variantName !== "Default" ? `, ${r.variantName}` : ""}` : "A product"
+    return r ? `${r.productTitle}${r.variantName !== "Default" ? `, ${r.variantName}` : ""}` : tt("A product")
   }
   const act = async (t: Transfer, action: "ship" | "receive" | "cancel") => {
     setError(null)
@@ -431,8 +432,8 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
   }
   if (locations.length < 2) {
     return (
-      <Modal open onClose={onClose} title="Transfers">
-        <Empty title="Add a second location first">Transfers move stock between two of your locations.</Empty>
+      <Modal open onClose={onClose} title={tt("Transfers")}>
+        <Empty title={tt("Add a second location first")}>{tt("Transfers move stock between two of your locations.")}</Empty>
       </Modal>
     )
   }
@@ -441,12 +442,12 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
       open
       onClose={onClose}
       wide
-      title="Transfers"
+      title={tt("Transfers")}
       footer={
         creating ? (
           <>
             <button type="button" className={BTN_SECONDARY} onClick={() => setCreating(false)}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button
               type="button"
@@ -463,12 +464,12 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
                 await load()
               }}
             >
-              Create transfer
+              {tt("Create transfer")}
             </button>
           </>
         ) : (
           <button type="button" className={BTN_PRIMARY} onClick={() => setCreating(true)}>
-            New transfer
+            {tt("New transfer")}
           </button>
         )
       }
@@ -477,7 +478,7 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
       {creating ? (
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="From">
+            <Field label={tt("From")}>
               <SelectInput value={origin} onChange={setOrigin}>
                 {locations.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -486,7 +487,7 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
                 ))}
               </SelectInput>
             </Field>
-            <Field label="To">
+            <Field label={tt("To")}>
               <SelectInput value={destination} onChange={setDestination}>
                 {locations.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -495,7 +496,7 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
                 ))}
               </SelectInput>
             </Field>
-            <Field label="Reference" hint="Optional">
+            <Field label={tt("Reference")} hint={tt("Optional")}>
               <TextInput value={reference} maxLength={120} onChange={(e) => setReference(e.target.value)} />
             </Field>
           </div>
@@ -508,9 +509,9 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
                   <li key={r.variantId} className="flex items-center justify-between gap-3 px-3 py-2">
                     <div className="min-w-0">
                       <p className="truncate text-[14px] text-[#1a1a2e]">{variantName(r.variantId)}</p>
-                      <p className="text-[12px] text-[#6b7280]">{at} available at {name(origin)}</p>
+                      <p className="text-[12px] text-[#6b7280]">{tt("{at} available at {name}", { at, name: name(origin) })}</p>
                     </div>
-                    <NumberInput value={qty[r.variantId] ?? ""} onChange={(v) => setQty((q) => ({ ...q, [r.variantId]: v }))} placeholder="0" className="w-[90px] text-right" aria-label={`Units of ${variantName(r.variantId)}`} />
+                    <NumberInput value={qty[r.variantId] ?? ""} onChange={(v) => setQty((q) => ({ ...q, [r.variantId]: v }))} placeholder="0" className="w-[90px] text-right" aria-label={tt("Units of {name}", { name: variantName(r.variantId) })} />
                   </li>
                 )
               })}
@@ -519,7 +520,7 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
       ) : list === null ? (
         <div className="h-24 animate-pulse rounded-lg bg-[#f4f5f7]" />
       ) : list.length === 0 ? (
-        <Empty title="No transfers yet">Move stock from one location to another, like from a supplier to your warehouse.</Empty>
+        <Empty title={tt("No transfers yet")}>{tt("Move stock from one location to another, like from a supplier to your warehouse.")}</Empty>
       ) : (
         <ul className="space-y-2">
           {list.map((t) => {
@@ -534,23 +535,23 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
                   <Pill tone={st.tone}>{st.label}</Pill>
                 </div>
                 <p className="mt-0.5 text-[12.5px] text-[#6b7280]">
-                  {units} {units === 1 ? "unit" : "units"} · {dateTime(t.created_at)}
+                  {tt("{units, plural, one {# unit} other {# units}}", { units })} · {dateTime(t.created_at)}
                   {t.reference ? ` · ${t.reference}` : ""}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {t.status === "draft" ? (
                     <button type="button" className={cn(BTN_PRIMARY, "h-9")} onClick={() => act(t, "ship")}>
-                      Mark as sent
+                      {tt("Mark as sent")}
                     </button>
                   ) : null}
                   {t.status === "in_transit" || t.status === "partially_received" ? (
                     <button type="button" className={cn(BTN_PRIMARY, "h-9")} onClick={() => act(t, "receive")}>
-                      Receive all
+                      {tt("Receive all")}
                     </button>
                   ) : null}
                   {t.status !== "received" && t.status !== "cancelled" ? (
                     <button type="button" className={cn(BTN_SECONDARY, "h-9")} onClick={() => act(t, "cancel")}>
-                      Cancel
+                      {tt("Cancel")}
                     </button>
                   ) : null}
                 </div>

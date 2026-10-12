@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Trash2 } from "lucide-react"
 import Link from "next/link"
 import type { Product } from "@/lib/types"
+import { tt } from "@/lib/i18n/text"
 
 interface CourseEditFormProps {
   product: Product
@@ -55,7 +56,7 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
 
       router.refresh()
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : tt("An error occurred"))
     } finally {
       setIsLoading(false)
     }
@@ -81,7 +82,7 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
       router.push("/app/courses")
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete the course")
+      setError(err instanceof Error ? err.message : tt("Could not delete the course"))
     }
   }
 
@@ -93,7 +94,7 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
           className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to courses
+          {tt("Back to courses")}
         </Link>
         <div className="flex items-center justify-between">
           <div>
@@ -105,7 +106,7 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
             </div>
           </div>
           <Button asChild>
-            <Link href={`/app/courses/${product.id}/builder`}>Course builder</Link>
+            <Link href={`/app/courses/${product.id}/builder`}>{tt("Course builder")}</Link>
           </Button>
         </div>
       </div>
@@ -113,15 +114,15 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Course Details</CardTitle>
+            <CardTitle>{tt("Course Details")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">{tt("Title")}</Label>
               <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{tt("Description")}</Label>
               <Textarea
                 id="description"
                 value={description}
@@ -130,7 +131,7 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="price">Price (USD)</Label>
+              <Label htmlFor="price">{tt("Price (USD)")}</Label>
               <Input
                 id="price"
                 type="number"
@@ -143,8 +144,8 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border p-4">
               <div>
-                <p className="font-medium">Include community access</p>
-                <p className="text-sm text-muted-foreground">Students will get access to your community</p>
+                <p className="font-medium">{tt("Include community access")}</p>
+                <p className="text-sm text-muted-foreground">{tt("Students will get access to your community")}</p>
               </div>
               <Switch checked={includesCommunity} onCheckedChange={setIncludesCommunity} />
             </div>
@@ -157,15 +158,15 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
         <div className="flex justify-between">
           <div className="flex gap-4">
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Saving..." : "Save changes"}
+              {isLoading ? tt("Saving...") : tt("Save changes")}
             </Button>
             <Button type="button" variant="outline" asChild>
-              <Link href="/app/courses">Cancel</Link>
+              <Link href="/app/courses">{tt("Cancel")}</Link>
             </Button>
           </div>
           <Button type="button" variant="destructive" onClick={handleDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete
+            {tt("Delete")}
           </Button>
         </div>
       </form>

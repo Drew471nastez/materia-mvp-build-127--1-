@@ -45,6 +45,7 @@ import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { GROUP_LABELS, SEARCH_GROUPS, isSearchable, normalizeQuery, type SearchResult } from "@/lib/search/app-search"
 import { useNewProductChooser } from "@/app/app/products/new/kind-chooser"
 import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
+import { tt } from "@/lib/i18n/text"
 
 const MAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 const EXTERNAL: Record<string, string> = {
@@ -182,15 +183,15 @@ export const AppSearch = memo(
               res.status === 429 && typeof data?.error === "string"
                 ? data.error
                 : res.status === 401
-                  ? "Sign in again to search your store."
-                  : "Search is not working right now."
+                  ? tt("Sign in again to search your store.")
+                  : tt("Search is not working right now.")
             setRemote({ status: "error", q, message })
             return
           }
           setRemote({ status: "done", q, result: data as SearchResult })
         } catch {
           if (controller.signal.aborted) return
-          setRemote({ status: "error", q, message: "Could not reach Storelib. Check your connection." })
+          setRemote({ status: "error", q, message: tt("Could not reach Storelib. Check your connection.") })
         }
       }, SEARCH_DEBOUNCE_MS)
       return () => {
@@ -205,7 +206,7 @@ export const AppSearch = memo(
     const sections = useMemo<Section[]>(() => {
       if (!q) {
         const items = GO_TO.map((href) => APP_PAGES.find((p) => p.href === href)!).map((p) => ({ key: `go:${p.href}`, title: p.label, href: p.href }))
-        return [{ id: "go", label: "Go to", items }]
+        return [{ id: "go", label: tt("Go to"), items }]
       }
       /* Pages first: they are matched here at once, so they are on screen
          before the server answers, and what it answers is added below them
@@ -214,8 +215,8 @@ export const AppSearch = memo(
       const pages = matchPages(q, 5, { communities })
       const nav = pages.filter((p) => p.group === "Pages")
       const settings = pages.filter((p) => p.group === "Settings")
-      if (nav.length) out.push({ id: "pages", label: "Pages", items: nav.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
-      if (settings.length) out.push({ id: "settings", label: "Settings", items: settings.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
+      if (nav.length) out.push({ id: "pages", label: tt("Pages"), items: nav.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
+      if (settings.length) out.push({ id: "settings", label: tt("Settings"), items: settings.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
       const result = remote.status === "done" ? remote.result : remote.status === "loading" ? remote.last : null
       if (searchable && result) {
         for (const id of SEARCH_GROUPS) {
@@ -337,7 +338,7 @@ export const AppSearch = memo(
           aria-modal={open ? "true" : undefined}
           aria-hidden={open ? undefined : "true"}
           inert={!open}
-          aria-label="Search"
+          aria-label={tt("Search")}
           data-app-search=""
           data-open={open ? "" : undefined}
           onKeyDown={onPanelKeyDown}
@@ -369,8 +370,8 @@ export const AppSearch = memo(
                 aria-controls="app-search-list"
                 aria-activedescendant={active && flat.length ? optionId(active.key) : undefined}
                 aria-autocomplete="list"
-                aria-label="Search orders, customers, products, emails and pages"
-                placeholder="Search orders, customers, products"
+                aria-label={tt("Search orders, customers, products, emails and pages")}
+                placeholder={tt("Search orders, customers, products")}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -393,15 +394,15 @@ export const AppSearch = memo(
               onClick={close}
               className="h-11 shrink-0 px-1 text-[15px] font-medium text-[#1a1a2e] md:hidden"
             >
-              Cancel
+              {tt("Cancel")}
             </button>
             <button
               type="button"
               onClick={close}
-              aria-label="Close search"
+              aria-label={tt("Close search")}
               className="hidden h-7 shrink-0 items-center gap-1 rounded-md border border-[#e5e7eb] px-1.5 text-[11px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] md:inline-flex"
             >
-              Esc
+              {tt("Esc")}
             </button>
           </div>
 
@@ -409,7 +410,7 @@ export const AppSearch = memo(
             ref={listRef}
             id="app-search-list"
             role="listbox"
-            aria-label="Results"
+            aria-label={tt("Results")}
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(12px,env(safe-area-inset-bottom,0px))] md:max-h-[min(460px,calc(100vh-140px))] md:flex-none md:pb-2"
           >
             {sections.map((section) => (
@@ -442,7 +443,7 @@ export const AppSearch = memo(
                       </div>
                       {lit ? (
                         <span className="hidden shrink-0 text-[12px] text-[#6b7280] md:inline" aria-hidden="true">
-                          Enter
+                          {tt("Enter")}
                         </span>
                       ) : null}
                     </div>
@@ -459,18 +460,18 @@ export const AppSearch = memo(
                   onClick={() => setRetry((n) => n + 1)}
                   className="h-9 shrink-0 rounded-lg px-3 text-[14px] font-medium text-[#1a1a2e] ring-1 ring-[#e5e7eb] transition-colors hover:bg-[#f3f4f6]"
                 >
-                  Try again
+                  {tt("Try again")}
                 </button>
               </div>
             ) : nothing ? (
               <div className="px-5 py-8 text-center" data-search-empty="">
-                <p className="text-[15px] font-medium text-[#1a1a2e]">No results for &ldquo;{q}&rdquo;</p>
-                <p className="mt-1 text-[14px] text-[#6b7280]">Try an order number, a name, an email or a product.</p>
+                <p className="text-[15px] font-medium text-[#1a1a2e]">{tt("No results for “{q}”", { q })}</p>
+                <p className="mt-1 text-[14px] text-[#6b7280]">{tt("Try an order number, a name, an email or a product.")}</p>
               </div>
             ) : searchable && flat.length === 0 && loading ? (
-              <p className="px-5 py-6 text-[14px] text-[#6b7280]">Searching</p>
+              <p className="px-5 py-6 text-[14px] text-[#6b7280]">{tt("Searching")}</p>
             ) : q && !searchable && flat.length === 0 ? (
-              <p className="px-5 py-6 text-[14px] text-[#6b7280]">Keep typing to search orders and customers.</p>
+              <p className="px-5 py-6 text-[14px] text-[#6b7280]">{tt("Keep typing to search orders and customers.")}</p>
             ) : null}
           </div>
         </div>
@@ -482,7 +483,7 @@ export const AppSearch = memo(
         <button
           type="button"
           onClick={show}
-          aria-label="Search"
+          aria-label={tt("Search")}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-keyshortcuts="Meta+K Control+K"
@@ -493,7 +494,7 @@ export const AppSearch = memo(
           )}
         >
           <Search className="h-4 w-4 shrink-0 text-white/50" aria-hidden="true" />
-          <span className="flex-1 text-left text-[13px] text-white/60">Search orders, customers, products</span>
+          <span className="flex-1 text-left text-[13px] text-white/60">{tt("Search orders, customers, products")}</span>
           <kbd className="hidden items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[11px] text-white/50 lg:flex">
             <span className="text-[10px]">&#8984;</span>K
           </kbd>

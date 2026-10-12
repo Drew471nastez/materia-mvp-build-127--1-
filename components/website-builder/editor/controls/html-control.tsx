@@ -12,19 +12,21 @@ import * as React from "react"
 import { sanitizeCustomHtml } from "@/lib/website-builder/sanitize"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { NOTE } from "./styles"
+import { tt } from "@/lib/i18n/text"
+import { formatList } from "@/lib/i18n/format"
 
 /** What the clean removes, in words a person would use. */
 function whatGoes(before: string, after: string): string | null {
   if (!before.trim() || before === after) return null
   const lost: string[] = []
-  if (/<script\b/i.test(before)) lost.push("scripts")
-  if (/<form\b|<input\b|<select\b/i.test(before)) lost.push("forms")
-  if (/\son[a-z]+\s*=/i.test(before)) lost.push("click and load handlers")
-  if (/<style\b|\sstyle\s*=/i.test(before)) lost.push("styles")
-  if (/<iframe\b/i.test(before) && !/<iframe\b/i.test(after)) lost.push("a frame from a site that is not a known player")
-  if (lost.length === 0) return "Some of this is removed when it is saved."
-  const list = lost.length === 1 ? lost[0] : `${lost.slice(0, -1).join(", ")} and ${lost[lost.length - 1]}`
-  return `When this is saved, ${list} ${lost.length === 1 && !lost[0].endsWith("s") ? "is" : "are"} removed.`
+  if (/<script\b/i.test(before)) lost.push(tt("scripts"))
+  if (/<form\b|<input\b|<select\b/i.test(before)) lost.push(tt("forms"))
+  if (/\son[a-z]+\s*=/i.test(before)) lost.push(tt("click and load handlers"))
+  if (/<style\b|\sstyle\s*=/i.test(before)) lost.push(tt("styles"))
+  if (/<iframe\b/i.test(before) && !/<iframe\b/i.test(after)) lost.push(tt("a frame from a site that is not a known player"))
+  if (lost.length === 0) return tt("Some of this is removed when it is saved.")
+  /* A list in the reader's language ("scripts, forms and styles"), and one sentence shape that needs no "is" or "are". */
+  return tt("Removed when this is saved: {list}.", { list: formatList(lost) })
 }
 
 export function HtmlControl({

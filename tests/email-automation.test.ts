@@ -34,6 +34,7 @@ import {
   unsubscribeUrlFor,
 } from "@/lib/email-automation"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -42,7 +43,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /** A Supabase-shaped stub holding one subscribers row, or none. */
 function db(row: Record<string, unknown> | null) {
@@ -91,7 +92,7 @@ async function main() {
     branded.name === "Astrid Studio" && branded.accent === "#0f766e" && branded.storeUrl === "https://storelib.com/astrid" && branded.logoUrl === null && branded.address === null, JSON.stringify(branded))
   check("with no brand the sender's name stands in", brandOfIdentity({ fromName: "Astrid", storeUrl: "https://storelib.com/astrid" }).name === "Astrid")
   {
-    const run = readFileSync(join(process.cwd(), "lib/automations/run.ts"), "utf8")
+    const run = untt(readFileSync(join(process.cwd(), "lib/automations/run.ts"), "utf8"), "lib/automations/run.ts")
     const compose = run.slice(run.indexOf("compose({"), run.indexOf("async send("))
     check("the mailer draws the engine's filled step as it is, in the engine's brand, with why they get it",
       !/personalize/.test(compose) && /body: trackLinks\(step\.config\.body, token\)/.test(compose) && /brand: brandOfIdentity\(identity\)/.test(compose) && /because: standing\.status \?\? null/.test(compose))

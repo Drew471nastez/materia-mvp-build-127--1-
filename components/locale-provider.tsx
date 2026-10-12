@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { dictionaries, type LocaleCode } from "@/lib/i18n/dictionaries"
 import { formatPlatformMoney, type CurrencyCode } from "@/lib/i18n/currency"
+import { humanizeKey } from "@/lib/i18n/text"
 
 export type SupportedLanguage = LocaleCode
 export type SupportedCurrency = CurrencyCode
@@ -235,7 +236,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
   const t = useCallback(
     (key: string) => {
-      return dictionaries[language]?.[key] ?? dictionaries.en[key] ?? key
+      return dictionaries[language]?.[key] ?? dictionaries.en[key] ?? humanizeKey(key)
     },
     [language],
   )

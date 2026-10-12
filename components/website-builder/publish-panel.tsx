@@ -12,6 +12,7 @@ import { connectedTools, toolNames, type ConnectionsBrief } from "@/lib/agent-ac
 import type { SecurityIssue } from "@/lib/website-builder/security-scan"
 import { PAGE_META, type PageKey } from "@/lib/website-builder/types"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -104,7 +105,7 @@ function ConnectionsRow({
       type="button"
       onClick={onOpen}
       data-publish-connections={!settled ? "waiting" : connected ? "connected" : "none"}
-      aria-label={!settled ? "Connections" : connected ? `${toolNames(tools)} connected. Open Connections` : "Connect your own AI. GitHub not connected"}
+      aria-label={!settled ? tt("Connections") : connected ? tt("{name} connected. Open Connections", { name: toolNames(tools) }) : tt("Connect your own AI. GitHub not connected")}
       className="flex min-h-[60px] w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-left transition-colors duration-150 hover:bg-white/[0.06] active:bg-white/[0.08] [-webkit-tap-highlight-color:transparent]"
     >
       <span className={cn("flex min-w-0 flex-1 items-center gap-3 transition-opacity duration-200", settled ? "opacity-100" : "opacity-0")}>
@@ -123,10 +124,10 @@ function ConnectionsRow({
           ))}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium text-white">{connected ? toolNames(tools) : "Connect your own AI"}</span>
+          <span className="block truncate text-[15px] font-medium text-white">{connected ? toolNames(tools) : tt("Connect your own AI")}</span>
           <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-white/55">
             {connected && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />}
-            {connected ? "Connected" : "GitHub not connected"}
+            {connected ? tt("Connected") : tt("GitHub not connected")}
           </span>
         </span>
       </span>
@@ -158,11 +159,11 @@ type SecurityCheck =
 
 /** Where an issue is, in the words the Pages list uses. */
 function issuePlace(page: string | null): string {
-  if (page === null) return "Theme settings"
+  if (page === null) return tt("Theme settings")
   const known = (PAGE_META as Partial<Record<string, { label: string }>>)[page as PageKey]
   if (known) return known.label
   const words = page.replace(/[-_]+/g, " ").trim()
-  return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} page` : "A page"
+  return words ? tt("{value}{value2} page", { value: words.charAt(0).toUpperCase(), value2: words.slice(1) }) : tt("A page")
 }
 
 function SecurityLine({
@@ -182,25 +183,25 @@ function SecurityLine({
       {check.state === "checking" && (
         <p className={cn(line, "text-white/55")}>
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white/40" strokeWidth={1.75} />
-          <span className="min-w-0 flex-1 truncate">Checking for security issues</span>
+          <span className="min-w-0 flex-1 truncate">{tt("Checking for security issues")}</span>
         </p>
       )}
       {check.state === "clear" && (
         <p className={cn(line, "text-white/80")}>
           <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
-          <span className="min-w-0 flex-1 truncate">No security issues found</span>
+          <span className="min-w-0 flex-1 truncate">{tt("No security issues found")}</span>
         </p>
       )}
       {check.state === "unknown" && (
         <p className={cn(line, "text-white/60")}>
           <ShieldQuestion className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
-          <span className="min-w-0 flex-1 truncate">Could not check for security issues</span>
+          <span className="min-w-0 flex-1 truncate">{tt("Could not check for security issues")}</span>
           <button
             type="button"
             onClick={onRetry}
             className="shrink-0 rounded-md px-1.5 font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
           >
-            Try again
+            {tt("Try again")}
           </button>
         </p>
       )}
@@ -215,7 +216,7 @@ function SecurityLine({
             <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" strokeWidth={1.75} />
             <span className="min-w-0 flex-1 truncate">
               {check.issues.length}
-              {check.truncated ? "+" : ""} {check.issues.length === 1 && !check.truncated ? "thing" : "things"} to check
+              {check.truncated ? "+" : ""} {check.issues.length === 1 && !check.truncated ? "thing" : "things"} {tt("to check")}
             </span>
             <ChevronDown
               aria-hidden
@@ -232,7 +233,7 @@ function SecurityLine({
                 </li>
               ))}
               {/* 15px: the card's border and its 14px of padding, so this line starts where the lines above it do. */}
-              {check.truncated && <li className="px-[15px] text-[13px] text-white/50">And more after these.</li>}
+              {check.truncated && <li className="px-[15px] text-[13px] text-white/50">{tt("And more after these.")}</li>}
             </ul>
           )}
         </>
@@ -371,7 +372,7 @@ function Body({
       const j = (await r.json().catch(() => ({}))) as { token?: string; url?: string; error?: string }
       if (!r.ok || !j.url || !j.token) {
         tab?.close()
-        setPreviewNote(j.error ?? "Could not make a preview link.")
+        setPreviewNote(j.error ?? tt("Could not make a preview link."))
         return
       }
       setPreviewToken(j.token)
@@ -379,7 +380,7 @@ function Body({
       else window.open(j.url, "_blank", "noopener")
     } catch {
       tab?.close()
-      setPreviewNote("Could not make a preview link.")
+      setPreviewNote(tt("Could not make a preview link."))
     } finally {
       setPreviewBusy(false)
     }
@@ -409,10 +410,10 @@ function Body({
 
   const ago = relativeTime(publishedAt)
   const status = !live
-    ? "Not published yet"
+    ? tt("Not published yet")
     : pending
-      ? `Changes since published${ago ? ` ${ago}` : ""}`
-      : `Published${ago ? ` ${ago}` : ""}`
+      ? tt("Changes since published{value}", { value: ago ? ` ${ago}` : "" })
+      : tt("Published{value}", { value: ago ? ` ${ago}` : "" })
 
   const copy = async (text: string, which: "site" | "preview") => {
     try {
@@ -451,7 +452,7 @@ function Body({
           ) : (
             <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
           )}
-          Preview
+          {tt("Preview")}
         </button>
       ) : null}
       {/**
@@ -493,7 +494,7 @@ function Body({
         )}
       >
         {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
-        {busy ? "Publishing" : live ? (pending ? "Publish changes" : "Published") : "Publish"}
+        {busy ? tt("Publishing") : live ? (pending ? tt("Publish changes") : tt("Published")) : tt("Publish")}
       </button>
     </div>
   )
@@ -505,7 +506,7 @@ function Body({
           <span
             className={cn("h-2.5 w-2.5 rounded-full", live ? (pending ? "bg-blue-500" : "bg-emerald-500") : "bg-white/30")}
           />
-          <h2 className="text-[20px] font-semibold leading-none">Publish</h2>
+          <h2 className="text-[20px] font-semibold leading-none">{tt("Publish")}</h2>
         </div>
         <p className="mt-2.5 text-[15px] text-white/60">{status}</p>
       </div>
@@ -520,14 +521,14 @@ function Body({
         <p className="flex items-start gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-[14px] text-amber-200">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <span>
-            This publish will not be backed up. Run supabase/sql/RUN_THEME_BACKUPS.sql once to turn backups on.
+            {tt("This publish will not be backed up. Run supabase/sql/RUN_THEME_BACKUPS.sql once to turn backups on.")}
           </span>
         </p>
       )}
 
       {websiteUrl && (
         <div>
-          <p className="mb-2.5 text-[15px] font-medium">Website URL</p>
+          <p className="mb-2.5 text-[15px] font-medium">{tt("Website URL")}</p>
           <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
             <div className="flex items-center gap-3 px-4 py-3.5">
               <Globe className="h-4 w-4 shrink-0 text-white/50" strokeWidth={1.75} />
@@ -536,7 +537,7 @@ function Body({
                 type="button"
                 onClick={() => void copy(websiteUrl, "site")}
                 className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Copy address"
+                aria-label={tt("Copy address")}
               >
                 {copied === "site" ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
               </button>
@@ -545,14 +546,14 @@ function Body({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Open the live site"
+                aria-label={tt("Open the live site")}
               >
                 <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
               </a>
             </div>
             <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px] text-white/70">
               <Globe className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
-              {live ? "Visible to anyone with the link" : "Nobody can see it until it is published"}
+              {live ? tt("Visible to anyone with the link") : tt("Nobody can see it until it is published")}
             </div>
             {/**
               * Only once there is one. A row explaining a link that does not
@@ -561,12 +562,12 @@ function Body({
             {previewUrl && (
               <div className="wb-settings-swap flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px]">
                 <Eye className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
-                <span className="min-w-0 flex-1 text-white/70">Preview link shows unpublished changes</span>
+                <span className="min-w-0 flex-1 text-white/70">{tt("Preview link shows unpublished changes")}</span>
                 <button
                   type="button"
                   onClick={() => void copy(previewUrl, "preview")}
                   className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                  aria-label="Copy the preview link"
+                  aria-label={tt("Copy the preview link")}
                 >
                   {copied === "preview" ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
                 </button>
@@ -576,7 +577,7 @@ function Body({
                   disabled={previewBusy}
                   className="shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
                 >
-                  Turn off
+                  {tt("Turn off")}
                 </button>
               </div>
             )}
@@ -736,7 +737,7 @@ export function PublishPanel(props: PublishPanelProps) {
       align="right"
       panelRef={panelRef}
       role="dialog"
-      aria-label="Publish"
+      aria-label={tt("Publish")}
       data-state={open ? "open" : "closed"}
       className={cn(
         "w-[420px] max-w-[calc(100vw-16px)] overflow-y-auto wb-slim-scroll rounded-2xl border border-white/10 bg-[#1f1f1f] p-6 shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)]",

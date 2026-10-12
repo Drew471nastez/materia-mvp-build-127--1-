@@ -37,6 +37,7 @@ import { join } from "node:path"
 
 import { fakeDb } from "./_fake-db"
 import { cardsFor, type CardRow } from "@/lib/communities/server/public"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -53,7 +54,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 /* Code without its comments, so a check reads what runs. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 function walk(dir: string): string[] {

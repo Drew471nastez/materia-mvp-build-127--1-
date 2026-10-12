@@ -6,9 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { loadCreatorMemberships } from "@/lib/memberships/creator"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { CreatorMembershipsList } from "@/components/memberships/creator-list"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
-export const metadata: Metadata = { title: "Memberships" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("Memberships") }
+}
 
 /**
  * /app/memberships: the memberships a creator already sells, on their own

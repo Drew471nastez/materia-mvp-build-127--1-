@@ -15,9 +15,13 @@ import {
 } from "@/lib/website-builder/snapshot"
 import { pageUser } from "@/lib/auth/page-user"
 import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = {
-  title: "Website",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Website"),
+  }
 }
 
 /**

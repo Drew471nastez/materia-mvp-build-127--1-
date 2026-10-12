@@ -11,6 +11,7 @@ import { pageNumberOf, siteStoreName, siteTabTitle, tabTitleTemplate, withTabTit
 import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/theme"
 import { answer, type SiteData } from "../lib/storelib-theme/compat/site"
 import { pageSeoForSite } from "../lib/website-builder/page-seo"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -18,7 +19,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail).slice(0, 400)}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const eq = (label: string, got: string, want: string) => check(`${label}: "${want}"`, got === want, { got })
 
 async function main() {

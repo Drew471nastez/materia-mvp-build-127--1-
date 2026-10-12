@@ -29,6 +29,7 @@ import {
 } from "./coupon-form"
 import { CouponSaveButton, Tick, quietDanger } from "./coupon-parts"
 import { returnToCoupons, useCouponListOrigin, warmCoupons } from "./list-return"
+import { tt } from "@/lib/i18n/text"
 
 /*
   ONE CARD, THE /app CARD (CLAUDE.md), with the product editor's padding. The
@@ -169,7 +170,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setSaving(false)
-        const message: string = data.error || "The coupon could not be saved. Try again."
+        const message: string = data.error || tt("The coupon could not be saved. Try again.")
         /* A code that is already taken is the code field's problem. */
         if (res.status === 409 && /code/i.test(message)) return point({ field: "code", message })
         setServerError(message)
@@ -182,7 +183,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
         const problem = await physicalOptions.current.save(savedId)
         if (problem) {
           setSaving(false)
-          setServerError(`The code was saved, but its shipping options weren't: ${problem}`)
+          setServerError(tt("The code was saved, but its shipping options weren't: {problem}", { problem }))
           return
         }
       }
@@ -191,7 +192,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
       returnToCoupons(router, { id: saved?.id ?? initialCoupon?.id ?? null, saved: saved ?? null, message: `${code} ${isEdit ? "saved" : "created"}` })
     } catch {
       setSaving(false)
-      setServerError("The coupon could not be saved. Check the connection and try again.")
+      setServerError(tt("The coupon could not be saved. Check the connection and try again."))
     }
   }
 
@@ -206,8 +207,8 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
     if (dirty) {
       const yes = await ask(
         isEdit
-          ? { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
-          : { title: "Discard this coupon?", body: "It has not been saved yet, so it will not be kept.", confirm: "Discard", cancel: "Keep editing" },
+          ? { title: tt("Discard changes?"), body: tt("Your edits since the last save will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") }
+          : { title: tt("Discard this coupon?"), body: tt("It has not been saved yet, so it will not be kept."), confirm: tt("Discard"), cancel: tt("Keep editing") },
       )
       if (!yes) return
     }
@@ -217,10 +218,10 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
   const remove = async () => {
     if (!initialCoupon || busy) return
     const yes = await ask({
-      title: `Delete ${initialCoupon.code}?`,
-      body: "Buyers can no longer use it. Orders already placed with it keep their discount. To stop it for now, turn it off instead.",
-      confirm: "Delete",
-      cancel: "Keep it",
+      title: tt("Delete {code}?", { code: initialCoupon.code }),
+      body: tt("Buyers can no longer use it. Orders already placed with it keep their discount. To stop it for now, turn it off instead."),
+      confirm: tt("Delete"),
+      cancel: tt("Keep it"),
     })
     if (!yes) return
     setDeleting(true)
@@ -228,11 +229,11 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
     const res = await fetch(`/api/coupons/${initialCoupon.id}`, { method: "DELETE" }).catch(() => null)
     if (!res?.ok) {
       setDeleting(false)
-      setServerError("The coupon could not be deleted. Try again.")
+      setServerError(tt("The coupon could not be deleted. Try again."))
       paneRef.current?.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
-    returnToCoupons(router, { id: initialCoupon.id, deleted: true, message: `${initialCoupon.code} deleted` })
+    returnToCoupons(router, { id: initialCoupon.id, deleted: true, message: tt("{code} deleted", { code: initialCoupon.code }) })
   }
 
   /* Cmd or Ctrl and S, from anywhere on the page. */
@@ -279,14 +280,14 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
   const saveState: "saving" | "unsaved" | "new" | "saved" = saving ? "saving" : dirty ? "unsaved" : isEdit ? "saved" : "new"
   const stateLine =
     saveState === "saving"
-      ? "Saving"
+      ? tt("Saving")
       : saveState === "unsaved"
-        ? "Unsaved changes"
+        ? tt("Unsaved changes")
         : saveState === "new"
-          ? "Not saved yet"
-          : `${COUPON_STATE_LABEL[state!]} · used ${used} ${used === 1 ? "time" : "times"}`
+          ? tt("Not saved yet")
+          : tt("{couponState} · used {used, plural, one {# time} other {# times}}", { couponState: COUPON_STATE_LABEL[state!], used })
 
-  const title = isEdit ? initialCoupon!.code : "New coupon"
+  const title = isEdit ? initialCoupon!.code : tt("New coupon")
   const summary = summaryLines(form, products)
 
   return (
@@ -303,7 +304,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
       onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
     >
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {saving ? "Saving" : deleting ? "Deleting" : ""}
+        {saving ? tt("Saving") : deleting ? tt("Deleting") : ""}
       </p>
 
       {/*
@@ -320,9 +321,9 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
           scrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "",
         )}
       >
-        <h1 className="sr-only">{isEdit ? `Edit coupon ${title}` : "New coupon"}</h1>
+        <h1 className="sr-only">{isEdit ? tt("Edit coupon {title}", { title }) : tt("New coupon")}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 app-gutter sm:h-16 sm:px-6">
-          <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label="Going back to coupons" onLeave={() => void leave()} />
+          <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label={tt("Going back to coupons")} onLeave={() => void leave()} />
           <CouponSaveButton saving={saving} disabled={!canSave} onSave={() => void save()} />
         </div>
       </div>
@@ -332,8 +333,8 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
         <header data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex">
           <button
             type="button"
-            aria-label="Back to coupons"
-            title="Coupons"
+            aria-label={tt("Back to coupons")}
+            title={tt("Coupons")}
             disabled={busy}
             onClick={() => void leave()}
             className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}
@@ -366,7 +367,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             {/* ── The code ─────────────────────────────────────────── */}
             <section className={CARD} aria-labelledby="coupon-code-title">
               <label id="coupon-code-title" htmlFor="coupon-code" className={cn(CARD_TITLE, "block")}>
-                Code
+                {tt("Code")}
               </label>
               <div className="space-y-1.5">
                 <div className="relative">
@@ -392,12 +393,12 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                     onClick={() => set("code", generateCode())}
                     className={cn(secondaryDepth, "absolute right-1.5 top-1/2 h-8 -translate-y-1/2 rounded-lg px-3 text-[14px] sm:right-1 sm:h-7 sm:rounded-md sm:px-2.5 sm:text-[13px]")}
                   >
-                    Generate
+                    {tt("Generate")}
                   </button>
                 </div>
                 <FieldError id="coupon-code" problem={problem} />
                 <p id="coupon-code-hint" className={HINT}>
-                  What buyers type at checkout.
+                  {tt("What buyers type at checkout.")}
                 </p>
               </div>
             </section>
@@ -405,16 +406,16 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             {/* ── What it takes off ────────────────────────────────── */}
             <section className={CARD} aria-labelledby="coupon-value-title">
               <h2 id="coupon-value-title" className={CARD_TITLE}>
-                Discount
+                {tt("Discount")}
               </h2>
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_200px] sm:items-start">
                 <Segmented
-                  label="Kind of discount"
+                  label={tt("Kind of discount")}
                   value={form.discount_type}
                   onChange={(v) => set("discount_type", v)}
                   options={[
-                    { value: "percentage", label: "Percentage" },
-                    { value: "fixed", label: "Fixed amount" },
+                    { value: "percentage", label: tt("Percentage") },
+                    { value: "fixed", label: tt("Fixed amount") },
                   ]}
                 />
                 <div className="relative">
@@ -423,7 +424,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                     id="coupon-value"
                     type="text"
                     inputMode="decimal"
-                    aria-label={form.discount_type === "percentage" ? "Percent off" : "Amount off, in dollars"}
+                    aria-label={form.discount_type === "percentage" ? tt("Percent off") : tt("Amount off, in dollars")}
                     value={form.discount_value}
                     onChange={(e) => set("discount_value", typedAmount(e.target.value))}
                     placeholder={form.discount_type === "percentage" ? "10" : "5.00"}
@@ -440,15 +441,15 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             {/* ── What it applies to ───────────────────────────────── */}
             <section className={CARD} aria-labelledby="coupon-applies-title">
               <h2 id="coupon-applies-title" className={CARD_TITLE}>
-                Applies to
+                {tt("Applies to")}
               </h2>
               <Segmented
-                label="Products the code applies to"
+                label={tt("Products the code applies to")}
                 value={form.applies_to}
                 onChange={(v) => set("applies_to", v)}
                 options={[
-                  { value: "all", label: "All products" },
-                  { value: "specific", label: "Selected products" },
+                  { value: "all", label: tt("All products") },
+                  { value: "specific", label: tt("Selected products") },
                 ]}
               />
               {form.applies_to === "specific" ? (
@@ -461,15 +462,15 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                           type="search"
                           value={query}
                           onChange={(e) => setQuery(e.target.value)}
-                          placeholder="Search products"
-                          aria-label="Search products"
+                          placeholder={tt("Search products")}
+                          aria-label={tt("Search products")}
                           enterKeyHint="search"
                           className={cn(FIELD, "pl-9")}
                         />
                       </div>
                     ) : null}
                     <ul
-                      aria-label="Products"
+                      aria-label={tt("Products")}
                       className={cn("max-h-[336px] divide-y divide-[#eef0f2] overflow-y-auto overscroll-contain rounded-xl border", wrong("products") ? "border-[#c4290c]" : "border-[#e5e7eb]")}
                     >
                       {shownProducts.map((p) => {
@@ -500,28 +501,28 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                           </li>
                         )
                       })}
-                      {shownProducts.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">No product matches that.</li> : null}
+                      {shownProducts.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
                     </ul>
                     <FieldError id="coupon-products" problem={problem} />
                     <div className="flex min-h-8 items-center justify-between gap-3">
                       <p className={HINT}>
-                        {picked === 0 && hidden === 0 ? "None selected yet." : `${picked} of ${products.length} selected`}
-                        {hidden > 0 ? `, and ${hidden} not on sale now` : ""}
+                        {picked === 0 && hidden === 0 ? tt("None selected yet.") : tt("{picked} of {length} selected", { picked, length: products.length })}
+                        {hidden > 0 ? tt(", and {hidden} not on sale now", { hidden }) : ""}
                       </p>
                       {form.product_ids.length > 0 ? (
                         <button type="button" onClick={() => set("product_ids", [])} className="h-8 shrink-0 cursor-pointer rounded-lg px-2 text-[14px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:text-[13px]">
-                          Clear
+                          {tt("Clear")}
                         </button>
                       ) : null}
                     </div>
                   </div>
                 ) : (
                   <p id="coupon-products" className={HINT}>
-                    Publish a product first. A code can only be for products buyers can see.
+                    {tt("Publish a product first. A code can only be for products buyers can see.")}
                   </p>
                 )
               ) : (
-                <p className={HINT}>Every product, including ones you add later.</p>
+                <p className={HINT}>{tt("Every product, including ones you add later.")}</p>
               )}
             </section>
 
@@ -530,11 +531,11 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             {/* ── Limits ───────────────────────────────────────────── */}
             <section className={CARD} aria-labelledby="coupon-limits-title">
               <h2 id="coupon-limits-title" className={CARD_TITLE}>
-                Limits
+                {tt("Limits")}
               </h2>
               <div className={SWITCH_GROUP}>
                 <div>
-                  <SwitchRow title="Minimum order" hint="Only on orders over an amount" checked={form.has_min_purchase} onChange={(v) => set("has_min_purchase", v)} />
+                  <SwitchRow title={tt("Minimum order")} hint={tt("Only on orders over an amount")} checked={form.has_min_purchase} onChange={(v) => set("has_min_purchase", v)} />
                   {form.has_min_purchase ? (
                     <div className="space-y-1.5 px-4 pb-3 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
                       <div className="relative">
@@ -543,7 +544,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                           id="coupon-minimum"
                           type="text"
                           inputMode="decimal"
-                          aria-label="Minimum order, in dollars"
+                          aria-label={tt("Minimum order, in dollars")}
                           value={form.min_purchase_amount}
                           onChange={(e) => set("min_purchase_amount", typedAmount(e.target.value))}
                           placeholder="25.00"
@@ -557,14 +558,14 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                   ) : null}
                 </div>
                 <div>
-                  <SwitchRow title="Limit total uses" hint="Stops after this many orders" checked={form.has_usage_limit} onChange={(v) => set("has_usage_limit", v)} />
+                  <SwitchRow title={tt("Limit total uses")} hint={tt("Stops after this many orders")} checked={form.has_usage_limit} onChange={(v) => set("has_usage_limit", v)} />
                   {form.has_usage_limit ? (
                     <div className="space-y-1.5 px-4 pb-3 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
                       <input
                         id="coupon-uses"
                         type="text"
                         inputMode="numeric"
-                        aria-label="Total uses"
+                        aria-label={tt("Total uses")}
                         value={form.usage_limit}
                         onChange={(e) => set("usage_limit", typedWhole(e.target.value))}
                         placeholder="100"
@@ -573,7 +574,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                         className={cn(FIELD, "tabular-nums", wrong("uses") && FIELD_WRONG)}
                       />
                       <FieldError id="coupon-uses" problem={problem} />
-                      {isEdit && used > 0 ? <p className={HINT}>Used {used} {used === 1 ? "time" : "times"} so far.</p> : null}
+                      {isEdit && used > 0 ? <p className={HINT}>{tt("Used {used, plural, one {# time} other {# times}} so far.", { used })}</p> : null}
                     </div>
                   ) : null}
                 </div>
@@ -583,13 +584,13 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             {/* ── Dates ────────────────────────────────────────────── */}
             <section className={CARD} aria-labelledby="coupon-dates-title">
               <h2 id="coupon-dates-title" className={CARD_TITLE}>
-                Active dates
+                {tt("Active dates")}
               </h2>
               <div className={SWITCH_GROUP}>
                 <div>
                   <SwitchRow
-                    title="Start later"
-                    hint={form.has_start ? "Works from this date and time" : "Works as soon as it is saved"}
+                    title={tt("Start later")}
+                    hint={form.has_start ? tt("Works from this date and time") : tt("Works as soon as it is saved")}
                     checked={form.has_start}
                     onChange={(v) => turn("has_start", v)}
                   />
@@ -598,7 +599,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                       <input
                         id="coupon-start"
                         type="datetime-local"
-                        aria-label="Starts"
+                        aria-label={tt("Starts")}
                         value={form.starts_at}
                         onChange={(e) => set("starts_at", e.target.value)}
                         aria-invalid={wrong("start") || undefined}
@@ -611,8 +612,8 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                 </div>
                 <div>
                   <SwitchRow
-                    title="End date"
-                    hint={form.has_end ? "Stops working at this date and time" : "Runs until you turn it off"}
+                    title={tt("End date")}
+                    hint={form.has_end ? tt("Stops working at this date and time") : tt("Runs until you turn it off")}
                     checked={form.has_end}
                     onChange={(v) => turn("has_end", v)}
                   />
@@ -621,7 +622,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                       <input
                         id="coupon-end"
                         type="datetime-local"
-                        aria-label="Ends"
+                        aria-label={tt("Ends")}
                         value={form.expires_at}
                         min={form.has_start ? form.starts_at || undefined : undefined}
                         onChange={(e) => set("expires_at", e.target.value)}
@@ -634,7 +635,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                   ) : null}
                 </div>
               </div>
-              <p className={HINT}>Dates are in your own time zone.</p>
+              <p className={HINT}>{tt("Dates are in your own time zone.")}</p>
             </section>
           </div>
 
@@ -645,28 +646,28 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <h2 id="coupon-status-title" className={CARD_TITLE}>
-                    Active
+                    {tt("Active")}
                   </h2>
-                  <p className={cn(HINT, "mt-0.5")}>{form.is_active ? "Buyers can use it at checkout." : "Paused. Buyers cannot use it until you turn it on."}</p>
+                  <p className={cn(HINT, "mt-0.5")}>{form.is_active ? tt("Buyers can use it at checkout.") : tt("Paused. Buyers cannot use it until you turn it on.")}</p>
                 </div>
                 <div className="pt-0.5">
-                  <FormSwitch checked={form.is_active} onChange={(v) => set("is_active", v)} label="Active" />
+                  <FormSwitch checked={form.is_active} onChange={(v) => set("is_active", v)} label={tt("Active")} />
                 </div>
               </div>
               {isEdit ? (
                 <dl className="grid grid-cols-2 gap-3 border-t border-[#eef0f2] pt-4 lg:grid-cols-1">
                   {/* From lg the badge is in the page header, right above. */}
                   <div className="lg:hidden">
-                    <dt className={HINT}>Status</dt>
+                    <dt className={HINT}>{tt("Status")}</dt>
                     <dd className="mt-1">
                       <StatusBadge tone={STATE_TONE[state!]}>{COUPON_STATE_LABEL[state!]}</StatusBadge>
                     </dd>
                   </div>
                   <div>
-                    <dt className={HINT}>Used</dt>
+                    <dt className={HINT}>{tt("Used")}</dt>
                     <dd className="mt-1 text-[15px] font-medium tabular-nums text-[#1a1a2e] sm:text-[14px]">
                       {used}
-                      {initialCoupon!.usage_limit !== null ? <span className="font-normal text-[#6b7280]"> of {initialCoupon!.usage_limit}</span> : null}
+                      {initialCoupon!.usage_limit !== null ? <span className="font-normal text-[#6b7280]"> {tt("of {usage_limit}", { usage_limit: initialCoupon!.usage_limit })}</span> : null}
                     </dd>
                   </div>
                 </dl>
@@ -676,9 +677,9 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             {/* ── The code in words, from lg ───────────────────────── */}
             <section data-coupon-summary="" className={cn(CARD, "hidden lg:block")} aria-labelledby="coupon-summary-title">
               <h2 id="coupon-summary-title" className={CARD_TITLE}>
-                Summary
+                {tt("Summary")}
               </h2>
-              <p className={cn("truncate text-[15px]", form.code ? "font-mono font-semibold tracking-wide text-[#1a1a2e]" : "text-[#9ca3af]")}>{form.code || "No code yet"}</p>
+              <p className={cn("truncate text-[15px]", form.code ? "font-mono font-semibold tracking-wide text-[#1a1a2e]" : "text-[#9ca3af]")}>{form.code || tt("No code yet")}</p>
               <ul className="space-y-1.5">
                 {summary.map((line) => (
                   <li key={line} className="flex gap-2 text-[14px] leading-5 text-[#4b5563]">
@@ -692,7 +693,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             {isEdit ? (
               <div className="flex justify-start lg:justify-end">
                 <button type="button" data-delete-coupon="" disabled={busy} onClick={() => void remove()} className={cn(quietDanger, "h-10 rounded-[10px] px-3.5 text-[15px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}>
-                  Delete coupon
+                  {tt("Delete coupon")}
                 </button>
               </div>
             ) : null}
@@ -722,7 +723,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             <span className={cn("truncate", saveState === "unsaved" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{stateLine}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label="Going back to coupons" onLeave={() => void leave()} />
+            <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label={tt("Going back to coupons")} onLeave={() => void leave()} />
             <CouponSaveButton saving={saving} disabled={!canSave} onSave={() => void save()} />
           </div>
         </div>

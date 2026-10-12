@@ -22,6 +22,8 @@ import { DirectUploader } from "@/lib/storage/chunked-upload"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { PickSheet, type PickOption } from "@/app/app/products/pick-sheet"
 import { SAVED_CHECK_MS, SaveButton, barButton, type SavePhase } from "@/app/app/products/new/editor-buttons"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 /* The app's buttons, 40px tall on a phone so a thumb finds them; 32px on a computer as everywhere in /app. */
 export const buttonPrimary = cn(appPrimary, "max-sm:h-10 max-sm:px-3.5")
@@ -48,7 +50,7 @@ export async function send<T = Record<string, unknown>>(url: string, method: str
     const res = await fetch(url, { method, headers: body === undefined ? undefined : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) })
     return { ok: res.ok, status: res.status, data: (await res.json().catch(() => ({}))) as T & { error?: string; field?: string } }
   } catch {
-    return { ok: false, status: 0, data: { error: "The connection dropped. Nothing was saved. Try again." } as T & { error?: string } }
+    return { ok: false, status: 0, data: { error: tt("The connection dropped. Nothing was saved. Try again.") } as T & { error?: string } }
   }
 }
 
@@ -56,25 +58,25 @@ export async function send<T = Record<string, unknown>>(url: string, method: str
 export function errorText(error: string | undefined, fallback = "That did not save. Try again."): string {
   switch (error) {
     case "forbidden":
-      return "Your role in this community cannot do that."
+      return tt("Your role in this community cannot do that.")
     case "not_found":
-      return "That is not there any more. Refresh the page."
+      return tt("That is not there any more. Refresh the page.")
     case "archived":
-      return "This community is archived. Bring it back to change it."
+      return tt("This community is archived. Bring it back to change it.")
     case "communities_off":
-      return "Communities are switched off on Storelib right now."
+      return tt("Communities are switched off on Storelib right now.")
     case "sign_in":
-      return "Sign in again to continue."
+      return tt("Sign in again to continue.")
     case "not_allowed":
-      return "Your role in this community cannot do that."
+      return tt("Your role in this community cannot do that.")
     case "not_set_up":
-      return "Tickets need the database update (run-now part 105)."
+      return tt("Tickets need the database update (run-now part 105).")
     case "full":
-      return "That event is full. Raise the capacity first."
+      return tt("That event is full. Raise the capacity first.")
     case "no_payment":
-      return "There is no payment on that ticket to give back."
+      return tt("There is no payment on that ticket to give back.")
     case "refund_failed":
-      return "Stripe refused the refund. Try again, or check the payment in Stripe."
+      return tt("Stripe refused the refund. Try again, or check the payment in Stripe.")
     case undefined:
     case "":
       return fallback
@@ -180,7 +182,7 @@ export function FilterTabs<T extends string>({ tabs, value, onChange, label: nam
           )}
         >
           {t.label}
-          {typeof t.count === "number" ? <span className={cn("tabular-nums", t.attention && t.count > 0 ? "text-[#b45309]" : "text-[#9ca3af]")}>{t.count.toLocaleString("en-US")}</span> : null}
+          {typeof t.count === "number" ? <span className={cn("tabular-nums", t.attention && t.count > 0 ? "text-[#b45309]" : "text-[#9ca3af]")}>{t.count.toLocaleString(appLocale())}</span> : null}
         </button>
       ))}
     </div>
@@ -232,7 +234,7 @@ export function SearchField({ value, onChange, placeholder, label: name }: { val
         className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13.5px] [&::-webkit-search-cancel-button]:hidden"
       />
       {value ? (
-        <button type="button" aria-label="Clear search" onClick={() => onChange("")} className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] hover:text-[#4b5563] md:h-8 md:w-8">
+        <button type="button" aria-label={tt("Clear search")} onClick={() => onChange("")} className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] hover:text-[#4b5563] md:h-8 md:w-8">
           <X aria-hidden className="h-4 w-4" />
         </button>
       ) : null}
@@ -264,7 +266,7 @@ export function PickButton({ name, title, options, value, onPick, align = "start
         <button
           type="button"
           data-pick={name}
-          aria-label={`${title}: ${current}. Change`}
+          aria-label={tt("{title}: {current}. Change", { title, current })}
           className="flex h-11 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] md:h-8 md:px-2 md:text-[13px] md:hover:bg-[#f4f4f6] md:data-open:bg-[#ececef]"
         >
           <span>{current}</span>
@@ -430,7 +432,7 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
       const result = await uploader.start()
       if (result.publicUrl) onChange(result.publicUrl)
     } catch (e) {
-      onError?.((e as { message?: string })?.message || "The picture did not upload.")
+      onError?.((e as { message?: string })?.message || tt("The picture did not upload."))
     } finally {
       uploader.destroy()
       setBusy(false)
@@ -443,7 +445,7 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
         type="button"
         onClick={() => input.current?.click()}
         disabled={busy}
-        aria-label={value ? `Change the ${name}` : `Add a ${name}`}
+        aria-label={value ? tt("Change the {name}", { name }) : tt("Add a {name}", { name })}
         className={cn("relative grid shrink-0 cursor-pointer place-items-center overflow-hidden border text-[#9ca3af] transition-colors", box, value ? "border-transparent" : "border-dashed border-[#d9dce1] bg-[#fafafb] hover:border-[#b9bdc4] hover:text-[#6b7280]")}
       >
         {value ? (
@@ -463,15 +465,15 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = "" }} />
       <div className="flex min-w-0 flex-col items-start gap-1">
         <button type="button" onClick={() => input.current?.click()} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-          {busy ? "Uploading" : value ? "Change" : shape === "square" ? "Upload logo" : "Upload cover"}
+          {busy ? tt("Uploading") : value ? tt("Change") : shape === "square" ? tt("Upload logo") : tt("Upload cover")}
         </button>
         {value ? (
           <button type="button" onClick={() => onChange(null)} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] sm:min-h-8 font-medium text-[#6b7280] hover:text-[#1a1a2e]">
             <X aria-hidden className="h-3.5 w-3.5" />
-            Remove
+            {tt("Remove")}
           </button>
         ) : (
-          <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? "Square, 400px or more" : "Wide, about 3 to 1"}</span>
+          <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? tt("Square, 400px or more") : tt("Wide, about 3 to 1")}</span>
         )}
       </div>
     </div>
@@ -537,10 +539,10 @@ export function Confirm({
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" disabled={busy} onClick={() => onConfirm(text)} className={cn(danger ? "inline-flex h-10 items-center justify-center rounded-lg bg-[#b42318] px-4 text-[13px] font-medium text-white hover:bg-[#9a1d14] disabled:opacity-50 sm:h-9" : cn(buttonPrimary, "h-10 px-4 sm:h-9"))}>
-            {busy ? "Working" : action}
+            {busy ? tt("Working") : action}
           </button>
         </>
       }
@@ -549,9 +551,9 @@ export function Confirm({
       {reason ? (
         <div className="mt-3">
           <label htmlFor="confirm-reason" className={label}>
-            Reason (kept in the audit log)
+            {tt("Reason (kept in the audit log)")}
           </label>
-          <input id="confirm-reason" value={text} onChange={(e) => setText(e.target.value.slice(0, 500))} className={cn(field, "h-11 sm:h-10")} placeholder="Optional" />
+          <input id="confirm-reason" value={text} onChange={(e) => setText(e.target.value.slice(0, 500))} className={cn(field, "h-11 sm:h-10")} placeholder={tt("Optional")} />
         </div>
       ) : null}
     </Dialog>
@@ -579,7 +581,7 @@ export function shortDate(iso: string | null | undefined): string {
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return ""
   const sameYear = new Date(t).getFullYear() === new Date().getFullYear()
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) }).format(t)
+  return new Intl.DateTimeFormat(appLocale(), zoned({ month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })).format(t)
 }
 
 /* ── The product editor's cards and save foot (round 13) ────────────────── */
@@ -609,7 +611,7 @@ export function EditorFoot({
   onSave,
   onCancel,
   busyText,
-  idleText = "No changes",
+  idleText = tt("No changes"),
 }: {
   dirty: boolean
   busy: boolean
@@ -645,7 +647,7 @@ export function EditorFoot({
     if (dirty) setSavedOnce(false)
   }, [dirty])
   const state = error ? "error" : busyText ? "busy" : dirty ? "dirty" : savedOnce ? "saved" : "idle"
-  const words = error ?? (busyText || (dirty ? "Unsaved changes" : savedOnce ? "Saved" : idleText))
+  const words = error ?? (busyText || (dirty ? tt("Unsaved changes") : savedOnce ? tt("Saved") : idleText))
   return (
     <div className="sticky bottom-[calc(var(--app-nav-room,0px)+0.75rem)] z-20 mt-4 md:bottom-3" data-editor-foot="" data-state={state}>
       <div className={cn(card, "flex min-h-14 items-center gap-2 py-2 pl-4 pr-2.5 shadow-[0_10px_28px_-12px_rgba(17,24,39,0.24),0_1px_3px_rgba(0,0,0,0.05)] sm:pr-3")}>
@@ -654,7 +656,7 @@ export function EditorFoot({
           <span className={cn("truncate", error ? "text-[#b42318]" : dirty ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{words}</span>
         </p>
         <button type="button" onClick={onCancel} disabled={!dirty || busy} className={cn(barButton, "disabled:cursor-default disabled:opacity-50")} data-foot-cancel="">
-          Cancel
+          {tt("Cancel")}
         </button>
         <SaveButton phase={phase} disabled={!dirty || !!busyText} saved={savedOnce} onSave={onSave} />
       </div>

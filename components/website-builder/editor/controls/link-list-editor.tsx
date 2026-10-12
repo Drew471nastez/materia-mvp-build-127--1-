@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils"
 import { isMenuButton } from "@/lib/website-builder/header-settings"
 import { INPUT } from "./styles"
 import { useReorder } from "./use-reorder"
+import { tt } from "@/lib/i18n/text"
 
 /* The sidebar's field, a thumb's height on a phone: these lists are also drawn outside the phone sheet, in Website Settings, where the sheet's own 44px rule does not reach. */
 const FIELD = cn(INPUT, "max-sm:h-11")
@@ -134,12 +135,12 @@ function LinkRow({
   const outable = depth === 1 && ctx.canOut() && !!parent
 
   const actions: ActionMenuItem[] = [
-    { label: expanded ? "Close" : "Edit", onClick: () => ctx.setOpen(expanded ? null : item.id) },
-    ...(roomUnder ? [{ label: "Add sub-link", onClick: () => ctx.add(item.id) }] : []),
-    ...(nestable ? [{ label: `Move under ${above!.label.trim() || "the link above"}`, onClick: () => ctx.onNest?.(item.id, 1) }] : []),
-    ...(outable ? [{ label: `Move out of ${parent!.label.trim() || "its parent"}`, onClick: () => ctx.onNest?.(item.id, -1) }] : []),
+    { label: expanded ? tt("Close") : tt("Edit"), onClick: () => ctx.setOpen(expanded ? null : item.id) },
+    ...(roomUnder ? [{ label: tt("Add sub-link"), onClick: () => ctx.add(item.id) }] : []),
+    ...(nestable ? [{ label: tt("Move under {value}", { value: above!.label.trim() || tt("the link above") }), onClick: () => ctx.onNest?.(item.id, 1) }] : []),
+    ...(outable ? [{ label: tt("Move out of {value}", { value: parent!.label.trim() || tt("its parent") }), onClick: () => ctx.onNest?.(item.id, -1) }] : []),
     {
-      label: kids.length > 0 ? `Delete with ${kids.length} sub-link${kids.length === 1 ? "" : "s"}` : "Delete",
+      label: kids.length > 0 ? tt("Delete with {length, plural, one {# sub-link} other {# sub-links}}", { length: kids.length }) : tt("Delete"),
       variant: "destructive",
       separatorBefore: true,
       onClick: () => {
@@ -162,8 +163,8 @@ function LinkRow({
         <div className={BAR} data-link-bar="">
           <button
             type="button"
-            aria-label={`Move ${name || "link"}`}
-            title="Drag to move. Arrow keys work too."
+            aria-label={tt("Move {value}", { value: name || "link" })}
+            title={tt("Drag to move. Arrow keys work too.")}
             className={cn(
               GRIP_COL,
               "flex h-full shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/15 active:cursor-grabbing",
@@ -188,24 +189,24 @@ function LinkRow({
                 name ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              {name || "Untitled"}
+              {name || tt("Untitled")}
             </span>
             {/* Where it goes, unless that is only its own name again ("Shop" to the Shop page). */}
             <span data-link-dest="" className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground max-sm:text-[13px]">
               {(() => {
-                if (menuButton) return "Opens its sub-links"
+                if (menuButton) return tt("Opens its sub-links")
                 const where = describeLink(item.url, ctx.targets)
                 return where.toLowerCase() === name.toLowerCase() ? "" : where
               })()}
             </span>
           </button>
           <ResponsiveActionMenu
-            title={name || "Link"}
+            title={name || tt("Link")}
             items={actions}
             trigger={
               <button
                 type="button"
-                aria-label={`Actions for ${name || "link"}`}
+                aria-label={tt("Actions for {value}", { value: name || "link" })}
                 data-link-actions=""
                 className="mr-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-11 max-sm:w-11 dark:hover:bg-white/[0.06]"
               >
@@ -218,7 +219,7 @@ function LinkRow({
         <Reveal open={expanded} id={panelId} data-link-reveal="">
           <div className="space-y-3 pb-3 pl-7 pr-2 max-sm:pl-11" data-link-panel="">
             <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Label</span>
+              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{tt("Label")}</span>
               <input
                 className={FIELD}
                 value={item.label}
@@ -240,7 +241,7 @@ function LinkRow({
             */}
             {opensKids && (
               <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">When pressed</span>
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{tt("When pressed")}</span>
                 <select
                   className={FIELD}
                   value={menuButton ? "menu" : "link"}
@@ -254,14 +255,14 @@ function LinkRow({
                     }
                   }}
                 >
-                  <option value="link">Goes to its link</option>
-                  <option value="menu">Opens its sub-links</option>
+                  <option value="link">{tt("Goes to its link")}</option>
+                  <option value="menu">{tt("Opens its sub-links")}</option>
                 </select>
               </label>
             )}
             {!menuButton && (
               <div>
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Link</span>
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{tt("Link")}</span>
                 <LinkPicker value={item.url} targets={ctx.targets} onChange={(href) => ctx.onUrl(item.id, href)} />
               </div>
             )}
@@ -392,7 +393,7 @@ export function LinkListEditor(props: LinkListEditorProps) {
       {props.items.length > 0 && <LinkLevel items={props.items} parent={null} depth={0} ctx={ctx} />}
       {room && (
         <div className={cn(props.items.length === 0 && "[&>button]:border-t-0")}>
-          <AddRow label="Add link" onClick={() => add(null)} data-link-add="top" />
+          <AddRow label={tt("Add link")} onClick={() => add(null)} data-link-add="top" />
         </div>
       )}
     </div>

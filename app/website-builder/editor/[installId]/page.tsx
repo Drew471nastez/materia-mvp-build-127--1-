@@ -142,7 +142,7 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { forgetCompatFiles, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
-import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
+import { assetAddresses, compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { faviconFollows } from "@/lib/website-builder/favicon-sync"
 import { themeSchemeList } from "@/lib/storelib-theme/compat/scheme-list"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
@@ -2655,8 +2655,12 @@ const PUBLISH_MS = 45_000
 const CANVAS_HOLD_CAP_MS = 6000
 /** The longest the sections panel keeps the page being left's list while an imported theme's canvas draws the next page. */
 const LIST_HOLD_MS = 3000
-/** How long a page's sections read ahead on a hover stay good, unless an edit comes first. */
-const SECTIONS_AHEAD_MS = 15000
+/** How long a page's sections, once read, open the page without asking again (handlePageChange). Only this editor, an agent or a push changes them, and the last two forget them. */
+const PAGE_AHEAD_MS = 10 * 60_000
+/** The same for a page the server builds from home and the settings (the shop, search, account pages): those follow a change to either. */
+const GENERATED_AHEAD_MS = 15_000
+/** How many of the site's other pages are read once the editor is idle, in the order the page list shows them. */
+const READ_AHEAD_PAGES = 6
 
 /*
   OUT OF THE FIRST PAINT. The AI conversation is drawn only once it has been
@@ -3666,6 +3670,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const mergeWithHomeHeaderFooter = withUniversalChrome
 
+  /** Which pages the server answered with sections it built rather than stored (fetchPageSections). */
+  const generatedPages = useRef(new Set<string>())
   const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
     const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections?page=${page}`, {}, SECTIONS_WAIT_MS)
     /* A server error is not an empty page: drawn as one, the next autosave would have written it over the real one. */
@@ -3674,6 +3680,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const data = await res.json()
     // The server's own answer to "is the draft ahead of live". See `unpublished`.
     if (data.has_draft) setUnpublished(true)
+    /* Built from home and the settings, not stored: kept for a moment only (pageCache, below). */
+    if (data.generated === true) generatedPages.current.add(page)
+    else generatedPages.current.delete(page)
     let loaded: SectionInstance[] = data.sections ?? []
 
     // `_product_data` is a runtime-only injection used by the preview; it
@@ -3744,37 +3753,122 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [installId])
 
   /*
-    A PAGE'S SECTIONS ASKED FOR BEFORE THE CLICK. In an imported theme's
-    canvas the pointer resting on a link (the bridge's "intent", canvas-
-    bridge.ts) asks for that page's sections, so a page switch does not start
-    with a round trip after the press: on the video the panel and the canvas
-    sat on About for a second waiting for exactly this. Only while nothing
-    is unsaved, and thrown away at the next edit, so what is read is what a
-    read after the press would have read.
+    ═══════════════════════════════════════════════════════════════════════
+     A PAGE ALREADY READ OPENS FROM WHAT WAS READ (round 25)
+    ═══════════════════════════════════════════════════════════════════════
+    "Navigating between pages in the editor takes too long." Every switch
+    asked the server for the page's sections after the press, and a page
+    opened a minute ago was asked for again. Read ahead only on a link's
+    hover in an imported theme's canvas, kept 15 seconds, and thrown away at
+    the next edit anywhere, so almost every switch began with a round trip.
+
+    Each page is now kept once read, for PAGE_AHEAD_MS:
+      read ahead on a link's hover in an imported theme's canvas (the
+      bridge's "intent", canvas-bridge.ts), on a row's hover in the page
+      list, and the site's other pages once the editor is idle (THE SITE'S
+      OTHER PAGES, READ ONCE THE EDITOR IS IDLE, below);
+      the page being left, as it stands once its save has landed, or with
+      nothing unsaved: what a read of it would answer (handlePageChange).
+    What a page holds changes only here, from an agent, or from a push: an
+    agent's or a push's change forgets them all (handleAgentEvents), a page
+    written from here other than by its own save (the assistant building it,
+    a policy written into it, made, deleted) is forgotten (forgetPage), the
+    reload button reads afresh, and a page the server builds from home and
+    the settings (`generated`: the shop, search, account pages) is kept
+    GENERATED_AHEAD_MS. An edit on one page changes no other page's own
+    sections, and what every page shares, the header and footer, is never
+    taken from what was read but from the page on screen (handlePageChange),
+    so an edit to the header is on the next page at once, saved or not.
   */
+  /* Whether something here is unsaved, or being saved, read by what runs later than a render (handleAgentEvents). */
   const isDirtyRef = useRef(isDirty)
   isDirtyRef.current = isDirty
   const savingRef = useRef(saving)
   savingRef.current = saving
-  const sectionsAhead = useRef(new Map<string, { at: number; edit: number; read: Promise<SectionInstance[]> }>())
-  const editCount = useRef(0)
-  useEffect(() => { editCount.current++; sectionsAhead.current.clear() }, [sections])
+  const pageCache = useRef(new Map<string, { at: number; ttl: number; read: Promise<SectionInstance[]> }>())
+  /** A page written other than by its own save (or all of them): read afresh when it is next opened. */
+  const forgetPage = useCallback((page?: string) => {
+    if (page === undefined) pageCache.current.clear()
+    else pageCache.current.delete(page)
+  }, [])
+  const cachedPage = useCallback((page: string): Promise<SectionInstance[]> | null => {
+    const had = pageCache.current.get(page)
+    if (had && Date.now() - had.at < had.ttl) return had.read
+    if (had) pageCache.current.delete(page)
+    return null
+  }, [])
   const prefetchPageSections = useCallback((page: PageKey) => {
-    if (isDirtyRef.current || savingRef.current || page === currentPageRef.current) return
-    const had = sectionsAhead.current.get(page)
-    if (had && had.edit === editCount.current && Date.now() - had.at < SECTIONS_AHEAD_MS) return
+    if (page === "product" || page === currentPageRef.current || cachedPage(page)) return
     const read = fetchPageSections(page)
-    read.catch(() => sectionsAhead.current.delete(page))
-    sectionsAhead.current.set(page, { at: Date.now(), edit: editCount.current, read })
-  }, [fetchPageSections])
-  /** The sections a hover already asked for, if they are still good; otherwise asked for now. */
-  const pageSectionsNow = (page: PageKey): Promise<SectionInstance[]> => {
-    const had = sectionsAhead.current.get(page)
-    sectionsAhead.current.delete(page)
-    if (had && had.edit === editCount.current && Date.now() - had.at < SECTIONS_AHEAD_MS) return had.read.catch(() => fetchPageSections(page))
-    return fetchPageSections(page)
+    const entry = { at: Date.now(), ttl: PAGE_AHEAD_MS, read }
+    read.then(
+      () => { if (generatedPages.current.has(page)) entry.ttl = GENERATED_AHEAD_MS },
+      () => { if (pageCache.current.get(page) === entry) pageCache.current.delete(page) },
+    )
+    pageCache.current.set(page, entry)
+  }, [fetchPageSections, cachedPage])
+  /** A page's sections: what was read of it, a copy (the editor's state is never the copy kept), or asked for now. */
+  const pageSectionsNow = (page: PageKey, fresh = false): Promise<SectionInstance[]> => {
+    const had = fresh || page === "product" ? null : cachedPage(page)
+    if (!had) {
+      pageCache.current.delete(page)
+      return fetchPageSections(page)
+    }
+    return had.then((list) => structuredClone(list), () => fetchPageSections(page))
+  }
+  /*
+    THE HEADER AND FOOTER EVERY PAGE WEARS, FROM THE PAGE ON SCREEN. Every
+    page in the editor is drawn in home's chrome (mergeWithHomeHeaderFooter),
+    so the page on screen already wears the site's: as it stands, edits and
+    all, which a read of home would only have once a save had landed. A
+    group deleted here is an empty group, not one taken from the next page.
+    Null on the password page, which wears none.
+  */
+  const siteChromeOf = (page: PageKey, list: SectionInstance[]): Chrome | null => {
+    if (CHROMELESS_PAGES.has(page)) return null
+    const c = chromeOf(list)
+    const gone = chromeRemoved.current
+    return {
+      ...c,
+      ...(gone.header && !c.headerGroup ? { headerGroup: [] } : {}),
+      ...(gone.footer && !c.footerGroup ? { footerGroup: [] } : {}),
+      ...(gone.overlay && !c.overlayGroup ? { overlayGroup: [] } : {}),
+    }
+  }
+  /** The page being left, kept as a read of it would now answer: only once its save has landed (or with nothing to save). */
+  const keepPageLeft = (page: PageKey, list: SectionInstance[], saved: boolean, wasDirty: boolean) => {
+    if (page === "product") return
+    if (!saved) { pageCache.current.delete(page); return }
+    if (wasDirty) generatedPages.current.delete(page)
+    const ttl = generatedPages.current.has(page) ? GENERATED_AHEAD_MS : PAGE_AHEAD_MS
+    pageCache.current.set(page, { at: Date.now(), ttl, read: Promise.resolve(structuredClone(sectionsForSave(list))) })
   }
 
+  /*
+    AN IMPORTED THEME'S PAGE, DRAWN BEFORE THE PRESS (round 25). The pointer
+    resting on a page's link (in the canvas, or a row of the page list) reads
+    its sections, and once they are in, the canvas draws that page out of
+    sight with exactly the sections a press would open it with (compat-
+    canvas.tsx, KEPT PAGES), so the press shows a page already loaded. At a
+    computer only: a finger has no resting.
+  */
+  const [compatWarm, setCompatWarm] = useState<{ pageKey: string; sections: StoredSection[] } | null>(null)
+  const warmAsked = useRef(0)
+  const warmCompatPage = useCallback((page: PageKey) => {
+    if (!importedTheme.current || page === "product" || page === currentPageRef.current) return
+    if (typeof window !== "undefined" && window.innerWidth < 768) return
+    const read = cachedPage(page)
+    if (!read) return
+    const asked = ++warmAsked.current
+    read.then((list) => {
+      if (asked !== warmAsked.current || page === currentPageRef.current) return
+      const chrome = siteChromeOf(currentPageRef.current, sectionsRef.current)
+      if (!chrome) return
+      const copy = structuredClone(list)
+      setCompatWarm({ pageKey: page, sections: (CHROMELESS_PAGES.has(page) ? withoutChrome(copy) : mergeWithHomeHeaderFooter(copy, chrome)) as unknown as StoredSection[] })
+    }, () => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedPage])
   const loadSections = useCallback(async (page: PageKey) => {
     const loaded = await fetchPageSections(page)
     setSections(loaded)
@@ -4166,17 +4260,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * window to a second and a half; it did not close it, and a second and a
      * half is exactly long enough to change a heading and click another page.
      *
-     * Awaited, not fired and forgotten: the write must land while
-     * `currentPage` and `sections` still agree about which page they describe.
+     * Awaited, not fired and forgotten: the write is started while
+     * `currentPage` and `sections` still agree about which page they describe
+     * (saveDraft reads them as it starts), and the next page is not put in
+     * until it has landed. The next page's sections are read AT THE SAME
+     * TIME (round 25): they are another page's row, which this save does not
+     * touch, so the switch costs the longer of the two, not both.
      */
     /* An edit here and GitHub's version of the same page: switching would save one over the other unasked. */
     if (syncConflictRef.current) {
       showNotification("Pick which version to keep first", "error")
       return
     }
-    if (isDirty && !saving && !publishing) {
-      await saveDraft({ quiet: true })
-    }
+    const leaving = currentPage
+    const leavingSections = sections
+    const leavingDirty = isDirty && !saving && !publishing
+    const saved: Promise<boolean> = leavingDirty ? saveDraft({ quiet: true }) : Promise.resolve(true)
     switchingPage.current = true
     // The history describes the page being left. See `clearHistory`.
     clearHistory()
@@ -4199,9 +4298,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       // time the user clicks a different page.
       setSectionsLoading(true)
 
-      // If leaving home, capture home's header/footer from in-memory state
-      // so they remain the universal version. Otherwise, fetch from API.
-      const leavingHomeHF = currentPage === "home" ? chromeOf(sections) : null
+      /*
+        The header and footer from the page being left (siteChromeOf): home
+        was read again for them on every switch that did not start at home.
+        From the password page, which wears none, home is read.
+      */
+      const siteChrome = siteChromeOf(leaving, leavingSections)
 
       /**
        * The sidebar's half of the switch happens now, because it is what the
@@ -4214,16 +4316,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       // Load new page sections, then — if not home — splice in home's
       // header/footer so every page renders identically to home.
       const nav = ++pageNav.current
-      const [loaded, homeHF] = await Promise.all([
-        pageSectionsNow(page),
-        page !== "home"
-          ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
-          : Promise.resolve<Chrome>({}),
+      const [loaded, homeHF, savedOk] = await Promise.all([
+        /* The reload button (the same page again) reads afresh. */
+        pageSectionsNow(page, page === leaving),
+        siteChrome
+          ? Promise.resolve(siteChrome)
+          : page !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<Chrome>({}),
+        saved,
       ])
+      if (page !== leaving) keepPageLeft(leaving, leavingSections, savedOk, leavingDirty)
       /* Another page or product was picked while this one loaded: that one draws, this one never does. */
       if (nav !== pageNav.current) return
       /* Home included, for the reason on the initial load above. */
-      const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
+      const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, siteChrome ?? (page !== "home" ? homeHF : chromeOf(loaded)))
 
       /**
        * ═══════════════════════════════════════════════════════════════════
@@ -5548,6 +5653,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return
     }
 
+    forgetPage(pageKey)
     setCustomPages(prev => [...prev, newPage])
     setAddPageOpen(false)
     setNewPageTitle("")
@@ -5580,6 +5686,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // slow part. Put back below if the server refuses.
     setCustomPages(prev => prev.filter(p => p.key !== key))
     if (currentPage === key) await handlePageChange("home")
+    /* Kept as it was left (pageCache): a page made again under this name starts from what the server has. */
+    forgetPage(key)
 
     try {
       const res = await fetch(
@@ -5592,7 +5700,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setCustomPages(before)
       showNotification("Could not delete the page. Try again.", "error")
     }
-  }, [customPages, currentPage, handlePageChange, installId, showNotification])
+  }, [customPages, currentPage, handlePageChange, installId, showNotification, forgetPage])
 
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
@@ -5726,7 +5834,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Timed for /admin/performance (lib/perf/mark): how long a save took, or that it failed. */
     const t0 = performance.now()
     try {
-      const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
+      /*
+        THE THREE WRITES AT ONCE (round 25), as Publish already sends them:
+        the settings, this page, and the header and footer on every other
+        page are different rows, and each was waited for before the next
+        was sent, three round trips in front of every save and of every page
+        switch with something unsaved. Each is a whole value written again
+        (idempotent), so one that fails leaves the edit unsaved and the next
+        save sends all three again; what is said is the first that failed.
+      */
+      const [settingsRes, sectionsRes] = await Promise.all([
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft }),
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
+        // Sync header/footer to all other pages
+        syncHeaderFooterToAllPages("draft"),
+      ])
       if (!settingsRes.ok) {
         perfFail("/step/editor/save", `http_${settingsRes.status}`)
         const d = await settingsRes.json().catch(() => ({}))
@@ -5734,7 +5856,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         return false
       }
 
-      const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
       if (!sectionsRes.ok) {
         perfFail("/step/editor/save", `http_${sectionsRes.status}`)
         const d = await sectionsRes.json().catch(() => ({}))
@@ -5743,9 +5864,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
         return false
       }
-
-      // Sync header/footer to all other pages
-      await syncHeaderFooterToAllPages("draft")
 
       setIsDirty(false)
       setSaveProblem(null)
@@ -6366,6 +6484,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       edit made here.
     */
     if (events.length > 0) setUnpublished(true)
+    /* Any page may have been written: each is read afresh when it is next opened (pageCache). */
+    if (events.length > 0) forgetPage()
     /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
     if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) setCompatFilesVersion((n) => n + 1)
     /* Which of what is open was rewritten, for the conflict line: a page, home's header and footer, or the settings. */
@@ -6583,6 +6703,50 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [customPages, builderCollections, compatInstall, rowPageKeys],
   )
   const switcherProducts = useMemo(() => products.map((p) => ({ id: p.id, title: p.title })), [products])
+  /* A page's row under the pointer: read before the press (pageCache). */
+  const pageIntent = useCallback((key: string) => {
+    prefetchPageSections(key as PageKey)
+    warmCompatPage(key as PageKey)
+  }, [prefetchPageSections, warmCompatPage])
+  /*
+    THE SITE'S OTHER PAGES, READ ONCE THE EDITOR IS IDLE (round 25). A
+    page switch that has its sections in hand starts drawing on the press.
+    The pages the site has stored, in the order the list shows them,
+    READ_AHEAD_PAGES of them, one after another while nothing else is
+    going on, and none on a connection that asks to save data.
+  */
+  useEffect(() => {
+    if (loading) return
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+    if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+    /* Only pages the site has stored: one the server builds (the shop, search) is kept a moment only, and is not worth the request. */
+    const listed = sitePages.map((p) => p.key)
+    const keys = [...listed.filter((k) => rowPageKeys.includes(k)), ...rowPageKeys.filter((k) => !listed.includes(k))]
+      .filter((k) => k !== currentPageRef.current && k !== "product")
+      .slice(0, READ_AHEAD_PAGES)
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    let cancelled = false
+    let idle = 0
+    const next = (i: number) => {
+      if (cancelled || i >= keys.length) return
+      const run = () => {
+        if (cancelled) return
+        prefetchPageSections(keys[i] as PageKey)
+        const read = pageCache.current.get(keys[i])?.read ?? Promise.resolve()
+        read.then(() => next(i + 1), () => next(i + 1))
+      }
+      idle = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 4000 }) : window.setTimeout(run, 300)
+    }
+    /* After the first page has had the network to itself. */
+    const start = window.setTimeout(() => next(0), 1200)
+    return () => {
+      cancelled = true
+      window.clearTimeout(start)
+      if (w.cancelIdleCallback) w.cancelIdleCallback(idle)
+      else window.clearTimeout(idle)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
   const selectProductById = (id: string) => {
     const p = products.find((x) => x.id === id)
     if (p) void handleSelectProductPage(p.id, p.title)
@@ -6610,6 +6774,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       onSelectProduct={selectProductById}
       onCreate={() => setAddPageOpen(true)}
       onDelete={(key) => { void handleDeletePage(key) }}
+      onIntent={pageIntent}
     />
     {/* The store's menus sit beside its pages, the way Shopify keeps Navigation next to Pages. */}
     <div className="shrink-0 border-t border-border p-2">
@@ -7640,8 +7805,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* The pointer on a link in the canvas: that page's sections read ahead, so its switch does not wait for them after the press. */
   const intentInCompatCanvas = useCallback((href: string) => {
     const to = compatPageForHref(href, rowPageKeysRef.current)
-    if (to && !to.product) prefetchPageSections(to.key as PageKey)
-  }, [prefetchPageSections])
+    if (to && !to.product) {
+      prefetchPageSections(to.key as PageKey)
+      warmCompatPage(to.key as PageKey)
+    }
+  }, [prefetchPageSections, warmCompatPage])
   const selectFromCompatCanvas = useCallback(
     (sectionId: string, blockPath: string[]) => selectSectionFromCanvas(sectionId, blockPath.length ? pathKey(blockPath) : null, null),
     [selectSectionFromCanvas],
@@ -7725,6 +7893,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
   const compatShopify = compatInstall ? ((settingsDraft as Record<string, unknown>).shopify as Record<string, unknown> | undefined) : undefined
   const compatSchemes = useMemo(() => (compatInstall ? themeSchemeList(compatShopify) : null), [compatInstall, compatShopify])
+  /* An imported theme's own pictures by name, so a picture setting saved as its old store's address shows the theme's copy (lib/website-builder/picture-address.ts). */
+  const [compatMedia, setCompatMedia] = useState<Record<string, string> | null>(null)
+  useEffect(() => {
+    if (!compatInstall) return
+    let live = true
+    loadCompatFiles(installId).then((files) => { if (live) setCompatMedia(assetAddresses(files)) }, () => {})
+    return () => { live = false }
+  }, [compatInstall, installId, compatFilesVersion])
   const fieldEnv = useMemo<EditorFieldEnv>(
     () => ({
       products: pickerProducts,
@@ -7738,8 +7914,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       collections: builderCollections?.choices ?? null,
       /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
       colorSchemes: compatSchemes,
+      pictureMedia: compatInstall ? compatMedia : null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -8544,9 +8721,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const aiPageWritten = useCallback((key: string, title: string) => {
     setUnpublished(true)
+    forgetPage(key)
     if (key === "home" || key in PAGE_META) return
     setCustomPages((prev) => (prev.some((p) => p.key === key) ? prev : [...prev, { id: key, name: title || pageTitleFromKey(key), key: key as PageKey }]))
-  }, [])
+  }, [forgetPage])
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
   }, [loadStorelibSources])
@@ -8843,6 +9021,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             products={switcherProducts}
             currentProduct={selectedProductPage}
             onSelectProduct={selectProductById}
+            onIntent={pageIntent}
           />
           )}
 
@@ -9130,6 +9309,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           currentSections: sections,
           onPageDraftSaved: (key) => {
             setUnpublished(true)
+            forgetPage(key)
             setCustomPages((prev) => (prev.some((p) => p.key === key) || key in PAGE_META ? prev : [...prev, { id: key, name: pageTitleFromKey(key), key: key as PageKey }]))
           },
         }}
@@ -10009,6 +10189,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   sourcesReady={storelibSourcesRead}
                   dataReady={liveCardsRead}
                   siteUrl={websiteUrl}
+                  warm={compatWarm}
                   language={compatLanguage}
                 />
               ) : (

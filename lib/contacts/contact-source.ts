@@ -38,6 +38,7 @@
 
 import { cleanHost, cleanOrigin, fromLabel, surfaceOfPath, type OrderOrigin } from "@/lib/orders/order-source"
 import { isOnePageHost } from "@/lib/onepage/address"
+import { tt, msg } from "@/lib/i18n/text"
 
 export const CONTACT_SURFACES = ["website", "profile", "onepage", "product", "checkout", "import", "manual", "api"] as const
 export type ContactSurface = (typeof CONTACT_SURFACES)[number]
@@ -68,25 +69,25 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const PAGE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,62})$/
 
 export const SURFACE_NAME: Record<ContactSurface, string> = {
-  website: "Website",
-  profile: "Storelib profile",
+  get website() { return tt("Website") },
+  get profile() { return tt("Storelib profile") },
   onepage: "OnePage",
-  product: "Product page",
-  checkout: "Checkout",
-  import: "Import",
-  manual: "Added by you",
+  get product() { return tt("Product page") },
+  get checkout() { return tt("Checkout") },
+  get import() { return tt("Import") },
+  get manual() { return tt("Added by you") },
   api: "API",
 }
 
 export const FORM_NAME: Record<ContactForm, string> = {
-  newsletter: "Newsletter section",
-  footer: "Footer sign-up",
-  contact: "Contact form",
+  get newsletter() { return tt("Newsletter section") },
+  get footer() { return tt("Footer sign-up") },
+  get contact() { return tt("Contact form") },
   section: "Sign-up form",
-  popup: "Subscribe button",
-  lead_magnet: "Free download",
-  bar: "Subscribe bar",
-  password: "Coming soon page",
+  get popup() { return tt("Subscribe button") },
+  get lead_magnet() { return tt("Free download") },
+  get bar() { return tt("Subscribe bar") },
+  get password() { return tt("Coming soon page") },
 }
 
 /** Every field checked on its own; null when nothing is left. */
@@ -143,7 +144,7 @@ export interface SourceView {
   recorded: boolean
 }
 
-export const NOT_RECORDED = "Not recorded"
+export const NOT_RECORDED = msg("Not recorded")
 
 /** How a contact's source reads in a table cell and in a filter. */
 export function sourceView(detail: unknown, legacy?: unknown): SourceView {
@@ -151,13 +152,15 @@ export function sourceView(detail: unknown, legacy?: unknown): SourceView {
   const surface = d?.surface ?? legacySurface(legacy)
   if (!surface) return { key: "none", label: NOT_RECORDED, detail: "", recorded: false }
   const site = d?.site
-  const label = surface === "website" && site ? site : surface === "checkout" && site ? `Checkout on ${site}` : SURFACE_NAME[surface]
+  const label = surface === "website" && site ? site : surface === "checkout" && site ? tt("Checkout on {site}", { site }) : SURFACE_NAME[surface]
   const key = surface === "website" && site ? `site:${site}` : surface
   const parts: string[] = []
   if (d?.form) parts.push(d.page && d.page !== "home" ? `${FORM_NAME[d.form]} on /${d.page}` : FORM_NAME[d.form])
-  if (d?.from) parts.push(d.from === "direct" ? "Direct" : `from ${fromLabel(d.from)}`)
+  if (d?.from) parts.push(d.from === "direct" ? tt("Direct") : tt("from {name}", { name: fromLabel(d.from) }))
+  /* The tag names as they are in the link. i18n-ignore-start */
   if (d?.utm_campaign) parts.push(`utm_campaign ${d.utm_campaign}`)
   else if (d?.utm_source) parts.push(`utm_source ${d.utm_source}`)
+  /* i18n-ignore-end */
   return { key, label, detail: parts.join(" · "), recorded: true }
 }
 
@@ -165,12 +168,12 @@ export function sourceView(detail: unknown, legacy?: unknown): SourceView {
 export function joinedSentence(detail: unknown, trigger?: string): string | null {
   const d = cleanContactSource(detail)
   if (!d?.surface) return null
-  if (trigger === "abandoned_checkout") return d.site ? `Left checkout on ${d.site}` : "Left checkout on Storelib"
+  if (trigger === "abandoned_checkout") return d.site ? tt("Left checkout on {site}", { site: d.site }) : tt("Left checkout on Storelib")
   if (trigger === "purchase" || trigger === "first_purchase" || d.surface === "checkout") {
-    return d.site ? `Bought on ${d.site}` : d.surface === "checkout" ? "Bought on Storelib" : `Bought from ${SURFACE_NAME[d.surface]}`
+    return d.site ? tt("Bought on {site}", { site: d.site }) : d.surface === "checkout" ? tt("Bought on Storelib") : tt("Bought from {surface}", { surface: SURFACE_NAME[d.surface] })
   }
-  if (d.surface === "website") return d.site ? `Joined from ${d.site}` : "Joined from a website"
-  return `Joined from ${d.surface === "profile" ? "your Storelib profile" : SURFACE_NAME[d.surface]}`
+  if (d.surface === "website") return d.site ? tt("Joined from {site}", { site: d.site }) : tt("Joined from a website")
+  return tt("Joined from {value}", { value: d.surface === "profile" ? tt("your Storelib profile") : SURFACE_NAME[d.surface] })
 }
 
 /* ─── Working it out on the server ──────────────────────────────────── */

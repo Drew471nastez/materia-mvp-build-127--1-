@@ -14,6 +14,7 @@
  * that adding respects the limits, and that a new block arrives with the
  * defaults its schema gives it.
  */
+import { untt } from "./i18n-source"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { compileSection } from "../lib/storelib-theme"
@@ -31,8 +32,8 @@ function check(name: string, ok: boolean, detail = "") {
 function section(t: string) { console.log(`\n${t}`) }
 
 const root = process.cwd()
-const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
-const blockList = readFileSync(join(root, "components/website-builder/editor/section-block-list.tsx"), "utf8")
+const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
+const blockList = untt(readFileSync(join(root, "components/website-builder/editor/section-block-list.tsx"), "utf8"), "components/website-builder/editor/section-block-list.tsx")
 
 const SRC = [
   "<template>",
@@ -151,7 +152,7 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     check("every new block gets an id nothing else has", /function newBlockId\(\)/.test(editor) && /blockSeq \+= 1/.test(editor))
-    check("a duplicated block is a copy, not the same object", /const copy = cloneTree\(hit\.block, newBlockId\)/.test(editor) && /settings: \{ \.\.\.block\.settings \}/.test(readFileSync(join(root, "lib/website-builder/block-tree.ts"), "utf8")))
+    check("a duplicated block is a copy, not the same object", /const copy = cloneTree\(hit\.block, newBlockId\)/.test(editor) && /settings: \{ \.\.\.block\.settings \}/.test(untt(readFileSync(join(root, "lib/website-builder/block-tree.ts"), "utf8"), "lib/website-builder/block-tree.ts")))
     /**
      * A spread copies the reference to the blocks array and to every block in
      * it, so a duplicated section and its original were the same blocks under
@@ -166,7 +167,7 @@ function main() {
   {
     check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, field \? field\.block : path\.length \? pathKey\(path\) : null, field\)/.test(editor))
     /* The blocks are rows of the sidebar's tree now (block-tree-rows.tsx), and a block opens its own panel. */
-    const tree = readFileSync(join(root, "components/website-builder/editor/block-tree-rows.tsx"), "utf8")
+    const tree = untt(readFileSync(join(root, "components/website-builder/editor/block-tree-rows.tsx"), "utf8"), "components/website-builder/editor/block-tree-rows.tsx")
     check("the tree's row is marked when selected, and the rows it sits inside open",
       /selectedKey=\{selectedBlockId\}/.test(editor) &&
         /const selected = selectedKey === key/.test(tree) && /aria-current=\{selected \|\| undefined\}/.test(tree) &&
@@ -184,7 +185,7 @@ function main() {
         const s = STORELIB_SCHEMAS[t]
         if (!(s.blocks ?? []).length) return false
         const file = join(root, `themes/default/sections/${t}.storelib`)
-        return !readFileSync(file, "utf8").includes("data-block-id")
+        return !untt(readFileSync(file, "utf8"), file).includes("data-block-id")
       })
       return missing.length === 0
     })())
@@ -201,7 +202,7 @@ function main() {
   {
     check("no Move up or Move down on a block row", !/aria-label="Move (up|down)"/.test(blockList) && !/aria-label="Move (up|down)" disabled=\{at/.test(editor))
     check("the grip is the shared drag hook's", /useReorder<HTMLDivElement>\(/.test(blockList) && /\{\.\.\.gripProps\(i\)\}/.test(blockList) && /data-reorder-row=\{still \? undefined : ""\}/.test(blockList))
-    check("a drag commits once, through reorderBlocks", /reorder: \(next, parentKey\) => reorderBlocks\(s\.id, next, parentKey\)/.test(editor) && /onReorder=\{\(next\) => ops\.reorder\(next, parentKey\)\}/.test(editor) && /onReorder\(next\)/.test(readFileSync(join(root, "components/website-builder/editor/block-tree-rows.tsx"), "utf8")))
+    check("a drag commits once, through reorderBlocks", /reorder: \(next, parentKey\) => reorderBlocks\(s\.id, next, parentKey\)/.test(editor) && /onReorder=\{\(next\) => ops\.reorder\(next, parentKey\)\}/.test(editor) && /onReorder\(next\)/.test(untt(readFileSync(join(root, "components/website-builder/editor/block-tree-rows.tsx"), "utf8"), "components/website-builder/editor/block-tree-rows.tsx")))
     check("picking a row up closes the open ones first", /onStart: \(\) => setOpen\(/.test(blockList))
     check("the bin is grey, never red", !/red-/.test(blockList) && /aria-label=\{`Delete \$\{name\}`\}[^>]*className=\{ROW_ACTION\}/.test(blockList))
     check("rows are 40px, 48px on a phone", /h-10 max-sm:h-12/.test(blockList))

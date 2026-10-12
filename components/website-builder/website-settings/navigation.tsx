@@ -6,6 +6,7 @@ import { cleanMenus } from "@/lib/storelib-theme/values"
 import { MAIN_MENU, adoptHeaderLinks, headerMenuHandle, menuChoices } from "@/lib/website-builder/main-menu"
 import { Card, PageTitle, Row, buttonClass, inputClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
 
@@ -36,15 +37,15 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
   const choices = menuChoices(ctx.settings.menus, header)
 
   const footerOptions = [
-    { value: "", label: "None" },
+    { value: "", label: tt("None") },
     ...Object.keys(menus).map((h) => ({ value: h, label: menus[h].title })),
   ]
 
   /** Where a menu shows, said under its name: "Header", "Footer". */
   const placedIn = (handle: string) => {
     const at: string[] = []
-    if (header && headerMenuHandle(ctx.settings.menus, header) === handle) at.push("Header")
-    if (footer && (str(footer.settings.menu) === handle || str(footer.settings.menu_2) === handle)) at.push("Footer")
+    if (header && headerMenuHandle(ctx.settings.menus, header) === handle) at.push(tt("Header"))
+    if (footer && (str(footer.settings.menu) === handle || str(footer.settings.menu_2) === handle)) at.push(tt("Footer"))
     return at.join(", ")
   }
 
@@ -59,8 +60,8 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle aside={<button type="button" onClick={() => ctx.onEditMenu()} className={buttonClass} data-nav-open-menus="">Edit menus</button>}>
-        Navigation
+      <PageTitle aside={<button type="button" onClick={() => ctx.onEditMenu()} className={buttonClass} data-nav-open-menus="">{tt("Edit menus")}</button>}>
+        {tt("Navigation")}
       </PageTitle>
 
       {/* THE MENUS ARE LISTED HERE, AND EDITED IN NAVIGATION. A menu is the
@@ -68,7 +69,7 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
           place: the builder's Navigation panel, next to Pages, with the page
           drawn beside it so a change is seen as it is made. A row opens that
           menu there. */}
-      <Card title="Menus" footer="Menus belong to your store, so every theme shows the same ones.">
+      <Card title={tt("Menus")} footer={tt("Menus belong to your store, so every theme shows the same ones.")}>
         {choices.map((c) => (
           <button
             key={c.handle}
@@ -80,7 +81,7 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14.5px] font-medium text-white">{c.title}</span>
               <span className="mt-0.5 block text-[13px] text-white/45">
-                {c.count === 0 ? "No links yet" : `${c.count} link${c.count === 1 ? "" : "s"}`}
+                {c.count === 0 ? tt("No links yet") : `${c.count} link${c.count === 1 ? "" : "s"}`}
                 {placedIn(c.handle) ? ` · ${placedIn(c.handle)}` : ""}
               </span>
             </span>
@@ -89,9 +90,9 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
         ))}
       </Card>
 
-      <Card title="Where menus show">
+      <Card title={tt("Where menus show")}>
         {header ? (
-          <Row label="Header" htmlFor="wb-nav-header-menu">
+          <Row label={tt("Header")} htmlFor="wb-nav-header-menu">
             <select
               id="wb-nav-header-menu"
               value={headerMenuHandle(ctx.settings.menus, header)}
@@ -104,11 +105,11 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
             </select>
           </Row>
         ) : (
-          <Row label="Header" hint="Open a page that has the site's header to choose its menu." />
+          <Row label={tt("Header")} hint={tt("Open a page that has the site's header to choose its menu.")} />
         )}
         {footer ? (
           <>
-            <Row label="Footer, first column" htmlFor="wb-nav-footer-1">
+            <Row label={tt("Footer, first column")} htmlFor="wb-nav-footer-1">
               <select
                 id="wb-nav-footer-1"
                 value={menus[str(footer.settings.menu)] ? str(footer.settings.menu) : ""}
@@ -120,7 +121,7 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
                 ))}
               </select>
             </Row>
-            <Row label="Footer, second column" htmlFor="wb-nav-footer-2">
+            <Row label={tt("Footer, second column")} htmlFor="wb-nav-footer-2">
               <select
                 id="wb-nav-footer-2"
                 value={menus[str(footer.settings.menu_2)] ? str(footer.settings.menu_2) : ""}
@@ -134,7 +135,7 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
             </Row>
           </>
         ) : (
-          <Row label="Footer" hint="Open a page that has the site's footer to choose its menus." />
+          <Row label={tt("Footer")} hint={tt("Open a page that has the site's footer to choose its menus.")} />
         )}
       </Card>
     </>

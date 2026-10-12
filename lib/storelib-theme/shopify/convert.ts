@@ -288,7 +288,7 @@ interface SourceFiles {
 
 async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<ConvertResult> {
   const root = shopifyRoot(zip)
-  if (root === null) return { ok: false, error: "This theme can't be imported: it needs layout/theme.liquid and a home page (templates/index.json or templates/index.liquid)" }
+  if (root === null) return { ok: false, error: "This theme can't be imported: it needs its layout (the layout folder's theme file) and a home page (the templates folder's index file)" }
 
   const entries = Object.values(zip.files).filter((f) => !f.dir && f.name.startsWith(root))
   if (entries.length > MAX_ENTRIES) return { ok: false, error: `This theme has ${entries.length} files; the most Storelib reads is ${MAX_ENTRIES}` }
@@ -297,7 +297,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
 
   const report = new Report()
   const src = await readSources(entries, root, report)
-  if (!src.text.has("layout/theme.liquid")) return { ok: false, error: "This theme has no layout/theme.liquid, the shell every page is drawn in" }
+  if (!src.text.has("layout/theme.liquid")) return { ok: false, error: "This theme has no layout (the layout folder's theme file), the shell every page is drawn in" }
 
   const schemaLocale = (parseJson(src.text.get(defaultLocale(src, true) ?? "") ?? "") as Tree | undefined) ?? null
   const textLocale = (parseJson(src.text.get(defaultLocale(src, false) ?? "") ?? "") as Tree | undefined) ?? null
@@ -491,7 +491,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     pages.push({ page_key: key, template: name, sections: [...groups.header, ...sections, ...groups.footer, ...groups.overlay] })
     report.converted.push(path)
   }
-  if (!pages.some((p) => p.page_key === "home")) return { ok: false, error: "This theme has no templates/index.json, so there is no home page to draw" }
+  if (!pages.some((p) => p.page_key === "home")) return { ok: false, error: "This theme has no home page template (the templates folder's index file), so there is no home page to draw" }
 
   /* ── what the layout reaches for, and nothing missing without a word ── */
   for (const [path, text] of src.text) {
@@ -580,7 +580,7 @@ async function readSources(entries: JSZip.JSZipObject[], root: string, report: R
     }
     const wanted = (["sections", "blocks", "snippets", "layout", "templates"].includes(folder) && ext === "liquid") || (["sections", "templates", "config", "locales"].includes(folder) && ext === "json")
     if (!wanted) {
-      report.skip(path, `A ${folder}/ folder holds ${folder === "config" || folder === "locales" ? ".json" : ".liquid"} files`)
+      report.skip(path, `A ${folder}/ folder holds ${folder === "config" || folder === "locales" ? "JSON" : "template"} files`)
       continue
     }
     if (parts.length > 2 && !(folder === "templates" && parts.length === 3 && parts[1] === "customers")) {
@@ -1050,7 +1050,7 @@ function noteAppBlocks(blocks: { type: string; blocks?: { type: string; blocks?:
   }
   walk(blocks)
   const what = verb === "places" ? "app blocks" : "app embeds"
-  if (other.size) report.note(path, `It ${verb} Shopify ${what} that come with their app, not the theme, and draw nothing on Storelib: ${[...other].join(", ")}`)
+  if (other.size) report.note(path, `It ${verb} app ${what} that come with an app, not with the theme, and draw nothing on Storelib: ${[...other].join(", ")}`)
   if (reviews.size) report.note(path, `It ${verb} review ${what} (${[...reviews].join(", ")}); Storelib Reviews draws them with the shop's own reviews`)
 }
 

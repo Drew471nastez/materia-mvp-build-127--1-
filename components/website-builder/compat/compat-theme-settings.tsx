@@ -16,6 +16,7 @@ import { loadCompatFiles } from "./compat-files"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
 import { OVERRIDE_GROUP } from "@/lib/storelib-theme/compat/overrides"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * A colour scheme's colour is kept at shopify[group][scheme].settings[id]; its
@@ -135,9 +136,9 @@ export function CompatThemeSettings({
                     data-compat-scheme={scheme}
                   >
                     <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-black/10 text-[12px] font-semibold" style={{ background: bg, color: fg }}>
-                      Aa
+                      {"Aa" /* i18n-ignore: a type sample, not a word */}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-foreground">Scheme {header[1]}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-foreground">{tt("Scheme {n}", { n: header[1] })}</span>
                     <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 ${on ? "rotate-180" : ""}`} />
                   </button>
                 )
@@ -163,12 +164,12 @@ export function CompatThemeSettings({
   }
   return (
     <div className="flex h-full flex-col">
-      {back("Theme settings", () => onOpen("__back__"))}
+      {back(tt("Theme settings"), () => onOpen("__back__"))}
       <div data-sheet-scroll className="wb-slim-scroll flex-1 overflow-y-auto p-2">
         {groups === null ? (
-          <p className="px-3 py-2 text-[14px] text-[#6b7280]">Loading…</p>
+          <p className="px-3 py-2 text-[14px] text-[#6b7280]">{tt("Loading…")}</p>
         ) : groups.length === 0 ? (
-          <p className="px-3 py-2 text-[14px] text-[#6b7280]">This theme has no settings of its own.</p>
+          <p className="px-3 py-2 text-[14px] text-[#6b7280]">{tt("This theme has no settings of its own.")}</p>
         ) : (
           groups.map((g) => (
             <button

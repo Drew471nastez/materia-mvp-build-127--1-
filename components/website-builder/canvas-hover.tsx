@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * THE PART OF THE PREVIEW YOU CAN ACTUALLY SEE. The preview root sits inside

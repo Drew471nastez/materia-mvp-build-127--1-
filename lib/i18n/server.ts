@@ -1,6 +1,9 @@
 import "server-only"
 import { cookies } from "next/headers"
 import { dictionaries, type LocaleCode } from "./dictionaries"
+import { humanizeKey, loadCatalog, makeTt, type Vars } from "./text"
+
+const DASHBOARD_LANGUAGES = ["en", "es", "fr", "de", "pt-BR", "pt", "it", "pl"]
 
 /**
  * Server-side counterpart to useLocale().t(). Server components can't read the
@@ -34,11 +37,30 @@ export async function getServerLocale(): Promise<LocaleCode> {
 
 /** Build a t(key) bound to a specific locale (dictionaries → English → key). */
 export function getT(locale: LocaleCode): (key: string) => string {
-  return (key: string) => dictionaries[locale]?.[key] ?? dictionaries.en[key] ?? key
+  return (key: string) => dictionaries[locale]?.[key] ?? dictionaries.en[key] ?? humanizeKey(key)
 }
+
 
 /** Convenience: resolve the request locale and return { locale, t }. */
 export async function getServerT(): Promise<{ locale: LocaleCode; t: (key: string) => string }> {
   const locale = await getServerLocale()
   return { locale, t: getT(locale) }
+}
+
+/**
+ * The dashboard's tt() for a server component: the request's language (the
+ * cookie LanguageProvider writes) and its words. English when the cookie is
+ * missing or names a language the dashboard does not speak.
+ */
+export async function getServerTt(): Promise<{ language: string; tt: (source: string, vars?: Vars) => string }> {
+  let language = "en"
+  try {
+    const store = await cookies()
+    const value = store.get(LANGUAGE_COOKIE)?.value
+    if (value && DASHBOARD_LANGUAGES.includes(value)) language = value === "pt" ? "pt-BR" : value
+  } catch {
+    // Outside a request: English.
+  }
+  const words = language === "en" ? {} : await loadCatalog(language).catch(() => ({}))
+  return { language, tt: makeTt(language, words) }
 }

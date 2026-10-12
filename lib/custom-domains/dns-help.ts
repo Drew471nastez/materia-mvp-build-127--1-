@@ -17,6 +17,7 @@
  * status beside a record and the fix under it come from the same answer.
  */
 import type { DnsRecord } from "./hostname"
+import { tt } from "@/lib/i18n/text"
 
 /* ── Registrars ──────────────────────────────────────────────────────── */
 
@@ -41,32 +42,32 @@ export const REGISTRARS: readonly Registrar[] = [
     name: "GoDaddy",
     dnsUrl: (d) => `https://dcc.godaddy.com/control/dnsmanagement?domainName=${encodeURIComponent(d)}`,
     apex: "@",
-    ttl: "Default",
-    note: "GoDaddy adds a Parked A record on @. Edit it to the value above instead of adding a second one.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("GoDaddy adds a Parked A record on @. Edit it to the value above instead of adding a second one.") },
   },
   {
     id: "namecheap",
     name: "Namecheap",
     dnsUrl: (d) => `https://ap.www.namecheap.com/Domains/DomainControlPanel/${encodeURIComponent(d)}/advancedns`,
     apex: "@",
-    ttl: "Automatic",
-    note: "Under Advanced DNS, delete the parking page CNAME and the URL Redirect record first.",
+    get ttl() { return tt("Automatic") },
+    get note() { return tt("Under Advanced DNS, delete the parking page CNAME and the URL Redirect record first.") },
   },
   {
     id: "cloudflare",
     name: "Cloudflare",
     dnsUrl: (d) => `https://dash.cloudflare.com/?to=/:account/${encodeURIComponent(d)}/dns/records`,
     apex: "@",
-    ttl: "Auto",
-    note: "Set Proxy status to DNS only (grey cloud) on each record.",
+    get ttl() { return tt("Auto") },
+    get note() { return tt("Set Proxy status to DNS only (grey cloud) on each record.") },
   },
   {
     id: "squarespace",
     name: "Squarespace",
     dnsUrl: (d) => `https://account.squarespace.com/domains/managed/${encodeURIComponent(d)}/dns/dns-settings`,
     apex: "@",
-    ttl: "Default",
-    note: "Delete the Squarespace Defaults preset first, or its records stay in the way.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("Delete the Squarespace Defaults preset first, or its records stay in the way.") },
   },
   {
     id: "porkbun",
@@ -74,23 +75,23 @@ export const REGISTRARS: readonly Registrar[] = [
     dnsUrl: () => "https://porkbun.com/account/domainsSpeedy",
     apex: "",
     ttl: "600",
-    note: "Open DNS next to your domain. Delete Porkbun's parking ALIAS and CNAME records first.",
+    get note() { return tt("Open DNS next to your domain. Delete Porkbun's parking ALIAS and CNAME records first.") },
   },
   {
     id: "hostinger",
     name: "Hostinger",
     dnsUrl: (d) => `https://hpanel.hostinger.com/domain/${encodeURIComponent(d)}/dns`,
     apex: "@",
-    ttl: "Default",
-    note: "Delete Hostinger's own A record on @ and CNAME on www before adding these.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("Delete Hostinger's own A record on @ and CNAME on www before adding these.") },
   },
   {
     id: "other",
     name: "Somewhere else",
     dnsUrl: null,
     apex: "@",
-    ttl: "Default",
-    note: "If @ is refused, leave the name empty. Some providers want the full name, like www.yourname.com.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("If @ is refused, leave the name empty. Some providers want the full name, like www.yourname.com.") },
   },
 ]
 
@@ -193,7 +194,7 @@ export function isCloudflareIp(ip: string): boolean {
 }
 
 const isIp = (s: string) => /^\d{1,3}(\.\d{1,3}){3}$/.test(s)
-const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`)
+const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : tt("{value} and {xs}", { value: xs.slice(0, -1).join(", "), xs: xs[xs.length - 1] }))
 
 /**
  * What to do, in plain lines, most blocking first: Cloudflare's proxy and
@@ -211,7 +212,7 @@ export function fixesFor(
   const all = checks ?? []
   const proxied = all.some((c) => c.seen.some(isCloudflareIp))
   if (proxied && !issues.some((i) => /cloudflare/i.test(i))) {
-    out.push("Cloudflare's proxy is on. Set each record to DNS only (grey cloud), then check again.")
+    out.push(tt("Cloudflare's proxy is on. Set each record to DNS only (grey cloud), then check again."))
   }
   out.push(...issues)
 
@@ -219,23 +220,23 @@ export function fixesFor(
   const where = (c: RecordCheck) => (c.name === "@" ? "@" : c.name)
   const nothing = all.length > 0 && all.every((c) => c.state === "missing")
   if (nothing) {
-    out.push("Nothing has shown up yet. New records usually appear within an hour, sometimes up to 48 hours.")
+    out.push(tt("Nothing has shown up yet. New records usually appear within an hour, sometimes up to 48 hours."))
   } else {
     for (const c of all) {
       const value = valueOf(c)
       if (c.state === "missing") {
-        out.push(c.type === "TXT" ? `No TXT record on ${where(c)} yet. Add it with the value above.` : `No ${c.type} record on ${where(c)} yet. Add it with the value ${value}.`)
+        out.push(c.type === "TXT" ? tt("No TXT record on {c} yet. Add it with the value above.", { c: where(c) }) : tt("No {type} record on {c} yet. Add it with the value {value}.", { type: c.type, c: where(c), value }))
         continue
       }
       if (c.state !== "conflict" || proxied) continue
       if (c.type === "A") {
-        out.push(`Delete the A ${c.seen.length === 1 ? "record" : "records"} ${list(c.seen)} on @. Only ${value} should be there.`)
+        out.push(tt("Delete the A {length, plural, one {record} other {records}} {seen} on @. Only {value} should be there.", { length: c.seen.length, seen: list(c.seen), value }))
       } else if (c.seen.some((s) => s.includes("parkingpage.namecheap.com"))) {
-        out.push(`${where(c)} still points at Namecheap's parking page. Delete that record, then add the CNAME above.`)
+        out.push(tt("{c} still points at Namecheap's parking page. Delete that record, then add the CNAME above.", { c: where(c) }))
       } else if (c.seen.every(isIp)) {
-        out.push(`${where(c)} has an A record (${list(c.seen)}). Delete it and add the CNAME above instead.`)
+        out.push(tt("{c} has an A record ({seen}). Delete it and add the CNAME above instead.", { c: where(c), seen: list(c.seen) }))
       } else {
-        out.push(`${where(c)} points at ${list(c.seen)}. Change it to ${value}.`)
+        out.push(tt("{c} points at {seen}. Change it to {value}.", { c: where(c), seen: list(c.seen), value }))
       }
     }
   }

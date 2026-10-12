@@ -17,6 +17,7 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 import { cn } from "@/lib/utils"
 import { Card, Lead, PageTitle, Row, buttonClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 /** How long typing rests before the policy is saved. */
 const SAVE_AFTER_MS = 700
@@ -27,10 +28,9 @@ export function PolicySettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle>Policies</PageTitle>
+      <PageTitle>{tt("Policies")}</PageTitle>
       <Lead>
-        Each policy is a page of your site, linked from its footer. They start as templates: replace anything in square
-        brackets with your own terms before you publish.
+        {tt("Each policy is a page of your site, linked from its footer. They start as templates: replace anything in square brackets with your own terms before you publish.")}
       </Lead>
 
       {/* ONE CARD A POLICY, WRITTEN HERE. The words are the policy page's
@@ -48,10 +48,10 @@ export function PolicySettings({ ctx }: { ctx: SettingsContext }) {
         "simpler, as a theme settings thing". Here it is one line that says
         whether it shows and opens it there.
       */}
-      <Card title="Cookie banner">
-        <Row label={showBanner ? "Shown to visitors" : "Turned off"} hint="Its words and colours are set in Theme settings." inline>
+      <Card title={tt("Cookie banner")}>
+        <Row label={showBanner ? tt("Shown to visitors") : tt("Turned off")} hint={tt("Its words and colours are set in Theme settings.")} inline>
           <button type="button" className={buttonClass} onClick={() => ctx.onOpenThemeGroup("cookies")}>
-            Edit banner
+            {tt("Edit banner")}
           </button>
         </Row>
       </Card>
@@ -70,7 +70,7 @@ type Save = "idle" | "saving" | "saved" | { error: string }
 const placeholdersIn = (html: string) => (html.replace(/<[^>]*>/g, " ").match(/\[[^\]\n]{1,80}\]/g) ?? []).length
 
 function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; page: PolicyPage; optional?: boolean }) {
-  const brand = (typeof ctx.settings.brand_name === "string" && ctx.settings.brand_name.trim()) || ctx.name || "this shop"
+  const brand = (typeof ctx.settings.brand_name === "string" && ctx.settings.brand_name.trim()) || ctx.name || tt("this shop")
   const fetcher = React.useCallback((input: string, init?: RequestInit) => fetch(input, init), [])
   const [load, setLoad] = React.useState<Load>({ state: "loading" })
   const [open, setOpen] = React.useState(false)
@@ -153,10 +153,10 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
 
   const edited = editedLabel(ready?.updatedAt ?? null)
   const status = live
-    ? "This page is open in the builder"
+    ? tt("This page is open in the builder")
     : !exists
-      ? "Not on your site yet"
-      : [edited, left > 0 ? `${left} ${left === 1 ? "placeholder" : "placeholders"} to fill in` : null].filter(Boolean).join(" · ") || "Saved"
+      ? tt("Not on your site yet")
+      : [edited, left > 0 ? tt("{left, plural, one {# placeholder} other {# placeholders}} to fill in", { left }) : null].filter(Boolean).join(" · ") || tt("Saved")
 
   return (
     /* Clipped without being a scroller, so the field's toolbar can stick to the page while a long policy scrolls. */
@@ -165,19 +165,19 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
         <div className="min-w-[180px] flex-1">
           <h2 className="text-[15px] font-semibold text-white md:text-[14.5px]">{page.title}</h2>
           <p className="mt-0.5 text-[13px] leading-snug text-white/45" data-policy-status="">
-            {load.state === "loading" && !live ? "Loading…" : load.state === "error" && !live ? load.message : status}
+            {load.state === "loading" && !live ? tt("Loading…") : load.state === "error" && !live ? load.message : status}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {load.state === "error" && !live ? (
             <button type="button" onClick={read} className={buttonClass}>
-              Try again
+              {tt("Try again")}
             </button>
           ) : (
             <>
               {(blank || !exists) && load.state !== "loading" && (
                 <button type="button" onClick={useTemplate} className={buttonClass} data-policy-template="">
-                  Use template
+                  {tt("Use template")}
                 </button>
               )}
               <button
@@ -192,7 +192,7 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
                 className={buttonClass}
                 data-policy-edit=""
               >
-                {open ? "Done" : "Edit"}
+                {open ? tt("Done") : tt("Edit")}
               </button>
             </>
           )}
@@ -202,12 +202,12 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
       <Reveal open={open} id={panelId} className="border-t border-white/[0.07]">
         <div className="dark px-4 pb-4 pt-4 md:px-6" data-policy-editor={page.key}>
           {live && !liveBody ? (
-            <p className="text-[14px] text-white/55">This page has no text section to write in. Add one in the builder.</p>
+            <p className="text-[14px] text-white/55">{tt("This page has no text section to write in. Add one in the builder.")}</p>
           ) : (
             <RichTextField
               variant="page"
               label={page.title}
-              placeholder={`Write your ${page.title.toLowerCase()}`}
+              placeholder={tt("Write your {value}", { value: page.title.toLowerCase() })}
               value={body}
               minHeight={240}
               onChange={write}
@@ -220,18 +220,18 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
               data-policy-save={typeof save === "object" ? "error" : save}
             >
               {live
-                ? "Saved with your draft."
+                ? tt("Saved with your draft.")
                 : typeof save === "object"
                   ? save.error
                   : save === "saving"
-                    ? "Saving…"
+                    ? tt("Saving…")
                     : save === "saved"
-                      ? "Saved to your draft. Visitors see it after you publish."
+                      ? tt("Saved to your draft. Visitors see it after you publish.")
                       : ""}
             </span>
             {exists && (
               <button type="button" onClick={() => ctx.onEditPage(page.key)} className={textLinkClass}>
-                Open the page in the builder
+                {tt("Open the page in the builder")}
               </button>
             )}
           </div>

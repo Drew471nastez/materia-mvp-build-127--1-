@@ -1,5 +1,6 @@
 "use client"
 
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -308,12 +309,12 @@ function WishlistCard({ entry, priority, onRemove }: { entry: WishlistEntry; pri
       {productLink(
         "relative row-span-2 block h-[76px] w-[76px] overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04] transition-[filter] duration-100 active:brightness-95 sm:aspect-video sm:h-auto sm:w-full sm:rounded-none sm:ring-0",
         entry.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          /* Round 25: the image route at the card's size, shown once decoded (components/ui/soft-img.tsx). 76px in a row on a phone, a 16:9 card up to about 300px wider up. */
+          <SoftImg
             src={entry.thumbnailUrl}
-            alt=""
-            loading={priority ? "eager" : "lazy"}
-            decoding="async"
+            width={320}
+            sizes="(min-width: 640px) 320px, 76px"
+            eager={priority}
             className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-out sm:[@media(hover:hover)]:group-hover/card:scale-[1.03]"
           />
         ) : (

@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  RETURN AND REFUND REASONS
@@ -28,25 +29,25 @@ export interface Reason {
 }
 
 export const DEFAULT_RETURN_REASONS: Reason[] = [
-  { value: "size", label: "Size or fit", description: "Too small, too big, or didn't fit as expected." },
-  { value: "damaged", label: "Arrived damaged", description: "Broken or marked when it arrived." },
-  { value: "defective", label: "Doesn't work", description: "Faulty, or stopped working." },
-  { value: "not_as_described", label: "Not as described", description: "Different from the photos or the description." },
-  { value: "wrong_item", label: "Wrong item", description: "A different product, size or color was sent." },
-  { value: "changed_mind", label: "Changed my mind", description: "No longer wanted." },
-  { value: "other", label: "Other", description: null },
+  { value: "size", get label() { return tt("Size or fit") }, get description() { return tt("Too small, too big, or didn't fit as expected.") } },
+  { value: "damaged", get label() { return tt("Arrived damaged") }, get description() { return tt("Broken or marked when it arrived.") } },
+  { value: "defective", get label() { return tt("Doesn't work") }, get description() { return tt("Faulty, or stopped working.") } },
+  { value: "not_as_described", get label() { return tt("Not as described") }, get description() { return tt("Different from the photos or the description.") } },
+  { value: "wrong_item", get label() { return tt("Wrong item") }, get description() { return tt("A different product, size or color was sent.") } },
+  { value: "changed_mind", get label() { return tt("Changed my mind") }, get description() { return tt("No longer wanted.") } },
+  { value: "other", get label() { return tt("Other") }, description: null },
 ]
 
 /* requested_by_customer, duplicate and fraudulent are the three a card network knows; the rest are told to it as the first. */
 export const DEFAULT_REFUND_REASONS: Reason[] = [
-  { value: "requested_by_customer", label: "The buyer asked for it", description: null },
-  { value: "returned", label: "Items returned", description: "Refunding a return that came back." },
-  { value: "cancelled", label: "Order cancelled", description: "Cancelled before it was sent or delivered." },
-  { value: "damaged_in_transit", label: "Damaged in delivery", description: null },
-  { value: "not_received", label: "Never arrived", description: null },
-  { value: "duplicate", label: "Charged twice", description: null },
-  { value: "fraudulent", label: "Fraudulent", description: "A payment the card's owner didn't make." },
-  { value: "other", label: "Something else", description: null },
+  { value: "requested_by_customer", get label() { return tt("The buyer asked for it") }, description: null },
+  { value: "returned", get label() { return tt("Items returned") }, get description() { return tt("Refunding a return that came back.") } },
+  { value: "cancelled", get label() { return tt("Order cancelled") }, get description() { return tt("Cancelled before it was sent or delivered.") } },
+  { value: "damaged_in_transit", get label() { return tt("Damaged in delivery") }, description: null },
+  { value: "not_received", get label() { return tt("Never arrived") }, description: null },
+  { value: "duplicate", get label() { return tt("Charged twice") }, description: null },
+  { value: "fraudulent", get label() { return tt("Fraudulent") }, get description() { return tt("A payment the card's owner didn't make.") } },
+  { value: "other", get label() { return tt("Something else") }, description: null },
 ]
 
 export const defaultsFor = (kind: ReasonKind): Reason[] => (kind === "return" ? DEFAULT_RETURN_REASONS : DEFAULT_REFUND_REASONS)
@@ -102,7 +103,7 @@ export function readReason(input: unknown): { ok: true; label: string; descripti
   const body = (input ?? {}) as Record<string, unknown>
   const clean = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, max) : "")
   const label = clean(body.label, 60)
-  if (!label) return { ok: false, error: "Give the reason a name." }
+  if (!label) return { ok: false, error: tt("Give the reason a name.") }
   const description = clean(body.description, 200) || null
   return { ok: true, label, description }
 }

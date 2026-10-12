@@ -15,6 +15,7 @@ import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { ComparePlans } from "@/components/billing/compare-plans"
 import { PlanFaq } from "@/components/billing/plan-faq"
 import { formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
+import { tt } from "@/lib/i18n/text"
 
 /** Where Back goes: the Billing tab this page was opened from. */
 const BILLING_HREF = "/app/settings?tab=billing"
@@ -123,7 +124,7 @@ export function UpgradePageClient({
         const response = await fetch("/api/billing/subscription/cancel", { method: "POST" })
         if (!response.ok) {
           const err = await response.json()
-          throw new Error(err.error || "Failed to cancel subscription")
+          throw new Error(err.error || tt("Failed to cancel subscription"))
         }
         router.push("/app/settings/billing?success=1")
         return
@@ -138,7 +139,7 @@ export function UpgradePageClient({
         })
         if (!response.ok) {
           const err = await response.json()
-          throw new Error(err.error || "Failed to change plan")
+          throw new Error(err.error || tt("Failed to change plan"))
         }
         router.push("/app/settings/billing?success=1")
       } else {
@@ -155,7 +156,7 @@ export function UpgradePageClient({
         })
         const data = await response.json()
         if (!response.ok) {
-          throw new Error(data.error || "Failed to create checkout session")
+          throw new Error(data.error || tt("Failed to create checkout session"))
         }
         const { checkoutUrl } = data
         if (checkoutUrl) {
@@ -182,7 +183,7 @@ export function UpgradePageClient({
         }
       }
     } catch (err: any) {
-      setError(err.message || "An error occurred")
+      setError(err.message || tt("An error occurred"))
     } finally {
       setLoading(null)
     }
@@ -253,8 +254,8 @@ export function UpgradePageClient({
             className="-ml-2 inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#1a1a2e] transition-[background-color,scale] duration-150 hover:bg-[#f3f4f6] active:scale-[0.97] active:bg-[#eceef1] data-[leaving]:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
           >
             {leaving ? <Loader2 className="h-4 w-4 animate-spin text-[#4b5563]" aria-hidden /> : <ArrowLeft className="h-4 w-4" />}
-            <span className="sm:hidden">Back</span>
-            <span className="hidden sm:inline">Back to billing</span>
+            <span className="sm:hidden">{tt("Back")}</span>
+            <span className="hidden sm:inline">{tt("Back to billing")}</span>
           </Link>
           {/*
             THE MARK WAS SQUASHED. It had a height class (24px on a phone) and
@@ -283,9 +284,9 @@ export function UpgradePageClient({
           that can be read without leaning in.
         */}
         <div className="mx-auto mb-9 max-w-[620px] text-center sm:mb-12">
-          <h1 className="text-[32px] font-bold leading-[1.08] tracking-[-0.025em] text-[#1a1a2e] sm:text-[44px]">Choose a plan</h1>
+          <h1 className="text-[32px] font-bold leading-[1.08] tracking-[-0.025em] text-[#1a1a2e] sm:text-[44px]">{tt("Choose a plan")}</h1>
           <p className="mt-3 text-balance text-[16px] leading-[1.5] text-[#6b7280] sm:mt-4 sm:text-[17px]">
-            Start free. Upgrade when you&apos;re ready, and change or cancel anytime.
+            {tt("Start free. Upgrade when you're ready, and change or cancel anytime.")}
           </p>
         </div>
 
@@ -297,7 +298,7 @@ export function UpgradePageClient({
 
         {isLegacyPro && currentPlan && (
           <p className="max-w-[820px] mx-auto mb-5 rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 text-[14px] leading-[1.5] text-[#374151]">
-            You are on an earlier Pro plan at {formatPlanPrice(currentPlan.price_cents)} a month, with a fee of {planHighlights("pro")[0]}. It stays as it is unless you change it.
+            {tt("You are on an earlier Pro plan at {amount} a month, with a fee of", { amount: formatPlanPrice(currentPlan.price_cents) })} {planHighlights("pro")[0]}{tt(". It stays as it is unless you change it.")}
           </p>
         )}
 

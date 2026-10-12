@@ -38,6 +38,7 @@
  *
  * Run with:  npm run test:push
  */
+import { untt } from "./i18n-source"
 import { existsSync, readFileSync } from "node:fs"
 import { readCode, readSource } from "./_source"
 import { creatorPhoto, keptPhoto, mirrorsProfilePhoto } from "../lib/account/identity"
@@ -268,7 +269,7 @@ async function main() {
   {
     const path = "supabase/sql/run-now/53_one_profile_photo.sql"
     check("the part is on disk", existsSync(path))
-    const part = readFileSync(path, "utf8")
+    const part = untt(readFileSync(path, "utf8"), path)
     const lines = part.trim().split("\n")
     check("every line is a /* */ comment or one whole statement", lines.every((l) => (l.startsWith("/*") && l.endsWith("*/")) || /;\s*$/.test(l)))
     check("and there is no -- comment", !/^\s*--/m.test(part))
@@ -281,14 +282,14 @@ async function main() {
     check("but never over a photo the person removed themselves", part.includes("storelib_avatar_chosen"))
     check("a product page's header is only touched where that table exists", part.includes("to_regclass('public.product_page_configs') IS NOT NULL"))
 
-    const migration = readFileSync("supabase/migrations/20261010_one_profile_photo.sql", "utf8")
+    const migration = untt(readFileSync("supabase/migrations/20261010_one_profile_photo.sql", "utf8"))
     const statements = (sql: string) => sql.split("\n").filter((l) => l.trim() && !l.startsWith("/*") && !l.startsWith("--"))
     check("the migration holds the same statements", JSON.stringify(statements(migration)) === JSON.stringify(statements(part)))
 
-    check("listed in the README", /\| `53_one_profile_photo\.sql` \|/.test(readFileSync("supabase/sql/run-now/README.md", "utf8")))
-    const after = readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8")
+    check("listed in the README", /\| `53_one_profile_photo\.sql` \|/.test(untt(readFileSync("supabase/sql/run-now/README.md", "utf8"))))
+    const after = untt(readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8"))
     check("the check after has a column for it", after.includes("as p53_one_profile_photo"))
-    check("and file 3 of four carries the part", readFileSync("supabase/sql/run-four/3_of_4_latest.sql", "utf8").includes("-- part 53_one_profile_photo.sql"))
+    check("and file 3 of four carries the part", untt(readFileSync("supabase/sql/run-four/3_of_4_latest.sql", "utf8")).includes("-- part 53_one_profile_photo.sql"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

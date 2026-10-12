@@ -23,6 +23,8 @@ import * as React from "react"
 
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
+import { pictureAddress } from "@/lib/website-builder/picture-address"
+import { useEditorFieldEnv } from "./context"
 import { INPUT, PROBLEM } from "./styles"
 
 /** An address an <img> can load: https, http, or a path on this site. */
@@ -53,10 +55,18 @@ export function ImagePickerControl({
   }
   const typed = draft.trim()
   const unusable = typed !== "" && !isImageAddress(typed)
+  /*
+    WHAT THE PICTURE IS DRAWN FROM, which is not always what is saved: an
+    imported theme names its pictures by its old store's address, and the
+    theme's own copy of that picture is what the live site draws
+    (lib/website-builder/picture-address.ts). The saved value is unchanged.
+  */
+  const env = useEditorFieldEnv()
+  const drawn = shown ? pictureAddress(shown, env?.pictureMedia) : ""
 
   return (
     <div className="space-y-1.5" data-image-setting="">
-      <WbImagePicker value={shown || undefined} onChange={(next) => commit(next ?? "")} aspectRatio="video" folder="sections" layout="row" />
+      <WbImagePicker value={drawn || undefined} onChange={(next) => commit(next ?? "")} aspectRatio="video" folder="sections" layout="row" />
       <input
         type="url"
         inputMode="url"

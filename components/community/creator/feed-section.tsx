@@ -20,6 +20,7 @@ import { relativeTime } from "@/lib/communities/format"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, FeedRowView } from "./view-types"
 import { Confirm, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, useToast } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 export interface ComposerSpace {
   id: string
@@ -40,7 +41,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   const welcome = compose === "welcome"
   const defaultSpace = (welcome ? spaces.find((s) => s.announcements) : null) ?? spaces.find((s) => !s.announcements) ?? spaces[0]
   const [spaceId, setSpaceId] = React.useState(defaultSpace?.id ?? "")
-  const [title, setTitle] = React.useState(welcome ? `Welcome to ${head.name}` : "")
+  const [title, setTitle] = React.useState(welcome ? tt("Welcome to {name}", { name: head.name }) : "")
   const [body, setBody] = React.useState("")
   const [error, setError] = React.useState<{ text: string; field?: string } | null>(null)
   const [posting, setPosting] = React.useState(false)
@@ -68,16 +69,16 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   }
 
   const post = async () => {
-    if (!body.trim() && !title.trim()) return setError({ text: "Write something first.", field: "body" })
+    if (!body.trim() && !title.trim()) return setError({ text: tt("Write something first."), field: "body" })
     setPosting(true)
     setError(null)
     const res = await send<{ id?: string }>(`${base}/posts`, "POST", { spaceId, title, body })
     setPosting(false)
-    if (!res.ok) return setError({ text: errorText(res.data.error, "The post could not be published. Try again."), field: res.data.field })
+    if (!res.ok) return setError({ text: errorText(res.data.error, tt("The post could not be published. Try again.")), field: res.data.field })
     setTitle("")
     setBody("")
     setOpen(false)
-    toast(spaces.find((s) => s.id === spaceId)?.announcements ? "Announcement posted" : "Posted")
+    toast(spaces.find((s) => s.id === spaceId)?.announcements ? tt("Announcement posted") : tt("Posted"))
     await reload(show)
     router.refresh()
   }
@@ -91,7 +92,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     const patch: Partial<FeedRowView> =
       action === "pin" ? { pinned: true } : action === "unpin" ? { pinned: false } : action === "lock" ? { locked: true } : action === "reopen" ? { locked: false } : action === "feature" ? { featured: true } : action === "unfeature" ? { featured: false } : action === "remove" ? { status: "removed", pinned: false } : { status: "published" }
     setRows((x) => (show === "removed" && action === "restore" ? x.filter((y) => y.id !== r.id) : x.map((y) => (y.id === r.id ? { ...y, ...patch } : y))))
-    toast(action === "remove" ? "Post removed" : action === "restore" ? "Post restored" : "Saved")
+    toast(action === "remove" ? tt("Post removed") : action === "restore" ? tt("Post restored") : tt("Saved"))
   }
 
   const loadMore = async () => {
@@ -107,14 +108,14 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
 
   const menu = (r: FeedRowView): ActionMenuItem[] => {
     const c = head.can
-    const items: ActionMenuItem[] = [{ label: "Open post", href: `/community/${head.slug}/post/${r.id}`, target: "_blank" }]
+    const items: ActionMenuItem[] = [{ label: tt("Open post"), href: `/community/${head.slug}/post/${r.id}`, target: "_blank" }]
     if (r.status === "published") {
-      if (c.pin) items.push({ label: r.pinned ? "Unpin" : "Pin to the top", onClick: () => void act(r, r.pinned ? "unpin" : "pin"), separatorBefore: true })
-      if (c.lock) items.push({ label: r.locked ? "Allow comments" : "Lock comments", onClick: () => void act(r, r.locked ? "reopen" : "lock") })
-      if (c.feature) items.push({ label: r.featured ? "Stop featuring" : "Feature", onClick: () => void act(r, r.featured ? "unfeature" : "feature") })
-      if (c.moderate_content) items.push({ label: "Remove", variant: "destructive", onClick: () => setRemoving(r), separatorBefore: true })
+      if (c.pin) items.push({ label: r.pinned ? tt("Unpin") : tt("Pin to the top"), onClick: () => void act(r, r.pinned ? "unpin" : "pin"), separatorBefore: true })
+      if (c.lock) items.push({ label: r.locked ? tt("Allow comments") : tt("Lock comments"), onClick: () => void act(r, r.locked ? "reopen" : "lock") })
+      if (c.feature) items.push({ label: r.featured ? tt("Stop featuring") : tt("Feature"), onClick: () => void act(r, r.featured ? "unfeature" : "feature") })
+      if (c.moderate_content) items.push({ label: tt("Remove"), variant: "destructive", onClick: () => setRemoving(r), separatorBefore: true })
     } else if (r.status === "removed" && c.moderate_content) {
-      items.push({ label: "Restore", onClick: () => void act(r, "restore"), separatorBefore: true })
+      items.push({ label: tt("Restore"), onClick: () => void act(r, "restore"), separatorBefore: true })
     }
     return items
   }
@@ -125,14 +126,14 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
         <section className={cn(card, "px-4 py-3 sm:px-5")} data-composer="" data-open={open || undefined}>
           {!open ? (
             <button type="button" onClick={() => setOpen(true)} className="flex min-h-11 w-full cursor-text items-center rounded-lg text-left text-[14.5px] text-[#9ca3af]" data-composer-open="">
-              Write a post to your members
+              {tt("Write a post to your members")}
             </button>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="mr-auto text-[15px] font-semibold text-[#1a1a2e]">{welcome ? "Write a welcome post" : "New post"}</p>
+                <p className="mr-auto text-[15px] font-semibold text-[#1a1a2e]">{welcome ? tt("Write a welcome post") : tt("New post")}</p>
                 <label htmlFor="post-space" className="sr-only">
-                  Space
+                  {tt("Space")}
                 </label>
                 <select id="post-space" value={spaceId} onChange={(e) => setSpaceId(e.target.value)} className={cn(selectField, "w-auto min-w-[160px]")}>
                   {spaces.map((s) => (
@@ -142,14 +143,14 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
                   ))}
                 </select>
               </div>
-              <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 200))} placeholder="Title (optional)" aria-label="Title" className={cn(field, "mt-3 h-11 font-medium sm:h-10")} />
+              <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 200))} placeholder={tt("Title (optional)")} aria-label={tt("Title")} className={cn(field, "mt-3 h-11 font-medium sm:h-10")} />
               <textarea
                 ref={bodyRef}
                 autoFocus={!welcome}
                 value={body}
                 onChange={(e) => setBody(e.target.value.slice(0, 10_000))}
-                placeholder={welcome ? "Who it is for, how to get started, where to say hello" : "Share something with your members"}
-                aria-label="Post"
+                placeholder={welcome ? tt("Who it is for, how to get started, where to say hello") : tt("Share something with your members")}
+                aria-label={tt("Post")}
                 aria-invalid={error?.field === "body" || undefined}
                 className={cn(field, "mt-2 resize-none py-2.5 leading-relaxed")}
               />
@@ -159,12 +160,12 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
                 </p>
               ) : null}
               <div className="mt-3 flex items-center justify-between gap-2">
-                <p className="min-w-0 flex-1 truncate text-[12.5px] text-[#6b7280]">{spaces.find((s) => s.id === spaceId)?.announcements ? "Members are told about announcements." : "Posted as you, in this space."}</p>
+                <p className="min-w-0 flex-1 truncate text-[12.5px] text-[#6b7280]">{spaces.find((s) => s.id === spaceId)?.announcements ? tt("Members are told about announcements.") : tt("Posted as you, in this space.")}</p>
                 <button type="button" onClick={() => { setOpen(false); setError(null) }} className={cn(buttonSecondary, "h-10 shrink-0 sm:h-9")}>
-                  Cancel
+                  {tt("Cancel")}
                 </button>
                 <button type="button" onClick={() => void post()} disabled={posting} className={cn(buttonPrimary, "h-10 shrink-0 px-4 sm:h-9")} data-post-submit="">
-                  {posting ? "Posting" : "Post"}
+                  {posting ? tt("Posting") : tt("Post")}
                 </button>
               </div>
             </>
@@ -175,21 +176,21 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
       <ListCard
         head={
           <FilterTabs
-            label="Which posts"
+            label={tt("Which posts")}
             value={show}
             onChange={(v) => {
               setShow(v)
               void reload(v)
             }}
             tabs={[
-              { value: "all", label: "All posts" },
-              { value: "removed", label: "Removed" },
+              { value: "all", label: tt("All posts") },
+              { value: "removed", label: tt("Removed") },
             ]}
           />
         }
       >
         {rows.length === 0 ? (
-          show === "removed" ? <Empty title="Nothing removed." /> : <Empty title="No posts yet. Start the conversation." />
+          show === "removed" ? <Empty title={tt("Nothing removed.")} /> : <Empty title={tt("No posts yet. Start the conversation.")} />
         ) : (
           <ul className="divide-y divide-[#f1f2f4]">
             {rows.map((r) => (
@@ -197,13 +198,13 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#6b7280]">
                     <span className="font-medium text-[#1a1a2e]">{r.authorName}</span>
-                    {r.spaceName ? <span>in {r.spaceName}</span> : null}
+                    {r.spaceName ? <span>{tt("in {spaceName}", { spaceName: r.spaceName })}</span> : null}
                     <span>{relativeTime(r.createdAt)}</span>
-                    {r.kind === "announcement" ? <StatusBadge tone="neutral">Announcement</StatusBadge> : null}
-                    {r.status === "removed" ? <StatusBadge tone="critical">Removed</StatusBadge> : null}
-                    {r.pinned ? <Pin aria-label="Pinned" className="h-3.5 w-3.5 text-[#1a1a2e]" /> : null}
-                    {r.locked ? <Lock aria-label="Comments locked" className="h-3.5 w-3.5" /> : null}
-                    {r.featured ? <Star aria-label="Featured" className="h-3.5 w-3.5" /> : null}
+                    {r.kind === "announcement" ? <StatusBadge tone="neutral">{tt("Announcement")}</StatusBadge> : null}
+                    {r.status === "removed" ? <StatusBadge tone="critical">{tt("Removed")}</StatusBadge> : null}
+                    {r.pinned ? <Pin aria-label={tt("Pinned")} className="h-3.5 w-3.5 text-[#1a1a2e]" /> : null}
+                    {r.locked ? <Lock aria-label={tt("Comments locked")} className="h-3.5 w-3.5" /> : null}
+                    {r.featured ? <Star aria-label={tt("Featured")} className="h-3.5 w-3.5" /> : null}
                   </div>
                   {r.title ? <p className={cn("mt-1 truncate text-[14.5px] font-semibold", r.status === "published" ? "text-[#1a1a2e]" : "text-[#6b7280]")}>{r.title}</p> : null}
                   {r.excerpt ? <p className={cn("mt-0.5 line-clamp-2 text-[13.5px] leading-snug", r.status === "published" ? "text-[#4b5563]" : "text-[#9ca3af]")}>{r.excerpt}</p> : null}
@@ -218,7 +219,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
                     </span>
                   </div>
                 </div>
-                <RowMenu items={menu(r)} label="Post actions" />
+                <RowMenu items={menu(r)} label={tt("Post actions")} />
               </li>
             ))}
           </ul>
@@ -228,12 +229,12 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
       {next ? (
         <div className="flex justify-center">
           <button type="button" onClick={() => void loadMore()} disabled={more} className={cn(buttonSecondary, "h-10 px-5")}>
-            {more ? "Loading" : "Show more"}
+            {more ? tt("Loading") : tt("Show more")}
           </button>
         </div>
       ) : null}
-      {spaces.length === 0 && head.can.manage_spaces ? <Notice tone="info">There is no space to post in. Add one under Spaces.</Notice> : null}
-      <Confirm open={removing !== null} onClose={() => setRemoving(null)} title="Remove this post?" detail="Members stop seeing it. You can restore it from Removed." action="Remove" danger busy={busy} reason onConfirm={(reason) => removing && void act(removing, "remove", reason || undefined)} />
+      {spaces.length === 0 && head.can.manage_spaces ? <Notice tone="info">{tt("There is no space to post in. Add one under Spaces.")}</Notice> : null}
+      <Confirm open={removing !== null} onClose={() => setRemoving(null)} title={tt("Remove this post?")} detail={tt("Members stop seeing it. You can restore it from Removed.")} action="Remove" danger busy={busy} reason onConfirm={(reason) => removing && void act(removing, "remove", reason || undefined)} />
     </div>
   )
 }

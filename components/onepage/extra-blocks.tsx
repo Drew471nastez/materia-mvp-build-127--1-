@@ -60,6 +60,8 @@ import type {
   OnePageTheme,
   VideoBlockData,
 } from "@/lib/onepage/types"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export { EXTRA_BLOCK_TYPES, extraBlockHasContent, isExtraBlock, isScheduledNow, scheduleLabel, videoSource, type ExtraBlockType } from "@/lib/onepage/extra-blocks"
 
@@ -223,7 +225,7 @@ function CountdownView({ data, look }: { data: CountdownBlockData; look: ExtraBl
       ) : null}
       {ended ? (
         <p className="font-medium" style={{ ...button, padding: `${px(14, look.scale)} ${px(16, look.scale)}`, fontSize: px(15, look.scale) }}>
-          {data.ended_text?.trim() || "It's here"}
+          {data.ended_text?.trim() || tt("It's here")}
         </p>
       ) : (
         <div className="grid grid-cols-4" style={{ gap: px(8, look.scale) }}>
@@ -271,7 +273,7 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
         {address ? (
           <iframe
             key={address}
-            title={`Map of ${address}`}
+            title={tt("Map of {address}", { address })}
             src={`https://maps.google.com/maps?q=${q}&z=15&output=embed`}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
@@ -288,7 +290,7 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
           style={{ ...button, padding: `${px(14, look.scale)} ${px(16, look.scale)}`, fontSize: px(15, look.scale) }}
         >
           <MapPin aria-hidden style={{ width: px(16, look.scale), height: px(16, look.scale) }} />
-          Open in Maps
+          {tt("Open in Maps")}
         </a>
       ) : null}
     </div>
@@ -323,7 +325,7 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
       >
         {playing ? (
           <iframe
-            title={data.title || "Video"}
+            title={data.title || tt("Video")}
             src={src}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
@@ -338,7 +340,7 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
           */
           <button
             type="button"
-            aria-label={`Play ${data.title || "video"}`}
+            aria-label={tt("Play {value}", { value: data.title || "video" })}
             onClick={() => setPlaying(true)}
             className="group absolute inset-0 flex h-full w-full cursor-pointer items-center justify-center"
           >
@@ -463,14 +465,14 @@ export function SensitiveLinkQuestion() {
           <EyeOff aria-hidden className="h-5 w-5" />
         </span>
         <h2 id="onepage-sensitive-title" className="mt-3 text-[17px] font-semibold text-[#1a1a2e]">
-          Sensitive content
+          {tt("Sensitive content")}
         </h2>
         <p id="onepage-sensitive-body" className="mt-1.5 text-[14px] leading-[1.5] text-[#6b7280]">
-          {ask.label ? <>&ldquo;{ask.label}&rdquo; may</> : "This link may"} contain content that is not suitable for everyone. Do you want to continue?
+          {ask.label ? <>{tt("“{label}” may", { label: ask.label })}</> : tt("This link may")} {tt("contain content that is not suitable for everyone. Do you want to continue?")}
         </p>
         <div className="mt-5 grid grid-cols-2 gap-2.5">
           <button type="button" onClick={close} className="h-11 cursor-pointer rounded-xl border border-[#d9dbe0] bg-white text-[15px] font-medium text-[#1a1a2e] active:bg-[#f1f2f4]">
-            Go back
+            {tt("Go back")}
           </button>
           <button
             type="button"
@@ -484,7 +486,7 @@ export function SensitiveLinkQuestion() {
             }}
             className="h-11 cursor-pointer rounded-xl bg-[#1a1a2e] text-[15px] font-semibold text-white active:bg-black"
           >
-            Continue
+            {tt("Continue")}
           </button>
         </div>
       </div>
@@ -496,11 +498,11 @@ export function SensitiveLinkQuestion() {
 
 /** The entries the Add block sheet lists for these blocks, in the category each belongs to. */
 export const EXTRA_BLOCK_CATALOG = {
-  heading: { type: "heading" as const, label: "Heading", description: "A title between your links", icon: Heading },
-  faq: { type: "faq" as const, label: "FAQ", description: "Questions and answers that open", icon: HelpCircle },
-  countdown: { type: "countdown" as const, label: "Countdown", description: "Count down to a launch or a drop", icon: Timer },
-  map: { type: "map" as const, label: "Map", description: "Show where to find you", icon: MapPin },
-  video: { type: "video" as const, label: "Video", description: "Play a YouTube, Vimeo or TikTok video", icon: Play },
+  heading: { type: "heading" as const, get label() { return tt("Heading") }, get description() { return tt("A title between your links") }, icon: Heading },
+  faq: { type: "faq" as const, label: "FAQ", get description() { return tt("Questions and answers that open") }, icon: HelpCircle },
+  countdown: { type: "countdown" as const, get label() { return tt("Countdown") }, get description() { return tt("Count down to a launch or a drop") }, icon: Timer },
+  map: { type: "map" as const, get label() { return tt("Map") }, get description() { return tt("Show where to find you") }, icon: MapPin },
+  video: { type: "video" as const, get label() { return tt("Video") }, get description() { return tt("Play a YouTube, Vimeo or TikTok video") }, icon: Play },
 }
 
 /** The title, the line under it and the icon a block's row shows in the editor's list. */
@@ -508,7 +510,7 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
   switch (block.type) {
     case "heading": {
       const d = block.data as HeadingBlockData
-      return { title: d.text?.trim() || "Heading", subtitle: "Heading", icon: Heading }
+      return { title: d.text?.trim() || tt("Heading"), subtitle: tt("Heading"), icon: Heading }
     }
     case "faq": {
       const d = block.data as FaqBlockData
@@ -519,19 +521,19 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
       const d = block.data as CountdownBlockData
       const t = d.target_at ? Date.parse(d.target_at) : NaN
       return {
-        title: d.title?.trim() || "Countdown",
-        subtitle: Number.isNaN(t) ? "Pick a date" : new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        title: d.title?.trim() || tt("Countdown"),
+        subtitle: Number.isNaN(t) ? tt("Pick a date") : new Date(t).toLocaleString(appLocale(), zoned({ month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })),
         icon: Timer,
       }
     }
     case "map": {
       const d = block.data as MapBlockData
-      return { title: d.title?.trim() || "Map", subtitle: d.address?.trim() || "Add an address", icon: MapPin }
+      return { title: d.title?.trim() || tt("Map"), subtitle: d.address?.trim() || tt("Add an address"), icon: MapPin }
     }
     case "video": {
       const d = block.data as VideoBlockData
       const s = videoSource(d.url)
-      return { title: d.title?.trim() || "Video", subtitle: s ? `${s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok"} video` : "Paste a video link", icon: Play }
+      return { title: d.title?.trim() || tt("Video"), subtitle: s ? tt("{value} video", { value: s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok" }) : tt("Paste a video link"), icon: Play }
     }
     default:
       return { title: block.type, subtitle: "", icon: Heading }
@@ -582,16 +584,16 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
       return (
         <div className="space-y-3">
           <div className={field}>
-            <Label className={label}>Heading</Label>
-            <Input value={d.text} maxLength={80} placeholder="Shop my picks" onChange={(e) => updateData({ text: e.target.value })} />
+            <Label className={label}>{tt("Heading")}</Label>
+            <Input value={d.text} maxLength={80} placeholder={tt("Shop my picks")} onChange={(e) => updateData({ text: e.target.value })} />
           </div>
           <div className={field}>
-            <Label className={label}>Size</Label>
-            <Segmented value={d.size || "medium"} options={[{ id: "small", label: "Small" }, { id: "medium", label: "Medium" }, { id: "large", label: "Large" }]} onChange={(size) => updateData({ size })} />
+            <Label className={label}>{tt("Size")}</Label>
+            <Segmented value={d.size || "medium"} options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }]} onChange={(size) => updateData({ size })} />
           </div>
           <div className={field}>
-            <Label className={label}>Alignment</Label>
-            <Segmented value={d.alignment || "center"} options={[{ id: "left", label: "Left" }, { id: "center", label: "Center" }, { id: "right", label: "Right" }]} onChange={(alignment) => updateData({ alignment })} />
+            <Label className={label}>{tt("Alignment")}</Label>
+            <Segmented value={d.alignment || "center"} options={[{ id: "left", label: tt("Left") }, { id: "center", label: tt("Center") }, { id: "right", label: tt("Right") }]} onChange={(alignment) => updateData({ alignment })} />
           </div>
         </div>
       )
@@ -603,24 +605,24 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
       return (
         <div className="space-y-3">
           <div className={field}>
-            <Label className={label}>Title (optional)</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder="Questions" onChange={(e) => updateData({ title: e.target.value })} />
+            <Label className={label}>{tt("Title (optional)")}</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder={tt("Questions")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
           {items.map((item, i) => (
             <div key={item.id} className="space-y-2 rounded-xl border border-[#e5e7eb] bg-white p-3">
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-medium text-[#6b7280]">Question {i + 1}</span>
+                <span className="text-[12px] font-medium text-[#6b7280]">{tt("Question {value}", { value: i + 1 })}</span>
                 <button
                   type="button"
-                  aria-label={`Remove question ${i + 1}`}
+                  aria-label={tt("Remove question {value}", { value: i + 1 })}
                   onClick={() => set(items.filter((x) => x.id !== item.id))}
                   className="grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <Input value={item.question} maxLength={160} placeholder="What do I get?" onChange={(e) => set(items.map((x) => (x.id === item.id ? { ...x, question: e.target.value } : x)))} />
-              <Textarea value={item.answer} rows={3} maxLength={1000} placeholder="The answer" onChange={(e) => set(items.map((x) => (x.id === item.id ? { ...x, answer: e.target.value } : x)))} />
+              <Input value={item.question} maxLength={160} placeholder={tt("What do I get?")} onChange={(e) => set(items.map((x) => (x.id === item.id ? { ...x, question: e.target.value } : x)))} />
+              <Textarea value={item.answer} rows={3} maxLength={1000} placeholder={tt("The answer")} onChange={(e) => set(items.map((x) => (x.id === item.id ? { ...x, answer: e.target.value } : x)))} />
             </div>
           ))}
           <button
@@ -629,7 +631,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             className="flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#d9dbe0] text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]"
           >
             <Plus className="h-4 w-4" />
-            Add a question
+            {tt("Add a question")}
           </button>
         </div>
       )
@@ -639,25 +641,25 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
       return (
         <div className="space-y-3">
           <div className={field}>
-            <Label className={label}>Title (optional)</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder="New drop in" onChange={(e) => updateData({ title: e.target.value })} />
+            <Label className={label}>{tt("Title (optional)")}</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder={tt("New drop in")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
           <div className={field}>
-            <Label className={label}>Counts down to</Label>
+            <Label className={label}>{tt("Counts down to")}</Label>
             <div>
               <DateTimeField
-                label="Counts down to"
+                label={tt("Counts down to")}
                 value={d.target_at}
                 required
-                emptyLabel="Choose a date"
+                emptyLabel={tt("Choose a date")}
                 defaultTime={{ hour: 12, minute: 0 }}
                 onChange={(iso) => iso && updateData({ target_at: iso })}
               />
             </div>
           </div>
           <div className={field}>
-            <Label className={label}>Once it has passed, say</Label>
-            <Input value={d.ended_text || ""} maxLength={80} placeholder="It's here" onChange={(e) => updateData({ ended_text: e.target.value })} />
+            <Label className={label}>{tt("Once it has passed, say")}</Label>
+            <Input value={d.ended_text || ""} maxLength={80} placeholder={tt("It's here")} onChange={(e) => updateData({ ended_text: e.target.value })} />
           </div>
         </div>
       )
@@ -667,20 +669,20 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
       return (
         <div className="space-y-3">
           <div className={field}>
-            <Label className={label}>Title (optional)</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder="Visit the studio" onChange={(e) => updateData({ title: e.target.value })} />
+            <Label className={label}>{tt("Title (optional)")}</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder={tt("Visit the studio")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
           <div className={field}>
-            <Label className={label}>Address or place</Label>
-            <Input value={d.address || ""} maxLength={200} placeholder="Strada Lipscani 12, Bucharest" onChange={(e) => updateData({ address: e.target.value })} />
+            <Label className={label}>{tt("Address or place")}</Label>
+            <Input value={d.address || ""} maxLength={200} placeholder={tt("Strada Lipscani 12, Bucharest")} onChange={(e) => updateData({ address: e.target.value })} />
           </div>
           <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
-            <span className="text-[13px] text-[#1a1a2e]">Show an Open in Maps button</span>
+            <span className="text-[13px] text-[#1a1a2e]">{tt("Show an Open in Maps button")}</span>
             <button
               type="button"
               role="switch"
               aria-checked={d.show_button !== false}
-              aria-label="Show an Open in Maps button"
+              aria-label={tt("Show an Open in Maps button")}
               onClick={() => updateData({ show_button: d.show_button === false })}
               className="-my-[11px] -mr-[3px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
             >
@@ -698,13 +700,13 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
       return (
         <div className="space-y-3">
           <div className={field}>
-            <Label className={label}>Video link</Label>
+            <Label className={label}>{tt("Video link")}</Label>
             <Input value={d.url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="https://youtube.com/watch?v=..." onChange={(e) => updateData({ url: e.target.value.trim() })} aria-invalid={!ok || undefined} />
-            {!ok ? <p className="text-[12px] text-[#b42318]">Paste a YouTube, Vimeo or TikTok video link.</p> : null}
+            {!ok ? <p className="text-[12px] text-[#b42318]">{tt("Paste a YouTube, Vimeo or TikTok video link.")}</p> : null}
           </div>
           <div className={field}>
-            <Label className={label}>Title (optional)</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder="Watch the trailer" onChange={(e) => updateData({ title: e.target.value })} />
+            <Label className={label}>{tt("Title (optional)")}</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder={tt("Watch the trailer")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
         </div>
       )
@@ -752,14 +754,14 @@ export function BlockExtras({
         <div className={row}>
           <EyeOff aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.6} />
           <span className="min-w-0 flex-1">
-            <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Sensitive content</span>
-            <span className="block text-[13px] text-[#6b7280]">Visitors confirm before it opens</span>
+            <span className="block text-[14.5px] font-medium text-[#1a1a2e]">{tt("Sensitive content")}</span>
+            <span className="block text-[13px] text-[#6b7280]">{tt("Visitors confirm before it opens")}</span>
           </span>
           <button
             type="button"
             role="switch"
             aria-checked={sensitive}
-            aria-label="Sensitive content"
+            aria-label={tt("Sensitive content")}
             data-sensitive-switch=""
             onClick={() => updateData({ sensitive: !sensitive })}
             className="-mr-[3px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
@@ -775,27 +777,27 @@ export function BlockExtras({
           <button type="button" aria-expanded={open} data-schedule-toggle="" onClick={() => setOpen((v) => !v)} className={cn(row, "cursor-pointer rounded-lg outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]")}>
             <CalendarClock aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.6} />
             <span className="min-w-0 flex-1">
-              <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Schedule</span>
-              <span className={cn("block truncate text-[13px]", status ? (status.live ? "text-[#15803d]" : "text-[#9a5b00]") : "text-[#6b7280]")}>{status ? status.text : "Show it only between two times"}</span>
+              <span className="block text-[14.5px] font-medium text-[#1a1a2e]">{tt("Schedule")}</span>
+              <span className={cn("block truncate text-[13px]", status ? (status.live ? "text-[#15803d]" : "text-[#9a5b00]") : "text-[#6b7280]")}>{status ? status.text : tt("Show it only between two times")}</span>
             </span>
             <ChevronRight aria-hidden data-keep-transform="" className={cn("h-5 w-5 shrink-0 text-[#1a1a2e] transition-transform duration-200", open && "rotate-90")} strokeWidth={1.75} />
           </button>
           {open ? (
             <div data-schedule-panel="" className="mb-2 space-y-3 rounded-2xl border border-[#e3e4e8] bg-white p-3.5">
               <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                <span className="text-[14px] font-medium text-[#1a1a2e]">Show from</span>
-                <DateTimeField label="Show from" value={s?.start_at} emptyLabel="Now" defaultTime={{ hour: 9, minute: 0 }} onChange={(iso) => set({ ...(s || {}), start_at: iso })} />
+                <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Show from")}</span>
+                <DateTimeField label={tt("Show from")} value={s?.start_at} emptyLabel={tt("Now")} defaultTime={{ hour: 9, minute: 0 }} onChange={(iso) => set({ ...(s || {}), start_at: iso })} />
               </div>
               <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                <span className="text-[14px] font-medium text-[#1a1a2e]">Hide after</span>
-                <DateTimeField label="Hide after" value={s?.end_at} emptyLabel="Never" defaultTime={{ hour: 23, minute: 59 }} after={s?.start_at} onChange={(iso) => set({ ...(s || {}), end_at: iso })} />
+                <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Hide after")}</span>
+                <DateTimeField label={tt("Hide after")} value={s?.end_at} emptyLabel={tt("Never")} defaultTime={{ hour: 23, minute: 59 }} after={s?.start_at} onChange={(iso) => set({ ...(s || {}), end_at: iso })} />
               </div>
-              {invalid ? <p className="text-[13px] text-[#b42318]">It hides before it shows, so it would never be on the page.</p> : null}
+              {invalid ? <p className="text-[13px] text-[#b42318]">{tt("It hides before it shows, so it would never be on the page.")}</p> : null}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef0f2] pt-3">
-                <span className="text-[12.5px] text-[#6b7280]" data-schedule-zone="">{zone ? `Times are in ${zoneLabel(zone)}` : "\u00a0"}</span>
+                <span className="text-[12.5px] text-[#6b7280]" data-schedule-zone="">{zone ? tt("Times are in {name}", { name: zoneLabel(zone) }) : "\u00a0"}</span>
                 {s?.start_at || s?.end_at ? (
                   <button type="button" data-schedule-clear="" onClick={() => updateBlock({ schedule: null })} className="h-9 cursor-pointer rounded-lg px-1 text-[13px] font-medium text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-                    Clear schedule
+                    {tt("Clear schedule")}
                   </button>
                 ) : null}
               </div>
@@ -829,7 +831,7 @@ export function BlockBadges({ block }: { block: OnePageBlock }) {
       {sensitive ? (
         <span data-block-sensitive="" className="inline-flex h-[18px] items-center gap-1 rounded-full bg-[#f1f2f4] px-1.5 text-[10.5px] font-medium text-[#4b5563]">
           <EyeOff aria-hidden className="h-2.5 w-2.5" />
-          Sensitive
+          {tt("Sensitive")}
         </span>
       ) : null}
     </span>

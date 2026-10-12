@@ -49,6 +49,7 @@ import { EMAIL_FONT, EMAIL_TYPE } from "./email-canvas"
 import { EmailText } from "./text-block"
 import { FormatBar, usePhoneLayout, type BlockAction, type InsertPoint } from "./format-bar"
 import type { Doc } from "./use-doc"
+import { tt } from "@/lib/i18n/text"
 
 interface InsertItem {
   type: BlockType
@@ -56,21 +57,21 @@ interface InsertItem {
 }
 
 export const INSERT_ITEMS: InsertItem[] = [
-  { type: "rich", label: "Text" },
-  { type: "button", label: "Button" },
-  { type: "image", label: "Image" },
-  { type: "product", label: "Product" },
-  { type: "divider", label: "Divider" },
-  { type: "spacer", label: "Space" },
+  { type: "rich", get label() { return tt("Text") } },
+  { type: "button", get label() { return tt("Button") } },
+  { type: "image", get label() { return tt("Image") } },
+  { type: "product", get label() { return tt("Product") } },
+  { type: "divider", get label() { return tt("Divider") } },
+  { type: "spacer", get label() { return tt("Space") } },
 ]
 
 const FIELDS = [
-  { label: "First name", field: "first_name" },
-  { label: "Full name", field: "name" },
-  { label: "Email address", field: "email" },
+  { get label() { return tt("First name") }, field: "first_name" },
+  { get label() { return tt("Full name") }, field: "name" },
+  { get label() { return tt("Email address") }, field: "email" },
   /* Filled when the email is sent, from your profile and store as they are then (lib/email-variables). */
-  { label: "Your name", field: "creator_name" },
-  { label: "Store name", field: "store_name" },
+  { get label() { return tt("Your name") }, field: "creator_name" },
+  { get label() { return tt("Store name") }, field: "store_name" },
 ]
 
 export interface BlockEditorProps {
@@ -218,8 +219,8 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
 
   const upload = async (id: string, file: File) => {
     setUploadError((e) => ({ ...e, [id]: "" }))
-    if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) return setUploadError((e) => ({ ...e, [id]: "Use a JPG, PNG, GIF or WebP image." }))
-    if (file.size > 5 * 1024 * 1024) return setUploadError((e) => ({ ...e, [id]: "Use an image under 5 MB." }))
+    if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) return setUploadError((e) => ({ ...e, [id]: tt("Use a JPG, PNG, GIF or WebP image.") }))
+    if (file.size > 5 * 1024 * 1024) return setUploadError((e) => ({ ...e, [id]: tt("Use an image under 5 MB.") }))
     const local = URL.createObjectURL(file)
     setUploading((u) => ({ ...u, [id]: local }))
     try {
@@ -227,7 +228,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
       const img = byId(id) as ImageBlock | null
       patch(id, { src: url, alt: img?.alt || file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ").slice(0, 120) } as Partial<Block>)
     } catch (err) {
-      setUploadError((e) => ({ ...e, [id]: err instanceof Error ? err.message : "The image did not upload. Try again." }))
+      setUploadError((e) => ({ ...e, [id]: err instanceof Error ? err.message : tt("The image did not upload. Try again.") }))
     } finally {
       URL.revokeObjectURL(local)
       setUploading((u) => {
@@ -274,10 +275,10 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
     const i = indexOf(id)
     const n = blocksRef.current.length
     return [
-      ...(i > 0 ? [{ label: "Move up", icon: <ArrowUp className="h-4 w-4" />, onClick: () => move(id, -1) }] : []),
-      ...(i < n - 1 ? [{ label: "Move down", icon: <ArrowDown className="h-4 w-4" />, onClick: () => move(id, 1) }] : []),
-      { label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => duplicate(id) },
-      { label: "Delete", icon: <Trash2 className="h-4 w-4" />, variant: "destructive", separatorBefore: true, onClick: () => remove(id) },
+      ...(i > 0 ? [{ label: tt("Move up"), icon: <ArrowUp className="h-4 w-4" />, onClick: () => move(id, -1) }] : []),
+      ...(i < n - 1 ? [{ label: tt("Move down"), icon: <ArrowDown className="h-4 w-4" />, onClick: () => move(id, 1) }] : []),
+      { label: tt("Duplicate"), icon: <Copy className="h-4 w-4" />, onClick: () => duplicate(id) },
+      { label: tt("Delete"), icon: <Trash2 className="h-4 w-4" />, variant: "destructive", separatorBefore: true, onClick: () => remove(id) },
     ]
   }
   /* The same, for a text block, in the formatting bar's own row. Nothing to do to the only block. */
@@ -354,11 +355,11 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                 menu={
                   b.type === "rich" ? null : (
                     <ResponsiveActionMenu
-                      title={INSERT_ITEMS.find((x) => x.type === b.type)?.label ?? "Block"}
+                      title={INSERT_ITEMS.find((x) => x.type === b.type)?.label ?? tt("Block")}
                       align="end"
                       items={actionsFor(b.id)}
                       trigger={
-                        <button type="button" aria-label="Block actions" className={cornerButton} onMouseDown={(e) => e.preventDefault()}>
+                        <button type="button" aria-label={tt("Block actions")} className={cornerButton} onMouseDown={(e) => e.preventDefault()}>
                           <MoreHorizontal className="h-[18px] w-[18px] md:h-4 md:w-4" />
                         </button>
                       }
@@ -383,8 +384,8 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                   <EmailText
                     id={b.id}
                     html={b.html}
-                    label={index === 0 ? "Email text" : `Email text, block ${index + 1}`}
-                    placeholder={index === 0 && only ? "Write your email" : "Write here"}
+                    label={index === 0 ? tt("Email text") : tt("Email text, block {value}", { value: index + 1 })}
+                    placeholder={index === 0 && only ? tt("Write your email") : tt("Write here")}
                     quietPlaceholder={!(index === 0 && only)}
                     onChange={(html) => patch(b.id, { html } as Partial<Block>, true)}
                     onRemoveEmpty={only ? undefined : () => removeEmpty(b.id)}
@@ -402,7 +403,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                   </div>
                 ) : b.type === "spacer" ? (
                   <div className="flex items-center justify-center rounded-md border border-dashed border-[#e3e4e8] text-[12px] font-medium text-[#9ca3af]" style={{ height: b.size, fontFamily: "Inter, system-ui, sans-serif" }}>
-                    Space
+                    {tt("Space")}
                   </div>
                 ) : null}
               </Shell>
@@ -415,13 +416,13 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
         <BottomSheet
           isOpen={!!sheetButton}
           onClose={() => setSelected(null)}
-          label="Button"
+          label={tt("Button")}
           hideFrom="md"
           aboveKeyboard
           maxHeight="min(80dvh, 640px)"
           header={
             <div className="flex h-11 items-center justify-between gap-3 px-4">
-              <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Button</h2>
+              <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{tt("Button")}</h2>
               <button
                 type="button"
                 onPointerDown={(e) => e.preventDefault()}
@@ -433,7 +434,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                 className="inline-flex h-9 items-center rounded-full bg-[#f1f2f4] px-4 text-[15px] font-semibold text-[#1a1a2e] active:bg-[#e6e8eb] [-webkit-tap-highlight-color:transparent]"
                 data-button-sheet-done=""
               >
-                Done
+                {tt("Done")}
               </button>
             </div>
           }
@@ -462,14 +463,14 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
 
       <div className="flex items-center justify-center border-t border-[#eef0f2] px-4 py-3">
         <ResponsiveActionMenu
-          title="Add a block"
+          title={tt("Add a block")}
           align="center"
           menuWidth="w-52"
           items={INSERT_ITEMS.map((item) => ({ label: item.label, onClick: () => add(item.type) }))}
           trigger={
             <button type="button" className={cn(buttonSecondary, "h-11 px-4 text-[15px] md:h-9 md:text-[13px]")} data-add-block="">
               <Plus className="h-4 w-4" />
-              Add a block
+              {tt("Add a block")}
             </button>
           }
         />
@@ -519,7 +520,7 @@ function Shell({
         {...attributes}
         {...listeners}
         className="absolute -left-8 top-0 hidden h-7 w-6 cursor-grab items-center justify-center rounded text-[#9ca3af] opacity-0 transition-opacity duration-100 hover:bg-[#f1f2f4] hover:text-[#4b5563] active:cursor-grabbing group-hover/block:opacity-100 group-focus-within/block:opacity-100 lg:flex"
-        aria-label="Drag to move"
+        aria-label={tt("Drag to move")}
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
@@ -562,14 +563,14 @@ function ButtonView({ block, theme, onLabel, readOnly = false }: { block: Button
     <div className="mb-5" style={{ textAlign: block.align }}>
       <span className="inline-grid max-w-full rounded-lg px-6 py-3 align-top text-[16px] font-semibold leading-5" style={{ backgroundColor: c.fill, color: c.text }}>
         <span aria-hidden className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre">
-          {block.label || "Button text"}
+          {block.label || tt("Button text")}
         </span>
         <input
           data-button-label=""
           value={block.label}
           maxLength={60}
-          placeholder="Button text"
-          aria-label="Button text"
+          placeholder={tt("Button text")}
+          aria-label={tt("Button text")}
           size={1}
           onChange={(e) => onLabel(e.target.value)}
           /* On a phone the words are typed in the button's sheet: a tap here picks the block, which opens it. */
@@ -604,9 +605,9 @@ function ImageView({ block, uploading, onDropFile, onUpload }: { block: ImageBlo
         style={{ fontFamily: "Inter, system-ui, sans-serif" }}
       >
         <button type="button" className={buttonSecondary} onClick={onUpload}>
-          Upload an image
+          {tt("Upload an image")}
         </button>
-        <p className="mb-0 text-[12px] leading-4 text-[#6b7280]">or drop one here</p>
+        <p className="mb-0 text-[12px] leading-4 text-[#6b7280]">{tt("or drop one here")}</p>
       </div>
     )
   }
@@ -623,7 +624,7 @@ function ProductView({ block, theme }: { block: Block & { type: "product" }; the
   if (!block.productId) {
     return (
       <div className="mb-5 flex min-h-[96px] items-center justify-center rounded-xl border border-dashed border-[#d5d7dd] bg-[#fafbfb] px-4 text-[13px] leading-5 text-[#6b7280]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        Choose a product in the settings below
+        {tt("Choose a product in the settings below")}
       </div>
     )
   }
@@ -636,7 +637,7 @@ function ProductView({ block, theme }: { block: Block & { type: "product" }; the
         <p className="mb-1 truncate text-[17px] font-semibold leading-6 text-[#111827]">{block.title}</p>
         {block.price ? <p className="mb-3 text-[15px] leading-[22px] text-[#4b5563]">{block.price}</p> : null}
         <span className="inline-block rounded-lg px-4 py-[9px] text-[14px] font-semibold leading-[18px]" style={{ backgroundColor: c.fill, color: c.text }}>
-          {block.cta || "View product"}
+          {block.cta || tt("View product")}
         </span>
       </div>
     </div>

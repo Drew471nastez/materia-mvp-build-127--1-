@@ -23,6 +23,7 @@ import { initialForm, snapshotOf, snapshotOfForm, DEFAULT_FAQS, DEFAULT_WHATS_IN
 import { couponState, readCouponInput, CODE_PATTERN } from "@/lib/checkout/coupons"
 import { archiveProduct, isArchivedProduct, restoreProduct } from "@/lib/products/archive"
 import { stripComments } from "./_source"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -37,7 +38,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 console.log("\nThe editor's first frame is the saved product")
@@ -197,7 +198,7 @@ const at = (s: string) => editor.indexOf(s)
 check("two columns from lg, the main one two thirds", /lg:grid lg:grid-cols-\[minmax\(0,2fr\)_minmax\(272px,1fr\)\] lg:items-start/.test(editor) && mainAt > 0 && sideAt > mainAt)
 /* Changed on purpose: the owner moved the category into the main column, a field above the description, "at every width". */
 check("the product itself in the main column: title, pictures, category, description, included, files, variants, pricing, questions",
-  [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("sectionRefs.current.category = el"), at("<RichTextEditor"), at("What's Included</h2>"), at('{productType === "course" ? null : filesCard}'), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
+  [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("sectionRefs.current.category = el"), at("<RichTextEditor"), Math.max(at("What's Included</h2>"), at("What&apos;s Included</h2>")), at('{productType === "course" ? null : filesCard}'), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
     .every((i, n, all) => i > mainAt && i < sideAt && (n === 0 || i > all[n - 1])))
 /* "Course -> product editor in course mode with the Lessons card first": a course's lessons sit right under its title, before the pictures. */
 check("a course's Lessons card comes first, right under the title; a digital product's files keep their place",
@@ -245,8 +246,8 @@ check("Cancel and more are white with a hairline and a shade at their foot, flat
 check("the more button is square and Save's height: 40px on a phone, 32px from 640px",
   /barIconButton = cn\(quietDepth, PRESS_AREA_BORDERED, "h-10 w-10 [^"]*sm:h-8 sm:w-8/.test(buttons) && /export const quietDepth = cn\(secondaryDepth, /.test(buttons) && /"h-10 min-w-\[64px\][^"]*sm:h-8/.test(buttons))
 check("Save keeps its word in the layout while busy, and is always as wide as Saved, so its width never changes",
-  /<span className=\{cn\("col-start-1 row-start-1 text-center", busy && "opacity-0"\)\}>\{word\}<\/span>/.test(buttons) && /after:content-\['Saved'\]/.test(buttons) && /absolute inset-0 flex items-center justify-center/.test(buttons))
-check("the grey Save says Saved only when it is disabled after a save", /const word = !busy && disabled && saved \? "Saved" : "Save"/.test(buttons))
+  /<span className=\{cn\("col-start-1 row-start-1 text-center", busy && "opacity-0"\)\}>\{word\}<\/span>/.test(buttons) && (/after:content-\['Saved'\]/.test(buttons) || /className="invisible col-start-1 row-start-1">Saved<\/span>/.test(buttons) /* the widest of Save and Saved in the dashboard's language */) && /absolute inset-0 flex items-center justify-center/.test(buttons))
+check("the grey Save says Saved only when it is disabled after a save", (/const word = !busy && disabled && saved \? "Saved" : "Save"/.test(buttons) || /const showsSaved = !busy && disabled && Boolean\(saved\)\s*\n\s*const word = showsSaved \? "Saved" : "Save"/.test(buttons)))
 check("Save's colour and depth are one exported set (primaryDepth), near black", /export const primaryDepth = cn\(/.test(buttons) && /PRESS_AREA,\s*primaryDepth,/.test(buttons) && /export const primaryDepth = cn\([^)]*bg-\[#1a1a2e\]/.test(buttons))
 /* "The New product button needs to be purple there, both on mobile and desktop." One shared violet, beside the near black primary. */
 check("and the violet one New product wears is exported beside it (accentDepth): #8b5cf6, darker on hover and pressed, no hover shadow",
@@ -304,7 +305,7 @@ check("the held tile stays in the grid and follows by transform, both ways, with
 check("it lifts on an inner layer: 3% and a shadow", /scale-\[1\.03\]/.test(media) && /transition-\[scale,box-shadow,border-color\]/.test(media))
 check("a named group, so the touch rule that strips transforms inside .group leaves the lift alone", /group\/tile/.test(media) && !/["\s]group["\s]/.test(media))
 check("the remove button is its own button above the handle; the labels take no taps", /data-media-remove=""/.test(media) && /onRemove\(item\.id\)/.test(media) && (media.match(/pointer-events-none absolute/g) ?? []).length >= 3)
-check("positions are read out, and position 1 is named the thumbnail", /`Picked up \$\{name\(active\.id\)\.toLowerCase\(\)\} of \$\{count\}\.`/.test(media) && /n === 1 \? ", the thumbnail" : ""/.test(media))
+check("positions are read out, and position 1 is named the thumbnail", /`Picked up \$\{name\(active\.id\)\.toLowerCase\(\)\} of \$\{count\}\.`/.test(media) && (/n === 1 \? ", the thumbnail" : ""/.test(media) || /\{n, plural, (one|=1) \{, the thumbnail\} other \{\}\}/.test(media)))
 check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(media) && /arrayMove\(prev, from, to\)/.test(media))
 check("the editor draws the grid from the form's own media; the old sensors, overlay and dead touch handlers are gone",
   /<MediaGrid items=\{mediaItems\} pending=\{pendingMedia\} onChange=\{setMediaItems\} onRemove=\{removeMedia\} shape=\{productType === "physical" \? "square" : "wide"\} \/>/.test(editor) && !/SortableMediaItem|mediaSensors|activeDragItem|<DragOverlay|handleTouchStart|touchDragIndex|longPressTimerRef/.test(editor))

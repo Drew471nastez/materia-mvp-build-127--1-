@@ -6,6 +6,7 @@ import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { useSheetExpand } from "@/components/website-builder/mobile-editor-sheet"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -113,7 +114,7 @@ export function FieldPopover({
         <BottomSheet
           isOpen={open}
           onClose={() => onOpenChange(false)}
-          label={sheetLabel ?? "Choose"}
+          label={sheetLabel ?? tt("Choose")}
           hideFrom="sm"
           aboveKeyboard
           maxHeight="min(80dvh, 640px)"

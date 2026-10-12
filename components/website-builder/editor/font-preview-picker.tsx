@@ -25,19 +25,21 @@ import { Check, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FieldPopover } from "@/components/website-builder/field-popover"
 import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
+import { tt } from "@/lib/i18n/text"
 
-const SAMPLE = "The quick brown fox"
+/** The line each family is drawn in, in the dashboard language. */
+const sample = () => tt("The quick brown fox")
 
 /** How each offered family reads, for the line beside its name. */
 const KIND: Record<string, string> = {
-  "Playfair Display": "Serif",
-  "Cormorant Garamond": "Serif",
-  Lora: "Serif",
-  Merriweather: "Serif",
-  "Libre Baskerville": "Serif",
-  "EB Garamond": "Serif",
-  Oswald: "Condensed",
-  "Bebas Neue": "Display",
+  get "Playfair Display"() { return tt("Serif") },
+  get "Cormorant Garamond"() { return tt("Serif") },
+  get Lora() { return tt("Serif") },
+  get Merriweather() { return tt("Serif") },
+  get "Libre Baskerville"() { return tt("Serif") },
+  get "EB Garamond"() { return tt("Serif") },
+  get Oswald() { return tt("Condensed") },
+  get "Bebas Neue"() { return tt("Display") },
 }
 
 /** A Shopify font handle ("work_sans_n7", an imported theme's font setting) as the family it names; anything else as it is. */
@@ -57,7 +59,7 @@ function loadPreviews(extra: string[]) {
   previewsLoaded = true
   const families = [...new Set([...OFFERED_FAMILIES, ...extra.filter((f) => OFFERED_FAMILIES.has(f))])]
   if (!families.length) return
-  const letters = [...new Set([...families.join(""), ...SAMPLE, ..."Aa"])].join("")
+  const letters = [...new Set([...families.join(""), ...sample(), ..."The quick brown fox", ..."Aa"])].join("")
   const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@500`).join("&")
   const link = document.createElement("link")
   link.rel = "stylesheet"
@@ -140,7 +142,7 @@ export function FontPreviewPicker({
             className="flex h-10 w-full items-center gap-2.5 rounded-md border border-border bg-background pl-2.5 pr-2 text-left transition-colors hover:border-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10"
           >
             <span aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-[15px] text-foreground" style={{ fontFamily: faceOf(shownFace) }}>
-              Aa
+              {tt("Aa")}
             </span>
             <span className="min-w-0 flex-1 truncate text-[14px] text-foreground" style={{ fontFamily: faceOf(shownFace) }}>
               {current?.label ?? selected}
@@ -177,11 +179,11 @@ export function FontPreviewPicker({
                     {o.label}
                   </span>
                   <span className="block truncate text-[12.5px] leading-5 text-muted-foreground" style={{ fontFamily: faceOf(o.value) }}>
-                    {o.value ? SAMPLE : o.label}
+                    {o.value ? sample() : o.label}
                   </span>
                 </span>
                 {o.value && KIND[familyOf(o.value)] ? <span className="shrink-0 text-[11px] text-muted-foreground">{KIND[familyOf(o.value)]}</span> : null}
-                {on ? <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label="Chosen" /> : null}
+                {on ? <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label={tt("Chosen")} /> : null}
               </div>
             )
           })}

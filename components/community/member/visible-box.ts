@@ -204,3 +204,59 @@ export function appKeyboardRoom(within: Element | null): number | null {
   if (env === "ios-app-plugin" && native > 0) return native
   return iosKeyboardFor(window.innerWidth, layoutH)
 }
+
+/*
+  ROUND 25: THE KEYBOARD THIS PHONE HAS ALREADY SHOWN. iPhone Safari (and an iOS web view that reports it) says how tall the
+  keyboard is only once it is up, so a sheet with a field near its foot made its room a beat after the keys arrived, and iOS,
+  finding the field under where the keys would be, panned the page to it first: the New post sheet bumping up on a second
+  tap into "Write something...", the comment box riding up late. The height the visible part reported the last time a field
+  had the keyboard, at this width, is kept for the rest of the visit, and a sheet makes that room in the focus itself the
+  next time: the field is already above the keys when iOS looks, and the report that follows agrees with it.
+*/
+let seenKeys = { w: 0, k: 0 }
+let watchingKeys = false
+function watchKeys(): void {
+  if (watchingKeys || typeof window === "undefined" || !window.visualViewport) return
+  watchingKeys = true
+  const vv = window.visualViewport
+  const read = () => {
+    if (!takesKeyboard(document.activeElement)) return
+    const layoutH = layoutHeight(document.querySelector<HTMLElement>("[data-viewport-probe]"))
+    const box = noteFixedBox(layoutH)
+    /* A web view that shrank for the keyboard has made the room itself: nothing to remember. */
+    if (box.resizes || webViewResized({ layoutH, fullH: box.fullH })) return
+    const k = Math.round(layoutH - vv.height)
+    if (k > RESIZED_MIN_PX && Math.abs(vv.scale - 1) < 0.01) seenKeys = { w: window.innerWidth, k }
+  }
+  vv.addEventListener("resize", read)
+}
+
+/** The keyboard last reported in this visit at this width, in CSS px, or 0. */
+export function keyboardSeen(): number {
+  watchKeys()
+  return typeof window !== "undefined" && seenKeys.w === window.innerWidth ? seenKeys.k : 0
+}
+
+/**
+ * THE ROOM A SHEET MAKES IN THE FOCUS (mobile-editor-sheet.tsx keyboardRoom), for the community's sheets: the opened post
+ * and New post. On iOS only (Android's web view and Chrome make their own room before the field is revealed), and only while
+ * a field inside `within` has the focus: the plugin's exact height in a build that has it; else the keyboard this visit has
+ * already seen (keyboardSeen); else, in the app, the iPhone's keyboard for this screen (the table); else nothing, and the
+ * sheet waits for the report. Never for a web view that resized itself for the keyboard (that room is made already).
+ */
+export function sheetKeyboardRoom(within: Element | null): number | null {
+  if (typeof window === "undefined") return null
+  watchKeys()
+  const env = currentKeyboardEnv()
+  if (env !== "ios-safari" && env !== "ios-app" && env !== "ios-app-plugin") return null
+  const active = document.activeElement
+  if (!takesKeyboard(active) || !within?.contains(active)) return null
+  const layoutH = layoutHeight(document.querySelector<HTMLElement>("[data-viewport-probe]"))
+  const box = noteFixedBox(layoutH)
+  if (box.resizes || webViewResized({ layoutH, fullH: box.fullH })) return null
+  const native = nativeKeyboardHeight()
+  if (env === "ios-app-plugin" && native > 0) return native
+  const seen = keyboardSeen()
+  if (seen > 0) return seen
+  return env === "ios-safari" ? null : iosKeyboardFor(window.innerWidth, layoutH)
+}

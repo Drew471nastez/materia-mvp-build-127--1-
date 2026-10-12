@@ -25,11 +25,12 @@ import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { Card, Notice, Toggle, api, peekGet } from "@/components/physical/ui"
 import { DEFAULT_CHECKOUT, checkoutConfig, type CheckoutConfig, type FieldRule } from "@/lib/store/checkout-config"
+import { tt } from "@/lib/i18n/text"
 
 const RULES: { id: FieldRule; label: string }[] = [
-  { id: "off", label: "Don't include" },
-  { id: "optional", label: "Optional" },
-  { id: "required", label: "Required" },
+  { id: "off", get label() { return tt("Don't include") } },
+  { id: "optional", get label() { return tt("Optional") } },
+  { id: "required", get label() { return tt("Required") } },
 ]
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
@@ -137,41 +138,41 @@ export function CheckoutPanel() {
 
   return (
     <div className="space-y-4 sm:space-y-6" data-checkout-settings="">
-      {!ready ? <Notice tone="amber">Checkout settings need their database update (SQL part 109). Until it runs, checkout works as it always has and changes here are not kept.</Notice> : null}
+      {!ready ? <Notice tone="amber">{tt("Checkout settings need their database update (SQL part 109). Until it runs, checkout works as it always has and changes here are not kept.")}</Notice> : null}
 
-      <Card title="Customer accounts" description="Whether buyers sign in before they pay." help="checkout">
+      <Card title={tt("Customer accounts")} description={tt("Whether buyers sign in before they pay.")} help="checkout">
         <div className="space-y-4">
           <Toggle
-            label="Require customers to sign in"
-            description="Buyers create an account or log in before checkout. Signed out visitors can still browse."
+            label={tt("Require customers to sign in")}
+            description={tt("Buyers create an account or log in before checkout. Signed out visitors can still browse.")}
             checked={config.requireAccount}
             onChange={(v) => change({ requireAccount: v, ...(v ? {} : { requireConfirmedEmail: false }) })}
           />
           <Toggle
-            label="Require a confirmed email address"
-            description="They can't place an order until they click the link we email them when they sign up. Turns on sign in as well."
+            label={tt("Require a confirmed email address")}
+            description={tt("They can't place an order until they click the link we email them when they sign up. Turns on sign in as well.")}
             checked={config.requireConfirmedEmail}
             onChange={(v) => change({ requireConfirmedEmail: v, ...(v ? { requireAccount: true } : {}) })}
           />
         </div>
       </Card>
 
-      <Card title="Marketing" description="Asking buyers if they want to hear from you, the way the law in most places expects.">
+      <Card title={tt("Marketing")} description={tt("Asking buyers if they want to hear from you, the way the law in most places expects.")}>
         <Toggle
-          label="Show the email news box"
-          description="An unticked “Email me with news and offers” box under the email. Only buyers who tick it get your campaigns."
+          label={tt("Show the email news box")}
+          description={tt("An unticked “Email me with news and offers” box under the email. Only buyers who tick it get your campaigns.")}
           checked={config.marketingOptIn}
           onChange={(v) => change({ marketingOptIn: v })}
         />
       </Card>
 
-      <Card title="Abandoned checkouts" description="A buyer who reached Pay and left without paying.">
+      <Card title={tt("Abandoned checkouts")} description={tt("A buyer who reached Pay and left without paying.")}>
         <Toggle
-          label="Send a checkout reminder"
+          label={tt("Send a checkout reminder")}
           description={
             config.marketingOptIn
-              ? "One email an hour later with a link back to what they chose, only to buyers who ticked the news box. It stops the moment they buy."
-              : "One email an hour later, only to buyers who ticked the news box. With the news box hidden nobody can tick it, so no reminder goes out."
+              ? tt("One email an hour later with a link back to what they chose, only to buyers who ticked the news box. It stops the moment they buy.")
+              : tt("One email an hour later, only to buyers who ticked the news box. With the news box hidden nobody can tick it, so no reminder goes out.")
           }
           checked={config.abandonedRecovery}
           onChange={(v) => change({ abandonedRecovery: v })}
@@ -179,39 +180,39 @@ export function CheckoutPanel() {
       </Card>
 
       {physical ? (
-        <Card title="Cancellations" description="Orders that ship, before you send them.">
+        <Card title={tt("Cancellations")} description={tt("Orders that ship, before you send them.")}>
           <Toggle
-            label="Let buyers ask to cancel"
-            description="Cancel order on the buyer's order page while the order is still Unfulfilled. You get an email and answer from the order: cancel and refund it, or keep it. Nothing is cancelled until you do."
+            label={tt("Let buyers ask to cancel")}
+            description={tt("Cancel order on the buyer's order page while the order is still Unfulfilled. You get an email and answer from the order: cancel and refund it, or keep it. Nothing is cancelled until you do.")}
             checked={config.buyerCancel}
             onChange={(v) => change({ buyerCancel: v })}
           />
         </Card>
       ) : null}
 
-      <Card title="Customer information" description="What checkout asks for. Email is always asked.">
+      <Card title={tt("Customer information")} description={tt("What checkout asks for. Email is always asked.")}>
         <div>
-          <Row title="Full name" line="One field, or first and last name apart.">
+          <Row title={tt("Full name")} line={tt("One field, or first and last name apart.")}>
             <Segmented
-              label="Full name"
+              label={tt("Full name")}
               value={config.nameFields}
               onChange={(v) => change({ nameFields: v })}
               options={[
-                { id: "last_only", label: "One field" },
-                { id: "first_and_last", label: "First and last" },
+                { id: "last_only", label: tt("One field") },
+                { id: "first_and_last", label: tt("First and last") },
               ]}
             />
           </Row>
           {physical ? (
             <>
-              <Row title="Company name" line="Physical orders.">
-                <Segmented label="Company name" value={config.company} onChange={(v) => change({ company: v })} options={RULES} />
+              <Row title={tt("Company name")} line={tt("Physical orders.")}>
+                <Segmented label={tt("Company name")} value={config.company} onChange={(v) => change({ company: v })} options={RULES} />
               </Row>
-              <Row title="Phone number" line="Physical orders. Couriers use it to reach the buyer.">
-                <Segmented label="Phone number" value={config.phone} onChange={(v) => change({ phone: v })} options={RULES} />
+              <Row title={tt("Phone number")} line={tt("Physical orders. Couriers use it to reach the buyer.")}>
+                <Segmented label={tt("Phone number")} value={config.phone} onChange={(v) => change({ phone: v })} options={RULES} />
               </Row>
-              <Row title="Address line 2" line="Apartment, suite or unit.">
-                <Segmented label="Address line 2" value={config.address2} onChange={(v) => change({ address2: v })} options={RULES} />
+              <Row title={tt("Address line 2")} line={tt("Apartment, suite or unit.")}>
+                <Segmented label={tt("Address line 2")} value={config.address2} onChange={(v) => change({ address2: v })} options={RULES} />
               </Row>
             </>
           ) : null}
@@ -220,7 +221,7 @@ export function CheckoutPanel() {
 
       {error ? <Notice>{error}</Notice> : null}
       <p className="px-1 text-[12.5px] text-[#6b7280]" aria-live="polite" data-checkout-saved={saved}>
-        {saved === "saving" ? "Saving" : saved === "saved" ? "Saved. Your checkout shows it within a few seconds." : "Changes are saved as you make them and reach your checkout within a few seconds."}
+        {saved === "saving" ? tt("Saving") : saved === "saved" ? tt("Saved. Your checkout shows it within a few seconds.") : tt("Changes are saved as you make them and reach your checkout within a few seconds.")}
       </p>
     </div>
   )

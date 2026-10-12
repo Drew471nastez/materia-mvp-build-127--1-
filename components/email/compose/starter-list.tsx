@@ -17,6 +17,7 @@ import { Check } from "lucide-react"
 import { STARTERS, type SketchRow, type StarterId } from "@/lib/email-campaigns/starters"
 import { cn } from "@/lib/utils"
 import { card } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 /** The layout drawn small, on a white tile: grey bars for words, a filled bar for a button, a box for a product. */
 export function Sketch({ rows, className }: { rows: SketchRow[]; className?: string }) {
@@ -75,7 +76,7 @@ function Row({ id, name, line, sketch, current, onPick }: { id: LayoutChoice; na
           <span className="block truncate text-[15px] font-semibold text-[#1a1a2e] sm:text-[14px]">{name}</span>
           <span className="block truncate text-[13px] text-[#6b7280]">{line}</span>
         </span>
-        {current ? <Check aria-label="In use" className="h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.4} /> : null}
+        {current ? <Check aria-label={tt("In use")} className="h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.4} /> : null}
       </button>
     </li>
   )
@@ -100,8 +101,8 @@ export function StarterList({
   bare?: boolean
 }) {
   const list = (
-    <ul className="divide-y divide-[#f1f2f4]" aria-label={bare ? "Layouts" : undefined}>
-      {withBlank ? <Row id="blank" name="Blank" line="No layout. Write it from the first line." sketch={[]} current={current === "blank"} onPick={onPick} /> : null}
+    <ul className="divide-y divide-[#f1f2f4]" aria-label={bare ? tt("Layouts") : undefined}>
+      {withBlank ? <Row id="blank" name={tt("Blank")} line={tt("No layout. Write it from the first line.")} sketch={[]} current={current === "blank"} onPick={onPick} /> : null}
       {STARTERS.map((s) => (
         <Row key={s.id} id={s.id} name={s.name} line={s.line} sketch={s.sketch} current={current === s.id} onPick={onPick} />
       ))}
@@ -111,7 +112,7 @@ export function StarterList({
   return (
     <section aria-labelledby="starters-title" data-starters="" className={cn(card, "overflow-hidden", className)}>
       <h2 id="starters-title" className="px-4 pb-1 pt-3.5 text-[13px] font-medium text-[#6b7280] sm:px-5">
-        Or start from a layout
+        {tt("Or start from a layout")}
       </h2>
       {list}
     </section>

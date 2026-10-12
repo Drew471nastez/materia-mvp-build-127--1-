@@ -29,6 +29,7 @@ import { readCreatorOrders, toOrderRow } from "../lib/orders/load-rows"
 import { articleText, helpArticle } from "../lib/help/articles"
 import { COMMERCE_DOCS } from "../lib/admin/commerce-docs"
 import type { Location } from "../lib/physical/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -43,7 +44,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail !== undefined ? ` (${JSON.stringify(detail)})` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const CREATOR = "11111111-1111-4111-8111-111111111111"
 const INT = "22222222-2222-4222-8222-222222222222"
