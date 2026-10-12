@@ -352,7 +352,7 @@ export function emailKit(sender: EmailSender): EmailKit {
       const radius = m.round ? px / 2 : 10
       const pic = src
         ? `<img class="e-thumb" src="${esc(src)}" alt="${esc(m.title)}" width="${px}" height="${px}" style="display:block;width:${px}px;height:${px}px;object-fit:cover;border:0;border-radius:${radius}px;background-color:${K.line};">`
-        : tile(m.title, px, radius, m.accentTile ? t : null)
+        : tile(m.title, px, radius, m.accentTile ? t : null, true)
       const sub = m.subtitle ? `<p class="e-muted" style="${P(14, 20, K.muted, "margin:2px 0 0 0;")}">${esc(m.subtitle)}</p>` : ""
       return row(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;">
@@ -427,9 +427,10 @@ ${amount}
         danger: { bg: "#fef2f2", line: "#fecaca", title: "#991b1b", text: "#991b1b", cls: "e-danger" },
         good: { bg: "#ecfdf5", line: "#a7f3d0", title: "#065f46", text: "#065f46", cls: "e-goodbox" },
       }[tone]
-      const title = n.title ? `<p class="e-ntitle" style="${P(14, 21, palette.title, "font-weight:600;margin:0 0 2px 0;")}">${esc(n.title)}</p>` : ""
+      const neutral = tone === "neutral"
+      const title = n.title ? `<p class="e-ntitle${neutral ? " e-ink" : ""}" style="${P(14, 21, palette.title, "font-weight:600;margin:0 0 2px 0;")}">${esc(n.title)}</p>` : ""
       const body = n.html ?? (n.text ? esc(n.text).replace(/\n/g, "<br>") : "")
-      const text = body ? `<p class="e-ntext" style="${P(14, 21, palette.text)}">${body}</p>` : ""
+      const text = body ? `<p class="e-ntext${neutral ? " e-text" : ""}" style="${P(14, 21, palette.text)}">${body}</p>` : ""
       const link = n.link ? `<p style="${P(14, 21, palette.text, "margin:8px 0 0 0;font-weight:600;")}">${linkHtml(n.link.label, n.link.url)}</p>` : ""
       return row(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="${palette.cls}" bgcolor="${palette.bg}" style="width:100%;background-color:${palette.bg};border:1px solid ${palette.line};border-radius:12px;border-collapse:separate;">
@@ -466,7 +467,7 @@ ${amount}
       const cells = labels
         .map((label, i) => {
           const done = i <= at
-          return `<td class="e-step" width="${Math.floor(100 / labels.length)}%" valign="top" style="padding:0 ${i < labels.length - 1 ? 4 : 0}px 0 0;vertical-align:top;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="${done ? (t.flip ? "e-flipbar" : "e-bar-on") : "e-bar"}" height="4" bgcolor="${done ? t.accent : K.line}" style="height:4px;line-height:4px;font-size:0;background-color:${done ? t.accent : K.line};border-radius:2px;">&nbsp;</td></tr></table><p class="${done ? "e-ink" : "e-faint"}" style="${P(12, 16, done ? K.ink : K.faint, `margin:8px 0 0 0;${i === at ? "font-weight:600;" : ""}`)}">${esc(label)}</p></td>`
+          return `<td class="e-step" width="${Math.floor(100 / labels.length)}%" valign="top" style="padding:0 ${i < labels.length - 1 ? 4 : 0}px 0 0;vertical-align:top;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="${done ? (t.flip ? "e-flipbar" : "e-bar-on") : "e-bar"}" height="4" bgcolor="${done ? t.accent : K.line}" style="height:4px;line-height:4px;font-size:0;background-color:${done ? t.accent : K.line};border-radius:2px;">&nbsp;</td></tr></table><p class="${done ? "e-ink" : "e-muted"}" style="${P(12, 16, done ? K.ink : K.muted, `margin:8px 0 0 0;${i === at ? "font-weight:600;" : ""}`)}">${esc(label)}</p></td>`
         })
         .join("")
       return row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;"><tr>${cells}</tr></table>`, 20)
@@ -515,11 +516,13 @@ function labelClass(color: string | undefined): string {
 }
 
 /** A square or round tile with a letter, drawn with a table cell so it is there with pictures off. */
-function tile(name: string, px: number, radius: number, t: EmailTheme | null): string {
-  const bg = t ? t.accent : K.panel
+function tile(name: string, px: number, radius: number, t: EmailTheme | null, onPanel = false): string {
+  /* On the light panel of a media card the plain tile is white with a hairline, so it does not melt into the panel. */
+  const bg = t ? t.accent : onPanel ? K.page : K.panel
   const fg = t ? t.onAccent : K.faint
-  const cls = t ? "e-tile-accent" : "e-tile"
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tr><td class="${cls}" width="${px}" height="${px}" align="center" valign="middle" bgcolor="${bg}" style="width:${px}px;height:${px}px;background-color:${bg};border-radius:${radius}px;font-family:${EMAIL_FONT};font-size:${Math.round(px * 0.4)}px;line-height:${px}px;font-weight:700;color:${fg};text-align:center;">${esc(initial(name))}</td></tr></table>`
+  const cls = t ? "e-tile-accent" : onPanel ? "e-tile e-tile-on" : "e-tile"
+  const edge = !t && onPanel ? `border:1px solid ${K.line};` : ""
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tr><td class="${cls}" width="${px}" height="${px}" align="center" valign="middle" bgcolor="${bg}" style="width:${px}px;height:${px}px;background-color:${bg};${edge}border-radius:${radius}px;font-family:${EMAIL_FONT};font-size:${Math.round(px * 0.4)}px;line-height:${px}px;font-weight:700;color:${fg};text-align:center;">${esc(initial(name))}</td></tr></table>`
 }
 
 /* ------------------------------------------------------------------------ */
@@ -576,6 +579,7 @@ a[x-apple-data-detectors],.e-body a[href^="tel"],.e-body a[href^="sms"]{color:in
 .e-panel{background-color:${K.dark.panel}!important;border-color:${K.dark.panel}!important;}
 .e-thumb{border-color:${K.dark.line}!important;}
 .e-tile{background-color:${K.dark.panel}!important;color:${K.dark.muted}!important;}
+.e-tile-on{background-color:${K.dark.page}!important;border-color:${K.dark.line}!important;}
 .e-bar{background-color:${K.dark.line}!important;}
 .e-good{color:#34d399!important;}
 .e-bad{color:#f87171!important;}
