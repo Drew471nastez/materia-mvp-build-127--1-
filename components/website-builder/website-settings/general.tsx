@@ -101,7 +101,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
               layout="icon"
               folder="logos"
               library={false}
-              aside={<BrowserTabPreview icon={favicon || siteIconUrl(ctx.settings as Record<string, unknown>, ctx.header ? [ctx.header] : []) || undefined} title={homeTitle} className="md:ml-auto" />}
+              aside={<BrowserTabPreview icon={favicon || siteIconUrl(ctx.settings as Record<string, unknown>, ctx.header ? [ctx.header] : []) || undefined} title={homeTitle} />}
             />
           </div>
         </Row>

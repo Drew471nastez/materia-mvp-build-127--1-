@@ -461,7 +461,7 @@ export function WbImagePicker({
    */
   if (layout === "icon") {
     const shown = url || preview
-    const textButton = "inline-flex h-8 items-center rounded-md px-1.5 text-[13px] font-medium transition-colors disabled:opacity-40 max-sm:h-10 max-sm:px-2"
+    const textButton = "inline-flex h-8 items-center rounded-md px-1.5 text-[13px] font-medium transition-colors disabled:opacity-40 max-sm:h-11 max-sm:px-2.5"
     return (
       <div data-wb-image-picker={shown ? "filled" : "empty"} data-wb-image-layout="icon">
         <div

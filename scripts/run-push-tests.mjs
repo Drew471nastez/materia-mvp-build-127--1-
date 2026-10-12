@@ -59,6 +59,7 @@ const SUITES = [
   "tests/compat-engine.test.ts",
   "tests/compat-accounts.test.ts",
   "tests/compat-storefront-accuracy.test.ts",
+  "tests/tab-title.test.ts",
   "tests/import22.test.ts",
   "tests/compat-section-preview.test.ts",
   "tests/section-categories.test.ts",
