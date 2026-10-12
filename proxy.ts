@@ -556,6 +556,8 @@ async function marketLanguageStart(request: NextRequest, username: string, pathn
 */
 async function visitorLanguageStart(request: NextRequest, username: string, pathname: string): Promise<{ redirect: NextResponse } | { suggest: string } | null> {
   if (request.method !== "GET" || request.cookies.get("sl_lang")?.value || request.cookies.get("sl_suggest")?.value) return null
+  /* A script, a picture, a theme's /cart.js: not a page, and not worth the settings read. */
+  if (!(request.headers.get("accept") ?? "").includes("text/html")) return null
   const loc = await siteLocalizationFor(username)
   if (!loc.visitorLanguage || loc.languages.length === 0) return null
   const seen = request.headers.get("x-vercel-ip-country")
