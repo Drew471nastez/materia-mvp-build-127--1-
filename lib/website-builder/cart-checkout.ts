@@ -18,15 +18,21 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { getMainDomain } from "@/lib/url-helpers"
+import { localePrefix } from "@/lib/markets/locales"
 
 export type DrawerCheckout = { go: string; free: boolean } | { go: null; free?: undefined }
 
-export async function drawerCheckout(lines: CartLine[], shopId: string | null): Promise<DrawerCheckout> {
+/** The cart's address in the page's language (/fr/cart), where checkout's Back returns to. */
+export function cartPathFor(language: { code: string; defaultLanguage: string } | null | undefined): string {
+  return language && language.code.toLowerCase() !== language.defaultLanguage.toLowerCase() ? `/${localePrefix(language.code)}/cart` : "/cart"
+}
+
+export async function drawerCheckout(lines: CartLine[], shopId: string | null, cartPath = "/cart"): Promise<DrawerCheckout> {
   if (lines.length === 0) return { go: null }
   if (shopId && lines.some((l) => l.physical)) {
     /* On the website: its own checkout at this same address (app/checkout/site). A preview on storelib.com keeps the platform's. */
     const go = onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
-      ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", wholeCart: true })
+      ? siteCheckoutHref({ items: checkoutItems(lines), back: cartPath, wholeCart: true })
       : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
     return { go, free: false }
   }
@@ -34,7 +40,7 @@ export async function drawerCheckout(lines: CartLine[], shopId: string | null): 
     const res = await fetch("/api/checkout/cart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: checkoutItems(lines), returnPath: "/cart", origin: pageOrigin() }),
+      body: JSON.stringify({ items: checkoutItems(lines), returnPath: cartPath, origin: pageOrigin() }),
     })
     const data = (await res.json().catch(() => ({}))) as { url?: unknown; free?: unknown; dropped?: unknown }
     /* Something was left out of the order: the cart page says what. */

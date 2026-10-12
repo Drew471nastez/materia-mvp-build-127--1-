@@ -138,17 +138,18 @@ async function main() {
   {
     check("the composer, the picture viewer, a search screen, Settings and a page layer cover it",
       (["composer", "viewer", "search", "screen", "page", "phone-page"] as const).every((k) => LAYER_KINDS[k].covers))
-    check("an opened post does not: the bar stays over it", !LAYER_KINDS.post.covers && LAYER_KINDS.post.barOver)
+    /* Round 25: an opened post is the website builder's bottom sheet on a phone and covers the bar, as the composer does. */
+    check("an opened post covers it too since round 25 (a bottom sheet over the whole app)", LAYER_KINDS.post.covers && !LAYER_KINDS.post.barOver)
     check("a sheet or a dialog neither covers nor lifts it", !LAYER_KINDS.sheet.covers && !LAYER_KINDS.sheet.barOver)
     resetLayers()
     let told = 0
     const off = subscribeLayers(() => told++)
     const post = openLayer("post")
-    check("5  a post open: the bar is lifted over it, on <html> for the stylesheet", tabBarLayers().over && !tabBarLayers().covered && html.hasAttribute("data-tabs-over") && told === 1)
+    check("5  a post open: the bar is covered, on <html> for the stylesheet", tabBarLayers().covered && !tabBarLayers().over && html.hasAttribute("data-tabs-covered") && told === 1)
     const edit = openLayer("composer")
     check("   Edit post over the post: the composer covers the bar, which is no longer lifted", tabBarLayers().covered && !tabBarLayers().over && !html.hasAttribute("data-tabs-over") && html.hasAttribute("data-tabs-covered"))
     edit()
-    check("   the composer closes: lifted over the post again", tabBarLayers().over && !html.hasAttribute("data-tabs-covered"))
+    check("   the composer closes: still covered by the post", tabBarLayers().covered && !tabBarLayers().over && html.hasAttribute("data-tabs-covered"))
     post()
     check("   the post closes: nothing over the bar, nothing on <html>", !tabBarLayers().over && !html.hasAttribute("data-tabs-over") && !html.hasAttribute("data-tabs-covered"))
     off()

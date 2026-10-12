@@ -38,8 +38,8 @@
  * or a pull begins.
  *
  * ROUND 17 (ARCH17, and the owner: "a black thing shaped into the edges"):
- * nothing draws this sheet any more. The opened post moves on post-morph.ts
- * and post-stage.ts, the composer on the website builder's sheet; nothing
+ * nothing draws this sheet any more. The opened post and the composer are
+ * the website builder's sheet (round 25); nothing
  * behind either scales, rounds its corners or shows a dark edge. The
  * numbers stay, pure, for round 16's suite.
  *

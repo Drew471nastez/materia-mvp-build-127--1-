@@ -18,6 +18,7 @@ import "server-only"
  * The live website reads the first two through the cached readers at the
  * end, invalidated by tag when the settings or a translation is saved.
  */
+import { uiTranslatables } from "./ui-words"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { pageSections } from "@/lib/website-builder/preview-link"
@@ -277,6 +278,8 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (typeof c.description === "string" && c.description.trim()) collectionItems.push({ key: `collection:${c.id}:description`, source: c.description, label: "Description", where: title || "Collection", multiline: true })
   }
   if (collectionItems.length) groups.push({ id: "collections", title: "Collections", items: collectionItems })
+  /* The words the theme draws itself: the cart's, the buy buttons' (lib/markets/ui-words.ts). */
+  groups.push({ id: "ui", title: "Shop words", items: uiTranslatables() })
   return groups
 }
 

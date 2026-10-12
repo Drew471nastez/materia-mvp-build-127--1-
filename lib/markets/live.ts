@@ -18,6 +18,7 @@ import "server-only"
  * touched by this (the first two stay as they are, the third has its own
  * pages).
  */
+import { UI_WORDS, uiKey, type UiWord } from "./ui-words"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
@@ -27,12 +28,12 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import { localizationTag, marketsMissing, cachedTranslations } from "./server"
 import { languageName, localizedPath, normalizeLocale } from "./locales"
-import { localizeRecord, localizeSections, localizeTheme, translationMap, type TranslationMap } from "./translate"
+import { localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
 import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
 import { chargeNote, currencyCode, fxFresh, type PriceRounding } from "./money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { cachedRates } from "./fx-server"
-import { convertPriceText, pricingFor, type MarketPrice, type Pricing } from "./pricing"
+import { convertPriceText, pricingFor, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
 
 /** A market as the live website reads it: active ones only. */
 export interface LiveMarket extends MarketPrice {
@@ -114,6 +115,10 @@ export interface Localizer {
   cards<T extends ProductCard>(list: T[]): T[]
   /** The theme's settings: its menus, and its and its pages' search engine text. */
   theme<T extends Record<string, unknown>>(settings: T): T
+  /** The shop's own words in this language (lib/markets/ui-words.ts), the approved ones only; empty in the website's own language. */
+  words: Record<string, string>
+  /** The conversion, as plain data for the page (StorefrontContext display): the cart shows its amounts as the cards do. */
+  display?: StorefrontDisplay
 }
 
 /**
@@ -132,10 +137,17 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   const opts = { approvedOnly: true }
   const moneyLocale = code ?? langs.defaultLanguage
   const price = (t: string) => (pricing && t ? convertPriceText(t, pricing, moneyLocale) : t)
+  const words: Record<string, string> = {}
+  for (const w of Object.keys(UI_WORDS)) {
+    const v = valueFor(map, uiKey(w as UiWord), opts)
+    if (v) words[w] = v
+  }
   return {
     pricing,
+    display: pricing ? { market: pricing.market, base: pricing.base, fx: pricing.fx, locale: moneyLocale, note: chargeNote(pricing.currency, platformChargeCurrencyUpper()) } : undefined,
     locale: code ?? langs.defaultLanguage,
     defaultLanguage: langs.defaultLanguage,
+    words,
     sections(list, sources) {
       if (map.size === 0) return list
       const lookup = schemaLookupFrom(sources) ?? ((t: string) => SECTION_SCHEMAS[t])

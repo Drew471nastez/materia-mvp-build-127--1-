@@ -144,8 +144,9 @@ console.log("\nCLOSE: the order of operations")
     tests/communities-post17.test.ts. What stays from here: the close still puts the feed back before anything moves.
   */
   const pf = read("components/community/member/post-fullscreen.tsx")
-  check("the source still puts the feed back before the move", pf.indexOf("feedRestore(noted.current") > 0 && pf.indexOf("feedRestore(noted.current") < pf.indexOf("st.close("))
-  check("and the app's edge swipe and a pull drive the same follow", /offset = edgeOffset\(edgeX, W\(\), H\(\)\)/.test(pf) && /stage\(\)\?\.follow\(0, offset\)/.test(pf))
+  check("the source still puts the feed back before the move", pf.indexOf("feedRestore(noted.current") > 0 && pf.indexOf("feedRestore(noted.current") < pf.indexOf("setUp(false)"))
+  /* Round 25: the post is the builder's bottom sheet; a pull is its own drag (the app's edge swipe is no longer the post's). */
+  check("and a pull is the sheet's own drag, closing it on release", /<MobileEditorSheet/.test(pf) && /if \(!next\) request\("pull"\)/.test(pf))
 }
 
 console.log("\nPULL AND EDGE: when a finger closes it")
@@ -188,7 +189,7 @@ console.log("\nKEYBOARD: the comment box on the keys (images/76.jpg)")
     table, the plan and the readout are held by tests/communities-post17.test.ts.
   */
   const pf = read("components/community/member/post-fullscreen.tsx")
-  check("under the page the white skirt carries it on past the screen's foot", /absolute inset-x-0 top-full h-\[100lvh\] bg-white/.test(pf) && /data-post-skirt/.test(pf))
+  check("under the page the white skirt carries it on past the screen's foot (the sheet's own, round 25)", /\[--wb-sheet-skirt:#fff\]/.test(pf))
   const vb = read("components/community/member/visible-box.ts")
   check("the box is read from visualViewport's height and offsetTop, and the plugin's height while typing", /vvTop: Math\.round\(vv\?\.offsetTop \?\? 0\)/.test(vb) && /vvH: Math\.round\(vv\?\.height \?\? window\.innerHeight\)/.test(vb) && /native: typing \? nativeKeyboardHeight\(\) : 0/.test(vb) && /watchNativeKeyboard\(onViewport\)/.test(vb))
   const nk = read("components/community/member/native-keyboard.ts")
@@ -198,7 +199,7 @@ console.log("\nKEYBOARD: the comment box on the keys (images/76.jpg)")
   const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> }
   check("@capacitor/keyboard is a dependency, on Capacitor 8 like the rest", /^\^?8\./.test(pkg.dependencies["@capacitor/keyboard"] ?? ""))
   check("and the lockfile has it (a frozen install does not fail)", /'@capacitor\/keyboard':\s*\n\s*specifier: \^8/.test(read("pnpm-lock.yaml")))
-  check("?kbdebug=1: a readout of innerHeight, visualViewport's height and offsetTop, the scroll, the box's rect and the measurement used", /URLSearchParams\(window\.location\.search\)\.get\("kbdebug"\)/.test(pf) && /used \$\{plan\.source\}/.test(pf) && /innerHeight \$\{facts\.innerH\}/.test(pf) && /vv\.height \$\{facts\.vvH\}  vv\.offsetTop \$\{facts\.vvTop\}/.test(pf) && /scrollY \$\{facts\.scrollY\}/.test(pf) && /comment box top/.test(pf) && /data-kbdebug=""/.test(pf))
+  check("?kbdebug=1: a readout of innerHeight, visualViewport's height and offsetTop, the scroll, the box's rect and the measurement used", /URLSearchParams\(window\.location\.search\)\.get\("kbdebug"\)/.test(pf) && /room asked \$\{/.test(pf) && /innerHeight \$\{window\.innerHeight\}/.test(pf) && /vv\.height \$\{r\(vv\?\.height\)\}  vv\.offsetTop \$\{r\(vv\?\.offsetTop\)\}/.test(pf) && /scrollY \$\{Math\.round\(window\.scrollY\)\}/.test(pf) && /comment box top/.test(pf) && /data-kbdebug=""/.test(pf))
   check("hidden unless asked for", /hidden aria-hidden/.test(pf) && /const on = kbDebugOn\(\)/.test(pf))
 }
 
@@ -206,7 +207,7 @@ console.log("\nCOMPOSER: the same sheet, up and down")
 {
   const c = read("components/community/member/composer.tsx")
   /* ROUND 17, the owner: the composer comes up as the website builder's sheet does on a phone (mobile-editor-sheet.tsx). */
-  check("it rises and goes on the website builder's sheet", /<MobileEditorSheet\s+open=\{sheetUp\}/.test(c) && /setSheetUp\(false\)\s*window\.setTimeout\(finish, sheetMoveMs\(\) \+ 40\)/.test(c))
+  check("it rises and goes on the website builder's sheet (done when the sheet says it has landed, round 25)", /<MobileEditorSheet\s+open=\{sheetUp\}/.test(c) && /landedDown\.current = finish\s*setSheetUp\(false\)/.test(c))
   check("the keyboard goes down with it: the caret is let go as it starts down", c.indexOf("active.blur()") > 0 && c.indexOf("active.blur()") < c.indexOf("setSheetUp(false)\n      window.setTimeout(finish"))
   check("the feed is put back under it before it moves", c.indexOf("feedRestore(notedScroll.current") > 0 && c.indexOf("feedRestore(notedScroll.current") < c.indexOf("setSheetUp(false)\n      window.setTimeout(finish"))
   check("the document's overflow is never switched off (iOS restyled the page in the close's last frame): the sheet holds the page by its scroll", !/html\.style\.overflow = "hidden"/.test(c) && /html\.style\.overscrollBehavior = "none"/.test(c) && /holdPage="scroll"/.test(c))
