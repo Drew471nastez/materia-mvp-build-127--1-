@@ -28,6 +28,7 @@
  *   A PULL       at the top of the page reads the first page again
  *                (ACCOUNT_REFRESH_SCOPE, as the Activity list does).
  */
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -41,7 +42,6 @@ import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull
 import { ConfirmSheet, type ConfirmState } from "@/components/community/member/report-confirm"
 import { api, apiBase } from "@/components/community/member/api"
 import { relativeTime } from "@/lib/communities/format"
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { postEditHref, type ProfilePostView, type ProfilePostsPage } from "@/lib/communities/member-profile-view"
 import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 import { cn } from "@/lib/utils"
@@ -79,12 +79,11 @@ function counts(post: ProfilePostView): string | null {
 }
 
 function Thumb({ post }: { post: ProfilePostView }) {
-  const src = post.imageUrl ? optimizedImageUrl(post.imageUrl, 88) : post.community.logoUrl ? optimizedImageUrl(post.community.logoUrl, 88) : null
+  const src = post.imageUrl || post.community.logoUrl || null
   return (
     <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#e5e7eb]/80 bg-[#f3f4f6] text-[15px] font-semibold text-[#9ca3af]" data-account-post-thumb={post.imageUrl ? "post" : "community"}>
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <SoftImg src={src} width={44} height={44} className="h-full w-full object-cover" />
       ) : (
         <span aria-hidden>{(post.community.name.trim()[0] || "·").toUpperCase()}</span>
       )}

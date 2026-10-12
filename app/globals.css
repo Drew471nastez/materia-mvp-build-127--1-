@@ -8107,6 +8107,23 @@ html.elastic-scroll:not(.switch-arriving) {
   }
 }
 
+/* ARRIVING AT THE LIBRARY (round 25, the owner: "entering it should be smooth, not abrupt"). `.page-land` rises from
+   nothing, and at 4x CPU its first frame was the header over an empty page: a blank frame between the profile and the
+   library. The library lands the way its own pills land their screens (lib/ui/pill-switch.ts landContent): from most of
+   the way there, on opacity alone, so no frame is empty and nothing fixed inside it is moved. */
+@keyframes library-land {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+.library-land {
+  animation: library-land 200ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-land {
+    animation: none;
+  }
+}
+
 /*
   AND THE PAGES WHOSE OUTERMOST BOX THIS CODE DOES NOT WRITE FADE ONLY.
   A person's page, a creator's page and Explore each land on their own root

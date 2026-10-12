@@ -814,6 +814,13 @@ export function usePullToRefresh(
 
     const onTouchStart = (e: TouchEvent) => {
       if (!enabledRef.current) return
+      /*
+        NOT AT THE TOP, NOTHING TO ASK (round 25, the owner: scrolling the community "smooth"). Every finger that started a
+        scroll anywhere down the feed ran the checks below, two document-wide queries and a scrollTop read that made the
+        browser finish style and layout on the spot, as the scroll began (36ms over a few flicks at 4x CPU). The marker at
+        the top (BLOCKING LISTENER, below) already knows the page is not there; a pull can only start at the top.
+      */
+      if (topKnown && !atTop) return
       /* Sheet overlays are children of the scroll container (iOS needs them to
          be, for position:fixed), so their touches bubble here. Not ours. */
       if ((e.target as Element | null)?.closest("[data-dashboard-sheet]")) return
@@ -964,7 +971,15 @@ export function usePullToRefresh(
       An observer costs nothing per scroll.
     */
     let blocking = false
-    const setBlocking = (atTop: boolean) => {
+    /* Where the marker says the page is, once it has said (NOT AT THE TOP, NOTHING TO ASK, above). */
+    let topKnown = false
+    let atTop = true
+    const setBlocking = (here: boolean) => {
+      topKnown = true
+      atTop = here
+      setBlockingNow(here)
+    }
+    const setBlockingNow = (atTop: boolean) => {
       if (atTop && !blocking) {
         target.addEventListener("touchmove", onTouchMove, { passive: false })
         blocking = true
@@ -986,7 +1001,7 @@ export function usePullToRefresh(
       io = new IntersectionObserver(([entry]) => setBlocking(entry.isIntersecting), { root: isDocument ? null : el })
       io.observe(top)
     } else {
-      setBlocking(true)
+      setBlockingNow(true)
     }
 
     return () => {
