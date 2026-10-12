@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function SiteShopPage({ params, searchParams }: PageProps) {
   const { username: segment } = await params
   /* "andrew~fr": this page in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
-  const { name: username, locale } = splitSiteName(segment)
+  const { name: username, locale, market } = splitSiteName(segment)
   const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
 
   const found = await publishedShopByName(username)
@@ -67,7 +67,7 @@ export default async function SiteShopPage({ params, searchParams }: PageProps) 
 
   const { site, productCount } = found
   /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
-  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale), languageChoice(site.creatorId, locale)])
+  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale, market), languageChoice(site.creatorId, locale, market)])
   const products = localizer && found.products ? localizer.cards(found.products) : found.products
   /* The page the creator arranged, when they have; the generated shop
      until then. The editor generates from the same builder, so the two

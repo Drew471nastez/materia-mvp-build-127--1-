@@ -234,7 +234,7 @@ export async function productStructuredData(slug: string, site: { url: string; s
 export async function renderProduct(
   slug: string,
   /** `locale`: the page in another of the website's languages (/fr/products/…, lib/markets/live.ts). */
-  owner?: { creatorId: string; locale?: string | null },
+  owner?: { creatorId: string; locale?: string | null; market?: string | null },
   /**
    * A preview link, so the product page can be checked before it is
    * published, the same as every other page of the site. The token is
@@ -248,7 +248,7 @@ export async function renderProduct(
   if (!found || !found.creator_id) notFound()
   if (owner && found.creator_id !== owner.creatorId) notFound()
   /* In another language: its approved title and description laid over, and the page's texts below. Never for a preview. */
-  const localizer = owner?.locale && !previewToken ? await siteLocalizer(found.creator_id, owner.locale) : null
+  const localizer = (owner?.locale || owner?.market) && !previewToken ? await siteLocalizer(found.creator_id, owner.locale ?? null, owner.market ?? null) : null
   const product = (localizer ? localizer.product(found) : found) as typeof found & { creator_id: string }
 
   const admin = createAdminClient()
@@ -370,7 +370,7 @@ export async function renderProduct(
      it would draw the product twice. */
   const sections: SectionInstance[] = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map(s =>
     s.type === "product"
-      ? (() => { const drawn = withDeliveryBlock(withProductBlocks(s)); return { ...drawn, settings: { ...drawn.settings, _product_data: productData } } })()
+      ? (() => { const drawn = withDeliveryBlock(withProductBlocks(s)); return { ...drawn, settings: { ...drawn.settings, _product_data: localizer?.pricing ? { ...productData, display: { market: localizer.pricing.market, base: localizer.pricing.base, fx: localizer.pricing.fx, locale: localizer.locale } } : productData } } })()
       : s
   )
 
@@ -422,7 +422,7 @@ export async function renderProduct(
         theme={themeSettings}
         sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id, language: previewToken ? undefined : await languageChoice(product.creator_id, owner?.locale) }}
+        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id, language: previewToken ? undefined : await languageChoice(product.creator_id, owner?.locale, owner?.market) }}
         className="min-h-screen"
       />
       {previewToken ? null : <TrackView type="product" creatorId={product.creator_id} productId={product.id} />}

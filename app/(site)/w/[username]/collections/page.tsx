@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function SiteCollectionsPage({ params }: PageProps) {
   const { username: segment } = await params
   /* "andrew~fr": this page in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
-  const { name: username, locale } = splitSiteName(segment)
+  const { name: username, locale, market } = splitSiteName(segment)
 
   const found = await publishedShopByName(username)
   if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}/collections`)
@@ -53,7 +53,7 @@ export default async function SiteCollectionsPage({ params }: PageProps) {
 
   const { site, productCount } = found
   /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
-  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale), languageChoice(site.creatorId, locale)])
+  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale, market), languageChoice(site.creatorId, locale, market)])
   const products = localizer && found.products ? localizer.cards(found.products) : found.products
   const stored = site.pages.collections
   const arranged = stored && stored.length > 0 ? stored : collectionsPageSections(site.pages.home ?? site.sections)

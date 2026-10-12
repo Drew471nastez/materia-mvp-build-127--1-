@@ -17,7 +17,7 @@ import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
-import { siteRouteInLanguage } from "@/lib/markets/site-name"
+import { SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 
@@ -428,41 +428,78 @@ async function websiteDomainOf(name: string): Promise<string | null> {
  * and held for thirty seconds a name, like the questions above.
  */
 const LANGUAGE_FIRST = /^\/[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*(?:\/|$)/
-const languagesHeld = new Map<string, { at: number; value: string[] }>()
-async function siteLanguagesFor(username: string): Promise<string[]> {
+interface SiteLocalization {
+  /** Published languages other than the website's own. */
+  languages: string[]
+  /** Active markets that show their own currency: which countries are in each. */
+  markets: { id: string; countries: string[] }[]
+}
+const NO_LOCALIZATION: SiteLocalization = { languages: [], markets: [] }
+const localizationHeld = new Map<string, { at: number; value: SiteLocalization }>()
+async function siteLocalizationFor(username: string): Promise<SiteLocalization> {
   const lower = username.toLowerCase()
-  const hit = languagesHeld.get(lower)
+  const hit = localizationHeld.get(lower)
   if (hit && Date.now() - hit.at < 30_000) return hit.value
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !supabaseKey) return []
+  if (!supabaseUrl || !supabaseKey) return NO_LOCALIZATION
   try {
     const db = createClient(supabaseUrl, supabaseKey)
     const { facts, failed } = await siteFactsFor(db, lower)
-    if (failed) return hit?.value ?? []
-    let value: string[] = []
+    if (failed) return hit?.value ?? NO_LOCALIZATION
+    let value = NO_LOCALIZATION
     if (facts.creatorId) {
-      const { data, error } = await db.from("store_localization").select("default_language, languages").eq("creator_id", facts.creatorId).maybeSingle()
-      /* Part 136 not run, or no row: one language. Another error keeps what was known. */
-      if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? []
-      const row = data as { default_language?: string; languages?: { code?: unknown; published?: unknown }[] } | null
+      const { data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle()
+      /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
+      if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
+      const row = data as { default_language?: string; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; active?: unknown; primary?: unknown }[] } | null
       const def = (row?.default_language ?? "").toLowerCase()
-      value = (Array.isArray(row?.languages) ? row!.languages : [])
-        .filter((l) => l?.published === true && typeof l.code === "string" && l.code.toLowerCase() !== def)
-        .map((l) => String(l.code))
+      value = {
+        languages: (Array.isArray(row?.languages) ? row!.languages : [])
+          .filter((l) => l?.published === true && typeof l.code === "string" && l.code.toLowerCase() !== def)
+          .map((l) => String(l.code)),
+        markets: (Array.isArray(row?.markets) ? row!.markets : [])
+          .filter((m) => m && m.primary !== true && m.active !== false && typeof m.currency === "string" && m.currency && typeof m.id === "string" && /^[a-z0-9-]{1,40}$/.test(m.id))
+          .map((m) => ({ id: String(m.id), countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string") })),
+      }
     }
-    if (languagesHeld.size > 10_000) languagesHeld.clear()
-    languagesHeld.set(lower, { at: Date.now(), value })
+    if (localizationHeld.size > 10_000) localizationHeld.clear()
+    localizationHeld.set(lower, { at: Date.now(), value })
     return value
   } catch {
-    return hit?.value ?? []
+    return hit?.value ?? NO_LOCALIZATION
   }
 }
+async function siteLanguagesFor(username: string): Promise<string[]> {
+  return (await siteLocalizationFor(username)).languages
+}
 
-/** The address in one of the website's other languages, or null for one in its own. */
-async function inSiteLanguage(username: string, pathname: string) {
-  if (!LANGUAGE_FIRST.test(pathname)) return null
-  return siteRouteInLanguage(username, pathname, await siteLanguagesFor(username))
+/*
+  THE VISITOR'S MARKET: the country they chose on the website (sl_country,
+  set by its currency picker; "home" for the store's own prices), else the
+  country Vercel sees them in. A market with its own currency is drawn with
+  its prices converted (lib/markets/pricing); any other country sees the
+  store's own.
+*/
+function visitorCountry(request: NextRequest): string | null {
+  const chosen = request.cookies.get("sl_country")?.value
+  if (chosen === "home") return null
+  if (chosen && /^[A-Za-z]{2}$/.test(chosen)) return chosen.toUpperCase()
+  const seen = request.headers.get("x-vercel-ip-country")
+  return seen && /^[A-Za-z]{2}$/.test(seen) ? seen.toUpperCase() : null
+}
+async function visitorMarket(request: NextRequest, username: string): Promise<string | null> {
+  const { markets } = await siteLocalizationFor(username)
+  if (markets.length === 0) return null
+  const country = visitorCountry(request)
+  return country ? (markets.find((m) => m.countries.includes(country))?.id ?? null) : null
+}
+
+/** The address in one of the website's other languages, or in the visitor's market's currency; null for the website's own, at the store's prices. */
+async function inSiteLanguage(username: string, pathname: string, request?: NextRequest) {
+  const market = request ? await visitorMarket(request, username) : null
+  if (!market && !LANGUAGE_FIRST.test(pathname)) return null
+  return siteRouteInLanguage(username, pathname, await siteLanguagesFor(username), market)
 }
 
 /**
@@ -582,19 +619,57 @@ function policyAddress(pathname: string): string | null {
 
 /** The rewrite to the imported theme's handler, behind the site's password when it has one: a page, and the shop's product list (/products.json); not a file a page loads (a script, /cart.js). */
 async function compatRewrite(request: NextRequest, name: string, host: string, pathname: string, search: string): Promise<NextResponse> {
-  if ((!/\.[a-z0-9]{1,8}$/i.test(pathname) && !pathname.startsWith("/cart/")) || /^(?:\/collections\/[^/]+)?\/products\.json$/i.test(pathname)) {
-    const gate = await passwordPageFor(request, name, host, pathname, search)
-    if (gate.blocked) return gate.blocked
+  /*
+    AN IMPORTED THEME IN ANOTHER OF THE WEBSITE'S LANGUAGES: every address
+    under /fr answers as the same address in French (the cart and its
+    scripts too, which the theme's routes now point under /fr). The
+    language is named to the handler in a header only this proxy sets.
+  */
+  let locale: string | null = null
+  let asked = pathname
+  if (LANGUAGE_FIRST.test(pathname)) {
+    const m = pathname.match(/^\/([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)(\/.*)?$/)
+    const hit = m ? (await siteLanguagesFor(name)).find((l) => l.toLowerCase() === m[1].toLowerCase()) : undefined
+    if (m && hit) {
+      locale = hit
+      asked = m[2] || "/"
+    }
+  }
+  let page = asked
+  let query = search
+  let gated = false
+  if ((!/\.[a-z0-9]{1,8}$/i.test(asked) && !asked.startsWith("/cart/")) || /^(?:\/collections\/[^/]+)?\/products\.json$/i.test(asked)) {
+    const gate = await passwordPageFor(request, name, host, asked, search)
+    if (gate.blocked) {
+      /*
+        THE THEME'S OWN PASSWORD PAGE, never Storelib's builder one: that
+        page draws a builder theme's sections, and an imported theme has
+        none, so a protected imported website was a blank white page. Drawn
+        at the address asked for, which it goes back to once the password
+        is right. A script's JSON request is refused instead.
+      */
+      if (/\.json$/i.test(asked)) return gate.blocked
+      page = "/password"
+      query = `?${new URLSearchParams({ return: `${pathname}${search}` }).toString()}`
+      gated = true
+    }
   }
   const to = request.nextUrl.clone()
-  to.pathname = `/api/site-theme/site/${name}${pathname === "/" ? "" : pathname}`
-  to.search = search
+  to.pathname = `/api/site-theme/site/${name}${page === "/" ? "" : page}`
+  to.search = query
   /* Sealed for this name on this host: the handler draws nothing it was not sent by this proxy (lib/storelib-theme/compat/site-seal.ts). */
   const headers = new Headers(request.headers)
   headers.delete(SITE_SEAL_HEADER)
+  headers.delete(SITE_LOCALE_HEADER)
+  headers.delete(SITE_MARKET_HEADER)
+  if (locale) headers.set(SITE_LOCALE_HEADER, locale)
+  /* The visitor's market, when it shows its own currency (visitorMarket): the theme draws its prices in it. */
+  const market = await visitorMarket(request, name)
+  if (market) headers.set(SITE_MARKET_HEADER, market)
   const seal = await sealSite(name, siteHostOf(request.headers))
   if (seal) headers.set(SITE_SEAL_HEADER, seal)
   const r = NextResponse.rewrite(to, { request: { headers } })
+  if (gated) r.headers.set("X-Robots-Tag", "noindex")
   /*
     No Cache-Control here: the handler sets its own on every answer (a page
     "private, no-cache", which keeps the browser's back/forward cache on; the
@@ -1371,7 +1446,7 @@ export async function proxy(request: NextRequest) {
       }
 
       /* /fr/about: the page in French, or /fr/cart on to /cart (inSiteLanguage). */
-      const inLanguage = isWebsite && !seoFile ? await inSiteLanguage(subdomain, pathname) : null
+      const inLanguage = isWebsite && !seoFile && !looksLikeFile ? await inSiteLanguage(subdomain, pathname, request) : null
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
       url.pathname = isWebsite
         ? inLanguage?.kind === "page"
@@ -1409,9 +1484,11 @@ export async function proxy(request: NextRequest) {
        * the two numbers have to be the same one or the front page and every
        * page under it go stale on different clocks.
        */
-      if (pathname === "/") {
+      /* Not when the page is drawn in the visitor's market's currency: that answer is theirs, never a shared cache's. */
+      if (pathname === "/" && !(inLanguage?.kind === "page" && /~m-/.test(inLanguage.path))) {
         rewritten.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
       }
+      if (inLanguage?.kind === "page" && /~m-/.test(inLanguage.path)) rewritten.headers.set("Cache-Control", "private, no-cache")
       /* Let in with a pass: this answer is this visitor's, never one for a shared cache to hand on. */
       if (guarded) rewritten.headers.set("Cache-Control", "private, no-store")
       selfFramedWishlist(rewritten, request)
@@ -1785,7 +1862,7 @@ export async function proxy(request: NextRequest) {
             : `/${username}/${parts.join("/")}`
     } else if (builtSite) {
       /* /fr/about on a connected domain, as on the subdomain (inSiteLanguage). */
-      const inLanguage = await inSiteLanguage(username, pathname)
+      const inLanguage = await inSiteLanguage(username, pathname, request)
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
       rewritePath = inLanguage?.kind === "page" ? inLanguage.path : `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
       /* The password page, as on the subdomain, for a visitor without a pass (lib/site-password/gate.ts). */
@@ -1818,6 +1895,8 @@ export async function proxy(request: NextRequest) {
       r.headers.set("x-seller-subdomain", seller)
       if (rewritePath.startsWith("/u/")) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
       if (guardedDomain) r.headers.set("Cache-Control", "private, no-store")
+      /* Drawn in the visitor's market's currency: theirs alone (visitorMarket). */
+      else if (/~m-/.test(rewritePath)) r.headers.set("Cache-Control", "private, no-cache")
       if (isCustomDomain) r.headers.set("x-custom-domain", host.split(":")[0])
       selfFramedWishlist(r, request)
       return r

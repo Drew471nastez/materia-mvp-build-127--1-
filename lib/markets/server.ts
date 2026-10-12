@@ -30,6 +30,9 @@ import { defaultLocalization, validateLocalization, type Localization } from "./
 import { normalizeLocale } from "./locales"
 import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, seoTranslatables, sourceHash, translatablesOf, type Translatable, type TranslationRow } from "./translate"
 import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
+import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { compatThemeFor, installFiles } from "@/lib/website-builder/compat-site"
+import { compatFields } from "./compat"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -201,13 +204,28 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
   const chosen = installs.find((i) => i.status === "published") ?? installs[0]
   const groups: TextGroup[] = []
   if (chosen) {
-    const [sources, pagesRead] = await Promise.all([
+    const [sources, pagesRead, themeRead] = await Promise.all([
       sectionSources(db as never, chosen.id).catch(() => ({}) as Record<string, string>),
       db.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", chosen.id),
+      db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", chosen.id).maybeSingle().then(
+        (r: { data: unknown }) => r,
+        () => ({ data: null }),
+      ),
     ])
+    const themeRow = themeRead?.data as { settings?: Record<string, unknown> | null; draft_settings?: Record<string, unknown> | null } | null
+    const themeValues = (chosen.status === "published" ? themeRow?.settings : (themeRow?.draft_settings ?? themeRow?.settings)) ?? null
     const lookup = schemaLookupFrom(sources) ?? ((t: string) => SECTION_SCHEMAS[t])
-    const fieldsOf = (t: string) => lookup(t)?.fields
-    const blockFieldsOf = (st: string, bt: string) => (lookup(st) as SectionSchema | undefined)?.blocks?.find((b) => b.type === bt)?.fields
+    let fieldsOf = (t: string) => lookup(t)?.fields
+    let blockFieldsOf = (st: string, bt: string) => (lookup(st) as SectionSchema | undefined)?.blocks?.find((b) => b.type === bt)?.fields
+    /* A theme imported from Shopify: its texts read with its own section and block schemas (lib/markets/compat.ts), as the live website lays them over. */
+    if (compatOf(themeValues)) {
+      const files = await installFiles(db, chosen.id, chosen.status !== "published").catch(() => null)
+      if (files) {
+        const read = compatFields(compatThemeFor(chosen.id, "texts", files, themeValues))
+        fieldsOf = read.fieldsOf
+        blockFieldsOf = read.blockFieldsOf
+      }
+    }
     const seenChrome = new Set<string>()
     const rows = ((pagesRead?.data ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[]).sort((a, b) => (a.page_key === "home" ? -1 : b.page_key === "home" ? 1 : a.page_key.localeCompare(b.page_key)))
     const chrome: Translatable[] = []
@@ -228,15 +246,8 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (chrome.length) groups.unshift({ id: "chrome", title: "Header and footer", items: chrome })
 
     /* The store's menus (the header's and footer's links), and the website's search engine text. */
-    const [menus, settingsRead] = await Promise.all([
-      storeMenusOrNull(db, creatorId).catch(() => null),
-      db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", chosen.id).maybeSingle().then(
-        (r: { data: unknown }) => r,
-        () => ({ data: null }),
-      ),
-    ])
-    const row = settingsRead?.data as { settings?: Record<string, unknown> | null; draft_settings?: Record<string, unknown> | null } | null
-    const theme = (chosen.status === "published" ? row?.settings : (row?.draft_settings ?? row?.settings)) ?? null
+    const menus = await storeMenusOrNull(db, creatorId).catch(() => null)
+    const theme = themeValues
     const menuItems = menuTranslatables((menus ?? (theme?.menus as never)) ?? null)
     if (menuItems.length) groups.splice(groups[0]?.id === "chrome" ? 1 : 0, 0, { id: "menus", title: "Menus", items: menuItems })
     const seoItems = seoTranslatables(theme)

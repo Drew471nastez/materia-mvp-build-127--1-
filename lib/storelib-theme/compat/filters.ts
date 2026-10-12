@@ -405,7 +405,26 @@ export function strftime(d: Date, fmt: string): string {
 
 // ── Translations ─────────────────────────────────────────────────────────────
 
+/*
+  THE PASSWORD PAGE IS STORELIB'S. A Shopify theme's password page says
+  "This shop will be powered by Shopify" and links "Log in here" to
+  Shopify's admin. Those words are left out, and "Log in here" is Storelib's
+  own owner sign in for this website.
+*/
+function passwordPageWords(ctx: Ctx, key: string): string | null {
+  if (!/^general\.password_page\./.test(key)) return null
+  const name = key.slice("general.password_page.".length)
+  if (/powered|spi|shopify/i.test(name)) return ""
+  if (/^admin_link/.test(name)) {
+    const owner = (ctx.registers.page as { ownerUrl?: string } | undefined)?.ownerUrl
+    return owner ? `Are you the store owner? <a href="${escapeHtml(owner)}" class="link underlined-link">Log in here</a>` : ""
+  }
+  return null
+}
+
 function translate(ctx: Ctx, key: string, vars: Record<string, unknown>): string {
+  const own = passwordPageWords(ctx, key)
+  if (own !== null) return own
   const t = reg(ctx).translate
   let v = t ? t(key) : null
   if (v && typeof v === "object") {

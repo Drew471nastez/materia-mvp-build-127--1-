@@ -12,23 +12,44 @@
 
 export const LOCALE_MARK = "~"
 
-/** "andrew" in "fr" → "andrew~fr"; no language, the name as it is. */
-export function siteNameIn(name: string, locale: string | null | undefined): string {
-  return locale ? `${name}${LOCALE_MARK}${locale.toLowerCase()}` : name
+/** The header the proxy names an imported theme's page language in (/fr/… → "fr"); stripped from every request that arrives with it. */
+export const SITE_LOCALE_HEADER = "x-storelib-site-locale"
+
+/** The header the proxy names an imported theme's visitor market in (the market a country falls in, lib/markets/model marketForCountry); stripped like the locale's. */
+export const SITE_MARKET_HEADER = "x-storelib-site-market"
+
+/** A market id as the settings write it (lib/markets/model validateLocalization). */
+const MARKET_ID = /^[a-z0-9-]{1,40}$/
+
+/**
+ * "andrew" in "fr" → "andrew~fr"; with a market whose prices are in its own
+ * currency, "andrew~fr~m-eu" (or "andrew~m-eu" in the website's own
+ * language). Neither: the name as it is.
+ */
+export function siteNameIn(name: string, locale: string | null | undefined, market: string | null = null): string {
+  let out = name
+  if (locale) out += `${LOCALE_MARK}${locale.toLowerCase()}`
+  if (market && MARKET_ID.test(market)) out += `${LOCALE_MARK}m-${market}`
+  return out
 }
 
-/** "andrew~fr" → { name: "andrew", locale: "fr" }; "andrew" → { name: "andrew", locale: null }. */
-export function splitSiteName(segment: string): { name: string; locale: string | null } {
+/** "andrew~fr~m-eu" → { name: "andrew", locale: "fr", market: "eu" }; "andrew" → nulls. Anything else after the name is ignored. */
+export function splitSiteName(segment: string): { name: string; locale: string | null; market: string | null } {
   let s = segment
   try {
     s = decodeURIComponent(segment)
   } catch {
     /* kept as it came */
   }
-  const at = s.indexOf(LOCALE_MARK)
-  if (at <= 0) return { name: s, locale: null }
-  const locale = s.slice(at + 1)
-  return /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(locale) ? { name: s.slice(0, at), locale: locale.toLowerCase() } : { name: s.slice(0, at), locale: null }
+  const parts = s.split(LOCALE_MARK)
+  const name = parts[0]
+  let locale: string | null = null
+  let market: string | null = null
+  for (const p of parts.slice(1)) {
+    if (/^m-/.test(p) && MARKET_ID.test(p.slice(2))) market = p.slice(2)
+    else if (/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(p)) locale = p.toLowerCase()
+  }
+  return { name, locale, market }
 }
 
 /** The pages drawn in a language: the website's own pages, products, collections and search. The rest (cart, account, checkout, files) are the same in every language. */
@@ -41,13 +62,15 @@ const PAGE_IN_LANGUAGE = /^\/(?:(?:products|collections)(?:\/[^/]+)?|search|(?!(
  * else (/fr/cart), on to the address without the language. Null when the
  * address does not start with one of them.
  */
-export function siteRouteInLanguage(name: string, pathname: string, published: readonly string[]): { kind: "page"; path: string } | { kind: "redirect"; to: string } | null {
-  if (published.length === 0) return null
+export function siteRouteInLanguage(name: string, pathname: string, published: readonly string[], market: string | null = null): { kind: "page"; path: string } | { kind: "redirect"; to: string } | null {
   const m = pathname.match(/^\/([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)(\/.*)?$/)
-  if (!m) return null
-  const hit = published.find((l) => l.toLowerCase() === m[1].toLowerCase())
-  if (!hit) return null
+  const hit = m && published.length ? published.find((l) => l.toLowerCase() === m[1].toLowerCase()) : undefined
+  if (!hit || !m) {
+    /* The website's own language, for a visitor whose market shows its own currency: the same page, in that market. */
+    if (market && PAGE_IN_LANGUAGE.test(pathname)) return { kind: "page", path: `/w/${siteNameIn(name, null, market)}${pathname === "/" ? "" : pathname.replace(/\/$/, "")}` }
+    return null
+  }
   const rest = m[2] || "/"
   if (!PAGE_IN_LANGUAGE.test(rest)) return { kind: "redirect", to: rest }
-  return { kind: "page", path: `/w/${siteNameIn(name, hit)}${rest === "/" ? "" : rest.replace(/\/$/, "")}` }
+  return { kind: "page", path: `/w/${siteNameIn(name, hit, market)}${rest === "/" ? "" : rest.replace(/\/$/, "")}` }
 }

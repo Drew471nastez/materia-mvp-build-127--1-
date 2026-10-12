@@ -180,7 +180,7 @@ async function main() {
     check("  and never a negative or a NaN", money(-5) === "$0.00" && money(Number.NaN) === "$0.00")
     const blocks = code("components/website-builder/sections/renderers/product/product-blocks.tsx")
     check("every price block prints through the section's money", !/(?<![.\w])money\(/.test(blocks) && (blocks.match(/ctx\.money\(/g) ?? []).length >= 4)
-    check("which follows Show currency codes", /money: \(cents: number\) => money\(cents, \{ code: theme\.currency_code_enabled === true \}\)/.test(code("components/website-builder/sections/renderers/ProductSection.tsx")))
+    check("which follows Show currency codes", /* Changed on purpose (round AC): the market (currency) rides beside the language. */ /return shown \?\? money\(cents, \{ code: theme\.currency_code_enabled === true \}\)/.test(code("components/website-builder/sections/renderers/ProductSection.tsx")))
 
     const render = code("components/website-builder/theme/render-product.tsx")
     check("the product read is held to the site's owner, so a slug two shops share is not a 404",
