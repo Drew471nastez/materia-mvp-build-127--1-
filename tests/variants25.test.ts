@@ -38,7 +38,8 @@ import { quantityStop, withPageFacts, type PageFacts } from "../lib/storelib-the
 import { pageFactsFor } from "../lib/storelib-theme/compat/product-facts-server"
 import { shopifyGlobalAsset, shopifyGlobalAssetUrl, SHOPIFY_GLOBAL_ASSETS } from "../lib/storelib-theme/compat/shopify-global-assets"
 import { compatFilter } from "../lib/storelib-theme/compat/filters"
-import { buildThemeFileTree } from "../lib/website-builder/theme-file-tree"
+import { buildThemeFileTree, shownPath } from "../lib/website-builder/theme-file-tree"
+import { productIdForPath } from "../lib/store/compat-page-tags"
 import { toCard } from "../lib/website-builder/shop-products"
 import { GET as helperScript } from "../app/api/site-theme/helpers/[name]/route"
 import { CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
@@ -321,7 +322,18 @@ async function main() {
     const tree = buildThemeFileTree(["shopify/sections/header.liquid", "shopify/import-report.json"])
     const folder = tree.find((n) => n.path === "shopify")
     check("the code editor shows an imported theme's own files under original/", folder?.name === "original")
+    check("  and every path a creator reads there says original/; the stored path is kept", shownPath("shopify/sections/header.liquid") === "original/sections/header.liquid" && shownPath("shopify/") === "original/" && shownPath("sections/shopify/x.json") === "sections/shopify/x.json" && shownPath("shopifyish/x") === "shopifyish/x")
+    const editor = read("app/website-builder/code/[installId]/page.tsx")
+    check("  the rename and duplicate field shows the folder as original/ and writes the stored one back", /\{shownPath\(dir\)\}/.test(editor) && /onChange\(`\$\{dir\}\$\{asFileName\(e\.target\.value\)\}\$\{ext\}`\)/.test(editor))
+    check("  the breadcrumb and the editor's messages too", /shownPath\(selectedFile\.path\)\.split\("\/"\)/.test(editor) && /You moved off \$\{shownPath\(path\)\}/.test(editor) && /\$\{shownPath\(to\)\} already exists/.test(editor))
+    const files = read("app/api/website-builder/themes/[installId]/files/route.ts")
+    check("  and the files route's refusals", /\$\{shownPath\(from\)\} is not a saved file/.test(files) && /\$\{shownPath\(to\)\} did not compile/.test(files) && /\$\{shownPath\(from\)\} is used by/.test(files))
     check("the import's answer points at original/import-report.json", read("app/api/website-builder/themes/import/route.ts").includes("original/import-report.json") && !read("app/api/website-builder/themes/import/route.ts").includes("code editor, shopify/"))
+    /* The tags' product id comes from the lists already held: the page's full product read runs once. */
+    const listed = { products: [{ id: "p1", settings: { slug: "linen-shirt", title: "Linen shirt" } }], pickable: [{ id: "p2", settings: { slug: "hidden-one", title: "Hidden one" } }] }
+    check("the page's product for its tags is found without reading it again", productIdForPath(listed, "/products/linen-shirt") === "p1" && productIdForPath(listed, "/collections/all/products/linen-shirt/") === "p1" && productIdForPath(listed, "/products/hidden-one") === "p2" && productIdForPath(listed, "/products/p1") === "p1" && productIdForPath(listed, "/products/nope") === null && productIdForPath(listed, "/cart") === null)
+    const siteRoute = read("app/api/site-theme/site/[username]/[[...path]]/route.ts")
+    check("  the live route asks the lists, never site.product, for it", /productIdForPath\(found\.site, sitePath\)/.test(siteRoute) && !/found\.site\.product\(/.test(siteRoute))
     const empty = new JSZip()
     empty.file("sections/x.liquid", "<p>x</p>")
     empty.file("config/settings_schema.json", "[]")

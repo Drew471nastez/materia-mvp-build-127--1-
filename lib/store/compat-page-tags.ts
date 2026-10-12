@@ -12,6 +12,26 @@ import { compatTrackScript, compatTrackingTags } from "@/lib/storelib-theme/comp
 import { languageSuggestTag } from "@/lib/markets/suggest-script"
 import { trackingTags } from "./tracking"
 import { gaProductJs, type GaItem } from "./ga"
+import { handleize } from "@/lib/storelib-theme/compat/filters"
+
+type Listed = { id: string; settings: Record<string, unknown> }
+
+/**
+ * The id of the product a page is about, from its address
+ * (/products/<handle>, also under /collections/<c>/), looked up in the
+ * lists the site already holds, the way the page found it
+ * (lib/storelib-theme/compat/site.ts findProduct). No read: the page's own
+ * product read (the description, each variant's stock) already ran once to
+ * draw it, and the tags need only the id.
+ */
+export function productIdForPath(site: { products: Listed[]; pickable?: Listed[] }, path: string): string | null {
+  const raw = path.match(/^(?:\/collections\/[^/]+)?\/products\/([^/]+)\/?$/)?.[1]
+  if (!raw) return null
+  let handle = raw
+  try { handle = decodeURIComponent(raw) } catch { /* kept as written */ }
+  const is = (p: Listed) => String(p.settings.slug ?? "") === handle || p.id === handle || handleize(String(p.settings.title ?? "")) === handle
+  return (site.products.find(is) ?? site.pickable?.find(is))?.id ?? null
+}
 
 export function compatPageTags(input: {
   stored: unknown
