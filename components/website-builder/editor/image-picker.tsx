@@ -37,11 +37,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
-import { ChevronDown, FolderOpen, ImageIcon, RefreshCw, Trash2, Upload } from "lucide-react"
+import { ChevronDown, FolderOpen, ImageIcon, ImageOff, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
+import { isLoadableAddress, shopImageName } from "@/lib/website-builder/picture-address"
 import { cn } from "@/lib/utils"
 import { FilesLibraryChooser, prefetchLibrary, type PickHint } from "@/components/files/files-library"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -172,7 +173,25 @@ export function WbImagePicker({
   */
   const [miss, setMiss] = useState<{ url: string; tries: number } | null>(null)
   const tries = url !== null && miss?.url === url ? miss.tries : 0
-  const broken = tries > 1
+  /*
+    AN ADDRESS NO <img> CAN LOAD is missing from the start, not after a try
+    and a retry a second apart: an imported theme's picture from its old
+    store (`shopify://shop_images/…`) that the theme did not bring with it
+    (lib/website-builder/picture-address.ts, which the field resolves first).
+  */
+  const unloadable = url !== null && !isLoadableAddress(url)
+  const broken = tries > 1 || unloadable
+  /*
+    WHAT THE FIELD SAYS, small and quiet (round 25, the owner: the failed
+    line was "far too big"): one muted 13px line beside a thumbnail that
+    shows a broken picture, with Change and Remove right there. Which of the
+    two it is, said in a few words; the whole of it under the pointer.
+  */
+  const fromOldStore = url !== null && shopImageName(url) !== null
+  const brokenLine = fromOldStore ? "Upload it again" : "Couldn't load it"
+  const brokenHelp = fromOldStore
+    ? "This picture was in the old store's files, which a theme does not bring. Upload it again."
+    : "This picture could not be loaded. Change it or remove it."
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (retryTimer.current) clearTimeout(retryTimer.current) }, [])
   const storedSrc = url && tries === 1 ? `${url}${url.includes("?") ? "&" : "?"}r=1` : url
@@ -458,8 +477,8 @@ export function WbImagePicker({
               className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f4f4f5] dark:bg-white/[0.06]"
             >
               {broken ? (
-                <span data-wb-image-layer="missing" className="absolute inset-0 flex items-center justify-center text-muted-foreground/60" aria-hidden>
-                  <ImageIcon className="h-[18px] w-[18px]" />
+                <span data-wb-image-layer="missing" className="absolute inset-0 flex items-center justify-center text-muted-foreground/55" aria-hidden>
+                  <ImageOff className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 </span>
               ) : !faded && (
                 preview
@@ -485,8 +504,8 @@ export function WbImagePicker({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              {broken ? <p className="text-[12.5px] font-medium text-foreground">This picture could not be loaded</p> : null}
-              <div className={cn("flex flex-wrap items-center gap-1", broken && "mt-1")}>
+              {broken ? <p data-wb-image-problem="" title={brokenHelp} className="line-clamp-2 pl-2 text-[13px] leading-[18px] text-muted-foreground">{brokenLine}</p> : null}
+              <div className={cn("flex flex-wrap items-center gap-1", broken && "mt-0.5")}>
                 {changeMenu("inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 max-sm:h-9 data-[state=open]:bg-muted", "h-3 w-3")}
                 <button
                   type="button"
@@ -554,9 +573,9 @@ export function WbImagePicker({
             the fade that covers it.
           */}
           {broken ? (
-            <span data-wb-image-layer="missing" className="flex flex-col items-center gap-1.5 px-4 text-center">
-              <ImageIcon className="h-5 w-5 text-muted-foreground/50" aria-hidden />
-              <span className="text-[12.5px] text-muted-foreground">This picture could not be loaded. Change it or remove it.</span>
+            <span data-wb-image-layer="missing" title={brokenHelp} className="flex min-w-0 items-center gap-2 px-4">
+              <ImageOff className="h-4 w-4 shrink-0 text-muted-foreground/55" strokeWidth={1.75} aria-hidden />
+              <span data-wb-image-problem="" className="truncate text-[13px] leading-[18px] text-muted-foreground">{fromOldStore ? brokenLine : "Couldn't load this picture"}</span>
             </span>
           ) : !faded && (
             preview
