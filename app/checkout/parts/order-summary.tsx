@@ -19,7 +19,7 @@ import * as React from "react"
 import Image from "next/image"
 import { ChevronDown, Package, Tag, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Reveal, Spinner, TextInput, money, money as sharedMoney } from "./ui"
+import { Reveal, Spinner, TextInput, money } from "./ui"
 import { countryName } from "@/lib/checkout/countries"
 
 export interface SummaryVariant {
@@ -439,19 +439,19 @@ export function Totals({
   /** What the card is charged in, when it is not the platform's (a store's own checkout). */
   currency?: string
 }) {
-  const money = (cents: number) => sharedMoney(cents, currency)
+  const amount = (cents: number) => money(cents, currency)
   if (part === "top") {
     return (
       <dl data-totals="top" className="text-[14px]">
         <div className="flex justify-between gap-4">
           <dt className="font-medium text-[#1a1a2e]">{isPwyw ? "Your price" : "Subtotal"}</dt>
-          <dd className="font-medium tabular-nums text-[#1a1a2e]">{money(subtotal)}</dd>
+          <dd className="font-medium tabular-nums text-[#1a1a2e]">{amount(subtotal)}</dd>
         </div>
         {promo ? <div className="mt-3">{promo}</div> : null}
         {discountCents > 0 ? (
           <div className="checkout-rise mt-3 flex justify-between gap-4">
             <dt className="text-[#6b7280]">Discount{discountLabel ? ` (${discountLabel})` : ""}</dt>
-            <dd className="tabular-nums text-[#6b7280]">−{money(discountCents)}</dd>
+            <dd className="tabular-nums text-[#6b7280]">−{amount(discountCents)}</dd>
           </div>
         ) : null}
       </dl>
@@ -462,7 +462,7 @@ export function Totals({
       {tax && !tax.included ? <TaxRow tax={tax} /> : null}
       <div className={cn("flex items-baseline justify-between gap-4 border-t border-black/[0.07] pt-4", tax && !tax.included && "mt-4")}>
         <dt className="text-[15px] font-semibold text-[#1a1a2e]">Total due</dt>
-        <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(total)}</dd>
+        <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{amount(total)}</dd>
       </div>
       {tax && tax.included ? <TaxRow tax={tax} /> : null}
     </dl>

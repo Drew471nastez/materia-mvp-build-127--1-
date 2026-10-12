@@ -219,7 +219,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const { data: creator } = await db
     .from("creators")
-    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor, payout_currency")
+    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, payout_currency, charges_enabled, payouts_enabled, statement_descriptor")
     .eq("id", priced.creatorId)
     .maybeSingle()
   if (!creator) return { ok: false, status: 404, error: "Shop not found." }
