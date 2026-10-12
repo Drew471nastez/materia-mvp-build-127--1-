@@ -623,6 +623,11 @@ async function edges(j: Journey, c: Ctx) {
   const v = (n: string) => (data.variants ?? []).find((x: any) => x.name === n)
   check("the native product section: Sand not available, Green 2 left, at most 3, delivery from the rates, pickup at the Studio", v("Sand")?.available === false && v("Blue")?.available === true && v("Blue")?.max_quantity === 3 && !!data.delivery && JSON.stringify(data.delivery).includes("Studio"), { variants: (data.variants ?? []).map((x: any) => [x.name, x.available, x.left, x.max_quantity]), delivery: data.delivery })
 
+  const { saveCollection, productsInCollection } = await import("@/lib/physical/collections-server")
+  const smart = await saveCollection(createAdminClient(), c.creatorId, null, { title: "Mugs", kind: "smart", rules: [{ field: "type", op: "equals", value: "physical" }] })
+  const inSmart = await productsInCollection(createAdminClient(), c.creatorId, "mugs")
+  check("a smart collection (type is physical) holds the mug on the storefront, not the download", smart.ok && !!inSmart && inSmart.productIds.includes(c.mugId) && !inSmart.productIds.includes(c.pdfId), { smart, inSmart })
+
   section("26. A download in a shipped order")
   const signed = await j.signUp("reader@example.com")
   const startD = await j.call("POST /api/physical/checkout", { as: signed, headers: { "x-forwarded-for": "198.51.100.200" }, body: { shopId: c.creatorId, items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }, { productId: c.pdfId, variantId: null, quantity: 1 }], email: signed.email, name: "Rea Der", address: c.address, deliveryOptionId: c.std?.id, clientKey: "journey-download-1234" } })
