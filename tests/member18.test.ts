@@ -263,6 +263,15 @@ async function main() {
     check("the commit that takes the community away plays it, on the whole frame", /if \(!takeArmedMotion\("push"\)\) return\s*holdPageMotion\(\(el\?\.closest\("\[data-community-shell\]"\)/.test(view))
     const arrival = code("components/profile/profile-arrival.tsx")
     check("the full page comes in with it, else as before", /if \(arriveWithPageMotion\(root\)\) \{/.test(arrival) && /\} else if \(!reduced && arrivesFromCommunity\(prev/.test(arrival))
+    /* Round J, the owner on a computer: "When I click Visit page, I don't like that slide animation taking me there. Get rid of it, fully." */
+    check("round J: its own slide in from the right is a phone's only; a computer never slides", /\} else if \(!reduced && arrivesFromCommunity\(prev, window\.location\.search\) && window\.matchMedia\?\.\(PAGE_PHONE\)\.matches && typeof root\.animate === "function"\) \{/.test(arrival))
+    {
+      const push = code("lib/navigation/page-push.ts")
+      check("round J: on a computer the old page is held, still, until the arriving page releases it; nothing moves", /if \(wide\) \{[\s\S]*?const waitCap = window\.setTimeout\(fadeOff, WIDE_HOLD_CAP_MS\)\s*hold = \{ release: \(\) => requestAnimationFrame\(\(\) => requestAnimationFrame\(fadeOff\)\) \}\s*wideHold = hold\s*return done\s*\}/.test(push) && /box\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\], \{ duration: PAGE_WIDE_FADE_MS/.test(push))
+      check("round J: the copy goes in 100ms or less, and waits at most 1.2s for a page that has not come", /export const PAGE_WIDE_FADE_MS = 100/.test(push) && /export const WIDE_HOLD_CAP_MS = 1200/.test(push))
+      check("round J: the arriving page releases it and ends its own landing fade, so the two are never seen through each other", /const held = wideHold\s*if \(held && root\) \{\s*wideHold = null\s*endLandingFade\(root\)\s*held\.release\(\)\s*return true\s*\}/.test(push) && /animationName === "app-page-enter"\) a\.finish\(\)/.test(push))
+      check("round J: a phone's push and pop are as they were", /move = box\.animate\(\[\{ translate: "0 0" \}, \{ translate: `\$\{-width\}px 0` \}\], timing\)/.test(push) && /move = box\.animate\(\[\{ translate: "0 0" \}, \{ translate: `\$\{width\}px 0` \}\], timing\)/.test(push) && /export const PAGE_PUSH_MS = 380/.test(push) && /export const PAGE_POP_MS = 320/.test(push))
+    }
     check("its own back arrow arms a pop, and leaving plays it", /closest\?\.\("\[data-profile-back-button\]"\)\) armPageMotion\("pop"\)/.test(arrival) && /if \(takeArmedMotion\("pop"\)\) holdPageMotion\(root, "pop"\)/.test(arrival))
     const shell = code("components/community/member/shell-frame.tsx")
     check("the community comes back with the pop, not with its push in from outside", /const popped = landing && arriveWithPageMotion\(el\)\s*if \(!popped && landing && el/.test(shell))
