@@ -24,6 +24,7 @@ import { MemoryDb } from "./postgrest"
 import { installRpcs } from "./rpcs"
 import { Net, SUPABASE_HOST, type AuthUser } from "./net"
 import { StripeWorld } from "./stripe-fake"
+import { Providers } from "./providers"
 
 type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response> | Response
 type RouteModule = Record<string, Handler | unknown>
@@ -68,6 +69,18 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/cron/process-scheduled-emails": () => import("@/app/api/cron/process-scheduled-emails/route"),
   "/api/cron/notify": () => import("@/app/api/cron/notify/route"),
   "/api/coupons": () => import("@/app/api/coupons/route"),
+  "/api/tracking/webhooks/[provider]/[token]": () => import("@/app/api/tracking/webhooks/[provider]/[token]/route"),
+  "/api/order-help": () => import("@/app/api/order-help/route"),
+  "/api/order-help/[id]": () => import("@/app/api/order-help/[id]/route"),
+  "/api/store/cases": () => import("@/app/api/store/cases/route"),
+  "/api/store/cases/[id]": () => import("@/app/api/store/cases/[id]/route"),
+  "/api/store/integrations/marketing": () => import("@/app/api/store/integrations/marketing/route"),
+  "/api/physical/integrations": () => import("@/app/api/physical/integrations/route"),
+  "/api/physical/integrations/[provider]": () => import("@/app/api/physical/integrations/[provider]/route"),
+  "/api/physical/integrations/[provider]/links": () => import("@/app/api/physical/integrations/[provider]/links/route"),
+  "/api/physical/orders/[id]/label": () => import("@/app/api/physical/orders/[id]/label/route"),
+  "/api/integrations/shipstation/[token]": () => import("@/app/api/integrations/shipstation/[token]/route"),
+  "/api/integrations/webhooks/[provider]/[token]": () => import("@/app/api/integrations/webhooks/[provider]/[token]/route"),
   "/api/physical/coupons/[id]": () => import("@/app/api/physical/coupons/[id]/route"),
   "/api/payments/[action]": () => import("@/app/api/payments/[action]/route"),
   "/api/checkout/site": () => import("@/app/api/checkout/site/route"),
@@ -91,6 +104,8 @@ export class Journey {
   db = new MemoryDb()
   net = new Net(this.db)
   world = new StripeWorld()
+  /** AfterShip, Shippo, ShipStation, Gelato, CJ, Klaviyo, Omnisend: stubs of their public APIs. */
+  providers = new Providers(this.net)
   stripe!: Stripe
   /** Every route answer that was a 5xx, for the end of the suite. */
   serverErrors: { route: string; status: number; body: unknown }[] = []

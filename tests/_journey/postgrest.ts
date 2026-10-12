@@ -61,6 +61,8 @@ export class MemoryDb {
   extraTables = new Set<string>()
   /** Columns that exist on the live database although no SQL file in the repository adds them, "table.column". */
   extraColumns = new Set<string>()
+  /** BEFORE INSERT OR UPDATE triggers the SQL defines (ported where the flow reads what they write). */
+  beforeWrite: Record<string, (row: Row, db: MemoryDb) => void> = {}
   /** Rows refused by a trigger (append only tables). */
   appendOnly = new Set<string>(["commerce_order_events"])
 
@@ -227,6 +229,7 @@ export class MemoryDb {
       for (const k of Object.keys(raw)) this.checkColumn(table, k, "insert", "PGRST204")
       if (opts.columns) for (const k of opts.columns) this.checkColumn(table, k, "insert", "PGRST204")
       const row = this.complete(table, raw, !!opts.missingDefault)
+      this.beforeWrite[table]?.(row, this)
       if (opts.resolution) {
         const key = opts.onConflict && opts.onConflict.length ? opts.onConflict : t?.primaryKey.length ? t.primaryKey : ["id"]
         const hit = this.rows(table).find((x) => key.every((c) => JSON.stringify(x[c]) === JSON.stringify(row[c])))
@@ -270,6 +273,7 @@ export class MemoryDb {
     }
     for (const r of hit) {
       Object.assign(r, patch)
+      if ("product_id" in patch) this.beforeWrite[table]?.(r, this)
       this.checkRow(table, r)
     }
     return hit.map((r) => this.withGenerated(table, r))

@@ -27,6 +27,11 @@ function movement(db: MemoryDb, m: Row): boolean {
 }
 
 export function installRpcs(db: MemoryDb) {
+  /* run-now 32_orders_keep_sales.sql: orders_fill_creator, BEFORE INSERT OR UPDATE OF product_id. */
+  db.beforeWrite.orders = (row, d) => {
+    if (row.product_id) row.creator_id = d.rows("products").find((p) => p.id === row.product_id)?.creator_id ?? null
+  }
+
   /* supabase/sql/run-now/78_physical_commerce.sql */
   db.rpcs.physical_inventory_apply = (d, a) => {
     if (a.p_key && d.rows("inventory_movements").some((m) => m.idempotency_key === a.p_key)) {

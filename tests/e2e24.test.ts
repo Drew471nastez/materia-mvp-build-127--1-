@@ -287,6 +287,7 @@ async function main() {
 
   await website(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
   await edges(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
+  await round24(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
 
   section("23. Every email, counted")
   await j.cron()
@@ -690,6 +691,58 @@ async function edges(j: Journey, c: Ctx) {
   const ledgerWon = j.rows("seller_ledger").find((l) => l.creator_id === c.creatorId)!
   const restored = j.rows("ledger_events").filter((e) => e.stripe_dispute_id === dp.id && e.event_type === "dispute_closed")
   check("won: the money taken back is returned to the seller once", closed.status === 200 && restored.length === 1 && ledgerWon.pending_amount + ledgerWon.available_amount - ledgerWon.negative_balance > ledgerOpen.pending_amount + ledgerOpen.available_amount - ledgerOpen.negative_balance, { restored: restored.map((e) => [e.amount_cents, e.pending_delta, e.available_delta]), before: ledgerOpen, after: ledgerWon })
+}
+
+/**
+ * ROUND 24 ON TOP OF THE JOURNEY: courier tracking, the shipping apps, the
+ * print and dropship partners, the marketing tools, the buyer's contact with
+ * the shop, a theme cart's attributes, one order number for the seller, and
+ * the 60 day pass over parcels nobody saw delivered.
+ */
+async function round24(j: Journey, c: Ctx) {
+  const { seller } = c
+  const P = j.providers
+
+  section("31. Courier tracking (AfterShip): registered, pushed, polled, emails once, the return window from the carrier's delivery")
+  const t = await buy(j, c, { email: "tracked@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  const tLine = j.rows("orders").find((o) => o.checkout_id === t.co!.id)!
+  const number = "JD014600009999990001"
+  await j.call(`POST /api/physical/orders/${t.co!.id}`, { as: seller, body: { action: "fulfil", items: [{ orderId: tLine.id, quantity: 1 }], carrier: "DHL", trackingNumber: number } })
+  await j.cron()
+  const ship = () => j.rows("fulfillments").find((f) => f.checkout_id === t.co!.id)!
+  check("the cron registers the parcel with AfterShip once, with the order's reference and DHL's slug", P.to("api.aftership.com", /\/trackings$/).filter((x) => x.method === "POST").length === 1 && P.aftership.get(number)?.slug === "dhl" && ship().tracking_provider === "aftership" && !!ship().tracking_ref, { calls: P.calls.map((x) => `${x.method} ${x.path}`), ship: { p: ship().tracking_provider, ref: ship().tracking_ref, st: ship().tracking_status } })
+  const { trackingWebhookToken } = await import("@/lib/physical/tracking/provider")
+  const hook = `/api/tracking/webhooks/aftership/${trackingWebhookToken("aftership", "platform")}`
+  P.scan(number, "OutForDelivery", "Out for delivery with the courier", new Date(Date.now() - 3600_000).toISOString())
+  const w1 = P.aftershipWebhook(number)
+  const r1 = await j.call(`POST ${hook}`, { raw: w1.raw, headers: w1.headers })
+  const r1again = await j.call(`POST ${hook}`, { raw: w1.raw, headers: w1.headers })
+  const forged = await j.call(`POST ${hook}`, { raw: w1.raw, headers: { ...w1.headers, "aftership-hmac-sha256": "bm9wZQ==" } })
+  await j.cron()
+  check("AfterShip's webhook (signed, read back from the API) moves the shipment to out for delivery; again changes nothing; a forged one is refused", r1.status === 200 && r1again.status === 200 && forged.status === 401 && ship().status === "out_for_delivery", { r1: r1.json, again: r1again.json, forged: forged.status, status: ship().status })
+  const deliveredAt = new Date(Date.now() - 2 * 86_400_000).toISOString()
+  P.scan(number, "Delivered", "Delivered, signed for by POP", deliveredAt)
+  ship().tracking_next_check_at = new Date(Date.now() - 1000).toISOString()
+  await j.cron()
+  await j.cron()
+  const tracked = j.net.to("tracked@example.com").map((m) => m.subject)
+  check("the next poll reads Delivered: delivered at the carrier's own time; buyer emails out for delivery and delivered, each once", ship().status === "delivered" && ship().delivered_at === deliveredAt && tracked.filter((x) => /out for delivery/i.test(x)).length === 1 && tracked.filter((x) => /delivered/i.test(x)).length === 1, { status: ship().status, at: ship().delivered_at, want: deliveredAt, tracked })
+  const page = await renderBuyerPage(t.co!.receipt_token)
+  const { returnWindow } = await import("@/lib/physical/status")
+  const { loadOrder } = await import("@/lib/physical/orders-server")
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const lo = await loadOrder(createAdminClient(), { creatorId: c.creatorId, checkoutId: t.co!.id })
+  const win = returnWindow({ ...lo!, pickup: false }, 30)
+  check("the return window counts 30 days from the carrier's delivery, two days ago", !!win.endsAt && Math.abs(Date.parse(win.endsAt) - (Date.parse(deliveredAt) + 30 * 86_400_000)) < 86_400_000 && /Out for delivery|Delivered/i.test(page), { win, deliveredAt })
+
+  section("32. One order number for the seller, the reference for the buyer")
+  const sellerMail = j.net.mails.filter((m) => m.to.some((x) => /anaceramics|maker@/.test(x)))
+  const aboutOrders = sellerMail.filter((m) => /order/i.test(m.subject) && !/your first sale/i.test(m.subject))
+  const hex = aboutOrders.filter((m) => /#[0-9A-F]{8}\b/.test(m.subject) && !/#10\d\d/.test(m.subject))
+  check("every seller email about an order names it #100x, as the Orders page does", aboutOrders.length > 5 && hex.length === 0, { hex: hex.map((m) => m.subject), all: aboutOrders.map((m) => m.subject).slice(0, 12) })
+  const buyerMail = j.net.mails.filter((m) => !m.to.some((x) => /anaceramics|maker@/.test(x)))
+  const seq = buyerMail.filter((m) => /#10\d\d\b/.test(`${m.subject} ${m.text}`))
+  check("buyers only ever see their reference (#XXXXXXXX), never the seller's #100x", seq.length === 0, seq.map((m) => [m.to, m.subject]))
 }
 
 /** The buyer's order page (app/checkout/physical/order/[token]), rendered as the server renders it. */
