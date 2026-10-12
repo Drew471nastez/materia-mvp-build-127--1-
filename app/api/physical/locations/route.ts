@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadLocations, locationFromRow, readLocation, saveLocationExtra } from "@/lib/physical/config-server"
 import { recordActivity } from "@/lib/activity/log-server"
 
@@ -26,5 +27,6 @@ export async function POST(request: Request) {
   /* Pickup hours and local delivery (part 154), apart: an older database still keeps the location. */
   const extra = await saveLocationExtra(c.db, c.creatorId, String(data.id), read.extra)
   await recordActivity(c.db, c, { action: "location.added", subjectType: "location", subjectId: String(data.id), subjectLabel: String(data.name ?? "") })
+  readinessChanged(c)
   return physicalJson({ location: locationFromRow(extra.row ?? data), ...(extra.notice ? { message: extra.notice } : {}) })
 }

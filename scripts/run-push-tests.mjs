@@ -453,6 +453,7 @@ const SUITES = [
   "tests/round-u.test.ts",
   "tests/compat-resilience.test.ts",
   "tests/physical-setup-t.test.ts",
+  "tests/physical-readiness.test.ts",
   "tests/emails-t.test.ts",
   "tests/files-t.test.ts",
   "tests/activity-t.test.ts",

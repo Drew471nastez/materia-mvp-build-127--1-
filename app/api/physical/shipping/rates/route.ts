@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadProfiles, readRate } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -18,5 +19,6 @@ export async function POST(request: Request) {
   if ((count ?? 0) >= 30) return physicalJson({ error: "A zone can have up to 30 rates." }, 400)
   const { error } = await c.db.from("shipping_rates").insert({ ...read.row, zone_id: zone.id, creator_id: c.creatorId, position: count ?? 0 })
   if (error) return physicalJson({ error: "The rate could not be saved." }, 500)
+  readinessChanged(c)
   return physicalJson({ profiles: await loadProfiles(c.db, c.creatorId) })
 }

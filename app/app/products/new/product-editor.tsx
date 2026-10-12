@@ -81,6 +81,7 @@ import { PhysicalProductCards, type OrderLimitDraft, type PhysicalEditorHandle }
 import { Reveal } from "@/components/physical/ui"
 import { currencyMark, formatStoreMoney, markInset } from "@/lib/store/currency"
 import { StoreCurrencyProvider } from "@/lib/store/currency-context"
+import { ReadinessNote } from "@/components/physical/readiness-banner"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -2245,6 +2246,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
             </Link>
           </div>
         ) : null}
+
+        {/* A physical product, and something stops buyers checking out with it (components/physical/readiness-banner). A warning, never a block. */}
+        {productType === "physical" ? <ReadinessNote productId={productId ?? null} published={isPublished} version={`${productId ?? ""}:${isPublished}:${saveBusy}`} /> : null}
 
         <div className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(272px,1fr)] lg:items-start">
           <div data-editor-main="" className="flex min-w-0 flex-col gap-3 sm:gap-4">

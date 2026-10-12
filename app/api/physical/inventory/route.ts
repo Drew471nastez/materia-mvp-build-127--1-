@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { int, loadLocations, loadSettings, text } from "@/lib/physical/config-server"
 import { ADJUST_REASONS, applyInventory, inventoryRows, type AdjustReason } from "@/lib/physical/inventory-server"
 
@@ -50,5 +51,6 @@ export async function POST(request: Request) {
     key,
   })
   if (done.ok === false) return physicalJson({ error: done.error }, 400)
+  readinessChanged(c, { recheck: false })
   return physicalJson({ level: done.level, applied: done.applied })
 }

@@ -54,6 +54,8 @@ export const WORKFLOWS = {
   storeSetup: "store_setup",
   /* Selling physical products begun and not ready for an order (unfinished.ts). */
   physicalSetup: "physical_setup",
+  /* Physical products on sale with a blocking gap (physical.ts). */
+  physicalReadiness: "physical_readiness",
   /* Stripe still asking for details (unfinished.ts). */
   verification: "verification",
 } as const

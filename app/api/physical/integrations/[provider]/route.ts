@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadIntegrations, saveIntegration } from "@/lib/physical/integrations-server"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { cachedCatalogOverrides } from "@/lib/integrations/overrides-server"
@@ -26,5 +27,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ prov
   }
   const saved = await saveIntegration(c.db, c.creatorId, provider, body)
   if (saved.ok === false) return physicalJson({ error: saved.error }, 400)
+  readinessChanged(c)
   return physicalJson({ integrations: await loadIntegrations(c.db, c.creatorId) })
 }

@@ -3009,5 +3009,12 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('154', '1
 ALTER TABLE public.products ALTER COLUMN requires_shipping SET DEFAULT true;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('161', '161_physical_products_ship_by_default.sql', '2473fb0a27083ca1d23173f7562c2547efa01f70279b20da742a1e042641fe2e') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 162_physical_readiness_state.sql
+/* What each store selling physical products last looked like to the readiness check (lib/physical/readiness-server.ts): whether something on sale had a gap that stops a checkout or a shipment, how many times it has gone from fine to that (each time is one notice and one reminder, never more), which gaps, and how many products were on sale. One row per store, written by the server only, so a store that breaks after it was ready is told once, and a store that stays broken is not told again. Needs part 40 for the notices. Until it runs the banners and Settings' checklist still show, and nothing is emailed from it. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.physical_readiness_state ( creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE, broken boolean NOT NULL DEFAULT false, episode integer NOT NULL DEFAULT 0 CHECK (episode >= 0), signature text NOT NULL DEFAULT '' CHECK (char_length(signature) <= 300), live integer NOT NULL DEFAULT 0 CHECK (live >= 0), updated_at timestamptz NOT NULL DEFAULT now() );
+ALTER TABLE public.physical_readiness_state ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.physical_readiness_state FROM anon, authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('162', '162_physical_readiness_state.sql', '1289f783a1b9a5dea336a917e51864469fe87d9987ecf8718b23ab4520e647cd') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;
