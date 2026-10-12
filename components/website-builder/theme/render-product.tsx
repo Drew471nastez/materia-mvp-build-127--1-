@@ -27,7 +27,7 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { productFacts } from "@/lib/website-builder/storefront-data"
-import { withMainProduct, withProductBlocks } from "@/lib/website-builder/product-page"
+import { withDeliveryBlock, withMainProduct, withProductBlocks } from "@/lib/website-builder/product-page"
 import { productSectionData } from "@/lib/products/product-section-data"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -366,7 +366,7 @@ export async function renderProduct(
      it would draw the product twice. */
   const sections: SectionInstance[] = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map(s =>
     s.type === "product"
-      ? { ...withProductBlocks(s), settings: { ...s.settings, _product_data: productData } }
+      ? (() => { const drawn = withDeliveryBlock(withProductBlocks(s)); return { ...drawn, settings: { ...drawn.settings, _product_data: productData } } })()
       : s
   )
 

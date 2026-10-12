@@ -204,7 +204,7 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
 
 /* ── The seller's other order emails ────────────────────────────────────── */
 
-export type SellerCommerceKind = "return_requested" | "cancel_requested" | "order_cancelled" | "delivery_exception" | "payment_failed" | "low_stock"
+export type SellerCommerceKind = "return_requested" | "cancel_requested" | "order_cancelled" | "delivery_exception" | "delivery_unconfirmed" | "payment_failed" | "low_stock"
 
 /** The order event that sends each (lib/physical/events-server.ts sellerEmailFor). */
 export function sellerKindForEvent(kind: string): SellerCommerceKind | null {
@@ -212,6 +212,8 @@ export function sellerKindForEvent(kind: string): SellerCommerceKind | null {
   if (kind === "order.cancel_requested") return "cancel_requested"
   if (kind === "order.cancelled") return "order_cancelled"
   if (kind === "delivery.exception" || kind === "fulfillment.exception") return "delivery_exception"
+  /* A tracked parcel never marked delivered 60 days after it shipped (lib/physical/unconfirmed-delivery-server.ts). */
+  if (kind === "delivery.unconfirmed") return "delivery_unconfirmed"
   if (kind === "payment.failed") return "payment_failed"
   return null
 }
@@ -300,6 +302,13 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
       heading = "A parcel couldn't be delivered"
       paragraphs = [`The carrier reported a problem delivering ${order}. Check the tracking, then contact the buyer or the carrier so it reaches them.`]
       facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }, { label: "What the carrier said", value: str(m.reason, 200) }, ...itemFacts(m.lines)].filter((f) => f.value)
+      action = link("View order", orderPath)
+      break
+    case "delivery_unconfirmed":
+      subject = `Delivery not confirmed for ${order}`
+      heading = "A parcel was never marked delivered"
+      paragraphs = [`${order} shipped 60 days ago and its tracking never said it arrived. Check with the carrier or ask the buyer, then mark it delivered or report a delivery problem on the order.`]
+      facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }, ...itemFacts(m.lines)].filter((f) => f.value)
       action = link("View order", orderPath)
       break
     case "payment_failed":

@@ -64,7 +64,7 @@ export function sellerEmailFor(kind: string, actor: EventActor | undefined): boo
   /* A buyer's Cancel order on their order page asks the seller (./buyer-cancel.ts): told at once, so nothing is sent meanwhile. */
   if (kind === "order.cancel_requested") return actor === "buyer"
   if (kind === "order.cancelled") return actor === "buyer"
-  return kind === "delivery.exception" || kind === "fulfillment.exception" || kind === "payment.failed"
+  return kind === "delivery.exception" || kind === "fulfillment.exception" || kind === "delivery.unconfirmed" || kind === "payment.failed"
 }
 
 export interface OrderEvent {

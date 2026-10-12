@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { runJobs } from "@/lib/physical/jobs-server"
 import { cancelStaleSitePayments } from "@/lib/checkout/site-payment-sweep"
+import { closeUnconfirmedDeliveries } from "@/lib/physical/unconfirmed-delivery-server"
 
 /**
  * GET /api/cron/physical
@@ -40,9 +41,11 @@ async function runJob(request: Request) {
     jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
     if (ran.done + ran.failed < 25) break
   }
+  /* Tracked parcels never marked delivered 60 days after shipping: closed as delivery not confirmed, the seller told once (lib/physical/unconfirmed-delivery-server.ts). */
+  const unconfirmed = Date.now() - started < 45_000 ? await closeUnconfirmedDeliveries(db).catch(() => ({ closed: 0 })) : { closed: 0 }
   const ms = Date.now() - started
-  console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, ${ms}ms`)
-  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, ms }, { headers: { "Cache-Control": "no-store" } })
+  console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, ${unconfirmed.closed} deliveries not confirmed, ${ms}ms`)
+  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, unconfirmed: unconfirmed.closed, ms }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function GET(request: Request) {
