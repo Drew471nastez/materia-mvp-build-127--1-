@@ -60,6 +60,8 @@ export interface Integration {
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
+  /** What it does, in two short sentences, for the top of its page when the first paragraph of `about` is long. The whole of `about` is under "How it works". */
+  lead?: string
   about: string[]
   glance: { label: string; value: string }[]
   data: string[]
@@ -487,7 +489,23 @@ const TRACKING_APPS: Integration[] = [
   },
 ]
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)]
+/** The top of a page, short (round I4: "don't have that much text"). Only where the first paragraph runs long. */
+const LEAD: Record<string, string> = {
+  "storelib-reviews": "Buyers get an email asking for a review. Reviews show on your website with stars.",
+  "courier-tracking": "Every parcel is followed with its carrier. Your buyer sees each scan and hears when it's out for delivery and delivered.",
+  aftership: "Follow your parcels with your own AfterShip account instead of Storelib's.",
+  klaviyo: "Your subscribers, buyers and every order go to Klaviyo. Unsubscribes come back.",
+  omnisend: "Your subscribers, buyers and every order go to Omnisend. Unsubscribes come back.",
+  printful: "Products you sell as print on demand go to Printful when they're paid. Tracking comes back to the order.",
+  printify: "Products you sell as print on demand go to Printify when they're paid. Tracking comes back to the order.",
+  gelato: "Products you sell as print on demand go to Gelato when they're paid, printed close to your buyer. Tracking comes back.",
+  "cj-dropshipping": "Products you sell as dropshipping go to CJ when they're paid. Tracking comes back to the order.",
+  shippo: "Buy a label from the order page at Shippo's live rates. Your buyer gets the tracking link.",
+  easypost: "Buy a label from the order page at EasyPost's live rates. Your buyer gets the tracking link.",
+  shipstation: "Paid orders go to ShipStation. Print the label there and the tracking comes back to the order.",
+}
+
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

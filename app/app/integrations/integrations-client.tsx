@@ -14,7 +14,7 @@ export function IntegrationsClient() {
       </PaneBar>
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="text-[13.5px] text-[#6b7280]">Connect the services you already use: analytics, ad pixels, shipping, print on demand.</p>
+          <p className="text-[13.5px] text-[#6b7280]">Storelib apps and the services you already use.</p>
           <HowItWorks id="integrations" className="-ml-2" />
         </div>
         {/* The directory reads ?integration= to open one's page. */}
