@@ -11,6 +11,7 @@ import { redirect } from "next/navigation"
 import { getMainDomain } from "@/lib/url-helpers"
 import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 export const dynamic = "force-dynamic"
 
@@ -53,7 +54,8 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
       /* Only a published website that serves its own checkout; a preview or an old address keeps this page. */
       if (site.hostname !== getMainDomain() && (await servingSiteOrigin(db, shop, site.origin))) {
         const q = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"))
-        if (site.pathname === "/cart" && !q.has("cart")) q.set("cart", "1")
+        /* The cart, in any language of the website (/cart, /fr/cart). */
+        if (/^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?cart$/i.test(site.pathname) && !q.has("cart")) q.set("cart", "1")
         redirect(legacyBasketTarget(site.origin, q, site.host))
       }
     }
@@ -63,7 +65,7 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
   if (config.requireAccount) {
     const {
       data: { user },
-    } = await (await createClient()).auth.getUser()
+    } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null

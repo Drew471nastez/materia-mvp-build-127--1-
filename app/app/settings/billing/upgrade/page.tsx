@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { pageUser } from "@/lib/auth/page-user"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { STRIPE_RENDER_WAIT_MS } from "@/lib/stripe-wait"
 import { msg } from "@/lib/i18n/text"
 
 const FREE_PLAN = {
@@ -100,13 +101,17 @@ export default async function UpgradePage() {
     // Fetch live subscription status from Stripe
     if (creator.stripe_customer_id) {
       try {
-        await stripe.customers.retrieve(creator.stripe_customer_id)
-
-        const stripeSubs = await stripe.subscriptions.list({
-          customer: creator.stripe_customer_id,
-          status: "active",
-          limit: 1,
-        })
+        /* One call, bounded. A customers.retrieve used to come first and its answer was thrown away: a second round trip to
+           Stripe in series, each with Stripe's 80s default, before the page could draw. A missing customer fails this list the
+           same way, into the catch below. */
+        const stripeSubs = await stripe.subscriptions.list(
+          {
+            customer: creator.stripe_customer_id,
+            status: "active",
+            limit: 1,
+          },
+          { timeout: STRIPE_RENDER_WAIT_MS },
+        )
 
         const activeSub = stripeSubs.data[0]
         if (activeSub) {

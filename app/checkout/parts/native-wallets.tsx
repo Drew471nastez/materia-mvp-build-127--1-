@@ -18,6 +18,7 @@ import * as React from "react"
 import { Browser } from "@capacitor/browser"
 import { Capacitor } from "@capacitor/core"
 import { nativeWallet, payWithNativeWallet, type NativeWallet } from "@/lib/checkout/native-wallet"
+import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
 
 type WalletAnswer = { url?: string; sessionId?: string; error?: string }
 
@@ -63,7 +64,7 @@ export function NativeWalletButtons({
     if (!id || finishing.current) return
     finishing.current = true
     try {
-      const res = await fetch(`/api/checkout/wallet-status?session_id=${encodeURIComponent(id)}`)
+      const res = await fetchWithDeadline(`/api/checkout/wallet-status?session_id=${encodeURIComponent(id)}`, {}, WAIT_MS.pay)
       const data = (await res.json().catch(() => ({}))) as { paid?: boolean; paymentIntentId?: string; clientSecret?: string }
       if (data.paid && data.paymentIntentId && data.clientSecret) {
         sessionRef.current = null
@@ -88,6 +89,22 @@ export function NativeWalletButtons({
       void handle?.remove()
     }
   }, [finishIfPaid])
+
+  /* AND WHEN THAT NEVER COMES. The listener's registration can fail quietly, and then nothing ever ended "opening": the
+     wallet buttons stayed disabled. Coming back to the page is the same signal, so it asks the same question
+     (finishIfPaid is one at a time, so both arriving asks once). */
+  React.useEffect(() => {
+    if (!opening || native) return
+    const back = () => {
+      if (document.visibilityState === "visible") void finishIfPaid()
+    }
+    document.addEventListener("visibilitychange", back)
+    window.addEventListener("focus", back)
+    return () => {
+      document.removeEventListener("visibilitychange", back)
+      window.removeEventListener("focus", back)
+    }
+  }, [opening, native, finishIfPaid])
 
   const open = async (which: "apple" | "google") => {
     if (busy || disabled || opening) return

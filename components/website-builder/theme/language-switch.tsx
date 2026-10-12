@@ -13,9 +13,9 @@
  * (proxy.ts marketLanguageStart) greets a visitor only before they do.
  *
  * On a page in another language than the website's own, every link to
- * another page of the website keeps the language: /about becomes /fr/about.
- * Links to the cart, checkout, account and files are left as they are (those
- * pages are not translated by address), and so is every link elsewhere.
+ * another page of the website keeps the language: /about becomes /fr/about,
+ * the cart, the wishlist and the account included. Checkout, signing out,
+ * receipts and files are left as they are, and so is every link elsewhere.
  */
 import { useEffect, useId } from "react"
 import { localeFromPath, localizedPath } from "@/lib/markets/locales"
@@ -37,7 +37,7 @@ export interface SiteLanguageChoice {
 }
 
 /** Addresses never given a language prefix: what is the visitor's own or not a page. */
-const KEEP = /^\/(?:checkout|cart|account|api|receipt|review|wishlist|password|_next|media|files)(?:[/?#]|$)/
+const KEEP = /^\/(?:checkout|account\/(?:logout|orders)|api|receipt|review|password|_next|media|files)(?:[/?#]|$)/
 
 /** The address without the language it is in, among the website's languages. */
 function bare(pathname: string, codes: readonly string[]): string {

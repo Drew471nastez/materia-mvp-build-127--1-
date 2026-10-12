@@ -33,7 +33,7 @@ import {
 } from "@/lib/website-builder/storefront-hooks"
 import { useSiteCart, lineKey } from "../site-cart"
 import { drawerCheckout } from "@/lib/website-builder/cart-checkout"
-import { formatPrice } from "@/lib/website-builder/shop-products"
+import { useMoney } from "../theme/storefront-context"
 import { useDrawerHost } from "../site-drawer-host"
 import { buttonRadiusStyle, sectionColors } from "./_shared"
 import { HeaderCartDrawer, HeaderMobileNavDrawer } from "./renderers/HeaderSection"
@@ -84,6 +84,8 @@ export function useStorefrontHooks({
 }): { onTrigger: (e: MouseEvent<HTMLElement>) => boolean; layers: ReactNode } {
   const flags = useMemo(() => hooksIn(html), [html])
   const cart = useSiteCart()
+  /* The cart's amounts as the product cards show them (the visitor's market's currency, or the store's). */
+  const money = useMoney()
   /* A section with a cart panel of its own draws that, never the built-in drawer as well. */
   const hostsCart = useDrawerHost(cart.setOpen, section.id, flags.cart && !flags.cartPanel)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -135,7 +137,7 @@ export function useStorefrontHooks({
     const empty = cart.ready ? cart.lines.length === 0 : true
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartEmpty}]`).forEach((el) => { el.hidden = !empty })
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartFilled}]`).forEach((el) => { el.hidden = empty })
-    scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartSubtotal}]`).forEach((el) => { el.textContent = formatPrice(cart.subtotalCents) || "$0.00" })
+    scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartSubtotal}]`).forEach((el) => { el.textContent = money(cart.subtotalCents) })
     scriptRoot.querySelectorAll<HTMLButtonElement>(`[${H.checkout}]`).forEach((el) => {
       el.toggleAttribute("disabled", empty || checkingOut)
       el.setAttribute("aria-busy", String(checkingOut))
@@ -157,7 +159,7 @@ export function useStorefrontHooks({
         const text = (sel: string, value: string) => all(sel).forEach((el) => { el.textContent = value })
         text("[data-line-title]", line.title)
         text("[data-line-variant]", line.variantName ?? "")
-        text("[data-line-price]", formatPrice(line.priceCents * line.quantity) || "Free")
+        text("[data-line-price]", (line.priceCents * line.quantity > 0 ? money(line.priceCents * line.quantity) : "Free"))
         text("[data-line-qty]", String(line.quantity))
         all<HTMLImageElement>("img[data-line-image]").forEach((img) => {
           const src = safeHref(line.thumbnailUrl)
@@ -170,7 +172,7 @@ export function useStorefrontHooks({
         list.appendChild(root)
       }
     })
-  }, [scriptRoot, html, flags.cartPanel, panelOpen, cart.lines, cart.ready, cart.subtotalCents, checkingOut])
+  }, [scriptRoot, html, flags.cartPanel, panelOpen, cart.lines, cart.ready, cart.subtotalCents, checkingOut, money])
 
   /* Escape closes the section's own panel, as it closes the built-in drawer. */
   useEffect(() => {

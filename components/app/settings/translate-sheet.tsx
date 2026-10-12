@@ -23,7 +23,8 @@
 import * as React from "react"
 import { Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, Pill, api } from "@/components/physical/ui"
+import { BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, Pill, api } from "@/components/physical/ui"
+import { Switch } from "@/components/ui/switch"
 import { languageName } from "@/lib/markets/locales"
 import { tt } from "@/lib/i18n/text"
 
@@ -63,7 +64,11 @@ type Filter = "todo" | "all"
 /** The words of a rich text original, for reading above the field. */
 const plain = (html: string) => html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6])>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\n{3,}/g, "\n\n").trim()
 
-export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: string | null; defaultLanguage: string; onClose: () => void }) {
+/**
+ * `published` and `onPublish`: the language's own switch in the footer, so
+ * translating and putting it live happen in one place (round AE).
+ */
+export function TranslateSheet({ locale, defaultLanguage, published = false, onPublish, onClose }: { locale: string | null; defaultLanguage: string; published?: boolean; onPublish?: (v: boolean) => void; onClose: () => void }) {
   const [data, setData] = React.useState<Loaded | null>(null)
   const [edits, setEdits] = React.useState<Record<string, string>>({})
   const [approve, setApprove] = React.useState<Set<string>>(new Set())
@@ -120,18 +125,25 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
     window.setTimeout(() => setNote(null), 1800)
   }
 
+  /* EVERYTHING AT ONCE: the AI drafts in batches, so it is asked again until nothing is left (or it stops making progress). */
   const draftWithAi = async () => {
     if (!locale) return
     setBusy("ai")
     setError(null)
-    const r = await api<{ drafted: number; left: number }>(`/api/store/translations/draft`, { method: "POST", body: { locale } })
-    if (!r.ok) {
-      setBusy(null)
-      return setError(r.error)
+    let total = 0
+    for (let round = 0; round < 12; round++) {
+      const r = await api<{ drafted: number; left: number }>(`/api/store/translations/draft`, { method: "POST", body: { locale } })
+      if (!r.ok) {
+        setError(r.error)
+        break
+      }
+      total += r.data.drafted
+      setNote(r.data.left ? tt("{total} drafted, {left} to go", { total, left: r.data.left }) : null)
+      if (!r.data.left || r.data.drafted === 0) break
     }
     await load(locale)
     setBusy(null)
-    setNote(r.data.drafted ? tt("{drafted} drafted. Read them, then approve.{value}", { drafted: r.data.drafted, value: r.data.left ? tt(" {left} still to go: press again.", { left: r.data.left }) : "" }) : tt("Nothing left to draft."))
+    setNote(total ? tt("{total} drafted. Read them, then approve.", { total }) : tt("Nothing left to draft."))
   }
 
   const name = locale ? languageName(locale, "en") : ""
@@ -147,10 +159,17 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
       title={tt("Translate to {name}", { name })}
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {note ? <span className="mr-auto text-[13px] text-[#4b5563]">{note}</span> : null}
+          {onPublish ? (
+            <label className="mr-auto flex items-center gap-2 text-[13px] font-medium text-[#1a1a2e]" data-translate-publish="">
+              <Switch checked={published} onCheckedChange={onPublish} aria-label={tt("Publish {name}", { name })} className="!min-h-0 shrink-0" />
+              {published ? tt("Live on your website") : tt("Publish")}
+            </label>
+          ) : note ? (
+            <span className="mr-auto text-[13px] text-[#4b5563]">{note}</span>
+          ) : null}
           {drafts.length ? (
             <button type="button" className={BTN_SECONDARY} disabled={!!busy} onClick={() => void save(drafts.map((d) => d.key))}>
-              {tt("Approve all drafts ({length})", { length: drafts.length })}
+              {tt("Approve all ({length})", { length: drafts.length })}
             </button>
           ) : null}
           <button type="button" className={BTN_PRIMARY} disabled={!!busy || pending === 0} onClick={() => void save()} data-save-translations="">
@@ -163,28 +182,43 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
         {data && !data.ready ? <Notice tone="amber">{tt("Translations aren't set up yet. Run SQL part 136 in Supabase, then try again.")}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         {data ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-[13px] text-[#4b5563]" data-translate-progress="">
-              {data.progress ? tt("{done} of {total} translated", { done: data.progress.done, total: data.progress.total }) : ""}{tt(". Anything not translated shows in {name}.", { name: languageName(defaultLanguage, "en") })}
-            </p>
-            <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
-              {(["todo", "all"] as Filter[]).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === f}
-                  onClick={() => setFilter(f)}
-                  className={cn("h-8 rounded-md px-3 text-[13px] font-medium transition-colors", filter === f ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
-                >
-                  {f === "todo" ? tt("To do") : tt("All")}
+          <div className="space-y-3">
+            {data.progress && data.progress.total > 0 ? (
+              <div data-translate-progress="">
+                <div className="flex items-baseline justify-between text-[13px]">
+                  <span className="font-medium text-[#1a1a2e]">
+                    {tt("{done} of {total} translated", { done: data.progress.done, total: data.progress.total })}
+                  </span>
+                  <span className="text-[#6b7280]">{tt("The rest shows in {name}", { name: languageName(defaultLanguage, "en") })}</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
+                  <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${Math.round((data.progress.done / data.progress.total) * 100)}%` }} />
+                </div>
+              </div>
+            ) : null}
+            {note && onPublish ? <p className="text-[13px] text-[#4b5563]" aria-live="polite">{note}</p> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              {items.some((i) => i.status === "missing" || i.status === "outdated") ? (
+                <button type="button" className={cn(BTN_PRIMARY, "h-10")} onClick={() => void draftWithAi()} disabled={!!busy} data-translate-ai="">
+                  <Sparkles className="h-4 w-4" />
+                  {busy === "ai" ? tt("Translating") : tt("Translate everything with AI")}
                 </button>
-              ))}
+              ) : null}
+              <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
+                {(["todo", "all"] as Filter[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === f}
+                    onClick={() => setFilter(f)}
+                    className={cn("h-8 rounded-md px-3 text-[13px] font-medium transition-colors", filter === f ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                  >
+                    {f === "todo" ? tt("To do") : tt("All")}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button type="button" className={BTN_GHOST} onClick={() => void draftWithAi()} disabled={!!busy} data-translate-ai="">
-              <Sparkles className="h-4 w-4" />
-              {busy === "ai" ? tt("Translating") : tt("Translate with AI")}
-            </button>
           </div>
         ) : !error ? (
           <div className="h-40" aria-busy="true" />
@@ -237,7 +271,7 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
                         rows={Math.min(8, Math.max(2, Math.ceil(i.source.length / 70)))}
                         placeholder={tt("In {name}", { name })}
                         aria-label={tt("{label} in {name}", { label: i.label, name })}
-                        className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[14px] leading-5 text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
+                        className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[16px] leading-6 sm:text-[14px] sm:leading-5 text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
                       />
                     ) : (
                       <input
@@ -245,7 +279,7 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
                         onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
                         placeholder={tt("In {name}", { name })}
                         aria-label={tt("{label} in {name}", { label: i.label, name })}
-                        className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
+                        className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] sm:text-[14px] outline-none transition-colors focus:border-[#1a1a2e]"
                       />
                     )}
                     {i.rich ? <p className="text-[12px] text-[#9ca3af]">{tt("Edited here, it's saved as plain text: a blank line starts a new paragraph.")}</p> : null}

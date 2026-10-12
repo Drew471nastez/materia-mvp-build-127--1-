@@ -813,6 +813,45 @@ export interface WriteContext {
  * @everyone needs mention_everyone. Mentions are told now, everyone later
  * (a job).
  */
+/** How far back a post with the same words counts as this one sent again. */
+const SAME_POST_WINDOW_MS = 10 * 60_000
+
+async function samePostJustNow(
+  db: WriteContext["db"],
+  k: { communityId: string; spaceId: string; authorId: string; title: string | null; bodyText: string },
+): Promise<PostRow | null> {
+  try {
+    const since = new Date(Date.now() - SAME_POST_WINDOW_MS).toISOString()
+    const { data } = await db
+      .from("community_feed_posts")
+      .select(POST_COLUMNS)
+      .eq("community_id", k.communityId)
+      .eq("author_id", k.authorId)
+      .eq("space_id", k.spaceId)
+      .eq("status", "published")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(5)
+    const rows = (Array.isArray(data) ? data : []) as PostRow[]
+    return (
+      rows.find(
+        (r) =>
+          r.community_id === k.communityId &&
+          r.author_id === k.authorId &&
+          r.space_id === k.spaceId &&
+          r.status === "published" &&
+          !r.deleted_at &&
+          (r.title || null) === k.title &&
+          (r.body_text ?? "") === k.bodyText &&
+          Date.parse(String(r.created_at)) >= Date.now() - SAME_POST_WINDOW_MS,
+      ) ?? null
+    )
+  } catch {
+    /* Not knowing is not a reason to refuse a post. */
+    return null
+  }
+}
+
 export async function createPost(w: WriteContext, input: PostInput): Promise<Checked<FeedPostView>> {
   const { db, community, viewer } = w
   if (!viewer.userId) return { ok: false, error: "Sign in to post.", status: 401 }
@@ -833,6 +872,17 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
 
   const kind = kindFor(space, !!input.poll)
   const now = nowIso()
+
+  /* THE SAME POST AGAIN IS THE FIRST ONE. A member whose Post timed out on a bad connection (components/community/member/
+     api.ts gives up after a while; the server may well have written it) presses Post again, and a double tap does the same.
+     Identical words from the same member in the same space a moment ago is that, not a new post: answer with the one
+     already written. Checked again here on the row itself, whatever the query returned. */
+  const again = await samePostJustNow(db, { communityId: community.id, spaceId: space.id, authorId: viewer.userId, title: input.title || null, bodyText: input.body })
+  if (again) {
+    const [view] = await hydratePosts(db, [again], { community, viewer, spaces })
+    if (view) return { ok: true, value: view }
+  }
+
   const { data: row, error } = await db
     .from("community_feed_posts")
     .insert({

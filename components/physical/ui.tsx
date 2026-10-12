@@ -13,6 +13,7 @@
 import * as React from "react"
 import { Check, ChevronDown, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { FAIL_COPY, requestJson } from "@/lib/net/request"
 import { Switch } from "@/components/ui/switch"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TONE_CLASS, type Tone } from "@/lib/physical/status"
@@ -379,20 +380,17 @@ export async function api<T = Record<string, unknown>>(path: string, init?: { me
 }
 
 async function request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
-  try {
-    const res = await fetch(path, {
-      method: init?.method ?? (init?.body ? "POST" : "GET"),
-      headers: init?.body ? { "Content-Type": "application/json" } : undefined,
-      body: init?.body ? JSON.stringify(init.body) : undefined,
-      credentials: "same-origin",
-      cache: "no-store",
-    })
-    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-    if (!res.ok) return { ok: false, error: typeof data.error === "string" ? data.error : tt("Something went wrong. Try again."), data }
-    return { ok: true, data: data as T }
-  } catch {
-    return { ok: false, error: tt("The connection dropped. Try again.") }
-  }
+  /* Bounded end to end (lib/net/request.ts): a request that never answers used to leave a panel's Save spinning for ever. */
+  const r = await requestJson<Record<string, unknown>>(path, {
+    method: init?.method ?? (init?.body ? "POST" : "GET"),
+    json: init?.body ? init.body : undefined,
+    credentials: "same-origin",
+    cache: "no-store",
+  })
+  if (r.ok) return { ok: true, data: r.data as T }
+  if (r.kind === "refused" || r.kind === "server" || r.kind === "auth")
+    return { ok: false, error: typeof r.data.error === "string" ? r.data.error : r.kind === "refused" ? tt("Something went wrong. Try again.") : tt(FAIL_COPY[r.kind]), data: r.data }
+  return { ok: false, error: tt(FAIL_COPY[r.kind ?? "network"]) }
 }
 
 /** A random key per action, so a double press is one change. */

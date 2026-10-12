@@ -45,6 +45,7 @@ import { getStripePromise, isCapacitorShell } from "../parts/stripe-loader"
 import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { CHECKOUT_CURRENCY, money as sharedMoney } from "../parts/ui"
+import { useBackFromCache } from "@/hooks/use-back-from-cache"
 
 interface QuoteLine {
   productId: string
@@ -66,7 +67,7 @@ interface Quote {
   requiresShipping: boolean
   coupon: { code: string; label: string | null; freeShipping: boolean } | null
   couponError: string | null
-  delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean }
+  delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean; needsRegion?: boolean }
   pickups?: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
   totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string }
   /* The store's upsells and bundles (lib/offers): what this cart got, and what it could add. */
@@ -154,6 +155,8 @@ export function PhysicalCheckout({
   const [note, setNote] = React.useState("")
   const [summaryOpen, setSummaryOpen] = React.useState(false)
   const [paying, setPaying] = React.useState(false)
+  /* Back from the payment page, restored from the browser's cache: not still paying. */
+  useBackFromCache(() => setPaying(false))
   const [payError, setPayError] = React.useState<{ message: string; field: string | null } | null>(null)
   const clientKey = React.useRef(actionKey())
   /* The payment step: Stripe's form for the checkout Pay made, inside this page. */
@@ -477,7 +480,7 @@ export function PhysicalCheckout({
           {quote.requiresShipping ? (
             <div className="flex justify-between">
               <dt className="text-[#4b5563]">{mode === "pickup" ? "Pickup" : "Shipping"}</dt>
-              <dd className="tabular-nums text-[#1a1a2e]">{mode === "pickup" ? "Free" : !optionId ? (address.country ? "Not available" : "Enter your address") : t.shippingCents - t.shippingDiscountCents === 0 ? "Free" : money(t.shippingCents - t.shippingDiscountCents)}</dd>
+              <dd className="tabular-nums text-[#1a1a2e]">{mode === "pickup" ? "Free" : !optionId ? (quote.delivery.needsRegion ? `Choose your ${(addressFormat(address.country).region?.label ?? "state").toLowerCase()}` : address.country ? "Not available" : "Enter your address") : t.shippingCents - t.shippingDiscountCents === 0 ? "Free" : money(t.shippingCents - t.shippingDiscountCents)}</dd>
             </div>
           ) : null}
           {t.taxCents > 0 ? (
@@ -489,7 +492,8 @@ export function PhysicalCheckout({
           <div className="flex items-baseline justify-between border-t border-[#e5e7eb] pt-3">
             <dt className="text-[16px] font-semibold text-[#1a1a2e]">Total</dt>
             <dd className="text-[20px] font-bold tabular-nums text-[#1a1a2e]">
-              <span className="mr-1.5 text-[12px] font-medium text-[#6b7280]">{CHECKOUT_CURRENCY.toUpperCase()}</span>
+              {/* The code before the amount, as Shopify writes it ("USD $51.84"); a currency written by its code already ("RON 51.84") is not named twice. */}
+              {money(t.totalCents).includes(CHECKOUT_CURRENCY.toUpperCase()) ? null : <span className="mr-1.5 text-[12px] font-medium text-[#6b7280]">{CHECKOUT_CURRENCY.toUpperCase()}</span>}
               {money(t.totalCents)}
             </dd>
           </div>
@@ -760,6 +764,9 @@ export function PhysicalCheckout({
                 <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Shipping method</h2>
                 {quote.delivery.needsCountry ? (
                   <p className="rounded-xl bg-[#f3f4f6] px-3.5 py-3 text-[14px] text-[#6b7280]">Choose your country to see delivery options.</p>
+                ) : quote.delivery.needsRegion ? (
+                  /* The shop ships to some states of this country only: which one decides, so it is asked for, not refused. */
+                  <p className="rounded-xl bg-[#f3f4f6] px-3.5 py-3 text-[14px] text-[#6b7280]" data-needs-region="">Choose your {(addressFormat(address.country).region?.label ?? "state").toLowerCase()} to see delivery options.</p>
                 ) : !quote.delivery.ok || quote.delivery.options.length === 0 ? (
                   <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]" data-no-shipping="">
                     <p className="font-medium">Shipping isn't available to {address.country ? countryName(address.country) : "this address"}.</p>
@@ -775,7 +782,14 @@ export function PhysicalCheckout({
                           <span className="block text-[14px] font-medium text-[#1a1a2e]">{o.name}</span>
                           {o.estimate ? <span className="block text-[13px] text-[#6b7280]">{o.estimate}</span> : null}
                         </span>
-                        <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{o.priceCents === 0 ? "Free" : money(o.priceCents)}</span>
+                        {/* A free shipping code: every method is free, and what it would have cost is shown struck through. */}
+                        {quote.coupon?.freeShipping && o.priceCents > 0 ? (
+                          <span className="text-right text-[14px] font-medium tabular-nums text-[#1a1a2e]">
+                            <s className="mr-1.5 font-normal text-[#6b7280]">{money(o.priceCents)}</s>Free
+                          </span>
+                        ) : (
+                          <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{o.priceCents === 0 ? "Free" : money(o.priceCents)}</span>
+                        )}
                       </label>
                     ))}
                   </div>

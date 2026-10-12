@@ -6,13 +6,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { Package, Download } from "lucide-react"
 import { CREATOR_WITH_PROFILE, PROFILE_CARD, attachCreatorProfiles } from "@/lib/security/public-columns"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 export default async function DashboardProductsPage() {
   const supabase = await createClient()
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
 
   const { data: entitlements } = await supabase
     .from("entitlements")

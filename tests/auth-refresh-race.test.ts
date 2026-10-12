@@ -100,7 +100,7 @@ async function main() {
     check("the proxy installs it", /\nquietAuthRefusals\(\)\n/.test(proxy))
     check("cookies read from the request and written to it and to the response",
       /getAll\(\) \{\s*return request\.cookies\.getAll\(\)/.test(proxy) && /cookiesToSet\.forEach\(\(\{ name, value \}\) => request\.cookies\.set\(name, value\)\)/.test(proxy))
-    check("the user asked for right after the client is made", /const current[^=]*=[\s\S]{0,160}?await readCurrentUser\(supabase\)/.test(proxy))
+    check("the user asked for right after the client is made", /const current[^=]*=[\s\S]{0,160}?await readVerifiedSession\(supabase, supabaseUrl\)/.test(proxy))
     check("a redirect to sign in carries the cleared cookies", /for \(const cookie of supabaseResponse\.cookies\.getAll\(\)\) redirect\.cookies\.set\(cookie\)/.test(proxy))
   }
 
