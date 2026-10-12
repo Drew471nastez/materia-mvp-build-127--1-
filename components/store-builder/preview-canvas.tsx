@@ -23,6 +23,9 @@ import {
   type ProfileData,
 } from "./unified-section-renderer"
 import { ProductCreatorBar } from "./product-creator-bar"
+import { EditorSubscribeBar } from "./subscribe-bar"
+import { defaultSubscribeBarSettings } from "@/lib/store-builder/defaults"
+import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import { EditorStickyAddToCart } from "./sticky-add-to-cart"
 import {
   defaultProductCreatorBarSettings,
@@ -697,12 +700,40 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
             })()}
 
             {/*
-              NO BAR ABOVE THE COVER, HERE EITHER. The live creator page stopped
-              drawing it (lib/storefront/subscribe-bar-visibility.ts: it was
-              ours, no creator ever asked for it, and the one control they had
-              over it did nothing), so the canvas does not draw one. A builder
-              that shows a bar the page does not have is worse than no builder.
+              THE BAR ABOVE THE COVER, as the live creator page draws it
+              (lib/storefront/subscribe-bar-visibility.ts), in the colours
+              the page resolves for it (storefront-chrome.ts). A press opens
+              its settings: words, style, sticky and colours.
             */}
+            {(() => {
+              const stored = ((draftConfig.headerSettings as ShopHeaderSettings).subscribeBar || defaultSubscribeBarSettings) as typeof defaultSubscribeBarSettings & { colors?: { backgroundColor?: string; textColor?: string }; colorChoices?: string[] }
+              const bar = resolveStorefrontChrome(draftConfig.globalSettings?.themePreset, {
+                bar: {
+                  backgroundColor: stored.colors?.backgroundColor || (stored as unknown as Record<string, string>).backgroundColor,
+                  textColor: stored.colors?.textColor || (stored as unknown as Record<string, string>).textColor,
+                  buttonColor: stored.buttonColor,
+                  buttonTextColor: stored.buttonTextColor,
+                  chosen: stored.colorChoices,
+                },
+              }).bar
+              return (
+                <EditorSubscribeBar
+                  settings={{
+                    ...defaultSubscribeBarSettings,
+                    ...stored,
+                    visible: true,
+                    ...bar,
+                    avatarUrl: profile?.avatar_url ?? undefined,
+                    creatorName: profile?.display_name || undefined,
+                  }}
+                  creatorId={creatorId}
+                  isEditorPreview={isEditorMode}
+                  isMobile={isMobile}
+                  isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
+                  onSelect={() => handleSelectSection("subscribe-bar")}
+                />
+              )
+            })()}
 
             <UnifiedShopHeader
               settings={draftConfig.headerSettings as ShopHeaderSettings}

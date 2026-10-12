@@ -22,8 +22,11 @@ import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { loadCommunityBlocks } from "@/lib/communities/server/blocks"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
-import { defaultAboutSettings, defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
+import { defaultAboutSettings, defaultShopHeaderSettings, defaultSubscribeBarSettings, themePresets } from "@/lib/store-builder/defaults"
 import { showsSubscribeBar } from "@/lib/storefront/subscribe-bar-visibility"
+import { SubscribeBar, type SubscribeBarSettings } from "@/components/store-builder/subscribe-bar"
+import { LiveSubscribeBar } from "@/components/store-builder/live-subscribe-bar"
+import type { CtaValues } from "@/components/storefront/edit-cta-button"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
@@ -644,6 +647,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   /* Opened from a person's profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */
   const backTarget = communityBackTarget(back)
   const backShown = !!backTarget || from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
+  /*
+    ARRIVED FROM A COMMUNITY: a post, a comment, a member list. Such a visit
+    gets the slim way back, never the newsletter bar, which is the half of the
+    earlier "take the bar away" request that stands (lib/storefront/
+    subscribe-bar-visibility.ts).
+  */
+  const fromCommunity = !!backTarget || from === "community" || (refererPath(requestHeaders.get("referer"), requestHeaders.get("host")) ?? "").startsWith("/community")
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
   const offPage = catalogue && catalogue.length ? await offPagePromise : new Set<string>()
@@ -1026,6 +1036,59 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const themePreset = globalSettings?.themePreset || "default"
     const themeConfig = themePresets[themePreset as keyof typeof themePresets]
 
+    /*
+      ===================================================================
+       THE BAR ABOVE THE COVER, AS THE CREATOR SET IT IN THE BUILDER
+      ===================================================================
+      Its words, style and switches are the ones saved under
+      headerSettings.subscribeBar; its four colours are the scheme's, already
+      resolved with whatever the creator picked (chrome.bar). Sticky follows
+      the builder's switch once a creator has moved it, and is on until then
+      (supabase/migrations/20260906_subscribe_bar_sticky_default.sql).
+    */
+    const stickyDefaults = (saved?: Partial<SubscribeBarSettings> & { stickyBarChoiceMade?: boolean }) => ({
+      enableStickyBar: saved?.stickyBarChoiceMade ? (saved.enableStickyBar ?? true) : true,
+      enableStickyOnScrollUp: saved?.stickyBarChoiceMade ? (saved.enableStickyOnScrollUp ?? true) : true,
+    })
+
+    const barIdentity = {
+      backgroundColor: chrome.bar.backgroundColor,
+      textColor: chrome.bar.textColor,
+      buttonColor: chrome.bar.buttonColor,
+      buttonTextColor: chrome.bar.buttonTextColor,
+      avatarUrl: profile.avatar_url ?? undefined,
+      creatorName: profile.display_name || username,
+      /* Live page only: subscribing here also follows (subscribe-text.ts). */
+      creatorUserId: profile.id,
+    }
+    const savedSettings = storedBar as Partial<SubscribeBarSettings> & { stickyBarChoiceMade?: boolean }
+    const subscribeBarSettings: SubscribeBarSettings = headerSettings?.subscribeBar
+      ? {
+          ...defaultSubscribeBarSettings,
+          ...savedSettings,
+          visible: true,
+          ...stickyDefaults(savedSettings),
+          buttonTextPreset: savedSettings.buttonTextPreset,
+          ...barIdentity,
+        }
+      : {
+          ...defaultSubscribeBarSettings,
+          visible: true,
+          ...stickyDefaults(),
+          ...barIdentity,
+        }
+    /* What the owner's pencil opens on: the words the bar actually shows, and the label only when it is their own. */
+    const ctaValues: CtaValues = {
+      text: subscribeBarSettings.customCtaText || subscribeBarSettings.text || "",
+      buttonText: storedBar.buttonTextPreset === "custom" ? storedBar.buttonText || "" : "",
+      style: subscribeBarSettings.style || "style1",
+      buttonStyle: subscribeBarSettings.buttonStyle || "style1",
+      backgroundColor: chrome.bar.backgroundColor,
+      textColor: chrome.bar.textColor,
+      buttonColor: chrome.bar.buttonColor,
+      buttonTextColor: chrome.bar.buttonTextColor,
+    }
+
     // Apply theme colors to all sections from the shop page config
     // This ensures sections always reflect the current theme preset
     const applySectionThemeColors = (sections: Section[]): Section[] => {
@@ -1226,8 +1289,29 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         */}
         {/* Arriving from a community: a native push, and the cover only once it is whole (round 15, components/profile/profile-arrival). */}
         <ProfileArrival />
-        {/* No bar above the cover (lib/storefront/subscribe-bar-visibility.ts), so the way back is this slim one, in the scheme's colours. */}
-        {!embedded && !showsSubscribeBar() ? (
+        {/*
+          The creator's bar above the cover, with the way back at its start
+          (lib/storefront/subscribe-bar-visibility.ts). The owner's has the
+          pencil that edits it in place, and is drawn in the workspace's
+          canvas too, where the builder's drafts reach it. Arriving from a
+          community, the slim bar in the scheme's colours instead.
+        */}
+        {showsSubscribeBar({ chosenByCreator: true, fromCommunity }) ? (
+          viewerIsOwner ? (
+            <LiveSubscribeBar
+              settings={subscribeBarSettings}
+              creatorId={creator.id}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+              editor={{ values: ctaValues }}
+            />
+          ) : (
+            <SubscribeBar
+              settings={subscribeBarSettings}
+              creatorId={creator.id}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+            />
+          )
+        ) : !embedded ? (
           <ProfileTopBar
             initiallyShown={backShown}
             name={profile.display_name || username}
@@ -1555,7 +1639,20 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         public page.
       */}
       <ProfileArrival />
-      {!embedded && !showsSubscribeBar() ? (
+      {/* The same bar on a page that has never been customised, with the platform's colours. */}
+      {showsSubscribeBar({ chosenByCreator: true, fromCommunity }) ? (
+        <SubscribeBar
+          settings={{
+            ...defaultSubscribeBarSettings,
+            visible: true,
+            avatarUrl: profile.avatar_url ?? undefined,
+            creatorName: profile.display_name || username,
+            creatorUserId: profile.id,
+          }}
+          creatorId={creator.id}
+          leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+        />
+      ) : !embedded ? (
         <ProfileTopBar initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" fallback={backTarget ?? undefined} />
       ) : null}
       <ShopHeaderRenderer

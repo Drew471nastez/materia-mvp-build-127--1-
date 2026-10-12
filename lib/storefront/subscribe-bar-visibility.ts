@@ -14,24 +14,16 @@
  * saying the bar "is not optional". So no creator ever chose it and no creator
  * could ever turn it off.
  *
- * SO IT IS NOT DRAWN. The way back and the creator's name, which the bar
- * carried for a visitor arriving from a community or from Explore, are the
- * slim top bar's job instead (components/profile/profile-top-bar.tsx), which
- * the page already draws whenever the bar is absent.
- *
- * The rule is written out in full rather than as a constant `false`, because
- * the half that is switched off is the half somebody will want back: if a
- * creator is ever given the switch, their own storefront may show the bar, and
- * the path from a community to a person's page still may not.
+ * IT IS BACK, ASKED FOR BY NAME: the bar on the creator page, edited in the
+ * store builder and with the owner's pencil on the live page. The creator page
+ * passes `chosenByCreator` and the bar is drawn as they set it. The half of
+ * the earlier request that stands is the community one: a visit that arrives
+ * from a community gets the slim top bar (components/profile/profile-top-bar.tsx)
+ * with the way back, never the newsletter bar.
  */
 
 export interface SubscribeBarChoice {
-  /**
-   * Set only when a creator has asked for the bar on their own storefront.
-   * Nothing sets it today: there is no switch for it anywhere in the builder,
-   * and the stored `visible` flag is a value the builder wrote out on every
-   * save rather than an answer anybody gave.
-   */
+  /** The creator page draws the bar as its creator set it in the builder. */
   chosenByCreator?: boolean
   /** The page was opened from a community: a post, a comment, a member list. */
   fromCommunity?: boolean

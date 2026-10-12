@@ -317,7 +317,8 @@ async function main() {
     const creator = code("app/(marketing)/u/[username]/page.tsx")
     const person = code("app/(marketing)/member/[username]/page.tsx")
     check("both full pages read ?back= through communityBackTarget and hand it to the bar", /communityBackTarget\(back\)/.test(creator) && /fallback=\{backTarget \?\? undefined\}/.test(creator) && /communityBackTarget\(back\)/.test(person) && /backTarget,/.test(person) && /fallback=\{extras\.backTarget \?\? undefined\}/.test(read("components/profile/member-profile-page.tsx")))
-    check("the subscribe bar stays off the page, so nothing sits above the bar under the clock", /showsSubscribeBar\(\)/.test(creator) && !/<LiveSubscribeBar|<SubscribeBar/.test(creator))
+    /* Changed on purpose: the creator's bar is back by request; a visit from a community still gets the slim bar, and the bar pads itself under the clock (subscribe-bar.tsx stickyTop). */
+    check("arriving from a community, the slim bar and never the subscribe bar", (creator.match(/showsSubscribeBar\(\{ chosenByCreator: true, fromCommunity \}\)/g) ?? []).length === 2 && /const fromCommunity = !!backTarget \|\| from === "community"/.test(creator) && /safe-area-inset-top/.test(read("components/store-builder/subscribe-bar.tsx")))
     check("arriving from a community is a push; from elsewhere it is not", arrivesFromCommunity("/community/clay", "") && arrivesFromCommunity(null, "?from=community&back=x") && !arrivesFromCommunity("/explore", "") && !arrivesFromCommunity(null, ""))
     const arrival = code("components/profile/profile-arrival.tsx")
     check("  the push is translate and opacity only, and the cover is shown once decode() says it is whole", /translate: `\$\{ARRIVAL_SHIFT_PX\}px 0`/.test(arrival) && !new RegExp(["trans", "form"].join("")).test(arrival) && /img\.decode\(\)\.then\(show, show\)/.test(arrival) && /img\.complete && img\.naturalWidth > 0\) return/.test(arrival))

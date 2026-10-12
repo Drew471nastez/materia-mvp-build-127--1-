@@ -1545,13 +1545,31 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="p-3 space-y-1">
-          {/*
-            NO SUBSCRIBE BAR ROW. The bar above the cover is gone from the live
-            page and from the canvas (lib/storefront/subscribe-bar-visibility.ts):
-            it was ours rather than any creator's, and the eye beside this row
-            was a switch the storefront ignored. A control that changes nothing
-            is worse than no control.
-          */}
+          {/* The bar above the cover, first as it is on the page (lib/storefront/subscribe-bar-visibility.ts): its words, style, sticky and colours. */}
+          {currentPageType === "shop" && (
+            <div
+              data-section-row="subscribe-bar"
+              className={cn(
+                "flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 cursor-pointer transition-all",
+                selectedSectionId === "subscribe-bar"
+                  ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                  : "border-transparent hover:bg-muted/50",
+              )}
+              onClick={() => setSelectedSectionId("subscribe-bar")}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                  selectedSectionId === "subscribe-bar"
+                    ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                <Mail className="h-5 w-5" />
+              </span>
+              <span className="flex-1 text-sm font-medium">Subscribe Bar</span>
+            </div>
+          )}
           {/* Header - shop page */}
           {currentPageType === "shop" && (
             <div
