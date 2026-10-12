@@ -16,9 +16,6 @@
  * same way now, so a picture the theme brought is shown, and one it did not
  * bring is said to be missing at once, without a request that cannot work.
  *
- * Two more addresses a browser refuses in the editor and loads once
- * written properly: `//cdn.example.com/x.png` (no scheme) and `http://`
- * (blocked as mixed content on an https page). Both are shown over https.
  * Nothing stored is changed: this is only what is drawn. Pure.
  */
 
@@ -35,26 +32,21 @@ export function shopImageName(value: string): string | null {
   }
 }
 
-/** Whether an <img> in the editor can be given this address at all. */
+/** Whether an <img> can be given this address at all: a web address (with or without its scheme), a path on this site, or a picture in hand. */
 export function isLoadableAddress(value: string): boolean {
-  return /^(https:\/\/|\/(?![/\\])|data:image\/|blob:)/i.test(value.trim())
+  return /^(https?:\/\/|\/|data:image\/|blob:)/i.test(value.trim())
 }
 
 /**
  * The address to draw a picture setting's value from: the theme's own copy of
- * an old store's picture (`media`, the asset map), https for a scheme-less or
- * http address, anything else as it is. A store picture the theme did not
- * bring stays as it is, which the picture field reads as missing.
+ * an old store's picture (`media`, the asset map), anything else as it is. A
+ * store picture the theme did not bring stays as it is, which the picture
+ * field reads as missing at once.
  */
 export function pictureAddress(value: string, media?: Record<string, string> | null): string {
   const v = value.trim()
-  if (!v) return v
   const name = shopImageName(v)
-  if (name !== null) {
-    const hit = media?.[name]
-    return typeof hit === "string" && isLoadableAddress(hit) ? hit : v
-  }
-  if (/^\/\/[^/\s]/.test(v)) return `https:${v}`
-  if (/^http:\/\//i.test(v)) return `https://${v.slice(7)}`
-  return v
+  if (name === null) return v
+  const hit = media?.[name]
+  return typeof hit === "string" && isLoadableAddress(hit) ? hit : v
 }
