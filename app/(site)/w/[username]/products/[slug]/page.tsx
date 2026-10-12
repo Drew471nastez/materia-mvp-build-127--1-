@@ -14,15 +14,28 @@ import { localizedPath } from "@/lib/markets/locales"
 import { siteStoreName } from "@/lib/website-builder/tab-title"
 
 /**
- * RENDERED PER REQUEST, unlike the pages of the site around it.
+ * HELD FOR A MINUTE, like the pages of the site around it.
  *
- * Everything here is the catalogue: a price, whether the last one sold, a Buy
- * button that starts a purchase. The catalogue is already cached for a minute
- * on its own (see `creatorShopTag` in lib/website-builder/published-site.ts),
- * and holding the page on top of that would add a second minute to a
- * corrected price on a live shop. The page around it is held; this is not.
+ * This was `force-dynamic`, so every visit to a product, and every hover
+ * that prefetched one (lib/website-builder/prefetch-rules.ts), drew the page
+ * again from about eight database reads, and nothing about it could be kept
+ * at the edge. Nothing here depends on who is asking: the product is read
+ * with the server's client (render-product.tsx), the cart is the browser's.
+ *
+ * Fresh where it matters. A save purges this address
+ * (revalidatePublishedProduct, from app/api/revalidate), a publish, archive
+ * or take down purges the whole site, and a price or stock count changed
+ * anywhere else clears the shop tag the page was drawn from. The rest is a
+ * minute at most, the same as the catalogue under it, and checkout prices
+ * and counts stock again itself (lib/checkout/pricing.ts), so a page a
+ * minute old never sells something that is gone.
  */
-export const dynamic = "force-dynamic"
+export const revalidate = 60
+
+/** Empty on purpose: it is what lets a product page be kept (see ../../page.tsx). */
+export function generateStaticParams() {
+  return []
+}
 
 interface PageProps {
   params: Promise<{ username: string; slug: string }>

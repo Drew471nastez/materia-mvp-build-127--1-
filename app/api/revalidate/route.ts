@@ -33,7 +33,7 @@ import { createClient } from "@/lib/supabase/server"
 import { productTag, creatorTag } from "@/lib/commerce/product-page-cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { queueProductFanout } from "@/lib/notifications/fanout"
-import { creatorShopTag } from "@/lib/website-builder/published-site"
+import { creatorShopTag, revalidatePublishedProduct } from "@/lib/website-builder/published-site"
 import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
 
 export async function POST(request: NextRequest) {
@@ -105,6 +105,8 @@ export async function POST(request: NextRequest) {
       save; this is the route the editor calls after every save.
     */
     revalidateTag(creatorShopTag(owned.creator_id), "max")
+    /* The product's own page on the website, held for a minute, drawn fresh for the next visitor. */
+    await revalidatePublishedProduct(owned.creator_id, slug)
     exploreCatalogueChanged()
 
     revalidatePath(`/p/${slug}`)

@@ -6,7 +6,7 @@ import { deleteProduct, deleteQuestion, isStale, previewProductDelete, rememberD
 import { forwardRef, memo, useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
-import { getProductUrl } from "@/lib/url-helpers"
+import { getCanonicalSiteUrl, getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { PickSheet } from "./pick-sheet"
 import { asksInPlace, useNewProductChooser } from "./new/kind-chooser"
@@ -966,7 +966,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     e.stopPropagation()
     if (isNativeApp()) {
       e.preventDefault()
-      openExternal(url)
+      openExternal(new URL(url, getCanonicalSiteUrl()).href)
     }
   }
   const previewOff = (e: ReactMouseEvent<HTMLButtonElement>) => {
@@ -1433,11 +1433,25 @@ interface RowLabels {
   duplicate: string
 }
 
+/**
+ * Where View opens. A product that ships is seen where it is bought: the
+ * store's published website, through app/api/app/products/[id]/live, the
+ * address the editor's View uses, which falls back to the product's page
+ * when there is no website. Anything else opens on its page. The native
+ * shell needs the whole address, since the browser it hands it to is not
+ * on storelib.com.
+ */
+function viewHref(product: Product, username: string, native: boolean): string {
+  if (product.type !== "physical" || !product.id) return getProductUrl(username, product.slug)
+  const path = `/api/app/products/${encodeURIComponent(product.id)}/live`
+  return native ? `${getCanonicalSiteUrl()}${path}` : path
+}
+
 /** A row's menu, made once per product: View, Share, Archive or Restore, Duplicate, and Delete last. */
 function useRowActions(product: Product, username: string, labels: RowLabels, api: RowApiRef) {
   return useMemo(
     () => [
-      { label: labels.view, href: getProductUrl(username, product.slug), target: "_blank" as const },
+      { label: labels.view, href: viewHref(product, username, isNativeApp()), target: "_blank" as const },
       { label: labels.share, onClick: () => api.current?.share(product) },
       { label: isArchived(product) ? labels.restore : labels.archive, onClick: () => api.current?.archive(product), separatorBefore: true },
       { label: labels.duplicate, onClick: () => api.current?.duplicate(product) },
@@ -1455,7 +1469,7 @@ function useRowActions(product: Product, username: string, labels: RowLabels, ap
  */
 function Preview({ product, username, look, api }: { product: Product; username: string; look: string; api: RowApiRef }) {
   const on = productStatus(product) === "live"
-  const url = getProductUrl(username, product.slug)
+  const url = viewHref(product, username, false)
   const button = on ? (
     <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`View ${product.title}`} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
       View

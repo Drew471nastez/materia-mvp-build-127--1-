@@ -20,7 +20,6 @@ import { withMediaUrls } from "@/lib/storage/media-url"
 import { cache } from "react"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
@@ -100,7 +99,15 @@ type ProductRow = {
   more reaches the browser.
 */
 const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string, creatorId?: string): Promise<ProductRow | null> {
-  const supabase = await createClient()
+  /*
+    THE SERVER'S CLIENT, NOT THE VISITOR'S. Only a published product is read,
+    which every visitor may see, and the shop around it is read the same way.
+    The visitor's client reads their cookies, and a page that reads cookies
+    is drawn again for every visit: the website's product page could not be
+    held at the edge, and every visit and every hover that prefetched it was
+    a fresh set of database reads.
+  */
+  const supabase = createAdminClient()
 
   /*
     ONE ROW, EVEN WHEN TWO SHOPS USE THE SAME SLUG. A slug is unique per

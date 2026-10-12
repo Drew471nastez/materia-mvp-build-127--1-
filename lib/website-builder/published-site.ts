@@ -739,6 +739,20 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
 }
 
 /**
+ * One product's page on the creator's website, after a save. The page is
+ * held for a minute like the rest of the site
+ * (app/(site)/w/[username]/products/[slug]), and the shop tag a save clears
+ * hands the next visitor the old copy while a new one is drawn. Purging the
+ * address itself means the creator who saves and presses View sees what
+ * they saved. A publish or a take down clears every page instead
+ * (revalidatePublishedSite).
+ */
+export async function revalidatePublishedProduct(creatorId: string, slug: string): Promise<void> {
+  if (!creatorId || !slug) return
+  for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}/products/${slug}`)
+}
+
+/**
  * Every name a creator's site is served under, the names `lookUpName`
  * answers to: the profile's username, the creator's slug, and the name the
  * website was given in Website Settings.

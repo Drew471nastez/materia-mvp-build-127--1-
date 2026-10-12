@@ -6608,6 +6608,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       products={switcherProducts}
       onSelect={(key) => { void handlePageChange(key as PageKey) }}
       onSelectProduct={selectProductById}
+      onIntent={(key) => prefetchPageSections(key as PageKey)}
       onCreate={() => setAddPageOpen(true)}
       onDelete={(key) => { void handleDeletePage(key) }}
     />
@@ -8835,6 +8836,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             pages={sitePages}
             current={currentPage}
             onSelect={(key) => { void handlePageChange(key as PageKey) }}
+            onIntent={(key) => prefetchPageSections(key as PageKey)}
             onCreate={() => setAddPageOpen(true)}
             onDelete={(key) => { void handleDeletePage(key) }}
             onReload={() => { void handlePageChange(currentPage) }}
@@ -9844,6 +9846,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 })
                 if (decision.kind === "anchor") handleEditorNavigate(href, inNav)
               }
+            }}
+            /*
+              THE POINTER ON A LINK TO ANOTHER PAGE reads that page's
+              sections ahead, as an imported theme's canvas already does
+              (intentInCompatCanvas): the switch after the press starts from
+              what is in hand instead of a round trip. Only where a click
+              would go, by the same rule the click uses.
+            */
+            onPointerOverCapture={(e) => {
+              if (e.pointerType !== "mouse") return
+              const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+              const href = anchor?.getAttribute("href")
+              if (!anchor || !href) return
+              const decision = resolveEditorHref(href, {
+                currentPage: currentPageRef.current,
+                inspectorEnabled: inspectorRef.current,
+                fromNav: !!anchor.closest("[data-chrome]"),
+                shopPath: SHOP_PATH,
+                customPageKeys: customPagesRef.current.map((p) => p.key),
+              })
+              if (decision.kind === "page") prefetchPageSections(decision.key as PageKey)
             }}
             onSubmitCapture={(e) => e.preventDefault()}
             className={cn(
