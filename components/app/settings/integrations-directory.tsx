@@ -125,10 +125,13 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     })
   }, [])
   /* Storelib's own apps and the Essentials: On, Off or Set up, read off the store (lib/integrations/storelib-apps). */
-  const [appStates, setAppStates] = React.useState<{ states: Record<string, AppState | null>; hrefs: Record<string, string> } | null>(() => peekGet<{ states: Record<string, AppState | null>; hrefs: Record<string, string> }>(APPS_PATH) ?? null)
+  type AppsRead = { states: Record<string, AppState | null>; hrefs: Record<string, string> }
+  /* Only a well formed answer is kept: anything else is the same as not knowing yet. */
+  const appsRead = (d: Partial<AppsRead> | null | undefined): AppsRead | null => (d && d.states && typeof d.states === "object" ? { states: d.states, hrefs: d.hrefs && typeof d.hrefs === "object" ? d.hrefs : {} } : null)
+  const [appStates, setAppStates] = React.useState<AppsRead | null>(() => appsRead(peekGet<AppsRead>(APPS_PATH)))
   React.useEffect(() => {
-    void api<{ states: Record<string, AppState | null>; hrefs: Record<string, string> }>(APPS_PATH).then((r) => {
-      if (r.ok) setAppStates(r.data)
+    void api<AppsRead>(APPS_PATH).then((r) => {
+      if (r.ok) setAppStates(appsRead(r.data))
     })
   }, [])
   const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])

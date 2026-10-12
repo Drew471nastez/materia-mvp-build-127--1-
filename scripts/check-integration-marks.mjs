@@ -42,6 +42,9 @@ const page = await browser.newPage(); await page.setViewport({ width: 1200, heig
 const errs = []; page.on("pageerror", (e) => errs.push(String(e)))
 await page.goto(`http://127.0.0.1:${server.address().port}/app/settings?tab=integrations`)
 await new Promise((r) => setTimeout(r, 1500))
+/* The directory opens on Essentials (round I4): every card is under All. */
+await page.click('[data-integration-pill="all"]')
+await new Promise((r) => setTimeout(r, 500))
 /* Bring every lazy image in. */
 await page.evaluate(async () => { for (const i of document.querySelectorAll("img")) i.loading = "eager"; await new Promise((r) => setTimeout(r, 800)) })
 const out = await page.evaluate(() => {

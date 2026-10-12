@@ -27,7 +27,7 @@ import {
   Package,
   PackagePlus,
   Receipt,
-  Navigation,
+  PackageSearch,
   Send,
   ShoppingCart,
   Star,
@@ -49,7 +49,7 @@ import {
 
     money     green    payments, taxes, discounts, bundles, accounts
     ship      blue     shipping, pickup, tracking, fulfilment
-    reach     violet   emails, reviews, reminders (the app's own accent)
+    reach     rose     emails, reviews, reminders (no purple: CLAUDE.md)
     insight   amber    analytics
     site      ink      domain, languages, code, webhooks, exports
 */
@@ -57,7 +57,7 @@ type Tint = "money" | "ship" | "reach" | "insight" | "site"
 const TINT: Record<Tint, { top: string; bottom: string }> = {
   money: { top: "#1fa971", bottom: "#138a5b" },
   ship: { top: "#3d84f5", bottom: "#2563e0" },
-  reach: { top: "#9a6cf8", bottom: "#7c4ee6" },
+  reach: { top: "#f2607a", bottom: "#dc4262" },
   insight: { top: "#f5a524", bottom: "#e3830c" },
   site: { top: "#3a3a52", bottom: "#1d1d31" },
 }
@@ -65,7 +65,7 @@ const TINT: Record<Tint, { top: string; bottom: string }> = {
 const STORELIB_TILES: Record<string, { icon: LucideIcon; tint: Tint }> = {
   /* Apps with a page in the catalog (lib/integrations/catalog.ts). */
   "storelib-reviews": { icon: Star, tint: "reach" },
-  "courier-tracking": { icon: Navigation, tint: "ship" },
+  "courier-tracking": { icon: PackageSearch, tint: "ship" },
   manual: { icon: Package, tint: "ship" },
   "supplier-email": { icon: Send, tint: "ship" },
   "custom-webhook": { icon: Webhook, tint: "site" },
@@ -100,7 +100,7 @@ const radiusAt = (size: number) => Math.max(4, Math.round(size * 0.27))
  * One Storelib tile at any size. The glyph is half the tile; under 28px the
  * line is drawn a touch heavier so it still reads at 18 and 24.
  */
-export function StorelibTile({ id, size = 44, data = "data-integration-mark" }: { id: string; size?: number; data?: "data-integration-mark" | "data-integration-mini" }) {
+export function StorelibTile({ id, size = 44, mini = false }: { id: string; size?: number; mini?: boolean }) {
   const tile = STORELIB_TILES[id]
   if (!tile) return null
   const { icon: Icon, tint } = tile
@@ -109,7 +109,8 @@ export function StorelibTile({ id, size = 44, data = "data-integration-mark" }: 
   return (
     <span
       aria-hidden
-      {...{ [data]: "storelib" }}
+      data-integration-mark={mini ? undefined : "storelib"}
+      data-integration-mini={mini ? "storelib" : undefined}
       data-storelib-tile={tint}
       style={{
         width: size,
@@ -169,7 +170,7 @@ export function Mark({ item, size = 44 }: { item: { logo: string | null; name: s
 export function MiniMark({ item, size = 18 }: { item: { logo: string | null; name: string; id?: string }; size?: number }) {
   const [failed, setFailed] = React.useState<string | null>(null)
   const box = { width: size, height: size }
-  if (hasBuiltInArt(item.id)) return <StorelibTile id={item.id!} size={size} data="data-integration-mini" />
+  if (hasBuiltInArt(item.id)) return <StorelibTile id={item.id!} size={size} mini />
   if (item.logo && failed !== item.logo) {
     const logo = item.logo
     return (

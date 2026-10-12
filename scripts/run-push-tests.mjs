@@ -45,6 +45,7 @@ const SUITES = [
   "tests/buy-buttons-checkout.test.ts",
   "tests/integrations-settings-sheet.test.ts",
   "tests/settings-sheet-desktop.test.ts",
+  "tests/integrations-i4.test.ts",
   "tests/settings-r1.test.ts",
   "tests/settings20.test.ts",
   "tests/limit21.test.ts",

@@ -264,7 +264,7 @@ function website() {
   const item = INTEGRATIONS.find((i) => i.id === "storelib-reviews")
   check("Storelib Reviews is in the directory, Storelib's own, first", INTEGRATIONS[0]?.id === "storelib-reviews" && item?.kind === "app" && item.category === "reviews")
   const dir = read("components/app/settings/integrations-directory.tsx")
-  check("  its page's Set up card is the app's settings", /<ReviewsAppPanel onChanged=/.test(dir) && /i\.kind === "app" && status === "available" \? <Badge>Storelib<\/Badge>/.test(dir))
+  check("  its page's Set up card is the app's settings", /<ReviewsAppPanel onChanged=/.test(dir) && /* Round I4: its card says On or Off, read off the store (lib/integrations/storelib-apps). */ /hasBuiltInArt\(e\.id\) && appState\(e\.id\) \? <AppBadge state=\{appState\(e\.id\)\} \/>/.test(dir))
 }
 
 /* ── Routes ─────────────────────────────────────────────────────────── */
