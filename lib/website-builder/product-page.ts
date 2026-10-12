@@ -105,13 +105,49 @@ export function legacyProductBlocks(settings: Record<string, unknown>): BlockIns
     ...(on("show_wishlist") ? [b("wishlist")] : []),
     ...(on("show_share_button") ? [b("share")] : []),
     b("description"),
+    /* The product's own questions, under its description: draws nothing on a product without any. */
+    b("product_faq"),
     ...(on("show_whats_included") ? [b("files")] : []),
   ]
 }
 
-/** The section with the blocks it draws: its own, or its old switches' when it has none. */
+/**
+ * ===========================================================================
+ *  THE PRODUCT'S QUESTIONS ON A PRODUCT SECTION SAVED BEFORE THEY HAD A BLOCK
+ * ===========================================================================
+ * The product editor's FAQ card fills `products.faqs`, and a product section
+ * shows them with its Product questions block. A section made from the
+ * preset since that block exists has it (and Product details beside it). A
+ * section saved before has neither, so a creator who wrote questions in the
+ * editor saw them nowhere on their website.
+ *
+ * Such a section gets the block once, under the description (else at the
+ * end), and `product_faq_seeded` on its settings says it was given. The
+ * builder does the same when the page opens, so the creator sees it in the
+ * sidebar and the next save keeps both; a creator who then deletes the block
+ * keeps it deleted, because the mark stays. A section with Product details
+ * or Product questions already was made knowing about them, and is left as
+ * it is. With no questions the block draws nothing on a live page.
+ */
+export const FAQ_SEEDED = "product_faq_seeded"
+
+export function withProductFaq(section: SectionInstance): SectionInstance {
+  if (section.type !== "product") return section
+  const blocks = section.blocks ?? []
+  if (blocks.length === 0) return section
+  if ((section.settings ?? {})[FAQ_SEEDED] === true) return section
+  if (blocks.some((b) => b.type === "product_faq" || b.type === "product_details")) return section
+  const after = blocks.findIndex((b) => b.type === "description")
+  const faq: BlockInstance = { id: "auto-product_faq", type: "product_faq", settings: productBlockDefaults("product_faq") }
+  const next = [...blocks]
+  next.splice(after >= 0 ? after + 1 : next.length, 0, faq)
+  return { ...section, settings: { ...(section.settings ?? {}), [FAQ_SEEDED]: true }, blocks: next }
+}
+
+/** The section with the blocks it draws: its own, or its old switches' when it has none, with the product's questions. */
 export function withProductBlocks(section: SectionInstance): SectionInstance {
-  return isLegacyProductSection(section) ? { ...section, blocks: legacyProductBlocks(section.settings ?? {}) } : section
+  const blocked = isLegacyProductSection(section) ? { ...section, blocks: legacyProductBlocks(section.settings ?? {}) } : section
+  return withProductFaq(blocked)
 }
 
 export function isUntouchedPlaceholder(section: SectionInstance): boolean {

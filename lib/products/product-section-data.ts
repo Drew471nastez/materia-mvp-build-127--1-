@@ -31,6 +31,7 @@ import { productDelivery } from "@/lib/physical/storefront-facts"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { uniqueImages, type ProductOptionData, type ProductSectionData, type ProductVariantData } from "./product-page-model"
 import { shownCustomFields } from "./custom-fields"
+import { productFaqs } from "./product-faqs"
 import { salesStanding } from "./sales-standings"
 import { FEW_LEFT, copiesLeft } from "./sales-limit"
 
@@ -243,12 +244,5 @@ function fewestLeft(a: number | null, b: number | null): number | null {
   return Math.min(a, b)
 }
 
-/** The product's questions as plain text, the answered ones only, at most 30. Never markup: a block prints them as text. */
-export function productFaqs(raw: unknown): { question: string; answer: string }[] {
-  if (!Array.isArray(raw)) return []
-  const plain = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, " ").trim().slice(0, max) : "")
-  return raw
-    .map((f) => ({ question: plain((f as { question?: unknown })?.question, 300), answer: plain((f as { answer?: unknown })?.answer, 3000) }))
-    .filter((f) => f.question && f.answer)
-    .slice(0, 30)
-}
+/* The product's questions as plain text (lib/products/product-faqs.ts), here for the readers that import them from this file. */
+export { productFaqs }

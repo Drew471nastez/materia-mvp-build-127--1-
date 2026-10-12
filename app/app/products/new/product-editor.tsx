@@ -3194,6 +3194,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     </span>
                   </button>
                 ) : null}
+                {/* Where they go (lib/products/product-faqs.ts): the product page, wherever it is drawn. */}
+                <p className="text-[12.5px] leading-5 text-[#9ca3af]" data-faq-where="">
+                  Shows on your product page under the description.
+                  {productId && isPublished && slug ? (
+                    <>
+                      {" "}
+                      <button type="button" onClick={handleRedirectToProduct} className="font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
+                        See it
+                      </button>
+                    </>
+                  ) : null}
+                </p>
               </div>
               <CustomFieldsCard fields={customFields} onChange={setCustomFields} cardClass={CARD} titleClass={CARD_TITLE} />
           </div>

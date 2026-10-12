@@ -88,6 +88,16 @@ function videoMedia(src: string, alt: string, position: number, fallbackPreview:
   }
 }
 
+/** The same picture under two addresses that differ only in a query string or the host's case. */
+function sameImage(a: string, b: string): boolean {
+  const key = (u: string) => {
+    const cut = u.trim().split(/[?#]/)[0]
+    const m = cut.match(/^(https?:\/\/)([^/]+)(.*)$/i)
+    return m ? `${m[1].toLowerCase()}${m[2].toLowerCase()}${m[3]}` : cut
+  }
+  return key(a) === key(b)
+}
+
 /** Every picture (and uploaded video) of a product, as `product.media`. */
 function mediaList(images: string[], alt: string): O[] {
   const firstPhoto = images.find((u) => u && !isVideoUrl(u)) ?? ""
@@ -126,14 +136,28 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   const s = card.settings
   const title = String(s.title ?? "")
   const handle = String(s.slug ?? "") || handleize(title)
-  const images = Array.isArray(s.images) && s.images.length ? (s.images as string[]) : s.image ? [String(s.image)] : []
-  /* `media`: photos and videos in order, when the product has a video (lib/website-builder/shop-products.ts); `images` stays pictures only. */
-  const media = mediaList(Array.isArray(s.media) && s.media.length ? (s.media as string[]) : images, title)
+  const ownImages = Array.isArray(s.images) && s.images.length ? (s.images as string[]) : s.image ? [String(s.image)] : []
+  const rawVariants = Array.isArray(s.variants) ? (s.variants as O[]) : []
+  /*
+    A VARIANT'S PHOTO IS ONE OF THE PRODUCT'S MEDIA, as on Shopify: a theme
+    finds the picture to show for the chosen variant by
+    `variant.featured_media.id` among `product.media` (Dawn's and Horizon's
+    galleries, and the variant JSON their scripts read). A variant photo the
+    product's gallery does not have is added after it, once.
+    `media`: photos and videos in order, when the product has a video
+    (lib/website-builder/shop-products.ts); `images` stays pictures only.
+  */
+  const ordered = Array.isArray(s.media) && s.media.length ? [...(s.media as string[])] : [...ownImages]
+  for (const v of rawVariants) {
+    const src = typeof v.image === "string" ? v.image : ""
+    if (src && !ordered.some((u) => sameImage(u, src))) ordered.push(src)
+  }
+  const media = mediaList(ordered, title)
   const pictures = media.filter((m) => m.media_type === "image")
+  const mediaFor = (src: unknown): O | null => (typeof src === "string" && src ? media.find((m) => sameImage(String(m.src), src)) ?? null : null)
   const price = priceCents(s.price)
   const compare = priceCents(s.compare_price)
   const optionsIn = Array.isArray(s.options) ? (s.options as { name: string; values: string[] }[]) : []
-  const rawVariants = Array.isArray(s.variants) ? (s.variants as O[]) : []
   const optionNames = optionsIn.length ? optionsIn.map((o) => o.name) : rawVariants.length ? ["Option"] : ["Title"]
 
   const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left, max: s.max }]).map((v, i) => {
@@ -163,9 +187,10 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
       requires_shipping: String(s.kind ?? "") === "physical",
       taxable: true,
       url: `${String(s.url ?? `/products/${handle}`)}?variant=${encodeURIComponent(String(v.id ?? card.id))}`,
-      featured_image: pictures[0] ?? null,
-      featured_media: media[0] ?? null,
-      image: pictures[0] ?? null,
+      /* Its own photo, else the product's first, as Shopify answers for a variant without one. */
+      featured_image: mediaFor(v.image) ?? pictures[0] ?? null,
+      featured_media: mediaFor(v.image) ?? media[0] ?? null,
+      image: mediaFor(v.image) ?? pictures[0] ?? null,
       selected: false,
       matched: true,
       /* The most one order may take: what is left, held to Limit sales (lib/website-builder/compat-site.ts compatStock). A theme's quantity picker stops there. */
@@ -259,6 +284,14 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     pay_what_you_want: s.pay_what_you_want === true,
   }
   for (const v of variants) v.product = { id: product.id, title, handle, url: product.url }
+  /* Each picture knows the variants that show it (`attached_to_variant?`, `variant_ids`), as Shopify's does; ids only, so `| json` never walks a loop. */
+  for (const m of media) {
+    const own = rawVariants.length ? variants.filter((_, i) => sameImage(String(m.src), String(rawVariants[i]?.image ?? ""))) : []
+    if (own.length) {
+      m.attached_to_variant = true
+      m.variant_ids = own.map((v) => v.id)
+    }
+  }
   return product
 }
 

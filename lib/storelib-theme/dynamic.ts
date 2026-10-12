@@ -78,6 +78,7 @@ export const DYNAMIC_SOURCES: readonly DynamicSource[] = [
   { id: "product.compare_price", label: "Product price before sale", group: "Product", kind: "text", templates: PRODUCT_ONLY, description: "The price it had before a sale, or nothing." },
   { id: "product.description", label: "Product description", group: "Product", kind: "html", templates: PRODUCT_ONLY, description: "Its description. Formatted in a rich text setting, words only anywhere else." },
   { id: "product.image", label: "Product image", group: "Product", kind: "image", templates: PRODUCT_ONLY, description: "Its first picture." },
+  { id: "product.faqs", label: "Product FAQ", group: "Product", kind: "html", templates: PRODUCT_ONLY, description: "Its questions and answers from the FAQ in the product editor. Formatted in a rich text setting, words only anywhere else." },
   { id: "product.url", label: "Product address", group: "Product", kind: "url", templates: PRODUCT_ONLY, description: "Its page on this site, /products/<slug>." },
   { id: "page.title", label: "Page title", group: "Page", kind: "text", description: "The name of the page, such as About or Refund Policy." },
   { id: "social.instagram", label: "Instagram", group: "Social", kind: "url", description: "The Instagram address from Social links." },
@@ -111,6 +112,8 @@ export interface DynamicContext {
     description_html?: string
     image?: string
     url?: string
+    /** The product's questions as rich text, every word already escaped (lib/products/product-faqs.ts). */
+    faqs_html?: string
   } | null
   page?: { title?: string; template?: string }
   social?: Partial<Record<"instagram" | "tiktok" | "youtube" | "twitter", string>>
@@ -142,6 +145,7 @@ function valueOf(id: string, ctx: DynamicContext): unknown {
     }
     case "product.image": return ctx.product?.image
     case "product.url": return ctx.product?.url
+    case "product.faqs": return ctx.product?.faqs_html || undefined
     case "page.title": return ctx.page?.title
     case "social.instagram": return ctx.social?.instagram
     case "social.tiktok": return ctx.social?.tiktok
