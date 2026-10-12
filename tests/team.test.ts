@@ -69,7 +69,9 @@ console.log("\nEvery way in asks the server")
   check("the store a member works in is read again from the database on each request", /\.from\("store_team_members"\)\.select\("role"\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))
   check("  and a role that does not have the area is denied, never shown their own account", /if \(!memberCan\(acting\.role, area\)\) return \{ kind: "denied", acting \}/.test(server))
   check("invites are stored as a hash, never the link itself", /token_hash: hashToken\(/.test(server) && !/token: token/.test(server))
-  check("an invite is accepted only by the email it was sent to", /user\.email\.toLowerCase\(\) !== invite\.email/.test(server))
+  /* The decision moved to lib/team/invite-state.ts (one table for the page and the accept); acceptInvite refuses anything but "ready". */
+  check("an invite is accepted only by the email it was sent to", /user\.email\.trim\(\)\.toLowerCase\(\) !== invite\.email/.test(read("lib/team/invite-state.ts")) && /const refused = refusalOf\(state\)/.test(server) && /state\.kind !== "ready"/.test(server))
+  check("  and only once: the row turns active only while it is still an invite", /\.eq\("status", "invited"\)\s*\n\s*\.select\("id"\)/.test(server))
   check("a role that is not open yet cannot be given", (server.match(/if \(!invitable\(/g) ?? []).length === 2)
   check("an owner's own team is managed from their own store only", /const store = await ownStore\(db, opts\.owner\.id\)/.test(server))
 
@@ -90,6 +92,10 @@ console.log("\nEvery way in asks the server")
 
   const join = read("app/api/team/join/route.ts")
   check("accepting from the email link checks where the form came from", /origin !== new URL\(req\.url\)\.origin/.test(join))
+  {
+    const get = join.slice(join.indexOf("export async function GET"), join.indexOf("function back("))
+    check("  and opening the old /api/team/join link goes to the invite page, changing nothing", /joinPath\(token\)/.test(get) && /308/.test(get) && !/acceptInvite|declineInvite/.test(get))
+  }
   check("the store cookie only names a store and is not readable by scripts", (read("app/api/team/act/route.ts").match(/httpOnly: true, sameSite: "lax", secure: true/g) ?? []).length === 1)
 
   const layout = read("app/app/layout.tsx")
