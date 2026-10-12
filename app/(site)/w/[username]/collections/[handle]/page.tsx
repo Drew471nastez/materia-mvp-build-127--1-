@@ -92,7 +92,7 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
         emptyDetail="Nothing in this collection yet."
       />
       <TrackView creatorId={site.creatorId} />

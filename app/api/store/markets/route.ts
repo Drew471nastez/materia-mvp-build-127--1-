@@ -4,7 +4,7 @@ import { recordActivity } from "@/lib/activity/log-server"
 import { storeCurrencyOf } from "@/lib/store/currency"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { localizationOf, saveLocalization } from "@/lib/markets/server"
-import { latestRates } from "@/lib/markets/fx-server"
+import { latestRates, refreshRates } from "@/lib/markets/fx-server"
 import { fxFresh } from "@/lib/markets/money"
 
 export const runtime = "nodejs"
@@ -24,11 +24,26 @@ async function base(c: { db: any; creatorId: string }) {
   return storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency)
 }
 
+let lastFetch = 0
+
 export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const baseCurrency = await base(c)
-  const [loc, fx] = await Promise.all([localizationOf(c.db, c.creatorId, baseCurrency), latestRates(c.db)])
+  const [loc, stored] = await Promise.all([localizationOf(c.db, c.creatorId, baseCurrency), latestRates(c.db)])
+  /*
+    RATES WHEN THE OWNER NEEDS THEM. The daily job brings each day's rates;
+    a store that opens Markets before it ever ran (or after it missed a few
+    days) gets them fetched here and then, so its currencies are there to
+    pick, instead of "once exchange rates arrive". Tried at most once every
+    ten minutes per server, never for a visitor.
+  */
+  let fx = stored
+  if ((!fx || !fxFresh(fx)) && Date.now() - lastFetch > 10 * 60_000) {
+    lastFetch = Date.now()
+    const r = await refreshRates(c.db).catch(() => ({ ok: false }))
+    if (r.ok) fx = (await latestRates(c.db)) ?? fx
+  }
   return physicalJson({
     ready: loc.ready,
     localization: loc.value,

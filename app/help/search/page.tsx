@@ -3,8 +3,8 @@ import Link from "next/link"
 import { helpArticlePath, helpCategory } from "@/lib/help/articles"
 import { searchHelp } from "@/lib/help/search"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
-import { Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
-import { HelpSearch } from "@/components/help/help-search"
+import { Breadcrumbs, ContactSupport } from "@/components/help/help-parts"
+import { HELP_WIDTH, HelpHero } from "@/components/help/help-hero"
 
 /**
  * The search as a page: where the search field's form goes without script,
@@ -23,17 +23,12 @@ export default async function HelpSearchPage({ searchParams }: { searchParams: P
   const results = q.trim() ? searchHelp(q, 30, { physical: await isPhysicalCommerceEnabled() }) : []
 
   return (
-    <div className="bg-white">
-      <header className="border-b border-[#e5e7eb] bg-[#f8f9fa]">
-        <div className={`${HELP_READING} py-6 sm:py-8`}>
-          <Breadcrumbs items={[{ label: "Help Center", href: "/help" }, { label: "Search" }]} />
-          <div className="mt-5 max-w-[640px]">
-            <HelpSearch size="large" defaultQuery={q} />
-          </div>
-        </div>
-      </header>
+    <div className="bg-[#f8f9fa]">
+      <HelpHero query={q} />
 
-      <div className={`${HELP_READING} py-10 sm:py-12`}>
+      <div className={`${HELP_WIDTH} py-8 sm:py-10`}>
+        <Breadcrumbs items={[{ label: "All topics", href: "/help" }, { label: "Search" }]} />
+        <div className="mt-6" />
         <h1 className="text-[20px] font-semibold text-[#1a1a2e]" aria-live="polite">
           {!q.trim()
             ? "Type a word to search the Help Center"
@@ -42,9 +37,9 @@ export default async function HelpSearchPage({ searchParams }: { searchParams: P
               : `${results.length} ${results.length === 1 ? "article" : "articles"} for “${q.trim()}”`}
         </h1>
         {results.length > 0 ? (
-          <ol className="mt-6 max-w-[760px] divide-y divide-[#f0f0f2] border-y border-[#f0f0f2]">
+          <ol className="mt-6 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
             {results.map((r) => (
-              <li key={`${r.article.category}/${r.article.slug}`} className="py-4">
+              <li key={`${r.article.category}/${r.article.slug}`} className="px-5 py-4 sm:px-6">
                 <Link href={helpArticlePath(r.article)} className="text-[16px] font-medium text-[#1a1a2e] hover:underline hover:underline-offset-2">
                   {r.article.title}
                 </Link>
@@ -63,7 +58,9 @@ export default async function HelpSearchPage({ searchParams }: { searchParams: P
         ) : null}
       </div>
 
-      <ContactSupport frame={HELP_READING} />
+      <div className="bg-white">
+        <ContactSupport frame={HELP_WIDTH} />
+      </div>
     </div>
   )
 }

@@ -12,7 +12,7 @@ import { join } from "node:path"
 import { baseLanguage, dirOf, languageName, localeFromPath, localizedPath, normalizeLocale, preferredLocale } from "@/lib/markets/locales"
 import { convertMinor, formatMinor, chargeNote, fxFresh, minorUnits, type FxRates } from "@/lib/markets/money"
 import { defaultLocalization, isLocalized, marketForCountry, publishedLanguages, validateLocalization } from "@/lib/markets/model"
-import { isTranslationKey, localizeMenus, localizeTheme, menuTranslatables, seoTranslatables, localizeRecord, localizeSections, sectionKey, blockKey, sourceHash, statusOf, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
+import { isTranslationKey, localizeCards, localizeMenus, localizeTheme, menuTranslatables, seoTranslatables, localizeRecord, localizeSections, sectionKey, blockKey, sourceHash, statusOf, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
 import { siteNameIn, siteRouteInLanguage, splitSiteName } from "@/lib/markets/site-name"
 import { parseEcbDaily } from "@/lib/markets/fx-server"
 import { sitemapXml } from "@/lib/website-builder/site-seo"
@@ -137,11 +137,11 @@ console.log("\nThe live address: /fr/… to the same page in French\n")
   const P = ["fr", "pt-BR"]
   const page = (path: string) => siteRouteInLanguage("andrew", path, P)
   check("pages, products, collections and search drawn in it", page("/fr")?.kind === "page" && (page("/fr/about") as { path: string }).path === "/w/andrew~fr/about" && (page("/fr/products/mug") as { path: string }).path === "/w/andrew~fr/products/mug" && page("/fr/search")?.kind === "page" && (page("/pt-br/collections/x") as { path: string }).path === "/w/andrew~pt-br/collections/x")
-  check("the cart, account and checkout are the same in every language: sent on", JSON.stringify(page("/fr/cart")) === JSON.stringify({ kind: "redirect", to: "/cart" }) && (page("/fr/account/login") as { to: string }).to === "/account/login" && page("/fr/checkout")?.kind === "redirect")
+  check("the cart, wishlist and sign in in the language; checkout and orders sent on", /* Changed on purpose (round AE): no more English cart under /fr. */ (page("/fr/cart") as { path: string }).path === "/w/andrew~fr/cart" && (page("/fr/account/login") as { path: string }).path === "/w/andrew~fr/account/login" && (page("/fr/wishlist") as { path: string }).path === "/w/andrew~fr/wishlist" && page("/fr/checkout")?.kind === "redirect" && (page("/fr/account/orders") as { to: string }).to === "/account/orders")
   check("a language not published, or a plain page, is left alone", page("/de/about") === null && page("/about") === null && siteRouteInLanguage("andrew", "/fr", []) === null)
   const o = "https://shop.example"
   check("a page's links keep its language", localizedHref("/about", "fr", "en", ["en", "fr"], o) === "/fr/about" && localizedHref(`${o}/products/mug?x=1#top`, "fr", "en", ["en", "fr"], o) === "/fr/products/mug?x=1#top")
-  check("  but not the cart, checkout, a file, another site or an anchor", localizedHref("/cart", "fr", "en", ["en", "fr"], o) === null && localizedHref("/checkout?items=1", "fr", "en", ["en", "fr"], o) === null && localizedHref("/a.pdf", "fr", "en", ["en", "fr"], o) === null && localizedHref("https://other.com/x", "fr", "en", ["en", "fr"], o) === null && localizedHref("#top", "fr", "en", ["en", "fr"], o) === null)
+  check("  the cart too, but not checkout, a file, another site or an anchor", /* Changed on purpose (round AE): the cart is drawn in the language. */ localizedHref("/cart", "fr", "en", ["en", "fr"], o) === "/fr/cart" && localizedHref("/checkout?items=1", "fr", "en", ["en", "fr"], o) === null && localizedHref("/a.pdf", "fr", "en", ["en", "fr"], o) === null && localizedHref("https://other.com/x", "fr", "en", ["en", "fr"], o) === null && localizedHref("#top", "fr", "en", ["en", "fr"], o) === null)
   check("  and a link already in the language stays", localizedHref("/fr/about", "fr", "en", ["en", "fr"], o) === null)
   const sw = read("components/website-builder/theme/language-switch.tsx")
   check("a search box (a GET form) keeps the language; a form that posts is left alone", /form\[action\]/.test(sw) && /!== "get"\) return/.test(sw) && /attributeFilter: \["href", "action"\]/.test(sw))
@@ -169,7 +169,7 @@ console.log("\nWired into the website\n")
   const form = read("components/app/settings-form-new.tsx")
   check("Settings › Markets and languages, fetched ahead like the others", /id: "markets", label: "Markets and languages"/.test(form) && /markets: \(\) => \["\/api\/store\/markets"\]/.test(form) && /panelTab === "markets" && <MarketsPanel \/>/.test(form))
   const panel = read("components/app/settings/markets-panel.tsx")
-  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AD): How it works. */ /<Card title="Markets" help="markets" description=/.test(panel) && !/MARKETS_ON/.test(panel))
+  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AE): the easier page. */ /title="Markets"\s*help="markets"/.test(panel) && !/MARKETS_ON/.test(panel))
   const draft = read("app/api/store/translations/draft/route.ts")
   check("AI drafts are rate limited and saved as drafts", /rateLimit|limit/i.test(draft) && /approved: false|ai: true/.test(draft))
   const sql = read("supabase/sql/run-now/136_markets_languages.sql")
@@ -177,6 +177,37 @@ console.log("\nWired into the website\n")
   check("  and its migration is the same file", sql === read("supabase/migrations/20270110_markets_languages.sql"))
   const vercel = read("vercel.json")
   check("the day's rates fetched by a cron, behind its secret", /\/api\/cron\/fx-rates/.test(vercel) && /CRON_SECRET/.test(read("app/api/cron/fx-rates/route.ts")))
+}
+
+console.log("\nRound AE: no more English corners, and the builder previews every language\n")
+{
+  const row2 = (key: string, value: string, status: "approved" | "draft" = "approved"): TranslationRow => ({ key, value, sourceHash: "", status, source: "manual" })
+  const map = translationMap([row2("product:11111111-1111-4111-8111-111111111111:title", "Tasse"), row2("product:22222222-2222-4222-8222-222222222222:title", "Bol", "draft"), row2("ui:check_out", "Payer")])
+  const cards = [{ id: "11111111-1111-4111-8111-111111111111", settings: { title: "Mug", price: "$10.00" } }, { id: "22222222-2222-4222-8222-222222222222", settings: { title: "Bowl", price: "$12.00" } }]
+  const out = localizeCards(cards, map, { approvedOnly: true })
+  check("product cards in the language: an approved title laid over, a draft not", out[0].settings.title === "Tasse" && out[1].settings.title === "Bowl" && out[1] === cards[1] && cards[0].settings.title === "Mug")
+  check("the shop's words are translation keys", isTranslationKey("ui:check_out") && !isTranslationKey("ui:Check out"))
+  const words = read("lib/markets/ui-words.ts")
+  check("  the cart, buttons and notice read them", /cart_empty/.test(words) && /useWord\(\)/.test(read("components/website-builder/cart-page-body.tsx")) && /useWord\(\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /useWord\(\)/.test(read("components/website-builder/theme/cart-notice.tsx")))
+  for (const route of ["cart/page.tsx", "account/page.tsx", "account/login/page.tsx", "wishlist/page.tsx"]) {
+    check(`  ${route} is drawn in the page's language`, /splitSiteName\(segment\)/.test(read(`app/(site)/w/[username]/${route}`)))
+  }
+  check("  the contact page too", /renderAccountPage\(username, "contact", \{ lang: \{ locale, market \} \}\)/.test(read("app/(site)/w/[username]/render-site.tsx")))
+  const ctx = read("components/website-builder/theme/storefront-context.tsx")
+  check("the cart's amounts in the market's currency, as the cards are, with what checkout charges in", /export function useMoney\(\)/.test(ctx) && /pricingFor\(display\.market, display\.base, display\.fx\)/.test(ctx) && /useChargeNote\(\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /useChargeNote\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
+  check("  no hard-coded dollar sign left in the cart drawer or the cart page", !/function money\(cents: number\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && !/function money\(cents: number\)/.test(read("components/website-builder/cart-page-body.tsx")))
+  check("  every builder page hands the conversion over", ["cart/page.tsx", "products/page.tsx", "search/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "render-account.tsx", "render-site.tsx"].every((f) => /display: localizer\?\.display/.test(read(`app/(site)/w/[username]/${f}`))))
+  const api = read("app/api/store/translations/route.ts")
+  check("the builder's preview reads the approved values only, with each one's original", /searchParams\.get\("values"\) === "1"/.test(api) && /r\.status === "approved" && r\.value/.test(api) && /h: r\.sourceHash/.test(api))
+  const hook = read("components/website-builder/use-preview-language.ts")
+  check("  read again when the builder comes back into view, remembered for the tab", /visibilitychange/.test(hook) && /sessionStorage/.test(hook))
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  check("  the canvas lays it over its sections, menus and products, and shows the shop's words", /localizeSections\(\s*drawnSections,\s*previewMap/.test(editor) && /localizeMenus\(canvasMenus/.test(editor) && /sections=\{drawnShown\}/.test(editor) && /words=\{previewLang\.words\}/.test(editor))
+  check("  a language button beside the page switcher, and a phone's in the menu", /<PreviewLanguageSwitch lang=\{previewLang\} \/>/.test(editor) && /Preview in \$\{languageName\(next, "en"\)\}/.test(editor))
+  const canvas = read("components/website-builder/compat/compat-canvas.tsx")
+  check("  an imported theme's canvas too: its sections, menus, products, its own | t words and request.locale", /compatFields\(compatTheme\)/.test(canvas) && /compat-locale=/.test(canvas) && /i18n,/.test(canvas) && /withoutLanguage\(n\.href/.test(canvas))
+  check("  the theme's words for one language, from its own files, behind the owner's sign in", /searchParams\.get\("compat-locale"\)/.test(read("app/api/website-builder/themes/[installId]/files/route.ts")))
+  check("the field reader shared by the live site and the canvas", /export function compatFields/.test(read("lib/markets/compat-fields.ts")) && !/import "server-only"/.test(read("lib/markets/compat-fields.ts")) && /export \{ compatFields \}/.test(read("lib/markets/compat.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

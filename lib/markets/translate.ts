@@ -62,7 +62,7 @@ export const blockKey = (sectionId: string, blockId: string, settingId: string) 
 
 /** A key that is one of the shapes above, at a sane length, and nothing else. */
 export function isTranslationKey(key: unknown): key is string {
-  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+)$/i.test(key)
+  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+|ui:[a-z_]+)$/i.test(key)
 }
 
 /** Where a key's value is shown, in words, for the translations list. */
@@ -162,6 +162,15 @@ export function localizeRecord<T extends Record<string, unknown>>(record: T, pre
     ;(next as Record<string, unknown>)[f] = v
   }
   return next ?? record
+}
+
+/** Product cards with their titles and descriptions laid over (the builder's canvas in another language). */
+export function localizeCards<T extends { id: string; settings: unknown }>(list: T[], map: TranslationMap | null | undefined, opts: { approvedOnly?: boolean } = {}): T[] {
+  if (!map || map.size === 0) return list
+  return list.map((c) => {
+    const settings = localizeRecord(c.settings as Record<string, unknown>, `product:${c.id}`, ["title", "description"], map, opts)
+    return settings === c.settings ? c : { ...c, settings }
+  })
 }
 
 /** Rows as a map, the last of any duplicate kept. */
