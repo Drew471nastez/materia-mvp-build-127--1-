@@ -7,6 +7,7 @@ import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { runJobs } from "@/lib/physical/jobs-server"
 import { cancelStaleSitePayments } from "@/lib/checkout/site-payment-sweep"
 import { runTrackingSweep } from "@/lib/physical/tracking/sync-server"
+import { scheduleMarketingSyncs } from "@/lib/integrations/marketing/sync-server"
 
 /**
  * GET /api/cron/physical
@@ -38,6 +39,8 @@ async function runJob(request: Request) {
   const started = Date.now()
   const { data: expired, error } = await db.rpc("physical_expire_holds", { p_limit: 200 })
   if (error && (error.code === "PGRST202" || error.code === "42883")) return NextResponse.json({ available: false }, { headers: { "Cache-Control": "no-store" } })
+  /* Klaviyo and Omnisend: a sync per connected store each quarter hour, run by the loop below with the rest (lib/integrations/marketing/sync-server.ts). */
+  const marketing = await scheduleMarketingSyncs(db).catch(() => 0)
   let jobs = { done: 0, failed: 0 }
   for (let round = 0; round < 5 && Date.now() - started < 40_000; round++) {
     const ran = await runJobs(db, 25)
@@ -55,7 +58,7 @@ async function runJob(request: Request) {
   }
   const ms = Date.now() - started
   console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, tracking ${tracking ? `${tracking.checked} read ${tracking.moved} moved` : "failed"}, ${ms}ms`)
-  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, tracking, ms }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, marketing, tracking, ms }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function GET(request: Request) {

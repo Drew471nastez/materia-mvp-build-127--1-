@@ -2,7 +2,7 @@
  * ===========================================================================
  *  ONE WAY TO ASK A FULFILMENT PROVIDER ANYTHING
  * ===========================================================================
- * Every call Storelib makes to Printful or Printify goes through `call`:
+ * Every call Storelib makes to Printful, Printify, Gelato or CJ goes through `call`:
  * a timeout, JSON both ways, and an answer that says which kind of failure
  * it was, because that decides what happens next:
  *
@@ -37,7 +37,8 @@ export const PROVIDER_TIMEOUT_MS = 12_000
 export function providerMessage(body: unknown): string | null {
   if (!body || typeof body !== "object") return typeof body === "string" && body.trim() ? body.trim().slice(0, 200) : null
   const b = body as Record<string, any>
-  const candidates = [b.error?.message, typeof b.error === "string" ? b.error : null, b.message, b.errors?.reason, typeof b.result === "string" ? b.result : null]
+  /* ShipStation (lib/integrations/shipping) answers { Message, ExceptionMessage }; EasyPost { error: { message } }; Shippo { detail }. */
+  const candidates = [b.error?.message, typeof b.error === "string" ? b.error : null, b.message, b.errors?.reason, typeof b.result === "string" ? b.result : null, b.ExceptionMessage, b.Message, b.detail]
   for (const c of candidates) if (typeof c === "string" && c.trim()) return c.trim().slice(0, 200)
   return null
 }
@@ -45,7 +46,7 @@ export function providerMessage(body: unknown): string | null {
 export async function call<T = unknown>(
   name: string,
   url: string,
-  init: { method?: "GET" | "POST" | "PUT" | "DELETE"; headers: Record<string, string>; body?: unknown },
+  init: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: unknown },
 ): Promise<T> {
   let res: Response
   try {

@@ -11,7 +11,8 @@ import type { Db } from "./auth"
 import { PROVIDERS, providerInfo, type ProviderId } from "./providers"
 import { verifyProviderKey } from "./provider-verify"
 import { openSecret, sealSecret, secretHint } from "./secrets"
-import { afterConnect, beforeDisconnect, connectFields, connectorFor } from "@/lib/integrations/fulfilment/forward-server"
+import { afterConnect, beforeDisconnect, connectFields, connectorFor, webhookUrl } from "@/lib/integrations/fulfilment/forward-server"
+import { beforeShippingDisconnect, isShippingApp, saveShippingApp } from "@/lib/integrations/shipping/connect-server"
 
 export interface IntegrationView {
   provider: ProviderId
@@ -33,6 +34,16 @@ export interface IntegrationView {
   webhookNote: string | null
   /** The location whose products are sent there. */
   location: { id: string; name: string } | null
+  /** Gelato: the shipment method orders go by ("normal", "express" or one of Gelato's own). */
+  shipmentMethod?: string | null
+  /** CJ: the shipping method by name, or "cheapest", and the warehouse country orders ship from. */
+  logistic?: string | null
+  fromCountry?: string | null
+  /** Gelato: the address to paste in Gelato › Developer › Webhooks (its token is the seller's alone). Only to its owner. */
+  webhookAddress?: string | null
+  /** Shippo and EasyPost: labels bought from Storelib; ShipStation: orders sent there. */
+  labelsBought?: number
+  ordersSent?: number
 }
 
 export async function loadIntegrations(db: Db, creatorId: string): Promise<IntegrationView[]> {
@@ -58,6 +69,10 @@ export async function loadIntegrations(db: Db, creatorId: string): Promise<Integ
       webhooks: r?.config?.webhooks === "on" || r?.config?.webhooks === "off" ? r.config.webhooks : null,
       webhookNote: typeof r?.config?.webhook_note === "string" ? r.config.webhook_note : null,
       location: r?.id ? (locOf.get(r.id) ?? null) : null,
+      ...(p.id === "gelato" ? { shipmentMethod: typeof r?.config?.shipment_method === "string" ? r.config.shipment_method : null, webhookAddress: r?.status === "connected" ? webhookUrl("gelato", creatorId) : null } : {}),
+      ...(p.id === "cj_dropshipping" ? { logistic: typeof r?.config?.logistic === "string" ? r.config.logistic : null, fromCountry: typeof r?.config?.from_country === "string" ? r.config.from_country : null } : {}),
+      labelsBought: typeof r?.config?.labels_bought === "number" ? r.config.labels_bought : 0,
+      ordersSent: typeof r?.config?.orders_sent === "number" ? r.config.orders_sent : 0,
     }
   })
 }
@@ -68,12 +83,15 @@ export async function saveIntegration(db: Db, creatorId: string, provider: strin
   if (body.disconnect === true) {
     /* Printful and Printify stop sending updates first; the location keeps its products and says it is not connected. */
     await beforeDisconnect(db, creatorId, info.id).catch(() => undefined)
+    await beforeShippingDisconnect(db, creatorId, info.id).catch(() => undefined)
     await db.from("commerce_integrations").delete().eq("creator_id", creatorId).eq("provider", info.id)
     return { ok: true }
   }
   /* Coming soon: nothing to connect to yet, so no key is taken (one saved before can still be removed above). */
   if (info.availability === "needs_setup") return { ok: false, error: `${info.name} isn't connected to Storelib yet. Press Tell me when it's ready on its page.` }
   if (info.availability === "connect" && connectorFor(info.id)) return saveConnector(db, creatorId, info.id, info.category, body)
+  /* Shippo, EasyPost, ShipStation: checked with the provider, connected only when it accepts (lib/integrations/shipping/connect-server.ts). */
+  if (info.availability === "connect" && isShippingApp(info.id)) return saveShippingApp(db, creatorId, info.id, body)
   const row: Record<string, unknown> = { creator_id: creatorId, provider: info.id, category: info.category, updated_at: new Date().toISOString(), last_error: null }
   if (info.fields.includes("url")) {
     const url = typeof body.url === "string" ? body.url.trim() : ""
@@ -131,8 +149,11 @@ async function saveConnector(db: Db, creatorId: string, provider: string, catego
   const key = typed || (had?.status === "needs_setup" ? (openSecret(had.secret_ciphertext) ?? "") : "")
   if (!key) {
     if (!had) return { ok: false, error: "Add your API key." }
-    if (typeof body.autoConfirm !== "boolean") return { ok: true }
-    const { error } = await db.from("commerce_integrations").update({ config: { ...(had.config ?? {}), auto_confirm: body.autoConfirm }, updated_at: new Date().toISOString() }).eq("id", had.id)
+    const choices = connectorChoices(provider, body)
+    if ("error" in choices) return { ok: false, error: choices.error }
+    if (typeof body.autoConfirm === "boolean") choices.set.auto_confirm = body.autoConfirm
+    if (Object.keys(choices.set).length === 0) return { ok: true }
+    const { error } = await db.from("commerce_integrations").update({ config: { ...(had.config ?? {}), ...choices.set }, updated_at: new Date().toISOString() }).eq("id", had.id)
     return error ? { ok: false, error: "The integration could not be saved." } : { ok: true }
   }
   if (key.length < 8 || key.length > 400) return { ok: false, error: "That key doesn't look right." }
@@ -142,4 +163,27 @@ async function saveConnector(db: Db, creatorId: string, provider: string, catego
   if (error) return { ok: false, error: "The integration could not be saved." }
   await afterConnect(db, creatorId, provider)
   return { ok: true }
+}
+
+/** The seller's choices on Gelato (shipment method) and CJ (shipping method, warehouse country), checked. */
+function connectorChoices(provider: string, body: Record<string, unknown>): { set: Record<string, unknown> } | { error: string } {
+  const set: Record<string, unknown> = {}
+  if (provider === "gelato" && body.shipmentMethod !== undefined) {
+    const m = typeof body.shipmentMethod === "string" ? body.shipmentMethod.trim() : ""
+    if (!/^[a-z0-9_\-]{2,80}$/i.test(m)) return { error: "Choose a shipment method." }
+    set.shipment_method = m
+  }
+  if (provider === "cj_dropshipping") {
+    if (body.logistic !== undefined) {
+      const l = typeof body.logistic === "string" ? body.logistic.trim() : ""
+      if (!l || l.length > 50 || /[<>]/.test(l)) return { error: "Choose a shipping method, or the cheapest." }
+      set.logistic = l
+    }
+    if (body.fromCountry !== undefined) {
+      const c = typeof body.fromCountry === "string" ? body.fromCountry.trim().toUpperCase() : ""
+      if (!/^[A-Z]{2}$/.test(c)) return { error: "Choose the country CJ ships from." }
+      set.from_country = c
+    }
+  }
+  return { set }
 }

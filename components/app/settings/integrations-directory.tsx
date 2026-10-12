@@ -33,6 +33,7 @@ import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
 import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
+import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 
 type Filter = "all" | "installed" | IntegrationCategory
 
@@ -85,6 +86,13 @@ export function IntegrationsDirectory() {
   const [tracking, setTracking] = React.useState<Tracking | null>(() => peekGet<{ tracking: Tracking }>("/api/store/integrations")?.tracking ?? null)
   const [trackingReady, setTrackingReady] = React.useState(() => peekGet<{ ready: boolean }>("/api/store/integrations")?.ready ?? true)
   const [states, setStates] = React.useState<IntegrationState[] | null>(() => (physical ? (peekGet<{ integrations: IntegrationState[] }>("/api/physical/integrations")?.integrations ?? null) : []))
+  /* Klaviyo and Omnisend connected with a key: subscribers and orders go there (lib/integrations/marketing). */
+  const [marketing, setMarketing] = React.useState<MarketingState[] | null>(() => peekGet<{ marketing: MarketingState[] }>(MARKETING_PATH)?.marketing ?? null)
+  React.useEffect(() => {
+    void api<{ marketing: MarketingState[] }>(MARKETING_PATH).then((r) => {
+      if (r.ok) setMarketing(r.data.marketing)
+    })
+  }, [])
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Filter>("all")
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
@@ -124,12 +132,12 @@ export function IntegrationsDirectory() {
   const installed = React.useCallback(
     (i: Integration): boolean => {
       if (i.kind === "app") return !!(i.appId && appsOn[i.appId])
-      if (i.kind === "tracker") return !!(i.trackerId && tracking?.[i.trackerId])
+      if (i.kind === "tracker") return !!(i.trackerId && (tracking?.[i.trackerId] || marketing?.some((m) => m.provider === i.trackerId && m.connected)))
       if (i.kind !== "commerce" || i.comingSoon) return false
       const s = states?.find((x) => x.provider === i.providerId)
       return !!s && s.status !== "disconnected"
     },
-    [tracking, states, appsOn],
+    [tracking, states, appsOn, marketing],
   )
 
   /* One word for where each stands, read off what is really saved: never an installed state that isn't. */
@@ -142,10 +150,11 @@ export function IntegrationsDirectory() {
         /* Printful or Printify saved before they took orders: there, but it needs connecting again. */
         if (s?.status === "needs_setup" && takesOrders(i)) return "needs_attention"
         if (s && s.status !== "disconnected") return s.lastError ? "needs_attention" : "installed"
-      } else if (installed(i)) return "installed"
+      } else if (i.kind === "tracker" && marketing?.some((m) => m.provider === i.trackerId && m.connected && m.lastError)) return "needs_attention"
+      else if (installed(i)) return "installed"
       return i.comingSoon ? "coming_soon" : "available"
     },
-    [states, installed],
+    [states, installed, marketing],
   )
 
   const root = React.useRef<HTMLDivElement>(null)
@@ -288,6 +297,10 @@ export function IntegrationsDirectory() {
           }}
           onStates={(st) => {
             setStates(st)
+            window.dispatchEvent(new Event("storelib:integrations-changed"))
+          }}
+          onMarketing={(m) => {
+            setMarketing(m)
             window.dispatchEvent(new Event("storelib:integrations-changed"))
           }}
           onApp={(appId, on) => {
@@ -458,6 +471,7 @@ function IntegrationPage({
   onTracking,
   onStates,
   onApp,
+  onMarketing,
   onBack,
 }: {
   item: Integration
@@ -469,6 +483,7 @@ function IntegrationPage({
   onTracking: (t: Tracking) => void
   onStates: (s: IntegrationState[]) => void
   onApp: (appId: string, on: boolean) => void
+  onMarketing: (m: MarketingState[]) => void
   onBack: () => void
 }) {
   const setupRef = React.useRef<HTMLElement>(null)
@@ -553,6 +568,18 @@ function IntegrationPage({
               ) : null}
             </div>
           </section>
+
+          {item.kind === "tracker" && (item.trackerId === "klaviyo" || item.trackerId === "omnisend") && !notifyOnly ? (
+            /* The key that sends subscribers and orders, apart from the onsite ID above (lib/integrations/marketing). */
+            <section className={cn(DEPTH, "overflow-hidden")} aria-labelledby="integration-sync" data-integration-sync="">
+              <div className="border-b border-[#f1f2f4] px-4 py-3.5 sm:px-6">
+                <h3 id="integration-sync" className="text-[15px] font-semibold text-[#1a1a2e]">Subscribers and orders</h3>
+              </div>
+              <div className="px-4 py-4 sm:px-6 sm:py-5">
+                <MarketingSyncPanel provider={item.trackerId} onChanged={onMarketing} />
+              </div>
+            </section>
+          ) : null}
 
           <section className={cn(DEPTH, "px-4 py-4 sm:px-6 sm:py-5")} aria-labelledby="integration-about">
             <h3 id="integration-about" className="text-[15px] font-semibold text-[#1a1a2e]">About</h3>
