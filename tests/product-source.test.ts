@@ -177,7 +177,7 @@ section("CANVAS: the builder draws the live cards, and keeps what an edit did no
   const route = read("app/api/website-builder/products/route.ts")
   check("the products route hands the canvas the live site's own cards", /cards"\) === "1"/.test(route) && /shopProducts\(admin, creator\.id\)/.test(route) && /catalogCards\(admin, creator\.id\)/.test(route))
   check("the editor reads them, and reads them again when its tab comes back", /\/api\/website-builder\/products\?cards=1/.test(editor) && /visibilitychange", again/.test(editor))
-  check("a picker on the canvas resolves against every published product, as on the site", /catalog: catalogCardsForCanvas/.test(editor))
+  check("a picker on the canvas resolves against every published product, as on the site", /* Changed on purpose (round AE): the same cards, in the language previewed. */ (/catalog: catalogCardsForCanvas/.test(editor) || (/catalog: catalogCardsShown/.test(editor) && /localizeCards\(catalogCardsForCanvas, previewMap/.test(editor))))
   check("a section's markup applied again keeps the mark that its pictures have loaded", PAGE_OWNED_ATTRIBUTES.has("data-sl-loaded"))
   const fade = read("lib/website-builder/media-fade.ts")
   check("and a picture whose mark is taken off while it is loaded is marked again at once", /attributeFilter: \["src", "srcset", "data-sl-loaded"\]/.test(fade))
