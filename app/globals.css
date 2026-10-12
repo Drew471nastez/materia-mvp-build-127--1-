@@ -2910,6 +2910,19 @@ html.keyboard-open [data-community-shell]:not([data-post-over]):not([data-sheet-
   min-height: 0 !important;
 }
 
+/* ROUND 25: NOTHING OF THE COMMUNITY UNDER A TYPED IN POST. While a field in
+   an opened post has the keyboard (post-fullscreen.tsx marks <html>
+   data-post-typing and clips the community away below the sheet's top edge),
+   the page's own ground is white. The sheet is white to the screen's foot and
+   a sheet's height past it already; this is for whatever a platform does that
+   no number says (an iOS web view panned further than it reports): a gap
+   between the comment box and the keys can then only ever show white, never
+   the feed. */
+html[data-post-typing],
+html[data-post-typing] body {
+  background-color: #fff !important;
+}
+
 /* ── Scroll-margin for inputs: prevent content sliding under the fixed header ──
  *
  * On mobile (iOS/Android), focusing an input triggers the browser's built-in

@@ -196,6 +196,21 @@ export function MarketsPanel() {
           <Plus className="h-4 w-4" />
           Add a language
         </button>
+        {/* Show visitors their own language (lib/markets/visitor-language.ts): saved as it is switched, like the rest. */}
+        <div className="mt-4 border-t border-[#f1f2f4] pt-4" data-visitor-language="">
+          <Toggle
+            id="visitor-language"
+            label="Show visitors their own language"
+            description={
+              draft.languages.some((l) => l.published)
+                ? "A first visit opens in the language the visitor's browser asks for, once, on your website and your storelib.com page. A close match gets a small offer instead."
+                : "Works once a language is published: a first visit opens in the language the visitor's browser asks for."
+            }
+            checked={draft.visitorLanguage === true}
+            disabled={!data.ready}
+            onChange={(v) => commit({ ...draft, visitorLanguage: v })}
+          />
+        </div>
       </Card>
 
       <Card

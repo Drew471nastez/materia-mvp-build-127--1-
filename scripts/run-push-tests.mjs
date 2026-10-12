@@ -22,6 +22,8 @@ import { join, basename } from "node:path"
 
 const SUITES = [
   "tests/variants25.test.ts",
+  "tests/topbar25.test.ts",
+  "tests/post25.test.ts",
   "tests/playbook24.test.ts",
   "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",
@@ -448,6 +450,7 @@ const SUITES = [
   "tests/store-settings-t.test.ts",
   "tests/taxes-t.test.ts",
   "tests/markets.test.ts",
+  "tests/visitors25.test.ts",
   "tests/compat-languages.test.ts",
   "tests/analytics-ad.test.ts",
   "tests/tax-settings-wiring.test.ts",
