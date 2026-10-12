@@ -105,6 +105,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "auth/exchange-reset-code/route.ts": "carries the one-time code",
   "auth/request-password-reset/route.ts": "takes an email and sends a link; it tells the caller nothing",
   "checkout/site/track/route.ts": "Track your order on a website: the store is the host's, the link goes only to the order's own email, and the answer is the same whether anything matched; rate limited",
+  "integrations/shipstation/[token]/route.ts": "ShipStation's SHIP_NOTIFY: proven by an address token only Storelib can sign for one store, and the shipments read back from ssapi.shipstation.com with the store's own key (a resource_url on any other host is ignored); rate limited, never a session",
   "integrations/webhooks/[provider]/[token]/route.ts": "Printful and Printify report shipments: proven by an address token only Storelib can sign for one store and provider, Printify's X-Pfy-Signature, and the order read back from the provider with the store's own key; rate limited, never a session",
   "physical/partner-tracking/route.ts": "a fulfilment partner reports tracking: proven by the shop's webhook secret (HMAC) or a link signed for one order and location, not by a session",
   "auth/signup-guard/route.ts": "runs during sign-up, before an account exists",
