@@ -119,7 +119,8 @@ for (const rel of files) {
 }
 
 /* ---- the numbers ------------------------------------------------------- */
-const placeholderNames = (s) => [...s.matchAll(/\{\s*([A-Za-z_]\w*)\s*(?:[,}])/g)].map((m) => m[1]).sort().filter((v, i, a) => a.indexOf(v) === i)
+/* A word inside a plural branch ("one {rate}") is wording, not a value: skip it. */
+const placeholderNames = (s) => [...s.matchAll(/(?<![,}]\s*(?:zero|one|two|few|many|other|=\d+)\s*)\{\s*([A-Za-z_]\w*)\s*(?:[,}])/g)].map((m) => m[1]).sort().filter((v, i, a) => a.indexOf(v) === i)
 
 const bare = new Set(untranslated.map((u) => u.text))
 const dotUsed = [...dotKeys.keys()].filter((k) => dot.en && k in dot.en)
