@@ -45,6 +45,7 @@ import { getStripePromise, isCapacitorShell } from "../parts/stripe-loader"
 import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { CHECKOUT_CURRENCY, money as sharedMoney } from "../parts/ui"
+import { useBackFromCache } from "@/hooks/use-back-from-cache"
 
 interface QuoteLine {
   productId: string
@@ -154,6 +155,8 @@ export function PhysicalCheckout({
   const [note, setNote] = React.useState("")
   const [summaryOpen, setSummaryOpen] = React.useState(false)
   const [paying, setPaying] = React.useState(false)
+  /* Back from the payment page, restored from the browser's cache: not still paying. */
+  useBackFromCache(() => setPaying(false))
   const [payError, setPayError] = React.useState<{ message: string; field: string | null } | null>(null)
   const clientKey = React.useRef(actionKey())
   /* The payment step: Stripe's form for the checkout Pay made, inside this page. */

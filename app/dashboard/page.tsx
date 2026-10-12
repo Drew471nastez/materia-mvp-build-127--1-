@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, GraduationCap, Users, ArrowRight, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CREATOR_WITH_PROFILE, PROFILE_CARD, attachCreatorProfiles } from "@/lib/security/public-columns"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 interface DashboardOverviewProps {
   searchParams: Promise<{ purchase?: string; already_owned?: string }>
@@ -19,7 +20,7 @@ export default async function DashboardOverview({ searchParams }: DashboardOverv
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
 
   // Fetch entitlements with product and creator info
   const { data: entitlements } = await supabase

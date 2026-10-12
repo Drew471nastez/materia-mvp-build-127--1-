@@ -138,3 +138,112 @@ export async function readCurrentUser(
 export function shouldSendToLogin(current: CurrentUser): boolean {
   return current.state === "anonymous"
 }
+
+/**
+ * ===========================================================================
+ *  THE SAME QUESTION, VERIFIED WITHOUT A ROUND TRIP WHEN IT CAN BE
+ * ===========================================================================
+ * proxy.ts asks readCurrentUser on every matched request: each page, each
+ * prefetch the router makes of a link on screen, each /api call. getUser()
+ * is a round trip to Supabase Auth, so for anybody signed in every one of
+ * those waited on Supabase before the page could start, and the page then
+ * asked again (lib/auth/request-scope). On a slow minute for Supabase Auth
+ * the proxy alone held a request for 3s, a pause, and 3s again.
+ *
+ * getClaims() checks the access token's signature with Supabase's public
+ * signing keys when the project signs with asymmetric keys, which needs no
+ * round trip once the keys are known. It is still a verification: a forged
+ * or altered token fails it. A project that signs with the old shared
+ * secret has no public key to check against, and getClaims falls back to
+ * getUser() itself, so this is never weaker than readCurrentUser, only
+ * faster where it can be.
+ *
+ * The keys are kept here, per server instance, because the proxy makes a
+ * new Supabase client per request and the client's own copy would be
+ * fetched again every time. Fetched with a ceiling; a failed fetch is
+ * remembered briefly so a slow key endpoint is not asked on every request.
+ */
+type Jwks = { keys: Array<Record<string, unknown> & { kid?: string }> }
+const JWKS_FRESH_MS = 10 * 60_000
+const JWKS_FAILED_MS = 60_000
+let jwksCache: { jwks: Jwks; until: number } | null = null
+let jwksLoading: Promise<Jwks> | null = null
+
+async function signingKeys(supabaseUrl: string): Promise<Jwks> {
+  const now = Date.now()
+  if (jwksCache && jwksCache.until > now) return jwksCache.jwks
+  if (jwksLoading) return jwksLoading
+  jwksLoading = (async () => {
+    try {
+      const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/.well-known/jwks.json`, { signal: AbortSignal.timeout(2_000) })
+      const body = res.ok ? ((await res.json()) as Partial<Jwks>) : null
+      const keys = body?.keys
+      const jwks: Jwks = { keys: Array.isArray(keys) ? keys : [] }
+      jwksCache = { jwks, until: Date.now() + (jwks.keys.length ? JWKS_FRESH_MS : JWKS_FAILED_MS) }
+      return jwks
+    } catch {
+      jwksCache = { jwks: { keys: [] }, until: Date.now() + JWKS_FAILED_MS }
+      return jwksCache.jwks
+    } finally {
+      jwksLoading = null
+    }
+  })()
+  return jwksLoading
+}
+
+/** For tests: forget the keys. */
+export function forgetSigningKeys() {
+  jwksCache = null
+  jwksLoading = null
+}
+
+async function getClaimsBounded(supabase: SupabaseClient, jwks: Jwks, ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<{ timedOut: true }>((resolve) => {
+    timer = setTimeout(() => resolve({ timedOut: true }), ms)
+  })
+  try {
+    return await Promise.race([
+      supabase.auth.getClaims(undefined, jwks.keys.length ? ({ jwks } as Parameters<SupabaseClient["auth"]["getClaims"]>[1]) : {}).then((r) => ({ ...r, timedOut: false as const })),
+      timeout,
+    ])
+  } catch (error) {
+    return { data: null, error, timedOut: false as const }
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/**
+ * The proxy's read: who is signed in, verified, with the same three answers
+ * and the same one retry as readCurrentUser. `user` is always null here; the
+ * proxy only decides whether to send a request to sign in, and the layouts
+ * read the person themselves.
+ */
+export async function readVerifiedSession(
+  supabase: SupabaseClient,
+  supabaseUrl: string,
+  { timeoutMs = 3_000, retries = 1 }: { timeoutMs?: number; retries?: number } = {},
+): Promise<CurrentUser> {
+  let reason = "unknown"
+  const jwks = await signingKeys(supabaseUrl)
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const result = await getClaimsBounded(supabase, jwks, timeoutMs)
+
+    if (result.timedOut) {
+      reason = "timed out"
+    } else {
+      const { data, error } = result as { data: { claims?: { sub?: string } } | null; error: unknown }
+      if (data?.claims?.sub) return { user: null, state: "authenticated" }
+      if (!error) return { user: null, state: "anonymous" }
+      const verdict = classify(error)
+      if (verdict.signedOut) return { user: null, state: "anonymous" }
+      reason = verdict.reason
+    }
+
+    if (attempt < retries) await new Promise((r) => setTimeout(r, 250))
+  }
+
+  return { user: null, state: "indeterminate", reason }
+}

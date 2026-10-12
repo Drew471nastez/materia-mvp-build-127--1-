@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isCheckoutSessionId, isPlausibleToken } from "@/lib/receipts/rules"
 import { PaymentStatus } from "@/components/receipt/payment-status"
+import { STRIPE_RENDER_WAIT_MS, isStripeUnreachable } from "@/lib/stripe-wait"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
@@ -37,12 +38,15 @@ export default async function CartReceiptPage({ params }: { params: Promise<{ se
   const token = orders?.[0]?.receipt_token
   if (isPlausibleToken(token)) redirect(`/receipt/${token}`)
 
-  let state: "paid" | "unpaid" | "expired" = "expired"
+  let state: "paid" | "unpaid" | "expired" | "waiting" = "expired"
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    /* Bounded: Stripe's own default is 80s, and the buyer stared at a blank page for it. */
+    const session = await stripe.checkout.sessions.retrieve(sessionId, undefined, { timeout: STRIPE_RENDER_WAIT_MS })
     if (session.metadata?.cart !== "1") notFound()
     state = session.payment_status === "paid" ? "paid" : session.status === "expired" ? "expired" : "unpaid"
-  } catch {
+  } catch (error) {
+    /* Stripe slow or unreachable is not "no such checkout": wait and ask again (PaymentStatus asks every few seconds). */
+    if (isStripeUnreachable(error)) return <PaymentStatus state="waiting" />
     notFound()
   }
 

@@ -182,7 +182,7 @@ async function main() {
 
   {
     const proxy = strip(readFileSync(join(root, "proxy.ts"), "utf8"))
-    check("the proxy classifies instead of guessing", proxy.includes("readCurrentUser"))
+    check("the proxy classifies instead of guessing", proxy.includes("readCurrentUser") || proxy.includes("readVerifiedSession"))
     check(
       "and only a definite anonymous is redirected",
       /shouldSendToLogin\(current\)/.test(proxy) && !/!user\s*\)\s*\{[\s\S]{0,120}pathname = "\/login"/.test(proxy),

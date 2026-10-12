@@ -55,6 +55,8 @@ import { HtmlClass } from "@/components/platform/html-class"
 import { AccessLink } from "./parts/access-link"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
+import { FAIL_COPY, WAIT_MS, fetchWithDeadline, requestJson } from "@/lib/net/request"
+import { useBackFromCache } from "@/hooks/use-back-from-cache"
 
 interface CheckoutPageClientProps {
   product: {
@@ -129,15 +131,15 @@ function remember(key: string, value: string) {
   }
 }
 
+/**
+ * Every checkout call, bounded (lib/net/request.ts WAIT_MS.pay). Without a deadline a request the server never answered
+ * left Pay on "Processing" until the page was reloaded. A failure to answer throws, as a dropped connection always did,
+ * so every caller's own error path still applies; an answer, refusal or not, resolves.
+ */
 async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string; field?: string } }> {
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-  let data = {} as T & { error?: string; field?: string }
-  try {
-    data = await res.json()
-  } catch {
-    /* an empty or HTML answer is an error with no words of its own */
-  }
-  return { ok: res.ok, status: res.status, data }
+  const r = await requestJson<T & { error?: string; field?: string }>(url, { method: "POST", json: body, timeoutMs: WAIT_MS.pay })
+  if (r.status === 0) throw Object.assign(new Error(FAIL_COPY[r.kind ?? "network"]), { kind: r.kind })
+  return { ok: r.ok, status: r.status, data: r.data }
 }
 
 /**
@@ -393,6 +395,8 @@ export default function CheckoutPageClient({
     }, 8000)
     return () => window.clearTimeout(t)
   }, [going])
+  /* Back from Airwallex or a bank, restored from the browser's cache: Pay was left pressed with nothing behind it. */
+  useBackFromCache(() => setBusy(false))
   /* A page brought back from the browser's cache is not still leaving, and a render of the press still waiting is dropped. */
   React.useEffect(() => {
     const reset = () => {
@@ -913,7 +917,7 @@ export default function CheckoutPageClient({
         "billing_details[name]": (card.name || `${firstName} ${lastName}`).trim(),
         "billing_details[email]": email.trim(),
       })
-      const pmRes = await fetch("https://api.stripe.com/v1/payment_methods", {
+      const pmRes = await fetchWithDeadline("https://api.stripe.com/v1/payment_methods", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}`,
@@ -924,12 +928,29 @@ export default function CheckoutPageClient({
       const pm = await pmRes.json()
       if (!pmRes.ok) throw new Error(pm?.error?.message || "Check the card details and try again.")
       const intent = await createIntent()
-      const confirmed = await postJson<{ status?: string; actionUrl?: string }>("/api/checkout/confirm-with-pm", {
-        paymentIntentId: intent.paymentIntentId,
-        clientSecret: intent.clientSecret,
-        paymentMethodId: pm.id,
-        returnUrl: window.location.href,
-      })
+      let confirmed: Awaited<ReturnType<typeof postJson<{ status?: string; actionUrl?: string }>>>
+      try {
+        confirmed = await postJson<{ status?: string; actionUrl?: string }>("/api/checkout/confirm-with-pm", {
+          paymentIntentId: intent.paymentIntentId,
+          clientSecret: intent.clientSecret,
+          paymentMethodId: pm.id,
+          returnUrl: window.location.href,
+        })
+      } catch {
+        /* NO ANSWER IS NOT A NO. The card may have been charged after all, so this never says "nothing was charged" on a
+           guess: it asks the server what Stripe says this payment did. Paid: the receipt (the same order the webhook makes,
+           never a second). Not paid: Pay is free to press again. No answer to that either: it says it does not know. */
+        const asked = await postJson<{ receiptToken?: string; amountCents?: number }>("/api/checkout/confirm-payment", {
+          paymentIntentId: intent.paymentIntentId,
+          clientSecret: intent.clientSecret,
+        }).catch(() => null)
+        if (asked?.ok && asked.data.receiptToken) {
+          showPaid(asked.data.receiptToken, { total: asked.data.amountCents ?? 0, free: false })
+          return
+        }
+        if (asked && asked.status >= 400 && asked.status < 500) throw new Error("The payment did not complete. Try again.")
+        throw new Error("We could not confirm the payment. Check your email for a receipt before you try again.")
+      }
       if (!confirmed.ok) throw new Error(confirmed.data.error || "The payment did not go through. Nothing was charged.")
       if (confirmed.data.status === "requires_action" && confirmed.data.actionUrl) {
         window.location.href = confirmed.data.actionUrl

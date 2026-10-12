@@ -11,6 +11,7 @@ import { redirect } from "next/navigation"
 import { getMainDomain } from "@/lib/url-helpers"
 import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 export const dynamic = "force-dynamic"
 
@@ -64,7 +65,7 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
   if (config.requireAccount) {
     const {
       data: { user },
-    } = await (await createClient()).auth.getUser()
+    } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null

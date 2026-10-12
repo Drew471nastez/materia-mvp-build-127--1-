@@ -119,8 +119,19 @@ export function imageSrc(v: unknown): string {
       if (s) return s
     }
   }
-  if (typeof o[OUTPUT] === "string") return o[OUTPUT] as string
+  /*
+    An object written as a word (a country "DJ", a language "fr") is not a
+    picture. Only something that reads as an address is taken: a bare word
+    in an <img src> is asked of the website as a page, and that is how one
+    page view became 250 renders.
+  */
+  if (typeof o[OUTPUT] === "string" && looksLikeAddress(o[OUTPUT] as string)) return o[OUTPUT] as string
   return ""
+}
+
+/** An address a picture can be at: absolute, rooted, a data or blob URL, or a file name with an extension. */
+function looksLikeAddress(s: string): boolean {
+  return /^(?:https?:)?\/\//i.test(s) || s.startsWith("/") || /^(?:data|blob):/i.test(s) || /\.[a-z0-9]{2,5}(?:[?#]|$)/i.test(s)
 }
 
 function sized(src: string, width: unknown, height?: unknown): string {

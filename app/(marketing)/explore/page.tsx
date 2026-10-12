@@ -3,6 +3,9 @@ import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut } from "@/lib/products/sales-limit"
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { settleWithin } from "@/lib/net/request"
+
 import { createAdminClient } from "@/lib/supabase/admin"
 import { offChannelAmong } from "@/lib/store/channel-filter"
 import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
@@ -26,6 +29,9 @@ import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-dis
 import { exploreCategoryFrom } from "@/lib/explore/explore-address"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
+
+/** How long Explore waits for a signed in person's own ordering before showing the ordinary one. */
+const INTERESTS_WAIT_MS = 1_500
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -288,14 +294,22 @@ export default async function ExplorePage({
       A failure here is not a failure of the page: the catch leaves
       `interests` empty and everybody gets the ordinary Explore.
     */
-    const interestsPromise = (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return EMPTY_INTERESTS
-      if (!(await personalizationOn(supabase, user.id, user.user_metadata?.personalized_recommendations))) return EMPTY_INTERESTS
-      return readInterests(user.id, user.email)
-    })().catch(() => EMPTY_INTERESTS)
+    /*
+      AND IT HAS A DEADLINE. It was a bare getUser() then two reads, none
+      bounded, and the grid waited on all of it: a slow minute for Supabase
+      Auth was a blank Explore for everybody signed in. Personal ordering is
+      worth INTERESTS_WAIT_MS and no more; after that the ordinary Explore.
+    */
+    const interestsPromise = settleWithin(
+      (async () => {
+        const { user } = await currentUserForRequest()
+        if (!user) return EMPTY_INTERESTS
+        if (!(await personalizationOn(supabase, user.id, user.user_metadata?.personalized_recommendations))) return EMPTY_INTERESTS
+        return readInterests(user.id, user.email)
+      })(),
+      INTERESTS_WAIT_MS,
+      EMPTY_INTERESTS,
+    )
 
     ;[productsWithCreators, interests] = await Promise.all([catalogPromise, interestsPromise])
   } catch (error: any) {

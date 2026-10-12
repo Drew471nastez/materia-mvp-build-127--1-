@@ -30,6 +30,7 @@ import type { CommunityCheckoutTerms } from "@/components/community/membership/c
 import { rowsOwn } from "@/lib/checkout/owned"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
@@ -83,7 +84,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     const { checkoutGate } = await import("@/lib/communities/server/join")
     const {
       data: { user: buyer },
-    } = await supabase.auth.getUser()
+    } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
     const gate = await checkoutGate(product as { id: string; community_id?: string | null }, buyer?.id ?? null)
     if (gate.refusal) redirect(gate.refusal.url)
     if (gate.community) {
@@ -124,7 +125,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
           .eq("product_id", productId)
           .single()
       : Promise.resolve({ data: null }),
-    supabase.auth.getUser(),
+    currentUserForRequest().then((c) => ({ data: { user: c.user } })),
     supabase
       .from("product_variants")
       .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents")
@@ -298,7 +299,7 @@ async function membershipCheckoutContent({ product, interval, returnTo = null, c
   const supabase = await createClient()
   const [creatorRead, userRead, planRead] = await Promise.all([
     supabase.from("creators").select("id, user_id, slug").eq("id", product.creator_id).single(),
-    supabase.auth.getUser(),
+    currentUserForRequest().then((c) => ({ data: { user: c.user } })),
     supabase.from("membership_plans").select("monthly_price_cents, yearly_price_cents, trial_days, benefits, currency").eq("product_id", product.id).maybeSingle(),
   ])
   const creator = creatorRead.data

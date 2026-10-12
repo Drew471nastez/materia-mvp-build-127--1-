@@ -1196,7 +1196,7 @@ check(
      * would put the round trip back in series, which is what the old pattern
      * existed to catch.
      */
-    if (!/const viewerPromise = supabase\.auth\.getUser\(\)/.test(page))
+    if (!/const viewerPromise = (?:supabase\.auth\.getUser\(\)|currentUserForRequest\(\))/.test(page))
       missing.push("the viewer lookup is not started up front")
     if (/await supabase\.auth\.getUser\(\)/.test(page))
       missing.push("the viewer lookup is awaited on its own — that is a round trip in series")
@@ -3452,7 +3452,7 @@ section("The product page does not ask one question at a time")
    */
   check(
     "starting the user lookup early cannot become an unhandled rejection",
-    /supabase\.auth\.getUser\(\)\.catch\(/.test(src),
+    /supabase\.auth\.getUser\(\)\.catch\(|currentUserForRequest\(\)\.then\([^\n]*\)\.catch\(/.test(src),
   )
 }
 
