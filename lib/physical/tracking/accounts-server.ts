@@ -147,10 +147,12 @@ export async function saveOwnTrackingAccount(db: Db, creatorId: string, body: Re
   const row: Record<string, unknown> = { creator_id: creatorId, provider: provider.id, status: "connected", last_error: null, updated_at: new Date().toISOString() }
   if (key) {
     const verdict = await verifyTrackingKey(provider.id, key)
-    if (!verdict.ok && !verdict.retry) return { ok: false, error: verdict.error }
+    /* Read as the wide shape: the test build runs without strict narrowing. */
+    const refused = verdict as { ok: boolean; error?: string; retry?: boolean }
+    if (!refused.ok && !refused.retry) return { ok: false, error: refused.error ?? "That key was not accepted." }
     row.secret_ciphertext = sealSecret(key)
     row.verified_at = verdict.ok ? new Date().toISOString() : null
-    if (!verdict.ok) row.last_error = `Not checked: ${verdict.error}`.slice(0, 300)
+    if (!refused.ok) row.last_error = `Not checked: ${refused.error ?? ""}`.slice(0, 300)
   }
   if (secret) row.webhook_secret_ciphertext = sealSecret(secret)
   else if (!sameProvider) row.webhook_secret_ciphertext = null
