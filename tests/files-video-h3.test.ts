@@ -63,7 +63,7 @@ async function main() {
   check("  the check only on a selected tile, or as an empty ring while selecting several", /selecting \|\| chosen \?/.test(tile) && /\[@media\(hover:hover\)_and_\(pointer:fine\)\]:group-hover\/tile:opacity-100 \[@media\(hover:none\)\]:scale-100 \[@media\(hover:none\)\]:opacity-100/.test(tile))
   check("the dots: 24px, translucent, a 40px target, only on hover with a mouse", /grid h-6 w-6 place-items-center rounded-full bg-black\/40 text-white/.test(tile) && /before:-inset-2/.test(tile) && /\[@media\(hover:hover\)_and_\(pointer:fine\)\]:opacity-0 group-hover\/tile:opacity-100/.test(tile))
   check("  no 32px discs and no near black check left on the picture", !/h-8 w-8 place-items-center rounded-full bg-white/.test(tile) && !/bg-\[#1a1a2e\] text-white/.test(tile))
-  check("a keyboard focus ring outside the tile", /focus-visible:ring-2 focus-visible:ring-\[#8b5cf6\] focus-visible:ring-offset-2/.test(tile))
+  check("a keyboard focus ring, inside the tile so content-visibility cannot cut it off", /group\/btn relative/.test(tile) && /shadow-\[inset_0_0_0_2px_#8b5cf6,inset_0_0_0_4px_#fff\] group-focus-visible\/btn:opacity-100/.test(tile))
   check("the Files page uses the same tile for Select", /mode === "manage" \? <span className="block truncate/.test(tile) && /selecting = mode === "pick" \? multiple : selectingFiles/.test(lib))
 
   console.log("\n2. No flash between pills")

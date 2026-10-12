@@ -645,12 +645,13 @@ function VideoFrame({ file, index, hidden, onGone }: { file: LibraryFile; index:
                a touch screen always, quieter. A faint shade along the top of
                the picture keeps the ring and the dots readable on a white
                photo, only while they show.
-    FOCUS      a 2px violet ring outside the tile, from the keyboard only.
+    FOCUS      a 2px violet ring with a white edge inside the tile, from the
+               keyboard only (outside it, content-visibility cut it off).
 
   The same tile is the Files page's (Select) and the chooser's, on a computer
   and in the phone sheet.
 */
-const DOTS_TOUCH = "[@media(hover:none)]:bg-black/30"
+const DOTS_TOUCH = "[@media(hover:none)]:bg-black/25"
 
 const Tile = React.memo(function Tile({
   file,
@@ -697,7 +698,7 @@ const Tile = React.memo(function Tile({
       <button
         type="button"
         onClick={() => onPress(file)}
-        className="relative block w-full rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2 focus-visible:ring-offset-white [-webkit-tap-highlight-color:transparent]"
+        className="group/btn relative block w-full rounded-xl text-left outline-none [-webkit-tap-highlight-color:transparent]"
         data-file={file.id}
         aria-label={label}
         aria-pressed={selecting ? ticked : undefined}
@@ -758,6 +759,11 @@ const Tile = React.memo(function Tile({
               )}
             />
           </span>
+          {/*
+            The keyboard's focus ring, drawn inside the tile over the picture: a ring outside it is cut off,
+            since an off screen tile is painted within its own box (content-visibility).
+          */}
+          <span aria-hidden data-file-focus="" className="pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[inset_0_0_0_2px_#8b5cf6,inset_0_0_0_4px_#fff] group-focus-visible/btn:opacity-100" />
           {selecting || chosen ? (
             <span
               aria-hidden
