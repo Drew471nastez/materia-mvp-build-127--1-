@@ -754,7 +754,7 @@ const Tile = React.memo(function Tile({
               aria-hidden
               className={cn(
                 "pointer-events-none absolute inset-x-0 top-0 h-12 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.22),rgba(0,0,0,0))] opacity-0 transition-opacity duration-150",
-                "[@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:opacity-100 group-has-[:focus-visible]/tile:opacity-100",
+                "[@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:opacity-100 group-focus-within/tile:opacity-100",
                 menuOpen && "opacity-100",
               )}
             />
@@ -794,7 +794,7 @@ const Tile = React.memo(function Tile({
           "before:absolute before:-inset-2 before:content-['']",
           DOTS_TOUCH,
           /* Always there on a touch screen; with a mouse once the pointer is on the tile, or while its menu is open. */
-          menuOpen ? "bg-black/60 opacity-100" : "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/tile:opacity-100 group-has-[:focus-visible]/tile:opacity-100",
+          menuOpen ? "bg-black/60 opacity-100" : "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100",
         )}
       >
         <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
