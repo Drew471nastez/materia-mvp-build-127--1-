@@ -222,10 +222,12 @@ async function main() {
   console.log("\nThe place")
   {
     const view = code("components/community/member/member-profile.tsx")
-    check("the band is taller: 160 and 208 with a picture, 96 and 112 without", /h-\[160px\] bg-\[#eceef1\] sm:h-\[208px\]/.test(view) && /h-\[96px\] bg-\[#f3f4f6\] sm:h-\[112px\]/.test(view))
+    /* Round 25 made it taller again (tests/surfaces25.test.ts): 184 and 236 with a picture, 112 and 128 without. */
+    check("the band is taller: 184 and 236 with a picture, 112 and 128 without (round 25)", /h-\[184px\] bg-\[#eceef1\] sm:h-\[236px\]/.test(view) && /h-\[112px\] bg-\[#f3f4f6\] sm:h-\[128px\]/.test(view))
     check("the photo is bigger and straddles the band (half of it plus its ring)", /h-\[96px\] w-\[96px\] sm:h-\[112px\] sm:w-\[112px\]/.test(view) && /-mt-\[51px\]/.test(view) && /sm:-mt-\[59px\]/.test(view))
     check("a press on it opens the creator page's own viewer", /import \{ AvatarLightbox \} from "@\/components\/storefront\/avatar-lightbox"/.test(view) && /<AvatarLightbox src=\{person\.avatarUrl\} name=\{person\.name\}>\s*<span[^>]*data-member-profile-avatar=""/.test(view))
-    check("the board between the head and the posts", /<ProfileHead [^>]*\/>\s*\{data\.board \? <ActivityBoard board=\{data\.board\} name=\{data\.person\.name\} \/> : null\}\s*<div data-profile-panel="posts">/.test(view))
+    /* Round 25: a member's board between the head and the posts, a creator's under their posts (tests/surfaces25.test.ts). */
+    check("the board between the head and the posts, for a member", /<ProfileHead [^>]*\/>\s*\{postsFirst \? null : board\}\s*<div data-profile-panel="posts">/.test(view))
 
     const full: MemberBoard = {
       grid: { tz: "UTC", from: "2025-10-12", today: "2026-10-10", days: [["2026-10-09", 1, 2, 3], ["2026-06-01", 0, 0, 1]] },
@@ -238,9 +240,11 @@ async function main() {
     check("a square for every day up to today", (html.match(/data-day="/g) ?? []).length === 364, (html.match(/data-day="/g) ?? []).length)
     check("shaded by what that day held", /data-activity-cell="3" data-day="2026-10-09"/.test(html) && /data-activity-cell="1" data-day="2026-06-01"/.test(html))
     check("the newest week first in a reversed row, so it opens at today with no script", /flex-row-reverse/.test(html) && html.indexOf('data-activity-week="2026-10-04"') < html.indexOf('data-activity-week="2025-10-12"'))
-    check("level, points and the way to the next", /Level 3/.test(html) && /Contributor/.test(html) && /46 points to level 4 · Insider/.test(html) && /aria-valuenow="49"/.test(html))
+    /* Round 25, the owner: "too much text". The level's name and points stay; the sentence to the next level and its bar went. */
+    check("level and points, without the way to the next (round 25)", /Level 3/.test(html) && /Contributor/.test(html) && !/points to level 4/.test(html) && !/aria-valuenow/.test(html))
     check("posts, comments, joined", /data-activity-fact="posts"/.test(html) && /data-activity-fact="comments"/.test(html) && /data-activity-fact="joined"/.test(html) && /Mar 2026/.test(html))
-    check("the year in a line, said to a screen reader too", /1 post, 2 comments and 4 likes/.test(html) && /aria-live="polite"/.test(html) && /aria-label="1 post, 2 comments, 4 likes in the last year"/.test(html))
+    /* Round 25: no sentence under the grid any more; the year is still said to a screen reader. */
+    check("the year said to a screen reader", /aria-label="1 post, 2 comments, 4 likes in the last year"/.test(html))
     const before = renderToStaticMarkup(createElement(ActivityBoard, { board: { ...full, grid: null, comments: null }, name: "Sam" }))
     check("before part 125: no grid and no comment count, the rest there", !/data-activity-grid/.test(before) && !/data-activity-fact="comments"/.test(before) && /data-activity-fact="posts"/.test(before) && /data-activity-standing/.test(before))
     const noPoints = renderToStaticMarkup(createElement(ActivityBoard, { board: { ...full, standing: null }, name: "Sam" }))
