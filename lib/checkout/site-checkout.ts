@@ -345,7 +345,7 @@ export function siteCheckoutRouteFor(pathname: string, search: string, method: s
         items: decodeItems(q.get("items")),
         back,
         couponCode: q.get("code"),
-        wholeCart: q.get(WHOLE_CART_PARAM) === "1" || (path === "/checkout/physical" && (back ?? "").split("?")[0] === "/cart"),
+        wholeCart: q.get(WHOLE_CART_PARAM) === "1" || (path === "/checkout/physical" && /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?cart$/i.test((back ?? "").split("?")[0])),
         visit: { from: q.get("ref"), utm_source: q.get("utm_source"), utm_campaign: q.get("utm_campaign"), touches: q.get("sl_at") },
       }),
     }

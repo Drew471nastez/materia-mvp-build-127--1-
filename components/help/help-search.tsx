@@ -19,7 +19,8 @@ import { searchHelp } from "@/lib/help/search"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { cn } from "@/lib/utils"
 
-export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = false }: { size?: "large" | "compact"; defaultQuery?: string; autoFocus?: boolean }) {
+/** `tone="dark"`: on the Help Center's ink band, a soft glass field with white type. */
+export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = false, tone = "light" }: { size?: "large" | "compact"; defaultQuery?: string; autoFocus?: boolean; tone?: "light" | "dark" }) {
   const router = useRouter()
   const id = useId()
   const listId = `${id}-results`
@@ -71,7 +72,7 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
         <svg
           aria-hidden
           viewBox="0 0 20 20"
-          className={cn("pointer-events-none absolute top-1/2 -translate-y-1/2 text-[#9ca3af]", large ? "left-4 h-[18px] w-[18px]" : "left-3.5 h-4 w-4")}
+          className={cn("pointer-events-none absolute top-1/2 -translate-y-1/2", tone === "dark" ? "text-white/75" : "text-[#9ca3af]", large ? "left-[18px] h-5 w-5" : "left-4 h-[18px] w-[18px]")}
           fill="none"
           stroke="currentColor"
           strokeWidth={1.8}
@@ -92,7 +93,7 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
           autoComplete="off"
           autoFocus={autoFocus}
           enterKeyHint="search"
-          placeholder={large ? "Search, for example: refund, custom domain, cash out" : "Search help"}
+          placeholder="Search for articles"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
@@ -102,10 +103,11 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           className={cn(
-            "w-full rounded-xl border border-[#d1d5db] bg-white text-[#1a1a2e] placeholder:text-[#9ca3af]",
-            "outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]",
+            tone === "dark"
+              ? "w-full rounded-2xl border border-white/15 bg-white/10 text-white placeholder:text-white/65 outline-none transition-[background-color,border-color,box-shadow] duration-150 focus:border-white/35 focus:bg-white/[0.14] focus:shadow-[0_0_0_4px_rgba(255,255,255,0.08)]"
+              : "w-full rounded-xl border border-[#d1d5db] bg-white text-[#1a1a2e] placeholder:text-[#9ca3af] outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]",
             "[&::-webkit-search-cancel-button]:appearance-none",
-            large ? "h-12 pl-11 pr-4 text-[16px]" : "h-10 pl-10 pr-3 text-[15px]",
+            large ? "h-14 pl-12 pr-4 text-[16px] sm:text-[17px]" : "h-12 pl-11 pr-3 text-[16px] sm:text-[15px]",
           )}
         />
       </div>

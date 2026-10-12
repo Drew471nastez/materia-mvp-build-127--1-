@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { helpTopicsFor } from "@/lib/help/questions"
-import { Breadcrumbs, ContactSupport, HELP_CONTAINER } from "@/components/help/help-parts"
+import { Breadcrumbs, ContactSupport } from "@/components/help/help-parts"
+import { HELP_WIDTH, HelpHero, TopicIcon } from "@/components/help/help-hero"
 import { QuestionsBrowser } from "@/components/help/questions-browser"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 
@@ -33,19 +34,21 @@ export default async function HelpQuestionsPage() {
   return (
     <div className="bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(faq) }} />
-      <header className="border-b border-[#e5e7eb] bg-[#f8f9fa]">
-        <div className={`${HELP_CONTAINER} py-8 sm:py-12`}>
-          <Breadcrumbs items={[{ label: "Help Center", href: "/help" }]} />
-          <h1 className="mt-4 text-[28px] font-bold tracking-tight text-[#1a1a2e] sm:text-[32px]">Order problems, answered</h1>
-          <p className="mt-2 max-w-[62ch] text-[15px] leading-relaxed text-[#6b7280]">
-            The questions stores and buyers ask most, answered for both sides: what happens, what the store does, and what the buyer does.
-          </p>
+      <HelpHero />
+      <div className={`${HELP_WIDTH} pt-6 sm:pt-8`}>
+        <Breadcrumbs items={[{ label: "All topics", href: "/help" }, { label: "Order problems" }]} />
+        <div className="mt-6 flex items-start gap-4">
+          <TopicIcon slug="questions" size={52} />
+          <div className="min-w-0">
+            <h1 className="text-[26px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">Order problems, answered</h1>
+            <p className="mt-1.5 max-w-[62ch] text-[15.5px] leading-relaxed text-[#4b5563]">What happens, what the store does and what the buyer does, for the questions asked most.</p>
+          </div>
         </div>
-      </header>
-      <div className={`${HELP_CONTAINER} py-8 sm:py-12`}>
+      </div>
+      <div className={`${HELP_WIDTH} py-8 sm:py-10`}>
         <QuestionsBrowser topics={topics} />
       </div>
-      <ContactSupport />
+      <ContactSupport frame={HELP_WIDTH} />
     </div>
   )
 }

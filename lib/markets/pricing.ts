@@ -37,6 +37,16 @@ export interface Pricing {
   format(minor: number, locale?: string): string | null
 }
 
+/** A market's conversion as the browser takes it (StorefrontContext display): pricingFor(market, base, fx) there gives the server's numbers. */
+export interface StorefrontDisplay {
+  market: MarketPrice
+  base: string
+  fx: FxRates
+  locale: string
+  /** "Prices in EUR are an estimate. You'll pay in USD at checkout…" */
+  note: string | null
+}
+
 /** The conversion for a market, or null when it shows the store's own prices (no currency of its own, the same currency, or no fresh rates). */
 export function pricingFor(market: MarketPrice | null | undefined, base: string, fx: FxRates | null | undefined, now = Date.now()): Pricing | null {
   if (!market || !market.currency || market.currency === base) return null
