@@ -9,9 +9,9 @@
  *              (lib/store/tracking.ts); every store
  *   commerce   fulfilment, shipping, print on demand and suppliers
  *              (lib/physical/providers.ts); while physical commerce is on.
- *              Printful and Printify take orders and send tracking back
- *              (lib/integrations/fulfilment); the rest of the shipping and
- *              dropshipping services are Coming soon, never a Connect button
+ *              Printful, Printify, Gelato and CJ Dropshipping take orders
+ *              and send tracking back (lib/integrations/fulfilment); a
+ *              service not built yet is Coming soon, never a Connect button
  *   app        made by Storelib and run inside it, with a page of its own
  *              settings: Storelib Reviews (lib/reviews/app-settings.ts)
  *   listed     a service merchants ask for that Storelib does not connect
@@ -207,7 +207,7 @@ function fromTracker(id: TrackerId): Integration {
   }
 }
 
-/** Printful and Printify, connected: how an order gets there and tracking gets back, in the seller's words. */
+/** Printful, Printify, Gelato and CJ, connected: how an order gets there and tracking gets back, in the seller's words. */
 const CONNECT_ABOUT: Partial<Record<ProviderId, string[]>> = {
   printful: [
     "Connect your Printful store with a private token. Storelib makes a location called Printful. A product you sell as Print on demand at that location goes to Printful when it is paid: each item by the SKU its Printful variant has, with the buyer's delivery address.",
@@ -218,6 +218,18 @@ const CONNECT_ABOUT: Partial<Record<ProviderId, string[]>> = {
     "Connect your Printify shop with a personal access token. Storelib makes a location called Printify. A product you sell as Print on demand at that location goes to Printify when it is paid: each item by the SKU its Printify variant has, with the buyer's delivery address.",
     "Printify keeps each order on hold until you approve it there, and charges you only then. Turn on Send orders straight to production and they go to the print provider as soon as they are paid.",
     "When a parcel ships, and again when it is delivered, Printify tells Storelib: the tracking reaches the order and your buyer gets the shipping and delivery emails from your store. A SKU Printify doesn't have is not sent: the order says so, for you to send it yourself.",
+  ],
+  gelato: [
+    "Connect Gelato with an API key. Storelib makes a location called Gelato. A product you sell as Print on demand at that location goes to Gelato when it is paid, printed in the Gelato country closest to your buyer.",
+    "Match each variant once, in Storelib: the Gelato product UID for its size and colour, and your print file's address. Storelib checks both with Gelato. A variant that isn't matched is never sent: the order says so, for you to send it yourself.",
+    "Orders wait in Gelato as drafts until you approve them, so Gelato charges you only then. Turn on Send orders straight to production and they are made as soon as they are paid, by the shipment method you choose.",
+    "Paste Storelib's address into Gelato's webhooks and each tracking code comes back as soon as Gelato has it; until then Storelib checks Gelato every few hours. Your buyer gets the shipping and delivery emails from your store.",
+  ],
+  cj_dropshipping: [
+    "Connect CJ with your CJ API key. Storelib makes a location called CJ Dropshipping. A product you sell as Dropshipping at that location goes to CJ when it is paid, shipped from the CJ warehouse country you choose.",
+    "Match each variant to a CJ variant once, by searching CJ's catalogue by SKU or words. A variant whose SKU is exactly CJ's goes without a match, because CJ confirms it. Anything else is never sent: the order says so, for you to send it yourself.",
+    "Each order is made in CJ unpaid, for you to pay there. Turn on Send orders straight to production and it is confirmed and paid from your CJ balance as soon as your buyer pays; if the balance is too low, the order says so.",
+    "CJ tells Storelib when an order ships and its tracking moves; your buyer gets the shipping and delivery emails from your store. Turn on Keep stock in step with CJ on a product and its stock follows CJ's warehouses.",
   ],
 }
 
@@ -239,16 +251,17 @@ function fromProvider(p: ProviderInfo): Integration {
       { label: "Works with", value: "Physical products" },
       { label: "Status", value: builtIn ? "Works today" : connects ? "Works once connected" : "Coming soon" },
       /* Coming soon takes nothing, so it doesn't say what you would add. */
-      ...(builtIn || connects ? [{ label: "You add", value: p.fields.length === 0 ? "Nothing" : p.id === "printful" ? "A private token" : p.id === "printify" ? "A personal access token" : p.fields.map((f) => ({ api_key: "An API key", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") }] : []),
+      ...(builtIn || connects ? [{ label: "You add", value: p.fields.length === 0 ? "Nothing" : p.id === "printful" ? "A private token" : p.id === "printify" ? "A personal access token" : p.id === "cj_dropshipping" ? "Your CJ API key" : p.fields.map((f) => ({ api_key: "An API key", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") }] : []),
       { label: "Price", value: builtIn ? "Free" : `Free on Storelib; ${p.name}'s own pricing applies` },
     ],
     data: builtIn
       ? ["Nothing leaves Storelib except what this integration is for: the order's items and the delivery address, to whoever ships it."]
       : connects
         ? [
-            `Each order sent to ${p.name} carries the items by SKU and quantity, the order number, and the buyer's name, delivery address, email and phone, so it can be shipped. Nothing about your other orders or products is sent.`,
-            `Your ${p.name} token is checked with ${p.name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
-            `${p.name} tells Storelib which of its orders shipped; Storelib then reads that order from ${p.name} with your token before anything changes on yours.`,
+            `Each order sent to ${p.name} carries the items (${p.id === "gelato" ? "the matched Gelato product and print file" : p.id === "cj_dropshipping" ? "the matched CJ variant" : "by SKU"}) and quantity, the order number, and the buyer's name, delivery address, email and phone, so it can be shipped. Nothing about your other orders or products is sent.`,
+            `Your ${p.name} ${p.id === "printful" || p.id === "printify" ? "token" : "key"} is checked with ${p.name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
+            `${p.name} tells Storelib which of its orders shipped; Storelib then reads that order from ${p.name} with your ${p.id === "printful" || p.id === "printify" ? "token" : "key"} before anything changes on yours.`,
+            ...(p.id === "cj_dropshipping" ? ["Coming back from CJ: each order's status and tracking number, and, for the products you turn it on for, the stock in CJ's warehouses."] : []),
           ]
         : [`Nothing is sent to ${p.name}. When it is connected, its page will say exactly what goes there before you turn it on.`],
     comingSoon: !builtIn && !connects,

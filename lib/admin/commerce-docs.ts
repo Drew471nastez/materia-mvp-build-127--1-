@@ -490,10 +490,10 @@ export const COMMERCE_DOCS: DocSection[] = [
     id: "integrations",
     title: "Integrations",
     intro:
-      "Services a store connects. Analytics and ad pixels load on every page of the store's website with the ID the creator saved, and a paid order is reported to the ad and analytics ones once. Printful and Printify take each paid order for their location and send tracking back. The list below says which ones are working today and which are Coming soon.",
+      "Services a store connects. Analytics and ad pixels load on every page of the store's website with the ID the creator saved, and a paid order is reported to the ad and analytics ones once. Printful, Printify, Gelato and CJ Dropshipping take each paid order for their location and send tracking back; CJ can also keep a product's stock in step. The list below says which ones are working today and which are Coming soon.",
     where: SETTINGS("integrations", "Integrations"),
-    help: ["integrations", "printful-and-printify"],
-    code: ["components/app/settings/integrations-directory.tsx", "components/physical/integrations-marketplace.tsx", "lib/integrations/catalog.ts", "lib/store/tracking.ts", "lib/physical/providers.ts", "lib/integrations/fulfilment/forward-server.ts", "lib/physical/secrets.ts", "app/api/integrations/webhooks", "app/api/cron/physical/route.ts", "app/admin/integrations"],
+    help: ["integrations", "printful-and-printify", "gelato-and-cj-dropshipping"],
+    code: ["components/app/settings/integrations-directory.tsx", "components/physical/integrations-marketplace.tsx", "lib/integrations/catalog.ts", "lib/store/tracking.ts", "lib/physical/providers.ts", "lib/integrations/fulfilment/forward-server.ts", "lib/integrations/fulfilment/gelato.ts", "lib/integrations/fulfilment/cj.ts", "lib/integrations/fulfilment/links-server.ts", "lib/physical/secrets.ts", "app/api/integrations/webhooks", "app/api/cron/physical/route.ts", "app/admin/integrations"],
     facts: ["integrations"],
     topics: [
       {
@@ -516,6 +516,20 @@ export const COMMERCE_DOCS: DocSection[] = [
           "Give a product Print on demand at that location and each variant its Printful SKU. Buy it with the test card: the order's timeline says Order sent to Printful, and the draft is in Printful.",
           "Ship it in Printful (or wait for the tracking check): the order shows the carrier and number and the buyer gets the shipping email.",
           "The provider's webhook address is https://storelib.com/api/integrations/webhooks/<printful or printify>/<token>. The token is made by Storelib from the creator's id and a key only the server has, so it can't be guessed; Printify's deliveries are also checked against their signature.",
+        ],
+      },
+      {
+        id: "gelato-cj",
+        name: "Gelato and CJ Dropshipping",
+        does: "Connected with the creator's API key, checked first (Gelato: a catalogue read; CJ: the key exchanged for an access token, kept sealed and refreshed). Connecting makes a location of the same name (Gelato print on demand, CJ a dropshipping supplier). Neither shares SKUs with the store, so the creator matches each variant once on the card: a CJ variant found by SKU or words in CJ's catalogue, or a Gelato product UID with the print file's https address, each checked with the partner before it is saved. A paid order queues forward_fulfillment as for Printful: Gelato gets an Order API v4 draft or order (searched first by its reference, so a retry never makes a second) with the creator's shipment method; CJ gets createOrderV2 unpaid, then confirmed and paid from the CJ balance when Send to production is on, by the cheapest method CJ quotes or the one the creator typed. An item with no match is never sent (CJ only by an SKU CJ confirms exactly): the order is marked to send by hand with the reason. Tracking comes back by CJ's order and logistics webhooks and Gelato's (which the creator pastes in Gelato), or the tracking_sync job; every webhook is only a pointer, the order is read back with the creator's key. CJ stock in step: per product, an inventory_sync job every six hours, CJ's STOCK webhook, or Read CJ stock now, each a provider_sync stock movement at the CJ location.",
+        stored: "commerce_integrations (secret_ciphertext, config: CJ's sealed tokens, shipment method, shipping method, ships from), fulfilment_variant_links (SQL part 162), inventory_levels and inventory_movements (provider_sync), commerce_jobs (forward_fulfillment, tracking_sync, inventory_sync)",
+        creators: [SETTINGS("integrations", "Integrations › Gelato or CJ Dropshipping"), SETTINGS("locations", "Locations")],
+        check: [
+          "Connect CJ with a CJ API key: the card says Connected and Settings › Locations has a CJ Dropshipping location. Press Match products, search a CJ SKU, choose a variant: the row says Matched.",
+          "Give that product Dropshipping at the CJ location. Buy it with the test card: the timeline says Order sent to CJ Dropshipping and the order is in CJ, unpaid.",
+          "Turn on Keep stock in step with CJ: the row shows CJ's stock and the variant's stock history has a Synced from provider line.",
+          "Connect Gelato, match a variant to a product UID and a print file, buy it: the draft is in Gelato's dashboard. Paste the card's address in Gelato › Developer › Webhooks; the card's Tracking line changes once Gelato sends its first update.",
+          "Without part 162, matching says it turns on after SQL part 162 runs, and orders for unmatched items are marked to send by hand.",
         ],
       },
       {
