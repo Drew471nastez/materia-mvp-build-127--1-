@@ -307,6 +307,9 @@ export function CommentsPlaceholder({ expected, pinComposer = false }: { expecte
   its white ground (no comment shows through between its pill and the keys). Its pill's blur is on only once the post has
   settled (post-fullscreen.tsx data-settled): nothing that moves carries a blur. The face beside the field takes the readout's
   long press, so it gives no iOS callout and selects nothing.
+  ROUND 25: the opened post is the website builder's bottom sheet. The box rides the room the sheet makes for the keyboard
+  (its content padded, the sheet itself white to the foot of the screen and a sheet's height beyond); the pill stays solid
+  white (nothing marks the sheet settled, so the frosted pill never comes on inside a sheet a finger can move).
 */
 /** Round 16's block, kept only as the box's white ground while typed in (the page under it is white to the foot anyway). */
 export const KEYBOARD_BLOCK = "[[data-typing]_&]:shadow-[0_-1px_0_#eef0f2]"
@@ -677,9 +680,8 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
               }
             : pinComposer
               ? {
-                  paddingBottom: floatComposer
-                    ? "max(calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)), 8px)"
-                    : "max(calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)), 10px)",
+                  /* Round 25: the floating box is in the post's bottom sheet, which already keeps the home indicator (or the keyboard) clear under its content. */
+                  paddingBottom: floatComposer ? "8px" : "max(calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)), 10px)",
                 }
               : undefined
         }
