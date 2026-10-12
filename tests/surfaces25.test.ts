@@ -210,6 +210,17 @@ async function main() {
     check("one date formatter for a list, not one per row", /SHORT_DATE \?\?= new Intl\.DateTimeFormat/.test(ui) && !/toLocaleDateString/.test(ui))
   }
 
+  console.log("\nScrolling the community")
+  {
+    const card = code("components/community/member/post-card.tsx")
+    const links = card.match(/<Link [^>]*>/g) ?? []
+    check("no link in a feed card fetches its page ahead as it scrolls into view", links.length >= 5 && links.every((l) => /prefetch=\{false\}/.test(l)), links.filter((l) => !/prefetch=\{false\}/.test(l)))
+    check("a finger that scrolls reads nothing ahead: a touch waits READ_AHEAD_TOUCH_MS, a scroll's pointercancel stops it", /if \(e\.pointerType !== "touch"\) return readAhead\(\)/.test(card) && /aheadTimer\.current = window\.setTimeout\(readAhead, READ_AHEAD_TOUCH_MS\)/.test(card) && /onPointerCancel=\{\(\) => \{\s*window\.clearTimeout\(aheadTimer\.current\)/.test(card) && /export const READ_AHEAD_TOUCH_MS = (\d+)/.test(card) && Number(/export const READ_AHEAD_TOUCH_MS = (\d+)/.exec(card)?.[1]) <= 120)
+    const pull = code("hooks/use-pull-to-refresh.ts")
+    check("a finger landing anywhere below the top asks pull to refresh nothing (no queries, no forced layout)", /if \(!enabledRef\.current\) return\s*if \(topKnown && !atTop\) return/.test(pull) && /const setBlocking = \(here: boolean\) => \{\s*topKnown = true\s*atTop = here/.test(pull))
+    check("  and where there is no observer the listener behaves as it always did", /\} else \{\s*setBlockingNow\(true\)\s*\}/.test(pull))
+  }
+
   console.log("\nThe library")
   {
     const fade = code("components/account/account-nav-fade.tsx")
