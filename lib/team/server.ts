@@ -5,6 +5,8 @@ import { cookies } from "next/headers"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { SHELL_CREATOR_COLUMNS, SHELL_PRIVATE_CREATOR_COLUMNS, type RequestCreator } from "@/lib/auth/request-scope"
 import { sendEmail } from "@/lib/mail"
+import { emailImageSrc } from "@/lib/email-campaigns/sender"
+import { teamInviteEmail } from "./invite-email"
 import { baseUrl } from "@/lib/notify/urls"
 import { isProPlan } from "@/lib/home/progress"
 import { INVITE_TTL_MS, invitable, isMemberRole, memberCan, seatLimit, teamEmail, type MemberRole, type TeamArea, type TeamRole } from "./roles"
@@ -123,24 +125,20 @@ export async function inviteMember(
 
   const storeName = store.display_name || store.slug || "a store"
   const link = `${baseUrl()}/api/team/join?token=${encodeURIComponent(token)}`
-  const roleWord = opts.role === "manager" ? "a Manager" : "Staff"
-  const sent = await sendEmail({
-    to: email,
-    subject: `You're invited to ${storeName} on Storelib`,
-    transactional: true,
-    keepBounce: true,
-    text: `You've been invited to join ${storeName} on Storelib as ${roleWord}.\n\nOpen this link and sign in with ${email} to accept:\n${link}\n\nThe link works for 7 days. If you weren't expecting this, you can ignore it.`,
-    html: inviteHtml({ storeName, roleWord, email, link }),
-  }).catch(() => ({ success: false }))
+  const mail = teamInviteEmail({ storeName, role: opts.role, email, link, ...(await inviteContext(db, store.id, opts.owner.id)) })
+  const sent = await sendEmail({ to: email, subject: mail.subject, transactional: true, keepBounce: true, text: mail.text, html: mail.html }).catch(() => ({ success: false }))
   return { ok: true, member: data as TeamMemberRow, emailed: !!sent.success }
 }
 
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
-}
-
-function inviteHtml(v: { storeName: string; roleWord: string; email: string; link: string }): string {
-  return `<!doctype html><html><body style="margin:0;background:#f8f9fa;font-family:Inter,Arial,sans-serif;color:#1a1a2e"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;padding:32px"><tr><td><p style="margin:0 0 8px;font-size:20px;font-weight:600">Join ${esc(v.storeName)}</p><p style="margin:0 0 24px;font-size:15px;line-height:22px;color:#6b7280">You've been invited to help run ${esc(v.storeName)} on Storelib as ${esc(v.roleWord)}. Sign in with ${esc(v.email)} to accept.</p><a href="${esc(v.link)}" style="display:inline-block;background:#1a1a2e;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 20px;border-radius:12px">Accept invite</a><p style="margin:24px 0 0;font-size:13px;line-height:20px;color:#6b7280">The link works for 7 days. If you weren't expecting this, you can ignore it.</p></td></tr></table></td></tr></table></body></html>`
+/** The store's picture and the owner's name for the invite email. Either may be missing; the email reads without them. */
+async function inviteContext(db: Db, creatorId: string, ownerId: string): Promise<{ storeImageUrl: string | null; inviterName: string | null }> {
+  const [creator, profile] = await Promise.all([
+    db.from("creators").select("avatar_url").eq("id", creatorId).maybeSingle().then((r: unknown) => r, () => ({ data: null })),
+    db.from("profiles").select("display_name").eq("id", ownerId).maybeSingle().then((r: unknown) => r, () => ({ data: null })),
+  ])
+  const avatar = (creator as { data: { avatar_url?: string | null } | null })?.data?.avatar_url ?? null
+  const name = (profile as { data: { display_name?: string | null } | null })?.data?.display_name ?? null
+  return { storeImageUrl: emailImageSrc(avatar, 48), inviterName: typeof name === "string" && name.trim() ? name.trim().slice(0, 60) : null }
 }
 
 /**
