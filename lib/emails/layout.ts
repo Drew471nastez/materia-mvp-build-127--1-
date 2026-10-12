@@ -292,7 +292,7 @@ export function emailKit(sender: EmailSender): EmailKit {
     theme: t,
     heading(text, opts = {}) {
       const label = opts.label
-        ? `<p class="e-label" style="${P(13, 18, opts.labelColor ?? K.muted, "font-weight:600;margin:0 0 8px 0;")}">${esc(opts.label)}</p>`
+        ? `<p class="${labelClass(opts.labelColor)}" style="${P(13, 18, opts.labelColor ?? K.muted, "font-weight:600;margin:0 0 8px 0;")}">${esc(opts.label)}</p>`
         : ""
       const sub = opts.sub ? `<p class="e-muted" style="${P(14, 20, K.muted, "margin:6px 0 0 0;")}">${esc(opts.sub)}</p>` : ""
       return row(`${label}<h1 class="e-h1 e-ink" style="${P(24, 32, K.ink, "font-weight:700;letter-spacing:-0.4px;")}">${esc(text)}</h1>${sub}`, 16)
@@ -375,7 +375,7 @@ export function emailKit(sender: EmailSender): EmailKit {
             ? `<img class="e-thumb" src="${esc(src)}" alt="${esc(l.title)}" width="${ITEM_PX}" height="${ITEM_PX}" style="display:block;width:${ITEM_PX}px;height:${ITEM_PX}px;object-fit:cover;border:1px solid ${K.line};border-radius:10px;background-color:${K.panel};">`
             : tile(l.title, ITEM_PX, 10, null)
           const detail = l.detail ? `<p class="e-muted" style="${P(13, 19, K.muted, "margin:2px 0 0 0;")}">${esc(l.detail)}</p>` : ""
-          const warning = l.warning ? `<p style="${P(13, 19, "#b91c1c", "margin:2px 0 0 0;")}">${esc(l.warning)}</p>` : ""
+          const warning = l.warning ? `<p class="e-bad" style="${P(13, 19, "#b91c1c", "margin:2px 0 0 0;")}">${esc(l.warning)}</p>` : ""
           const amount = anyAmount
             ? `<td class="e-ink e-line" valign="top" align="right" style="padding:14px 0 14px 12px;${rule}${P(15, 21, K.ink, "font-weight:600;text-align:right;white-space:nowrap;")}">${esc(l.amount ?? "")}</td>`
             : ""
@@ -414,7 +414,7 @@ ${amount}
       const cap = caption ? `<p class="e-muted" style="${P(13, 20, K.muted, "margin:10px 0 0 0;")}">${esc(caption)}</p>` : ""
       return row(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;">
-<tr><td align="center" style="padding:22px 16px;"><p class="e-ink e-code" style="margin:0;font-family:${MONO};font-size:34px;line-height:40px;font-weight:700;letter-spacing:8px;color:${K.ink};-webkit-user-select:all;user-select:all;">${esc(code)}</p>${cap}</td></tr>
+<tr><td align="center" style="padding:22px 16px;"><p class="e-ink e-code" style="margin:0;font-family:${MONO};font-size:34px;line-height:40px;font-weight:700;letter-spacing:8px;color:${K.ink};-webkit-user-select:all;user-select:all;padding-left:8px;">${esc(code)}</p>${cap}</td></tr>
 </table>`,
         20,
       )
@@ -503,6 +503,17 @@ ${amount}
   return kit
 }
 
+/** A label's colour on the dark page: amber stays amber and red stays red, lightened to read; anything else goes grey. */
+function labelClass(color: string | undefined): string {
+  const c = hexColor(color) ?? ""
+  if (!c) return "e-label"
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16))
+  if (r > 150 && g > 60 && b < 60) return "e-label e-label-warn"
+  if (r > 150 && g < 60 && b < 60) return "e-label e-label-bad"
+  if (g > r && g > b) return "e-label e-label-good"
+  return "e-label"
+}
+
 /** A square or round tile with a letter, drawn with a table cell so it is there with pictures off. */
 function tile(name: string, px: number, radius: number, t: EmailTheme | null): string {
   const bg = t ? t.accent : K.panel
@@ -567,6 +578,11 @@ a[x-apple-data-detectors],.e-body a[href^="tel"],.e-body a[href^="sms"]{color:in
 .e-tile{background-color:${K.dark.panel}!important;color:${K.dark.muted}!important;}
 .e-bar{background-color:${K.dark.line}!important;}
 .e-good{color:#34d399!important;}
+.e-bad{color:#f87171!important;}
+.e-label{color:${K.dark.muted}!important;}
+.e-label-warn{color:#fbbf24!important;}
+.e-label-bad{color:#f87171!important;}
+.e-label-good{color:#34d399!important;}
 .e-warn,.e-danger,.e-goodbox{background-color:${K.dark.panel}!important;border-color:${K.dark.line}!important;}
 .e-warn .e-ntitle,.e-warn .e-ntext{color:#fcd34d!important;}
 .e-danger .e-ntitle,.e-danger .e-ntext{color:#fca5a5!important;}

@@ -140,7 +140,7 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
     k.totals(totals, { below: doc ? 12 : 28 }),
     doc ? k.smallHtml(doc.html, { below: 24 }) : "",
     k.button(m.buttonLabel, m.link),
-    k.small("The button opens your receipt with the files, on any device, so keep this email.", { below: 4 }),
+    k.small("The button opens your receipt with the files, on any device, so keep this email.", { below: 8 }),
     k.fallback(m.link),
     k.smallHtml(`Questions about the order? Reply to this email to reach ${esc(sellerPlain)}, or write to ${identity(m.supportEmail, false)}.`),
   ]
