@@ -436,6 +436,7 @@ async function main() {
     check("  and says when tracking is not set up yet", /Automatic updates turn on when Storelib's tracking is set up/.test(panel))
     const status = read("lib/admin/commerce-status.ts")
     check("/admin/physical-commerce reads the tracking status from real data", /platformTrackingState/.test(status) && /tracking_checked_at/.test(status) && /Automatic updates turn on when Storelib's tracking is set up/.test(read("app/admin/physical-commerce/commerce-docs-admin.tsx")))
+    check("  with the platform webhook address, Copy, and the steps for AfterShip and 17TRACK, admin only", /trackingWebhookUrl\(tp\.provider, "platform"\)/.test(status) && /data-tracking-webhook/.test(read("app/admin/physical-commerce/commerce-docs-admin.tsx")) && /Tracking, Settings, Webhooks/.test(read("app/admin/physical-commerce/commerce-docs-admin.tsx")) && /requireAdmin/.test(read("app/api/admin/commerce-status/route.ts")))
     check("part 160 is in run-now with its check column", /p160_courier_tracking/.test(read("supabase/sql/run-now/99_check_after.sql")) && /commerce_tracking_accounts/.test(read("supabase/sql/run-now/160_courier_tracking.sql")))
     check("no network host other than the two stubs was called", strayHosts.length === 0, strayHosts)
   }

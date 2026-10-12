@@ -4,7 +4,7 @@ import { CRON_JOBS } from "./schema-expectations"
 import { SQL_PARTS } from "./sql-parts.generated"
 import { Reader, isoDaysAgo } from "./platform-metrics"
 import { STRIPE_COMMERCE_EVENTS } from "./commerce-docs-facts"
-import { platformTrackingState } from "@/lib/physical/tracking/provider"
+import { platformTrackingState, trackingWebhookUrl } from "@/lib/physical/tracking/provider"
 
 /**
  * ===========================================================================
@@ -96,6 +96,13 @@ export interface CommerceStatus {
   tracking?: {
     configured: boolean
     provider: string | null
+    /** aftership or 17track: which dashboard the address goes in. */
+    providerId: "aftership" | "17track" | null
+    /**
+     * The address Storelib's own account sends updates to, token and all (lib/physical/tracking/provider.ts
+     * trackingWebhookUrl). Only this admin page shows it: the token is what proves a delivery is the platform's.
+     */
+    webhookUrl: string | null
     webhooks: boolean
     chosen: string | null
     following: number | null
@@ -337,6 +344,14 @@ export async function readCommerceStatus(r: Reader = new Reader(), now = Date.no
   const tracking: CommerceStatus["tracking"] = {
     configured: tp.configured,
     provider: tp.providerName,
+    providerId: tp.provider,
+    webhookUrl: (() => {
+      try {
+        return tp.provider ? trackingWebhookUrl(tp.provider, "platform") : null
+      } catch {
+        return null
+      }
+    })(),
     webhooks: tp.webhooks,
     chosen: tp.chosen,
     following,

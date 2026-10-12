@@ -213,6 +213,7 @@ const LiveStatus = React.memo(function LiveStatus() {
                 >
                   {s.tracking.configured ? <Mark tone="good">Configured</Mark> : <Mark tone="bad">Not configured</Mark>}
                 </StatusRow>
+                {s.tracking.webhookUrl ? <TrackingWebhook url={s.tracking.webhookUrl} provider={s.tracking.providerId} secretSet={s.tracking.webhooks} /> : null}
                 <StatusRow label="Parcels followed now" sub={s.tracking.reason ?? (s.tracking.failing ? `${s.tracking.failing} could not be read last time; each is tried again with backoff.` : undefined)}>
                   <span className="text-[13px] text-[#c9c9d1]">{s.tracking.following === null ? "No data" : `${s.tracking.following}${s.tracking.ownAccounts ? ` · ${s.tracking.ownAccounts} ${s.tracking.ownAccounts === 1 ? "store" : "stores"} with their own account` : ""}`}</span>
                 </StatusRow>
@@ -557,6 +558,54 @@ export function CommerceDocsAdmin({ docs, facts, help, withStatus = true }: { do
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Storelib's own tracking webhook address, which the owner pastes once into the aggregator's dashboard. Its token is
+ * an HMAC of the server's key (lib/physical/tracking/provider.ts), so it can only be read here, never worked out.
+ */
+function TrackingWebhook({ url, provider, secretSet }: { url: string; provider: "aftership" | "17track" | null; secretSet: boolean }) {
+  const [copied, setCopied] = React.useState(false)
+  const steps =
+    provider === "17track"
+      ? [
+          "Sign in to 17TRACK's API dashboard (api.17track.net) with the account whose key is SEVENTEENTRACK_API_KEY.",
+          "Open Settings, then Webhook, paste this address as the WebHook URL and save.",
+          "17TRACK signs every update with that same API key, so there is no separate secret to set.",
+          "Press Test there: the answer is 200, and parcels then move within seconds of a scan.",
+        ]
+      : [
+          "Sign in to AfterShip with the account whose key is AFTERSHIP_API_KEY, and open Tracking, Settings, Webhooks.",
+          "Add a webhook URL: paste this address, choose every tracking update, and save.",
+          `Copy the webhook secret AfterShip shows on that page into AFTERSHIP_WEBHOOK_SECRET in the server's environment and redeploy${secretSet ? " (it is set now)" : " (it is not set yet: without it every delivery is refused and parcels are only polled)"}.`,
+          "Press Send test there: the answer is 200 (a test number no shipment has is answered and ignored).",
+        ]
+  return (
+    <div className="border-t border-white/[0.06] px-4 py-3" data-tracking-webhook="">
+      <p className="text-[13px] text-[#c9c9d1]">Webhook address for {provider === "17track" ? "17TRACK" : "AfterShip"}</p>
+      <div className="mt-2 flex gap-2">
+        <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="h-11 min-w-0 flex-1 rounded-md border border-white/[0.1] bg-black/20 sm:h-9 px-2.5 font-mono text-[12px] text-[#e4e4e9]" />
+        <Button
+          className="!h-11 sm:!h-9"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(url)
+              setCopied(true)
+            } catch {
+              setCopied(false)
+            }
+          }}
+        >
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-[12px] leading-[18px] text-[#8b8b96]">
+        {steps.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ol>
     </div>
   )
 }
