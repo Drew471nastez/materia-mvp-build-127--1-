@@ -103,6 +103,30 @@ async function handleGET(req: Request, { params }: Params) {
    * Fonts (kept as base64) and the other languages' locales are left out:
    * the canvas loads fonts by address and draws in the default language.
    */
+  /*
+    ONE OTHER LANGUAGE'S WORDS of an imported theme (shopify/locales/fr.json),
+    for the canvas previewing the website in it: the theme's own `| t`
+    words, as the live site draws them at /fr.
+  */
+  const wordsOf = searchParams.get("compat-locale")
+  if (wordsOf !== null) {
+    const lang = wordsOf.toLowerCase()
+    if (!/^[a-z]{2,3}(-[a-z0-9]{2,4})?$/.test(lang)) return NextResponse.json({ files: {} })
+    const names = new Set([`shopify/locales/${lang}.json`, `shopify/locales/${lang.split("-")[0]}.json`])
+    const { data } = await supabase!
+      .from("store_theme_custom_files")
+      .select("path, content, draft_content")
+      .eq("install_id", installId)
+      .like("path", "shopify/locales/%")
+    const files: Record<string, string> = {}
+    for (const r of (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]) {
+      if (!names.has(r.path.toLowerCase())) continue
+      const text = r.draft_content ?? r.content
+      if (typeof text === "string" && text !== "") files[r.path] = text
+    }
+    return NextResponse.json({ files })
+  }
+
   if (searchParams.get("compat") === "1") {
     const files: Record<string, string> = {}
     for (let from = 0; from < 10_000; from += 1000) {

@@ -6,8 +6,8 @@
  * ===========================================================================
  * Pressing a card opens its post where the member is: on a computer a
  * panel over the feed (the feed stays where it was under a light scrim), on
- * a phone a full screen page grown out of the card, under the tab bar
- * (post-fullscreen.tsx, round 17). The address becomes the post's
+ * a phone the website builder's bottom sheet, over the tab bar
+ * (post-fullscreen.tsx, round 25). The address becomes the post's
  * own (/community/<slug>/post/<id>) without loading a page, so a reload or a
  * shared link lands on the post page; Back, Escape, the close button, a
  * press on the scrim or a pull down on the phone's sheet close it (one step
@@ -125,14 +125,14 @@ export interface PostOverlayProps {
    */
   history?: boolean
   /**
-   * The card the post was opened from (round 17): on a phone the post grows out of it and shrinks back into it
-   * (post-fullscreen.tsx, post-morph.ts). Without one, or with one off the screen, it fades.
+   * The card the post was opened from. Round 17 grew the phone's post out of it; since round 25 the post is a bottom sheet
+   * and nothing reads it, kept so the card's call stays as it is.
    */
   origin?: () => HTMLElement | null
 }
 
 const noSubscribe = () => () => {}
-export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true, origin }: PostOverlayProps) {
+export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true }: PostOverlayProps) {
   const phone = usePhone()
   /* False on the server and while hydrating, true on every client render after (no mismatch for a post opened as the page loads). */
   const client = useSyncExternalStore(noSubscribe, () => true, () => false)
@@ -235,7 +235,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   */
   /*
     ROUND 17: DRAWN BEFORE IT MOVES. The comments (and their box) are drawn in the same commit as the post on a phone, and the
-    move waits for them to be read (prepare, at most post-morph.ts PREPARE_CAP_MS), so nothing is drawn while it moves: round
+    move waits for them to be read (prepare, at most post-fullscreen.tsx PREPARE_CAP_MS), so nothing is drawn while it moves: round
     16 drew them on the move's second frame, and its open stopped part way up (scripts/check-communities-post17.mjs).
   */
   const [drawComments, setDrawComments] = useState(phone)
@@ -314,7 +314,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   /* Never drawn by the server, nor while the page hydrates (a shared link's page opens it as it loads): drawn on the first client render after. */
   if (!client) return null
 
-  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} origin={origin} prepare={prepare} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled || drawComments} withPage={phone && drawComments} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
+  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} prepare={prepare} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled || drawComments} withPage={phone && drawComments} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
 }
 
 /*
@@ -353,15 +353,14 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, withPage, 
   )
 })
 
-function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, origin, prepare, contentRef, content }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; origin?: () => HTMLElement | null; prepare?: () => Promise<unknown>; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode }) {
+function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, prepare, contentRef, content }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; prepare?: () => Promise<unknown>; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode }) {
   if (phone) {
-    /* A phone: a full screen page grown out of its card and shrunk back into it (post-fullscreen.tsx, round 17). */
+    /* A phone: the website builder's bottom sheet, rising once the post is drawn in it (post-fullscreen.tsx, round 25). */
     return (
       <PostFullscreen
         open={open}
         label={post.title || "Post"}
         title={post.space?.name ?? "Post"}
-        origin={origin}
         prepare={prepare}
         onRequestClose={close}
         onShown={() => setPhase((p) => (p === "in" ? "shown" : p))}

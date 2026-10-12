@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { splitSiteName } from "@/lib/markets/site-name"
 import type { Metadata } from "next"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 import { returnPathOf } from "@/lib/site-accounts/hosts"
@@ -38,13 +39,15 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { username } = await params
-  const base = await siteMetadata(username, undefined, "login")
+  const { username: segment } = await params
+  const base = await siteMetadata(splitSiteName(segment).name, undefined, "login")
   return { ...base, alternates: undefined, robots: { index: false, follow: false } }
 }
 
 export default async function SiteSignInPage({ params, searchParams }: PageProps) {
-  const { username } = await params
+  /* /fr/account/login: the same page, in French (lib/markets/site-name). */
+  const { username: segment } = await params
+  const { name: username, locale, market } = splitSiteName(segment)
   const sp = await searchParams.catch(() => ({}) as Awaited<PageProps["searchParams"]>)
   const { visitor, creatorId } = await siteVisitor(username)
   if (!creatorId) notFound()
@@ -60,5 +63,6 @@ export default async function SiteSignInPage({ params, searchParams }: PageProps
     signIn: pending
       ? { step: "code", email: pending.m, returnTo: pending.r }
       : { step: "email", email: "", returnTo: back },
+    lang: { locale, market },
   })
 }

@@ -3,8 +3,8 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ALL_HELP_CATEGORIES, headingId, helpArticlePath, helpArticlesIn, helpCategoriesFor, helpCategory, helpSectionsIn, helpVisible } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
-import { Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
-import { HelpSearch } from "@/components/help/help-search"
+import { Breadcrumbs, ContactSupport } from "@/components/help/help-parts"
+import { HELP_WIDTH, HelpHero, TopicIcon } from "@/components/help/help-hero"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { helpCategoryJsonLd } from "@/lib/help/structured-data"
 
@@ -39,10 +39,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /**
- * A TOPIC. Its name, what it covers and how many articles, then the articles
- * in their groups, each with its one line. A topic read in groups (the
- * physical products guide) opens with where to start and keeps the list of
- * groups beside it, so a long topic is a page you can jump around in.
+ * A TOPIC. Under the band: where you are, the topic's mark, name, what it
+ * covers and how many articles; then its articles as rows in one card per
+ * group, each with its one line. A topic read in groups (the physical
+ * products guide) opens with where to start. Other topics follow as chips,
+ * so nothing sits in a column of its own beside the list.
  */
 export default async function HelpCategoryPage({ params }: PageProps) {
   const { category: slug } = await params
@@ -56,35 +57,44 @@ export default async function HelpCategoryPage({ params }: PageProps) {
   const first = (category.start ? articles.find((a) => a.slug === category.start) : undefined) ?? articles[0]
 
   return (
-    <div className="bg-white">
+    <div className="bg-[#f8f9fa]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(helpCategoryJsonLd(category, articles)) }} />
-      <header className="border-b border-[#eceef1] bg-[#f8f9fa]">
-        <div className={`${HELP_READING} py-7 sm:py-10`}>
-          <Breadcrumbs items={[{ label: "Help Center", href: "/help" }, { label: category.title }]} />
-          <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0 max-w-[40rem]">
-              <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[34px]">{category.title}</h1>
-              <p className="mt-2 text-[16px] leading-relaxed text-[#4b5563]">{category.description}</p>
-              <p className="mt-2 text-[13px] text-[#6b7280]">{articles.length} articles</p>
-            </div>
-            <div className="w-full lg:max-w-[320px]">
-              <HelpSearch size="compact" />
-            </div>
+      <HelpHero />
+
+      <div className={`${HELP_WIDTH} pb-16 pt-6 sm:pt-8`}>
+        <Breadcrumbs items={[{ label: "All topics", href: "/help" }, { label: category.title }]} />
+        <div className="mt-6 flex items-start gap-4">
+          <TopicIcon slug={category.slug} size={52} />
+          <div className="min-w-0">
+            <h1 className="text-[26px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">{category.title}</h1>
+            <p className="mt-1.5 max-w-[60ch] text-[15.5px] leading-relaxed text-[#4b5563]">{category.description}</p>
+            <p className="mt-1.5 text-[13px] text-[#6b7280]">{articles.length} articles</p>
           </div>
         </div>
-      </header>
 
-      <div className={`${HELP_READING} grid gap-12 pb-16 pt-8 sm:pt-10 lg:grid-cols-[minmax(0,1fr)_220px]`}>
-        <div className="min-w-0">
+        {grouped ? (
+          <nav aria-label="In this topic" className="-mx-1 mt-6 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {sections.map((s) =>
+              s.title ? (
+                <a key={s.title} href={`#${headingId(s.title)}`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3.5 text-[13.5px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
+                  {s.title}
+                  <span className="tabular-nums text-[#9ca3af]">{s.articles.length}</span>
+                </a>
+              ) : null,
+            )}
+          </nav>
+        ) : null}
+
+        <div className="mt-8 space-y-10">
           {grouped && first ? (
             <Link
               href={helpArticlePath(first)}
-              className="group mb-10 flex items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb] px-5 py-4 transition-colors hover:border-[#c9ccd2] hover:bg-[#fafafa] sm:px-6 sm:py-5"
+              className="group flex items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb]/80 bg-white px-5 py-5 transition-[box-shadow,border-color] hover:border-[#dcdfe4] hover:shadow-[0_10px_28px_-16px_rgba(16,24,40,0.22)] sm:px-6"
               data-help-start=""
             >
               <span className="min-w-0">
-                <span className="block text-[13px] font-medium text-[#6b7280]">{category.start ? "Start here" : "New here? Start with"}</span>
-                <span className="mt-0.5 block text-[17px] font-semibold leading-snug tracking-tight text-[#1a1a2e]">{first.title}</span>
+                <span className="block text-[13px] font-medium text-[#6d28d9]">{category.start ? "Start here" : "New here? Start with"}</span>
+                <span className="mt-1 block text-[17px] font-semibold leading-snug tracking-tight text-[#1a1a2e]">{first.title}</span>
                 <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">{first.summary}</span>
               </span>
               <span aria-hidden className="shrink-0 text-[20px] text-[#9ca3af] transition-[translate] group-hover:translate-x-0.5">
@@ -98,19 +108,19 @@ export default async function HelpCategoryPage({ params }: PageProps) {
               key={section.title ?? "all"}
               id={section.title ? headingId(section.title) : undefined}
               aria-label={section.title ?? undefined}
-              className="mb-10 scroll-mt-24 last:mb-0"
+              className="scroll-mt-24"
               data-help-section={section.title ?? ""}
             >
-              {section.title ? <h2 className="mb-1 text-[18px] font-semibold tracking-tight text-[#1a1a2e]">{section.title}</h2> : null}
-              <ul className="divide-y divide-[#f0f0f2] border-b border-[#f0f0f2]">
+              {section.title ? <h2 className="mb-3 text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{section.title}</h2> : null}
+              <ul className="divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
                 {section.articles.map((a) => (
                   <li key={a.slug}>
-                    <Link href={helpArticlePath(a)} className="group flex items-center justify-between gap-4 py-4">
+                    <Link href={helpArticlePath(a)} className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#fafafb] sm:px-6">
                       <span className="min-w-0">
-                        <span className="block text-[15.5px] font-medium leading-snug text-[#1a1a2e] group-hover:underline group-hover:decoration-[#1a1a2e]/30 group-hover:underline-offset-2">{a.title}</span>
+                        <span className="block text-[15.5px] font-medium leading-snug text-[#1a1a2e]">{a.title}</span>
                         <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">{a.summary}</span>
                       </span>
-                      <span aria-hidden className="shrink-0 text-[#c4c7cd] transition-[translate] group-hover:translate-x-0.5 group-hover:text-[#6b7280]">
+                      <span aria-hidden className="shrink-0 text-[#c4c7cd] transition-[translate,color] group-hover:translate-x-0.5 group-hover:text-[#6b7280]">
                         &rarr;
                       </span>
                     </Link>
@@ -121,44 +131,26 @@ export default async function HelpCategoryPage({ params }: PageProps) {
           ))}
         </div>
 
-        <aside className="text-[14px]">
-          <div className="space-y-8 lg:sticky lg:top-24">
-            {grouped ? (
-              <nav aria-label="In this topic" className="hidden lg:block">
-                <h2 className="mb-2 text-[13px] font-semibold text-[#1a1a2e]">In this topic</h2>
-                <ul className="-mx-2.5 space-y-0.5">
-                  {sections.map((s) =>
-                    s.title ? (
-                      <li key={s.title}>
-                        <a href={`#${headingId(s.title)}`} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-[13.5px] text-[#4b5563] transition-colors hover:bg-[#f8f9fa] hover:text-[#1a1a2e]">
-                          <span className="min-w-0 truncate">{s.title}</span>
-                          <span className="shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{s.articles.length}</span>
-                        </a>
-                      </li>
-                    ) : null,
-                  )}
-                </ul>
-              </nav>
-            ) : null}
-            <nav aria-label="Other topics">
-              <h2 className="mb-2 text-[13px] font-semibold text-[#1a1a2e]">Other topics</h2>
-              <ul className="-mx-2.5 space-y-0.5">
-                {helpCategoriesFor(physical)
-                  .filter((c) => c.slug !== category.slug)
-                  .map((c) => (
-                    <li key={c.slug}>
-                      <Link href={`/help/${c.slug}`} className="block rounded-lg px-2.5 py-1.5 text-[13.5px] text-[#4b5563] transition-colors hover:bg-[#f8f9fa] hover:text-[#1a1a2e]">
-                        {c.title}
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
-            </nav>
-          </div>
-        </aside>
+        <nav aria-label="Other topics" className="mt-14">
+          <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Other topics</h2>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {helpCategoriesFor(physical)
+              .filter((c) => c.slug !== category.slug)
+              .map((c) => (
+                <li key={c.slug}>
+                  <Link href={`/help/${c.slug}`} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#e5e7eb] bg-white pl-1.5 pr-4 text-[14px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
+                    <TopicIcon slug={c.slug} size={28} />
+                    {c.title}
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        </nav>
       </div>
 
-      <ContactSupport frame={HELP_READING} />
+      <div className="bg-white">
+        <ContactSupport frame={HELP_WIDTH} />
+      </div>
     </div>
   )
 }

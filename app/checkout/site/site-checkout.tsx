@@ -822,7 +822,14 @@ export function SiteCheckout({
                     <span className="block text-[14px] font-medium text-[#1a1a2e]">{o.name}</span>
                     {o.estimate ? <span className="block text-[13px] text-[#6b7280]">{o.estimate}</span> : null}
                   </span>
-                  <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{o.priceCents === 0 ? "Free" : money(o.priceCents)}</span>
+                  {/* A free shipping code: every method is free, and what it would have cost is shown struck through. */}
+                  {quote.coupon?.freeShipping && o.priceCents > 0 ? (
+                    <span className="text-right text-[14px] font-medium tabular-nums text-[#1a1a2e]">
+                      <s className="mr-1.5 font-normal text-[#6b7280]">{money(o.priceCents)}</s>Free
+                    </span>
+                  ) : (
+                    <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{o.priceCents === 0 ? "Free" : money(o.priceCents)}</span>
+                  )}
                 </label>
               ))}
             </div>
@@ -994,7 +1001,7 @@ export function SiteCheckout({
             {ships ? (
               <div className="flex justify-between gap-4" data-shipping-line="">
                 <dt className="text-[#6b7280]">{mode === "pickup" ? "Pickup" : "Shipping"}</dt>
-                <dd className="tabular-nums text-[#6b7280]">{mode === "pickup" ? "Free" : !optionId ? (address.country ? "Not available" : "Enter your address") : shippingPaid === 0 ? "Free" : money(shippingPaid)}</dd>
+                <dd className="tabular-nums text-[#6b7280]">{mode === "pickup" ? "Free" : !optionId ? (quote.delivery.needsRegion && !address.region.trim() ? `Choose your ${(addressFormat(address.country).region?.label ?? "state").toLowerCase()}` : address.country ? "Not available" : "Enter your address") : shippingPaid === 0 ? "Free" : money(shippingPaid)}</dd>
               </div>
             ) : null}
             {t && t.taxCents > 0 && !t.taxIncluded ? (

@@ -24,10 +24,10 @@ import { SearchModal } from "../../header-search-modal"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
-import { useStorefront } from "../../theme/storefront-context"
+import { useChargeNote, useMoney, useStorefront, useWord } from "../../theme/storefront-context"
 import { CartReturnsNote } from "../../theme/shop-commerce"
 import { lineKey } from "@/lib/website-builder/cart"
-import { drawerCheckout } from "@/lib/website-builder/cart-checkout"
+import { cartPathFor, drawerCheckout } from "@/lib/website-builder/cart-checkout"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { useSiteWishlist } from "../../site-wishlist"
@@ -722,10 +722,6 @@ function CartButton() {
   )
 }
 
-function money(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
-}
-
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  *  THE CART DRAWER
@@ -786,6 +782,13 @@ function CartDrawerInner({
   frameStyle: CSSProperties
 }) {
   const { lines, setQty, remove, subtotalCents, count, shopId, clear } = useSiteCart()
+  /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
+  const w = useWord()
+  /* Amounts in the visitor's market's currency, as the product cards show them; checkout charges the store's, and says so. */
+  const money = useMoney()
+  const chargeNote = useChargeNote()
+  /* Back from checkout lands on the cart in the page's language. */
+  const cartPath = cartPathFor(useStorefront().language)
   /* Check out goes straight to the checkout (lib/website-builder/cart-checkout). */
   const [leaving, setLeaving] = useState(false)
   /* Back from the checkout, the page can come out of the back/forward cache with the spinner still on. */
@@ -799,7 +802,7 @@ function CartDrawerInner({
     if (onEditorNavigate) { e.stopPropagation(); return }
     if (leaving) return
     setLeaving(true)
-    const next = await drawerCheckout(lines, shopId)
+    const next = await drawerCheckout(lines, shopId, cartPath)
     if (next.go === null) { window.location.href = "/cart"; return }
     if (next.free) clear()
     window.location.href = next.go
@@ -876,7 +879,7 @@ function CartDrawerInner({
           style={{ background: scheme.bg, color: scheme.heading }}
         >
           <span className="flex-1 text-[18px] font-semibold truncate px-1">
-            {count > 0 ? `Cart (${count})` : "Cart"}
+            {count > 0 ? `${w("cart")} (${count})` : w("cart")}
           </span>
           <button
             type="button"
@@ -892,7 +895,7 @@ function CartDrawerInner({
         {lines.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
             <ShoppingBag className="h-7 w-7 opacity-25" strokeWidth={1.5} />
-            <p className="text-[15px] opacity-60">Nothing in your cart yet.</p>
+            <p className="text-[15px] opacity-60">{w("cart_nothing")}</p>
             <a
               href="/products"
               onClick={stop}
@@ -972,7 +975,7 @@ function CartDrawerInner({
         {lines.length > 0 && (
           <div className="shrink-0 px-4 pt-3 pb-4 border-t" style={{ borderColor: scheme.inset_border }}>
             <div className="flex items-baseline justify-between">
-              <span className="text-[14px] opacity-70">Subtotal</span>
+              <span className="text-[14px] opacity-70">{w("subtotal")}</span>
               <span className="text-[18px] font-semibold tabular-nums">{money(subtotalCents)}</span>
             </div>
             <a
@@ -984,15 +987,16 @@ function CartDrawerInner({
               style={{ background: scheme.primary_btn_bg, color: scheme.primary_btn_text, opacity: leaving ? 0.7 : 1 }}
             >
               {leaving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
-              Check out
+              {w("check_out")}
             </a>
             <a
               href="/cart"
               onClick={stop}
               className="mt-1 flex h-11 items-center justify-center text-[14px] font-medium underline-offset-4 hover:underline"
             >
-              View cart
+              {w("view_cart")}
             </a>
+            {chargeNote && <p className="mt-1 text-center text-[12px] leading-snug opacity-70" data-currency-note="">{chargeNote}</p>}
             {/* Website settings › Commerce › Returns line in the cart. */}
             <CartReturnsNote className="mt-1 text-center text-[12.5px] opacity-70" />
           </div>

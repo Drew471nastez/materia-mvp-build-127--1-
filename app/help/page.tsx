@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { POPULAR_HELP, helpArticle, helpArticlePath, helpArticlesIn, helpCategoriesFor, helpVisible, helpCategory } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
-import { ContactSupport, HELP_CONTAINER } from "@/components/help/help-parts"
-import { HelpSearch } from "@/components/help/help-search"
+import { ContactSupport } from "@/components/help/help-parts"
+import { HELP_WIDTH, HelpHero, TopicIcon } from "@/components/help/help-hero"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { helpHomeJsonLd } from "@/lib/help/structured-data"
 
@@ -21,11 +21,11 @@ export const metadata: Metadata = {
  * ===========================================================================
  *  /help
  * ===========================================================================
- * A search field first, because most people arrive with a question. Under
- * it, the articles most people come for, then every topic with its first
- * articles. One plain line points at the answers about order problems
- * (/help/questions) for stores and buyers; it used to be a highlighted box
- * and is a sentence now, as the owner asked.
+ * The band with the search first, because most people arrive with a
+ * question. Under it every topic as a card, its own mark, what it covers
+ * and how many articles it holds, two to a row (one on a phone), with the
+ * answers for order problems as a card of its own. Then the articles most
+ * people come for, and how to reach a person.
  */
 /* The physical products guide follows the switch in /admin; the switch also revalidates /help at once. */
 export const revalidate = 60
@@ -39,42 +39,36 @@ export default async function HelpPage() {
   }).filter((a): a is NonNullable<typeof a> => !!a)
 
   return (
-    <div className="bg-white">
+    <div className="bg-[#f8f9fa]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(helpHomeJsonLd(DESCRIPTION)) }} />
-      <header className="border-b border-[#eceef1] bg-[#f8f9fa]">
-        <div className={`${HELP_CONTAINER} py-12 sm:py-16`}>
-          <div className="mx-auto max-w-[680px] text-center">
-            <p className="text-[14px] font-medium text-[#6b7280]">Storelib Help Center</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[40px]">How can we help?</h1>
-            <div className="mt-6 text-left sm:mt-8">
-              <HelpSearch size="large" />
-            </div>
-            <p className="mt-4 text-[14px] leading-relaxed text-[#6b7280]" data-help-questions-line="">
-              A problem with an order? Here&apos;s{" "}
-              <Link href="/help/questions" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
-                what to do, for stores and buyers
-              </Link>
-              .
-            </p>
-          </div>
-        </div>
-      </header>
+      <HelpHero home />
 
-      <div className={`${HELP_CONTAINER} py-10 sm:py-14`}>
+      <div className={`${HELP_WIDTH} py-10 sm:py-14`}>
+        <ul className="grid gap-4 sm:grid-cols-2 sm:gap-5" aria-label="Topics">
+          {categories.map((category) => (
+            <li key={category.slug}>
+              <TopicCard href={`/help/${category.slug}`} slug={category.slug} title={category.title} description={category.description} count={helpArticlesIn(category.slug).length} />
+            </li>
+          ))}
+          <li>
+            <TopicCard href="/help/questions" slug="questions" title="Order problems" description="What to do when an order goes wrong, for stores and for buyers." />
+          </li>
+        </ul>
+
         {popular.length > 0 ? (
-          <section aria-labelledby="popular" className="mb-14">
+          <section aria-labelledby="popular" className="mt-14">
             <h2 id="popular" className="text-[18px] font-semibold tracking-tight text-[#1a1a2e]">
               Popular articles
             </h2>
-            <ul className="mt-3 grid border-t border-[#f0f0f2] sm:grid-cols-2 sm:gap-x-10">
+            <ul className="mt-4 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
               {popular.map((a) => (
-                <li key={helpArticlePath(a)} className="border-b border-[#f0f0f2]">
-                  <Link href={helpArticlePath(a)} className="group flex items-center justify-between gap-4 py-3.5">
+                <li key={helpArticlePath(a)}>
+                  <Link href={helpArticlePath(a)} className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#fafafb]">
                     <span className="min-w-0">
-                      <span className="block text-[15px] font-medium leading-snug text-[#1a1a2e] group-hover:underline group-hover:decoration-[#1a1a2e]/30 group-hover:underline-offset-2">{a.title}</span>
+                      <span className="block text-[15px] font-medium leading-snug text-[#1a1a2e]">{a.title}</span>
                       <span className="mt-0.5 block text-[13px] text-[#6b7280]">{helpCategory(a.category)?.title}</span>
                     </span>
-                    <span aria-hidden className="shrink-0 text-[#c4c7cd] transition-[translate] group-hover:translate-x-0.5 group-hover:text-[#6b7280]">
+                    <span aria-hidden className="shrink-0 text-[#c4c7cd] transition-[translate,color] group-hover:translate-x-0.5 group-hover:text-[#6b7280]">
                       &rarr;
                     </span>
                   </Link>
@@ -83,43 +77,27 @@ export default async function HelpPage() {
             </ul>
           </section>
         ) : null}
-
-        <h2 className="text-[18px] font-semibold tracking-tight text-[#1a1a2e]">Browse by topic</h2>
-        <div className="mt-5 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((category) => {
-            const articles = helpArticlesIn(category.slug)
-            return (
-              <section key={category.slug} aria-labelledby={`c-${category.slug}`} className="border-t border-[#e5e7eb] pt-5" data-help-topic={category.slug}>
-                <h3 id={`c-${category.slug}`} className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">
-                  <Link href={`/help/${category.slug}`} className="hover:underline hover:decoration-[#1a1a2e]/30 hover:underline-offset-4">
-                    {category.title}
-                  </Link>
-                </h3>
-                <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">{category.description}</p>
-                <ul className="mt-3 space-y-0.5">
-                  {articles.slice(0, 4).map((a) => (
-                    <li key={a.slug}>
-                      <Link
-                        href={helpArticlePath(a)}
-                        className="block py-1.5 text-[14.5px] leading-snug text-[#1a1a2e] underline decoration-transparent underline-offset-2 transition-colors hover:decoration-[#1a1a2e]/40"
-                      >
-                        {a.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-                {articles.length > 4 && (
-                  <Link href={`/help/${category.slug}`} className="mt-2 inline-block py-1.5 text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
-                    All {articles.length} articles
-                  </Link>
-                )}
-              </section>
-            )
-          })}
-        </div>
       </div>
 
-      <ContactSupport />
+      <div className="bg-white">
+        <ContactSupport frame={HELP_WIDTH} />
+      </div>
     </div>
+  )
+}
+
+/** One topic: its mark, its name, what it covers, how many articles. The whole card is the link. */
+function TopicCard({ href, slug, title, description, count }: { href: string; slug: string; title: string; description: string; count?: number }) {
+  return (
+    <Link
+      href={href}
+      className="group flex h-full flex-col rounded-2xl border border-[#e5e7eb]/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.03)] outline-none transition-[box-shadow,border-color,translate] duration-200 hover:-translate-y-0.5 hover:border-[#dcdfe4] hover:shadow-[0_10px_28px_-16px_rgba(16,24,40,0.22)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:p-6"
+      data-help-topic={slug}
+    >
+      <TopicIcon slug={slug} />
+      <span className="mt-4 block text-[17px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{title}</span>
+      <span className="mt-1 block text-[14.5px] leading-relaxed text-[#4b5563]">{description}</span>
+      {typeof count === "number" ? <span className="mt-auto block pt-4 text-[13px] text-[#6b7280]">{count} {count === 1 ? "article" : "articles"}</span> : null}
+    </Link>
   )
 }
