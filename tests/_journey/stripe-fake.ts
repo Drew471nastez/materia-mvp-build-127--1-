@@ -324,6 +324,13 @@ export class StripeWorld {
         return r
       }),
     )
+    c.transfers.create = rec("transfers.create", (params: Obj, opts?: Obj) =>
+      w.once(opts, () => {
+        const t = { id: id("tr"), object: "transfer", amount: params.amount, currency: params.currency, destination: params.destination, source_transaction: params.source_transaction ?? null, metadata: params.metadata ?? {}, reversals: { data: [] }, amount_reversed: 0 }
+        w.transfers.set(t.id, t)
+        return t
+      }),
+    )
     c.transfers.listReversals = rec("transfers.listReversals", (tid: string) => ({ object: "list", data: w.transfers.get(tid)?.reversals.data ?? [], has_more: false }))
     c.balanceTransactions.list = rec("balanceTransactions.list", () => ({ object: "list", data: [], has_more: false }))
   }

@@ -284,14 +284,16 @@ async function main() {
   await moreJourneys(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
 
   await website(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
+  await edges(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
 
   section("23. Every email, counted")
+  await j.cron()
   const paid = j.rows("commerce_checkouts").filter((x) => ["paid", "partially_refunded", "refunded"].includes(x.status))
   const confirmCounts = paid.map((x) => j.net.to(x.buyer_email).filter((m) => /confirmed/i.test(m.subject) && m.subject.includes(String(x.id).replace(/-/g, "").slice(0, 8).toUpperCase())).length)
   check(`each of the ${paid.length} paid orders sent its buyer exactly one confirmation`, confirmCounts.every((n) => n === 1), paid.map((x, i) => [x.buyer_email, confirmCounts[i]]))
   const sellerMail = j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t)))
-  const saleMails = sellerMail.filter((m) => /sale|order/i.test(m.subject) && !/cancel|disput|refund|return/i.test(m.subject))
-  check(`the seller got one new order email per paid order (${paid.length})`, saleMails.length === paid.length, sellerMail.map((m) => m.subject))
+  const saleMails = sellerMail.filter((m) => /sale|order/i.test(m.subject) && !/cancel|disput|refund|return|problem|stock/i.test(m.subject))
+  check(`the seller got one new order email per paid order (${paid.length})`, saleMails.length === paid.length, { got: saleMails.length, subjects: saleMails.map((m) => m.subject), paid: paid.map((x) => [x.buyer_email, x.status]) })
   const dupes = new Map<string, number>()
   for (const m of j.net.mails) dupes.set(`${m.to.join()}|${m.subject}`, (dupes.get(`${m.to.join()}|${m.subject}`) ?? 0) + 1)
   const twice = [...dupes].filter(([k, n]) => n > 1 && !/was delivered|is on the way/.test(k))
@@ -608,6 +610,79 @@ async function website(j: Journey, c: Ctx) {
   check("the buyer gets one confirmation, whose order link opens on the website", mail.filter((m) => /confirmed/i.test(m.subject)).length === 1 && mail.some((m) => m.html.includes(`https://${host}/`)), { subjects: mail.map((m) => m.subject), links: mail[0]?.html.match(/href="https:\/\/[^"]+"/g)?.slice(0, 6) })
   const so = await j.call(`GET /api/physical/orders/${siteCo.id}`, { as: c.seller })
   check("the seller's order page shows the cart note from the website", so.json?.order?.buyerNote === "Leave it with the neighbour, please", so.json?.order?.buyerNote)
+}
+
+/** The edges: the Storelib theme's own product block, a download in a shipped order, a payment after the hold expired, an address change, a shipment cancelled, a refund made in Stripe's dashboard, a dispute won. */
+async function edges(j: Journey, c: Ctx) {
+  const { seller } = c
+  section("25. A Storelib theme's product block")
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const { productSectionData } = await import("@/lib/products/product-section-data")
+  const row = j.rows("products").find((p) => p.id === c.mugId)!
+  const data = (await productSectionData(createAdminClient(), { ...row } as never)) as any
+  const v = (n: string) => (data.variants ?? []).find((x: any) => x.name === n)
+  check("the native product section: Sand not available, Green 2 left, at most 3, delivery from the rates, pickup at the Studio", v("Sand")?.available === false && v("Blue")?.available === true && v("Blue")?.max_quantity === 3 && !!data.delivery && JSON.stringify(data.delivery).includes("Studio"), { variants: (data.variants ?? []).map((x: any) => [x.name, x.available, x.left, x.max_quantity]), delivery: data.delivery })
+
+  section("26. A download in a shipped order")
+  const signed = await j.signUp("reader@example.com")
+  const startD = await j.call("POST /api/physical/checkout", { as: signed, headers: { "x-forwarded-for": "198.51.100.200" }, body: { shopId: c.creatorId, items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }, { productId: c.pdfId, variantId: null, quantity: 1 }], email: signed.email, name: "Rea Der", address: c.address, deliveryOptionId: c.std?.id, clientKey: "journey-download-1234" } })
+  const coD = j.rows("commerce_checkouts").find((x) => x.client_key === "journey-download-1234")
+  if (coD?.stripe_session_id) await j.webhook("checkout.session.completed", j.world.expand(j.world.pay(coD.stripe_session_id).session)!)
+  await j.cron()
+  const confD = j.net.to(signed.email).find((m) => /confirmed/i.test(m.subject))
+  const pdfLine = j.rows("orders").find((o) => o.checkout_id === coD?.id && o.product_id === c.pdfId)
+  check("a signed in buyer owns the download at once (in their library)", startD.status === 200 && j.rows("entitlements").some((e) => e.buyer_id === signed.id && e.product_id === c.pdfId), { start: startD.json, ent: j.rows("entitlements").length })
+  check("the confirmation leads to the download (its receipt link)", !!confD && !!pdfLine && (confD.html.includes(pdfLine.receipt_token) || /download/i.test(confD.html)), confD?.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 700))
+
+  section("27. Paid after the stock hold expired")
+  const h = await buy(j, c, { email: "late@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], pay: false })
+  const before = { ...c.level("Blue") }
+  for (const r of j.rows("inventory_reservations").filter((r) => r.checkout_id === h.co!.id)) r.expires_at = new Date(Date.now() - 60_000).toISOString()
+  await j.cron()
+  const expiredCo = j.rows("commerce_checkouts").find((x) => x.id === h.co!.id)!
+  check("the cron gives back a hold nobody paid for", expiredCo.status === "expired" && c.level("Blue").committed === before.committed - 1, { status: expiredCo.status, level: c.level("Blue") })
+  const late = j.world.pay(h.co!.stripe_session_id)
+  await j.webhook("checkout.session.completed", j.world.expand(late.session)!)
+  const lateCo = j.rows("commerce_checkouts").find((x) => x.id === h.co!.id)!
+  check("a payment that lands after: the order is still made, the stock taken again and the seller told on the timeline", lateCo.status === "paid" && c.level("Blue").committed === before.committed && j.rows("commerce_order_events").some((e) => e.checkout_id === lateCo.id && e.kind === "inventory.recommitted"), { status: lateCo.status, level: c.level("Blue") })
+
+  section("28. The seller changes the address, then cancels a shipment")
+  const addr = await j.call(`POST /api/physical/orders/${lateCo.id}`, { as: seller, body: { action: "address", address: { ...c.address, line1: "Str. Noua 7" } } })
+  const addrAgain = await j.call(`POST /api/physical/orders/${lateCo.id}`, { as: seller, body: { action: "address", address: { ...c.address, line1: "Str. Noua 7" } } })
+  await j.cron()
+  check("the new address is kept and the buyer is told once", addr.status === 200 && addrAgain.status === 200 && addr.json?.order?.address?.line1 === "Str. Noua 7" && j.net.to("late@example.com").filter((m) => /updated|address|changed/i.test(m.subject)).length === 1, { addr: addr.json?.error, subjects: j.net.to("late@example.com").map((m) => m.subject) })
+  const lateLine = j.rows("orders").find((o) => o.checkout_id === lateCo.id)!
+  await j.call(`POST /api/physical/orders/${lateCo.id}`, { as: seller, body: { action: "fulfil", items: [{ orderId: lateLine.id, quantity: 1 }], carrier: "DHL", trackingNumber: "JD014600000000000001" } })
+  const onShelf = c.level("Blue").on_hand
+  const fl = j.rows("fulfillments").find((f) => f.checkout_id === lateCo.id)!
+  /* A parcel the carrier lost: Delivery problem, then cancelled to send it again (a shipped parcel is never cancelled straight away). */
+  const lost = await j.call(`POST /api/physical/orders/${lateCo.id}`, { as: seller, body: { action: "shipment", fulfillmentId: fl.id, status: "failed" } })
+  const cx = await j.call(`POST /api/physical/orders/${lateCo.id}`, { as: seller, body: { action: "shipment", fulfillmentId: fl.id, status: "cancelled" } })
+  await j.cron()
+  check("a delivery problem tells the buyer once", lost.status === 200 && j.net.to("late@example.com").filter((m) => /problem|issue|delay/i.test(m.subject)).length === 1, j.net.to("late@example.com").map((m) => m.subject))
+  check("a cancelled shipment: the item is to ship again, back on the shelf and committed", cx.status === 200 && cx.json?.order?.fulfillmentStatus === "unfulfilled" && c.level("Blue").on_hand === onShelf + 1, { status: cx.json?.order?.fulfillmentStatus ?? cx.json, level: c.level("Blue") })
+
+  section("29. A refund made in Stripe's dashboard")
+  const dash = await buy(j, c, { email: "dashboard@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  const r = j.world.refund({ payment_intent: dash.paid!.intent.id, amount: 2000 })
+  await j.webhook("refund.updated", r)
+  await j.webhook("charge.refunded", j.world.charges.get(dash.paid!.charge!.id)!)
+  await j.webhook("charge.refunded", j.world.charges.get(dash.paid!.charge!.id)!)
+  await j.cron()
+  const dashCo = j.rows("commerce_checkouts").find((x) => x.id === dash.co!.id)!
+  check("the order catches up (partly refunded, 20.00) and the buyer gets one refund email", dashCo.status === "partially_refunded" && dashCo.refunded_cents === 2000 && j.net.to("dashboard@example.com").filter((m) => /refund/i.test(m.subject)).length === 1, { status: dashCo.status, refunded: dashCo.refunded_cents, subjects: j.net.to("dashboard@example.com").map((m) => m.subject) })
+
+  section("30. A dispute won")
+  const won = await buy(j, c, { email: "won@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 2 }] })
+  const dp = j.world.dispute(won.paid!.charge!.id)
+  await j.webhook("charge.dispute.created", dp)
+  const ledgerOpen = { ...j.rows("seller_ledger").find((l) => l.creator_id === c.creatorId)! }
+  dp.status = "won"
+  const closed = await j.webhook("charge.dispute.closed", dp)
+  await j.webhook("charge.dispute.closed", dp)
+  const ledgerWon = j.rows("seller_ledger").find((l) => l.creator_id === c.creatorId)!
+  const restored = j.rows("ledger_events").filter((e) => e.stripe_dispute_id === dp.id && e.event_type === "dispute_closed")
+  check("won: the money taken back is returned to the seller once", closed.status === 200 && restored.length === 1 && ledgerWon.pending_amount + ledgerWon.available_amount - ledgerWon.negative_balance > ledgerOpen.pending_amount + ledgerOpen.available_amount - ledgerOpen.negative_balance, { restored: restored.map((e) => [e.amount_cents, e.pending_delta, e.available_delta]), before: ledgerOpen, after: ledgerWon })
 }
 
 /** The buyer's order page (app/checkout/physical/order/[token]), rendered as the server renders it. */

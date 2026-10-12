@@ -336,7 +336,7 @@ async function taxes() {
 
   console.log("\nThe same tax reaches Stripe, the order and every receipt\n")
   const phys = read("lib/physical/checkout-server.ts")
-  check("the cart checkout's Stripe line is the tax by its name, the order keeps the name", /product_data: \{ name: totals\.taxLabel \|\| "Tax" \}/.test(phys) && /tax_label: totals\.taxLabel \}/.test(phys))
+  check("the cart checkout's Stripe line is the tax by its name, the order keeps the name", /product_data: \{ name: totals\.taxLabel \|\| "Tax" \}/.test(phys) && /tax_label: totals\.taxLabel[ ,}]/.test(phys))
   check("the single product checkout and the website checkout send it with the payment", /tax_label: tax && tax\.taxCents > 0 \? tax\.label : ""/.test(read("app/api/checkout/stripe-session/route.ts")) && /tax_label: tax\.label \}/.test(read("app/api/checkout/site/route.ts")))
   check("  and the order keeps it (part 153), on its own write", /update\(\{ tax_label: String\(m\.tax_label\)\.slice\(0, 80\) \}\)/.test(read("lib/checkout/fulfil-payment.ts")) && /update\(\{ tax_label: String\(ctx\.tax\.label\)\.slice\(0, 80\) \}\)/.test(read("lib/checkout/fulfil-cart-item.ts")))
   check("every checkout page draws the name", /t\.taxLabel \|\| "Tax"/.test(read("app/checkout/site/site-checkout.tsx")) && /includedTaxLabel\(t\.taxLabel\)/.test(read("app/checkout/physical/physical-checkout.tsx")) && /label: taxNow\?\.label/.test(read("app/checkout/checkout-client.tsx")))
