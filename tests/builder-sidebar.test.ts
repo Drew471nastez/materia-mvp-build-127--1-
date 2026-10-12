@@ -77,7 +77,8 @@ function main() {
   /* A video file is uploaded or linked, and shown (controls/video-picker-control.tsx). */
   check("a video is uploaded or linked, and the box shows the video",
     /case "video_picker":\s*\n\s*return <VideoPickerControl/.test(read("components/website-builder/editor/controls/index.tsx")) &&
-      /from\("store-builder-images"\)\.upload\(path, file/.test(read("components/website-builder/editor/controls/video-picker-control.tsx")) &&
+      /* Round H3: through the shared video upload (lib/files/upload-video.ts), which stores its first frame beside it. */
+      /uploadVideo\(file, "videos"\)/.test(read("components/website-builder/editor/controls/video-picker-control.tsx")) &&
       /<video src=\{text\}/.test(read("components/website-builder/editor/controls/video-picker-control.tsx")) &&
       !/placeholder="Paste video URL\.\.\."/.test(editor))
   check("the header's layouts are the preview row and its own panel of cards",

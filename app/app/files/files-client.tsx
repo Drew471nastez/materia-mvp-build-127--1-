@@ -19,9 +19,9 @@ export function FilesClient() {
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Files</h1>
       </PaneBar>
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        <p className="mb-3 text-[13.5px] text-[#6b7280]">Every picture you&apos;ve uploaded, from products, your website and here. Use any of them again in the website builder.</p>
+        <p className="mb-3 text-[13.5px] text-[#6b7280]">Every picture and video you&apos;ve uploaded, from products, your website and here. Use any of them again on your website and products.</p>
         <section aria-label="Files" className={cn(card, "p-3 sm:p-4")}>
-          <FilesLibrary mode="manage" openId={openId} />
+          <FilesLibrary mode="manage" kind="media" openId={openId} />
         </section>
       </div>
     </div>

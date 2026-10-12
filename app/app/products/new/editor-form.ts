@@ -15,6 +15,7 @@
  */
 
 import { fieldRows, type CustomField } from "@/lib/products/custom-fields"
+import { isPosterName, isVideoUrl } from "@/lib/media/video"
 
 export interface UploadedFile {
   id?: string
@@ -32,7 +33,8 @@ export interface UploadedFile {
 
 export interface MediaItem {
   id: string
-  type: "image" | "youtube"
+  /** `video`: a video file uploaded here or picked from Files, kept in gallery_urls in its place among the photos (lib/media/video.ts). */
+  type: "image" | "youtube" | "video"
   url: string
   thumbnailUrl?: string
 }
@@ -202,12 +204,14 @@ export function mediaOf(product: EditorProductRow): MediaItem[] {
     const videoId = parseYouTubeUrl(product.video_url)
     if (videoId) media.push({ id: `youtube-${videoId}`, type: "youtube", url: product.video_url })
   }
-  if (product.thumbnail_url && !isYouTubeThumbnail(product.thumbnail_url)) {
+  /* A video first in the list leaves its first frame as the thumbnail: that frame is the video's, not a photo of its own. */
+  if (product.thumbnail_url && !isYouTubeThumbnail(product.thumbnail_url) && !isPosterName(product.thumbnail_url) && !isVideoUrl(product.thumbnail_url)) {
     media.push({ id: "image-0", type: "image", url: product.thumbnail_url })
   }
   if (Array.isArray(product.gallery_urls)) {
     product.gallery_urls.forEach((url, idx) => {
-      if (url !== product.thumbnail_url && !isYouTubeThumbnail(url)) media.push({ id: `image-${idx + 1}`, type: "image", url })
+      if (url === product.thumbnail_url || isYouTubeThumbnail(url)) return
+      media.push({ id: `${isVideoUrl(url) ? "video" : "image"}-${idx + 1}`, type: isVideoUrl(url) ? "video" : "image", url })
     })
   }
   return media

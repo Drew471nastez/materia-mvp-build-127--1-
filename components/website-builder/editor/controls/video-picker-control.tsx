@@ -23,11 +23,11 @@ import { isOwnMedia } from "@/lib/storage/media-url"
 import { ChevronDown, Film, FolderOpen, Loader2, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
-import { confirmUpload } from "@/lib/storage/confirm-upload"
-import { createClient } from "@/lib/supabase/client"
 import { parseVideoUrl } from "@/lib/storelib-theme/values"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { FilesLibraryChooser, prefetchLibrary } from "@/components/files/files-library"
+import { MAX_VIDEO_BYTES as SHARED_MAX_VIDEO_BYTES, MAX_VIDEO_TEXT } from "@/lib/media/video"
+import { uploadVideo } from "@/lib/files/upload-video"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { INPUT, NOTE, PROBLEM } from "./styles"
 
@@ -38,8 +38,8 @@ export const VIDEO_TYPES: Record<string, string> = {
   "video/quicktime": "mov",
   "video/x-m4v": "m4v",
 }
-/** The largest video this control uploads from the sidebar. */
-export const MAX_VIDEO_BYTES = 200 * 1024 * 1024
+/** The largest video this control uploads from the sidebar: the one limit every video upload has (lib/media/video.ts). */
+export const MAX_VIDEO_BYTES = SHARED_MAX_VIDEO_BYTES
 
 /** A link a <video> element can play: an address ending in a video file's extension, or one of this site's own uploads. */
 export function isVideoFileUrl(value: string): boolean {
@@ -67,25 +67,13 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
       return
     }
     if (file.size > MAX_VIDEO_BYTES) {
-      toast.error("A video here is at most 200 MB")
+      toast.error(`A video here is at most ${MAX_VIDEO_TEXT}`)
       return
     }
     setUploading(true)
     try {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not signed in")
-      const path = `${user.id}/videos/${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from("store-builder-images").upload(path, file, {
-        cacheControl: "31536000",
-        upsert: true,
-        contentType: file.type,
-      })
-      if (error) throw error
-      confirmUpload("store-builder-images", path)
-      set(supabase.storage.from("store-builder-images").getPublicUrl(path).data.publicUrl)
+      /* With its first frame and length beside it, so Your files shows it as a video (lib/files/upload-video.ts). */
+      set((await uploadVideo(file, "videos")).url)
     } catch {
       toast.error("Upload failed. Try again.")
     } finally {

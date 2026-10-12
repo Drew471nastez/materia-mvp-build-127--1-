@@ -148,10 +148,10 @@ export interface UploadedVideo {
 
 /**
  * A video into the signed in person's `folder` ("files" for the library,
- * "products" for a product's media) with its first frame beside it.
+ * "products" for a product's media, "videos" for a website video setting) with its first frame beside it.
  * Throws when the video itself did not go up; a frame that did not is let go.
  */
-export async function uploadVideo(file: File, folder: "files" | "products", onProgress: (p: number) => void = () => {}): Promise<UploadedVideo> {
+export async function uploadVideo(file: File, folder: "files" | "products" | "videos", onProgress: (p: number) => void = () => {}): Promise<UploadedVideo> {
   const refused = videoRefusal(file)
   if (refused) throw new Error(refused)
   const supabase = createClient()

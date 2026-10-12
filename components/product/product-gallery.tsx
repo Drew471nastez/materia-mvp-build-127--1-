@@ -10,6 +10,7 @@ import { ProductMediaViewer } from "@/components/product/product-media-viewer"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
 import { MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass } from "./media-swiper"
+import { isVideoUrl, videoPosterUrl } from "@/lib/media/video"
 
 interface MediaItem {
   url: string
@@ -135,8 +136,9 @@ export function ProductGallery({
       type: "youtube" as const,
       // No thumbnailUrl for YouTube - pure embed only
     })),
-    ...images.map(url => ({ url, type: "image" as const })),
-    ...(videoUrl ? [{ url: videoUrl, type: "video" as const }] : []),
+    /* A video file uploaded to the product sits among its photos, in its own place (lib/media/video.ts). */
+    ...images.map(url => (isVideoUrl(url) ? { url, type: "video" as const, thumbnailUrl: videoPosterUrl(url) ?? undefined } : { url, type: "image" as const })),
+    ...(videoUrl ? [{ url: videoUrl, type: "video" as const, thumbnailUrl: videoPosterUrl(videoUrl) ?? undefined }] : []),
   ]
 
   // Video controls
@@ -185,7 +187,15 @@ export function ProductGallery({
   }, [])
 
   // Pause video when switching away from video slide
+  const lastVideoRef = useRef<HTMLVideoElement | null>(null)
   useEffect(() => {
+    /* From one video to another: the one left stops, and the new one starts paused. */
+    const last = lastVideoRef.current
+    if (last && last !== videoRef.current) {
+      last.pause()
+      setIsVideoPlaying(false)
+    }
+    lastVideoRef.current = videoRef.current
     const currentMedia = mediaItems[currentIndex]
     if (currentMedia?.type !== "video" && videoRef.current) {
       videoRef.current.pause()
@@ -479,6 +489,8 @@ export function ProductGallery({
                 <video
                   ref={currentIndex === index ? videoRef : undefined}
                   src={media.url}
+                  poster={media.thumbnailUrl}
+                  preload="metadata"
                   className="w-full h-full object-contain"
                   loop
                   muted={isVideoMuted}
@@ -729,9 +741,11 @@ export function ProductGallery({
                 {media.type === "video" && (
                   <div className="relative w-full h-full bg-gray-900">
                     <video
-                      src={media.url}
+                      src={`${media.url}#t=0.1`}
+                      poster={media.thumbnailUrl}
                       className="w-full h-full object-cover"
                       muted
+                      playsInline
                       preload="metadata"
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">

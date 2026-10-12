@@ -70,6 +70,8 @@ import { fieldKey, fieldProblem, storedCustomFields, type CustomField } from "@/
 import { MAX_SALES_LIMIT, missingSalesLimit, readSalesLimit, soldOfText, typedSalesLimit } from "@/lib/products/sales-limit"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { FilesLibraryChooser, prefetchLibrary, type PickMany } from "@/components/files/files-library"
+import { VIDEO_ACCEPT, isVideoUrl, videoPosterUrl } from "@/lib/media/video"
+import { isVideoFile, uploadVideo, videoRefusal } from "@/lib/files/upload-video"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CourseEditor } from "./course-editor"
@@ -150,6 +152,8 @@ function variantPriceLabel(v: ProductVariant, currency?: string): string {
 
 // Limits
 const MAX_PHOTOS = 12
+/* Video files in the gallery (uploaded or from Files), beside the YouTube links. */
+const MAX_VIDEO_FILES = 5
 const MAX_YOUTUBE_VIDEOS = 5
 const MAX_DIGITAL_FILES = 15
 
@@ -866,7 +870,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       finalSlug = avoidReservedProductSlug(finalSlug, suffix)
 
       // Get photo URLs from media items (images and YouTube)
-      const photoUrls = mediaItems.filter(m => m.type === "image").map(m => m.url)
+      /* Photos and video files, in the order the creator put them: a video is told apart by its extension wherever the list is read (lib/media/video.ts). */
+      const photoUrls = mediaItems.filter(m => m.type === "image" || m.type === "video").map(m => m.url)
       const youtubeItems = mediaItems.filter(m => m.type === "youtube")
 
       // Determine thumbnail based on FIRST media item position
@@ -878,6 +883,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         determinedThumbnailUrl = getYouTubeThumbnailUrl(firstMedia.url)
       } else if (firstMedia?.type === "image") {
         determinedThumbnailUrl = firstMedia.url
+      } else if (firstMedia?.type === "video") {
+        /* A video first: its stored first frame, or the first photo when it has none, so a card always has a picture. */
+        determinedThumbnailUrl = videoPosterUrl(firstMedia.url) ?? mediaItems.find(m => m.type === "image")?.url ?? null
       }
 
       // Filter out empty items from whatsIncluded
@@ -1246,9 +1254,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     const supabase = createClient()
 
     const filesToUpload: File[] = []
+    const videos: File[] = []
     for (const file of Array.from(files)) {
+      if (isVideoFile(file)) {
+        const refused = videoRefusal(file)
+        if (refused) setError(refused)
+        else if (mediaItems.filter(m => m.type === "video").length + videos.length >= MAX_VIDEO_FILES) setError(`Maximum ${MAX_VIDEO_FILES} videos allowed`)
+        else videos.push(file)
+        continue
+      }
       if (!file.type.startsWith("image/")) {
-        setError(`Only images are supported. Use YouTube for videos.`)
+        setError(`Only photos and MP4, WebM or MOV videos.`)
         continue
       }
       const existingImages = mediaItems.filter(m => m.type === "image").length + pendingMedia.length
@@ -1258,6 +1274,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
       filesToUpload.push(file)
     }
+    if (videos.length) void uploadMediaVideos(videos)
     if (filesToUpload.length === 0) return
 
     const queued = filesToUpload.map((file) => ({
@@ -1314,6 +1331,27 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     }
   }
 
+  /*
+    Video files, uploaded with their first frame and length (lib/files/upload-video.ts) into the
+    owner's `products` folder, where Choose from your files lists them too. Each is a pending tile
+    with its own progress until it is stored, then a video tile in the grid.
+  */
+  const uploadMediaVideos = async (videos: File[]) => {
+    for (const file of videos) {
+      const pending: PendingMedia = { id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`, preview: "", progress: 0 }
+      setPendingMedia(prev => [...prev, pending])
+      try {
+        const v = await uploadVideo(file, "products", (p) => setPendingMedia(prev => prev.map(x => (x.id === pending.id ? { ...x, progress: Math.min(96, Math.round(p * 100)) } : x))))
+        setMediaItems(prev => [...prev, { id: `video-${Date.now()}-${Math.random().toString(36).slice(2)}`, type: "video", url: v.url }])
+      } catch (err) {
+        console.error("Video upload error:", err)
+        setError(err instanceof Error && /MP4|MB|empty/.test(err.message) ? err.message : `Failed to upload ${file.name}`)
+      } finally {
+        setPendingMedia(prev => prev.filter(p => p.id !== pending.id))
+      }
+    }
+  }
+
   // Handle YouTube video add
   const handleAddYouTube = () => {
     const videoId = parseYouTubeUrl(youtubeInput)
@@ -1341,12 +1379,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     setError(null)
   }
 
-  /* Photos ticked in Your files, in the order ticked, as far as there is room. */
+  /* Photos and videos ticked in Your files, in the order ticked, as far as there is room for each. */
   const addFromFiles = (picks: PickMany) => {
     setMediaItems(prev => {
-      const room = MAX_PHOTOS - prev.filter(m => m.type === "image").length - pendingMedia.length
-      const fresh = picks.filter(p => !prev.some(m => m.url === p.url)).slice(0, Math.max(0, room))
-      return [...prev, ...fresh.map((p, i) => ({ id: `files-${Date.now()}-${i}`, type: "image" as const, url: p.url }))]
+      let photos = MAX_PHOTOS - prev.filter(m => m.type === "image").length - pendingMedia.length
+      let clips = MAX_VIDEO_FILES - prev.filter(m => m.type === "video").length
+      const fresh = picks.filter(p => !prev.some(m => m.url === p.url)).filter(p => (isVideoUrl(p.url) ? clips-- > 0 : photos-- > 0))
+      return [...prev, ...fresh.map((p, i) => ({ id: `files-${Date.now()}-${i}`, type: isVideoUrl(p.url) ? "video" as const : "image" as const, url: p.url }))]
     })
     setError(null)
   }
@@ -2287,7 +2326,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     <span className="text-red-500">*</span>
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}. The first one is the cover.{productType === "physical" ? " Any shape: nothing is cropped." : ""}{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
+                    Add up to {MAX_PHOTOS} photos and {MAX_VIDEO_FILES} videos, uploaded or from YouTube. The first one is the cover.{productType === "physical" ? " Any shape: nothing is cropped." : ""}{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
                   </p>
                 </div>
 
@@ -2342,7 +2381,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     id="media-input"
                     type="file"
                     multiple
-                    accept="image/*"
+                    accept={`image/*,${VIDEO_ACCEPT}`}
                     className="hidden"
                     onChange={(e) => { handleMediaUpload(e.target.files); e.target.value = "" }}
                   />
@@ -2352,7 +2391,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)]">
                         <Plus className="h-5 w-5 text-[#1a1a2e]" />
                       </div>
-                      <p className="text-sm font-medium text-[#1a1a2e]">Drop to add photos</p>
+                      <p className="text-sm font-medium text-[#1a1a2e]">Drop to add photos and videos</p>
                     </div>
                   ) : (
                     <>
@@ -2376,7 +2415,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       <button
                         type="button"
                         className="mt-2 text-xs sm:text-sm font-medium text-gray-600 hover:text-[#1a1a2e] pointer-events-auto"
-                        onPointerEnter={() => void prefetchLibrary("image", { warmFirst: true })}
+                        onPointerEnter={() => void prefetchLibrary("media", { warmFirst: true })}
                         onClick={(e) => {
                           e.stopPropagation()
                           setChoosingFiles(true)
@@ -2478,13 +2517,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 </div>
 
                 <p className="text-xs text-gray-400">
-                  {existingImages}/{MAX_PHOTOS} images · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube videos
+                  {existingImages}/{MAX_PHOTOS} images · {mediaItems.filter(m => m.type === "video").length}/{MAX_VIDEO_FILES} videos · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube videos
                 </p>
                 <FilesLibraryChooser
                   open={choosingFiles}
                   onClose={() => setChoosingFiles(false)}
                   multiple
-                  max={Math.max(0, MAX_PHOTOS - existingImages - pendingMedia.length)}
+                  kind="media"
+                  max={Math.max(0, MAX_PHOTOS - existingImages - pendingMedia.length) + Math.max(0, MAX_VIDEO_FILES - mediaItems.filter(m => m.type === "video").length)}
                   onPickMany={addFromFiles}
                 />
 

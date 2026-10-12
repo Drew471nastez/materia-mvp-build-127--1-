@@ -40,6 +40,7 @@ import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/shop-products"
 import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
 import { publishedProductTheme } from "@/lib/website-builder/product-page-theme"
+import { imagesOnly } from "@/lib/media/video"
 
 /**
  * How this product is priced, read on its own so the product read above
@@ -156,7 +157,7 @@ export async function productMetadata(
   const product = await fetchProductBySlug(slug, where && "creatorId" in where ? where.creatorId : undefined)
   if (!product) return { title: "Product Not Found", robots: { index: false, follow: false } }
 
-  const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
+  const ogImage = imagesOnly(product.gallery_urls ?? [])[0] || product.thumbnail_url || undefined
   const name = product.title ?? "Product"
   /* The product's own search result when its creator wrote one, as storelib.com's product page reads it. */
   const ownTitle = typeof product.seo_title === "string" ? product.seo_title.trim().replace(/ \| Storelib$/i, "") : ""
@@ -202,7 +203,7 @@ export async function productMetadata(
 export async function productStructuredData(slug: string, site: { url: string; seller: string; creatorId?: string }): Promise<string | null> {
   const product = await fetchProductBySlug(slug, site.creatorId)
   if (!product) return null
-  const images = [product.thumbnail_url, ...(product.gallery_urls ?? [])].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+  const images = imagesOnly([product.thumbnail_url, ...(product.gallery_urls ?? [])]).filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
   /* Storelib Reviews: the rating and reviews the page shows, only while the app shows them on this website. */
   const reviews = site.creatorId
     ? await import("@/lib/reviews/storefront-server").then((m) => m.storefrontReviews(site.creatorId!, { id: product.id, title: product.title ?? null })).catch(() => null)
