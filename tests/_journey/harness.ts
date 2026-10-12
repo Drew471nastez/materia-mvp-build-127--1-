@@ -73,16 +73,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/checkout/site": () => import("@/app/api/checkout/site/route"),
 }
 
-const DASHBOARD_COLUMNS = [
-  "profiles.welcome_completed",
-  "profiles.country",
-  "profiles.first_name",
-  "profiles.last_name",
-  /* Read since the first checkout (lib/email.tsx resolveCreatorIdentity, 2026-09-17), written by Settings › Store details. */
-  "creators.support_email",
-  /* scripts/sql-harness/dashboard-made.sql rebuilds onepages from what the app reads; ensureOnePage writes this one too. */
-  "onepages.seller_id",
-]
+/* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */
+const DASHBOARD_COLUMNS: string[] = []
 
 export interface Answer<T = any> {
   status: number

@@ -3004,5 +3004,22 @@ ALTER TABLE public.inventory_locations DROP CONSTRAINT IF EXISTS inventory_locat
 ALTER TABLE public.inventory_locations ADD CONSTRAINT inventory_locations_local_delivery_check CHECK ((pickup_hours IS NULL OR char_length(pickup_hours) <= 300) AND cardinality(local_delivery_codes) <= 500 AND local_delivery_price_cents BETWEEN 0 AND 10000000 AND (local_delivery_min_cents IS NULL OR local_delivery_min_cents BETWEEN 0 AND 10000000) AND (local_delivery_free_over_cents IS NULL OR local_delivery_free_over_cents BETWEEN 0 AND 10000000) AND (local_delivery_note IS NULL OR char_length(local_delivery_note) <= 500)) NOT VALID;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('154', '154_local_delivery_and_pickup_hours.sql', '3d3eceb865c91ddbab84277fe420c41a9ba8a2c87b2a1389dddd0ef6204f8fc2') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 165_columns_production_has.sql
+/* Columns production has that no file here ever created, so a database built from this repository matches it. They were made in the Supabase dashboard before the repository kept SQL, and the app has read and written them since: creators.support_email (Settings > Store details' contact email, where receipts and seller emails reply to), profiles.welcome_completed (signup and onboarding), the Address card's profiles.address_line1, address_line2, city, state, postal_code, country and the payout form's first_name, last_name, onepages.seller_id (whose store a OnePage subscribes to) and products.inventory_count (a counted product's stock, read by the shop's lists). Each is added only where it is missing, nullable, with no default except welcome_completed's false, so no existing row changes. onepages is skipped where that table is not there. Then the column grants part 63 keeps are applied again (storelib_share_public_columns), as they were when these columns already existed in production. Needs nothing else. Safe to run again. */
+ALTER TABLE public.creators ADD COLUMN IF NOT EXISTS support_email text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS welcome_completed boolean DEFAULT false;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS first_name text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_name text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS address_line1 text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS address_line2 text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS state text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS postal_code text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS country text;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS inventory_count integer;
+DO $do$ BEGIN IF to_regclass('public.onepages') IS NULL THEN RAISE NOTICE 'onepages.seller_id skipped: public.onepages does not exist here'; RETURN; END IF; ALTER TABLE public.onepages ADD COLUMN IF NOT EXISTS seller_id uuid; END $do$;
+DO $do$ BEGIN IF to_regprocedure('public.storelib_share_public_columns()') IS NOT NULL THEN PERFORM public.storelib_share_public_columns(); END IF; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('165', '165_columns_production_has.sql', '44bbe4e6fbc321a6df1fe59acc3e0000ebba6b91c0316804e1fe386fb0121ef8') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;
