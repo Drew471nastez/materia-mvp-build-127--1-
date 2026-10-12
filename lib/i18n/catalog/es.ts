@@ -7598,6 +7598,8 @@ const words: Record<string, string> = {
  "made {date}": "creado el {date}",
  "make a copy": "hacer una copia",
  "make a new one": "crea una nueva",
+ "market": "mercado",
+ "market::Home": "Mercado principal",
  "matching “{value}”": "que coinciden con “{value}”",
  "member has it": "miembro la tiene",
  "members have it": "miembros la tienen",

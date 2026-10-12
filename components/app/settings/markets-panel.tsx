@@ -41,7 +41,7 @@ import type { Localization, Market } from "@/lib/markets/model"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
-import { activeLocale, tt } from "@/lib/i18n/text"
+import { activeLocale, tt, ttx } from "@/lib/i18n/text"
 
 const PATH = "/api/store/markets"
 
@@ -59,12 +59,15 @@ const ROUNDING_LABEL: Record<PriceRounding, string> = {
   get nine_nine() { return tt("Ending in .99") },
 }
 
-/** "French · Français": the creator's word for it and the visitor's. */
+/** "French · Français", "Französisch · Français": the creator's word for it, in the dashboard's language, and the visitor's. */
 function languageLabel(code: string): string {
-  const english = languageName(code, "en")
+  const mine = languageName(code, activeLocale())
   const own = languageName(code)
-  return english === own ? english : `${english} · ${own}`
+  return mine === own ? mine : `${mine} · ${own}`
 }
+
+/** The market every store starts with is named "Home" in its data; it reads in the dashboard's language until the creator renames it. */
+const marketName = (m: { name: string; primary?: boolean }) => (m.primary && m.name.trim().toLowerCase() === "home" ? ttx("market", "Home") : m.name)
 
 export function MarketsPanel() {
   const [data, setData] = React.useState<Loaded | null>(() => peekGet<Loaded>(PATH))
@@ -170,7 +173,8 @@ export function MarketsPanel() {
                   /{l.code.toLowerCase()} · {l.published ? tt("Live on your website") : tt("Hidden until published")}
                 </span>
               </span>
-              <span className="ml-12 flex items-center gap-2 sm:ml-0">
+              {/* Wraps on a phone: "Przetłumacz", "Opublikowana" and the bin are wider than Translate and Published. */}
+              <span className="ml-12 flex flex-wrap items-center gap-2 sm:ml-0">
                 <button type="button" className={cn(BTN_SECONDARY, "h-9 px-3")} onClick={() => setTranslating(l.code)} data-translate-language={l.code}>
                   {tt("Translate")}
                 </button>
@@ -228,7 +232,7 @@ export function MarketsPanel() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                    <span className="truncate">{m.name}</span>
+                    <span className="truncate">{marketName(m)}</span>
                     {m.primary && m.name.trim().toLowerCase() !== "home" ? <Pill tone="gray">{tt("Home")}</Pill> : null}
                     {!m.active ? <Pill tone="gray">{tt("Off")}</Pill> : null}
                   </span>
@@ -397,7 +401,7 @@ function MarketEditor({
       open={market !== null}
       onClose={onClose}
       wide
-      title={market === "new" ? tt("Add a market") : tt("Edit {value}", { value: m.name || "market" })}
+      title={market === "new" ? tt("Add a market") : tt("Edit {value}", { value: marketName(m) || tt("market") })}
       footer={
         <div className="flex items-center gap-2">
           {existing ? (
