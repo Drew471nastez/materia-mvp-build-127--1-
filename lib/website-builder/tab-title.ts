@@ -94,6 +94,16 @@ export function tabPagePart(page: TabPage): string {
   }
 }
 
+/**
+ * The site title a creator set, or "" for the one the editor used to write
+ * by itself: "{handle} | Storelib" (and "My Store | Storelib"). Nobody typed
+ * those, so the store's name stands in for them, as for an empty one.
+ */
+export function siteTitleOf(value: unknown): string {
+  const title = cleanTitle(value)
+  return /^(?:\S+|My Store) \| Storelib$/i.test(title) ? "" : title
+}
+
 const contains = (text: string, part: string) => !!part && text.toLocaleLowerCase().includes(part.toLocaleLowerCase())
 
 /** The tab's whole line. */
@@ -102,7 +112,7 @@ export function siteTabTitle(input: TabTitleInput): string {
   const n = Math.floor(Number(input.pageNumber) || 1)
   const paged = (title: string) => (n > 1 ? `${title}${TAB_SEPARATOR}Page ${n}` : title)
   const own = cleanTitle(input.ownTitle)
-  if (input.page.kind === "home") return paged(cleanTitle(input.siteTitle) || own || store)
+  if (input.page.kind === "home") return paged(siteTitleOf(input.siteTitle) || own || store)
   if (own) return paged(own)
   const part = tabPagePart(input.page) || store
   const title = paged(part)

@@ -129,7 +129,8 @@ async function main() {
     check("General's favicon row shows the same home tab", /<BrowserTabPreview icon=\{[^}]*\}[^>]*title=\{homeTitle\}/.test(read("components/website-builder/website-settings/general.tsx")))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("an empty site title is no longer filled with '{username} | Storelib'", !/const canonical = `\$\{handle\} \| Storelib`/.test(editor) && /NO MADE UP SITE TITLE/.test(editor))
-    check("a title the creator saved is left as saved", /current === "My Store \| Storelib" \|\| \(inst\.name && current === `\$\{inst\.name\} \| Storelib`\)/.test(editor))
+    /* Changed on purpose (round I): "{username} | Storelib", the one the editor wrote most, is cleared as an old default too. */
+    check("only the titles the editor wrote itself are cleared", /current === "My Store \| Storelib" \|\| madeUp\.includes\(current\.toLowerCase\(\)\)/.test(editor) && /\[inst\.name, data\.username, data\.siteHandle\]/.test(editor))
     /* A live page moves to the next by loading it whole (lib/website-builder/live-navigation.ts), so each tab comes from that page's own <title>; the 404 drawn in place sets it itself. */
     check("live navigation loads whole pages, so the tab is each page's own", /cross-document view transition/.test(read("lib/website-builder/live-navigation.ts")) && /document\.title = page\.title/.test(read("components/website-builder/site-not-found-page.tsx")))
   }
@@ -147,6 +148,9 @@ async function main() {
     check("still saved with the draft", /<Card footer=\{GOES_LIVE\}>\s*\n\s*<Row label="Favicon"/.test(general))
   }
 
+  /* Round I: the site title the editor wrote by itself reads as empty, so the home tab is the store's name. */
+  check("an old made-up site title ({handle} | Storelib) gives the store's name on home", siteTabTitle({ page: { kind: "home" }, storeName: "AndrewRullz", siteTitle: "andrewrullz | Storelib" }) === "AndrewRullz")
+  check("and a title the creator wrote stays exactly", siteTabTitle({ page: { kind: "home" }, storeName: "AndrewRullz", siteTitle: "AndrewRullz | Posture gear" }) === "AndrewRullz | Posture gear")
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)
 }

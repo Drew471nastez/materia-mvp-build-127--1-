@@ -3875,7 +3875,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     */
     {
       const current = typeof loadedSettings.seo_title === "string" ? loadedSettings.seo_title.trim() : ""
-      if (current === "My Store | Storelib" || (inst.name && current === `${inst.name} | Storelib`)) loadedSettings.seo_title = ""
+      /* "{username} | Storelib" (and the site's own handle) is the one this wrote most: the same old default, cleared too. */
+      const madeUp = [inst.name, data.username, data.siteHandle].filter((v): v is string => typeof v === "string" && !!v).map((v) => `${v} | Storelib`.toLowerCase())
+      if (current === "My Store | Storelib" || madeUp.includes(current.toLowerCase())) loadedSettings.seo_title = ""
     }
 
     // Load sections for current page. If not on home, fetch home's
