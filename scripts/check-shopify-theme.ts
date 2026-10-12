@@ -147,7 +147,7 @@ async function serve(zipPath: string) {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
     /* Shopify's helper scripts, as app/api/site-theme/shopify/[name] serves them. */
-    if (url.pathname.startsWith("/api/site-theme/shopify/")) {
+    if ((url.pathname.startsWith("/api/site-theme/shopify/") || url.pathname.startsWith("/api/site-theme/helpers/"))) {
       const js = shopifyGlobalAsset(decodeURIComponent(url.pathname.split("/").pop() ?? ""))
       res.writeHead(js ? 200 : 404, { "content-type": "application/javascript" })
       return res.end(js ?? "")

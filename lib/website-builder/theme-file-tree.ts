@@ -125,7 +125,8 @@ export function buildThemeFileTree(customizedPaths: string[] = []): ThemeFileNod
     for (let i = 0; i < parts.length - 1; i++) {
       const folderPath = parts.slice(0, i + 1).join("/")
       let node = level.find((n) => n.type === "folder" && n.path === folderPath)
-      if (!node) { node = folder(folderPath, []); node.name = parts[i]; level.push(node) }
+      /* An imported theme's own files sit under shopify/ (lib/storelib-theme/compat/install.ts COMPAT_PREFIX); the folder reads as "original", the theme as it arrived. */
+      if (!node) { node = folder(folderPath, []); node.name = i === 0 && parts[0] === "shopify" ? "original" : parts[i]; level.push(node) }
       level = node.children!
     }
     level.push(file(path))

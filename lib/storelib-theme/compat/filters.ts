@@ -794,6 +794,9 @@ function jsonSafe(v: unknown, depth = 0): unknown {
   if (v === null || v === undefined) return null
   if (Array.isArray(v)) return v.slice(0, 500).map((x) => jsonSafe(x, depth + 1))
   if (typeof v === "object") {
+    /* An object that knows how Shopify writes it as JSON (a product, a variant: ./objects.ts liquidJson) is written that way, so a theme's script reads `product | json` as it does on Shopify. */
+    const own = (v as { __json__?: unknown }).__json__
+    if (typeof own === "function") return jsonSafe((own as () => unknown)(), depth + 1)
     const o: Record<string, unknown> = {}
     for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
       if (k === OUTPUT || k.startsWith("__") || typeof val === "function") continue

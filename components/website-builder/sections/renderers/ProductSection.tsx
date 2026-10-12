@@ -137,7 +137,49 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productKey])
 
+  /*
+    THE ADDRESS NAMES THE VARIANT, as on Shopify: a link with ?variant= opens
+    on that variant, and each choice writes it back (replaced, so Back still
+    leaves the page). Read once the page is in the browser; never in the
+    builder, whose address is the editor's own.
+  */
+  const urlRead = useRef(false)
+  /* The variant the address asked for, until the choice has moved to it. */
+  const urlAsked = useRef<string | null>(null)
+  useEffect(() => {
+    if (inEditor || sample || urlRead.current) return
+    urlRead.current = true
+    try {
+      const asked = new URLSearchParams(window.location.search).get("variant")
+      if (asked && (product.variants ?? []).some((v) => v.id === asked)) {
+        urlAsked.current = asked
+        setChosen(initialChoice(product, asked))
+      }
+    } catch {
+      /* No address to read: the first variant that sells. */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inEditor, sample, productKey])
   const variant = (product.variants ?? []).length ? variantFor(product, chosen) : null
+  const variantId = variant?.id ?? null
+  useEffect(() => {
+    if (inEditor || sample || !urlRead.current || !variantId) return
+    if (urlAsked.current) {
+      if (urlAsked.current !== variantId) return
+      urlAsked.current = null
+    }
+    try {
+      const url = new URL(window.location.href)
+      if (url.searchParams.get("variant") === variantId) return
+      /* The first variant, chosen by nobody, keeps a plain address. */
+      if (!url.searchParams.get("variant") && variantId === (product.variants ?? []).find((v) => v.available)?.id) return
+      url.searchParams.set("variant", variantId)
+      window.history.replaceState(window.history.state, "", url.toString())
+    } catch {
+      /* The address stays as it was. */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantId, inEditor, sample])
   const facts = priceFacts(product, variant)
   const canBuy = sample || purchasable(product, variant)
   const choose = useCallback((i: number, value: string) => setChosen((c) => chooseValue(product, c, i, value)), [product])
