@@ -182,6 +182,7 @@ async function main() {
     check("the write and the leave both ask it", /const write = \(\) => \{\s*frame = 0\s*if \(!mine\(\)\) return/.test(src) && /const handleLeave = \(\) => \{[\s\S]{0,120}if \(!mine\(\)\) return/.test(src))
     check("a press that leaves (a card, a creator, a community, a search) keeps the place at that moment", /document\.addEventListener\("click", handleLeave, true\)/.test(src) && /document\.addEventListener\("submit", handleLeave, true\)/.test(src))
     check("a Back between two addresses of the same mounted page is put back before paint", /useLayoutEffect\(\(\) => \{\s*if \(drawnAddress\.current === address\) return/.test(src) && /if \(traversalTo === null \|\| traversalTo !== address\) return/.test(src))
+    check("the Back is heard before the router's own listener, which commits Explore inside the popstate event (React 19)", /\}, \{ capture: true \}\)/.test(src) && /window\.addEventListener\("popstate", \(\) => \{\s*backTraversal = true/.test(src))
     check("a push clears the pending Back", /history\.pushState = function \(\.\.\.args\) \{\s*clearTraversal\(\)\s*traversalTo = null/.test(src))
     check("the oldest places are let go", /MAX_PLACES = 60/.test(src))
     check("a Back is known until Explore acts on it, however long its page takes (no clock on it)", !/traversalTimer/.test(src))

@@ -134,6 +134,20 @@ if (typeof window !== "undefined") {
   } catch {
     /* no timing entry: the arrival rule below simply finds nothing */
   }
+  /*
+    IN THE CAPTURE PHASE, SO IT IS HEARD BEFORE THE ROUTER (round 25). This is
+    why Back to Explore landed at the top on the live site while every probe
+    against `next dev` passed. The router's own popstate listener (Next's
+    app-router.js) was added when the app started, this one only when
+    Explore's code first loaded, so the router heard each Back first; and it
+    starts its update inside the popstate event, which React 19 renders and
+    commits synchronously there and then (so the browser can restore the
+    scroll). Explore was drawn, and its layout effect asked whether this was
+    a return, before this listener had said so: no, so the top. Measured on
+    a production build, at 1440: first frame back at 0, not 2000. A capture
+    listener on the window runs before every listener added without one,
+    whenever it was added.
+  */
   window.addEventListener("popstate", () => {
     backTraversal = true
     documentArrivalUsed = true
@@ -143,7 +157,7 @@ if (typeof window !== "undefined") {
       the top. It lasts until Explore acts on it, the next Back or Forward, or a push.
     */
     traversalTo = exploreAddressKey()
-  })
+  }, { capture: true })
   /*
     A PAGE BROUGHT BACK WHOLE FROM THE BROWSER'S CACHE IS ALREADY WHERE IT
     WAS: its DOM and its scroll come back with it, and no React render or
