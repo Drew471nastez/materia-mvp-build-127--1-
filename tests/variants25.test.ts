@@ -41,6 +41,7 @@ import { compatFilter } from "../lib/storelib-theme/compat/filters"
 import { buildThemeFileTree } from "../lib/website-builder/theme-file-tree"
 import { toCard } from "../lib/website-builder/shop-products"
 import { GET as helperScript } from "../app/api/site-theme/helpers/[name]/route"
+import { CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
 
 let passed = 0
 let failed = 0
@@ -336,6 +337,7 @@ async function main() {
     check("Buy it now follows the form's Add to cart, and a press on it while off does nothing", /var sync=function\(\)\{document\.querySelectorAll\("\[data-storelib-buy-now\]"\)/.test(shims) && /if\(b\.disabled\)\{e\.preventDefault\(\);return\}/.test(shims))
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
     check("the canvas reads the page's facts as the live site does, and answers a section drawn again with them", /\/api\/website-builder\/products\?id=\$\{encodeURIComponent\(card\.id\)\}&facts=1/.test(canvas) && /product: async \(handle\) => \{\s*const p = current\.product/.test(canvas))
+    check("in the canvas's frame, an address the browser refuses to write no longer stops the theme's script halfway", /\["pushState","replaceState"\]\.forEach\(function\(k\)\{var f=history\[k\];[^]*?catch\(e\)\{try\{return f\.call\(this,s,t\)\}/.test(CANVAS_HEAD))
     const route = read("app/api/website-builder/products/route.ts")
     check("  the builder's route gives them for the creator's own product only", /searchParams\.get\("facts"\) === "1"/.test(route) && route.indexOf('.eq("creator_id", creator.id)') < route.indexOf("pageFactsFor("))
     const loader = read("lib/website-builder/compat-site.ts")
