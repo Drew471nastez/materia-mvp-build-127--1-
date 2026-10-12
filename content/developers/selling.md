@@ -121,6 +121,8 @@ The product page's own section is `product`, the one every product template star
 | `text`, `icon_with_text`, `divider` | Words, an icon beside a heading and a line, and a rule. |
 | `share`, `wishlist` | Copy link, X, Facebook, Pinterest and email; the site's wishlist. |
 | `files` | The kinds and sizes of the files a download holds. |
+| `product_details` | The custom fields the creator set to show, a label and its value on each line. |
+| `product_faq` | The product's own questions from the product editor's FAQ, each answer folded under its question. Draws nothing on a product without any. |
 | `custom_code` | HTML and CSS of the creator's own. Scripts are removed. |
 
 Every block has its own space above and below, and its colours follow the section's scheme until the creator picks others.
@@ -236,6 +238,18 @@ A product can carry up to twenty named details the creator writes in the product
 ```
 
 They are plain words, never markup, and an empty one is absent. They need SQL part 107; until it has run, products save and show as before, with no fields.
+
+### The product's questions
+
+The FAQ the creator writes in the product editor is `product.faqs` on the product page: a list of `{ question, answer }`, plain words, never markup. Print an answer with `{{ }}` and give it `white-space: pre-line` to keep its line breaks:
+
+```storelib
+{% for faq in product.faqs %}
+  <details><summary>{{ faq.question }}</summary><p style="white-space: pre-line">{{ faq.answer }}</p></details>
+{% endfor %}
+```
+
+The **Accordion FAQ** section does this when its Questions setting is **This product's questions**, and a rich text setting can take the **Product FAQ** dynamic source, `{{ product.faqs }}`.
 
 ### A card's own words, never its price
 
