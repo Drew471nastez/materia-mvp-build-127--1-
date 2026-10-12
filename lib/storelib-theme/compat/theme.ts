@@ -32,6 +32,9 @@ import { Ctx, OUTPUT, evaluate, renderString, renderTree, toList, toOutput, type
 import { parseOutput } from "./expression"
 import {
   SHOPIFY_ROUTES,
+  routesFor,
+  publishedLocales,
+  type SiteI18n,
   blockAttributes,
   cartObject,
   collectionByHandle,
@@ -251,6 +254,10 @@ export interface CompatPage {
   customer?: O | null
   /** Why a form on this page did not go through, by form type (`customer_login`, `customer`, `contact`): what its `form.errors` says. */
   formErrors?: Record<string, string> | null
+  /** The website's languages and this page's (lib/markets): an imported theme's language selector, request.locale and routes. */
+  i18n?: SiteI18n
+  /** The password page's "Log in here": Storelib's owner sign in for this website (app/api/site-password/owner), never Shopify's admin. */
+  ownerUrl?: string
   search?: { terms: string; results: CardLike[]; performed: boolean } | null
   /** `page` on a page template: its title and its body. */
   pageObject?: { title: string; content: string; handle: string; url: string } | null
@@ -309,6 +316,16 @@ export function sectionCss(id: string, raw: unknown): string {
 }
 
 // ── The theme ────────────────────────────────────────────────────────────────
+
+/** A dotted key in a locale file ("products.product.add_to_cart"), or null. */
+function lookUp(words: O | null, key: string): unknown {
+  let cur: unknown = words
+  for (const part of key.split(".")) {
+    if (!cur || typeof cur !== "object") return null
+    cur = (cur as O)[part]
+  }
+  return cur ?? null
+}
 
 /*
   THE THEME'S OWN LANGUAGE. `| t` reads the locale the theme marks as its
@@ -409,6 +426,15 @@ export class CompatTheme {
     return schema
   }
 
+  /** A schema label written as a `t:` key ("t:sections.header.settings.text.label"), in the theme's own words; any other text as it is. */
+  schemaLabel(v: unknown): string {
+    if (typeof v !== "string") return ""
+    if (!v.startsWith("t:")) return v
+    let cur: unknown = this.schemaLocale
+    for (const part of v.slice(2).split(".")) cur = cur && typeof cur === "object" ? (cur as O)[part] : undefined
+    return typeof cur === "string" ? cur : v.slice(2).split(".").slice(-2, -1)[0]?.replace(/_/g, " ") ?? ""
+  }
+
   /** A schema's defaults written as `t:` keys, as the words in the theme's schema locale (Shopify does the same). */
   private schemaWords(schema: O): O {
     const word = (v: unknown): unknown => {
@@ -482,13 +508,32 @@ export class CompatTheme {
 
   // ── The context ──
 
-  private translate = (key: string): unknown => {
-    let cur: unknown = this.locale
-    for (const part of key.split(".")) {
-      if (!cur || typeof cur !== "object") return null
-      cur = (cur as O)[part]
+  private translate = (key: string): unknown => lookUp(this.locale, key)
+
+  /*
+    THE THEME'S WORDS IN ANOTHER LANGUAGE. A Shopify theme ships its words
+    in every language it was translated to (locales/fr.json, de.json,
+    pt-BR.json): a page in French reads fr.json, then the base language's
+    file (pt.json for pt-BR), then the theme's default for any word those
+    lack, so nothing ever shows as a key.
+  */
+  private wordsHeld = new Map<string, O | null>()
+  private translateIn(lang: string): (key: string) => unknown {
+    const files = [`locales/${lang}.json`, `locales/${lang.toLowerCase()}.json`, `locales/${lang.split("-")[0].toLowerCase()}.json`]
+    const found: O[] = []
+    for (const f of files) {
+      if (!this.wordsHeld.has(f)) this.wordsHeld.set(f, this.files[f] !== undefined ? (parseJsonLoose(this.files[f]) as O | null) : null)
+      const w = this.wordsHeld.get(f)
+      if (w && !found.includes(w)) found.push(w)
     }
-    return cur ?? null
+    if (found.length === 0) return this.translate
+    return (key: string) => {
+      for (const w of found) {
+        const v = lookUp(w, key)
+        if (v !== null) return v
+      }
+      return this.translate(key)
+    }
   }
 
   private resources(page: CompatPage, schemes: Record<string, O>): Resources {
@@ -555,8 +600,8 @@ export class CompatTheme {
       enabled_currencies: [{ iso_code: currency, symbol: currencySymbol(currency), name: currency }],
       /* What Storelib's checkout takes (Stripe): cards and the two wallets. No PayPal, which it does not take. */
       enabled_payment_types: ["visa", "master", "american_express", "apple_pay", "google_pay"],
-      locale: "en",
-      published_locales: [{ iso_code: "en", name: "English", primary: true, root_url: "/" }],
+      locale: page.i18n?.locale ?? this.lang,
+      published_locales: publishedLocales(page.i18n, this.lang),
       /* The creator's own policies (Website settings), as Shopify's shop.policies and shop.<name>_policy: a footer's policy links read these. */
       policies: policyObjects(page.shop.policies),
       ...Object.fromEntries(policyObjects(page.shop.policies).map((p) => [String(p.handle).replace(/-/g, "_"), p])),
@@ -578,9 +623,10 @@ export class CompatTheme {
       settings,
       shop,
       cart,
-      routes: SHOPIFY_ROUTES,
-      request: requestObject(page.template, page.path, page.designMode, page.host, this.lang),
-      localization: localizationObject(currency),
+      /* In another of the website's languages: its prefix on every route, its language as request.locale and in the selector (lib/markets). */
+      routes: page.i18n ? routesFor(page.i18n) : SHOPIFY_ROUTES,
+      request: requestObject(page.template, page.path, page.designMode, page.host, this.lang, page.i18n),
+      localization: localizationObject(currency, page.i18n, this.lang),
       template,
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
@@ -640,7 +686,8 @@ export class CompatTheme {
       moneyFormat,
       moneyWithCurrencyFormat: `${moneyFormat} ${currency}`,
       currency,
-      translate: this.translate,
+      /* The theme's own words in the page's language (locales/fr.json), its default ones for anything that file lacks. */
+      translate: page.i18n && page.i18n.locale.toLowerCase() !== this.lang.toLowerCase() ? this.translateIn(page.i18n.locale) : this.translate,
     }
     const ctx = new Ctx(globals, this.env(page))
     pageCtx = ctx
@@ -1221,7 +1268,8 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
     localization: "/localization",
     new_comment: "#",
     guest_login: "/account/login",
-    storefront_password: "/password",
+    /* The website's own password check (app/api/site-password), which sets the pass and goes back to the page asked for. */
+    storefront_password: "/api/site-password",
     currency: "/cart/update",
   }
   /* A contact or newsletter form posts to /contact#<its id>, as on Shopify: the page it comes back to opens at the form and its thank you. */
@@ -1242,6 +1290,8 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
   }
   if (typeof args.return_to === "string") hidden.push(`<input type="hidden" name="return_to" value="${escapeHtml(args.return_to)}">`)
   const page = ctx.registers.page as CompatPage | undefined
+  /* The page the visitor asked for, to go back to once the password is right (checked again on the server, lib/site-password/gate passReturnPath). */
+  if (type === "storefront_password" && typeof page?.query?.return === "string") hidden.push(`<input type="hidden" name="return" value="${escapeHtml(page.query.return)}">`)
   const errorText = page?.formErrors?.[SIGN_IN_FORMS.has(type) ? "customer_login" : type]
   return {
     open: `<form ${attrs.join(" ")}>${hidden.join("")}`,

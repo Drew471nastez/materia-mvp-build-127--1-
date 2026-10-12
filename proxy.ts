@@ -17,7 +17,7 @@ import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
-import { siteRouteInLanguage } from "@/lib/markets/site-name"
+import { SITE_LOCALE_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 
@@ -582,19 +582,53 @@ function policyAddress(pathname: string): string | null {
 
 /** The rewrite to the imported theme's handler, behind the site's password when it has one: a page, and the shop's product list (/products.json); not a file a page loads (a script, /cart.js). */
 async function compatRewrite(request: NextRequest, name: string, host: string, pathname: string, search: string): Promise<NextResponse> {
-  if ((!/\.[a-z0-9]{1,8}$/i.test(pathname) && !pathname.startsWith("/cart/")) || /^(?:\/collections\/[^/]+)?\/products\.json$/i.test(pathname)) {
-    const gate = await passwordPageFor(request, name, host, pathname, search)
-    if (gate.blocked) return gate.blocked
+  /*
+    AN IMPORTED THEME IN ANOTHER OF THE WEBSITE'S LANGUAGES: every address
+    under /fr answers as the same address in French (the cart and its
+    scripts too, which the theme's routes now point under /fr). The
+    language is named to the handler in a header only this proxy sets.
+  */
+  let locale: string | null = null
+  let asked = pathname
+  if (LANGUAGE_FIRST.test(pathname)) {
+    const m = pathname.match(/^\/([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)(\/.*)?$/)
+    const hit = m ? (await siteLanguagesFor(name)).find((l) => l.toLowerCase() === m[1].toLowerCase()) : undefined
+    if (m && hit) {
+      locale = hit
+      asked = m[2] || "/"
+    }
+  }
+  let page = asked
+  let query = search
+  let gated = false
+  if ((!/\.[a-z0-9]{1,8}$/i.test(asked) && !asked.startsWith("/cart/")) || /^(?:\/collections\/[^/]+)?\/products\.json$/i.test(asked)) {
+    const gate = await passwordPageFor(request, name, host, asked, search)
+    if (gate.blocked) {
+      /*
+        THE THEME'S OWN PASSWORD PAGE, never Storelib's builder one: that
+        page draws a builder theme's sections, and an imported theme has
+        none, so a protected imported website was a blank white page. Drawn
+        at the address asked for, which it goes back to once the password
+        is right. A script's JSON request is refused instead.
+      */
+      if (/\.json$/i.test(asked)) return gate.blocked
+      page = "/password"
+      query = `?${new URLSearchParams({ return: `${pathname}${search}` }).toString()}`
+      gated = true
+    }
   }
   const to = request.nextUrl.clone()
-  to.pathname = `/api/site-theme/site/${name}${pathname === "/" ? "" : pathname}`
-  to.search = search
+  to.pathname = `/api/site-theme/site/${name}${page === "/" ? "" : page}`
+  to.search = query
   /* Sealed for this name on this host: the handler draws nothing it was not sent by this proxy (lib/storelib-theme/compat/site-seal.ts). */
   const headers = new Headers(request.headers)
   headers.delete(SITE_SEAL_HEADER)
+  headers.delete(SITE_LOCALE_HEADER)
+  if (locale) headers.set(SITE_LOCALE_HEADER, locale)
   const seal = await sealSite(name, siteHostOf(request.headers))
   if (seal) headers.set(SITE_SEAL_HEADER, seal)
   const r = NextResponse.rewrite(to, { request: { headers } })
+  if (gated) r.headers.set("X-Robots-Tag", "noindex")
   /*
     No Cache-Control here: the handler sets its own on every answer (a page
     "private, no-cache", which keeps the browser's back/forward cache on; the

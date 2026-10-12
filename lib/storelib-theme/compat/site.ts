@@ -30,7 +30,8 @@
  * the tests all drive the same function.
  */
 import { escapeHtml, handleize } from "./filters"
-import type { CardLike, CollectionLike, MenuLinkLike, CartLineLike } from "./objects"
+import type { CardLike, CollectionLike, MenuLinkLike, CartLineLike, SiteI18n } from "./objects"
+import { localeRoot } from "./objects"
 import { cartObject, productObject } from "./objects"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
@@ -43,6 +44,7 @@ import { facet } from "./facets"
 import { linkFactsOf, siteLink } from "./links"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { getMainDomain } from "@/lib/url-helpers"
 import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
@@ -85,6 +87,8 @@ export interface SiteData {
   stock?: (productId: string) => Promise<CartStock | null>
   /** Website settings › Commerce: the free shipping banner and the cart's returns line (./site-commerce-markup.ts). Absent: neither. */
   commerce?: CompatCommerce
+  /** The website's languages and this request's (lib/markets/compat.ts). Absent: one language, the theme's own. */
+  i18n?: SiteI18n
 }
 
 /** What a cart may hold of one product: by variant id (a product with one option: also by its own id), and in all. */
@@ -155,7 +159,7 @@ const html = (body: string, status = 200): SiteResponse => ({ status, type: "tex
   pages, which show what is only this visitor's, stay no-store. A page that
   comes back this way checks its cart count (./shims.ts BACK_FORWARD).
 */
-const PRIVATE_PATH = /^\/(?:cart|checkout|account)(?:[/?#.]|$)/
+const PRIVATE_PATH = /^\/(?:cart|checkout|account|password)(?:[/?#.]|$)/
 const pageHtml = (body: string, path: string, status = 200): SiteResponse => ({
   status,
   type: "text/html; charset=utf-8",
@@ -226,7 +230,24 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const q = req.query.toString()
     return redirect(`/collections/all${q ? `?${q}` : ""}`)
   }
-  if (method === "POST" && path === "/localization") return redirect(safeReturn(req.body?.return_to) ?? "/")
+  /*
+    THE THEME'S LANGUAGE AND COUNTRY SELECTOR (form 'localization'): the
+    page it was on, in the language chosen (/fr/…, the website's own without
+    a prefix). A language the website does not publish changes nothing.
+  */
+  if (method === "POST" && path === "/localization") {
+    const back = safeReturn(req.body?.return_to) ?? "/"
+    const asked = typeof req.body?.language_code === "string" ? req.body.language_code : null
+    const i18n = site.i18n
+    if (!i18n || !asked) return redirect(back)
+    const chosen = i18n.languages.find((l) => l.toLowerCase() === asked.toLowerCase())
+    if (!chosen) return redirect(back)
+    const prefixes = i18n.languages.filter((l) => l.toLowerCase() !== i18n.defaultLanguage.toLowerCase()).map((l) => l.toLowerCase())
+    const m = back.match(/^\/([a-z]{2,3}(?:-[a-z0-9]{2,8})*)(\/.*)?$/i)
+    const bare = m && prefixes.includes(m[1].toLowerCase()) ? (m[2] || "/") : back
+    const root = localeRoot(i18n, chosen)
+    return redirect(root ? `${root}${bare === "/" ? "" : bare}` : bare)
+  }
 
   /* ── products as data ── */
   /*
@@ -301,10 +322,34 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
   const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0)
-  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}`
+  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${languageLinks(site, path)}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
-  return pageHtml(withBodyStart(drawn.html, shop.bodyStart), path, route.status ?? 200)
+  const out = route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html
+  return pageHtml(withBodyStart(out, shop.bodyStart), path, route.status ?? 200)
+}
+
+/** The same page in every language of the website, for search engines (hreflang, x-default the website's own). */
+function languageLinks(site: SiteData, path: string): string {
+  const i18n = site.i18n
+  if (!i18n || i18n.languages.length < 2 || !site.host) return ""
+  const at = (code: string) => `https://${site.host}${localeRoot(i18n, code)}${path === "/" && localeRoot(i18n, code) ? "" : path}`
+  const links = i18n.languages.map((l) => `<link rel="alternate" hreflang="${escapeHtml(l)}" href="${escapeHtml(at(l))}">`)
+  links.push(`<link rel="alternate" hreflang="x-default" href="${escapeHtml(at(i18n.defaultLanguage))}">`)
+  return links.join("")
+}
+
+/**
+ * A theme's password page without Shopify's mark: a link to shopify.com
+ * (its logo with it) and a "powered by" line left in the theme's own markup
+ * rather than its words (filters.ts passwordPageWords covers those).
+ */
+export function withoutShopifyMark(html: string): string {
+  return html
+    .replace(/<a\b[^>]*href=["'][^"']*shopify\.com[^"']*["'][^>]*>[\s\S]*?<\/a>/gi, "")
+    .replace(/<svg\b[^>]*(?:shopify)[^>]*>[\s\S]*?<\/svg>/gi, "")
+    .replace(/(?:This shop will be|This store is|Powered|Store) powered by\s*(?:<[^>]+>\s*)*Shopify(?:\s*<\/[^>]+>)*/gi, "")
+    .replace(/This shop will be powered by\s*/gi, "")
 }
 
 /**
@@ -549,6 +594,7 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     cart: cartLines(site, req.cart),
     customer: req.account?.customer ? themeCustomer(req.account.customer) : null,
     formErrors: formErrorsOf(req),
+    ...(site.i18n ? { i18n: site.i18n } : {}),
     ...extra,
   }
 }
@@ -683,7 +729,22 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
   }
 
   if (path === "/cart") return at("cart", { title: "Your cart" })
-  if (path === "/password") return at("password")
+  /*
+    THE THEME'S OWN PASSWORD PAGE, in front of every page while the website
+    asks for a password (the proxy draws it at the address asked for, with
+    ?return=). Its form posts to /api/site-password; a wrong password comes
+    back here with ?error=, said in the form's errors. "Log in here" is
+    Storelib's owner sign in for this website.
+  */
+  if (path === "/password") {
+    const why = req.query.get("error")
+    const said = why === "wrong" ? "That password is not right. Try again." : why === "limit" ? "Too many tries. Wait a few minutes and try again." : why ? "Something went wrong. Try again." : null
+    const owner = new URL("/api/site-password/owner", `https://${getMainDomain()}`)
+    owner.searchParams.set("host", site.host)
+    const back = req.query.get("return")
+    if (back && back.startsWith("/") && !back.startsWith("//")) owner.searchParams.set("return", back)
+    return at("password", { formErrors: said ? { storefront_password: said } : null, ownerUrl: owner.toString() })
+  }
 
   /*
     A POLICY, at Shopify's /policies/<handle> or Storelib's /<handle>: the

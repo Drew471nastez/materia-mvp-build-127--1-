@@ -12,6 +12,9 @@
 
 export const LOCALE_MARK = "~"
 
+/** The header the proxy names an imported theme's page language in (/fr/… → "fr"); stripped from every request that arrives with it. */
+export const SITE_LOCALE_HEADER = "x-storelib-site-locale"
+
 /** "andrew" in "fr" → "andrew~fr"; no language, the name as it is. */
 export function siteNameIn(name: string, locale: string | null | undefined): string {
   return locale ? `${name}${LOCALE_MARK}${locale.toLowerCase()}` : name

@@ -30,12 +30,14 @@ import { languageName, localizedPath, normalizeLocale } from "./locales"
 import { localizeRecord, localizeSections, localizeTheme, translationMap, type TranslationMap } from "./translate"
 
 export interface SiteLanguages {
+  /** The store saved Markets and languages: its default language is the website's. */
+  saved: boolean
   defaultLanguage: string
   /** The published languages other than the default, in the store's order. */
   others: string[]
 }
 
-const NONE: SiteLanguages = { defaultLanguage: "en", others: [] }
+const NONE: SiteLanguages = { saved: false, defaultLanguage: "en", others: [] }
 
 async function readLanguages(creatorId: string): Promise<SiteLanguages> {
   const { data, error } = await createAdminClient().from("store_localization").select("default_language, languages").eq("creator_id", creatorId).maybeSingle()
@@ -51,7 +53,7 @@ async function readLanguages(creatorId: string): Promise<SiteLanguages> {
     const code = normalizeLocale((l as { code?: unknown })?.code)
     if (code && code !== def && (l as { published?: unknown }).published === true && !others.includes(code)) others.push(code)
   }
-  return { defaultLanguage: def, others }
+  return { saved: true, defaultLanguage: def, others }
 }
 
 /** The website's languages, held until the store saves Markets and languages again. */
@@ -122,7 +124,8 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
  */
 export async function languageChoice(creatorId: string, locale: string | null | undefined): Promise<SiteLanguageChoice | undefined> {
   const langs = await siteLanguages(creatorId)
-  if (langs.others.length === 0) return undefined
+  /* Nothing saved: the page's language stays what Website settings said (ThemePage reads site_language). One language saved: that one, with no switch. */
+  if (!langs.saved) return undefined
   const all = [langs.defaultLanguage, ...langs.others]
   const code = (locale && all.find((l) => l.toLowerCase() === locale.toLowerCase())) || langs.defaultLanguage
   return { code, defaultLanguage: langs.defaultLanguage, languages: all.map((c) => ({ code: c, name: languageName(c) })) }
