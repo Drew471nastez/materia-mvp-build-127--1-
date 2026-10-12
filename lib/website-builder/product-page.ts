@@ -114,6 +114,51 @@ export function withProductBlocks(section: SectionInstance): SectionInstance {
   return isLegacyProductSection(section) ? { ...section, blocks: legacyProductBlocks(section.settings ?? {}) } : section
 }
 
+/**
+ * ===========================================================================
+ *  DELIVERY AND PICKUP ON EVERY PRODUCT PAGE THAT HAD NONE
+ * ===========================================================================
+ * The "Delivery and pickup" block (the cheapest delivery and how long, the
+ * pickup points; components/website-builder/sections/renderers/product/
+ * product-blocks.tsx) came after many product pages were saved, so those
+ * pages never showed it. A product section with blocks and no such block
+ * draws it after the low stock line (or after the buy buttons, or last),
+ * the way the default preset places it, without the creator adding it.
+ *
+ * The creator still decides. The section remembers it was given the block
+ * (DELIVERY_ADDED, a setting kept with the section, as the legacy switches
+ * are): the builder opens with it in the sidebar, where it can be moved or
+ * removed like any block, and a section saved with the mark and without the
+ * block was emptied of it on purpose, so it is never put back. A section
+ * that has the block gets the mark too, so removing it later sticks.
+ *
+ * The canvas, the sidebar and the live page call this one function
+ * (ProductSection, theme/render-product, the editor's load), so all three
+ * agree on the blocks and their ids.
+ */
+export const DELIVERY_ADDED = "delivery_block_added"
+export const AUTO_DELIVERY_ID = "auto-delivery"
+
+export function withDeliveryBlock(section: SectionInstance): SectionInstance {
+  if (section.type !== "product" || !Array.isArray(section.blocks) || section.blocks.length === 0) return section
+  const settings = section.settings ?? {}
+  if (section.blocks.some((b) => b.type === "delivery")) return settings[DELIVERY_ADDED] === true ? section : { ...section, settings: { ...settings, [DELIVERY_ADDED]: true } }
+  /* Given once and taken out by the creator: left out. */
+  if (settings[DELIVERY_ADDED] === true) return section
+  const after = ["low_stock", "buy_buttons", "quantity", "variant_picker", "price"]
+  let at = section.blocks.length
+  for (const type of after) {
+    const i = section.blocks.map((b) => b.type).lastIndexOf(type)
+    if (i >= 0) {
+      at = i + 1
+      break
+    }
+  }
+  const block: BlockInstance = { id: AUTO_DELIVERY_ID, type: "delivery", settings: productBlockDefaults("delivery") }
+  const blocks = [...section.blocks.slice(0, at), block, ...section.blocks.slice(at)]
+  return { ...section, blocks, settings: { ...settings, [DELIVERY_ADDED]: true } }
+}
+
 export function isUntouchedPlaceholder(section: SectionInstance): boolean {
   if (section.id !== PLACEHOLDER_ID || section.type !== "split_content") return false
   const heading = typeof section.settings?.heading === "string" ? section.settings.heading.trim().toLowerCase() : ""

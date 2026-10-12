@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
+import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
 import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, loadOrder, markProcessing, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
+import { setTrackingAuto } from "@/lib/physical/tracking/accounts-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,6 +31,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
  *   processing  mark the order as being prepared (or back to unfulfilled)
  *   fulfil      ship some or all items, with tracking (ready for pickup when collected)
  *   shipment    move a shipment on (in transit, delivered, cancelled) or fix its tracking
+ *   tracking_auto  pause or resume the carrier's automatic updates on one shipment
  *   address     change the shipping address before anything shipped (same country); the buyer is emailed
  *   cancel      cancel before anything shipped, stock back
  *   cancel_decline  keep an order the buyer asked to cancel (lib/physical/buyer-cancel.ts)
@@ -38,7 +41,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
  *   return_move approve, decline, receive (restock), close a return
  *   refunded    after the existing refund route refunded lines: catch up
  */
-const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", cancel: "order.cancelled", cancel_decline: "order.cancel_declined", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded" }
+const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", tracking_auto: "order.shipment", cancel: "order.cancelled", cancel_decline: "order.cancel_declined", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded" }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const c = await physicalCaller("orders")
@@ -77,6 +80,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         notifyBuyer: body.notifyBuyer !== false,
       })
       break
+    case "tracking_auto": {
+      /* Pause or resume courier tracking on one shipment (lib/physical/tracking); the seller's own statuses keep working either way. */
+      if (!isUuid(body.fulfillmentId)) return physicalJson({ error: "Not found." }, 404)
+      const set = await setTrackingAuto(c.db, c.creatorId, body.fulfillmentId, body.on !== false)
+      if (!set.ok) return physicalJson({ error: set.error }, 400)
+      const fresh = await loadOrder(c.db, { creatorId: c.creatorId, checkoutId: id })
+      result = fresh ? { ok: true as const, order: fresh } : { ok: false as const, error: "Order not found.", status: 404 }
+      break
+    }
     case "cancel":
       result = await cancelOrder(c.db, c.creatorId, id, body.reason)
       break
@@ -113,6 +125,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return physicalJson({ error: "Unknown action." }, 400)
   }
   if (result.ok === false) return physicalJson({ error: result.error }, result.status ?? 400)
-  await recordActivity(c.db, c, { action: ORDER_ACTIVITY[String(body.action)], subjectType: "order", subjectId: id, subjectLabel: `#${orderNumberOf(id)}` })
+  await recordActivity(c.db, c, { action: ORDER_ACTIVITY[String(body.action)], subjectType: "order", subjectId: id, subjectLabel: (await sellerOrderNumber(c.db, c.creatorId, { orderId: id, checkoutId: id })) ?? `#${orderNumberOf(id)}` })
   return physicalJson({ order: result.order })
 }

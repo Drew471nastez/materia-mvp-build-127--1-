@@ -853,7 +853,7 @@ export interface CartLineLike {
   properties?: Record<string, string>
 }
 
-export function cartObject(lines: CartLineLike[], currency: string, note = ""): O {
+export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}): O {
   const items = lines.flatMap((l, i) => {
     const product = l.product
     if (!product) return []
@@ -915,7 +915,8 @@ export function cartObject(lines: CartLineLike[], currency: string, note = ""): 
     discount_applications: [],
     currency: { iso_code: currency, symbol: currencySymbol(currency), name: currency, [OUTPUT]: currency },
     note,
-    attributes: {},
+    /* `cart.attributes['Gift message']`, as the theme set them with /cart/update (./site.ts). */
+    attributes: { ...attributes },
     empty: items.length === 0,
     requires_shipping: items.some((i) => i.requires_shipping),
     checkout_charge_amount: total,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sellerOrderNumbers } from "@/lib/orders/order-number-server"
 import { physicalCaller } from "@/lib/physical/auth"
 import { countryName } from "@/lib/checkout/countries"
 import { orderNumber } from "@/lib/physical/status"
@@ -27,14 +28,16 @@ export async function GET(request: Request) {
     .limit(5000)
   if (!all) q = q.in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"])
   const { data } = await q
-  const header = ["Order", "Paid at", "Fulfillment", "Name", "Email", "Phone", "Address 1", "Address 2", "City", "Region", "Postal code", "Country", "Delivery", "Product", "Variant", "SKU", "Quantity", "Note"]
+  const header = ["Order", "Paid at", "Fulfillment", "Name", "Email", "Phone", "Address 1", "Address 2", "City", "Region", "Postal code", "Country", "Delivery", "Product", "Variant", "SKU", "Quantity", "Note", "Buyer reference"]
   const rows: string[] = [header.join(",")]
+  /* Order: the Orders page's number; Buyer reference: what the buyer's emails and packing slip say (lib/orders/order-number-server.ts). */
+  const numbers = await sellerOrderNumbers(c.db, c.creatorId)
   for (const o of (data ?? []) as Record<string, any>[]) {
     const a = o.shipping_address ?? {}
     for (const l of (o.lines ?? []) as Record<string, any>[]) {
       if (!l.requires_shipping) continue
       rows.push(
-        [orderNumber(o.id), o.paid_at, o.fulfillment_status, a.name ?? o.buyer_name, o.buyer_email, a.phone ?? o.buyer_phone, a.line1, a.line2, a.city, a.region, a.postalCode, a.country ? countryName(a.country) : "", o.shipping_rate?.name, l.title, l.variant_name, l.sku, l.quantity, o.buyer_note]
+        [numbers?.byCheckout.get(o.id) ? `#${numbers.byCheckout.get(o.id)}` : orderNumber(o.id), o.paid_at, o.fulfillment_status, a.name ?? o.buyer_name, o.buyer_email, a.phone ?? o.buyer_phone, a.line1, a.line2, a.city, a.region, a.postalCode, a.country ? countryName(a.country) : "", o.shipping_rate?.name, l.title, l.variant_name, l.sku, l.quantity, o.buyer_note, orderNumber(o.id).replace(/^#/, "")]
           .map(cell)
           .join(","),
       )

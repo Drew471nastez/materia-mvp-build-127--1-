@@ -42,7 +42,7 @@ import { checkoutHrefWithOrigin } from "@/lib/orders/checkout-origin"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { addLine, cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
-import { withProductBlocks } from "@/lib/website-builder/product-page"
+import { withDeliveryBlock, withProductBlocks } from "@/lib/website-builder/product-page"
 import {
   amountToCents,
   buyNowHref,
@@ -100,7 +100,7 @@ const WIDTHS: Record<string, string> = { compact: "960px", standard: "1230px", w
 
 export function ProductSection({ section: raw, theme, isEditing, isSelected, onClick }: SectionProps) {
   /* A section saved before it had blocks draws the blocks its old switches describe (lib/website-builder/product-page.ts). */
-  const section = useMemo(() => withProductBlocks(raw), [raw])
+  const section = useMemo(() => withDeliveryBlock(withProductBlocks(raw)), [raw])
   const s = section.settings
   const storefront = useStorefront()
   const cart = useSiteCart()

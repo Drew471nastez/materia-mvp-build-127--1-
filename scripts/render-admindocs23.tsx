@@ -105,6 +105,8 @@ function data(): CommerceStatus {
     parts: PARTS.map((f, i) => ({ part: f.split("_")[0], file: f, state: i === 9 ? "missing" : "applied", appliedAt: iso(9000) })),
     tables: TABLES.map((t) => ({ table: t, present: true, reason: null })),
     counts: COUNT_LABELS.map(([id, label], i) => ({ id, label, value: i === 11 ? null : [412, 377, 96, 1840, 233, 37, 1702, 1611, 58, 140, 311, null, 905, 15802][i], reason: i === 11 ? "Not in the database" : null })),
+    /* Courier tracking (lib/physical/tracking), with Storelib's own AfterShip account and its webhook address. */
+    tracking: { configured: true, provider: "AfterShip", providerId: "aftership", webhookUrl: "https://storelib.com/api/tracking/webhooks/aftership/platform.Q2xvc2VkVG9rZW5Gb3JEZW1vT25seUFi", webhooks: true, chosen: null, following: 64, checked24h: 210, failing: 1, ownAccounts: 2, lastCheckedAt: iso(4), reason: null },
   }
 }
 

@@ -19,5 +19,5 @@ export default async function OrderHelpPage({ params, searchParams }: { params: 
   if (!/^[0-9a-f-]{36}$/i.test(id) || !k) notFound()
   const out = await getCaseForBuyer(createAdminClient(), id, k)
   if (!out.ok) notFound()
-  return <CaseView id={id} k={k} initial={{ case: out.case, messages: out.messages }} store={{ name: out.store.name, logoUrl: out.store.logoUrl, email: out.store.email, phone: out.store.phone, websiteUrl: out.store.websiteUrl }} />
+  return <CaseView id={id} k={k} initial={{ case: out.case, messages: out.messages, escalation: out.escalation }} store={{ name: out.store.name, logoUrl: out.store.logoUrl, email: out.store.email, phone: out.store.phone, websiteUrl: out.store.websiteUrl }} />
 }

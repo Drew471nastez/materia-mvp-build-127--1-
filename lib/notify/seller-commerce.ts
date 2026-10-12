@@ -68,6 +68,8 @@ export interface PhysicalSaleFacts {
   pickupName: string
   pickupAddress: string[]
   note: string
+  /** What the shop's cart asked (an imported theme's cart attributes, then each line's properties), as "Name: value" rows. */
+  details: string[]
   /** Shipping paid, after any free shipping. */
   shippingCents: number | null
   taxCents: number | null
@@ -86,6 +88,20 @@ function addressText(a: Record<string, unknown> | null | undefined): string[] {
   if (!a || typeof a !== "object") return []
   const city = [str(a.postalCode ?? a.postal_code, 20), str(a.city, 80)].filter(Boolean).join(" ")
   return [str(a.name, 80), [str(a.line1, 120), str(a.line2, 120)].filter(Boolean).join(", "), [city, str(a.region, 60)].filter(Boolean).join(", "), str(a.country, 60)].filter(Boolean)
+}
+
+/** The cart's attributes and each line's properties as "Name: value" (or "Item: Name: value"), at most twelve. */
+function detailsOf(attributes: unknown, lines: Record<string, unknown>[]): string[] {
+  const out: string[] = []
+  if (attributes && typeof attributes === "object" && !Array.isArray(attributes)) {
+    for (const [k, v] of Object.entries(attributes as Record<string, unknown>)) if (str(k, 100) && str(v, 300)) out.push(`${str(k, 100)}: ${str(v, 300)}`)
+  }
+  for (const l of lines) {
+    const props = l.properties && typeof l.properties === "object" && !Array.isArray(l.properties) ? Object.entries(l.properties as Record<string, unknown>) : []
+    const said = props.map(([k, v]) => (str(k, 60) && str(v, 250) ? `${str(k, 60)}: ${str(v, 250)}` : "")).filter(Boolean)
+    if (said.length) out.push(`${str(l.title, 80) || "Item"}: ${said.join(", ")}`)
+  }
+  return out.slice(0, 12)
 }
 
 /**
@@ -135,6 +151,7 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
     pickupName: pickup ? str(place?.name, 80) : "",
     pickupAddress: pickup && Array.isArray(place?.address) ? (place!.address as unknown[]).map((x) => str(x, 120)).filter(Boolean) : [],
     note: str(co.buyer_note, 500),
+    details: detailsOf(co.cart_attributes, rawLines),
     shippingCents: shipping === null ? null : Math.max(0, shipping - shippingOff),
     taxCents: cents(co.tax_cents),
     taxIncluded: rate?.tax_included === true,
@@ -165,6 +182,7 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
     pickupName: facts.pickupName,
     pickupAddress: facts.pickupAddress,
     note: facts.note,
+    details: facts.details ?? [],
   }
   const out: Record<string, unknown> = { ...data, fulfil }
   const { subtotalCents: sub, discountCents: off, shippingCents: ship, taxCents: tax, totalCents: total } = facts
@@ -186,7 +204,7 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
 
 /* ── The seller's other order emails ────────────────────────────────────── */
 
-export type SellerCommerceKind = "return_requested" | "cancel_requested" | "order_cancelled" | "delivery_exception" | "payment_failed" | "low_stock"
+export type SellerCommerceKind = "return_requested" | "cancel_requested" | "order_cancelled" | "delivery_exception" | "delivery_unconfirmed" | "payment_failed" | "low_stock"
 
 /** The order event that sends each (lib/physical/events-server.ts sellerEmailFor). */
 export function sellerKindForEvent(kind: string): SellerCommerceKind | null {
@@ -194,6 +212,8 @@ export function sellerKindForEvent(kind: string): SellerCommerceKind | null {
   if (kind === "order.cancel_requested") return "cancel_requested"
   if (kind === "order.cancelled") return "order_cancelled"
   if (kind === "delivery.exception" || kind === "fulfillment.exception") return "delivery_exception"
+  /* A tracked parcel never marked delivered 60 days after it shipped (lib/physical/unconfirmed-delivery-server.ts). */
+  if (kind === "delivery.unconfirmed") return "delivery_unconfirmed"
   if (kind === "payment.failed") return "payment_failed"
   return null
 }
@@ -202,6 +222,8 @@ export interface SellerCommerceInput {
   /** The order's first row, for its page in the app (/app/orders?order=). */
   orderId?: string | null
   orderNumber?: string | null
+  /** The buyer's reference for the same order (#85737C57, what their emails and order page say), when the number above is the Orders page's (lib/orders/order-number-server.ts). */
+  buyerReference?: string | null
   buyerName?: string | null
   buyerEmail?: string | null
   lines?: { title: string; variantName?: string | null; quantity?: number | null }[]
@@ -243,7 +265,9 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
     const url = actionUrl(ctx.baseUrl, path)
     return url ? { label, url } : null
   }
-  const reply = m.buyerEmail ? mailtoUrl(m.buyerEmail, number.length > 1 ? `Your order ${number}` : "Your order") : null
+  /* The buyer is written to with the number they know: their reference. */
+  const theirs = str(m.buyerReference, 24).replace(/^#?/, "#")
+  const reply = m.buyerEmail ? mailtoUrl(m.buyerEmail, theirs.length > 1 ? `Your order ${theirs}` : number.length > 1 ? `Your order ${number}` : "Your order") : null
   const count = (m.lines ?? []).reduce((n, l) => n + Math.max(1, Math.round(Number(l.quantity) || 1)), 0)
   let family: TemplateFamily = "action_required"
   let subject = ""
@@ -284,6 +308,13 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
       facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }, { label: "What the carrier said", value: str(m.reason, 200) }, ...itemFacts(m.lines)].filter((f) => f.value)
       action = link("View order", orderPath)
       break
+    case "delivery_unconfirmed":
+      subject = `Delivery not confirmed for ${order}`
+      heading = "A parcel was never marked delivered"
+      paragraphs = [`${order} shipped 60 days ago and its tracking never said it arrived. Check with the carrier or ask the buyer, then mark it delivered or report a delivery problem on the order.`]
+      facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }, ...itemFacts(m.lines)].filter((f) => f.value)
+      action = link("View order", orderPath)
+      break
     case "payment_failed":
       subject = `Payment failed for ${order}`
       heading = "A payment didn't go through"
@@ -309,6 +340,8 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
       break
     }
   }
+  /* What the buyer quotes when they write: their reference, beside the seller's number. */
+  if (theirs.length > 1 && theirs !== number && kind !== "low_stock") facts = [...facts, { label: "Buyer's reference", value: theirs.slice(1) }]
   const input: LayoutInput = {
     family,
     subject: cleanText(subject, 90),

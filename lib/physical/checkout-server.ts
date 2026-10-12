@@ -59,14 +59,16 @@ import { readAddress } from "./address"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import { isPickupOptionId } from "./pickup"
 import { addOrderEvent } from "./events-server"
-import { queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
+import { enqueueJob, queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
+import { queueShipStation } from "@/lib/integrations/shipping/shipstation-server"
 import type { Address, PricedLine } from "./types"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { statementParams } from "@/lib/payments/platform-descriptor"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { physicalCheckoutHref } from "./cart-link"
+import { lineProperties, physicalCheckoutHref } from "./cart-link"
+import { cartAttributes } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 
 export const HOLD_MINUTES = 35
@@ -82,6 +84,8 @@ export interface StartInput {
   address: unknown
   deliveryOptionId: unknown
   buyerNote?: unknown
+  /** An imported theme's cart attributes (lib/checkout/site-checkout cartAttributes): kept on the order (SQL part 164). */
+  cartAttributes?: unknown
   clientKey: unknown
   origin: OrderOrigin | null
   attribution: Attribution | null
@@ -126,9 +130,10 @@ function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, max) : ""
 }
 
-/** A line as it is kept on the checkout: enough to write its order and show it, nothing a buyer could change. */
-function snapshotLine(l: PricedLine) {
+/** A line as it is kept on the checkout: enough to write its order and show it, nothing a buyer could change (but the words a theme's product form asked them for, its properties). */
+function snapshotLine(l: PricedLine, properties?: Record<string, string>) {
   return {
+    ...(properties ? { properties } : {}),
     product_id: l.productId,
     variant_id: l.variantId,
     title: l.title.slice(0, 200),
@@ -149,6 +154,19 @@ function snapshotLine(l: PricedLine) {
   }
 }
 export type LineSnapshot = ReturnType<typeof snapshotLine>
+
+/** The properties the buyer's cart gave a priced line (the first line of the same product and option that had any). */
+function propertiesFor(items: unknown, l: PricedLine): Record<string, string> | undefined {
+  if (!Array.isArray(items)) return undefined
+  for (const raw of items.slice(0, 50)) {
+    const r = raw as { productId?: unknown; variantId?: unknown; properties?: unknown } | null
+    if (r?.productId === l.productId && (r.variantId ?? null) === (l.variantId ?? null)) {
+      const p = lineProperties(r.properties)
+      if (p) return p
+    }
+  }
+  return undefined
+}
 
 export async function startCheckout(db: Db, input: StartInput): Promise<StartResult> {
   const config = input.config ?? DEFAULT_CHECKOUT
@@ -284,7 +302,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       shipping_rate: option
         ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
         : taxFacts,
-      lines: q.lines.map(snapshotLine),
+      lines: q.lines.map((l) => snapshotLine(l, propertiesFor(input.items, l))),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
       provider: free ? "free" : "stripe",
@@ -309,6 +327,12 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     database without SQL part 109's column only loses the yes, never the
     checkout.
   */
+  /* The cart's attributes, the same way: a database without SQL part 164's column loses them, never the checkout. */
+  const attributes = cartAttributes(input.cartAttributes)
+  if (attributes) {
+    const { error: attrError } = await db.from("commerce_checkouts").update({ cart_attributes: attributes }).eq("id", checkoutId)
+    if (attrError) console.warn("[physical] cart attributes not kept:", attrError.code)
+  }
   if (config.marketingOptIn && input.emailOptIn === true) {
     const { error: optError } = await db.from("commerce_checkouts").update({ email_opt_in: true }).eq("id", checkoutId)
     if (optError) console.warn("[physical] news consent not kept:", optError.code)
@@ -873,6 +897,8 @@ export async function completeCheckout(
           ...(taxIncluded && (includedShares[i] ?? 0) > 0 ? { tax_included: true } : {}),
           ...(taxLabel && ((taxIncluded ? includedShares[i] : taxShares[i]) ?? 0) > 0 ? { tax_label: taxLabel } : {}),
           weight_grams: l.weight_grams,
+          /* The buyer's words for this line from an imported theme's product form (an engraving): kept with it. */
+          ...(l.properties && typeof l.properties === "object" ? { properties: l.properties } : {}),
         },
       })
       .select("id")
@@ -1018,6 +1044,8 @@ async function onceForOrder(
   await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId }))
   await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
   await step("forwarding", () => queueForwarding(db, co.id, co.creator_id))
+  /* ShipStation connected: the items the seller ships go there to be labelled (lib/integrations/shipping/shipstation-server.ts). */
+  await step("shipstation", () => queueShipStation(db, co.id, co.creator_id, "paid", { enqueue: (d, j) => enqueueJob(d, j) }))
   await step("low stock", () => queueLowStockAlerts(db, co.creator_id, s.lines.map((l) => l.variant_id).filter((v): v is string => !!v)))
   await step("notify", () =>
     raiseSaleEvents(db, {

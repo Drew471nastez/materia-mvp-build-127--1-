@@ -11,6 +11,9 @@ import type { Db } from "./auth"
 
 export type EventActor = "creator" | "buyer" | "system" | "webhook" | "admin"
 
+/** Timeline kinds a connected Klaviyo or Omnisend hears about (lib/integrations/marketing/sync-server.ts ORDER_EVENT_KINDS). */
+const MARKETING_KINDS = new Set(["payment.paid", "fulfillment.created", "fulfillment.delivered", "order.cancelled", "payment.refunded", "checkout.started"])
+
 export async function addOrderEvent(
   db: Db,
   e: { checkoutId: string; creatorId: string | null; kind: string; message: string; detail?: Record<string, unknown> | null; actor?: EventActor; key?: string | null },
@@ -48,6 +51,28 @@ export async function addOrderEvent(
       console.error("[physical] delivery problem emails not queued:", err instanceof Error ? err.message : err)
     }
   }
+  /*
+    KLAVIYO AND OMNISEND (lib/integrations/marketing/sync-server.ts): a sale,
+    a parcel, a cancellation, a refund or a ticked checkout is queued for each
+    connected one. Only for an entry written now, so a retry queues nothing.
+  */
+  if (!error && e.creatorId && MARKETING_KINDS.has(e.kind)) {
+    try {
+      const { queueMarketingEvent } = await import("@/lib/integrations/marketing/sync-server")
+      await queueMarketingEvent(db, { creatorId: e.creatorId, checkoutId: e.checkoutId, kind: e.kind, key: e.key ?? null })
+    } catch (err) {
+      console.error("[physical] marketing event not queued:", e.kind, err instanceof Error ? err.message : err)
+    }
+  }
+  /* ShipStation has this order (lib/integrations/shipping/shipstation-server.ts): a cancellation or a new address is sent there too. */
+  if (!error && e.creatorId && (e.kind === "order.cancelled" || e.kind === "order.address_changed")) {
+    try {
+      const [{ queueShipStation }, { enqueueJob }] = await Promise.all([import("@/lib/integrations/shipping/shipstation-server"), import("./jobs-server")])
+      await queueShipStation(db, e.checkoutId, e.creatorId, e.kind === "order.cancelled" ? "cancelled" : "address", { enqueue: (d, j) => enqueueJob(d, j) }, e.kind === "order.address_changed" ? String(Date.now()) : "")
+    } catch (err) {
+      console.error("[physical] ShipStation update not queued:", err instanceof Error ? err.message : err)
+    }
+  }
   if (!error && e.creatorId && sellerEmailFor(e.kind, e.actor)) {
     try {
       const { queueSellerEmail } = await import("./jobs-server")
@@ -64,7 +89,7 @@ export function sellerEmailFor(kind: string, actor: EventActor | undefined): boo
   /* A buyer's Cancel order on their order page asks the seller (./buyer-cancel.ts): told at once, so nothing is sent meanwhile. */
   if (kind === "order.cancel_requested") return actor === "buyer"
   if (kind === "order.cancelled") return actor === "buyer"
-  return kind === "delivery.exception" || kind === "fulfillment.exception" || kind === "payment.failed"
+  return kind === "delivery.exception" || kind === "fulfillment.exception" || kind === "delivery.unconfirmed" || kind === "payment.failed"
 }
 
 export interface OrderEvent {

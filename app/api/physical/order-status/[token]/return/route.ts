@@ -1,4 +1,5 @@
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
+import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
@@ -39,6 +40,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const items = Array.isArray(body.items) ? (body.items as { orderId: string; quantity: number }[]).filter((i) => typeof i?.orderId === "string") : []
   const result = await openReturn(db, co.id, { creatorId: co.creator_id, by: "buyer", items, reason: body.reason, note: body.note })
   if (result.ok === false) return physicalJson({ error: result.error }, result.status ?? 400)
-  await recordActivity(db, { creatorId: co.creator_id }, { action: "order.return_opened", actor: "buyer", subjectType: "order", subjectId: co.id, subjectLabel: `#${orderNumberOf(co.id)}` })
+  await recordActivity(db, { creatorId: co.creator_id }, { action: "order.return_opened", actor: "buyer", subjectType: "order", subjectId: co.id, subjectLabel: (await sellerOrderNumber(db, co.creator_id, { checkoutId: co.id })) ?? `#${orderNumberOf(co.id)}` })
   return physicalJson({ ok: true })
 }

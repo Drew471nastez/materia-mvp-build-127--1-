@@ -42,7 +42,7 @@ import { renderString } from "./runtime"
 import { facet } from "./facets"
 import { linkFactsOf, siteLink } from "./links"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
-import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { CART_ATTRIBUTES_MAX, cartAttributes, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
@@ -114,6 +114,8 @@ export interface SiteRequest {
   cart: CartEntry[]
   /** The theme's cart note, kept beside the lines. */
   note?: string
+  /** The cart's attributes (Shopify's cart.attributes), kept beside the lines. */
+  attributes?: Record<string, string>
   /** A script's request (JSON body, X-Requested-With, Accept: application/json): answered with JSON, as Shopify does, whatever the address ends in. */
   ajax?: boolean
   /** The page the request came from (path and query, this site's own): what `sections` are drawn about when the request names no `sections_url`. */
@@ -138,6 +140,7 @@ export interface SiteResponse {
   /** The cart after this request, when it changed. */
   cart?: CartEntry[]
   note?: string
+  attributes?: Record<string, string>
 }
 
 const MAX_LINES = 50
@@ -180,7 +183,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const rest = new URLSearchParams(req.query)
     rest.delete(CLEAR_CART_PARAM)
     const search = rest.toString()
-    return redirect(`${path}${search ? `?${search}` : ""}`, { cart: [], note: "" })
+    return redirect(`${path}${search ? `?${search}` : ""}`, { cart: [], note: "", attributes: {} })
   }
 
   /* ── the cart ── */
@@ -206,16 +209,16 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       const v = hit.variantId === hit.card.id ? null : hit.variantId
       lines.push({ k: lineKey(hit.card.id, v), p: hit.card.id, v, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(n)) || 1)) })
     }
-    return lines.length ? { ...checkoutHandoff(site, lines, true), cart: lines, note: req.note ?? "" } : redirect("/cart")
+    return lines.length ? { ...checkoutHandoff(site, lines, true, req.note ?? "", req.attributes), cart: lines, note: req.note ?? "", attributes: req.attributes ?? {} } : redirect("/cart")
   }
   const cartRoute = path.match(/^\/cart(?:\/(add|change|update|clear))?(\.js|\.json)?$/)
   if (cartRoute && (method === "POST" || cartRoute[2])) {
     const [, action, ext] = cartRoute
-    if (method === "GET" && !action) return json(cartJson(site, req.cart, req.note ?? ""))
+    if (method === "GET" && !action) return json(cartJson(site, req.cart, req.note ?? "", req.attributes))
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
-  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "")
+  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "", req.attributes)
 
   /* ── forms ── */
   if (method === "POST" && (path === "/contact" || path === "/contact/" || (path === "/account" && String(req.body?.form_type ?? "") === "customer"))) return await formSubmit(site, req)
@@ -547,6 +550,8 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     /* The creator's id: the key the website's own wishlist is kept under, which a theme's hearts are copied into (shims.ts). */
     shop: { ...site.shop, id: site.creatorId },
     cart: cartLines(site, req.cart),
+    cartNote: req.note ?? "",
+    cartAttributes: req.attributes ?? {},
     customer: req.account?.customer ? themeCustomer(req.account.customer) : null,
     formErrors: formErrorsOf(req),
     ...extra,
@@ -943,13 +948,13 @@ export function cartLines(site: Pick<SiteData, "products">, entries: CartEntry[]
   })
 }
 
-function cartJson(site: SiteData, entries: CartEntry[], note: string): O {
-  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note)
+function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes: Record<string, string> = {}): O {
+  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes)
   const items = ((cart.items as O[]) ?? []).map(lineJson)
   return {
     token: "storelib",
     note,
-    attributes: {},
+    attributes: { ...attributes },
     original_total_price: cart.original_total_price,
     total_price: cart.total_price,
     total_discount: 0,
@@ -1021,13 +1026,13 @@ function itemsOf(body: O | null): { id: string; quantity: number; properties?: R
  * the cart page (`template.name != 'cart'`), so drawn about /cart it came
  * back empty and the drawer said "Your cart is empty" after every add.
  */
-async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string): Promise<Record<string, string | null> | undefined> {
+async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string, attributes: Record<string, string> = req.attributes ?? {}): Promise<Record<string, string | null> | undefined> {
   const raw = field(req.body, "sections")
   const ids = (Array.isArray(raw) ? raw.map(String).flatMap((x) => x.split(",")) : typeof raw === "string" ? raw.split(",") : []).map((s) => s.trim()).filter(Boolean).filter((x, i, all) => all.indexOf(x) === i).slice(0, 5)
   if (!ids.length) return undefined
   const from = safeReturn(field(req.body, "sections_url")) ?? safeReturn(req.referer) ?? "/cart"
   const [path, search] = [from.split("?")[0] || "/", from.split("?")[1] ?? ""]
-  const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, query: new URLSearchParams(search) }
+  const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, attributes, query: new URLSearchParams(search) }
   const route = await pageFor(site, decodePath(path), after).catch(() => null)
   if (route && route.content === undefined && !route.redirect) {
     const r = sectionsAnswer(site, route.page, route.sections, ids, true)
@@ -1045,6 +1050,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
   /* Copies: what was asked with is never changed under the caller. */
   let cart = req.cart.map((e) => ({ ...e }))
   let note = req.note ?? ""
+  let attributes: Record<string, string> = { ...(req.attributes ?? {}) }
   const error = (message: string, status = 422) => (ajax ? json({ status, message, description: message }, status) : redirect("/cart"))
 
   if (action === "add") {
@@ -1080,14 +1086,14 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       added.push(cart.find((e) => e.k === k)!)
     }
     /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
-    if (buyNow) return { ...checkoutHandoff(site, asked, false), cart: req.cart, note: req.note ?? "" }
-    if (!ajax) return redirect("/cart", { cart, note })
-    const lines = (cartJson(site, cart, note).items as O[])
+    if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes), cart: req.cart, note: req.note ?? "", attributes }
+    if (!ajax) return redirect("/cart", { cart, note, attributes })
+    const lines = (cartJson(site, cart, note, attributes).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
-    const sections = await sectionsFor(site, req, cart, note)
+    const sections = await sectionsFor(site, req, cart, note, attributes)
     const body: O = items.length > 1 || Array.isArray(field(req.body, "items")) ? { items: out } : { ...(out[0] ?? {}) }
     if (sections) body.sections = sections
-    return json(body, 200, { cart, note })
+    return json(body, 200, { cart, note, attributes })
   }
 
   if (action === "change") {
@@ -1123,18 +1129,44 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     }
     cart = cart.filter((e) => e.q > 0)
     if (typeof field(req.body, "note") === "string") note = String(field(req.body, "note")).slice(0, 500)
+    attributes = attributesAfter(attributes, req.body)
     cart = await heldToStock(site, cart)
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true, note), cart, note }
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true, note, attributes), cart, note, attributes }
   } else if (action === "clear") {
+    /* Shopify's /cart/clear empties the lines and keeps the note and attributes. */
     cart = []
   }
   /* A quantity typed over what is left, or over Limit sales, comes down to it, as Shopify's cart does. */
   if (action === "change") cart = await heldToStock(site, cart)
-  if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note })
-  const body = cartJson(site, cart, note)
-  const sections = await sectionsFor(site, req, cart, note)
+  if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note, attributes })
+  const body = cartJson(site, cart, note, attributes)
+  const sections = await sectionsFor(site, req, cart, note, attributes)
   if (sections) body.sections = sections
-  return json(body, 200, { cart, note })
+  return json(body, 200, { cart, note, attributes })
+}
+
+/**
+ * THE CART'S ATTRIBUTES AFTER A /cart/update, as Shopify keeps them: a form
+ * posts `attributes[Gift message]=...`, a script `{ attributes: { ... } }`.
+ * A name set to "" (or null) is taken off; any other is set; the rest stay.
+ * Plain text, small, at most CART_ATTRIBUTES_MAX names (lib/checkout/
+ * site-checkout cartAttributes, which the checkout and the order read too).
+ */
+export function attributesAfter(before: Record<string, string>, body: O | null): Record<string, string> {
+  const asked: Record<string, unknown> = {}
+  const obj = field(body, "attributes")
+  if (obj && typeof obj === "object" && !Array.isArray(obj)) Object.assign(asked, obj as O)
+  for (const [k, v] of Object.entries(body ?? {})) {
+    const m = k.match(/^attributes\[([^\]]{1,100})\]$/)
+    if (m) asked[m[1]] = v
+  }
+  if (!Object.keys(asked).length) return before
+  const next: Record<string, unknown> = { ...before }
+  for (const [k, v] of Object.entries(asked)) {
+    if (v === null || v === undefined || (typeof v === "string" && v.trim() === "")) delete next[k]
+    else next[k] = v
+  }
+  return cartAttributes(next, CART_ATTRIBUTES_MAX) ?? {}
 }
 
 /**
@@ -1148,11 +1180,12 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
  * from this host; the theme never sees a price it could set. `whole`: the
  * whole cart (emptied once paid), not a Buy it now of one item.
  */
-function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = ""): SiteResponse {
-  const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q }))
+function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = "", attributes?: Record<string, string>): SiteResponse {
+  /* Each line's properties (an engraving, a gift message on the line) go with it, and the order keeps them. */
+  const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props && Object.keys(e.props).length ? { properties: e.props } : {}) }))
   if (!items.length) return redirect("/cart")
-  /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. */
-  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole, note }))
+  /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. So do its attributes. */
+  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole, note, attributes }))
 }
 
 /**
@@ -1250,23 +1283,32 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
 export const CART_COOKIE = "sl_theme_cart"
 
 /** The cart from its cookie. Anything that does not read as one is an empty cart. */
-export function readCartCookie(raw: string | undefined): { cart: CartEntry[]; note: string } {
-  if (!raw) return { cart: [], note: "" }
+export function readCartCookie(raw: string | undefined): { cart: CartEntry[]; note: string; attributes: Record<string, string> } {
+  if (!raw) return { cart: [], note: "", attributes: {} }
   try {
-    const v = JSON.parse(decodeURIComponent(raw)) as { l?: unknown; n?: unknown }
+    const v = JSON.parse(decodeURIComponent(raw)) as { l?: unknown; n?: unknown; a?: unknown }
     const lines = Array.isArray(v.l) ? v.l : []
     const cart = lines
       .filter((e): e is O => !!e && typeof e === "object")
       .map((e) => ({ k: String(e.k ?? ""), p: String(e.p ?? ""), v: typeof e.v === "string" ? e.v : null, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(e.q) || 1))), ...(e.props && typeof e.props === "object" ? { props: e.props as Record<string, string> } : {}) }))
       .filter((e) => e.k && e.p)
       .slice(0, MAX_LINES)
-    return { cart, note: typeof v.n === "string" ? v.n.slice(0, 500) : "" }
+    return { cart, note: typeof v.n === "string" ? v.n.slice(0, 500) : "", attributes: cartAttributes(v.a) ?? {} }
   } catch {
-    return { cart: [], note: "" }
+    return { cart: [], note: "", attributes: {} }
   }
 }
 
-export function writeCartCookie(cart: CartEntry[], note: string): string {
+/* A browser drops a cookie over 4 KB whole, cart and all: attributes are left out, last first, before that can happen. */
+const COOKIE_ROOM = 3800
+
+export function writeCartCookie(cart: CartEntry[], note: string, attributes?: Record<string, string>): string {
+  const pairs = Object.entries(attributes ?? {})
+  for (let n = pairs.length; n >= 0; n--) {
+    const a = n > 0 ? Object.fromEntries(pairs.slice(0, n)) : undefined
+    const out = encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, a }))
+    if (out.length <= COOKIE_ROOM || n === 0) return out
+  }
   return encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined }))
 }
 

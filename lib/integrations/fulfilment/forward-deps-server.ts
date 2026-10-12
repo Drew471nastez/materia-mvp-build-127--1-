@@ -12,10 +12,12 @@ import { addOrderEvent } from "@/lib/physical/events-server"
 import { loadOrder } from "@/lib/physical/orders-server"
 import { partnerShipped } from "@/lib/physical/partner-server"
 import type { ForwardDeps } from "./forward-server"
+import { realStockDeps } from "./stock-deps-server"
 
 export const realForwardDeps: ForwardDeps = {
   loadOrder: (db, where) => loadOrder(db, where),
   partnerShipped: (db, input) => partnerShipped(db, input),
   addOrderEvent: (db, e) => addOrderEvent(db, e),
   now: () => Date.now(),
+  stock: realStockDeps,
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { CasePhotoStrip } from "@/components/support/case-photos"
 import * as React from "react"
 
 import { Banner, Button, Filters, Panel, Placeholder } from "../_console/ui"
@@ -188,7 +189,7 @@ function CaseView({ id, onBack, onNote, onChanged }: { id: string; onBack: () =>
           <div className="border-b border-white/[0.08] px-4 py-3">
             <h2 className="text-[15px] font-semibold leading-[21px] text-[#ededf0]">
               {CASE_REASON_LABELS[c.reason]}
-              {c.orderRef ? ` · Order #${c.orderRef}` : ""}
+              {c.sellerNumber ? ` · Order ${c.sellerNumber} in the store's Orders${c.orderRef ? `, buyer's reference ${c.orderRef}` : ""}` : c.orderRef ? ` · Order #${c.orderRef}` : ""}
             </h2>
             <p className="mt-0.5 text-[12.5px] leading-[18px] text-[#9b9ba6] [overflow-wrap:anywhere]">
               Buyer: {c.buyerName ? `${c.buyerName}, ` : ""}
@@ -216,6 +217,7 @@ function CaseView({ id, onBack, onNote, onChanged }: { id: string; onBack: () =>
                   {who(m)} · {when(m.createdAt)}
                 </p>
                 <p className="whitespace-pre-wrap text-[14px] leading-[21px] text-[#ededf0] [overflow-wrap:anywhere]">{m.body}</p>
+                <CasePhotoStrip photos={m.photos} dark />
               </li>
             ))}
           </ol>

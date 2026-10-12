@@ -87,8 +87,11 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   if (items.length === 0) {
     const theme = readCartCookie(jar.get(CART_COOKIE)?.value)
     if (theme.cart.length) {
-      items = theme.cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q }))
+      /* With each line's properties, and the cart's note and attributes, as the link would have carried them. */
+      items = theme.cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props && Object.keys(e.props).length ? { properties: e.props } : {}) }))
       wholeCart = true
+      params.note = params.note ?? (theme.note.trim() || null)
+      params.attributes = params.attributes ?? (Object.keys(theme.attributes).length ? theme.attributes : null)
     }
   }
 
@@ -125,6 +128,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       wholeCart={wholeCart}
       couponCode={params.couponCode}
       initialNote={params.note}
+      cartAttributes={params.attributes}
       initialQuote={answer?.ok ? answer.quote : null}
       initialError={answer && answer.ok === false ? answer.error : null}
       config={config}

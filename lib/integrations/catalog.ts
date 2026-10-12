@@ -9,9 +9,12 @@
  *              (lib/store/tracking.ts); every store
  *   commerce   fulfilment, shipping, print on demand and suppliers
  *              (lib/physical/providers.ts); while physical commerce is on.
- *              Printful and Printify take orders and send tracking back
- *              (lib/integrations/fulfilment); the rest of the shipping and
- *              dropshipping services are Coming soon, never a Connect button
+ *              Printful, Printify, Gelato and CJ Dropshipping take orders
+ *              and send tracking back (lib/integrations/fulfilment); Shippo
+ *              and EasyPost sell labels on the order page and ShipStation
+ *              takes orders and sends tracking back
+ *              (lib/integrations/shipping); the rest are Coming soon, never
+ *              a Connect button
  *   app        made by Storelib and run inside it, with a page of its own
  *              settings: Storelib Reviews (lib/reviews/app-settings.ts)
  *   listed     a service merchants ask for that Storelib does not connect
@@ -53,7 +56,7 @@ export interface Integration {
   physical: boolean
   kind: "tracker" | "commerce" | "listed" | "app"
   /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
-  appId?: "storelib_reviews"
+  appId?: "storelib_reviews" | "courier_tracking"
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
@@ -127,16 +130,24 @@ const TRACKER_COPY: Record<TrackerId, { category: IntegrationCategory; logo: str
   klaviyo: {
     category: "email",
     logo: "/integrations/klaviyo.png",
-    summary: "Your Klaviyo sign-up forms and onsite tracking on your website.",
-    about: ["Klaviyo's onsite script loads on every page of your website with your public site ID, so the sign-up forms you publish in Klaviyo show on your site and visitors who are already in Klaviyo are seen when they come back.", "Not connected yet: your Storelib subscribers and orders are not sent to Klaviyo. Keep exporting subscribers from Storelib for now."],
+    summary: "Your subscribers, customers and orders in Klaviyo, and its sign-up forms on your website.",
+    about: [
+      "Connect your Klaviyo account with a private API key and choose a list. The people who said yes to your emails (the news box at checkout, a sign up form, a contact you added with consent) join that list. Buyers who did not ask become profiles in Klaviyo, never list members.",
+      "Every sale is sent as it happens, downloads included: Placed Order and Ordered Product, then Fulfilled Order, Canceled Order and Refunded Order. A checkout whose news box was ticked sends Started Checkout, for your abandoned checkout flow.",
+      "Unsubscribes go both ways: someone who leaves in Klaviyo stops getting your Storelib emails, and someone who leaves on Storelib is unsubscribed in Klaviyo. Klaviyo's onsite script also loads on every page of your website with your public site ID, so your Klaviyo sign-up forms show there.",
+    ],
     counts: "Form sign-ups and Active on Site",
     docs: "https://help.klaviyo.com/hc/en-us/articles/115005080407",
   },
   omnisend: {
     category: "email",
     logo: "/integrations/omnisend.png",
-    summary: "Omnisend forms and page tracking on your website.",
-    about: ["Omnisend's snippet loads on every page of your website with your brand ID, so your Omnisend forms show there and page views are tracked for your automations.", "Not connected yet: your Storelib subscribers and orders are not sent to Omnisend."],
+    summary: "Your subscribers, customers and orders in Omnisend, and its forms on your website.",
+    about: [
+      "Connect your Omnisend brand with an API key. The people who said yes to your emails are email subscribers there; buyers who did not ask are contacts with no subscription.",
+      "Every sale is sent as it happens, downloads included, as Omnisend's own order events: placed order, paid for order, order fulfilled, order canceled and order refunded, so its order confirmation, shipping and win back automations work.",
+      "Unsubscribes go both ways: someone who leaves in Omnisend stops getting your Storelib emails, and someone who leaves on Storelib is unsubscribed in Omnisend. Omnisend's snippet also loads on every page of your website with your brand ID, so your Omnisend forms show there.",
+    ],
     counts: "Page views and form sign-ups",
     docs: "https://support.omnisend.com/en/articles/1061818-omnisend-snippet",
   },
@@ -162,9 +173,9 @@ const PROVIDER_SUMMARY: Partial<Record<ProviderId, string>> = {
   printify: "Print on demand from a network of print partners.",
   gelato: "Print on demand, printed close to your buyer.",
   cj_dropshipping: "A supplier's catalogue, shipped straight to your buyer.",
-  shipstation: "Labels and live carrier rates for every order.",
-  shippo: "Discounted labels and live rates from many carriers.",
-  easypost: "Labels and tracking from one shipping API.",
+  shipstation: "Your orders in ShipStation to label, tracking back to your buyer.",
+  shippo: "Buy and print labels from the order page.",
+  easypost: "Buy and print labels from the order page.",
 }
 
 const PROVIDER_CATEGORY: Record<ProviderInfo["category"], IntegrationCategory> = {
@@ -204,10 +215,44 @@ function fromTracker(id: TrackerId): Integration {
       "Where cookie consent is required, asking for it is up to you.",
     ],
     docsUrl: c.docs,
+    ...(MARKETING_SYNC[id] ? { data: MARKETING_SYNC[id]!.data, glance: MARKETING_SYNC[id]!.glance } : {}),
   }
 }
 
-/** Printful and Printify, connected: how an order gets there and tracking gets back, in the seller's words. */
+/**
+ * Klaviyo and Omnisend take more than their script once connected with a
+ * key (lib/integrations/marketing/sync-server.ts): what flows in and out,
+ * in the seller's words.
+ */
+function marketingData(name: string): string[] {
+  return [
+    `Out to ${name}: the email address and name of the people who said yes to your emails (only they are subscribed), the email and name of your other buyers (as customers, with no subscription), and each order: its number, items, prices, totals, discount code, delivery address and tracking.`,
+    `In from ${name}: who unsubscribed there, so Storelib stops emailing them. Nothing else is read.`,
+    `Your ${name} key is checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows its last four characters. Disconnect and nothing more is sent.`,
+  ]
+}
+const MARKETING_SYNC: Partial<Record<TrackerId, { data: string[]; glance: { label: string; value: string }[] }>> = {
+  klaviyo: {
+    data: marketingData("Klaviyo"),
+    glance: [
+      { label: "Sends", value: "Subscribers, customers, orders" },
+      { label: "Reads back", value: "Unsubscribes" },
+      { label: "You add", value: "A private API key and a list" },
+      { label: "Price", value: "Free on Storelib; Klaviyo's own pricing applies" },
+    ],
+  },
+  omnisend: {
+    data: marketingData("Omnisend"),
+    glance: [
+      { label: "Sends", value: "Subscribers, customers, orders" },
+      { label: "Reads back", value: "Unsubscribes" },
+      { label: "You add", value: "An API key" },
+      { label: "Price", value: "Free on Storelib; Omnisend's own pricing applies" },
+    ],
+  },
+}
+
+/** Printful, Printify, Gelato and CJ, connected: how an order gets there and tracking gets back, in the seller's words. */
 const CONNECT_ABOUT: Partial<Record<ProviderId, string[]>> = {
   printful: [
     "Connect your Printful store with a private token. Storelib makes a location called Printful. A product you sell as Print on demand at that location goes to Printful when it is paid: each item by the SKU its Printful variant has, with the buyer's delivery address.",
@@ -219,7 +264,49 @@ const CONNECT_ABOUT: Partial<Record<ProviderId, string[]>> = {
     "Printify keeps each order on hold until you approve it there, and charges you only then. Turn on Send orders straight to production and they go to the print provider as soon as they are paid.",
     "When a parcel ships, and again when it is delivered, Printify tells Storelib: the tracking reaches the order and your buyer gets the shipping and delivery emails from your store. A SKU Printify doesn't have is not sent: the order says so, for you to send it yourself.",
   ],
+  gelato: [
+    "Connect Gelato with an API key. Storelib makes a location called Gelato. A product you sell as Print on demand at that location goes to Gelato when it is paid, printed in the Gelato country closest to your buyer.",
+    "Match each variant once, in Storelib: the Gelato product UID for its size and colour, and your print file's https address. Storelib checks the product with Gelato before saving. A variant that isn't matched is never sent: the order says so, for you to send it yourself.",
+    "Orders wait in Gelato as drafts until you approve them, so Gelato charges you only then. Turn on Send orders straight to production and they are made as soon as they are paid, by the shipment method you choose.",
+    "Paste Storelib's address into Gelato's webhooks and each tracking code comes back as soon as Gelato has it; until then Storelib checks Gelato every few hours. Your buyer gets the shipping and delivery emails from your store.",
+  ],
+  cj_dropshipping: [
+    "Connect CJ with your CJ API key. Storelib makes a location called CJ Dropshipping. A product you sell as Dropshipping at that location goes to CJ when it is paid, shipped from the CJ warehouse country you choose.",
+    "Match each variant to a CJ variant once, by searching CJ's catalogue by SKU or words. A variant whose SKU is exactly CJ's goes without a match, because CJ confirms it. Anything else is never sent: the order says so, for you to send it yourself.",
+    "Each order is made in CJ unpaid, for you to pay there. Turn on Send orders straight to production and it is confirmed and paid from your CJ balance as soon as your buyer pays; if the balance is too low, the order says so.",
+    "CJ tells Storelib when an order ships and its tracking moves; your buyer gets the shipping and delivery emails from your store. Turn on Keep stock in step with CJ on a product and its stock follows CJ's warehouses.",
+  ],
 }
+
+/** Shippo, EasyPost and ShipStation (lib/integrations/shipping): what each does once connected. */
+const LABEL_ABOUT = (name: string) => [
+  `Connect your ${name} account with its API key. In an order, Fulfill items has Buy a label: choose the package (from Settings › Shipping › Packages, the default one first), and ${name} shows its live rates for the order's address and the address of the location it ships from. The address is checked first and anything ${name} finds wrong with it is shown before you buy.`,
+  "Pick a rate and buy: the label opens as a PDF to print, the items are marked shipped with the carrier and tracking number, and your buyer gets the shipping email with the tracking link. The label's cost is kept on the order as your cost; the buyer is not charged for it.",
+  `A label you haven't used can be voided from the order: ${name} refunds it once the carrier agrees, and the items go back to unfulfilled. A test key buys free sample labels, so you can try it first.`,
+]
+Object.assign(CONNECT_ABOUT, {
+  shippo: LABEL_ABOUT("Shippo"),
+  easypost: LABEL_ABOUT("EasyPost"),
+  shipstation: [
+    "Connect ShipStation with the API key and API secret from ShipStation › Settings › Account › API Settings. Storelib becomes one of your stores there.",
+    "Each paid order with items you ship yourself is sent to ShipStation with the items, their SKUs and weights, the delivery your buyer chose and their address. Cancel the order, or change its address, and ShipStation is updated too. Items a print partner or supplier sends are left out.",
+    "Print the label in ShipStation as you always do. ShipStation tells Storelib when it ships, and the carrier and tracking number come back to the order: the items are marked shipped and your buyer gets the shipping email with the tracking link.",
+  ],
+} satisfies Partial<Record<ProviderId, string[]>>)
+
+const CONNECT_DATA: Partial<Record<ProviderId, (name: string) => string[]>> = {
+  shippo: (name) => [
+    `When you ask for rates or buy a label, ${name} receives the parcel's size and weight, your location's address, and the buyer's name, delivery address, phone and email, as the carrier needs them. Nothing is sent until you press Get rates.`,
+    `Back from ${name}: the rates, the label PDF, the carrier and the tracking number, kept on the order with the label's cost.`,
+    `Your ${name} key is checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
+  ],
+  shipstation: (name) => [
+    `Each paid order you ship goes to ${name} with its number, the items (name, SKU, quantity, price, weight), the totals, the delivery chosen, the buyer's note, and the buyer's name, address, phone and email. Cancellations and address changes follow.`,
+    `Back from ${name}: each shipment's carrier and tracking number. ${name} only says that something shipped; Storelib then reads the shipment from ${name} with your key before anything changes on the order.`,
+    `Your ${name} key and secret are checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only their last four characters.`,
+  ],
+}
+CONNECT_DATA.easypost = CONNECT_DATA.shippo
 
 function fromProvider(p: ProviderInfo): Integration {
   const builtIn = p.availability === "live"
@@ -239,16 +326,19 @@ function fromProvider(p: ProviderInfo): Integration {
       { label: "Works with", value: "Physical products" },
       { label: "Status", value: builtIn ? "Works today" : connects ? "Works once connected" : "Coming soon" },
       /* Coming soon takes nothing, so it doesn't say what you would add. */
-      ...(builtIn || connects ? [{ label: "You add", value: p.fields.length === 0 ? "Nothing" : p.id === "printful" ? "A private token" : p.id === "printify" ? "A personal access token" : p.fields.map((f) => ({ api_key: "An API key", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") }] : []),
+      ...(builtIn || connects ? [{ label: "You add", value: p.fields.length === 0 ? "Nothing" : p.id === "printful" ? "A private token" : p.id === "printify" ? "A personal access token" : p.id === "cj_dropshipping" ? "Your CJ API key" : p.fields.map((f) => ({ api_key: "An API key", api_secret: "An API secret", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") }] : []),
       { label: "Price", value: builtIn ? "Free" : `Free on Storelib; ${p.name}'s own pricing applies` },
     ],
     data: builtIn
       ? ["Nothing leaves Storelib except what this integration is for: the order's items and the delivery address, to whoever ships it."]
+      : connects && CONNECT_DATA[p.id]
+        ? CONNECT_DATA[p.id]!(p.name)
       : connects
         ? [
-            `Each order sent to ${p.name} carries the items by SKU and quantity, the order number, and the buyer's name, delivery address, email and phone, so it can be shipped. Nothing about your other orders or products is sent.`,
-            `Your ${p.name} token is checked with ${p.name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
-            `${p.name} tells Storelib which of its orders shipped; Storelib then reads that order from ${p.name} with your token before anything changes on yours.`,
+            `Each order sent to ${p.name} carries the items (${p.id === "gelato" ? "the matched Gelato product and print file" : p.id === "cj_dropshipping" ? "the matched CJ variant" : "by SKU"}) and quantity, the order number, and the buyer's name, delivery address, email and phone, so it can be shipped. Nothing about your other orders or products is sent.`,
+            `Your ${p.name} ${p.id === "printful" || p.id === "printify" ? "token" : "key"} is checked with ${p.name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
+            `${p.name} tells Storelib which of its orders shipped; Storelib then reads that order from ${p.name} with your ${p.id === "printful" || p.id === "printify" ? "token" : "key"} before anything changes on yours.`,
+            ...(p.id === "cj_dropshipping" ? ["Coming back from CJ: each order's status and tracking number, and, for the products you turn it on for, the stock in CJ's warehouses."] : []),
           ]
         : [`Nothing is sent to ${p.name}. When it is connected, its page will say exactly what goes there before you turn it on.`],
     comingSoon: !builtIn && !connects,
@@ -263,7 +353,6 @@ function fromProvider(p: ProviderInfo): Integration {
  * order they are built in follows what stores ask for.
  */
 const LISTED: { id: string; name: string; category: IntegrationCategory; physical: boolean; summary: string; about: string; docsUrl: string; logo?: string }[] = [
-  { id: "aftership", name: "AfterShip", category: "shipping", physical: true, logo: "/integrations/aftership.svg", summary: "A branded tracking page and delivery updates for every parcel.", about: "AfterShip would follow each shipment across carriers and send your buyers branded delivery updates and a tracking page.", docsUrl: "https://www.aftership.com/docs" },
   { id: "easyship", logo: "/integrations/easyship.png", name: "Easyship", category: "shipping", physical: true, summary: "Compare carriers and print discounted labels, with duties shown at checkout.", about: "Easyship would compare rates from many carriers, print labels at its discounted prices and work out duties and taxes for orders going abroad.", docsUrl: "https://developers.easyship.com/" },
   { id: "sendcloud", logo: "/integrations/sendcloud.jpg", name: "Sendcloud", category: "shipping", physical: true, summary: "Labels from European carriers, shipping rules and a returns portal.", about: "Sendcloud would print labels from European carriers in bulk, apply your shipping rules and give buyers a returns portal.", docsUrl: "https://api.sendcloud.dev/" },
   { id: "bigbuy", logo: "/integrations/bigbuy.png", name: "BigBuy", category: "dropshipping", physical: true, summary: "A European wholesaler that ships from Spain, fast across the EU.", about: "BigBuy would supply products from its warehouse in Spain and ship your orders across Europe under your store's name.", docsUrl: "https://api.bigbuy.eu/" },
@@ -340,7 +429,65 @@ const STORELIB_APPS: Integration[] = [
   },
 ]
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)]
+/**
+ * COURIER TRACKING (lib/physical/tracking): built into Storelib for every
+ * store that ships, with Storelib's own tracking account. AfterShip is also
+ * listed under its own name, because that is what stores search for: its page
+ * is the same panel, where a store can follow its parcels with its own
+ * AfterShip (or 17TRACK) account instead.
+ */
+const TRACKING_ABOUT = [
+  "Every shipment with a tracking number is followed with the carrier, whoever ships it: you, a supplier, or a partner like Printful or Printify. Over a thousand carriers work, found from the number when you don't pick one.",
+  "The order moves on by itself: in transit, out for delivery, delivered, or a delivery problem. Your buyer's order page shows each scan with where and when, and the estimated delivery. They get the Out for delivery, Delivered and Delivery issue emails once each, and you get an email when a parcel runs into a problem.",
+  "Delivered uses the carrier's own time, so the return window counts from the day the parcel arrived. You can still set any status yourself, and pause automatic updates on one package from its menu.",
+]
+const TRACKING_DATA = [
+  "Sent to the tracking service: the tracking number, the carrier when you picked one, and the order's id. Never the buyer's name, address or email.",
+  "Back from it: where the parcel is, each scan with its place and time, and the estimated delivery.",
+  "With your own AfterShip or 17TRACK account, your key is encrypted on Storelib's servers and never shown again, only its last four characters.",
+]
+const TRACKING_APPS: Integration[] = [
+  {
+    id: "courier-tracking",
+    name: "Courier tracking",
+    category: "shipping",
+    logo: null,
+    builtIn: true,
+    physical: true,
+    kind: "app",
+    appId: "courier_tracking",
+    summary: "Every parcel followed with its carrier, and your buyers told when it moves.",
+    about: TRACKING_ABOUT,
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Carriers", value: "Over 1,000, through AfterShip or 17TRACK" },
+      { label: "Emails", value: "Out for delivery, Delivered, Delivery issue" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: TRACKING_DATA,
+  },
+  {
+    id: "aftership",
+    name: "AfterShip",
+    category: "shipping",
+    logo: "/integrations/aftership.svg",
+    builtIn: false,
+    physical: true,
+    kind: "app",
+    appId: "courier_tracking",
+    summary: "Follow your parcels with your own AfterShip account.",
+    about: ["Storelib already follows every parcel for you (Courier tracking). If you have your own AfterShip account, add its API key here and your parcels are followed there instead, with your AfterShip carriers and settings.", ...TRACKING_ABOUT.slice(1)],
+    glance: [
+      { label: "Works with", value: "Physical products" },
+      { label: "You add", value: "An API key, and a webhook secret for instant updates" },
+      { label: "Price", value: "Free on Storelib; AfterShip's own pricing applies" },
+    ],
+    data: TRACKING_DATA,
+    docsUrl: "https://www.aftership.com/docs/tracking",
+  },
+]
+
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)]
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

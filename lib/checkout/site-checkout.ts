@@ -49,6 +49,8 @@ export interface SiteCheckoutLink {
   wholeCart?: boolean
   /** The cart's note (a theme's "Order special instructions"): the checkout's note for the shop starts with it. */
   note?: string | null
+  /** The cart's attributes (a theme's gift message, delivery date): kept on the order as Shopify keeps cart.attributes. */
+  attributes?: Record<string, string> | null
   /** What the website knows about the visit, for the order's Source (lib/orders/checkout-origin). */
   visit?: { from?: string | null; utm_source?: string | null; utm_campaign?: string | null; touches?: string | null } | null
 }
@@ -72,6 +74,8 @@ export function siteCheckoutHref(link: SiteCheckoutLink): string {
   if (link.wholeCart) params.set(WHOLE_CART_PARAM, "1")
   const note = cartNote(link.note)
   if (note) params.set("note", note)
+  const attrs = cartAttributes(link.attributes)
+  if (attrs) params.set("attributes", JSON.stringify(attrs))
   const v = link.visit ?? {}
   const add: Array<[string, unknown, number]> = [
     ["ref", v.from, 64],
@@ -97,6 +101,8 @@ export interface SiteCheckoutParams {
   wholeCart: boolean
   /** The cart's note, for the checkout's note to the shop. */
   note: string | null
+  /** The cart's attributes, for the order. */
+  attributes: Record<string, string> | null
 }
 
 /** The checkout's own limit on a note to the shop (app/checkout/site/site-checkout.tsx). */
@@ -108,6 +114,51 @@ export function cartNote(raw: unknown): string | null {
   // eslint-disable-next-line no-control-regex
   const v = raw.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, "").trim().slice(0, CART_NOTE_MAX)
   return v || null
+}
+
+/*
+ * CART ATTRIBUTES AND LINE ITEM PROPERTIES, as an imported Shopify theme
+ * sets them (/cart/update.js `attributes[Gift message]`, a product form's
+ * `properties[Engraving]`). They are the buyer's words for the seller, so
+ * they are kept plain and small: at most CART_ATTRIBUTES_MAX names, a name
+ * up to 100 characters, a value up to 500, no control characters. A name
+ * starting with "_" is the theme's own (Shopify hides those from the buyer);
+ * it is kept for the seller and left out of what the buyer is shown.
+ */
+export const CART_ATTRIBUTES_MAX = 20
+export const LINE_PROPERTIES_MAX = 10
+
+function plainText(v: unknown, max: number): string {
+  // eslint-disable-next-line no-control-regex
+  return typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v).replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, "").trim().slice(0, max) : ""
+}
+
+/** Name and value pairs as the checkout and the order may keep them, or null when there are none. A JSON string is read too. */
+export function cartAttributes(raw: unknown, most = CART_ATTRIBUTES_MAX): Record<string, string> | null {
+  let v = raw
+  if (typeof v === "string") {
+    if (v.length > 20_000) return null
+    try {
+      v = JSON.parse(v)
+    } catch {
+      return null
+    }
+  }
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null
+  const out: Record<string, string> = {}
+  for (const [k, value] of Object.entries(v as Record<string, unknown>)) {
+    if (Object.keys(out).length >= most) break
+    const name = plainText(k, 100)
+    const text = plainText(value, 500)
+    if (!name || !text || name === "__proto__" || name === "constructor" || name === "prototype") continue
+    out[name] = text
+  }
+  return Object.keys(out).length ? out : null
+}
+
+/** What the buyer is shown of them: the theme's own (a name starting with "_") left out. */
+export function visibleAttributes(a: Record<string, string> | null | undefined): [string, string][] {
+  return Object.entries(a ?? {}).filter(([k]) => !k.startsWith("_"))
 }
 
 /** The page's reading of its own address: well formed or left out, nothing more. */
@@ -128,6 +179,7 @@ export function readSiteCheckoutParams(q: { get(key: string): string | null }): 
     couponCode: code || null,
     wholeCart: q.get(WHOLE_CART_PARAM) === "1",
     note: cartNote(q.get("note")),
+    attributes: cartAttributes(q.get("attributes")),
   }
 }
 

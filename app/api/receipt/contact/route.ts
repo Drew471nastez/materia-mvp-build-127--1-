@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { sellerNumberAndRef } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendSellerMessageEmail } from "@/lib/email"
 import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { rateLimit, addressSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
-import { isPlausibleToken, isUuid, orderNumberOf } from "@/lib/receipts/rules"
+import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
 import { CONTACT_MAX_CHARS, cleanMessage } from "@/lib/receipts/contact"
 
 export const runtime = "nodejs"
@@ -110,7 +111,8 @@ export async function POST(request: NextRequest) {
       message: {
         buyerName: ((order.buyer_first_name as string) || "").trim() || null,
         buyerEmail: String(order.buyer_email).trim().toLowerCase(),
-        orderNumber: orderNumberOf(order.id),
+        /* The Orders page's number for the seller, the buyer's reference beside it (lib/orders/order-number-server.ts). */
+        ...(await sellerNumberAndRef(admin, creatorId, order.id)),
         items: titles,
         message,
         orderLink: `${baseUrl.replace(/\/+$/, "")}/app/orders/${order.id}`,

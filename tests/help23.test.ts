@@ -153,7 +153,8 @@ check("every order email in Settings is in the customer emails article", emails.
 check("  and the returns emails too", text("physical-order-emails").includes("Return requested") && text("physical-order-emails").includes("Return approved, declined, received and complete"))
 const live = PROVIDERS.filter((p) => p.availability === "live").map((p) => p.name)
 check("the integrations that send orders today are the ones the article says work today", live.length >= 3 && live.every((n) => text("integrations").includes(n)), live)
-check("  and the ones that only keep a key are said to not send orders yet", PROVIDERS.filter((p) => p.availability !== "live").every((p) => text("integrations").includes(p.name)) && /isn't available yet|aren't available yet/.test(text("integrations")))
+/* Changed on purpose (round 24, G24 and L24): every provider now connects (Printful, Printify, Gelato, CJ send orders; Shippo, EasyPost buy labels; ShipStation takes orders), so the article names each with what it does, and says Coming soon only of what still is. */
+check("  and the ones that connect are each named with what they do", PROVIDERS.filter((p) => p.availability !== "live").every((p) => text("integrations").includes(p.name)) && /Buy and print labels/.test(text("integrations")) && /goes to ShipStation/.test(text("integrations")) && PROVIDERS.filter((p) => p.availability === "needs_setup").every((p) => /Coming soon/.test(text("integrations")) && text("integrations").includes(p.name)))
 check("every analytics and pixel integration is named", TRACKER_ORDER.every((id) => text("integrations").includes(TRACKERS[id].name)), TRACKER_ORDER.filter((id) => !text("integrations").includes(TRACKERS[id].name)))
 
 /* The shipping rules the zones article states, run against the real zoneFor. */

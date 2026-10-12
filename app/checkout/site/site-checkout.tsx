@@ -39,7 +39,7 @@ import * as React from "react"
 import { ChevronDown, MapPin, Package, ShoppingBag, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
-import { fieldPlan, missingField, siteSignInHref } from "@/lib/checkout/site-checkout"
+import { fieldPlan, missingField, siteSignInHref, visibleAttributes } from "@/lib/checkout/site-checkout"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { postalKey } from "@/lib/physical/local-delivery"
@@ -74,6 +74,8 @@ export interface SiteCheckoutProps {
   couponCode: string | null
   /** The cart's note (an imported theme's cart note, lib/checkout/site-checkout cartNote): the note for the shop starts with it. */
   initialNote?: string | null
+  /** The cart's attributes from an imported theme (lib/checkout/site-checkout cartAttributes): shown under the note and kept on the order. */
+  cartAttributes?: Record<string, string> | null
   /** The server's price of `items` for the first frame, or null when the cart is read in the browser. */
   initialQuote: SiteQuote | null
   initialError: string | null
@@ -154,6 +156,7 @@ export function SiteCheckout({
   wholeCart: linkWhole,
   couponCode,
   initialNote = null,
+  cartAttributes = null,
   initialQuote,
   initialError,
   config = DEFAULT_CHECKOUT,
@@ -495,6 +498,7 @@ export function SiteCheckout({
       phone: address.phone,
       deliveryOptionId: ships ? optionId : null,
       buyerNote: note,
+      cartAttributes,
       wholeCart,
       origin: checkoutOrigin(shopId),
     }
@@ -504,7 +508,7 @@ export function SiteCheckout({
     const body = orderBody(contact)
     /* A cart that ships holds its stock under a key: the same key for the same order, a new one (letting the last go) once it changed. */
     /* Everything the held checkout keeps about the buyer is in the key's signature, so a retry with a changed detail is a new checkout, never a stale one. */
-    const sig = JSON.stringify([body.items, body.couponCode, body.address, body.deliveryOptionId, body.email, body.firstName, body.lastName, body.phone, body.buyerNote, body.emailOptIn])
+    const sig = JSON.stringify([body.items, body.couponCode, body.address, body.deliveryOptionId, body.email, body.firstName, body.lastName, body.phone, body.buyerNote, body.cartAttributes, body.emailOptIn])
     const before = intentKey.current
     /* A payment older than its stock hold (35 minutes on the server) is never reused: a new one, letting the old one go. */
     const fresh = !!before && Date.now() - before.at < INTENT_REUSE_MS
@@ -776,6 +780,17 @@ export function SiteCheckout({
           <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-4">Add a note for the shop</summary>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className={cn(inputClass, "mt-2 h-auto py-2.5")} placeholder="Gift wrap, delivery instructions..." />
         </details>
+      ) : null}
+      {/* What the shop's cart asked (an imported theme's gift message, a delivery date): it goes on the order with the note. */}
+      {ships && visibleAttributes(cartAttributes).length ? (
+        <dl className="space-y-1 rounded-[10px] bg-[#f8f9fa] px-3.5 py-2.5 text-[13.5px]" data-cart-attributes="">
+          {visibleAttributes(cartAttributes).map(([k, v]) => (
+            <div key={k} className="flex flex-wrap gap-x-1.5">
+              <dt className="text-[#6b7280]">{k}:</dt>
+              <dd className="min-w-0 whitespace-pre-wrap break-words text-[#1a1a2e]">{v}</dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
       {!isFree ? (
         <section aria-label="Invoice">

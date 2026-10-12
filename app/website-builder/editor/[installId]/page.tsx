@@ -78,7 +78,7 @@ import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
-import { mainProductSection, withProductBlocks } from "@/lib/website-builder/product-page"
+import { mainProductSection, withDeliveryBlock, withProductBlocks } from "@/lib/website-builder/product-page"
 import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import {
   groupOf,
@@ -3732,6 +3732,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        switches describe, in the sidebar where the creator can change them,
        the same ones the live page draws (lib/website-builder/product-page.ts). */
     loaded = loaded.map((s) => withProductBlocks(s))
+    /* Delivery and pickup on a product section saved before the block existed, in the sidebar as on the live page; removed by the creator, it stays removed (lib/website-builder/product-page.ts withDeliveryBlock). */
+    loaded = loaded.map((s) => withDeliveryBlock(s))
 
     return loaded
   }, [installId])

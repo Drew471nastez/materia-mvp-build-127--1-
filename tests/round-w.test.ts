@@ -37,7 +37,8 @@ console.log("\nWhat a buyer can say")
 check("a parcel can arrive damaged; a download can't", reasonsFor("physical").includes("damaged") && !reasonsFor("digital").includes("damaged"))
 check("a download can't be opened; a parcel has nothing to open", reasonsFor("digital").includes("access") && !reasonsFor("physical").includes("access"))
 check("every reason the page offers is one the database takes", [...reasonsFor("physical"), ...reasonsFor("digital")].every((r) => CASE_REASONS.includes(r)))
-const sql = read("supabase/sql/run-now/117_order_cases.sql")
+/* Part 164 (C24) rebuilt the topic check with three more. */
+const sql = read("supabase/sql/run-now/117_order_cases.sql") + read("supabase/sql/run-now/164_buyer_contact_and_cart_attributes.sql")
 check("and the database's list is the same one", CASE_REASONS.every((r) => sql.includes(`'${r}'`)))
 check("a reason the order can't have is refused", readNewCase({ reason: "damaged", message: "it is broken, see photos" }, "digital").ok === false)
 check("a message too short to help with is refused", readNewCase({ reason: "damaged", message: "bad" }, "physical").ok === false)
@@ -112,7 +113,8 @@ console.log("\nIntegrations")
 {
   const n = (c: string) => INTEGRATIONS.filter((i) => i.category === c).length
   check("three more shipping tools, two more dropshippers, one more print on demand, one more analytics, two more ad pixels", ["aftership", "easyship", "sendcloud", "bigbuy", "dropified", "prodigi", "hotjar", "snapchat-pixel", "reddit-pixel"].every((id) => INTEGRATIONS.some((i) => i.id === id)), { shipping: n("shipping"), drop: n("dropshipping") })
-  check("the new ones are listed, never shown as installed", INTEGRATIONS.filter((i) => ["aftership", "hotjar", "snapchat-pixel"].includes(i.id)).every((i) => i.kind === "listed" && i.comingSoon))
+  /* AfterShip works since round 24: a store's own account for courier tracking (lib/physical/tracking), so it is an app page now, not a listed one. */
+  check("the new ones are listed, never shown as installed", INTEGRATIONS.filter((i) => ["hotjar", "snapchat-pixel"].includes(i.id)).every((i) => i.kind === "listed" && i.comingSoon) && INTEGRATIONS.find((i) => i.id === "aftership")?.appId === "courier_tracking")
   check("every logo a card points at is a real file", INTEGRATIONS.every((i) => !i.logo || existsSync(join(process.cwd(), "public", i.logo))), INTEGRATIONS.filter((i) => i.logo && !existsSync(join(process.cwd(), "public", i.logo))).map((i) => i.logo))
   const ui = read("components/app/settings/integrations-directory.tsx")
   /* The mark has its own file now (components/app/settings/integration-mark), shared with the provider cards and /admin. */

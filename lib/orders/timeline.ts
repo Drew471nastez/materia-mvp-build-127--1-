@@ -234,6 +234,8 @@ function glyphOfKind(kind: string): { glyph: TimelineGlyph; tone: TimelineTone }
   if (kind === "order.cancelled") return { glyph: "cancelled", tone: "critical" }
   if (kind === "fulfillment.cancelled") return { glyph: "cancelled", tone: "neutral" }
   if (kind === "fulfillment.failed") return { glyph: "failed", tone: "critical" }
+  /* A tracked parcel never marked delivered 60 days on (lib/physical/unconfirmed-delivery-server.ts): for the seller to follow up. */
+  if (kind === "delivery.unconfirmed") return { glyph: "pending", tone: "attention" }
   if (kind === "fulfillment.manual_needed" || kind.startsWith("inventory.")) return { glyph: "pending", tone: "attention" }
   if (kind.startsWith("fulfillment.")) return { glyph: "shipped", tone: "neutral" }
   if (kind === "order.processing" || kind === "order.unprocessing") return { glyph: "pending", tone: "neutral" }

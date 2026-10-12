@@ -113,7 +113,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   if (found.kind !== "site") return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
-  const { cart, note } = readCartCookie(cookie)
+  const { cart, note, attributes } = readCartCookie(cookie)
   const sitePath = `/${segments.map(encodeURIComponent).join("/")}`
   const fields = await bodyOf(req)
   const ajax = req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json")
@@ -154,6 +154,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     body: fields,
     cart,
     note,
+    attributes,
     ajax,
     referer: refererPath(req.headers.get("referer")),
     account,
@@ -177,7 +178,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
-    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "")}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
+    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
   }
   if (req.method === "HEAD") return new NextResponse(null, { status: out.status, headers })
   const body = typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart])

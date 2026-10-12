@@ -4,6 +4,7 @@ import { CRON_JOBS } from "./schema-expectations"
 import { SQL_PARTS } from "./sql-parts.generated"
 import { Reader, isoDaysAgo } from "./platform-metrics"
 import { STRIPE_COMMERCE_EVENTS } from "./commerce-docs-facts"
+import { platformTrackingState, trackingWebhookUrl } from "@/lib/physical/tracking/provider"
 
 /**
  * ===========================================================================
@@ -88,6 +89,29 @@ export interface CommerceStatus {
   parts: PartStatus[]
   tables: TableStatus[]
   counts: CountStatus[]
+  /**
+   * Courier tracking (lib/physical/tracking): Storelib's own aggregator from the environment (never the key), and
+   * what the cron did with it, read from fulfillments (part 160). Null figures could not be read.
+   */
+  tracking?: {
+    configured: boolean
+    provider: string | null
+    /** aftership or 17track: which dashboard the address goes in. */
+    providerId: "aftership" | "17track" | null
+    /**
+     * The address Storelib's own account sends updates to, token and all (lib/physical/tracking/provider.ts
+     * trackingWebhookUrl). Only this admin page shows it: the token is what proves a delivery is the platform's.
+     */
+    webhookUrl: string | null
+    webhooks: boolean
+    chosen: string | null
+    following: number | null
+    checked24h: number | null
+    failing: number | null
+    ownAccounts: number | null
+    lastCheckedAt: string | null
+    reason: string | null
+  }
 }
 
 /**
@@ -95,7 +119,7 @@ export interface CommerceStatus {
  * not in the repository yet (this round's 152 to 157 before they merge) is
  * simply not listed.
  */
-export const COMMERCE_PARTS = ["13", "19", "35", "36", "78", "109", "110", "111", "112", "113", "116", "117", "118", "127", "129", "131", "150", "152", "153", "154", "155", "156", "157"]
+export const COMMERCE_PARTS = ["13", "19", "35", "36", "78", "109", "110", "111", "112", "113", "116", "117", "118", "127", "129", "131", "150", "152", "153", "154", "155", "156", "157", "160", "161", "162", "163"]
 
 /** The tables, by the part that makes them. */
 export const COMMERCE_TABLES = [
@@ -119,6 +143,7 @@ export const COMMERCE_TABLES = [
   "commerce_jobs",
   "commerce_integrations",
   "checkout_starts",
+  "commerce_tracking_accounts",
   "order_cases",
   "store_offers",
   "stripe_webhook_events",
@@ -305,7 +330,39 @@ export async function readCommerceStatus(r: Reader = new Reader(), now = Date.no
     }),
   )
 
-  return { generatedAt: new Date(now).toISOString(), physical, jobs, email, stripe, parts, tables, counts }
+  /* ── Courier tracking ─────────────────────────────────────────────── */
+  const tp = platformTrackingState()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const open = (q: any) => q.not("tracking_number", "is", null).is("tracking_stopped_at", null).eq("tracking_auto", true).in("status", ["shipped", "in_transit", "out_for_delivery", "failed"])
+  const [following, checked24h, failing, ownAccounts, lastChecked] = await Promise.all([
+    r.count("tracking following", "fulfillments", open),
+    r.count("tracking checked", "fulfillments", (q) => q.gte("tracking_checked_at", since24)),
+    r.count("tracking failing", "fulfillments", (q) => open(q).not("tracking_error", "is", null)),
+    r.count("tracking own", "commerce_tracking_accounts", (q) => q.eq("status", "connected"), "creator_id"),
+    r.rows<{ tracking_checked_at: string }>("tracking last", "fulfillments", "tracking_checked_at", (q) => q.not("tracking_checked_at", "is", null).order("tracking_checked_at", { ascending: false }).limit(1)),
+  ])
+  const tracking: CommerceStatus["tracking"] = {
+    configured: tp.configured,
+    provider: tp.providerName,
+    providerId: tp.provider,
+    webhookUrl: (() => {
+      try {
+        return tp.provider ? trackingWebhookUrl(tp.provider, "platform") : null
+      } catch {
+        return null
+      }
+    })(),
+    webhooks: tp.webhooks,
+    chosen: tp.chosen,
+    following,
+    checked24h,
+    failing,
+    ownAccounts,
+    lastCheckedAt: lastChecked?.[0]?.tracking_checked_at ?? null,
+    reason: following === null ? (r.reasonFor("tracking following") ?? "Not readable before run-now part 160.") : null,
+  }
+
+  return { generatedAt: new Date(now).toISOString(), physical, jobs, email, stripe, parts, tables, counts, tracking }
 }
 
 /** The trace each watched job leaves in its own tables. */

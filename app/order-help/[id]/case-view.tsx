@@ -9,14 +9,20 @@
 import * as React from "react"
 import { CASE_REASON_LABELS, STATUS_FOR_BUYER, type CaseMessage, type CaseSummary } from "@/lib/support/cases"
 import { cn } from "@/lib/utils"
+import { CasePhotoPicker, CasePhotoStrip, caseRequestBody, useCasePhotos } from "@/components/support/case-photos"
 
 type Store = { name: string; logoUrl: string | null; email: string | null; phone: string | null; websiteUrl: string | null }
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
 
-export function CaseView({ id, k, initial, store }: { id: string; k: string; initial: { case: CaseSummary; messages: CaseMessage[] }; store: Store }) {
+type Escalation = { can: boolean; from: string | null }
+const dayOf = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })
+
+export function CaseView({ id, k, initial, store }: { id: string; k: string; initial: { case: CaseSummary; messages: CaseMessage[]; escalation?: Escalation }; store: Store }) {
   const [c, setCase] = React.useState(initial.case)
   const [messages, setMessages] = React.useState(initial.messages)
+  const [escalation, setEscalation] = React.useState<Escalation>(initial.escalation ?? { can: false, from: null })
+  const photos = useCasePhotos()
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -28,14 +34,23 @@ export function CaseView({ id, k, initial, store }: { id: string; k: string; ini
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`/api/order-help/${encodeURIComponent(id)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ k, action, body: draft }) })
+      const req = caseRequestBody({ k, action, body: draft }, action === "reply" ? photos.photos : [])
+      const res = await fetch(`/api/order-help/${encodeURIComponent(id)}`, { method: "POST", headers: req.headers, body: req.body })
       const body = await res.json().catch(() => null)
       if (!res.ok) return setError(body?.error || "That didn't go through. Try again in a moment.")
       if (body?.case) setCase(body.case)
       if (body?.messages) setMessages(body.messages)
+      if (body?.escalation) setEscalation(body.escalation)
       setDraft("")
+      if (action === "reply") photos.clear()
       setAsking(false)
-      setDone(action === "reply" ? `Sent to ${c.escalated ? `${store.name} and Storelib` : store.name}.` : action === "escalate" ? "Storelib will read the whole case and write to you and the store here." : "Marked as sorted. Write again any time to open it.")
+      setDone(
+        action === "reply"
+          ? `Sent to ${c.escalated ? `${store.name} and Storelib` : store.name}.${body?.photosNotKept ? " The photos couldn't be kept yet." : ""}`
+          : action === "escalate"
+            ? `Storelib has your case and will write to you and ${store.name} here. ${store.name} has been told.`
+            : "Marked as sorted. Write again any time to open it.",
+      )
     } catch {
       setError("That didn't go through. Check your connection and try again.")
     } finally {
@@ -74,6 +89,7 @@ export function CaseView({ id, k, initial, store }: { id: string; k: string; ini
                 {who(m)} · {when(m.createdAt)}
               </p>
               <p className="whitespace-pre-wrap break-words text-[14.5px] leading-[22px]">{m.body}</p>
+              <CasePhotoStrip photos={m.photos} dark={m.author === "buyer"} />
             </li>
           ))}
         </ol>
@@ -85,21 +101,22 @@ export function CaseView({ id, k, initial, store }: { id: string; k: string; ini
             <span className="mb-1.5 block text-[14px] font-medium text-[#1a1a2e]">{asking ? "Anything Storelib should know? (optional)" : c.status === "resolved" ? "Write to open the case again" : "Your reply"}</span>
             <textarea value={draft} maxLength={5000} rows={4} onChange={(e) => setDraft(e.target.value)} className="w-full rounded-[10px] border border-[#d9dce1] px-3.5 py-2.5 text-[15px] leading-[22px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] focus:ring-[3px] focus:ring-[rgba(26,26,46,0.08)]" />
           </label>
+          {!asking ? <CasePhotoPicker state={photos} disabled={busy} /> : null}
           {asking ? (
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" onClick={() => setAsking(false)} className="inline-flex h-10 items-center rounded-[10px] px-3 text-[14px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]">
                 Cancel
               </button>
               <button type="button" disabled={busy} onClick={() => void act("escalate")} className="inline-flex h-10 items-center rounded-[10px] bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2a2a44] disabled:opacity-60" data-case-escalate="">
-                Ask Storelib to step in
+                Ask Storelib for help
               </button>
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-3">
-                {!c.escalated && c.status !== "resolved" ? (
-                  <button type="button" onClick={() => setAsking(true)} className="text-[13.5px] font-medium text-[#4b5563] underline underline-offset-4 hover:text-[#1a1a2e]">
-                    Ask Storelib to step in
+                {escalation.can ? (
+                  <button type="button" onClick={() => setAsking(true)} className="text-[13.5px] font-medium text-[#4b5563] underline underline-offset-4 hover:text-[#1a1a2e]" data-case-ask-storelib="">
+                    Ask Storelib for help
                   </button>
                 ) : null}
                 {c.status !== "resolved" ? (
@@ -113,7 +130,15 @@ export function CaseView({ id, k, initial, store }: { id: string; k: string; ini
               </button>
             </div>
           )}
-          {!c.escalated && c.status !== "resolved" ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]">Give {store.name} a day or two to answer. If it isn&apos;t sorted out, Storelib reads the whole case and helps you both.</p> : null}
+          {!c.escalated && c.status !== "resolved" ? (
+            <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-case-escalation={escalation.can ? "now" : escalation.from ? "later" : "never"}>
+              {escalation.can
+                ? `${store.name} hasn't answered for three days. Storelib can read the whole case and help you both.`
+                : escalation.from
+                  ? `${store.name} usually answers within a few days. If they haven't by ${dayOf(escalation.from)}, you can ask Storelib for help here.`
+                  : `Your messages and ${store.name}'s answers are kept here, and each answer is emailed to you.`}
+            </p>
+          ) : null}
         </section>
 
         <p className="text-center text-[13px] leading-[20px] text-[#6b7280]">
