@@ -188,7 +188,7 @@ export function WbImagePicker({
     two it is, said in a few words; the whole of it under the pointer.
   */
   const fromOldStore = url !== null && shopImageName(url) !== null
-  const brokenLine = fromOldStore ? "Not in this theme" : "Couldn't load it"
+  const brokenLine = fromOldStore ? "Upload it again" : "Couldn't load it"
   const brokenHelp = fromOldStore
     ? "This picture was in the old store's files, which a theme does not bring. Upload it again."
     : "This picture could not be loaded. Change it or remove it."
@@ -504,7 +504,7 @@ export function WbImagePicker({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              {broken ? <p data-wb-image-problem="" title={brokenHelp} className="truncate px-2 text-[13px] leading-[18px] text-muted-foreground">{brokenLine}</p> : null}
+              {broken ? <p data-wb-image-problem="" title={brokenHelp} className="line-clamp-2 pl-2 text-[13px] leading-[18px] text-muted-foreground">{brokenLine}</p> : null}
               <div className={cn("flex flex-wrap items-center gap-1", broken && "mt-0.5")}>
                 {changeMenu("inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 max-sm:h-9 data-[state=open]:bg-muted", "h-3 w-3")}
                 <button
