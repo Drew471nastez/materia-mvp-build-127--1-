@@ -832,6 +832,125 @@ async function round24(j: Journey, c: Ctx) {
   void yes
   void no
 
+  section("36. Shippo: a label bought on a fulfilment")
+  const SHIPPO = "shippo_test_journey0123456789abcdef0123"
+  const sj = (b: unknown, st = 200) => new Response(JSON.stringify(b), { status: st, headers: { "content-type": "application/json" } })
+  let shippoRef = ""
+  const shippoShipment = () => ({ object_id: "shp_j1", status: "SUCCESS", metadata: shippoRef, messages: [], rates: [{ object_id: "rate_dhl", shipment: "shp_j1", amount: "11.20", currency: "USD", provider: "DHL Express", servicelevel: { name: "Express Worldwide", token: "dhl_express_worldwide" }, estimated_days: 2 }] })
+  P.on("api.goshippo.com", (x) => {
+    if (x.headers.get("authorization") !== `ShippoToken ${SHIPPO}`) return sj({ detail: "Invalid token" }, 401)
+    if (x.method === "GET" && x.path === "/carrier_accounts/") return sj({ results: [{ object_id: "ca_1", carrier: "dhl_express" }] })
+    if (x.method === "POST" && x.path === "/addresses/") return sj({ object_id: "adr_j", validation_results: { is_valid: true, messages: [] } }, 201)
+    if (x.method === "POST" && x.path === "/shipments/") {
+      shippoRef = String(x.body?.metadata ?? "")
+      return sj(shippoShipment(), 201)
+    }
+    if (x.method === "GET" && x.path === "/shipments/shp_j1") return sj(shippoShipment())
+    if (x.method === "POST" && x.path === "/transactions/") return sj({ object_id: "txn_j1", status: "SUCCESS", tracking_number: "1234567890", tracking_url_provider: "https://www.dhl.com/track?AWB=1234567890", label_url: "https://deliver.goshippo.com/label_j1.pdf", rate: "rate_dhl", messages: [] }, 201)
+    return null
+  })
+  const sc = await j.call("PUT /api/physical/integrations/shippo", { as: seller, body: { apiKey: SHIPPO } })
+  const lb = await buy(j, c, { email: "label@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  const lbLine = j.rows("orders").find((o) => o.checkout_id === lb.co!.id)!
+  const rates = await j.call(`POST /api/physical/orders/${lb.co!.id}/label`, { as: seller, body: { action: "rates", provider: "shippo", custom: { lengthCm: 20, widthCm: 15, heightCm: 12 } } })
+  const rate = (rates.json?.rates ?? [])[0]
+  const bought = await j.call(`POST /api/physical/orders/${lb.co!.id}/label`, { as: seller, body: { action: "buy", provider: "shippo", shipmentId: rates.json?.shipmentId ?? "shp_j1", rateId: rate?.id ?? "rate_dhl", items: [{ orderId: lbLine.id, quantity: 1 }] } })
+  const boughtAgain = await j.call(`POST /api/physical/orders/${lb.co!.id}/label`, { as: seller, body: { action: "buy", provider: "shippo", shipmentId: rates.json?.shipmentId ?? "shp_j1", rateId: rate?.id ?? "rate_dhl", items: [{ orderId: lbLine.id, quantity: 1 }] } })
+  await j.cron()
+  const lbShip = j.rows("fulfillments").filter((f) => f.checkout_id === lb.co!.id)
+  check("Shippo connects with a test key; Buy a label quotes from the order and buys once, the item shipped with DHL's tracking", sc.status === 200 && rates.status === 200 && bought.status === 200 && P.to("api.goshippo.com", /\/transactions\//).length === 1 && lbShip.length === 1 && lbShip[0].tracking_number === "1234567890" && j.rows("shipping_labels").filter((l) => l.status !== "voided").length === 1, { sc: sc.json?.error, rates: rates.json, bought: bought.json?.error ?? bought.json?.label, again: boughtAgain.status, ships: lbShip.map((f) => f.tracking_number) })
+  check("the buyer gets one shipped email with the label's tracking number", j.net.to("label@example.com").filter((m) => /on the way|shipped/i.test(m.subject) && m.html.includes("1234567890")).length === 1, j.net.to("label@example.com").map((m) => m.subject))
+
+  section("37. ShipStation: paid orders out, SHIP_NOTIFY back")
+  const SSK = "ss_journey_key_0123"
+  const SSS = "ss_journey_secret_9876"
+  const { externalIdOf } = await import("@/lib/integrations/fulfilment/http")
+  let ssOrders: any[] = []
+  P.on("ssapi.shipstation.com", (x) => {
+    const want = `Basic ${Buffer.from(`${SSK}:${SSS}`).toString("base64")}`
+    if (x.headers.get("authorization") !== want) return sj({ Message: "Unauthorized" }, 401)
+    if (x.method === "GET" && x.path === "/stores") return sj([{ storeId: 1, storeName: "Manual Orders" }])
+    if (x.method === "POST" && x.path === "/webhooks/subscribe") return sj({ id: 72190 }, 201)
+    if (x.method === "POST" && x.path === "/orders/createorder") {
+      ssOrders.push(x.body)
+      return sj({ orderId: 94113592 + ssOrders.length, orderKey: x.body?.orderKey })
+    }
+    if (x.method === "GET" && x.path === "/shipments") {
+      const o = ssOrders[ssOrders.length - 1]
+      return sj({ shipments: o ? [{ shipmentId: 3397, orderId: 94113592 + ssOrders.length, orderKey: o.orderKey, trackingNumber: "1Z999AA10123456784", carrierCode: "ups_walleted", serviceCode: "ups_ground", voided: false, shipmentCost: 9.4, shipmentItems: (o.items ?? []).map((i: any) => ({ lineItemKey: i.lineItemKey, quantity: i.quantity })) }] : [], total: 1, page: 1, pages: 1 })
+    }
+    return null
+  })
+  const ssc = await j.call("PUT /api/physical/integrations/shipstation", { as: seller, body: { apiKey: SSK, apiSecret: SSS } })
+  const ssRow = j.rows("commerce_integrations").find((x) => x.provider === "shipstation")
+  check("ShipStation connects with its key and secret, subscribes SHIP_NOTIFY, keeps the pair sealed", ssc.status === 200 && ssRow?.status === "connected" && P.to("ssapi.shipstation.com", /\/webhooks\/subscribe$/).length === 1 && !JSON.stringify(ssRow).includes(SSS), { ssc: ssc.json?.error, row: ssRow && { status: ssRow.status, config: ssRow.config } })
+  const so2 = await buy(j, c, { email: "station@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 2 }] })
+  for (const job of j.rows("commerce_jobs").filter((x) => String(x.kind).startsWith("shipstation"))) job.run_after = new Date(Date.now() - 1000).toISOString()
+  await j.cron()
+  check("the paid order goes to ShipStation once, keyed by the order, with its two mugs and the buyer's address", ssOrders.length === 1 && ssOrders[0].orderKey === externalIdOf(so2.co!.id) && ssOrders[0].items?.[0]?.quantity === 2 && ssOrders[0].shipTo?.city === "Cluj-Napoca", { n: ssOrders.length, order: JSON.stringify(ssOrders[0] ?? {}).slice(0, 500), jobs: j.rows("commerce_jobs").filter((x) => String(x.kind).startsWith("shipstation")).map((x) => [x.kind, x.status, x.last_error]) })
+  const { webhookToken } = await import("@/lib/integrations/fulfilment/forward-server")
+  const ssHook = `/api/integrations/shipstation/${webhookToken("shipstation", c.creatorId)}`
+  const note = JSON.stringify({ resource_type: "SHIP_NOTIFY", resource_url: "https://ssapi.shipstation.com/shipments?batchId=12345&includeShipmentItems=False" })
+  const n1 = await j.call(`POST ${ssHook}`, { raw: note, headers: { "content-type": "application/json" } })
+  const n2 = await j.call(`POST ${ssHook}`, { raw: note, headers: { "content-type": "application/json" } })
+  const evil = await j.call(`POST ${ssHook}`, { raw: JSON.stringify({ resource_type: "SHIP_NOTIFY", resource_url: "https://evil.example.com/shipments" }), headers: { "content-type": "application/json" } })
+  await j.cron()
+  const ssShip = j.rows("fulfillments").filter((f) => f.checkout_id === so2.co!.id)
+  check("SHIP_NOTIFY: shipments read back from ShipStation's API, the order fulfilled once with UPS tracking; a webhook naming another host reads nothing", n1.status === 200 && n2.status === 200 && evil.status === 200 && ssShip.length === 1 && ssShip[0].tracking_number === "1Z999AA10123456784" && /UPS/.test(ssShip[0].carrier ?? "") && !j.net.refused.some((r) => r.includes("evil.example.com")), { n1: n1.json, n2: n2.json, ships: ssShip.map((f) => [f.carrier, f.tracking_number]) })
+  check("the buyer hears it shipped once", j.net.to("station@example.com").filter((m) => /on the way|shipped/i.test(m.subject)).length === 1, j.net.to("station@example.com").map((m) => m.subject))
+
+  section("38. Gelato prints a poster: the order forwarded, tracking back")
+  const GKEY = "gelato-journey-key-0001"
+  const UID = "flat_product_pf_a3_pt_200-gsm-uncoated_cl_4-0_ver"
+  const gj = (b: unknown, st = 200) => new Response(JSON.stringify(b), { status: st, headers: { "content-type": "application/json" } })
+  const gOrders = new Map<string, any>()
+  P.on("product.gelatoapis.com", (x) => {
+    if (x.headers.get("x-api-key") !== GKEY) return gj({ message: "Unauthorized" }, 401)
+    if (x.path === "/v3/catalogs") return gj({ data: [{ catalogUid: "posters" }] })
+    if (x.path.startsWith("/v3/products/")) return decodeURIComponent(x.path.split("/products/")[1]) === UID ? gj({ productUid: UID }) : gj({ message: "Product not found" }, 404)
+    return null
+  })
+  P.on("order.gelatoapis.com", (x) => {
+    if (x.headers.get("x-api-key") !== GKEY) return gj({ message: "Unauthorized" }, 401)
+    if (x.method === "POST" && x.path === "/v4/orders:search") return gj({ orders: [...gOrders.values()].filter((o) => (x.body?.orderReferenceIds ?? []).includes(o.orderReferenceId)) })
+    if (x.method === "POST" && x.path === "/v4/orders") {
+      const id = `a6b8c0d2-0000-4000-8000-${String(gOrders.size + 1).padStart(12, "0")}`
+      const o = { id, orderType: x.body.orderType, orderReferenceId: x.body.orderReferenceId, fulfillmentStatus: "created", items: (x.body.items ?? []).map((i: any) => ({ ...i, fulfillmentStatus: "created", fulfillments: [] })), shipment: { shipmentMethodName: "DHL Parcel" }, __body: x.body }
+      gOrders.set(id, o)
+      return gj({ id, orderType: o.orderType, fulfillmentStatus: "created" }, 201)
+    }
+    const m = /^\/v4\/orders\/([A-Za-z0-9-]+)$/.exec(x.path)
+    if (x.method === "GET" && m && gOrders.has(m[1])) {
+      const { __body, ...o } = gOrders.get(m[1])
+      return gj(o)
+    }
+    return null
+  })
+  const gc = await j.call("PUT /api/physical/integrations/gelato", { as: seller, body: { apiKey: GKEY, autoConfirm: true } })
+  const gRow = j.rows("commerce_integrations").find((x) => x.provider === "gelato")
+  const gLoc = j.rows("inventory_locations").find((l) => l.integration_id === gRow?.id)
+  const posterId = await newProduct(j, c.creatorId, { type: "physical", title: "Studio Poster", priceCents: 2500 })
+  const ps = await j.call(`PUT /api/physical/products/${posterId}`, { as: seller, body: { options: [], variants: [{ options: [], priceCents: 2500, sku: "POSTER-A3", weightGrams: 200, stock: {} }], requiresShipping: true, weightGrams: 200, taxable: true, fulfillmentLocationId: gLoc?.id, fulfillmentMethod: "print_on_demand" } })
+  const posterVariant = j.rows("product_variants").find((v) => v.product_id === posterId)!
+  const link = await j.call("PUT /api/physical/integrations/gelato/links", { as: seller, body: { variantId: posterVariant?.id, providerVariantId: UID, fileUrl: "https://cdn.example.com/poster-a3.pdf" } })
+  check("Gelato connects (key checked), makes its print location; the poster ships from it, matched to a Gelato product with its print file", gc.status === 200 && !!gLoc && ps.status === 200 && link.status === 200 && j.rows("fulfilment_variant_links").length === 1, { gc: gc.json?.error, loc: gLoc?.name, ps: ps.json?.error, link: link.json })
+  const g1 = await buy(j, c, { email: "poster@example.com", items: [{ productId: posterId, variantId: posterVariant?.id, quantity: 1 }] })
+  for (const job of j.rows("commerce_jobs").filter((x) => x.kind === "forward_fulfillment")) job.run_after = new Date(Date.now() - 1000).toISOString()
+  await j.cron()
+  const sent = [...gOrders.values()]
+  check("the paid poster is sent to Gelato once: its product UID, print file, the buyer's address, the order's reference", sent.length === 1 && sent[0].__body.items?.[0]?.productUid === UID && sent[0].__body.items?.[0]?.files?.[0]?.url === "https://cdn.example.com/poster-a3.pdf" && sent[0].__body.shippingAddress?.city === "Cluj-Napoca" && sent[0].orderReferenceId === externalIdOf(g1.co!.id), { n: sent.length, body: JSON.stringify(sent[0]?.__body ?? {}).slice(0, 600), jobs: j.rows("commerce_jobs").filter((x) => x.kind === "forward_fulfillment").map((x) => [x.status, x.last_error]) })
+  check("ShipStation, connected too, is not sent the poster: Gelato ships it", ssOrders.length === 1, ssOrders.map((o) => o.orderKey))
+  if (sent[0]) {
+    sent[0].fulfillmentStatus = "shipped"
+    sent[0].items = sent[0].items.map((i: any) => ({ ...i, fulfillmentStatus: "shipped", fulfillments: [{ trackingCode: "GEL123456789", trackingUrl: "https://track.gelato.com/GEL123456789", shipmentMethodName: "DHL Parcel" }] }))
+  }
+  const gHook = `/api/integrations/webhooks/gelato/${webhookToken("gelato", c.creatorId)}`
+  const gw = await j.call(`POST ${gHook}`, { raw: JSON.stringify({ id: "os_1", event: "order_item_tracking_code_updated", orderId: sent[0]?.id, orderReferenceId: sent[0]?.orderReferenceId }), headers: { "content-type": "application/json" } })
+  await j.call(`POST ${gHook}`, { raw: JSON.stringify({ id: "os_1", event: "order_item_tracking_code_updated", orderId: sent[0]?.id }), headers: { "content-type": "application/json" } })
+  await j.cron()
+  const gShip = j.rows("fulfillments").filter((f) => f.checkout_id === g1.co!.id)
+  check("Gelato's tracking comes back (read from Gelato, not the webhook body): the poster shipped once with its tracking, the buyer told once", gw.status === 200 && gShip.length === 1 && gShip[0].tracking_number === "GEL123456789" && j.net.to("poster@example.com").filter((m) => /on the way|shipped/i.test(m.subject)).length === 1, { gw: gw.json, ships: gShip.map((f) => [f.provider, f.tracking_number]), mails: j.net.to("poster@example.com").map((m) => m.subject) })
+
   section("32. One order number for the seller, the reference for the buyer")
   const sellerMail = j.net.mails.filter((m) => m.to.some((x) => /anaceramics|maker@/.test(x)))
   const aboutOrders = sellerMail.filter((m) => /order/i.test(m.subject) && !/your first sale/i.test(m.subject))
