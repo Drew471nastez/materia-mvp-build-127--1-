@@ -53,7 +53,7 @@ export type ModerationTab = "reports" | "resolved" | "restricted" | "rules" | "a
 /** "post.removed" -> "Removed a post", for the log. */
 export function auditSentence(action: string): string {
   const [thing, verb] = action.split(".")
-  const nouns: Record<string, string> = { post: tt("a post"), comment: tt("a comment"), message: tt("a message"), member: tt("a member"), space: tt("a space"), event: "an event", tier: tt("a tier"), invite: tt("an invite"), report: tt("a report"), course: tt("a course"), badge: tt("a badge"), community: tt("the community"), announcement: tt("an announcement"), levels: tt("the levels"), points: "points", members: tt("the members") }
+  const nouns: Record<string, string> = { post: tt("a post"), comment: tt("a comment"), message: tt("a message"), member: tt("a member"), space: tt("a space"), event: tt("an event"), tier: tt("a tier"), invite: tt("an invite"), report: tt("a report"), course: tt("a course"), badge: tt("a badge"), community: tt("the community"), announcement: tt("an announcement"), levels: tt("the levels"), points: tt("points"), members: tt("the members") }
   const verbs: Record<string, string> = {
     removed: tt("Removed"),
     restored: tt("Restored"),
@@ -115,7 +115,8 @@ export function auditSentence(action: string): string {
     words_updated: tt("Changed the blocked words of"),
   }
   const v = verbs[verb] ?? verb?.replace(/_/g, " ") ?? action
-  return `${v} ${thing === "invite" && verb === "link_created" ? tt("an invite link") : (nouns[thing] ?? thing)}`
+  /* One template so each language can order the two parts its own way. */
+  return tt("{action} {thing}", { action: v, thing: thing === "invite" && verb === "link_created" ? tt("an invite link") : (nouns[thing] ?? thing) })
 }
 
 export interface RestrictedLists {
