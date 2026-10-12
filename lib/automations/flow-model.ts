@@ -168,8 +168,10 @@ export function waitMs(step: Pick<WaitStep, "config">): number {
 export function waitText(step: Pick<WaitStep, "config">): string {
   const n = step.config.amount
   const unit = step.config.unit
-  const word = unit === "minutes" ? "minute" : unit === "hours" ? "hour" : "day"
-  return tt("{n} {word}{n, plural, one {} other {s}}", { n, word })
+  /* One whole message per unit, so each language can bend its own word. */
+  if (unit === "minutes") return tt("{n, plural, one {# minute} other {# minutes}}", { n })
+  if (unit === "hours") return tt("{n, plural, one {# hour} other {# hours}}", { n })
+  return tt("{n, plural, one {# day} other {# days}}", { n })
 }
 
 function asUnit(v: unknown): WaitUnit {

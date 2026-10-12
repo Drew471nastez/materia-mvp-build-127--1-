@@ -119,8 +119,8 @@ export function ThemeCover({
   /** Accessible name; the cover is decorative when omitted. */
   title?: string
 }) {
-  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? tt("Georgia, serif") : tt("Inter, system-ui, sans-serif"))
-  const body = fontStack(spec.fontBody, tt("Inter, system-ui, sans-serif"))
+  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? "Georgia, serif" : "Inter, system-ui, sans-serif")
+  const body = fontStack(spec.fontBody, "Inter, system-ui, sans-serif")
   const darkPage = isDark(spec.bg)
   const heroDark = isDark(spec.heroBg)
   const onHero = spec.heroText
@@ -227,7 +227,7 @@ export function ThemeCover({
       style={style}
       role={title ? "img" : undefined}
       aria-hidden={title ? undefined : true}
-      preserveAspectRatio={tt("xMidYMid slice")}
+      preserveAspectRatio="xMidYMid slice"
     >
       {title && <title>{title}</title>}
       {/* page */}
@@ -292,8 +292,8 @@ export function ThemeCover({
 export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSpec; className?: string; style?: CSSProperties }) {
   const PW = 390
   const PH = 780
-  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? tt("Georgia, serif") : tt("Inter, system-ui, sans-serif"))
-  const body = fontStack(spec.fontBody, tt("Inter, system-ui, sans-serif"))
+  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? "Georgia, serif" : "Inter, system-ui, sans-serif")
+  const body = fontStack(spec.fontBody, "Inter, system-ui, sans-serif")
   const darkPage = isDark(spec.bg)
   const onHero = spec.heroText
   const onHeroMuted = withAlpha(spec.heroText, 0.7)
@@ -313,7 +313,7 @@ export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSp
   const tiles = [withAlpha(spec.primary, darkPage ? 0.55 : 0.18), withAlpha(spec.text, darkPage ? 0.18 : 0.08)]
 
   return (
-    <svg viewBox={`0 0 ${PW} ${PH}`} className={className} style={style} aria-hidden preserveAspectRatio={tt("xMidYMin slice")}>
+    <svg viewBox={`0 0 ${PW} ${PH}`} className={className} style={style} aria-hidden preserveAspectRatio="xMidYMin slice">
       <rect width={PW} height={PH} fill={spec.bg} />
       {/* nav */}
       <line x1={0} y1={navH - 0.5} x2={PW} y2={navH - 0.5} stroke={spec.border} />
