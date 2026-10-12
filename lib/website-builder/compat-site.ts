@@ -138,6 +138,21 @@ function holdTheme(installId: string, version: string, rows: Record<string, stri
 }
 
 const rowsHeld = new Map<string, Record<string, string>>()
+/*
+  ONE READ OF A THEME'S FILES AT A TIME. Pages arriving together on a cold
+  server each read every file of the theme from the database, all at once:
+  enough of them and the reads timed out, for every store on Storelib. They
+  now wait on the read already under way. A failed read is let go, so the
+  next page tries again.
+*/
+const rowsReading = new Map<string, Promise<Record<string, string>>>()
+function liveFiles(admin: Admin, installId: string, key: string): Promise<Record<string, string>> {
+  const going = rowsReading.get(key)
+  if (going) return going
+  const p = installFiles(admin, installId, false).finally(() => rowsReading.delete(key))
+  rowsReading.set(key, p)
+  return p
+}
 
 const collectionsOf = (creatorId: string) =>
   unstable_cache(
@@ -289,7 +304,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     draft
       ? storeMenusOrNull(admin, creator.creatorId)
       : heldUnless(["compat-menus", creator.creatorId], siteTags, SITE_HOLD_S, () => readStoreMenus(admin, creator.creatorId).catch(() => ({ kind: "unavailable" as const })), (v) => v.kind === "unavailable").then((r) => (r.kind === "stored" ? r.menus : null)),
-    rows ? Promise.resolve() : installFiles(admin, row.id, draft).then((r) => { rows = r }),
+    rows ? Promise.resolve() : (draft ? installFiles(admin, row.id, true) : liveFiles(admin, row.id, rowsKey)).then((r) => { rows = r }),
     storeOf(creator.creatorId),
   ])
   if (!rows) return { kind: "missing" }

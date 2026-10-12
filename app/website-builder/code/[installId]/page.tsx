@@ -22,6 +22,7 @@ import { reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { ThemeError } from "@/lib/storelib-theme/types"
+import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
 
 // ── File tree node ────────────────────────────────────────────
 function FileTreeNode({
@@ -526,6 +527,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const [originalContent, setOriginalContent] = useState("")
   const [loadingFile, setLoadingFile] = useState(false)
   const [saving, setSaving] = useState(false)
+  /** In flight right now, read synchronously: state is a render behind a second Cmd+S. */
+  const savingRef = useRef(false)
   const [loadingInstall, setLoadingInstall] = useState(true)
   const [customizedPaths, setCustomizedPaths] = useState<Set<string>>(new Set())
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set())
@@ -813,23 +816,29 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const [renameBlocked, setRenameBlocked] = useState<{ from: string; to: string; usedBy: string[] } | null>(null)
 
   const loadInstall = useCallback(async () => {
-    const res = await fetch(`/api/website-builder/themes/${installId}`)
-    if (!res.ok) return
-    const data = await res.json()
-    setInstall(data.install)
+    /* Every way out ends the spinner: a refusal, a dropped connection or a server that never answered used to leave the
+       whole editor on its loading screen for good (a bare `return` before setLoadingInstall). */
+    try {
+      const res = await fetchWithDeadline(`/api/website-builder/themes/${installId}`, {}, WAIT_MS.read)
+      if (!res.ok) throw new Error(`status ${res.status}`)
+      const data = await res.json()
+      setInstall(data.install)
 
-    // Load customized paths list
-    const filesRes = await fetch(`/api/website-builder/themes/${installId}/files`)
-    if (filesRes.ok) {
-      const filesData = await filesRes.json()
-      const paths = new Set<string>(filesData.customized_paths ?? [])
-      setCustomizedPaths(paths)
-      setFileTree(buildThemeFileTree(Array.from(paths)))
-    } else {
-      setFileTree(buildThemeFileTree([]))
+      // Load customized paths list
+      const filesRes = await fetchWithDeadline(`/api/website-builder/themes/${installId}/files`, {}, WAIT_MS.read).catch(() => null)
+      if (filesRes?.ok) {
+        const filesData = await filesRes.json()
+        const paths = new Set<string>(filesData.customized_paths ?? [])
+        setCustomizedPaths(paths)
+        setFileTree(buildThemeFileTree(Array.from(paths)))
+      } else {
+        setFileTree(buildThemeFileTree([]))
+      }
+    } catch {
+      toast.error("Could not open this theme", { action: { label: "Try again", onClick: () => { setLoadingInstall(true); void loadInstall() } } })
+    } finally {
+      setLoadingInstall(false)
     }
-
-    setLoadingInstall(false)
   }, [installId])
 
   useEffect(() => { loadInstall() }, [loadInstall])
@@ -886,15 +895,29 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     }
 
     setLoadingFile(true)
-    const res = await fetch(`/api/website-builder/themes/${installId}/files?path=${encodeURIComponent(node.path)}`)
-    if (res.ok) {
-      const data = await res.json()
-      setFileContent(data.content ?? "")
-      setOriginalContent(data.content ?? "")
-      setSavedAt(typeof data.updated_at === "string" ? data.updated_at : null)
-      setUnpublished(data.unpublished === true)
+    let opened = false
+    try {
+      const res = await fetchWithDeadline(`/api/website-builder/themes/${installId}/files?path=${encodeURIComponent(node.path)}`, {}, WAIT_MS.read)
+      if (res.ok) {
+        const data = await res.json()
+        setFileContent(data.content ?? "")
+        setOriginalContent(data.content ?? "")
+        setSavedAt(typeof data.updated_at === "string" ? data.updated_at : null)
+        setUnpublished(data.unpublished === true)
+        opened = true
+      }
+    } catch {
+      /* the same as a refusal, below */
+    } finally {
+      setLoadingFile(false)
     }
-    setLoadingFile(false)
+    /* NOT OPENED, SO NOT SELECTED. The editor still holds the previous file's text; left selected under this file's name,
+       a save would have written it here. Back to the file whose text it is. */
+    if (!opened) {
+      setSelectedFile(selectedFile)
+      toast.error(`Could not open ${node.name}. Try again.`)
+      return
+    }
 
     // Add to open tabs
     setOpenTabs(prev => {
@@ -1021,15 +1044,30 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
   const saveFile = async () => {
     if (!selectedFile || !isDirty) return
+    /* One save at a time. Cmd+S calls this directly, past the button's disabled state, and a second save while the first
+       was in flight came back as a conflict with this editor's own save. */
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
+    try {
+      await saveFileOnce(selectedFile)
+    } catch {
+      /* No answer in time, or the connection dropped: the edit is still here, and still marked unsaved. */
+      toast.error("Not saved. Your edit is still here.")
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
+  }
 
-    const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+  const saveFileOnce = async (selectedFile: ThemeFileNode) => {
+    const res = await fetchWithDeadline(`/api/website-builder/themes/${installId}/files`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       // What this editor loaded, so the server can tell whether the file has
       // moved on since. See the conflict answer below.
       body: JSON.stringify({ path: selectedFile.path, content: fileContent, base_updated_at: savedAt ?? undefined }),
-    })
+    }, WAIT_MS.write)
 
     if (res.ok) {
       const saved = await res.json().catch(() => ({}))
@@ -1067,7 +1105,6 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         toast.error(d.error ?? "Could not save")
       }
     }
-    setSaving(false)
   }
 
   /**

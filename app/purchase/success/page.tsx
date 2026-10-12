@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isCheckoutSessionId, isPlausibleToken } from "@/lib/receipts/rules"
 import { PaymentStatus } from "@/components/receipt/payment-status"
+import { STRIPE_RENDER_WAIT_MS, isStripeUnreachable } from "@/lib/stripe-wait"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
@@ -40,10 +41,13 @@ export default async function PurchaseSuccessPage({ searchParams }: { searchPara
   let paid = false
   let expired = false
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    /* Bounded: Stripe's own default is 80s. */
+    const session = await stripe.checkout.sessions.retrieve(sessionId, undefined, { timeout: STRIPE_RENDER_WAIT_MS })
     paid = session.payment_status === "paid" || session.payment_status === "no_payment_required"
     expired = session.status === "expired"
-  } catch {
+  } catch (error) {
+    /* Stripe slow or unreachable says nothing about the payment: wait and ask again, never "expired". */
+    if (isStripeUnreachable(error)) return <PaymentStatus state="waiting" />
     expired = true
   }
 

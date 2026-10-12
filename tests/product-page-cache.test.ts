@@ -90,7 +90,7 @@ function main() {
   }
   /* Who is looking is asked fresh, every request, forever. */
   check("nothing in the cache layer asks who is signed in", !/auth\.getUser|getSession/.test(cacheLayer))
-  check("and the page still asks, per request", /supabase\.auth\.getUser\(\)/.test(page))
+  check("and the page still asks, per request", /supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(page))
   check("entitlements are still read on the request's own client", /\.from\("entitlements"\)/.test(page))
 
   /* ---------------------------------------------------------------------

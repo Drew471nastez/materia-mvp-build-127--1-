@@ -22,6 +22,7 @@
  */
 import { putFailure } from "@/lib/courses/upload-client"
 import type { UploadTicket, VideoStatusView } from "./types"
+import { watchUploadStall } from "@/lib/net/request"
 
 export class VideoUploadError extends Error {}
 
@@ -76,8 +77,15 @@ function send(method: "PUT" | "POST" | "PATCH", url: string, body: Blob | FormDa
     /* What storage or the service said, in a sentence to act on: a file over storage's one upload limit says so (putFailure, the lesson upload's words). */
     xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve(xhr) : reject(new VideoUploadError(putFailure(xhr.status, xhr.responseText || "")))))
     xhr.addEventListener("error", () => reject(new VideoUploadError("The upload stopped. Check your connection and try again.")))
-    xhr.addEventListener("abort", () => reject(new VideoUploadError("Upload stopped")))
-    if (signal?.aborted) return reject(new VideoUploadError("Upload stopped"))
+    /* A dead connection leaves an upload pending with no error at all, sat at its last percentage (lib/net/request). */
+    let stalled = false
+    const done = watchUploadStall(xhr, () => (stalled = true))
+    xhr.addEventListener("loadend", done)
+    xhr.addEventListener("abort", () => reject(new VideoUploadError(stalled ? "The upload stopped moving. Check your connection and try again." : "Upload stopped")))
+    if (signal?.aborted) {
+      done()
+      return reject(new VideoUploadError("Upload stopped"))
+    }
     signal?.addEventListener("abort", () => xhr.abort(), { once: true })
     xhr.open(method, url)
     for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)

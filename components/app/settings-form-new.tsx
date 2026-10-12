@@ -68,6 +68,7 @@ import { TeamPanel } from "@/components/app/settings/team-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
 import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
+import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
@@ -1219,21 +1220,22 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
        */
       const previousName = profile.display_name || ""
       if (previousName && previousName !== displayName) {
-        await fetch("/api/account/profile-changed", {
+        /* Bounded: the name is saved already, and Save waited on this follow-up with no limit. */
+        await fetchWithDeadline("/api/account/profile-changed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ previousName }),
-        }).catch(() => null)
+        }, WAIT_MS.write).catch(() => null)
       }
 
       /* The time zone is the account's (lib/account/time-zone): saved on the
          server, then written where this browser's pages read it. */
       if (selectedTimezone !== initialTimezone.current) {
-        const res = await fetch("/api/account/time-zone", {
+        const res = await fetchWithDeadline("/api/account/time-zone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ timeZone: selectedTimezone }),
-        }).catch(() => null)
+        }, WAIT_MS.write).catch(() => null)
         const data = res ? ((await res.json().catch(() => null)) as { timeZone?: string; error?: string } | null) : null
         if (!res || !res.ok || !data?.timeZone) {
           throw new Error(data?.error || "Your details were saved, but the time zone was not. Try again in a moment.")

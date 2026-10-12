@@ -47,6 +47,7 @@ import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } fro
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 import { formatMoney } from "@/lib/communities/membership-policy"
+import { WAIT_MS, requestJson } from "@/lib/net/request"
 
 export interface MembershipCheckoutProps {
   product: { id: string; title: string; slug: string; thumbnail_url: string | null }
@@ -66,13 +67,10 @@ export interface MembershipCheckoutProps {
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string; code?: string } }> {
-  try {
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-    const data = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string }
-    return { ok: res.ok, status: res.status, data }
-  } catch {
-    return { ok: false, status: 0, data: { error: "The connection dropped before the payment started. Nothing was charged. Try again." } as T & { error?: string } }
-  }
+  /* Bounded (lib/net/request.ts): an answer that never came left Join on "Processing" until a reload. */
+  const r = await requestJson<T & { error?: string; code?: string }>(url, { method: "POST", json: body, timeoutMs: WAIT_MS.pay })
+  if (r.status !== 0) return { ok: r.ok, status: r.status, data: r.data }
+  return { ok: false, status: 0, data: { error: "The connection dropped before the payment started. Nothing was charged. Try again." } as T & { error?: string } }
 }
 
 function trialEndsOn(days: number): string {

@@ -13,6 +13,7 @@ import { getStoreUrl } from "@/lib/url-helpers"
 import { ReceiptView } from "./receipt-view"
 import { buyerCaseLink, casesReady, openCaseFor } from "@/lib/support/cases-server"
 import { appUrl } from "@/lib/notify/urls"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 export const dynamic = "force-dynamic"
 
@@ -58,7 +59,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ token:
     const supabase = await createClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
     if (user) {
       viewer = { signedIn: true, isBuyer: loaded.buyerIds.includes(user.id) }
       if (viewer.isBuyer) viewer.email = user.email ?? null
