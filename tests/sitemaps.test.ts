@@ -190,7 +190,8 @@ section("Pages a visitor can reach but no index should hold carry noindex")
   check("a site page's metadata finds its creator the way the page does, website names included",
     /const creator = await creatorByName\(username\)/.test(site) && /const found = await publishedShopByName\(username\)/.test(site)
       && !/\.or\(`slug\.eq\./.test(site) && /creatorIdByHandle\(lower, admin\)/.test(code("lib/website-builder/published-site.ts")))
-  check("a preview is noindex", /return \{ title: "Preview", robots: \{ index: false, follow: false \} \}/.test(site))
+  /* Round I: a good preview link's tab is the draft page's own title (tab-title.ts); noindex either way. */
+  check("a preview is noindex", /return \{ title: \{ absolute: title \}, robots: \{ index: false, follow: false \} \}/.test(site) && /return \{ title: \{ absolute: "Preview" \}, robots: \{ index: false, follow: false \} \}/.test(site))
   for (const layout of ["app/app/layout.tsx", "app/website-builder/layout.tsx", "app/account/library/layout.tsx", "app/creator-page/layout.tsx", "app/dashboard/layout.tsx", "app/store/[creatorSlug]/themes/[installId]/editor/page.tsx"]) {
     check(`  ${layout} is noindex`, /export const metadata: Metadata = \{ (?:title: [^\n]*?, )?robots: \{ index: false, follow: false \} \}/.test(code(layout)))
   }
