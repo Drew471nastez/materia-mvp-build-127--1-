@@ -32,8 +32,9 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { username: segment } = await params
-  const base = await siteMetadata(splitSiteName(segment).name, undefined, "products")
-  return { ...base, title: "Cart", robots: { index: false, follow: false } }
+  /* "Your cart | <store>", as every other page names itself (lib/website-builder/tab-title.ts). */
+  const base = await siteMetadata(splitSiteName(segment).name, undefined, "cart", null, { page: { kind: "cart" } })
+  return { ...base, alternates: undefined, robots: { index: false, follow: false } }
 }
 
 export default async function SiteCartPage({ params }: PageProps) {

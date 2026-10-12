@@ -139,7 +139,7 @@ function main() {
     check("and /home goes to the front page rather than being served twice", /* Changed on purpose (round AB): the website in another language. */ /redirect\(locale \? `\/\$\{locale\}` : "\/"\)/.test(sub))
     check("one segment deep, because a page key is one segment", !/\[\.\.\./.test(sub))
 
-    check("a sub-page says which page it is in the tab", /pageKey === "home" \? siteTitle : `\$\{pageTitleFromKey\(pageKey\)\} \| \$\{brand\}`/.test(renderer))
+    check("a sub-page says which page it is in the tab", /* Round I: through the one tab rule, "<page> | <store>" (lib/website-builder/tab-title.ts). */ /pageKey === "home" \? \{ kind: "home" \}[\s\S]{0,120}\{ kind: "page", name: pageTitleFromKey\(pageKey\) \}/.test(renderer))
     check("a preview link works on a sub-page too", /previewPage\(username, wantedToken, pageKey\)/.test(renderer))
     check("and a preview of a page that does not exist is still a 404", /if \(!pageData && pageKey !== "home" && pageKey !== "contact"\) notFound\(\)/.test(renderer))
     /* Contact is the one exception: every website has one, generated until

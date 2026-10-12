@@ -68,6 +68,9 @@ export interface SettingsContext {
   name: string
   websiteUrl: string
   websiteUrlDisplay: string
+  /** Store details' store name and the person's name, for the store's name where the website gives none (lib/website-builder/tab-title.ts). */
+  storeName?: string
+  displayName?: string
   live: boolean
   publishedAt: string | null
   /** The website's draft settings, the editor's own copy. */

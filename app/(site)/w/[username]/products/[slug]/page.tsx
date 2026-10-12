@@ -11,6 +11,7 @@ import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { splitSiteName } from "@/lib/markets/site-name"
 import { languageAlternates, siteLanguages, siteLocalizer } from "@/lib/markets/live"
 import { localizedPath } from "@/lib/markets/locales"
+import { siteStoreName } from "@/lib/website-builder/tab-title"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -37,7 +38,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const path = `/products/${encodeURIComponent(slug)}`
   const pageLocale = (locale && langs.others.find((l) => l.toLowerCase() === locale)) || null
   const settings = found.kind === "site" ? (found.site.themeSettings as Record<string, unknown>) : {}
-  const brand = typeof settings.brand_name === "string" && settings.brand_name.trim() ? settings.brand_name.trim() : creator.displayName
+  /* The store's name as every page of the site says it (lib/website-builder/tab-title.ts). */
+  const brand = siteStoreName({ brandName: settings.brand_name, storeName: found.kind === "site" ? found.site.profile?.storeName : null, displayName: creator.displayName, handle: creator.slug || username })
   /* The site's own rule: its switch, and not under a handle the spam rules hold back. */
   const localizer = pageLocale ? await siteLocalizer(creator.creatorId, pageLocale) : null
   const meta = await productMetadata(slug, { inLanguage: localizer ? (p) => localizer.product(p) : undefined, url: pageLocale ? `${origin}${localizedPath(path, pageLocale, langs.defaultLanguage)}` : productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })

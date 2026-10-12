@@ -11,7 +11,7 @@
  */
 
 import * as React from "react"
-import { Check, Copy, ExternalLink } from "lucide-react"
+import { Check, Copy, ExternalLink, Globe, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { switchKnobDark, switchTrackDark } from "@/components/ui/switch-style"
 
@@ -227,6 +227,35 @@ export function SearchResultPreview({ address, title, description, compact = fal
       <p className={cn("truncate text-[#bdc1c6]", compact ? "text-[12.5px]" : "text-[13px]")}>{address}</p>
       <p className={cn("mt-0.5 truncate leading-snug text-[#8ab4f8]", compact ? "text-[17px]" : "mt-1 text-[19px]")}>{title}</p>
       <p className={cn("mt-0.5 line-clamp-2 leading-snug text-[#bdc1c6]/85", compact ? "text-[13px]" : "mt-1 text-[13.5px]")}>{description}</p>
+    </div>
+  )
+}
+
+/**
+ * A browser tab, small: the website's icon and the title its home page
+ * gives the tab, cut where a browser cuts it. What SEO & Social's site
+ * title and General's favicon look like where a visitor sees them both
+ * (lib/website-builder/tab-title.ts). No icon, or one that will not load,
+ * is drawn as a browser draws none: a globe.
+ */
+export function BrowserTabPreview({ icon, title, className }: { icon?: string; title: string; className?: string }) {
+  const [failed, setFailed] = React.useState<string | null>(null)
+  const src = icon && failed !== icon ? icon : null
+  return (
+    /* The tab strip, the tab, and the top of the toolbar it opens onto, as a dark browser draws them. */
+    <div className={cn("flex w-[248px] min-w-0 max-w-full flex-col overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#1b1b1b]", className)} aria-label="Browser tab preview" data-tab-preview="">
+      <div className="flex px-1.5 pt-1.5">
+        <div className="flex h-8 min-w-0 max-w-[212px] flex-1 items-center gap-2 rounded-t-[8px] bg-[#2b2b2b] pl-2.5 pr-2">
+          {src ? (
+            <img src={src} alt="" width={16} height={16} className="h-4 w-4 shrink-0 rounded-[3px] object-contain" onError={() => setFailed(src)} />
+          ) : (
+            <Globe className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
+          )}
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-white/85" data-tab-title="">{title}</span>
+          <X className="h-3 w-3 shrink-0 text-white/35" aria-hidden />
+        </div>
+      </div>
+      <div className="h-2 bg-[#2b2b2b]" aria-hidden />
     </div>
   )
 }

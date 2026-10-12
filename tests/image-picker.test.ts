@@ -58,8 +58,8 @@ function main() {
   check("and the spinner sits over the picture rather than replacing it",
     /\{uploading && \(\s*\n\s*<span className="absolute inset-0 z-10 flex items-center justify-center bg-white\/55">/.test(picker))
   check("with Replace and Remove held while it runs",
-    /* Two in the box layout, two in the sidebar's one-line layout, and Choose from your files under both, and the upload only Change. */
-    (picker.match(/disabled=\{uploading\}/g) ?? []).length === 6)
+    /* Two in the box layout, two in the sidebar's one-line layout, and Choose from your files under both, and the upload only Change. Round I: the favicon's tile and its Upload/Replace (Remove is not drawn while it runs). */
+    (picker.match(/disabled=\{uploading\}/g) ?? []).length === 8)
 
   console.log("\nThe stored copy arrives over it, and never under an empty box")
 
@@ -140,7 +140,8 @@ function main() {
   console.log("\nThe favicon takes an upload only")
   const general = read("components/website-builder/website-settings/general.tsx")
   check("Website settings' favicon turns the files library off",
-    /aspectRatio="favicon"\s*\n\s*folder="logos"\s*\n\s*library=\{false\}/.test(general))
+    /* Round I: in its own compact layout, a small tile and its actions (layout "icon"). */
+    /aspectRatio="favicon"\s*\n\s*layout="icon"\s*\n\s*folder="logos"\s*\n\s*library=\{false\}/.test(general))
   check("the picker can drop Your files from the empty field",
     /\{library && <button[\s\S]{0,1200}Your files\s*\n\s*<\/button>\}/.test(picker))
   check("and from Change, which then opens the file dialog straight away",
