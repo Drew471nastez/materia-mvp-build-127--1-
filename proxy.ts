@@ -1,6 +1,7 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
+import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { createServerClient } from "@supabase/ssr"
-import { readCurrentUser, shouldSendToLogin } from "@/lib/auth/current-user"
+import { readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
@@ -1144,6 +1145,18 @@ export async function proxy(request: NextRequest) {
 
   /* A public file at Storelib's own address (lib/storage/media-url.ts): on every host, straight to next.config's rewrite, never a page of a site. */
   if (pathname.startsWith("/media/")) return NextResponse.next()
+  /*
+    A PAGE ASKED FOR AS A PICTURE, A SCRIPT OR A FONT IS NOT RENDERED. A
+    theme that wrote a country's code where its flag goes (src="DJ") had
+    every visitor's browser ask for /DJ, /GQ, /KP... as images: 250 whole
+    website renders per page view, every one reading the database, until
+    the database timed out and Storelib with it. Nothing a page renders can
+    be a picture, so such a request answers 404 at once, cached, without
+    touching a page, whatever the cause next time.
+  */
+  if (pageAskedAsSubresource(request.headers.get("sec-fetch-dest"), pathname)) {
+    return new NextResponse(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600", "X-Storelib-Guard": "subresource" } })
+  }
   /* Apple Pay's domain file (public/.well-known), which Apple fetches from every host a checkout runs on, a creator's own domain too: the file, never a page of a site. */
   if (pathname === "/.well-known/apple-developer-merchantid-domain-association") return NextResponse.next()
 
@@ -2036,8 +2049,15 @@ export async function proxy(request: NextRequest) {
     headers below (the app's Stripe frame policy among them) still go on
     this response: the start now lands in this same document.
   */
-  const current: Awaited<ReturnType<typeof readCurrentUser>> =
-    request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : await readCurrentUser(supabase)
+  /*
+    VERIFIED, WITHOUT A ROUND TRIP WHERE IT CAN BE. readVerifiedSession
+    (lib/auth/current-user.ts) checks the token's signature with Supabase's
+    public keys, kept per instance, instead of asking Supabase Auth on every
+    page, prefetch and /api call; a project on the shared secret falls back
+    to getUser() exactly as before.
+  */
+  const current: Awaited<ReturnType<typeof readVerifiedSession>> =
+    request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : await readVerifiedSession(supabase, supabaseUrl)
 
   if (current.state === "indeterminate" && request.nextUrl.pathname !== "/native-start") {
     console.warn(`[proxy] auth undetermined on ${request.nextUrl.pathname}: ${current.reason}`)

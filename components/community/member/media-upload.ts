@@ -27,6 +27,7 @@ import { uploadCommunityVideo, waitUntilPlayable } from "@/lib/video/upload-clie
 import type { VideoStatusView } from "@/lib/video/types"
 import { apiBase } from "./api"
 import { compressPostPicture } from "./media-compress"
+import { FAIL_COPY, WAIT_MS, requestJson, watchUploadStall } from "@/lib/net/request"
 
 export type UploadKind = "image" | "video" | "file"
 
@@ -201,11 +202,18 @@ export class FileUploadError extends Error {}
 function put(url: string, file: Blob, contentType: string, onProgress: (sent: number) => void, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
+    /* A dead connection leaves an upload pending with no error at all, sat at its last percentage (lib/net/request). */
+    let stalled = false
+    const done = watchUploadStall(xhr, () => (stalled = true))
     xhr.upload.addEventListener("progress", (e) => onProgress(e.loaded))
+    xhr.addEventListener("loadend", done)
     xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new FileUploadError("The upload did not finish. Try again."))))
     xhr.addEventListener("error", () => reject(new FileUploadError("The upload stopped. Check your connection and try again.")))
-    xhr.addEventListener("abort", () => reject(new FileUploadError("Upload stopped")))
-    if (signal?.aborted) return reject(new FileUploadError("Upload stopped"))
+    xhr.addEventListener("abort", () => reject(new FileUploadError(stalled ? "The upload stopped moving. Check your connection and try again." : "Upload stopped")))
+    if (signal?.aborted) {
+      done()
+      return reject(new FileUploadError("Upload stopped"))
+    }
     signal?.addEventListener("abort", () => xhr.abort(), { once: true })
     xhr.open("PUT", url)
     xhr.setRequestHeader("Content-Type", contentType || "application/octet-stream")
@@ -214,9 +222,10 @@ function put(url: string, file: Blob, contentType: string, onProgress: (sent: nu
 }
 
 async function call(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), credentials: "same-origin" })
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  if (!res.ok) throw new FileUploadError(typeof json.error === "string" && json.error.includes(" ") ? json.error : "The file did not upload. Try again.")
+  const r = await requestJson<Record<string, unknown>>(url, { method: "POST", json: body, credentials: "same-origin", timeoutMs: WAIT_MS.write })
+  if (r.status === 0) throw new FileUploadError(FAIL_COPY[r.kind ?? "network"])
+  const json = r.data as Record<string, unknown>
+  if (!r.ok) throw new FileUploadError(typeof json.error === "string" && json.error.includes(" ") ? json.error : "The file did not upload. Try again.")
   return json
 }
 

@@ -13,6 +13,9 @@ import { join } from "node:path"
 import { CompatTheme, wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
 import { answer, withoutShopifyMark, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { localeRoot, localizationObject, routesFor } from "@/lib/storelib-theme/compat/objects"
+import { imageSrc } from "@/lib/storelib-theme/compat/filters"
+import { OUTPUT } from "@/lib/storelib-theme/compat/runtime"
+import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { compatFields } from "@/lib/markets/compat"
 import { linkLanguageScript } from "@/lib/markets/link-script"
 import { localizeSections, sourceHash, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
@@ -126,7 +129,7 @@ async function main() {
     check("an imported theme's money filter counts hundredths, for every currency", convertedCents(1100, p) === 1000 && convertedCents(1100, pricingFor({ ...eu, currency: "JPY" }, "USD", fx, now)!) === 160000)
     check("  and writes them the currency's way", moneyFormatFor("EUR") === "€{{amount}}" && moneyFormatFor("JPY") === "¥{{amount_no_decimals}}" && /\{\{amount\}\} lei|RON/.test(moneyFormatFor("RON", "ro")))
     check("the market rides in the page's address, beside the language", siteNameIn("andrew", "fr", "eu") === "andrew~fr~m-eu" && JSON.stringify(splitSiteName("andrew~fr~m-eu")) === JSON.stringify({ name: "andrew", locale: "fr", market: "eu" }) && splitSiteName("andrew~m-eu").locale === null)
-    check("  a visitor in a market sees the same page in its currency, in any language", (siteRouteInLanguage("andrew", "/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~m-eu/about" && (siteRouteInLanguage("andrew", "/fr/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~fr~m-eu/about" && siteRouteInLanguage("andrew", "/cart", ["fr"], "eu") === null)
+    check("  a visitor in a market sees the same page in its currency, in any language", (siteRouteInLanguage("andrew", "/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~m-eu/about" && (siteRouteInLanguage("andrew", "/fr/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~fr~m-eu/about" && /* Changed on purpose (round AE): the cart in the market's currency too. */ (siteRouteInLanguage("andrew", "/cart", ["fr"], "eu") as { path: string }).path === "/w/andrew~m-eu/cart" && siteRouteInLanguage("andrew", "/checkout", ["fr"], "eu") === null)
     const proxy = read("proxy.ts")
     check("the proxy picks the market from the visitor's choice, then their country", /request\.cookies\.get\("sl_country"\)/.test(proxy) && /x-vercel-ip-country/.test(proxy) && /if \(chosen === "home"\) return null/.test(proxy))
     check("  and a page in a market's currency is never kept by a shared cache", /private, no-cache/.test(proxy) && /!\(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\)/.test(proxy))
@@ -143,7 +146,7 @@ async function main() {
       check("a market's own language greets its visitors once, never a crawler, a script or checkout", /async function marketLanguageStart/.test(proxy) && /request\.cookies\.get\("sl_lang"\)/.test(proxy) && /CRAWLER\.test/.test(proxy) && /NEVER_STARTED = \/\^\\\/\(\?:checkout\|cart\|account/.test(proxy) && (proxy.match(/await marketLanguageStart\(request, /g) ?? []).length === 3)
       check("  and picking a language is remembered, on both kinds of theme", /sl_lang=\$\{chosen\.toLowerCase\(\)\}/.test(read("lib/storelib-theme/compat/site.ts")) && /document\.cookie = `sl_lang=/.test(read("components/website-builder/theme/language-switch.tsx")) && /name: "sl_lang"/.test(read("lib/consent/consent.ts")))
       check("  choosing the default language from /fr is not sent back to /fr", /sitePath !== "\/localization"/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
-      check("Languages and Markets each say how they work", /<Card title="Languages" help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /<Card title="Markets" help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
+      check("Languages and Markets each say how they work", /* Changed on purpose (round AE). */ /title="Languages"\s*help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /title="Markets"\s*help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
     }
   }
 
@@ -155,7 +158,31 @@ async function main() {
     check("a saved default language is the page's lang, with no switch for one language", /if \(!langs\.saved\) return undefined/.test(live) && /if \(!hasLanguages && !currency\) return null/.test(read("components/website-builder/theme/language-switch.tsx")))
   }
 
-  console.log(`\n${passed} passed, ${failed} failed\n`)
+  console.log("\nRound AE: Markets and languages made easy\n")
+{
+  const panel = read("components/app/settings/markets-panel.tsx")
+  check("every change saves as it is made, and a refusal puts the page back", /const commit = \(next: Localization\)/.test(panel) && /setDraft\(savedRef\.current\)/.test(panel) && !/data-markets-save/.test(panel))
+  check("a language is added from a searchable list and opens straight into Translate", /function LanguagePicker/.test(panel) && /setTranslating\(code\)/.test(panel))
+  check("  published is a switch on its row and in Translate", /onCheckedChange=\{\(v\) => setPublished\(l\.code, v\)\}/.test(panel) && /data-translate-publish/.test(read("components/app/settings/translate-sheet.tsx")))
+  check("a market's countries go in a region at a time, or searched", /REGIONS\.map/.test(panel) && /data-market-chosen/.test(panel) && read("lib/markets/regions.ts").includes('id: "eu"'))
+  check("AI translates everything in one press, batch after batch", /for \(let round = 0; round < 12; round\+\+\)/.test(read("components/app/settings/translate-sheet.tsx")))
+  check("rates are fetched when the owner opens Markets and there are none fresh", /refreshRates\(c\.db\)/.test(read("app/api/store/markets/route.ts")))
+}
+
+console.log("\nOne page view is one page (the country flags that brought Storelib down)\n")
+  {
+    const loc = localizationObject("USD", { locale: "en", defaultLanguage: "en", languages: ["en"], countries: [{ code: "DJ", name: "Djibouti", currency: "USD" }, { code: "GQ", name: "Equatorial Guinea", currency: "USD" }] }) as { available_countries: Record<string, unknown>[] }
+    const flags = loc.available_countries.map((c) => imageSrc(c))
+    check("a country's flag is drawn in the page, never an address on the website", flags.length === 2 && flags.every((f) => f.startsWith("data:image/svg+xml,")) && !flags.some((f) => /^[A-Z]{2}$/.test(f)))
+    check("  a word is never a picture's address (src=\"DJ\" asked the site for /DJ)", imageSrc({ [OUTPUT]: "DJ" }) === "" && imageSrc({ [OUTPUT]: "fr" }) === "" && imageSrc({ [OUTPUT]: "/files/a.png" }) === "/files/a.png" && imageSrc({ [OUTPUT]: "https://x.com/a" }) === "https://x.com/a")
+    check("a page asked for as an image, script or font answers 404 without rendering", pageAskedAsSubresource("image", "/DJ") && pageAskedAsSubresource("script", "/collections/all") && pageAskedAsSubresource("style", "/"))
+    check("  a real file, an API, Next, media and a page opened as a page go through", !pageAskedAsSubresource("image", "/community/x/share.png") && !pageAskedAsSubresource("image", "/api/site-theme/assets/a/b/c") && !pageAskedAsSubresource("image", "/_next/image") && !pageAskedAsSubresource("image", "/media/x") && !pageAskedAsSubresource("document", "/DJ") && !pageAskedAsSubresource(null, "/DJ") && !pageAskedAsSubresource("empty", "/cart"))
+    check("  checked first in the proxy, before any site is looked up", read("proxy.ts").indexOf("pageAskedAsSubresource(request.headers.get") < read("proxy.ts").indexOf("const bareHost = host.split"))
+    const site = read("lib/website-builder/compat-site.ts")
+    check("pages arriving together wait on one read of the theme's files", /const rowsReading = new Map/.test(site) && /liveFiles\(admin, row\.id, rowsKey\)/.test(site) && /finally\(\(\) => rowsReading\.delete\(key\)\)/.test(site))
+  }
+
+console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)
 }
 main()

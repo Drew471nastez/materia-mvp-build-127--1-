@@ -1218,7 +1218,7 @@ section("A form that says it worked, did")
       /* The canvas now names its install so the header's search field can
          ask on its behalf. It still says `inEditor` and still hands over no
          creator, which are the two things this guard reads. */
-      /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId \}\), \[installId\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+      /* Changed on purpose (round AE): the shop's words in the language previewed. */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)? \}\), \[installId(, words)?\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")),
   )
 
   check(
@@ -1227,7 +1227,7 @@ section("A form that says it worked, did")
     // app/(site)/w/[username]. storelib.com/<name> is the creator's
     // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
-      /* Changed on purpose (round AB): the website in another language. */ /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)?(, language)? \}\}/.test(read(RENDER_SITE)) &&
+      /* Changed on purpose (round AB): the website in another language. */ /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)?(, language)?(, words: localizer\?\.words, display: localizer\?\.display)? \}\}/.test(read(RENDER_SITE)) &&
       /storefront=\{\{ creatorId, installId \}\}/.test(read(RENDER_SITE)),
   )
 
@@ -1634,7 +1634,7 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tick under the finger as it opens", /hapticTap\("soft"\)\s*setSheetOpen\(true\)/.test(menu))
   check("the editor's Actions list is memoised on what it says, and calls through a ref",
     /const actionItems = useMemo<ActionMenuItem\[\]>\(\(\) => \{/.test(editor) &&
-      /\}, \[inCode, isMobileView, connection\.online, connection\.label, connection\.kind, websiteUrl\]\)/.test(editor) &&
+      /* Changed on purpose (round AE): a phone's preview language. */ /\}, \[inCode, isMobileView, connection\.online, connection\.label, connection\.kind, websiteUrl(, previewLangs, previewLocaleShown)?\]\)/.test(editor) &&
       /trigger=\{actionsTrigger\}\s*items=\{actionItems\}/.test(editor) && /const actionsTrigger = useMemo\(/.test(editor))
 
   check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",

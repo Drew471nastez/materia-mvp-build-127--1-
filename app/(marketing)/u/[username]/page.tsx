@@ -10,6 +10,7 @@ import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { keptPhoto } from "@/lib/account/identity"
@@ -386,7 +387,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * No await on this line. Awaiting it here would put the round trip back in
    * series, in a worse place.
    */
-  const viewerPromise = supabase.auth.getUser()
+  /* Bounded and shared with the rest of this request (lib/auth/request-scope): a bare getUser() had no ceiling, and the whole store page waited on it. */
+  const viewerPromise = currentUserForRequest().then((c) => ({ data: { user: c.user } }))
 
   /**
    * THE SAME LOOKUP THE LAYOUT ALREADY MADE.

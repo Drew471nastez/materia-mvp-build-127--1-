@@ -25,6 +25,7 @@ import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { MAX_VIDEO_BYTES, MAX_VIDEO_TEXT, VIDEO_TYPES, posterPathFor } from "@/lib/media/video"
+import { watchUploadStall } from "@/lib/net/request"
 
 export const VIDEO_BUCKET = "store-builder-images"
 
@@ -116,8 +117,12 @@ export function putWithProgress(endpoint: string, token: string, key: string, bo
     x.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total)
     }
+    /* Every way it can end settles the promise: an abort or a stall used to leave the picker on "Uploading" for good. */
+    const done = watchUploadStall(x, () => {})
+    x.onloadend = done
     x.onload = () => (x.status >= 200 && x.status < 300 ? resolve() : reject(new Error(`upload ${x.status}`)))
     x.onerror = () => reject(new Error("upload failed"))
+    x.onabort = () => reject(new Error("The upload stopped moving. Check your connection and try again."))
     x.send(body)
   })
 }

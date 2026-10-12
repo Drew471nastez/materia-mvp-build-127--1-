@@ -2,6 +2,7 @@
  * The member screens' one way to talk to /api/community/<id>/...: JSON in,
  * JSON out, and an error a person can read. Browser safe.
  */
+import { FAIL_COPY, requestJson } from "@/lib/net/request"
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string }
 
 const CODES: Record<string, string> = {
@@ -23,24 +24,23 @@ export function apiBase(communityId: string): string {
   return `/api/community/${communityId}`
 }
 
-export async function api<T>(url: string, init?: { method?: string; body?: unknown; signal?: AbortSignal }): Promise<ApiResult<T>> {
+export async function api<T>(url: string, init?: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number }): Promise<ApiResult<T>> {
   try {
-    const res = await fetch(url, {
+    /* Bounded end to end (lib/net/request.ts): a post, a comment or a page of the feed that never answered left its spinner, or a "sending" comment, up for ever. */
+    const r = await requestJson<Record<string, unknown>>(url, {
       method: init?.method ?? (init?.body !== undefined ? "POST" : "GET"),
-      headers: init?.body !== undefined ? { "Content-Type": "application/json" } : undefined,
-      body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
+      json: init?.body,
       credentials: "same-origin",
       cache: "no-store",
       signal: init?.signal,
+      timeoutMs: init?.timeoutMs,
     })
-    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
-    if (!res.ok) {
-      const raw = typeof json.error === "string" ? json.error : ""
-      return { ok: false, status: res.status, error: CODES[raw] ?? (raw && !/^[a-z_]+$/.test(raw) ? raw : "Something went wrong. Try again.") }
-    }
-    return { ok: true, data: json as T }
+    if (r.ok) return { ok: true, data: r.data as T }
+    if (r.status === 0) return { ok: false, status: 0, error: r.kind === "timeout" ? FAIL_COPY.timeout : "No connection. Check it and try again." }
+    const raw = typeof r.data.error === "string" ? r.data.error : ""
+    return { ok: false, status: r.status, error: CODES[raw] ?? (raw && !/^[a-z_]+$/.test(raw) ? raw : "Something went wrong. Try again.") }
   } catch (e) {
-    if ((e as { name?: string })?.name === "AbortError") return { ok: false, status: 0, error: "" }
+    if ((e as { name?: string })?.name === "AbortError" || init?.signal?.aborted) return { ok: false, status: 0, error: "" }
     return { ok: false, status: 0, error: "No connection. Check it and try again." }
   }
 }

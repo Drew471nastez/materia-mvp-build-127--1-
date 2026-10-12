@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { DownloadButton } from "@/components/download-button"
+import { fetchWithDeadline } from "@/lib/net/request"
+
+/** How long Buy waits on "have you bought this already?" before it shows. A hung check used to mean the product could not be bought at all. */
+const PURCHASE_CHECK_MS = 6_000
 
 // localStorage key for purchased products
 const PURCHASED_PRODUCTS_KEY = "materia_purchased_products"
@@ -108,9 +112,9 @@ export function PurchaseAwareButtons({
     // 3. API fallback for logged-in users (handles cross-device/cleared storage)
     const checkApi = async () => {
       try {
-        const res = await fetch(`/api/purchases/check?productId=${productId}`, {
+        const res = await fetchWithDeadline(`/api/purchases/check?productId=${productId}`, {
           credentials: "include",
-        })
+        }, PURCHASE_CHECK_MS)
         if (res.ok) {
           const data = await res.json()
           if (data.hasPurchased) {

@@ -19,8 +19,10 @@
  * thing it offers.
  */
 import type { SiteLanguageChoice } from "./language-switch"
-import { createContext, useContext, type ReactNode } from "react"
+import { createContext, useContext, useMemo, type ReactNode } from "react"
+import { pricingFor, type StorefrontDisplay } from "@/lib/markets/pricing"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
+import { uiWord, type UiWord } from "@/lib/markets/ui-words"
 
 export interface Storefront {
   /** The creator whose site this is. Absent in the editor's canvas. */
@@ -49,6 +51,17 @@ export interface Storefront {
    * and draws the language switch under the footer.
    */
   language?: SiteLanguageChoice
+  /**
+   * The shop's own words in the page's language (Translate › Shop words,
+   * lib/markets/ui-words.ts); empty in the website's own language.
+   */
+  words?: Record<string, string>
+  /**
+   * The visitor's market's currency, when it is not the store's (lib/markets
+   * live.ts Localizer display): the cart shows its amounts converted, as the
+   * product cards are, and says what checkout charges in.
+   */
+  display?: StorefrontDisplay
 }
 
 const StorefrontContext = createContext<Storefront>({})
@@ -59,4 +72,32 @@ export function StorefrontProvider({ value, children }: { value: Storefront; chi
 
 export function useStorefront(): Storefront {
   return useContext(StorefrontContext)
+}
+
+/** A word the shop draws itself, in the page's language (lib/markets/ui-words.ts). */
+export function useWord(): (word: UiWord) => string {
+  const words = useContext(StorefrontContext).words
+  return (word) => uiWord(words, word)
+}
+
+/** The store's price as written on its website ("$48.00"), the shape every Storelib theme's cart used. */
+const ownMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
+
+/**
+ * An amount of the cart in the visitor's market's currency when the page
+ * shows one ("44,50 €"), else the store's own. Display only: checkout
+ * charges the store's prices, and useChargeNote says so.
+ */
+export function useMoney(): (cents: number) => string {
+  const display = useContext(StorefrontContext).display
+  return useMemo(() => {
+    const pricing = display ? pricingFor(display.market, display.base, display.fx) : null
+    if (!pricing || !display) return ownMoney
+    return (cents: number) => pricing.format(cents, display.locale) ?? ownMoney(cents)
+  }, [display])
+}
+
+/** What checkout charges in, when the cart shows another currency; null otherwise. */
+export function useChargeNote(): string | null {
+  return useContext(StorefrontContext).display?.note ?? null
 }
