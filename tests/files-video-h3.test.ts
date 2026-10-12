@@ -142,7 +142,7 @@ async function main() {
   const pm2 = read("components/website-builder/sections/renderers/product/product-media.tsx")
   check("  and plays it with controls and its frame", /isVideoUrl\(src\) \?/.test(pm2) && /poster=\{videoPosterUrl\(src\) \?\? undefined\}/.test(pm2) && /controls\s+playsInline\s+preload="metadata"/.test(pm2))
   const gallery = read("components/product/product-gallery.tsx")
-  check("the Storelib product page's gallery plays a video in its place among the photos", /images\.map\(url => \(isVideoUrl\(url\) \? \{ url, type: "video" as const/.test(gallery) && /poster=\{media\.thumbnailUrl\}/.test(gallery))
+  check("the Storelib product page's gallery plays a video in its place among the photos", /\.map\(url => \(isVideoUrl\(url\) \? \{ url, type: "video" as const/.test(gallery) && /poster=\{media\.thumbnailUrl\}/.test(gallery))
   check("a checkout's share picture is never a video", checkoutCoverUrl({ thumbnailUrl: null, galleryUrls: ["https://x/a.mp4", "https://x/b.jpg"] }) === "https://x/b.jpg")
 
   console.log("\n7. The product editor takes video files")
