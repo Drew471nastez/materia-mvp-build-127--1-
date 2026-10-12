@@ -553,6 +553,7 @@ const ARTICLES: Article[] = [
         type: "facts",
         items: [
           ["The buyer sees", "One payment by card, Apple Pay or Google Pay: the items, shipping and any tax together. Then a thank you page on your website."],
+          ["Selling abroad?", "With a market in Settings > Markets and languages, visitors there see your prices in their own currency. The cart and checkout say what the card is charged in before they pay: your store's prices, in your store's currency."],
           ["You see", "Nothing yet."],
           ["You do", "Nothing. Storelib's server works out every price, shipping cost and tax again from your settings, so nothing can be changed on the way."],
         ],
