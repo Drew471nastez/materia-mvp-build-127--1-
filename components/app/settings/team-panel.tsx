@@ -82,7 +82,10 @@ function useNow(active: boolean): number {
 /** A person's photo, or their first letter on a soft ground: a list of grey silhouettes reads as nobody. */
 function Face({ src, name, size = 36 }: { src: string | null | undefined; name: string; size?: number }) {
   if (src) return <AppAvatar src={src} name={name} size={size} className="shrink-0 ring-1 ring-[#e5e7eb]" />
-  const letter = (name.trim().match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase()
+  const first = name.trim().match(/[\p{L}\p{N}]/u)?.[0]
+  /* No letter to draw (an address of symbols): the app's own avatar for nobody, never a question mark. */
+  if (!first) return <AppAvatar src={null} name={name} size={size} className="shrink-0 ring-1 ring-[#e5e7eb]" />
+  const letter = first.toUpperCase()
   return (
     <span aria-hidden className="grid shrink-0 place-items-center rounded-full bg-[#eef0f3] font-semibold text-[#4b5563]" style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}>
       {letter}
