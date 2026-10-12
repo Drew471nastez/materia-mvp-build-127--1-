@@ -113,7 +113,7 @@ export function MarketsPanel() {
     <div className="space-y-4 sm:space-y-6" data-markets-panel="">
       {!data.ready ? <Notice tone="amber">Markets and languages aren&apos;t set up yet. Run SQL part 136 in Supabase, then come back here.</Notice> : null}
 
-      <Card title="Languages" description="The languages your website is offered in. Visitors pick theirs from the language selector, and each language has its own address, like /fr.">
+      <Card title="Languages" help="languages" description="The languages your website is offered in. Visitors pick theirs from the language selector, and each language has its own address, like /fr.">
         <div className="space-y-4">
           <Field label="Default language" hint="What your website is written in now. It keeps its addresses as they are.">
             <SelectInput
@@ -215,7 +215,7 @@ export function MarketsPanel() {
         </div>
       </Card>
 
-      <Card title="Markets" description="Groups of countries you sell to the same way. Each can show prices in its own currency and start visitors in its own language.">
+      <Card title="Markets" help="markets" description="Groups of countries you sell to the same way. Each can show prices in its own currency and start visitors in its own language.">
         <div className="space-y-4">
           <p className="text-[13px] leading-5 text-[#4b5563]" data-charge-currency="">
             Your prices are in {data.baseCurrency}. Cards are charged in {data.chargeCurrency}. A market in another currency shows an estimate converted at the European Central Bank&apos;s rate, and
@@ -434,7 +434,7 @@ function MarketEditor({
                   ))}
               </SelectInput>
             </Field>
-            <Field label="Visitors start in">
+            <Field label="Visitors start in" hint="On their first visit, once the language is published. After that, what they pick.">
               <SelectInput value={m.language ?? ""} onChange={(v) => setM({ ...m, language: v || null })}>
                 <option value="">{languageName(localization.defaultLanguage, "en")} (default)</option>
                 {languages

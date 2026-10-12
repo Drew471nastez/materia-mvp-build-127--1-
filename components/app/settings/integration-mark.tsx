@@ -121,3 +121,36 @@ export function Mark({ item, size = 44 }: { item: { logo: string | null; name: s
     </span>
   )
 }
+
+/**
+ * The same mark, small: beside an installed integration's name in the
+ * app's sidebar. The logo is the integration's own small file
+ * (public/integrations), loaded once and kept by the browser; Storelib's
+ * own is its drawing; anything else its initial. Never a broken image.
+ */
+export function MiniMark({ item, size = 18 }: { item: { logo: string | null; name: string; id?: string }; size?: number }) {
+  const art = item.id ? BUILT_IN_ART[item.id] : undefined
+  const [failed, setFailed] = React.useState<string | null>(null)
+  const box = { width: size, height: size }
+  if (art) {
+    return (
+      <span aria-hidden style={box} className="flex shrink-0 items-center justify-center rounded-[5px] border border-[#eceef1] bg-[#f6f7f9] text-[#1a1a2e]" data-integration-mini="storelib">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ width: size * 0.72, height: size * 0.72 }}>
+          {art}
+        </svg>
+      </span>
+    )
+  }
+  if (item.logo && failed !== item.logo) {
+    const logo = item.logo
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={logo} alt="" width={size} height={size} decoding="async" onError={() => setFailed(logo)} style={box} className="shrink-0 rounded-[5px] border border-[#eceef1] bg-white object-contain p-[2px]" data-integration-mini="logo" />
+    )
+  }
+  return (
+    <span aria-hidden style={{ ...box, fontSize: Math.round(size * 0.5) }} className="flex shrink-0 items-center justify-center rounded-[5px] border border-[#eceef1] bg-[#f6f7f9] font-semibold text-[#1a1a2e]" data-integration-mini="initial">
+      {markInitial(item.name)}
+    </span>
+  )
+}

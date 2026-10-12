@@ -1,5 +1,6 @@
 "use client"
 
+import { MiniMark } from "@/components/app/settings/integration-mark"
 import { personName } from "@/lib/profile/display-name"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -358,20 +359,29 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   if (physicalCommerce) mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: "Upsells and bundles" })
 
   /*
-    INTEGRATIONS, ONCE ONE IS INSTALLED. A row that opens Settings ›
-    Integrations, its children the store's installed integrations, each to
-    its own page there. Nothing installed, no row: an empty group is clutter.
-    Read once per visit to the shell and again when the tab comes back into
-    view, so installing one in Settings shows up without a reload.
+    INTEGRATIONS, ALWAYS THERE. A row to the Integrations page
+    (/app/integrations), where every integration is found, installed and
+    managed; under it, the store's installed ones, each with its own small
+    logo, each to its own page there. Read once per visit to the shell and
+    again when the tab comes back into view, so installing one shows up
+    without a reload.
   */
   const installedIntegrations = useInstalledIntegrations()
-  if (installedIntegrations.length > 0) {
+  {
     const at = mainNavItems.findIndex((item) => item.href === "/app/emails")
     mainNavItems.splice(at < 0 ? mainNavItems.length : at + 1, 0, {
-      href: "/app/settings?tab=integrations",
+      href: "/app/integrations",
       label: "Integrations",
       icon: NAV_ICONS_EXTRA.integrations,
-      children: installedIntegrations.map((i) => ({ href: `/app/settings?tab=integrations&integration=${encodeURIComponent(i.id)}`, label: i.needsAttention ? `${i.name} (needs attention)` : i.name })),
+      ...(installedIntegrations.length > 0
+        ? {
+            children: installedIntegrations.map((i) => ({
+              href: `/app/integrations?integration=${encodeURIComponent(i.id)}`,
+              label: i.needsAttention ? `${i.name} (needs attention)` : i.name,
+              thumb: <MiniMark item={{ id: i.id, name: i.name, logo: i.logo ?? null }} />,
+            })),
+          }
+        : {}),
     })
   }
 
@@ -1067,14 +1077,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 }
 
 /** The store's installed integrations for the sidebar (app/api/store/integrations/installed). Empty until read, and on any failure. */
-function useInstalledIntegrations(): { id: string; name: string; needsAttention: boolean }[] {
-  const [list, setList] = useState<{ id: string; name: string; needsAttention: boolean }[]>([])
+type InstalledIntegration = { id: string; name: string; logo?: string | null; needsAttention: boolean }
+/* The last list read, kept for the visit: the sidebar draws again on every page, and the row should not empty and refill each time. */
+let installedHeld: InstalledIntegration[] = []
+function useInstalledIntegrations(): InstalledIntegration[] {
+  const [list, setList] = useState<InstalledIntegration[]>(installedHeld)
   useEffect(() => {
     let live = true
     const read = () => {
       fetch("/api/store/integrations/installed", { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { installed?: { id: string; name: string; needsAttention: boolean }[] } | null) => {
+        .then((d: { installed?: InstalledIntegration[] } | null) => {
+          if (d && Array.isArray(d.installed)) installedHeld = d.installed
           if (live && d && Array.isArray(d.installed)) setList(d.installed)
         })
         .catch(() => {})

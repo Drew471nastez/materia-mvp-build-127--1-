@@ -27,6 +27,11 @@ import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
 import { formFields } from "@/lib/storelib-theme/compat/form-fields"
 import { timed } from "@/lib/perf/server-timing"
+import { compatTrackScript, compatTrackingTags } from "@/lib/storelib-theme/compat/track-script"
+import { publishedTracking } from "@/lib/store/tracking-server"
+import { trackingTags } from "@/lib/store/tracking"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { getMainDomain } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -123,7 +128,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const locale = token ? null : (req.headers.get(SITE_LOCALE_HEADER) || null)
   /* And in the visitor's market's currency, when their country is in one that shows its own (the proxy's visitorMarket). */
   const market = token ? null : (req.headers.get(SITE_MARKET_HEADER) || null)
-  found = { ...found, site: await localizeCompatSite(found.site, locale, market) }
+  /* The visitor's country, for the theme's own country selector: the one they picked (sl_country), else where they are. */
+  const picked = req.headers.get("cookie")?.match(/(?:^|;\s*)sl_country=([A-Za-z]{2})(?:;|$)/)?.[1] ?? null
+  const seen = req.headers.get("x-vercel-ip-country")
+  const visitorCountry = picked ?? (seen && /^[A-Za-z]{2}$/.test(seen) ? seen : null)
+  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry) }
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note, attributes } = readCartCookie(cookie)
@@ -186,10 +195,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         },
   })
   const headers = new Headers(out.headers ?? {})
-  /* A redirect the theme's page makes (Add to cart, a sign in) stays in the page's language. */
+  for (const c of out.cookies ?? []) headers.append("Set-Cookie", c)
+  /* A redirect the theme's page makes (Add to cart, a sign in) stays in the page's language; the language selector's own answer (/localization) is the language chosen, already. */
   const where = headers.get("Location")
   const root = localeRoot(found.site.i18n)
-  if (where && root && where.startsWith("/") && !where.startsWith("//") && !where.startsWith(`${root}/`) && where !== root && !/^\/(?:api|checkout|receipt)(?:[/?#]|$)/.test(where)) headers.set("Location", `${root}${where === "/" ? "" : where}`)
+  if (where && root && sitePath !== "/localization" && where.startsWith("/") && !where.startsWith("//") && !where.startsWith(`${root}/`) && where !== root && !/^\/(?:api|checkout|receipt)(?:[/?#]|$)/.test(where)) headers.set("Location", `${root}${where === "/" ? "" : where}`)
   headers.set("Content-Type", out.type)
   headers.set("X-Robots-Tag", token ? "noindex" : "all")
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
@@ -198,7 +208,24 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
   }
   if (req.method === "HEAD") return new NextResponse(null, { status: out.status, headers })
-  const body = typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart])
+  /*
+    COUNTED, AND THE STORE'S OWN ANALYTICS ON IT: a page of the live website
+    (never a preview) gets Storelib's tracker and the store's Google
+    Analytics and pixels, as every page of a builder website does
+    (lib/storelib-theme/compat/track-script.ts).
+  */
+  let html = typeof out.body === "string" ? out.body : null
+  if (html && !token && page && out.status === 200 && /text\/html/i.test(out.type) && /<\/body>/i.test(html)) {
+    const handleAt = sitePath.match(/^\/products\/([^/]+)\/?$/)?.[1]
+    const [stored, product] = await Promise.all([
+      publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null),
+      handleAt && found.site.product ? found.site.product(decodeURIComponent(handleAt)).catch(() => null) : Promise.resolve(null),
+    ])
+    const tags = compatTrackingTags(trackingTags(stored)) + compatTrackScript({ creatorId: found.site.creatorId, productId: product?.id ?? null, mainDomain: getMainDomain() })
+    const at = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
+    html = `${html.slice(0, at)}${tags}${html.slice(at)}`
+  }
+  const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))
   return new NextResponse(body, { status: out.status, headers })
 }
 

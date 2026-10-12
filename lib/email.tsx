@@ -449,11 +449,18 @@ async function receiptEmailModel(
   const { loadReceiptByToken } = await import("@/lib/receipts/load")
   /* The creator's photo and logo as their campaigns read them, so the receipt shows the same one picture. */
   const brand = params.creatorId ? await loadBrand(admin, params.creatorId).catch(() => null) : null
-  /* A logo set in Settings › Store details is the store's choice for receipts: it goes first, over the photo. */
-  const storeLogo = params.creatorId
-    ? await import("@/lib/store/identity-server").then(({ storeIdentity }) => storeIdentity(admin, params.creatorId as string)).then((s) => (s.logoFrom === "store" ? s.logoUrl : null)).catch(() => null)
+  /*
+    THE SAME PICTURE AS THE RECEIPT PAGE AND EVERY ORDER EMAIL: the store's
+    logo (Settings › Store details), else its website's, else the person's
+    profile photo (lib/store/identity-server.ts), read as the email goes, so
+    a logo changed a minute ago is the one sent. A photo is drawn round, a
+    logo as it is.
+  */
+  const store = params.creatorId
+    ? await import("@/lib/store/identity-server").then(({ storeIdentity }) => storeIdentity(admin, params.creatorId as string, { logoOnly: true })).catch(() => null)
     : null
-  const pictureOf = (photo: unknown): SenderPicture | null => (storeLogo ? senderPicture({ logoUrl: storeLogo }) : null) ?? senderPicture({ photoUrl: photo, logoUrl: brand?.logoUrl })
+  const storePicture = store?.logoUrl ? (store.logoFrom === "profile" ? senderPicture({ photoUrl: store.logoUrl }) : senderPicture({ logoUrl: store.logoUrl })) : null
+  const pictureOf = (photo: unknown): SenderPicture | null => storePicture ?? senderPicture({ photoUrl: photo, logoUrl: brand?.logoUrl })
   const { formatMoney, orderNumberOf } = await import("@/lib/receipts/rules")
   const dateOf = (iso: string) => {
     try {

@@ -80,7 +80,12 @@ function takesOrders(i: Integration): boolean {
   return !!i.providerId && providerInfo(i.providerId)?.availability === "connect"
 }
 
-export function IntegrationsDirectory() {
+/**
+ * `page`: drawn on its own page (/app/integrations) rather than in Settings:
+ * the store's installed integrations first, each a row to manage it, like
+ * Shopify's Apps page, then everything there is to add.
+ */
+export function IntegrationsDirectory({ page = false }: { page?: boolean } = {}) {
   const physical = usePhysicalCommerceEnabled()
   const all = React.useMemo(() => visibleIntegrations(physical), [physical])
   const [tracking, setTracking] = React.useState<Tracking | null>(() => peekGet<{ tracking: Tracking }>("/api/store/integrations")?.tracking ?? null)
@@ -158,7 +163,7 @@ export function IntegrationsDirectory() {
   )
 
   const root = React.useRef<HTMLDivElement>(null)
-  const scroller = () => root.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
+  const scroller = () => root.current?.closest("[data-settings-sheet-scroll], [data-integrations-scroll], .app-content-scroll") as HTMLElement | null
   /** Where the directory's top is in its scroller: the search row, a little under the scroll's top edge. */
   const topOf = (box: HTMLElement) => {
     const el = root.current
@@ -318,8 +323,45 @@ export function IntegrationsDirectory() {
   const pills: Filter[] = ["all", "installed", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
   const shown = searchIntegrations(shownAll, query).filter((i) => (filter === "all" ? true : filter === "installed" ? installed(i) || i.builtIn : i.category === filter))
 
+  /* Installed by the store (not the built in ones every store has), for the page's own list at the top. */
+  const mine = page ? shownAll.filter((i) => installed(i)) : []
+
   return (
     <div ref={root} data-integrations="" data-integrations-view="list" className="scroll-mt-4 space-y-4">
+      {page ? (
+        <section aria-labelledby="installed-integrations" className="space-y-2.5" data-installed-integrations="">
+          <h2 id="installed-integrations" className="text-[15px] font-semibold text-[#1a1a2e]">
+            Your integrations
+          </h2>
+          {mine.length === 0 ? (
+            <div className={cn(CARD, "flex items-center gap-3 px-4 py-4")}>
+              <p className="text-[13.5px] leading-[19px] text-[#6b7280]">Nothing connected yet. Pick one below, like Google Analytics or a pixel for your ads, and it shows up here to manage.</p>
+            </div>
+          ) : (
+            <ul className={cn(CARD, "divide-y divide-[#f1f2f4] overflow-hidden")}>
+              {mine.map((i) => (
+                <li key={i.id}>
+                  <button
+                    type="button"
+                    onClick={() => open(i.id)}
+                    data-integration-card={i.id}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
+                  >
+                    <Mark item={i} size={36} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{i.name}</span>
+                      <span className="block truncate text-[12.5px] text-[#6b7280]">{CATEGORY_NAMES[i.category]}</span>
+                    </span>
+                    <StatusBadge status={statusOf(i)} />
+                    <ArrowRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <h2 className="pt-3 text-[15px] font-semibold text-[#1a1a2e]">Add an integration</h2>
+        </section>
+      ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search integrations</span>

@@ -26,14 +26,16 @@ export interface PhysicalAnalytics {
   topProducts: { title: string; units: number; revenueCents: number }[]
 }
 
-export async function physicalAnalytics(db: Db, creatorId: string, sinceIso: string, lowStockDefault = 5): Promise<PhysicalAnalytics> {
-  const { data: checkouts } = await db
+export async function physicalAnalytics(db: Db, creatorId: string, sinceIso: string, lowStockDefault = 5, untilIso?: string): Promise<PhysicalAnalytics> {
+  let paid = db
     .from("commerce_checkouts")
     .select("id, total_cents, shipping_cents, shipping_discount_cents, tax_cents, lines, fulfillment_status, return_status, paid_at, fulfilled_at")
     .eq("creator_id", creatorId)
     .in("status", ["paid", "partially_refunded", "refunded"])
     .gte("paid_at", sinceIso)
-    .limit(10000)
+  /* The period's end, when the page names one (Analytics' own range). */
+  if (untilIso) paid = paid.lt("paid_at", untilIso)
+  const { data: checkouts } = await paid.limit(10000)
   const rows = (checkouts ?? []) as Record<string, any>[]
   let units = 0
   const byProduct = new Map<string, { title: string; units: number; revenueCents: number }>()
@@ -50,7 +52,9 @@ export async function physicalAnalytics(db: Db, creatorId: string, sinceIso: str
   const shipped = rows.filter((r) => r.fulfilled_at && r.paid_at)
   const hours = shipped.map((r) => (Date.parse(r.fulfilled_at) - Date.parse(r.paid_at)) / 3_600_000).filter((h) => Number.isFinite(h) && h >= 0)
 
-  const { count: returnCount } = await db.from("commerce_returns").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).gte("created_at", sinceIso).not("status", "in", "(rejected,cancelled)")
+  let returns = db.from("commerce_returns").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).gte("created_at", sinceIso).not("status", "in", "(rejected,cancelled)")
+  if (untilIso) returns = returns.lt("created_at", untilIso)
+  const { count: returnCount } = await returns
 
   /* Stock: low, out, and its value at cost. */
   const { data: levels } = await db.from("inventory_levels").select("variant_id, on_hand, available").eq("creator_id", creatorId).limit(20000)

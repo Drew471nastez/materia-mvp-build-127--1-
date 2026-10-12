@@ -4,14 +4,19 @@
  * Physical sales on Analytics, under the reports, while physical commerce is
  * on: orders and units, what shipping brought in, what is waiting to ship
  * and for how long on average, returns, and stock that needs attention.
- * Its own range (7, 30 or 90 days) so it never slows the page's chart.
+ *
+ * FOR THE PAGE'S OWN PERIOD (`span`), the one the chart above shows, so the
+ * two never disagree; it had a 7, 30 and 90 day switch of its own. Drawn
+ * like every other card on the page: the same frame, the same tabs (Top
+ * products, Stock), and while a new period loads the figures it has stay in
+ * place, softened, never grey blocks.
  */
 
 import * as React from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { CARD, Pill, api, money } from "./ui"
+import { Pill, api, money } from "./ui"
 
 interface Data {
   orders: number
@@ -30,90 +35,104 @@ interface Data {
   topProducts: { title: string; units: number; revenueCents: number }[]
 }
 
-export function PhysicalAnalyticsCard() {
+const EMPTY: Data = { orders: 0, units: 0, revenueCents: 0, shippingCents: 0, taxCents: 0, unfulfilled: 0, partiallyFulfilled: 0, averageHoursToShip: null, returns: 0, returnRate: null, lowStock: [], outOfStock: 0, stockValueCents: 0, topProducts: [] }
+
+export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: number } | null }) {
   const enabled = usePhysicalCommerceEnabled()
-  const [days, setDays] = React.useState(30)
   const [data, setData] = React.useState<Data | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [tab, setTab] = React.useState<"products" | "stock">("products")
+  const query = span ? `from=${Math.floor(span.start)}&to=${Math.ceil(span.end)}` : "days=30"
   React.useEffect(() => {
     if (!enabled) return
     let gone = false
-    setData(null)
-    void api<{ analytics: Data }>(`/api/physical/analytics?days=${days}`).then((r) => {
-      if (!gone && r.ok) setData(r.data.analytics)
+    setLoading(true)
+    void api<{ analytics: Data }>(`/api/physical/analytics?${query}`).then((r) => {
+      if (gone) return
+      if (r.ok) setData(r.data.analytics)
+      setLoading(false)
     })
     return () => {
       gone = true
     }
-  }, [enabled, days])
+  }, [enabled, query])
   if (!enabled) return null
+  const d = data ?? EMPTY
 
   const stat = (label: string, value: React.ReactNode, hint?: React.ReactNode) => (
     <div className="min-w-0 rounded-xl bg-[#f8f9fa] px-3.5 py-3">
       <p className="truncate text-[12.5px] text-[#6b7280]">{label}</p>
       <p className="mt-0.5 truncate text-[20px] font-semibold tabular-nums text-[#1a1a2e]">{value}</p>
-      {hint ? <p className="truncate text-[12px] text-[#9ca3af]">{hint}</p> : null}
+      <p className="truncate text-[12px] text-[#9ca3af]">{hint ?? "\u00a0"}</p>
     </div>
   )
 
   return (
-    <section className={cn(CARD, "mt-4 px-4 py-4 sm:px-6 sm:py-5")} data-physical-analytics="">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]">Physical sales</h2>
-        <div className="flex gap-1 rounded-lg bg-[#f1f2f4] p-1">
-          {[7, 30, 90].map((d) => (
-            <button key={d} type="button" onClick={() => setDays(d)} className={cn("h-7 rounded-md px-2.5 text-[12.5px] font-medium", days === d ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280]")}>
-              {d} days
-            </button>
-          ))}
-        </div>
-      </div>
-      {!data ? (
+    <section data-card="physical" data-physical-analytics="" className="mt-4 flex min-w-0 flex-col rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <header className="flex min-h-[52px] flex-col justify-center gap-0.5 px-5 pt-4">
+        <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Physical sales</h3>
+        <p className="text-[12.5px] text-[#6b7280]">Orders you ship or hand over, for the period above.</p>
+      </header>
+      <div className={cn("space-y-4 px-5 pb-5 pt-3 transition-[opacity,filter] duration-200", loading && data ? "opacity-60 blur-[1px]" : "", !data ? "opacity-60" : "")} aria-busy={loading}>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-[74px] animate-pulse rounded-xl bg-[#f4f5f7]" />
-          ))}
+          {stat("Orders", d.orders, `${d.units} ${d.units === 1 ? "unit" : "units"} sold`)}
+          {stat("Sales", money(d.revenueCents), d.shippingCents ? `${money(d.shippingCents)} shipping` : undefined)}
+          {stat("To ship", d.unfulfilled + d.partiallyFulfilled, d.averageHoursToShip !== null ? `Ships in ${d.averageHoursToShip < 48 ? `${Math.round(d.averageHoursToShip)} h` : `${Math.round(d.averageHoursToShip / 24)} days`} on average` : undefined)}
+          {stat("Returns", d.returns, d.returnRate !== null ? `${d.returnRate}% of orders` : undefined)}
         </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            {stat("Orders", data.orders, `${data.units} ${data.units === 1 ? "unit" : "units"} sold`)}
-            {stat("Sales", money(data.revenueCents), data.shippingCents ? `${money(data.shippingCents)} shipping` : undefined)}
-            {stat("To ship", data.unfulfilled + data.partiallyFulfilled, data.averageHoursToShip !== null ? `Ships in ${data.averageHoursToShip < 48 ? `${Math.round(data.averageHoursToShip)} h` : `${Math.round(data.averageHoursToShip / 24)} days`} on average` : undefined)}
-            {stat("Returns", data.returns, data.returnRate !== null ? `${data.returnRate}% of orders` : undefined)}
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Top products</h3>
-              </div>
-              {data.topProducts.length === 0 ? (
-                <p className="text-[13px] text-[#6b7280]">No physical sales in this range.</p>
-              ) : (
-                <ul className="divide-y divide-[#f1f2f4]">
-                  {data.topProducts.map((p) => (
-                    <li key={p.title} className="flex items-center justify-between gap-3 py-2 text-[13.5px]">
-                      <span className="min-w-0 truncate text-[#1a1a2e]">{p.title}</span>
-                      <span className="shrink-0 tabular-nums text-[#6b7280]">
-                        {p.units} · {money(p.revenueCents)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div role="tablist" className="inline-flex shrink-0 items-center rounded-lg bg-[#f1f2f4] p-0.5">
+              {(
+                [
+                  ["products", "Top products"],
+                  ["stock", "Stock"],
+                ] as const
+              ).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === v}
+                  onClick={() => setTab(v)}
+                  className={cn(
+                    "h-8 cursor-pointer rounded-md px-3 text-[12px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:h-7 sm:px-2.5",
+                    tab === v ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Stock</h3>
-                <Link href="/app/inventory" className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
-                  Inventory
-                </Link>
-              </div>
+            {tab === "stock" ? (
+              <Link href="/app/inventory" className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
+                Inventory
+              </Link>
+            ) : null}
+          </div>
+          {tab === "products" ? (
+            d.topProducts.length === 0 ? (
+              <p className="py-2 text-[13px] text-[#6b7280]">{data ? "No physical sales in this period." : "\u00a0"}</p>
+            ) : (
+              <ul className="divide-y divide-[#f1f2f4]">
+                {d.topProducts.map((p) => (
+                  <li key={p.title} className="flex items-center justify-between gap-3 py-2 text-[13.5px]">
+                    <span className="min-w-0 truncate text-[#1a1a2e]">{p.title}</span>
+                    <span className="shrink-0 tabular-nums text-[#6b7280]">
+                      {p.units} sold · {money(p.revenueCents)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : (
+            <>
               <p className="mb-2 text-[13px] text-[#6b7280]">
-                {data.stockValueCents ? `${money(data.stockValueCents)} on hand at cost. ` : ""}
-                {data.outOfStock ? `${data.outOfStock} sold out.` : "Nothing sold out."}
+                {d.stockValueCents ? `${money(d.stockValueCents)} on hand at cost. ` : ""}
+                {d.outOfStock ? `${d.outOfStock} sold out.` : "Nothing sold out."}
               </p>
               <ul className="divide-y divide-[#f1f2f4]">
-                {data.lowStock.map((l) => (
+                {d.lowStock.map((l) => (
                   <li key={`${l.title}-${l.variantName}`} className="flex items-center justify-between gap-3 py-2 text-[13.5px]">
                     <span className="min-w-0 truncate text-[#1a1a2e]">
                       {l.title}
@@ -123,10 +142,10 @@ export function PhysicalAnalyticsCard() {
                   </li>
                 ))}
               </ul>
-            </div>
-          </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </section>
   )
 }

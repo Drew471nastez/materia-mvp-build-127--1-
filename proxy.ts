@@ -433,8 +433,10 @@ interface SiteLocalization {
   languages: string[]
   /** Active markets that show their own currency: which countries are in each. */
   markets: { id: string; countries: string[] }[]
+  /** Active markets with a published language of their own: their visitors start in it (marketLanguageStart). */
+  starts: { language: string; countries: string[] }[]
 }
-const NO_LOCALIZATION: SiteLocalization = { languages: [], markets: [] }
+const NO_LOCALIZATION: SiteLocalization = { languages: [], markets: [], starts: [] }
 const localizationHeld = new Map<string, { at: number; value: SiteLocalization }>()
 async function siteLocalizationFor(username: string): Promise<SiteLocalization> {
   const lower = username.toLowerCase()
@@ -452,12 +454,16 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
       const { data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle()
       /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
       if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
-      const row = data as { default_language?: string; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; active?: unknown; primary?: unknown }[] } | null
+      const row = data as { default_language?: string; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; language?: unknown; active?: unknown; primary?: unknown }[] } | null
       const def = (row?.default_language ?? "").toLowerCase()
+      const languages = (Array.isArray(row?.languages) ? row!.languages : [])
+        .filter((l) => l?.published === true && typeof l.code === "string" && l.code.toLowerCase() !== def)
+        .map((l) => String(l.code))
       value = {
-        languages: (Array.isArray(row?.languages) ? row!.languages : [])
-          .filter((l) => l?.published === true && typeof l.code === "string" && l.code.toLowerCase() !== def)
-          .map((l) => String(l.code)),
+        languages,
+        starts: (Array.isArray(row?.markets) ? row!.markets : [])
+          .filter((m) => m && m.primary !== true && m.active !== false && typeof m.language === "string" && languages.some((l) => l.toLowerCase() === String(m.language).toLowerCase()))
+          .map((m) => ({ language: String(m.language).toLowerCase(), countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string") })),
         markets: (Array.isArray(row?.markets) ? row!.markets : [])
           .filter((m) => m && m.primary !== true && m.active !== false && typeof m.currency === "string" && m.currency && typeof m.id === "string" && /^[a-z0-9-]{1,40}$/.test(m.id))
           .map((m) => ({ id: String(m.id), countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string") })),
@@ -493,6 +499,39 @@ async function visitorMarket(request: NextRequest, username: string): Promise<st
   if (markets.length === 0) return null
   const country = visitorCountry(request)
   return country ? (markets.find((m) => m.countries.includes(country))?.id ?? null) : null
+}
+
+/*
+  A MARKET'S OWN LANGUAGE, ON A VISITOR'S FIRST PAGE. A market can say its
+  countries start in one of the website's published languages (Settings ›
+  Markets and languages): a visitor from there who has never picked a
+  language is sent once to the same page in it (/about to /fr/about), and
+  the language is remembered (sl_lang). From then on the address and the
+  language selector decide, which also set sl_lang, so nobody is sent back
+  and forth. Only a person opening a page: never a crawler (search engines
+  see every language at its own address, hreflang), a script, a form, the
+  editor's preview, or the cart, checkout and account.
+*/
+const CRAWLER = /bot|crawl|spider|slurp|preview|facebookexternalhit|embedly|lighthouse|headless/i
+const NEVER_STARTED = /^\/(?:checkout|cart|account|api|receipt|review|wishlist|password|localization|preview|_next|media|files)(?:[/?#]|$)/
+async function marketLanguageStart(request: NextRequest, username: string, pathname: string): Promise<NextResponse | null> {
+  if (request.method !== "GET" || request.cookies.get("sl_lang")?.value) return null
+  const dest = request.headers.get("sec-fetch-dest")
+  if ((dest && dest !== "document") || !(request.headers.get("accept") ?? "").includes("text/html")) return null
+  if (CRAWLER.test(request.headers.get("user-agent") ?? "") || NEVER_STARTED.test(pathname) || /\.[a-z0-9]{1,8}$/i.test(pathname) || request.nextUrl.searchParams.has("preview")) return null
+  const loc = await siteLocalizationFor(username)
+  if (loc.starts.length === 0) return null
+  const first = pathname.split("/")[1]?.toLowerCase() ?? ""
+  if (loc.languages.some((l) => l.toLowerCase() === first)) return null
+  const country = visitorCountry(request)
+  const start = country ? loc.starts.find((s) => s.countries.includes(country)) : undefined
+  if (!start) return null
+  const to = request.nextUrl.clone()
+  to.pathname = `/${start.language}${pathname === "/" ? "" : pathname}`
+  const r = NextResponse.redirect(to, 307)
+  r.cookies.set("sl_lang", start.language, { path: "/", maxAge: 31_536_000, sameSite: "lax", secure: true })
+  r.headers.set("Cache-Control", "private, no-store")
+  return r
 }
 
 /** The address in one of the website's other languages, or in the visitor's market's currency; null for the website's own, at the store's prices. */
@@ -625,6 +664,8 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
     scripts too, which the theme's routes now point under /fr). The
     language is named to the handler in a header only this proxy sets.
   */
+  const started = await marketLanguageStart(request, name, pathname)
+  if (started) return started
   let locale: string | null = null
   let asked = pathname
   if (LANGUAGE_FIRST.test(pathname)) {
@@ -1445,6 +1486,9 @@ export async function proxy(request: NextRequest) {
         guarded = gate.protected
       }
 
+      /* A market's own language on a visitor's first page (marketLanguageStart). */
+      const started = isWebsite && !seoFile && !looksLikeFile ? await marketLanguageStart(request, subdomain, pathname) : null
+      if (started) return started
       /* /fr/about: the page in French, or /fr/cart on to /cart (inSiteLanguage). */
       const inLanguage = isWebsite && !seoFile && !looksLikeFile ? await inSiteLanguage(subdomain, pathname, request) : null
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
@@ -1861,7 +1905,9 @@ export async function proxy(request: NextRequest) {
             ? pathname
             : `/${username}/${parts.join("/")}`
     } else if (builtSite) {
-      /* /fr/about on a connected domain, as on the subdomain (inSiteLanguage). */
+      /* A market's own language on a visitor's first page, then /fr/about on a connected domain, as on the subdomain (inSiteLanguage). */
+      const started = await marketLanguageStart(request, username, pathname)
+      if (started) return started
       const inLanguage = await inSiteLanguage(username, pathname, request)
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
       rewritePath = inLanguage?.kind === "page" ? inLanguage.path : `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`

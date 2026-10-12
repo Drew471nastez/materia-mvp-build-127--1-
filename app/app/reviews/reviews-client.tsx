@@ -65,7 +65,7 @@ const TAB = (selected: boolean) =>
 const SELECT =
   "h-10 w-full cursor-pointer appearance-none truncate md:h-8 md:w-auto md:max-w-[220px] rounded-lg border border-[#e3e4e8] bg-white py-0 pl-3 pr-8 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:text-[13px]"
 
-const SETTINGS_HREF = "/app/settings?tab=integrations&integration=storelib-reviews"
+const SETTINGS_HREF = "/app/integrations?integration=storelib-reviews"
 
 type Moderation = "publish" | "hide" | "feature" | "unfeature" | "remove_photo" | "restore_photo"
 

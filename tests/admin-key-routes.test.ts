@@ -96,6 +96,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   // Sign-up and password recovery: the caller has no session yet, by definition.
   "auth/account-origin/route.ts": "answers how an email address signed up, before there is a session",
   "payouts-sheet/route.ts": "the apps' browser sheet has no session: the caller is a thirty minute HMAC link signed for one creator by the signed-in /api/payments/app-sheet, checked and the creator re-read before an Account Session is opened, rate limited",
+  "site-theme/site/[username]/[[...path]]/route.ts": "an imported Shopify theme's own pages, which every visitor of its website sees; it draws only what the proxy sealed for this name on this host (siteSealed), and the service read is the site's own published tracking IDs for its pages (round AD)",
   "site-theme/assets/[installId]/[version]/[...name]/route.ts": "an imported Shopify theme's own stylesheets, scripts, icons and fonts, which its website sends every visitor; read from any origin because the builder draws the theme in a sandboxed frame with none",
   "app/products/[id]/live/route.ts": "View on your store from the product editor: a redirect to a PUBLISHED product's public address (the store's website for a physical one, else the creator page); an id that is not one goes to the home page, nothing else is read out",
   "health/route.ts": "the uptime check: answers whether the database and the scheduled jobs are working, names jobs and ages, never data",

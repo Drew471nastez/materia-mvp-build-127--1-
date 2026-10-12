@@ -1008,7 +1008,7 @@ export function buildReports(input: {
   const pageTotal = sum((now.pages ?? []).map((p) => Number(p[3]) || 0))
   const topPages: PageRow[] = (now.pages ?? []).map(([pt, pid, path, views, visitors]) => ({
     key: `${pt ?? ""}|${pid ?? ""}|${path ?? ""}`,
-    label: path ?? (pt === "onepage" ? "OnePage" : "Page not recorded"),
+    label: path ?? (pt === "onepage" ? "OnePage" : "Page unknown"),
     place: placeLabel(pt, pid),
     views: Number(views) || 0,
     visitors: Number(visitors) || 0,

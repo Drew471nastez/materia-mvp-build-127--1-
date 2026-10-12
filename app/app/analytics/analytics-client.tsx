@@ -512,7 +512,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
         {/* The reports under the chart, from the same answer. */}
         <AnalyticsReports state={reportsState} property={property} />
         {/* Units, shipping, what is waiting to ship and stock: only while physical commerce is on. */}
-        <PhysicalAnalyticsCard />
+        <PhysicalAnalyticsCard span={safeSpan} />
       </div>
       </PullToRefreshEvent>
 

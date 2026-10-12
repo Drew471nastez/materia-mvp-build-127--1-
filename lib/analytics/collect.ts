@@ -415,6 +415,21 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
 
   const insert = async (r: Record<string, unknown>) => (await db.from("analytics_events").insert([r])).error as { code?: string; message?: string } | null
   let error = await insert(row)
+  /*
+    ONE COLUMN THE DATABASE DOES NOT HAVE IS ONE COLUMN, NOT ALL OF THEM.
+    A later field (a newer part not run yet) used to send the row down the
+    fallback below, which drops the property and the path too: the view was
+    kept with no page, and Analytics listed it as "Page not recorded". The
+    column the database names is left out and the row tried again, up to
+    three times, before falling back.
+  */
+  for (let tries = 0; error && missingColumn(error) && tries < 3; tries++) {
+    const named = /'([a-z_]+)' column|column "?([a-z_]+)"? (?:of relation|does not exist)/i.exec(error.message ?? "")
+    const col = named?.[1] ?? named?.[2]
+    if (!col || !(col in row) || (NEW_COLUMNS as readonly string[]).includes(col)) break
+    row = Object.fromEntries(Object.entries(row).filter(([k]) => k !== col))
+    error = await insert(row)
+  }
   if (error && missingColumn(error)) {
     /*
       Part 61 has not run. A OnePage view or a link click has no column to be
