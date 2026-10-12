@@ -152,10 +152,12 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string,
  */
 export async function productMetadata(
   slug: string,
-  where?: { url: string; brand: string; indexable: boolean; creatorId?: string; locale?: string } | { platform: true },
+  where?: { url: string; brand: string; indexable: boolean; creatorId?: string; locale?: string; inLanguage?: <T extends Record<string, unknown>>(p: T) => T } | { platform: true },
 ): Promise<Metadata> {
-  const product = await fetchProductBySlug(slug, where && "creatorId" in where ? where.creatorId : undefined)
-  if (!product) return { title: "Product Not Found", robots: { index: false, follow: false } }
+  const found = await fetchProductBySlug(slug, where && "creatorId" in where ? where.creatorId : undefined)
+  if (!found) return { title: "Product Not Found", robots: { index: false, follow: false } }
+  /* The product's title and search text in the page's language, when it has them (lib/markets/live.ts). */
+  const product = where && "inLanguage" in where && where.inLanguage ? (where.inLanguage(found as unknown as Record<string, unknown>) as unknown as typeof found) : found
 
   const ogImage = imagesOnly(product.gallery_urls ?? [])[0] || product.thumbnail_url || undefined
   const name = product.title ?? "Product"
@@ -289,7 +291,9 @@ export async function renderProduct(
 
   const settingsRow =
     (install as any).store_theme_settings?.[0] ?? (install as any).store_theme_settings ?? null
-  const themeSettings = (themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues
+  const ownSettings = (themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues
+  /* Its menus in the page's language too (lib/markets/live.ts). */
+  const themeSettings = localizer ? (localizer.theme(ownSettings as Record<string, unknown>) as ThemeSettingsValues) : ownSettings
 
   // Fetch product-page AND home-page sections in parallel. Home is the
   // source of truth for header/footer on every page of the live site.
