@@ -724,16 +724,15 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
   const checkoutId = typeof first?.checkout_id === "string" && first.checkout_id ? first.checkout_id : null
   if (checkoutId && params.creatorId) {
     try {
-      const { data: co } = await admin
-        .from("commerce_checkouts")
-        .select("delivery_method, shipping_address, shipping_rate, shipping_cents, shipping_discount_cents, tax_cents, items_subtotal_cents, discount_cents, total_cents, lines, pickup, buyer_note")
-        .eq("id", checkoutId)
-        .eq("creator_id", params.creatorId)
-        .maybeSingle()
+      /* The cart's attributes are SQL part 164's column: read without them where it has not run, so the rest of the order still shows. */
+      const read = (cols: string) => admin.from("commerce_checkouts").select(cols).eq("id", checkoutId).eq("creator_id", params.creatorId!).maybeSingle()
+      const base = "delivery_method, shipping_address, shipping_rate, shipping_cents, shipping_discount_cents, tax_cents, items_subtotal_cents, discount_cents, total_cents, lines, pickup, buyer_note"
+      let { data: co, error: coError } = await read(`${base}, cart_attributes`)
+      if (coError && (coError.code === "42703" || coError.code === "PGRST204")) ({ data: co } = await read(base))
       const [{ physicalSaleFacts, withPhysicalSale }, { sellerNextStepFor }] = await Promise.all([import("@/lib/notify/seller-commerce"), import("@/lib/physical/orders-server")])
       /* What to do next, worded by who ships each part and how that place hears of it (lib/physical/fulfillment.ts sellerNextStep). */
       const next = await sellerNextStepFor(admin, params.creatorId, checkoutId).catch(() => null)
-      data = withPhysicalSale(data, physicalSaleFacts(co), next)
+      data = withPhysicalSale(data, physicalSaleFacts(co as unknown as Record<string, unknown> | null), next)
     } catch (e) {
       console.error("[email] sale email: the order's delivery was not read:", e instanceof Error ? e.message : e)
     }

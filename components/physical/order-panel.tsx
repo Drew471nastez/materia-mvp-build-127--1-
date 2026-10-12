@@ -62,6 +62,8 @@ export interface PhysicalLine {
   returned: number
   amountCents: number
   refundedCents: number
+  /** The buyer's words for this line from an imported theme's product form (an engraving). */
+  properties?: Record<string, string> | null
 }
 export interface PhysicalShipment {
   id: string
@@ -105,6 +107,8 @@ export interface PhysicalOrder {
   pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady; hours?: string | null } | null
   processingAt: string | null
   buyerNote: string | null
+  /** An imported theme's cart attributes: a gift message, a delivery date (SQL part 164). */
+  cartAttributes?: Record<string, string>
   merchantNote: string | null
   cancelledAt: string | null
   lines: PhysicalLine[]
@@ -756,16 +760,51 @@ function AddressEditor({
   )
 }
 
-/** What the buyer wrote at checkout, and the shop's older single note. Only when there is one. */
+/**
+ * What the buyer wrote at checkout, what the shop's cart asked them (an
+ * imported theme's cart attributes and each line's properties), and the
+ * shop's older single note. Only when there is one.
+ */
 export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | null; className?: string }) {
-  if (!order || (!order.buyerNote && !order.merchantNote)) return null
+  const attributes = Object.entries(order?.cartAttributes ?? {})
+  const lineProps = (order?.lines ?? []).filter((l) => l.properties && Object.keys(l.properties).length)
+  if (!order || (!order.buyerNote && !order.merchantNote && !attributes.length && !lineProps.length)) return null
   return (
-    <section className={cn(card, "px-4 py-3.5", className)}>
+    <section className={cn(card, "px-4 py-3.5", className)} data-order-notes="">
       <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Notes</h2>
       {order.buyerNote ? (
         <>
           <p className="mt-2 text-[12px] font-medium text-[#6b7280]">From the buyer</p>
           <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] text-[#303036]">{order.buyerNote}</p>
+        </>
+      ) : null}
+      {attributes.length ? (
+        <>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">From the cart</p>
+          <dl className="mt-0.5 space-y-0.5 text-[13px]" data-order-attributes="">
+            {attributes.map(([k, v]) => (
+              <div key={k} className="flex flex-wrap gap-x-1.5">
+                <dt className="text-[#6b7280]">{k}:</dt>
+                <dd className="min-w-0 whitespace-pre-wrap break-words text-[#303036]">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      ) : null}
+      {lineProps.length ? (
+        <>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">On the items</p>
+          <ul className="mt-0.5 space-y-1 text-[13px]" data-order-line-properties="">
+            {lineProps.map((l) => (
+              <li key={l.orderId} className="break-words text-[#303036]">
+                <span className="font-medium">{l.title}</span>
+                {l.variantName ? `, ${l.variantName}` : ""}:{" "}
+                {Object.entries(l.properties ?? {})
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join(" · ")}
+              </li>
+            ))}
+          </ul>
         </>
       ) : null}
       {order.merchantNote ? (

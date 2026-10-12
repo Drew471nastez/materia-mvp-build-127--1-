@@ -68,6 +68,8 @@ export interface PhysicalSaleFacts {
   pickupName: string
   pickupAddress: string[]
   note: string
+  /** What the shop's cart asked (an imported theme's cart attributes, then each line's properties), as "Name: value" rows. */
+  details: string[]
   /** Shipping paid, after any free shipping. */
   shippingCents: number | null
   taxCents: number | null
@@ -86,6 +88,20 @@ function addressText(a: Record<string, unknown> | null | undefined): string[] {
   if (!a || typeof a !== "object") return []
   const city = [str(a.postalCode ?? a.postal_code, 20), str(a.city, 80)].filter(Boolean).join(" ")
   return [str(a.name, 80), [str(a.line1, 120), str(a.line2, 120)].filter(Boolean).join(", "), [city, str(a.region, 60)].filter(Boolean).join(", "), str(a.country, 60)].filter(Boolean)
+}
+
+/** The cart's attributes and each line's properties as "Name: value" (or "Item: Name: value"), at most twelve. */
+function detailsOf(attributes: unknown, lines: Record<string, unknown>[]): string[] {
+  const out: string[] = []
+  if (attributes && typeof attributes === "object" && !Array.isArray(attributes)) {
+    for (const [k, v] of Object.entries(attributes as Record<string, unknown>)) if (str(k, 100) && str(v, 300)) out.push(`${str(k, 100)}: ${str(v, 300)}`)
+  }
+  for (const l of lines) {
+    const props = l.properties && typeof l.properties === "object" && !Array.isArray(l.properties) ? Object.entries(l.properties as Record<string, unknown>) : []
+    const said = props.map(([k, v]) => (str(k, 60) && str(v, 250) ? `${str(k, 60)}: ${str(v, 250)}` : "")).filter(Boolean)
+    if (said.length) out.push(`${str(l.title, 80) || "Item"}: ${said.join(", ")}`)
+  }
+  return out.slice(0, 12)
 }
 
 /**
@@ -135,6 +151,7 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
     pickupName: pickup ? str(place?.name, 80) : "",
     pickupAddress: pickup && Array.isArray(place?.address) ? (place!.address as unknown[]).map((x) => str(x, 120)).filter(Boolean) : [],
     note: str(co.buyer_note, 500),
+    details: detailsOf(co.cart_attributes, rawLines),
     shippingCents: shipping === null ? null : Math.max(0, shipping - shippingOff),
     taxCents: cents(co.tax_cents),
     taxIncluded: rate?.tax_included === true,
@@ -165,6 +182,7 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
     pickupName: facts.pickupName,
     pickupAddress: facts.pickupAddress,
     note: facts.note,
+    details: facts.details ?? [],
   }
   const out: Record<string, unknown> = { ...data, fulfil }
   const { subtotalCents: sub, discountCents: off, shippingCents: ship, taxCents: tax, totalCents: total } = facts

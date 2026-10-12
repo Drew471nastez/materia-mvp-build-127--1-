@@ -183,7 +183,7 @@ async function forget(request: Request, admin: Admin, site: SiteOfCheckout) {
   const secure = site.origin.startsWith("https:") ? "; Secure" : ""
   return NextResponse.json(
     { ok: true, removed: theme.cart.length - kept.length },
-    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
+    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
   )
 }
 
@@ -426,6 +426,7 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     address,
     deliveryOptionId: body.deliveryOptionId,
     buyerNote: body.buyerNote,
+    cartAttributes: body.cartAttributes,
     clientKey: body.clientKey,
     origin,
     attribution,
@@ -581,6 +582,7 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
       address: body.address && typeof body.address === "object" ? { ...(body.address as Record<string, unknown>), name } : body.address,
       deliveryOptionId: body.deliveryOptionId,
       buyerNote: body.buyerNote,
+      cartAttributes: body.cartAttributes,
       clientKey: body.clientKey,
       origin,
       attribution,

@@ -25,6 +25,8 @@ import { readMethod, sellerNextStep } from "./fulfillment"
 import { CANCEL_DECLINED, CANCEL_REQUESTED, buyerCancelState, cleanCancelReason, openCancelRequest } from "./buyer-cancel"
 import { normaliseTrackingNumber } from "./carriers"
 import { cleanNote } from "./notes"
+import { lineProperties } from "./cart-link"
+import { cartAttributes } from "@/lib/checkout/site-checkout"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
@@ -50,6 +52,8 @@ export interface OrderLine {
   fulfilled: number
   returned: number
   receiptToken: string | null
+  /** The buyer's words for this line from an imported theme's product form (`properties[Engraving]`), or null. */
+  properties?: Record<string, string> | null
 }
 
 export interface Shipment {
@@ -117,6 +121,8 @@ export interface PhysicalOrder {
   processingAt: string | null
   deliveredAt: string | null
   buyerNote: string | null
+  /** An imported theme's cart attributes (SQL part 164): a gift message, a delivery date. Empty when none. */
+  cartAttributes: Record<string, string>
   merchantNote: string | null
   receiptToken: string
   paidAt: string | null
@@ -184,6 +190,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       fulfilled: fulfilledOf.get(o.id) ?? 0,
       returned: returnedOf.get(o.id) ?? 0,
       receiptToken: o.receipt_token ?? null,
+      properties: lineProperties(s.properties) ?? null,
     }
   })
   const refunded = lines.reduce((n, l) => n + l.refundedCents, 0)
@@ -238,6 +245,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     processingAt: co.processing_at ?? null,
     deliveredAt: co.delivered_at ?? null,
     buyerNote: co.buyer_note,
+    cartAttributes: cartAttributes(co.cart_attributes) ?? {},
     merchantNote: co.merchant_note,
     receiptToken: co.receipt_token,
     paidAt: co.paid_at,

@@ -1,5 +1,6 @@
 "use client"
 
+import { CasePhotoStrip } from "@/components/support/case-photos"
 import * as React from "react"
 
 import { Banner, Button, Filters, Panel, Placeholder } from "../_console/ui"
@@ -216,6 +217,7 @@ function CaseView({ id, onBack, onNote, onChanged }: { id: string; onBack: () =>
                   {who(m)} · {when(m.createdAt)}
                 </p>
                 <p className="whitespace-pre-wrap text-[14px] leading-[21px] text-[#ededf0] [overflow-wrap:anywhere]">{m.body}</p>
+                <CasePhotoStrip photos={m.photos} dark />
               </li>
             ))}
           </ol>

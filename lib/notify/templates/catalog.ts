@@ -485,7 +485,9 @@ function fulfilSections(f: Data, pickup: boolean): { title: string; rows: Fact[]
         { label: "Fulfilment", value: f.texts("fulfilment", 60).join(", ") },
       ]
   const note = f.text("note", 500)
-  return [{ title: pickup ? "Pickup" : "Delivery", rows: [...rows, { label: "Buyer's note", value: note }].filter((r) => r.value) }]
+  /* What the shop's cart asked the buyer (an imported theme's gift message, an engraving): one row each. */
+  const details = f.texts("details", 420, 12).map((t) => ({ label: t.split(": ")[0], value: t.slice(t.indexOf(": ") + 2) }))
+  return [{ title: pickup ? "Pickup" : "Delivery", rows: [...rows, { label: "Buyer's note", value: note }, ...details].filter((r) => r.value) }]
 }
 
 /**
