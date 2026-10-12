@@ -33,6 +33,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
+import { useChargeNote, useMoney, useWord } from "./theme/storefront-context"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 
 export interface CartPalette {
@@ -42,10 +43,6 @@ export interface CartPalette {
   border: string
   buttonBg: string
   buttonText: string
-}
-
-function money(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
 }
 
 interface AppliedCode {
@@ -58,6 +55,11 @@ interface AppliedCode {
 
 export function CartPageBody({ palette, radius }: { palette: CartPalette; radius: number }) {
   const { lines, ready, setQty, remove, clear, subtotalCents, count, shopId } = useSiteCart()
+  /* Amounts as the product cards show them: the visitor's market's currency, or the store's. */
+  const money = useMoney()
+  const chargeNote = useChargeNote()
+  /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
+  const w = useWord()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dropped, setDropped] = useState<string[]>([])
@@ -210,9 +212,9 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
         style={{ background: palette.bg, color: palette.text }}
       >
         <ShoppingBag className="h-8 w-8 opacity-25" strokeWidth={1.5} />
-        <h1 className="text-[22px] font-semibold" style={{ color: palette.heading }}>Your cart is empty</h1>
+        <h1 className="text-[22px] font-semibold" style={{ color: palette.heading }}>{w("cart_empty")}</h1>
         <a href="/products" className="text-[15px] font-medium underline underline-offset-4">
-          Browse the shop
+          {w("continue_shopping")}
         </a>
       </div>
     )
@@ -222,7 +224,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
     <div style={{ background: palette.bg, color: palette.text }}>
       <div className="mx-auto w-full max-w-[860px] px-5 py-10 sm:px-6 sm:py-14">
         <h1 className="text-[26px] sm:text-[30px] font-bold" style={{ color: palette.heading }}>
-          Your cart
+          {w("cart_title")}
         </h1>
         <p className="mt-1 text-[14px] opacity-65">{count === 1 ? "One item" : `${count} items`}</p>
 
@@ -323,7 +325,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
             {applied ? (
               <>
                 <div className="flex items-baseline justify-between">
-                  <dt className="text-[15px] opacity-70">Subtotal</dt>
+                  <dt className="text-[15px] opacity-70">{w("subtotal")}</dt>
                   <dd className="text-[15px] tabular-nums">{money(applied.subtotalCents)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between">
@@ -331,7 +333,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
                   <dd className="text-[15px] tabular-nums">&minus;{money(applied.discountCents)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between pt-1">
-                  <dt className="text-[15px] opacity-70">Total</dt>
+                  <dt className="text-[15px] opacity-70">{w("total")}</dt>
                   <dd className="text-[22px] font-bold tabular-nums" style={{ color: palette.heading }}>
                     {money(applied.totalCents)}
                   </dd>
@@ -339,7 +341,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
               </>
             ) : (
               <div className="flex items-baseline justify-between">
-                <dt className="text-[15px] opacity-70">Subtotal</dt>
+                <dt className="text-[15px] opacity-70">{w("subtotal")}</dt>
                 <dd className="text-[22px] font-bold tabular-nums" style={{ color: palette.heading }}>
                   {money(subtotalCents)}
                 </dd>
@@ -364,7 +366,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
 
           {lines.some((l) => l.physical) && !showDetails ? (
             <label className="block w-full sm:w-[300px]" data-cart-note="">
-              <span className="mb-1.5 block text-[13px] opacity-70">Note for the shop</span>
+              <span className="mb-1.5 block text-[13px] opacity-70">{w("note_for_shop")}</span>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value.slice(0, CART_NOTE_MAX))}
@@ -394,8 +396,13 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
             className="flex h-12 w-full items-center justify-center rounded-full text-[16px] font-semibold transition-opacity disabled:opacity-60 sm:w-[300px]"
             style={{ background: palette.buttonBg, color: palette.buttonText }}
           >
-            {showDetails ? (busy ? "Getting your order" : "Get it free") : busy ? "Taking you to payment" : "Check out"}
+            {showDetails ? (busy ? "Getting your order" : w("get_it_free")) : busy ? "Taking you to payment" : w("check_out")}
           </button>
+          {chargeNote && !showDetails && (
+            <p className="w-full text-right text-[12px] leading-snug opacity-70 sm:w-[300px]" data-currency-note="">
+              {chargeNote}
+            </p>
+          )}
           {!showDetails && (
             <p className="w-full text-right text-[12px] opacity-55 sm:w-[300px]">
               Payment is handled by Stripe.
@@ -437,6 +444,7 @@ function CodeField({
   onApply: () => void
   onRemove: () => void
 }) {
+  const w = useWord()
   const r = Math.min(radius, 10)
   if (applied) {
     return (
@@ -463,13 +471,13 @@ function CodeField({
   return (
     <div>
       <label htmlFor="cart-discount-code" className="sr-only">
-        Discount code
+        {w("discount_code")}
       </label>
       <div className="flex gap-2">
         <input
           id="cart-discount-code"
           value={code}
-          placeholder="Discount code"
+          placeholder={w("discount_code")}
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
@@ -493,7 +501,7 @@ function CodeField({
           className="h-11 shrink-0 px-4 text-[14px] font-semibold transition-opacity disabled:opacity-45"
           style={{ border: `1px solid ${palette.border}`, borderRadius: r, color: palette.heading }}
         >
-          {busy ? "Checking" : "Apply"}
+          {busy ? "Checking" : w("apply")}
         </button>
       </div>
       {error ? (

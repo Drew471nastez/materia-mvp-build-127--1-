@@ -43,6 +43,7 @@ import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { getMainDomain } from "@/lib/url-helpers"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -79,6 +80,8 @@ export async function renderAccountPage(
     edit?: "name" | null
     /** /password: where to land once in, and the owner's way in (lib/site-password). */
     password?: { returnTo: string; ownerUrl: string }
+    /** The page in another of the website's languages, or a market's prices (/fr/cart; lib/markets/site-name). */
+    lang?: { locale: string | null; market: string | null }
   } = {},
 ) {
   const found = await publishedShopByName(username)
@@ -99,7 +102,10 @@ export async function renderAccountPage(
   /* Drawn like every other page: live links, then the shop's own facts (placeholders, menus, picked products). */
   const linked = pageWithLiveLinks(base, new Set(Object.keys(site.pages)))
   const template = templateForPage(key)
-  const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(key))
+  /* In the page's language: its texts, the header and footer, the shop's own words and the language switch (lib/markets/live.ts). */
+  const [localizer, language] = extras.lang ? await Promise.all([siteLocalizer(site.creatorId, extras.lang.locale, extras.lang.market), languageChoice(site.creatorId, extras.lang.locale, extras.lang.market)]) : [null, undefined]
+  const shown = localizer ? localizer.sections(linked, site.sources) : linked
+  const { sections, data } = await dressPage(site, shown, localizer ? localizer.cards(products ?? []) : products, productCount, template, pageTitleFromKey(key))
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },
@@ -125,7 +131,7 @@ export async function renderAccountPage(
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
       />
       {/* The contact page and the wishlist are pages of the website like any
           other, and a visit to either counts in Analytics, with its path. The
