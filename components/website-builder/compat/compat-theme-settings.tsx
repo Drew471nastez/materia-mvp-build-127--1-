@@ -136,9 +136,9 @@ export function CompatThemeSettings({
                     data-compat-scheme={scheme}
                   >
                     <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-black/10 text-[12px] font-semibold" style={{ background: bg, color: fg }}>
-                      Aa
+                      {"Aa" /* i18n-ignore: a type sample, not a word */}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-foreground">Scheme {header[1]}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-foreground">{tt("Scheme {n}", { n: header[1] })}</span>
                     <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 ${on ? "rotate-180" : ""}`} />
                   </button>
                 )
