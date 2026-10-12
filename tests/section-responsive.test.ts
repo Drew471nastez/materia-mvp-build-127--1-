@@ -23,6 +23,7 @@
  * Run with:  npm run test:push
  */
 
+import { untt } from "./i18n-source"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
@@ -49,7 +50,7 @@ function section(title: string) {
 }
 
 const files = readdirSync(RENDERERS).filter((f) => f.endsWith(".tsx"))
-const sources = new Map(files.map((f) => [f, readFileSync(join(RENDERERS, f), "utf8")]))
+const sources = new Map(files.map((f) => [f, untt(readFileSync(join(RENDERERS, f), "utf8"))]))
 
 /**
  * The header is the one section that is NOT inside a container, on purpose:
@@ -99,10 +100,10 @@ check(
 section("The container exists, and the header is out of it")
 // ===========================================================================
 
-const dispatcher = readFileSync(
+const dispatcher = untt(readFileSync(
   join(root, "components/website-builder/sections/SectionRenderer.tsx"),
   "utf8",
-)
+), "components/website-builder/sections/SectionRenderer.tsx")
 
 check(
   "the dispatcher wraps sections in a container",
@@ -181,16 +182,16 @@ check(
 section("Two devices, and each one changes what renders")
 // ===========================================================================
 
-const editor = readFileSync(
+const editor = untt(readFileSync(
   join(root, "app/website-builder/editor/[installId]/page.tsx"),
   "utf8",
-)
+), "app/website-builder/editor/[installId]/page.tsx")
 /* Add a section: the phone's sheet and the computer's dialog, in their own module. */
-const library = readFileSync(join(root, "components/website-builder/editor/section-library.tsx"), "utf8")
-const sectionsList = readFileSync(join(root, "components/website-builder/editor/sections-list.tsx"), "utf8")
+const library = untt(readFileSync(join(root, "components/website-builder/editor/section-library.tsx"), "utf8"), "components/website-builder/editor/section-library.tsx")
+const sectionsList = untt(readFileSync(join(root, "components/website-builder/editor/sections-list.tsx"), "utf8"), "components/website-builder/editor/sections-list.tsx")
 const libraryPhone = library.slice(library.indexOf("if (phone) {"), library.indexOf("// ── A computer"))
-const nativeChromeSrc = readFileSync(join(root, "components/website-builder/native-chrome.ts"), "utf8")
-const scrollbarSrc = readFileSync(join(root, "components/website-builder/canvas-scrollbar.tsx"), "utf8")
+const nativeChromeSrc = untt(readFileSync(join(root, "components/website-builder/native-chrome.ts"), "utf8"), "components/website-builder/native-chrome.ts")
+const scrollbarSrc = untt(readFileSync(join(root, "components/website-builder/canvas-scrollbar.tsx"), "utf8"), "components/website-builder/canvas-scrollbar.tsx")
 
 check(
   "the phone is a real phone's width",
@@ -257,7 +258,7 @@ check(
 check(
   "the sections are told which device it is, for the header's sake",
   /deviceMode\?: "desktop" \| "tablet" \| "mobile"/.test(
-    readFileSync(join(root, "components/website-builder/sections/_shared.tsx"), "utf8"),
+    untt(readFileSync(join(root, "components/website-builder/sections/_shared.tsx"), "utf8"), "components/website-builder/sections/_shared.tsx"),
   ),
 )
 
@@ -277,7 +278,7 @@ check(
 section("The page you are editing is named, and it is in the middle")
 // ===========================================================================
 
-const switcher = readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")
+const switcher = untt(readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8"), "components/website-builder/page-switcher.tsx")
 
 check(
   "the page switcher sits in the centre of the bar",
@@ -330,7 +331,7 @@ check(
    */
   /className="wb-pages-menu /.test(switcher) &&
     ((css) => /\.wb-pages-menu \{[\s\S]{0,120}transform-origin: 50% 0;/.test(css) && /translate3d\(0, -4px, 0\) scale\(0\.98\)/.test(css))(
-      readFileSync(join(root, "app/globals.css"), "utf8"),
+      untt(readFileSync(join(root, "app/globals.css"), "utf8")),
     ),
 )
 
@@ -354,9 +355,9 @@ check(
 section("Publish is a place, not a button")
 // ===========================================================================
 
-const publish = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
-const modeSwitch = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
-const themePage = readFileSync(join(root, "components/website-builder/theme/ThemePage.tsx"), "utf8")
+const publish = untt(readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8"), "components/website-builder/publish-panel.tsx")
+const modeSwitch = untt(readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8"), "components/website-builder/preview-mode-switch.tsx")
+const themePage = untt(readFileSync(join(root, "components/website-builder/theme/ThemePage.tsx"), "utf8"), "components/website-builder/theme/ThemePage.tsx")
 
 check(
   "the button opens a panel that says when it last went out and what is pending",
@@ -378,7 +379,7 @@ check(
 check(
   "publishing stamps the time, and the route survives the column being absent",
   (() => {
-    const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8")
+    const route = untt(readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/publish/route.ts")
     return /published_at: new Date\(\)\.toISOString\(\)/.test(route) && /\/published_at\/\.test\(error\.message\)/.test(route)
   })(),
 )
@@ -388,7 +389,7 @@ check(
   (() => {
     // The function lives in its own module (the website page uses it too);
     // the panel re-exports it, so both read the same clock.
-    const src = readFileSync(join(root, "lib/website-builder/relative-time.ts"), "utf8")
+    const src = untt(readFileSync(join(root, "lib/website-builder/relative-time.ts"), "utf8"), "lib/website-builder/relative-time.ts")
     return /if \(s < 45\) return "just now"/.test(src) && /minute\$\{m === 1 \? "" : "s"\} ago/.test(src)
   })(),
 )
@@ -405,14 +406,14 @@ check(
 check(
   "and it loads in place, once, and fades in",
   (() => {
-    const pm = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+    const pm = untt(readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8"), "components/website-builder/preview-mode-switch.tsx")
     return /\?embedded=1/.test(pm) && /if \(!everShown\) return null/.test(pm) && /transition-opacity/.test(pm)
   })(),
 )
 
 check(
   "the framed code page drops its own header",
-  /\{!embedded && \(/.test(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")),
+  /\{!embedded && \(/.test(untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx")),
 )
 
 check(
@@ -425,8 +426,8 @@ check(
    * bar to light UI by adding one class.
    */
   /<header className="wb-editor-topbar relative bg-\[var\(--wb-chrome-bg\)\] text-\[var\(--wb-chrome-fg\)\]/.test(editor) &&
-    /\.wb-editor \{[\s\S]{0,600}?--wb-chrome-bg: #171717;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
-    /\.wb-editor\.wb-chrome-light \{\s*--wb-chrome-bg: #ffffff;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
+    /\.wb-editor \{[\s\S]{0,600}?--wb-chrome-bg: #171717;/.test(untt(readFileSync(join(root, "app/globals.css"), "utf8"))) &&
+    /\.wb-editor\.wb-chrome-light \{\s*--wb-chrome-bg: #ffffff;/.test(untt(readFileSync(join(root, "app/globals.css"), "utf8"))) &&
     // and nothing in the bar still says white-on-dark by hand
     !/<header className="wb-editor-topbar[\s\S]*?text-white\/[78]0[\s\S]*?<\/header>/.test(editor),
 )
@@ -455,7 +456,7 @@ check(
   /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
     /<FullScreenLock tone=\{chromeTone\} fromFirstPaint \/>/.test(editor) /* fromFirstPaint: the lock is set before the editor paints, in place of an html:has() */ &&
     /export function usePhoneChromeTone\(_phone: boolean\): ChromeTone \{\s*\n\s*return "dark"\s*\n\}/.test(nativeChromeSrc) &&
-    /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")) &&
+    /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(untt(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8"), "components/website-builder/full-screen-lock.tsx")) &&
     /live \? "bg-\[#8B56FA\] text-white hover:bg-\[#7b46ec\]"/.test(editor),
 )
 
@@ -542,8 +543,8 @@ check(
 section("The bar answers a touch, and the phone scrolls")
 // ===========================================================================
 
-const menu = readFileSync(join(root, "components/ui/responsive-action-menu.tsx"), "utf8")
-const css = readFileSync(join(root, "app/globals.css"), "utf8")
+const menu = untt(readFileSync(join(root, "components/ui/responsive-action-menu.tsx"), "utf8"), "components/ui/responsive-action-menu.tsx")
+const css = untt(readFileSync(join(root, "app/globals.css"), "utf8"))
 
 check(
   "Back is an arrow, and pressing it answers instantly with a leaving screen",
@@ -644,14 +645,14 @@ check(
 section("A dark bar stays dark, and settings is a page")
 // ===========================================================================
 
-const settingsPage = readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
+const settingsPage = untt(readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8"), "components/website-builder/project-settings.tsx")
 /** The nine pages of Website Settings live beside the shell, one file each. */
 const settingsFiles = ["types.ts", "general.tsx", "backups.tsx"].map((f) =>
-  readFileSync(join(root, "components/website-builder/website-settings", f), "utf8"),
+  untt(readFileSync(join(root, "components/website-builder/website-settings", f), "utf8")),
 )
 const settingsAll = [settingsPage, ...settingsFiles].join("\n")
-const publishPanel = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
-const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+const publishPanel = untt(readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8"), "components/website-builder/publish-panel.tsx")
+const codePage = untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx")
 const headerSrc = editor.slice(editor.indexOf("<header className"), editor.indexOf("</header>"))
 
 check(
@@ -1046,7 +1047,7 @@ check(
     // and the bar stays dark, which is not this rule's business but is what
     // the surround was briefly changed to match
     /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
-    ((css) => !/\.wb-seam-(fill|divider|top) \{/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
+    ((css) => !/\.wb-seam-(fill|divider|top) \{/.test(css))(untt(readFileSync(join(root, "app/globals.css"), "utf8"))),
 )
 
 check(
@@ -1094,7 +1095,7 @@ check(
     !/html\.capacitor:has\(\.wb-editor\)/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) &&
     // and the bar still pays for the strip it now owns
     /\.wb-editor-topbar \{[\s\S]{0,120}?padding-top: var\(--wb-safe-top\);/.test(css))(
-      readFileSync(join(root, "app/globals.css"), "utf8"),
+      untt(readFileSync(join(root, "app/globals.css"), "utf8")),
     ) && /<FullScreenLock tone=\{chromeTone\} fromFirstPaint \/>/.test(editor) /* fromFirstPaint: the lock is set before the editor paints, in place of an html:has() */,
 )
 
@@ -1121,7 +1122,7 @@ check(
     /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(code) &&
     // and the legend is desktop furniture
     /border-t border-\[var\(--code-border\)\] space-y-1", narrow && "hidden"/.test(code))(
-      readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"),
+      untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx"),
     ),
 )
 
@@ -1188,7 +1189,7 @@ check(
     /THE LIST STARTS AT ITS TOP, IN THE SAME FRAME, AND THAT IS ALL\./.test(library) &&
     !/categoryChanged/.test(library) &&
     ((css) => /\.wb-chip-row \{[\s\S]{0,200}?scroll-snap-type: x proximity;/.test(css))(
-        readFileSync(join(root, "app/globals.css"), "utf8"),
+        untt(readFileSync(join(root, "app/globals.css"), "utf8")),
       ),
 )
 
@@ -1258,7 +1259,7 @@ check(
     ((code) =>
       /type: "storelib:code-theme", theme: codeTheme/.test(code) &&
       /data\.type !== "storelib:set-code-theme"/.test(code))(
-        readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"),
+        untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx"),
       ),
 )
 
@@ -1299,7 +1300,7 @@ check(
     // and the inset is measured, not guessed
     /const covered = window\.innerHeight - vv\.height - vv\.offsetTop/.test(code) &&
     /vv\.addEventListener\("resize", measure\)/.test(code))(
-      readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"),
+      untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx"),
     ),
 )
 
@@ -1379,7 +1380,7 @@ check(
     /* Taller than wide on a phone: a phone's layout is a column, and its first screen is what is shown. */
     /export const PREVIEW_RATIO_MOBILE = 1\.22/.test(library) &&
     /const renderWidth = phone \? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH/.test(library) &&
-    /export const previewKey = \(type: string, presetIndex: number, width: number, sourcesTag: string\) =>\s*`\$\{type\}:\$\{presetIndex\}:\$\{width\}:\$\{sourcesTag\}`/.test(readFileSync(join(root, "lib/website-builder/preview-markup.ts"), "utf8")) &&
+    /export const previewKey = \(type: string, presetIndex: number, width: number, sourcesTag: string\) =>\s*`\$\{type\}:\$\{presetIndex\}:\$\{width\}:\$\{sourcesTag\}`/.test(untt(readFileSync(join(root, "lib/website-builder/preview-markup.ts"), "utf8"), "lib/website-builder/preview-markup.ts")) &&
     /const scale = width > 0 \? width \/ renderWidth : 0\.3/.test(library) &&
     /deviceMode=\{job\.width <= PREVIEW_RENDER_WIDTH_MOBILE \? "mobile" : "desktop"\}/.test(library),
 )
@@ -1442,7 +1443,7 @@ check(
   /on \? "bg-\[#1a1a2e\] text-white" : "bg-\[#f3f4f6\] text-\[#4b5563\]"/.test(library) &&
     !/\? "bg-foreground text-background"/.test(library) &&
     ((css) => /\.wb-chip-row \{[\s\S]{0,400}?-webkit-tap-highlight-color: transparent;/.test(css))(
-      readFileSync(join(root, "app/globals.css"), "utf8"),
+      untt(readFileSync(join(root, "app/globals.css"), "utf8")),
     ),
 )
 
@@ -1503,7 +1504,7 @@ check(
     /target\?\.closest\("\[data-wb-no-bounce-guard\]"\)/.test(guard) &&
     // the branch that did the damage is still there for everywhere else
     /Page fits on screen — prevent rubber-band in both directions/.test(guard))(
-      readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"),
+      untt(readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"), "components/platform/capacitor-bounce-guard.tsx"),
     ) && /data-wb-no-bounce-guard=""/.test(editor),
 )
 
@@ -1577,7 +1578,7 @@ check(
 section("A phone's bar, and sheets that know which is on top")
 // ===========================================================================
 
-const sheetSrc = readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8")
+const sheetSrc = untt(readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8"), "components/website-builder/mobile-editor-sheet.tsx")
 
 check(
   "sheets that open for a moment sit above the one that is always there",
@@ -1594,7 +1595,7 @@ check(
     // The menu is the shared sheet, which is portalled to the body at 200:
     // above the raised layer, whatever the order in the tree.
     /<BottomSheet isOpen=\{sheetOpen\}/.test(menu) &&
-    /"fixed inset-0", zIndex == null && "z-\[200\]"/.test(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8")) &&
+    /"fixed inset-0", zIndex == null && "z-\[200\]"/.test(untt(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8"), "components/ui/bottom-sheet.tsx")) &&
     /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(publish) &&
     /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,120}layer="raised" peekHeight=\{0\}/.test(editor),
 )
@@ -1627,7 +1628,7 @@ check(
   // The menu is the shared sheet, which has no fixed height: it is its rows,
   // capped at min(86dvh, 720px), and scrolls past that.
   /<BottomSheet isOpen=\{sheetOpen\}(?![^>]*height=)[^>]*>/.test(menu) &&
-    /maxHeight = "min\(86dvh, 720px\)"/.test(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8")) &&
+    /maxHeight = "min\(86dvh, 720px\)"/.test(untt(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8"), "components/ui/bottom-sheet.tsx")) &&
     /fit\s*\n\s*detents=\{\[0\.88\]\}/.test(publish) &&
     !/detents=\{\[0\.4\]\}/.test(publish) &&
     /<Body \{\.\.\.props\} pinActions active=\{open\} \/>/.test(publish) &&
@@ -1654,7 +1655,7 @@ check(
 
 check(
   "the editor dissolves in and out instead of cutting",
-  /wb-editor-enter/.test(editor) && /leaving && "wb-editor-leaving"/.test(editor) && /\.wb-editor-leaving \{/.test(readFileSync(join(root, "app/globals.css"), "utf8")),
+  /wb-editor-enter/.test(editor) && /leaving && "wb-editor-leaving"/.test(editor) && /\.wb-editor-leaving \{/.test(untt(readFileSync(join(root, "app/globals.css"), "utf8"))),
 )
 
 check(
@@ -1896,7 +1897,7 @@ check(
 section("The website list, and the row of themes under it")
 // ===========================================================================
 
-const wbPage = readFileSync(join(root, "app/app/website-builder/website-builder-client.tsx"), "utf8")
+const wbPage = untt(readFileSync(join(root, "app/app/website-builder/website-builder-client.tsx"), "utf8"), "app/app/website-builder/website-builder-client.tsx")
 
 check(
   "the theme row sits on the page's gutters like every other block",
@@ -1945,8 +1946,8 @@ check(
 // with the next deploy. So the insets are read in CSS, from env(), where they
 // are real on iOS, zero in a browser, and zero on Android until that app goes
 // edge-to-edge — no branch, no user-agent test, no plugin.
-const editorCss = readFileSync(join(root, "app/globals.css"), "utf8")
-const codePageSrc = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+const editorCss = untt(readFileSync(join(root, "app/globals.css"), "utf8"))
+const codePageSrc = untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx")
 
 check(
   "the editor's geometry comes from env(), in one place",
@@ -2022,15 +2023,15 @@ check(
 section("Backups: every task, every publish, and a way back that is never one-way")
 // ===========================================================================
 
-const backupsLib = readFileSync(join(root, "lib/website-builder/backups.ts"), "utf8")
-const backupsRoute = readFileSync(join(root, "app/api/website-builder/themes/[installId]/backups/route.ts"), "utf8")
-const restoreRoute = readFileSync(
+const backupsLib = untt(readFileSync(join(root, "lib/website-builder/backups.ts"), "utf8"), "lib/website-builder/backups.ts")
+const backupsRoute = untt(readFileSync(join(root, "app/api/website-builder/themes/[installId]/backups/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/backups/route.ts")
+const restoreRoute = untt(readFileSync(
   join(root, "app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts"),
   "utf8",
-)
-const publishRoute = readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8")
-const backupsSql = readFileSync(join(root, "supabase/sql/RUN_THEME_BACKUPS.sql"), "utf8")
-const themeChat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+), "app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts")
+const publishRoute = untt(readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/publish/route.ts")
+const backupsSql = untt(readFileSync(join(root, "supabase/sql/RUN_THEME_BACKUPS.sql"), "utf8"))
+const themeChat = untt(readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")
 
 check(
   "a backup is the editor's own view of the project: the draft where there is one",
@@ -2200,7 +2201,7 @@ check(
 // ====================================================================section("Links stay in the builder, and loading looks like what is coming")
 // ===========================================================================
 
-const headerRenderer = readFileSync(join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"), "utf8")
+const headerRenderer = untt(readFileSync(join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"), "utf8"), "components/website-builder/sections/renderers/HeaderSection.tsx")
 
 check(
   "a nav link inside the editor is intercepted whether or not the inspector is on",
@@ -2276,7 +2277,7 @@ check(
     /dnd=\{\{ onReorder: reorderSection \}\}/.test(editor) &&
     /const reorderSection = useCallback\(\(fromId: string, toId: string\) =>/.test(editor) &&
     !/useSensor\(TouchSensor/.test(editor) &&
-    /hapticTap\("light"\)/.test(readFileSync(join(root, "components/website-builder/editor/controls/use-reorder.ts"), "utf8")) &&
+    /hapticTap\("light"\)/.test(untt(readFileSync(join(root, "components/website-builder/editor/controls/use-reorder.ts"), "utf8"), "components/website-builder/editor/controls/use-reorder.ts")) &&
     /import \{ hapticTap \} from "@\/lib\/native-bridge"/.test(editor) &&
     !/navigator\.vibrate/.test(editor),
 )
@@ -2382,9 +2383,9 @@ check(
 // above the sections sheet, which is pinned to the viewport and so stayed
 // put. With the fix the same measurement reads 0, and the canvas meets the
 // sheet with a gap of exactly 0 both with the inset and without it.
-const lockSrc = readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")
-const wbLayout = readFileSync(join(root, "app/website-builder/layout.tsx"), "utf8")
-const readRoot = (p: string) => readFileSync(join(root, p), "utf8")
+const lockSrc = untt(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8"), "components/website-builder/full-screen-lock.tsx")
+const wbLayout = untt(readFileSync(join(root, "app/website-builder/layout.tsx"), "utf8"), "app/website-builder/layout.tsx")
+const readRoot = (p: string) => untt(readFileSync(join(root, p), "utf8"))
 
 check(
   "the editor is pinned to the viewport rather than laid out in the body's flow",
@@ -2474,7 +2475,7 @@ check(
   // fight over the same finger and the guard wins.
   /data-mobile-bottom-sheet=""/.test(sheetSrc) &&
     /data-mobile-bottom-sheet/.test(
-      readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"),
+      untt(readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"), "components/platform/capacitor-bounce-guard.tsx"),
     ),
 )
 
@@ -2637,8 +2638,8 @@ check(
 section("Waiting: nine squares, words that change, and a code pane already warm")
 // ===========================================================================
 
-const loaderSrc = readFileSync(join(root, "components/website-builder/builder-loader.tsx"), "utf8")
-const leaveConfirm = readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8")
+const loaderSrc = untt(readFileSync(join(root, "components/website-builder/builder-loader.tsx"), "utf8"), "components/website-builder/builder-loader.tsx")
+const leaveConfirm = untt(readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8"), "components/website-builder/leave-confirm.tsx")
 
 check(
   "the builder waits behind nine staggered squares and a line of text, not a bar with nothing under it",
@@ -2934,8 +2935,8 @@ check(
    * glass safe: `backdrop-filter` samples the nearest backdrop root, and any
    * ancestor with an opacity, a filter or a transform creates one.
    */
-  /import \{ createPortal \} from "react-dom"/.test(readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8")) &&
-    /return createPortal\(\s*\n\s*<div/.test(readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8")),
+  /import \{ createPortal \} from "react-dom"/.test(untt(readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8"), "components/website-builder/leave-confirm.tsx")) &&
+    /return createPortal\(\s*\n\s*<div/.test(untt(readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8"), "components/website-builder/leave-confirm.tsx")),
 )
 
 check(

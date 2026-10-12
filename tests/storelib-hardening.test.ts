@@ -15,6 +15,7 @@ import { takenNote, unfence, writeSectionSystem } from "@/lib/website-builder/ag
 import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
 import { FILTER_NAMES } from "@/lib/storelib-theme/storelib/template"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -26,7 +27,7 @@ function check(name: string, ok: boolean, detail = "") {
 function section(t: string) { console.log(`\n${t}`) }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 /** The starter, built the way the code editor builds it, for type "mine". */
 function starterSource(): string {

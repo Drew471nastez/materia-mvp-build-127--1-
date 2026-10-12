@@ -87,7 +87,7 @@ function section(title: string) {
 }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 /**
  * Source with its comments removed.
@@ -4758,6 +4758,7 @@ createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMo
 `,
   "src/App.tsx": `import Hero from "./components/Hero"
 import Footer from "./components/Footer"
+import { untt } from "./i18n-source"
 
 export default function App() {
   return (

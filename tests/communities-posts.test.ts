@@ -102,6 +102,7 @@ import { TYPING_EVERY_MS, TYPING_SHOWN_MS, typingLine } from "@/components/commu
 import { fitsList } from "@/components/community/member/feed-live"
 import type { CommunityRow } from "@/lib/communities/types"
 import type { Viewer } from "@/lib/communities/server/context"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -116,7 +117,7 @@ function check(name: string, ok: boolean, detail?: string) {
     console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
 const OWN = "https://abc.supabase.co/storage/v1/object/public/product-images/u/x.jpg"

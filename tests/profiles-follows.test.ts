@@ -49,6 +49,7 @@ import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { PROFILE_AVATAR_PX } from "@/components/profile/profile-hero"
 import { isValidUsername } from "@/lib/reserved-words"
 import { NEW_PRODUCT_HREF, sectionsWithoutProducts, tabsWithoutProducts } from "@/components/storefront/no-products"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -65,7 +66,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 /* ── A small PostgREST stand in: enough of the builder for these readers ─── */
 

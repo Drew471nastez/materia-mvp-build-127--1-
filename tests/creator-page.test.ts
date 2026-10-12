@@ -35,6 +35,7 @@ import { isDarkScheme } from "../lib/store-builder/scheme-tone"
 import { productPageTone } from "../lib/store-builder/product-page-tone"
 import { canvasRefusesHref, embeddedHref } from "../lib/store-builder/editor-channel"
 import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
+import { untt } from "./i18n-source"
 
 const root = process.cwd()
 let passed = 0
@@ -52,7 +53,7 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 /**
  * Source with its comments taken out.
  *

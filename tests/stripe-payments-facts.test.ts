@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { paymentUxStateOf, stripeCheckoutReady, stripeRowReady, stripeStageOf, type StripeCreatorSnapshot } from "@/lib/payments/stripe/facts"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -18,7 +19,7 @@ function check(name: string, ok: boolean) {
     console.log(`  FAIL  ${name}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 /* Code only: comments may name what the code no longer does. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 

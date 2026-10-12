@@ -49,6 +49,7 @@
  * the focused field to its nearest scrollable ancestor and centres it, which
  * covers the sheet's own inner scroller once the sheet is the right size.
  */
+import { untt } from "./i18n-source"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 
@@ -73,7 +74,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(join(process.cwd(), dir))) {

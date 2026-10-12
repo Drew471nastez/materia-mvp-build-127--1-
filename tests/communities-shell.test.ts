@@ -80,6 +80,7 @@ import { adminCount, communityStats, HEARTBEAT_MS, onlineCount, ONLINE_WINDOW_MS
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { FEED_SORTS, cursorAfter, decodeCursor, encodeCursor, feedSort, keysetCondition, listFeed, unreadSince } from "@/lib/communities/server/feed"
 import { AHEAD_AT_ONCE, AHEAD_MAX, FRESH_MS, addPost, clearViews, dropSaved, firstPage, loadView, patchPost, prefetchView, prefetchViews, readView, viewKey, viewUrl, writeView } from "@/components/community/member/feed-cache"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -94,7 +95,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 /* Code without its comments, so a check reads what runs. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 

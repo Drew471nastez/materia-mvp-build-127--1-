@@ -36,6 +36,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import * as React from "react"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -44,7 +45,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   else { failed++; console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`) }
 }
 const section = (t: string) => console.log(`\n${t}`)
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 /* ── A document small enough to read, for the registry ── */

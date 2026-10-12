@@ -33,6 +33,7 @@ import { readFileSync } from "node:fs"
 import { readCode } from "./_source"
 import { VERIFY_LINES, identityUnavailable, readsLikeStripe, verifyLine, verifyWay } from "../lib/payments/verify-id"
 import { idOutstanding } from "../lib/payments/stripe/status"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -47,7 +48,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail !== undefined ? `\n          ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 
 /* The refusal in the owner's screenshot, as the Stripe library hands it over. */
 const OWNERS_ERROR = {

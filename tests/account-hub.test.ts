@@ -22,6 +22,7 @@ import { ACCOUNT_TABS, accountLoginPath, accountTabFor } from "../lib/account/ac
 import { sellerAccessFrom, hasSellerAccess } from "../lib/account/seller-access"
 import { buyerTabFor, buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
 import { ownerPillFor, showsProfileHeader } from "../lib/profile/owner-pills"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -29,7 +30,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 console.log("\nThe profile's pages")
