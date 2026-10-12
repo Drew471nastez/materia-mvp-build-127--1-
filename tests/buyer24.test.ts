@@ -158,7 +158,8 @@ async function main() {
     const base = db.from.bind(db)
     /* The database's own checks, as far as these paths reach: part 117's topic list, and part 164's photos column. */
     ;(db as unknown as { from: (t: string) => unknown }).from = (t: string) => {
-      const b = base(t) as Record<string, (...a: unknown[]) => unknown>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const b = base(t) as Record<string, (...a: any[]) => unknown>
       if (t === "order_cases" && opts.oldCheck) {
         const insert = b.insert
         b.insert = (payload: Record<string, unknown>) => (cases.REASONS_SINCE_164.has(payload.reason as never) ? { select: () => ({ single: async () => ({ data: null, error: { code: "23514", message: "violates check constraint" } }) }) } : insert(payload))
