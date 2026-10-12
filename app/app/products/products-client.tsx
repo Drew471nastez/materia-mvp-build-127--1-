@@ -6,7 +6,7 @@ import { deleteProduct, deleteQuestion, isStale, previewProductDelete, rememberD
 import { forwardRef, memo, useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
-import { getProductUrl } from "@/lib/url-helpers"
+import { getCanonicalSiteUrl, getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { PickSheet } from "./pick-sheet"
 import { asksInPlace, useNewProductChooser } from "./new/kind-chooser"
@@ -588,6 +588,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         description: product.description || null,
         includes_community: product.includes_community || false,
         archived: false,
+        /* A copy of a thing that ships ships too, never the column's default (part 161). */
+        ...(product.type === "physical" ? { requires_shipping: true } : {}),
       }
 
       const { data, error } = await supabase
@@ -962,13 +964,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     serves published products only) and there is no preview address for
     one, so its View is drawn but off: "Publish to view" on a pointer, and
     in a toast on a phone. In the app the page opens in the phone's browser
-    through openExternal, as the editor's View does. Never the row's press.
+    through openExternal, as the editor's View does, with the whole address
+    when View is the live route on Storelib itself. Never the row's press.
   */
   const openPreview = (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     e.stopPropagation()
     if (isNativeApp()) {
       e.preventDefault()
-      openExternal(url)
+      openExternal(url.startsWith("/") ? `${getCanonicalSiteUrl()}${url}` : url)
     }
   }
   const previewOff = (e: ReactMouseEvent<HTMLButtonElement>) => {
@@ -1439,7 +1442,7 @@ interface RowLabels {
 function useRowActions(product: Product, username: string, labels: RowLabels, api: RowApiRef) {
   return useMemo(
     () => [
-      { label: labels.view, href: getProductUrl(username, product.slug), target: "_blank" as const },
+      { label: labels.view, href: viewUrl(product, username), target: "_blank" as const },
       { label: labels.share, onClick: () => api.current?.share(product) },
       { label: isArchived(product) ? labels.restore : labels.archive, onClick: () => api.current?.archive(product), separatorBefore: true },
       { label: labels.duplicate, onClick: () => api.current?.duplicate(product) },
@@ -1450,6 +1453,16 @@ function useRowActions(product: Product, username: string, labels: RowLabels, ap
 }
 
 /**
+ * Where View opens. A product that ships is bought on the store's published
+ * website, so it opens there (app/api/app/products/[id]/live picks the
+ * domain, else the storelib.com address), as the editor's View on your
+ * store does; every other product opens on the creator page.
+ */
+function viewUrl(product: Product, username: string): string {
+  return product.type === "physical" ? `/api/app/products/${encodeURIComponent(product.id)}/live` : getProductUrl(username, product.slug)
+}
+
+/**
  * A row's View, in the table only: a link to the product's page in a new
  * tab, or, for a product that has no public page, the same word drawn off,
  * with why on a pointer. A phone row has only the more button, whose menu
@@ -1457,7 +1470,7 @@ function useRowActions(product: Product, username: string, labels: RowLabels, ap
  */
 function Preview({ product, username, look, api }: { product: Product; username: string; look: string; api: RowApiRef }) {
   const on = productStatus(product) === "live"
-  const url = getProductUrl(username, product.slug)
+  const url = viewUrl(product, username)
   const button = on ? (
     <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={tt("View {title}", { title: product.title })} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
       {tt("View")}

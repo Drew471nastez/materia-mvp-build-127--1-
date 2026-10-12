@@ -140,8 +140,6 @@ export function Mark({ item, size = 44 }: { item: { logo: string | null; name: s
         alt=""
         width={size}
         height={size}
-        loading="lazy"
-        decoding="async"
         onError={() => setFailed(logo)}
         style={{ width: size, height: size, borderRadius: radiusAt(size), padding: Math.round(size * 0.18) }}
         className="shrink-0 border border-[#eceef1] bg-white object-contain"

@@ -195,7 +195,7 @@ console.log("\nAddresses")
   check("an unknown country is refused", !readAddress({ name: "A", line1: "B", city: "C", postalCode: "1", country: "XX" }).ok)
   const noZip = readAddress({ name: "A", line1: "B", city: "C", country: "US" })
   check("a postal code where the post uses one", noZip.ok === false && noZip.field === "postalCode")
-  check("not where it doesn't", postalCodeRequired("AE") === false && readAddress({ name: "A", line1: "B", city: "Dubai", country: "AE" }).ok)
+  check("not where it doesn't", postalCodeRequired("AE") === false && readAddress({ name: "A", line1: "B", city: "Dubai", region: "Dubai", country: "AE" }).ok)
   check("markup is stripped", readAddress({ name: "<b>Ana</b>", line1: "x", city: "y", postalCode: "123", country: "DE" }).ok && (readAddress({ name: "<b>Ana</b>", line1: "x", city: "y", postalCode: "123", country: "DE" }) as { address: { name: string } }).address.name === "bAna/b")
   check("lines for a label", addressLines({ name: "Ana", line1: "Str 5", city: "Cluj", postalCode: "400001", country: "RO" }).join("|") === "Ana|Str 5|Cluj, 400001|Romania")
 }
