@@ -86,7 +86,7 @@ export function TrackingAppPanel({ preferred = "aftership", onChanged }: { prefe
             </p>
             {view.own.lastError ? <p className="text-[12.5px] text-[#92400e]">{view.own.lastError}</p> : null}
             {view.own.webhookUrl ? (
-              <Field label={`Webhook address for ${view.own.providerName}`} hint={view.own.provider === "aftership" ? "In AfterShip, Settings > Webhooks: add this address and paste its webhook secret below, so updates arrive the moment they happen. Without it Storelib checks every few hours." : "In 17TRACK, Settings > Webhook: add this address. 17TRACK signs updates with your API key. Without it Storelib checks every few hours."}>
+              <Field label={`Webhook address for ${view.own.providerName}`} hint={view.own.provider === "aftership" ? "In AfterShip, Settings > Webhooks: add this address, then paste its webhook secret under Change key, so updates arrive the moment they happen. Without it Storelib checks every few hours." : "In 17TRACK, Settings > Webhook: add this address. 17TRACK signs updates with your API key. Without it Storelib checks every few hours."}>
                 <div className="flex gap-2">
                   <input readOnly value={view.own.webhookUrl} className="h-10 min-w-0 flex-1 rounded-lg border border-[#e5e7eb] bg-[#f8f9fa] px-3 font-mono text-[12px] text-[#4b5563]" onFocus={(e) => e.currentTarget.select()} />
                   <button type="button" className={cn(BTN_SECONDARY, "shrink-0 px-3")} onClick={async () => setCopied(await copyText(view.own!.webhookUrl!))}>
