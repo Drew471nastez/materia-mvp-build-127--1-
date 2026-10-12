@@ -81,6 +81,7 @@ import * as React from "react"
 import { closeMicrophoneSession, openMicrophoneSession } from "@/lib/website-builder/ask-sounds"
 import { pickRecordingType, recordingFileName } from "@/lib/website-builder/voice-format"
 import { QUICK_END_MS, isTransientSpeechError, joinHeard, shouldRestart, transcriptOf } from "@/lib/website-builder/ask-dictation"
+import { tt } from "@/lib/i18n/text"
 
 export type VoiceState = "idle" | "starting" | "listening" | "transcribing"
 type Engine = "speech" | "record"
@@ -221,8 +222,8 @@ export function isPermissionError(code: string): boolean {
 /** A recogniser's or a recorder's failure, in words somebody can act on. */
 export function voiceErrorMessage(code: string, where: "ios" | "android" | "web" = "web"): string {
   if (isPermissionError(code)) {
-    if (where === "ios") return "Storelib is not allowed to use the microphone. Turn on Microphone for Storelib in Settings, then try again."
-    if (where === "android") return "Storelib is not allowed to use the microphone. Allow Microphone in Storelib's app permissions, then try again."
+    if (where === "ios") return tt("Storelib is not allowed to use the microphone. Turn on Microphone for Storelib in Settings, then try again.")
+    if (where === "android") return tt("Storelib is not allowed to use the microphone. Allow Microphone in Storelib's app permissions, then try again.")
   }
   switch (code) {
     case "not-allowed":
@@ -230,31 +231,31 @@ export function voiceErrorMessage(code: string, where: "ios" | "android" | "web"
     case "NotAllowedError":
     case "SecurityError":
     case "PermissionDeniedError":
-      return "Microphone access is off for Storelib. Allow it in your browser or phone settings, then try again."
+      return tt("Microphone access is off for Storelib. Allow it in your browser or phone settings, then try again.")
     case "audio-capture":
     case "NotFoundError":
     case "OverconstrainedError":
-      return "No microphone was found."
+      return tt("No microphone was found.")
     case "NotReadableError":
-      return "Another app is using the microphone."
+      return tt("Another app is using the microphone.")
     case "no-speech":
-      return "Nothing was heard. Try again a little closer to the microphone."
+      return tt("Nothing was heard. Try again a little closer to the microphone.")
     case "network":
-      return "Voice input needs a connection. Check it and try again."
+      return tt("Voice input needs a connection. Check it and try again.")
     case "language-not-supported":
     case "bad-grammar":
-      return "Voice input cannot hear this language here. Type it instead."
+      return tt("Voice input cannot hear this language here. Type it instead.")
     case "NotSupportedError":
     case "TypeError":
-      return "This browser cannot record. Type it, or try another browser."
+      return tt("This browser cannot record. Type it, or try another browser.")
     case "empty":
-      return "Nothing was recorded. Try again, and speak after the tick."
+      return tt("Nothing was recorded. Try again, and speak after the tick.")
     case "interrupted":
-      return "A call or another app took the microphone. Try again."
+      return tt("A call or another app took the microphone. Try again.")
     case "AbortError":
-      return "The microphone stopped before anything was recorded. Try again."
+      return tt("The microphone stopped before anything was recorded. Try again.")
     default:
-      return "Voice input stopped before it heard anything. Try again, or type it."
+      return tt("Voice input stopped before it heard anything. Try again, or type it.")
   }
 }
 
@@ -476,7 +477,7 @@ export function useVoiceInput({
           form.append("audio", blob, recordingFileName(blob.type))
           const response = await fetch("/api/website-builder/transcribe", { method: "POST", body: form })
           const body = (await response.json().catch(() => ({}))) as { text?: string; error?: string }
-          if (!response.ok) setError(body.error ?? "That could not be turned into text. Try again.")
+          if (!response.ok) setError(body.error ?? tt("That could not be turned into text. Try again."))
           else if (!body.text) setError(voiceErrorMessage("no-speech"))
           else if (!cancelled.current) onTextRef.current(body.text, true)
         } catch {

@@ -30,6 +30,7 @@ import { MAX_VIDEO_BYTES as SHARED_MAX_VIDEO_BYTES, MAX_VIDEO_TEXT } from "@/lib
 import { uploadVideo } from "@/lib/files/upload-video"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { INPUT, NOTE, PROBLEM } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 /** What the store-builder-images bucket takes as video. */
 export const VIDEO_TYPES: Record<string, string> = {
@@ -63,11 +64,11 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
   const upload = async (file: File) => {
     const ext = VIDEO_TYPES[file.type]
     if (!ext) {
-      toast.error("Choose an MP4, WebM or MOV video")
+      toast.error(tt("Choose an MP4, WebM or MOV video"))
       return
     }
     if (file.size > MAX_VIDEO_BYTES) {
-      toast.error(`A video here is at most ${MAX_VIDEO_TEXT}`)
+      toast.error(tt("A video here is at most {maxVideo}", { maxVideo: MAX_VIDEO_TEXT }))
       return
     }
     setUploading(true)
@@ -75,7 +76,7 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
       /* With its first frame and length beside it, so Your files shows it as a video (lib/files/upload-video.ts). */
       set((await uploadVideo(file, "videos")).url)
     } catch {
-      toast.error("Upload failed. Try again.")
+      toast.error(tt("Upload failed. Try again."))
     } finally {
       setUploading(false)
     }
@@ -97,40 +98,40 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
           {/* A video already there: Change (upload another or choose one of yours) and Remove, under it. */}
           <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">
             <ResponsiveActionMenu
-              title="Change video"
+              title={tt("Change video")}
               menuWidth="w-56"
               align="start"
               items={[
-                { label: "Upload a new one", icon: <Upload className="h-4 w-4" />, onClick: () => input.current?.click() },
-                { label: "Choose from your files", icon: <FolderOpen className="h-4 w-4" />, onClick: () => setChoosing(true) },
+                { label: tt("Upload a new one"), icon: <Upload className="h-4 w-4" />, onClick: () => input.current?.click() },
+                { label: tt("Choose from your files"), icon: <FolderOpen className="h-4 w-4" />, onClick: () => setChoosing(true) },
               ]}
               trigger={
                 <button type="button" disabled={uploading} onPointerEnter={warm} onFocus={warm} className="flex h-10 w-full items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs data-[state=open]:bg-muted/60" data-video-change="">
                   <RefreshCw className="h-3 w-3" />
-                  Change
+                  {tt("Change")}
                   <ChevronDown className="h-3 w-3 opacity-60" />
                 </button>
               }
             />
-            <button type="button" aria-label="Remove video" disabled={uploading} onClick={() => set("")} className="flex h-10 items-center justify-center gap-1.5 border-l border-border text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs">
+            <button type="button" aria-label={tt("Remove video")} disabled={uploading} onClick={() => set("")} className="flex h-10 items-center justify-center gap-1.5 border-l border-border text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs">
               <Trash2 className="h-3 w-3" />
-              Remove
+              {tt("Remove")}
             </button>
           </div>
         </div>
       ) : (
         <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border text-[12px] text-muted-foreground" data-video-empty="">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" strokeWidth={1.75} />}
-          <span className="font-medium text-foreground/80">{uploading ? "Uploading" : "Add a video"}</span>
+          <span className="font-medium text-foreground/80">{uploading ? tt("Uploading") : tt("Add a video")}</span>
           {!uploading && (
             <span className="flex items-center gap-1.5">
               <button type="button" onClick={() => input.current?.click()} className={actionClass} data-video-upload="">
                 <Upload className="h-3 w-3" />
-                Upload
+                {tt("Upload")}
               </button>
               <button type="button" onClick={() => setChoosing(true)} onPointerEnter={warm} onFocus={warm} className={actionClass} data-video-library="">
                 <FolderOpen className="h-3 w-3" />
-                Your files
+                {tt("Your files")}
               </button>
             </span>
           )}
@@ -153,21 +154,21 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
         inputMode="url"
         autoComplete="off"
         spellCheck={false}
-        aria-label={label ? `${label} link` : "Video link"}
+        aria-label={label ? tt("{label} link", { label }) : tt("Video link")}
         aria-invalid={!!text && !playable}
         className={INPUT}
-        placeholder="Or paste a link to an .mp4 or .webm"
+        placeholder={tt("Or paste a link to an .mp4 or .webm")}
         /* An uploaded video is the player above, never an address here (lib/storage/media-url.ts). */
         value={typeof shown === "string" && !isOwnMedia(shown) ? shown : ""}
         onChange={(e) => set(e.target.value)}
       />
       {text && player && (
         <p className={PROBLEM} role="alert">
-          That is a {player.host === "youtube" ? "YouTube" : "Vimeo"} page, which a video file setting cannot play. Use the section&apos;s video link setting for it.
+          {tt("That is a")} {player.host === "youtube" ? "YouTube" : "Vimeo"} {tt("page, which a video file setting cannot play. Use the section's video link setting for it.")}
         </p>
       )}
-      {text && !playable && !player && <p className={PROBLEM} role="alert">This is not a link to a video file. It should end in .mp4, .webm or .mov.</p>}
-      {!text && <p className={NOTE}>MP4, WebM or MOV, up to 200 MB.</p>}
+      {text && !playable && !player && <p className={PROBLEM} role="alert">{tt("This is not a link to a video file. It should end in .mp4, .webm or .mov.")}</p>}
+      {!text && <p className={NOTE}>{tt("MP4, WebM or MOV, up to 200 MB.")}</p>}
     </div>
   )
 }

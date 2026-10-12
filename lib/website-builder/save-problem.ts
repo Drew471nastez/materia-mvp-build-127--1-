@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  WHY A SAVE DID NOT GO THROUGH, IN A LINE, AND WHAT TO DO
@@ -33,21 +34,21 @@ export function explainSaveProblem(
   sections?: { name?: string; type: string }[],
 ): SaveProblem {
   const said = typeof body?.error === "string" ? body.error : ""
-  if (status === null) return { title: "You're offline", fix: "Your changes are kept here. Saving resumes when you're back.", action: "retry" }
-  if (status === 401) return { title: "You're signed out", fix: "Sign in again to keep saving. Your changes stay here.", action: "signin" }
-  if (status === 403) return { title: "No access to this website", fix: "Switch to the account that owns it.", action: "back" }
-  if (status === 404) return { title: "This website wasn't found", fix: "It may have been deleted. Go back to your websites.", action: "back" }
-  if (status === 409) return { title: "Changed somewhere else", fix: "Reload to get the latest version, then redo your last change.", action: "reload" }
-  if (status === 413) return { title: "Too much to save", fix: said && !/body|json/i.test(said) ? said : "Remove a section or some blocks, then save again.", action: "undo" }
-  if (status === 429) return { title: "Saving too fast", fix: "Wait a moment, it saves again on its own.", action: "retry" }
+  if (status === null) return { title: tt("You're offline"), fix: tt("Your changes are kept here. Saving resumes when you're back."), action: "retry" }
+  if (status === 401) return { title: tt("You're signed out"), fix: tt("Sign in again to keep saving. Your changes stay here."), action: "signin" }
+  if (status === 403) return { title: tt("No access to this website"), fix: tt("Switch to the account that owns it."), action: "back" }
+  if (status === 404) return { title: tt("This website wasn't found"), fix: tt("It may have been deleted. Go back to your websites."), action: "back" }
+  if (status === 409) return { title: tt("Changed somewhere else"), fix: tt("Reload to get the latest version, then redo your last change."), action: "reload" }
+  if (status === 413) return { title: tt("Too much to save"), fix: said && !/body|json/i.test(said) ? said : tt("Remove a section or some blocks, then save again."), action: "undo" }
+  if (status === 429) return { title: tt("Saving too fast"), fix: tt("Wait a moment, it saves again on its own."), action: "retry" }
   if (status === 400) {
     const where = sectionNamed(body?.issues, sections)
     return {
-      title: where ? `"${where}" couldn't be saved` : "Your last change couldn't be saved",
-      fix: "Undo it or try again. If it keeps happening, reload the editor.",
+      title: where ? tt("\"{where}\" couldn't be saved", { where }) : tt("Your last change couldn't be saved"),
+      fix: tt("Undo it or try again. If it keeps happening, reload the editor."),
       action: "undo",
     }
   }
-  if (status >= 500) return { title: "Storelib didn't answer", fix: "Your changes are kept here. Try again in a moment.", action: "retry" }
-  return { title: "Couldn't save", fix: said && said.length < 120 ? said : "Try again in a moment.", action: "retry" }
+  if (status >= 500) return { title: tt("Storelib didn't answer"), fix: tt("Your changes are kept here. Try again in a moment."), action: "retry" }
+  return { title: tt("Couldn't save"), fix: said && said.length < 120 ? said : tt("Try again in a moment."), action: "retry" }
 }

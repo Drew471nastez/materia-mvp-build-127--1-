@@ -4,9 +4,13 @@ import { creatorForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { ProductsClient } from "./products-client"
 import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = {
-  title: "Products",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Products"),
+  }
 }
 
 /**

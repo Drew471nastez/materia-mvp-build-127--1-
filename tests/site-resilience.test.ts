@@ -12,6 +12,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { siteRead, isSiteReadError } from "../lib/website-builder/site-read"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -19,7 +20,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8")
+const read = (p: string) => untt(readFileSync(join(__dirname, "..", p), "utf8"), p)
 
 ;(async () => {
   console.log("\nA read a live site depends on\n")

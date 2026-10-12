@@ -51,6 +51,8 @@ import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RegistrarMark } from "@/components/app/settings/registrar-mark"
 import { secondaryDepth } from "@/components/ui/depth-button"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface DomainItem {
   id: string
@@ -95,7 +97,7 @@ const VIOLET_BUTTON = cn(ROW_BUTTON, "text-[#7c3aed] border border-[#ede9fe] bg-
 const QUIET_BUTTON = cn(ROW_BUTTON, "text-[#374151] sm:text-[#6b7280] border border-[#e5e7eb] hover:text-[#1a1a2e] hover:bg-[#f9fafb]")
 const REMOVE_BUTTON = cn(ROW_BUTTON, "text-[#6b7280] border border-[#e5e7eb] hover:text-red-600 hover:border-red-200")
 
-const PURPOSE_NAME: Record<DomainPurpose, string> = { website: "Website", creator_page: "Creator page" }
+const PURPOSE_NAME: Record<DomainPurpose, string> = { get website() { return tt("Website") }, get creator_page() { return tt("Creator page") } }
 
 /* ── Reveal: a section coming and going by its own height ───────────────── */
 const REVEAL_MS = 200
@@ -166,21 +168,21 @@ function Reveal({
 }
 
 /* ── Where a domain stands ──────────────────────────────────────────────── */
-type Standing = { label: "Connected" | "Pending" | "Needs attention"; pill: string; icon: ReactNode }
+type Standing = { label: string; pill: string; icon: ReactNode }
 
 function standingOf(d: DomainItem, result: CheckResult | undefined): Standing {
-  if (d.status === "active") return { label: "Connected", pill: "bg-emerald-50 text-emerald-700", icon: <CheckCircle className="h-3 w-3" /> }
+  if (d.status === "active") return { label: tt("Connected"), pill: "bg-emerald-50 text-emerald-700", icon: <CheckCircle className="h-3 w-3" /> }
   const conflict = result?.checks?.some((c) => c.state === "conflict") ?? false
-  if (d.status === "failed" || conflict) return { label: "Needs attention", pill: "bg-red-50 text-red-700", icon: <AlertCircle className="h-3 w-3" /> }
+  if (d.status === "failed" || conflict) return { label: tt("Needs attention"), pill: "bg-red-50 text-red-700", icon: <AlertCircle className="h-3 w-3" /> }
   const moving = d.status === "verifying" || d.status === "ssl_provisioning"
-  return { label: "Pending", pill: "bg-gray-100 text-gray-600", icon: moving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" /> }
+  return { label: tt("Pending"), pill: "bg-gray-100 text-gray-600", icon: moving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" /> }
 }
 
 function addedOn(iso: string | null | undefined): string | null {
   if (!iso) return null
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+  return d.toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" }))
 }
 
 /**
@@ -247,7 +249,7 @@ function CopyButton({ value, what, copied, onCopy }: { value: string; what: stri
     <button
       type="button"
       onClick={() => onCopy(value)}
-      aria-label={copied ? "Copied" : `Copy ${what}`}
+      aria-label={copied ? tt("Copied") : tt("Copy {what}", { what })}
       data-dns-copy=""
       className={cn(
         "relative -my-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors before:absolute before:-inset-1.5 before:content-[''] sm:my-0 sm:h-8 sm:w-8",
@@ -270,7 +272,7 @@ function RecordCell({ label, value, kind, copied, onCopy }: { label: string; val
         </span>
       ) : (
         <span className="min-w-0 flex-1 text-[13px] italic sm:flex-none text-[#6b7280]" data-dns-name="">
-          Leave empty
+          {tt("Leave empty")}
         </span>
       )}
       {value ? <CopyButton value={value} what={`${label.toLowerCase()} ${value}`} copied={copied === value} onCopy={onCopy} /> : null}
@@ -278,7 +280,7 @@ function RecordCell({ label, value, kind, copied, onCopy }: { label: string; val
   )
 }
 
-const STATE_TEXT: Record<RecordCheck["state"], string> = { found: "Found", conflict: "Other value", missing: "Not found" }
+const STATE_TEXT: Record<RecordCheck["state"], string> = { get found() { return tt("Found") }, get conflict() { return tt("Other value") }, get missing() { return tt("Not found") } }
 
 /** The records for one domain: Type, Name, Value, each value with Copy. A row per record from 640 up, stacked below it. */
 function RecordsTable({
@@ -296,9 +298,9 @@ function RecordsTable({
 }) {
   const records = d.records && d.records.length > 0 ? d.records : recordsFor(d.domain)
   return (
-    <div role="table" aria-label={`DNS records for ${d.domain}`} className="rounded-xl border border-[#e5e7eb]" data-dns-table={d.domain}>
+    <div role="table" aria-label={tt("DNS records for {domain}", { domain: d.domain })} className="rounded-xl border border-[#e5e7eb]" data-dns-table={d.domain}>
       <div role="row" className="hidden grid-cols-[72px_minmax(0,1fr)_minmax(0,2fr)] gap-3 px-3 py-2 sm:grid">
-        {["Type", "Name", "Value"].map((h) => (
+        {[tt("Type"), tt("Name"), tt("Value")].map((h) => (
           <span key={h} role="columnheader" className="text-[11px] font-medium text-[#9ca3af]">
             {h}
           </span>
@@ -328,11 +330,11 @@ function RecordsTable({
                 </span>
               ) : null}
             </div>
-            <RecordCell label="Name" value={hostFor(registrar, r)} kind="name" copied={copied} onCopy={onCopy} />
-            <RecordCell label="Value" value={r.value} kind="value" copied={copied} onCopy={onCopy} />
+            <RecordCell label={tt("Name")} value={hostFor(registrar, r)} kind="name" copied={copied} onCopy={onCopy} />
+            <RecordCell label={tt("Value")} value={r.value} kind="value" copied={copied} onCopy={onCopy} />
             {c?.state === "conflict" && c.seen.length > 0 ? (
               <p className="text-[12px] text-amber-700 sm:col-span-3 [overflow-wrap:anywhere]" data-dns-seen="">
-                Also there now: <span className="font-mono">{c.seen.slice(0, 3).join(", ")}</span>. Delete it.
+                {tt("Also there now:")} <span className="font-mono">{c.seen.slice(0, 3).join(", ")}</span>{tt(". Delete it.")}
               </p>
             ) : null}
           </div>
@@ -409,7 +411,7 @@ export function DomainsPanel({
         body: JSON.stringify({ domain: clean, purpose: "website" }),
       })
       const body = (await res.json().catch(() => ({}))) as { domain?: DomainItem; error?: string }
-      if (!res.ok || !body.domain) throw new Error(body.error || "Could not add that domain.")
+      if (!res.ok || !body.domain) throw new Error(body.error || tt("Could not add that domain."))
       /* Read the list again rather than guess what the server changed (a replaced domain, a primary). */
       const list = await fetch("/api/domains").then((r) => (r.ok ? (r.json() as Promise<DomainsData>) : null)).catch(() => null)
       const cur = dataRef.current
@@ -417,9 +419,9 @@ export function DomainsPanel({
       setJustAdded(body.domain.id)
       onData(list ?? { ...(cur ?? { domains: [] }), domains: [body.domain, ...(cur?.domains ?? [])] })
       setDraft("")
-      toast({ title: `${body.domain.domain} added`, description: "Add its DNS records to connect it." })
+      toast({ title: tt("{domain} added", { domain: body.domain.domain }), description: tt("Add its DNS records to connect it.") })
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : "Could not add that domain.")
+      setAddError(e instanceof Error ? e.message : tt("Could not add that domain."))
     } finally {
       setAdding(false)
     }
@@ -450,7 +452,7 @@ export function DomainsPanel({
           checks?: RecordCheck[]
           fixes?: string[]
         }
-        if (!res.ok) throw new Error(r.error || "Could not check the records just now.")
+        if (!res.ok) throw new Error(r.error || tt("Could not check the records just now."))
         const status = r.status || (r.verified ? (r.sslPending ? "ssl_provisioning" : "active") : "pending")
         setTouched(true)
         replaceDomain(d.id, {
@@ -470,13 +472,13 @@ export function DomainsPanel({
           },
         }))
         if (status === "active" && d.status !== "active") {
-          toast({ title: `${d.domain} is connected` })
+          toast({ title: tt("{domain} is connected", { domain: d.domain }) })
           /* The primary host per purpose moved; the server knows it. */
           const list = await fetch("/api/domains").then((x) => (x.ok ? (x.json() as Promise<DomainsData>) : null)).catch(() => null)
           if (list) onData(list)
         }
       } catch (e) {
-        if (!quiet) setResults((all) => ({ ...all, [d.id]: { tone: "bad", message: e instanceof Error ? e.message : "Could not check the records.", checks: null, fixes: [] } }))
+        if (!quiet) setResults((all) => ({ ...all, [d.id]: { tone: "bad", message: e instanceof Error ? e.message : tt("Could not check the records."), checks: null, fixes: [] } }))
       } finally {
         if (!quiet) setChecking(null)
       }
@@ -512,12 +514,12 @@ export function DomainsPanel({
         body: JSON.stringify({ domainId: d.id, action: "set_purpose", purpose: next }),
       })
       const body = (await res.json().catch(() => ({}))) as DomainsData & { error?: string }
-      if (!res.ok || !body.domains) throw new Error(body.error || "Could not change it.")
+      if (!res.ok || !body.domains) throw new Error(body.error || tt("Could not change it."))
       onData(body)
-      toast({ title: `${d.domain} now opens your ${next === "website" ? "website" : "creator page"}` })
+      toast({ title: tt("{domain} now opens your {value}", { domain: d.domain, value: next === "website" ? "website" : tt("creator page") }) })
     } catch (e) {
       replaceDomain(d.id, { purpose: was })
-      toast({ title: e instanceof Error ? e.message : "Could not change it.", variant: "destructive" })
+      toast({ title: e instanceof Error ? e.message : tt("Could not change it."), variant: "destructive" })
     } finally {
       setBusy(null)
     }
@@ -532,11 +534,11 @@ export function DomainsPanel({
         body: JSON.stringify({ domainId: d.id, action: "make_primary" }),
       })
       const body = (await res.json().catch(() => ({}))) as DomainsData & { error?: string }
-      if (!res.ok) throw new Error(body.error || "Could not make it primary.")
+      if (!res.ok) throw new Error(body.error || tt("Could not make it primary."))
       onData(body)
-      toast({ title: `${d.domain} is now primary` })
+      toast({ title: tt("{domain} is now primary", { domain: d.domain }) })
     } catch (e) {
-      toast({ title: e instanceof Error ? e.message : "Could not make it primary.", variant: "destructive" })
+      toast({ title: e instanceof Error ? e.message : tt("Could not make it primary."), variant: "destructive" })
     } finally {
       setBusy(null)
     }
@@ -551,14 +553,14 @@ export function DomainsPanel({
         body: JSON.stringify({ domainId: d.id }),
       })
       const body = (await res.json().catch(() => ({}))) as DomainsData & { error?: string }
-      if (!res.ok) throw new Error(body.error || "Could not remove it.")
+      if (!res.ok) throw new Error(body.error || tt("Could not remove it."))
       const cur = dataRef.current
       setTouched(true)
       onData(body.domains ? body : { ...(cur ?? { domains: [] }), domains: (cur?.domains ?? []).filter((x) => x.id !== d.id) })
       setConfirming(null)
-      toast({ title: `${d.domain} removed` })
+      toast({ title: tt("{domain} removed", { domain: d.domain }) })
     } catch (e) {
-      toast({ title: e instanceof Error ? e.message : "Could not remove it.", variant: "destructive" })
+      toast({ title: e instanceof Error ? e.message : tt("Could not remove it."), variant: "destructive" })
     } finally {
       setBusy(null)
     }
@@ -593,11 +595,11 @@ export function DomainsPanel({
     const p = purposeOf(d)
     if (d.status === "active") {
       const primary = primaryOf(p)
-      if (countOf(p) > 1 && !d.is_primary && primary) return `Sends visitors to ${primary.domain}`
-      return isApexHost(d.domain) ? `Opens at ${d.host || servingHost(d.domain)}` : null
+      if (countOf(p) > 1 && !d.is_primary && primary) return tt("Sends visitors to {domain}", { domain: primary.domain })
+      return isApexHost(d.domain) ? tt("Opens at {value}", { value: d.host || servingHost(d.domain) }) : null
     }
     const added = addedOn(d.created_at)
-    return added ? `Added ${added}` : null
+    return added ? tt("Added {added}", { added }) : null
   }
 
   /** Remove, asked in the row: what happens to the people who already have the address. */
@@ -606,14 +608,14 @@ export function DomainsPanel({
     const primary = primaryOf(p)
     const goesTo = primary && primary.id !== d.id ? primary.domain : fallbackOf(p)
     return (
-      <div role="alertdialog" aria-label={`Remove ${d.domain}?`} data-domain-confirm={d.domain} className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 sm:flex-row sm:items-center">
+      <div role="alertdialog" aria-label={tt("Remove {domain}?", { domain: d.domain })} data-domain-confirm={d.domain} className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium text-red-800">Remove {d.domain}?</p>
-          <p className="text-[12px] text-red-700">{d.status === "active" ? `Visitors go to ${goesTo} for 30 days, then it stops.` : "It is not connected yet, so nothing stops working."}</p>
+          <p className="text-[13px] font-medium text-red-800">{tt("Remove {domain}?", { domain: d.domain })}</p>
+          <p className="text-[12px] text-red-700">{d.status === "active" ? tt("Visitors go to {goesTo} for 30 days, then it stops.", { goesTo }) : tt("It is not connected yet, so nothing stops working.")}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button type="button" onClick={() => setConfirming(null)} className="h-11 flex-1 cursor-pointer rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb] sm:h-8 sm:flex-none sm:text-[12px]">
-            Cancel
+            {tt("Cancel")}
           </button>
           <button
             type="button"
@@ -623,7 +625,7 @@ export function DomainsPanel({
             className="flex h-11 flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg bg-red-600 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:h-8 sm:flex-none sm:text-[12px]"
           >
             {busy === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-            Remove
+            {tt("Remove")}
           </button>
         </div>
       </div>
@@ -634,7 +636,7 @@ export function DomainsPanel({
   const connectsOf = (d: DomainItem) => {
     const p = purposeOf(d)
     /* Before the database knows creator page domains, every domain is the website's. */
-    if (!creatorPageOn) return <p className="text-[12px] text-[#6b7280]">Connects to your website</p>
+    if (!creatorPageOn) return <p className="text-[12px] text-[#6b7280]">{tt("Connects to your website")}</p>
     // CONNECTS TO, AS A ROW OF ITS OWN: the question on the left, the two
     // answers on the right, on a quiet ground so it reads as one setting of
     // this domain. On a phone the answers take the row's width in two equal
@@ -643,7 +645,7 @@ export function DomainsPanel({
       <div className="rounded-xl bg-[#f7f8f9] p-2.5 sm:px-3.5 sm:py-2.5" data-domain-connects-row="">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <span id={`domain-connects-${d.id}`} className="text-[13px] font-medium text-[#1a1a2e]">
-            Connects to
+            {tt("Connects to")}
           </span>
           <div role="radiogroup" aria-labelledby={`domain-connects-${d.id}`} className="grid grid-cols-2 rounded-[11px] bg-[#eceef1] p-0.5 sm:inline-grid" data-domain-connects={d.domain}>
             {(["website", "creator_page"] as DomainPurpose[]).map((option) => {
@@ -667,7 +669,7 @@ export function DomainsPanel({
             })}
           </div>
         </div>
-        {p === "creator_page" ? <p className="mt-1.5 text-[12px] text-[#6b7280]">With your products, and your OnePage at /links.</p> : null}
+        {p === "creator_page" ? <p className="mt-1.5 text-[12px] text-[#6b7280]">{tt("With your products, and your OnePage at /links.")}</p> : null}
       </div>
     )
   }
@@ -690,7 +692,7 @@ export function DomainsPanel({
           */
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center" data-dns-where="">
             <label htmlFor={`domains-registrar-${d.id}`} className="text-[13px] text-[#4b5563] sm:shrink-0">
-              Add these records at
+              {tt("Add these records at")}
             </label>
             <div className="flex min-w-0 items-center gap-2 sm:flex-1">
               {/* A real list rather than the system's, so each provider shows its own mark beside its name. */}
@@ -714,7 +716,7 @@ export function DomainsPanel({
                       className="h-11 cursor-pointer gap-2.5 rounded-lg pl-2.5 text-[14px] text-[#1a1a2e] focus:bg-[#f3f4f6] focus:text-[#1a1a2e] data-[state=checked]:font-medium sm:h-9 sm:text-[13px] [&>span:first-child_svg]:text-[#1a1a2e]"
                     >
                       <RegistrarMark id={r.id} />
-                      {r.id === "other" ? "Another provider" : r.name}
+                      {r.id === "other" ? tt("Another provider") : r.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -725,10 +727,10 @@ export function DomainsPanel({
                   target="_blank"
                   rel="noopener noreferrer"
                   data-dns-open=""
-                  aria-label={`Open ${registrar.name} DNS settings`}
+                  aria-label={tt("Open {name} DNS settings", { name: registrar.name })}
                   className={cn(secondaryDepth, "h-11 shrink-0 rounded-xl px-3.5 text-[14px] no-underline sm:ml-auto sm:h-9 sm:text-[13px]")}
                 >
-                  Open {registrar.name}
+                  {tt("Open {name}", { name: registrar.name })}
                   <ExternalLink className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
                 </a>
               ) : null}
@@ -778,25 +780,25 @@ export function DomainsPanel({
       {blurred ? (
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 shadow-sm sm:px-6 sm:py-3.5 lg:sticky lg:top-3 lg:z-[2]" data-domains-upgrade="">
           <p className="min-w-0 truncate text-[13px] font-medium text-white sm:text-[14px]">
-            <span className="sm:hidden">Upgrade for custom domains</span>
-            <span className="hidden sm:inline">Custom domains are available on the Pro plan.</span>
+            <span className="sm:hidden">{tt("Upgrade for custom domains")}</span>
+            <span className="hidden sm:inline">{tt("Custom domains are available on the Pro plan.")}</span>
           </p>
           <a
             href="/app/settings/billing/upgrade"
             className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-xl bg-white px-5 text-[13px] font-semibold text-[#7c3aed] no-underline shadow-sm transition-colors hover:bg-[#f5f3ff] active:bg-[#ede9fe] sm:h-9"
           >
-            Upgrade
+            {tt("Upgrade")}
           </a>
         </div>
       ) : null}
 
       {/* Adding one: the field, Add, and one line. Nothing else until there is a domain. */}
       <div className={cn(CARD, blurred && BLURRED)} data-domains-connect="" aria-disabled={blurred || undefined}>
-        <h3 className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">Connect your own domain</h3>
+        <h3 className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">{tt("Connect your own domain")}</h3>
         {/* Not a <form>: the Settings page is one form already, and a form inside a form is not HTML. */}
         <div className="flex gap-2" data-domains-add="">
           <label htmlFor="domains-new" className="sr-only">
-            Domain
+            {tt("Domain")}
           </label>
           <input
             id="domains-new"
@@ -833,7 +835,7 @@ export function DomainsPanel({
             data-domains-add-button=""
             className="flex h-11 min-w-[72px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#7c3aed] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : tt("Add")}
           </button>
         </div>
 
@@ -845,7 +847,7 @@ export function DomainsPanel({
         ) : (
           /* The one line: use a domain you own, or get one (the owner's marks). */
           <div id="domains-new-hint" className="mt-1 flex flex-wrap items-center gap-x-1 text-[12px] text-[#6b7280]" data-domains-shops="">
-            <span className="py-3 sm:py-2">Use a domain you own, or get one at</span>
+            <span className="py-3 sm:py-2">{tt("Use a domain you own, or get one at")}</span>
             {/* The three marks wrap together; each reaches 44px on a phone and sits 32px from the next. */}
             <span className="inline-flex px-1.5 sm:px-0">
               {SHOPS.map((shop) => (
@@ -855,7 +857,7 @@ export function DomainsPanel({
                   target="_blank"
                   rel="noopener noreferrer"
                   title={shop.name}
-                  aria-label={`Get a domain at ${shop.name}`}
+                  aria-label={tt("Get a domain at {name}", { name: shop.name })}
                   className="-mx-1.5 inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg opacity-90 transition-opacity hover:bg-[#f3f4f6] hover:opacity-100 sm:mx-0 sm:h-8 sm:w-8"
                 >
                   {shop.mark}
@@ -869,7 +871,7 @@ export function DomainsPanel({
       {/* Your domains: only once there is one. */}
       <Reveal open={ordered.length > 0} animate={touched} data-domains-reveal="list">
         <div className={cn(CARD, blurred && BLURRED)} data-domains-list="" aria-disabled={blurred || undefined}>
-          <h3 className="mb-1 text-[15px] font-semibold text-[#1a1a2e]">Your domains</h3>
+          <h3 className="mb-1 text-[15px] font-semibold text-[#1a1a2e]">{tt("Your domains")}</h3>
 
           {ordered.map((d) => {
             const p = purposeOf(d)
@@ -889,7 +891,7 @@ export function DomainsPanel({
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
                         <p className="min-w-0 text-[14px] font-semibold text-[#1a1a2e] [overflow-wrap:anywhere]">{d.domain}</p>
-                        {primaryMark ? <span className="shrink-0 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
+                        {primaryMark ? <span className="shrink-0 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">{tt("Primary")}</span> : null}
                       </div>
                       {line ? <p className="mt-0.5 text-[12px] text-[#9ca3af] [overflow-wrap:anywhere]" data-domain-line="">{line}</p> : null}
                     </div>
@@ -901,12 +903,12 @@ export function DomainsPanel({
                     <div className="col-span-2 row-start-3 flex gap-2 sm:col-span-1 sm:col-start-3 sm:row-start-1" data-domain-actions="">
                       {!dnsDone ? (
                         <button type="button" onClick={() => void check(d)} disabled={checking === d.id || locked} data-domain-check="" className={cn(VIOLET_BUTTON, "flex-1 sm:flex-none")}>
-                          {checking === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : checked ? "Check again" : "Check"}
+                          {checking === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : checked ? tt("Check again") : tt("Check")}
                         </button>
                       ) : null}
                       {canPrimary ? (
                         <button type="button" onClick={() => void makePrimary(d)} disabled={busy === d.id} data-domain-primary="" className={cn(QUIET_BUTTON, "flex-1 sm:flex-none")}>
-                          {busy === d.id && confirming !== d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Make primary"}
+                          {busy === d.id && confirming !== d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : tt("Make primary")}
                         </button>
                       ) : null}
                       <button
@@ -917,7 +919,7 @@ export function DomainsPanel({
                         data-domain-remove=""
                         className={cn(REMOVE_BUTTON, dnsDone && !canPrimary && "flex-1 sm:flex-none")}
                       >
-                        Remove
+                        {tt("Remove")}
                       </button>
                     </div>
 
@@ -926,7 +928,7 @@ export function DomainsPanel({
                       {connectsOf(d)}
                       {d.status === "ssl_provisioning" ? (
                         <p className="mt-3 text-[12px] text-[#6b7280]" data-dns-certificate="">
-                          Records found. HTTPS is being set up, usually within 10 minutes.
+                          {tt("Records found. HTTPS is being set up, usually within 10 minutes.")}
                         </p>
                       ) : null}
 
@@ -939,7 +941,7 @@ export function DomainsPanel({
                           data-dns-disclosure=""
                           className="mt-1.5 inline-flex h-11 cursor-pointer items-center gap-1 text-[12px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:h-8"
                         >
-                          DNS records
+                          {tt("DNS records")}
                           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none", openRecords[d.id] && "rotate-180")} />
                         </button>
                       ) : null}
@@ -967,25 +969,25 @@ export function DomainsPanel({
               data-domains-help-toggle=""
               className="inline-flex h-11 cursor-pointer items-center gap-1 text-[12px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:h-9"
             >
-              Help
+              {tt("Help")}
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none", helpOpen && "rotate-180")} />
             </button>
             <Reveal open={helpOpen} id="domains-help" data-domains-help="">
               <ul className="space-y-1.5 pb-1 text-[12px] text-[#6b7280]">
-                <li>Your storelib.com addresses keep working. Once your website&apos;s domain is connected, its storelib.com address sends visitors there.</li>
+                <li>{tt("Your storelib.com addresses keep working. Once your website's domain is connected, its storelib.com address sends visitors there.")}</li>
                 <li>
-                  {example} opens at www.{example}.
+                  {tt("{example} opens at www.{example2}.", { example, example2: example })}
                 </li>
-                <li>A creator page domain also carries your products and your OnePage at /links.</li>
-                <li>New records can take a few minutes, and up to 48 hours, to show.</li>
-                <li>Delete other A, AAAA or CNAME records on the same names.</li>
+                <li>{tt("A creator page domain also carries your products and your OnePage at /links.")}</li>
+                <li>{tt("New records can take a few minutes, and up to 48 hours, to show.")}</li>
+                <li>{tt("Delete other A, AAAA or CNAME records on the same names.")}</li>
               </ul>
             </Reveal>
           </div>
         </div>
       </Reveal>
       {/* While the list is first read nothing is drawn under the field: an empty list draws nothing either. */}
-      {loading && !data ? <span className="sr-only" role="status">Loading domains</span> : null}
+      {loading && !data ? <span className="sr-only" role="status">{tt("Loading domains")}</span> : null}
     </div>
   )
 }

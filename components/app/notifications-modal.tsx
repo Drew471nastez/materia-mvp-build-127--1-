@@ -28,6 +28,7 @@ import {
 import { labelOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
 import { PAGE_SIZE, engineTypeOf, isExpired, levelOf, mergePage, oldestOf, relativeTime, type Level } from "@/lib/notifications/center"
 import { CATEGORIES, type Category, type DigestItem } from "@/lib/notifications/types"
+import { tt } from "@/lib/i18n/text"
 
 interface Notification {
   id: string
@@ -481,7 +482,7 @@ export function NotificationsModal({
     if (!ok) {
       setDbNotifications((rows) => optimistic.undo(rows, getUnreadState()).rows)
       setUnreadState(optimistic.undo([], getUnreadState()).state)
-      setMarkError("Could not mark them as read. Try again.")
+      setMarkError(tt("Could not mark them as read. Try again."))
       window.clearTimeout(markErrorTimer.current)
       markErrorTimer.current = window.setTimeout(() => setMarkError(null), 5000)
     }
@@ -554,8 +555,8 @@ export function NotificationsModal({
   const headerButtons = (
     <div className="flex items-center gap-0.5 md:gap-1">
       <HeaderButton
-        label="Unread only"
-        tip={unreadOnly ? "Show all" : "Show unread only"}
+        label={tt("Unread only")}
+        tip={unreadOnly ? tt("Show all") : tt("Show unread only")}
         pressed={unreadOnly}
         onClick={toggleUnreadOnly}
         data-notifications-filter=""
@@ -563,8 +564,8 @@ export function NotificationsModal({
         <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
       </HeaderButton>
       <HeaderButton
-        label="Mark all as read"
-        tip="Mark all as read"
+        label={tt("Mark all as read")}
+        tip={tt("Mark all as read")}
         disabled={!hasUnread || marking}
         onClick={handleMarkAllRead}
         data-notifications-mark-all=""
@@ -621,7 +622,7 @@ export function NotificationsModal({
             <div ref={emptyRef} hidden={filteredNotifications.length > 0} className="flex h-full min-h-[180px] flex-col items-center justify-center gap-2 px-4 py-10" data-notifications-empty="">
               <Bell aria-hidden className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.75} />
               <p className="text-center text-[14px] leading-5 text-[#6b7280]">
-                {unreadOnly ? "No unread notifications" : t("notifications.empty")}
+                {unreadOnly ? tt("No unread notifications") : t("notifications.empty")}
               </p>
             </div>
             {older.hasMore ? (
@@ -633,7 +634,7 @@ export function NotificationsModal({
                   disabled={loadingOlder}
                   className="inline-flex h-11 items-center rounded-lg px-3 text-[13px] font-medium text-[#6b7280] outline-none transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_#1a1a2e] disabled:cursor-default disabled:hover:bg-transparent md:h-9"
                 >
-                  {loadingOlder ? "Loading" : "Show older"}
+                  {loadingOlder ? tt("Loading") : tt("Show older")}
                 </button>
               </div>
             ) : null}
@@ -649,7 +650,7 @@ export function NotificationsModal({
       <BottomSheet
         isOpen={open}
         onClose={closeSheet}
-        label="Notifications"
+        label={tt("Notifications")}
         hideFrom="md"
         fill
         height="min(62dvh, 540px)"
@@ -769,7 +770,7 @@ function NotificationItem({
               className={cn("mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full", tone === "critical" ? "bg-[#d92d20]" : "bg-[#dc6803]")}
             />
           ) : null}
-          {tone === "critical" ? <span className="sr-only">Needs you now: </span> : null}
+          {tone === "critical" ? <span className="sr-only">{tt("Needs you now:")} </span> : null}
           <span data-notification-label="" className={cn("truncate", tone === "critical" && "font-medium text-[#b42318]")}>{labelOf(notification)}</span>
           {when ? <span className="shrink-0 px-1.5 text-[#b6bac1]">&bull;</span> : null}
           {when ? (
@@ -804,8 +805,8 @@ function NotificationItem({
         <button
           type="button"
           onClick={onMarkRead}
-          aria-label="Mark as read"
-          title="Mark as read"
+          aria-label={tt("Mark as read")}
+          title={tt("Mark as read")}
           data-notification-read=""
           className="relative z-[1] -my-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] outline-none transition-colors duration-150 hover:bg-black/[0.05] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_#1a1a2e]"
         >

@@ -7,8 +7,12 @@ import { creatorForRequest } from "@/lib/auth/request-scope"
 import { supabaseStore } from "@/lib/automations/supabase-store"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Identity } from "@/lib/automations/engine"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = { title: "Automation" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("Automation") }
+}
 export const dynamic = "force-dynamic"
 
 /**

@@ -23,18 +23,20 @@ import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
 import { publishedUrl } from "@/lib/sites/public-host"
 import type { Site } from "@/lib/sites/types"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 function relative(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ""
   const mins = Math.round((Date.now() - then) / 60000)
-  if (mins < 1) return "just now"
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return tt("just now")
+  if (mins < 60) return tt("{mins}m ago", { mins })
   const hours = Math.round(mins / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return tt("{hours}h ago", { hours })
   const days = Math.round(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return new Date(then).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  if (days < 30) return tt("{days}d ago", { days })
+  return new Date(then).toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric" }))
 }
 
 function StatusDot({ status }: { status: Site["status"] }) {
@@ -42,7 +44,7 @@ function StatusDot({ status }: { status: Site["status"] }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       <span className={cn("h-1.5 w-1.5 rounded-full", live ? "bg-emerald-500" : "bg-muted-foreground/40")} />
-      {live ? "Published" : status === "unpublished" ? "Unpublished" : "Draft"}
+      {live ? tt("Published") : status === "unpublished" ? tt("Unpublished") : tt("Draft")}
     </span>
   )
 }
@@ -140,7 +142,7 @@ function useCoverReady(): [React.RefObject<HTMLIFrameElement | null>, boolean] {
 function SiteCard({ site }: { site: Site }) {
   const [coverRef, coverScale] = useCoverScale()
   const [frameRef, coverReady] = useCoverReady()
-  const address = site.slug ? publishedUrl(site.slug).replace(/^https:\/\//, "") : "No address yet"
+  const address = site.slug ? publishedUrl(site.slug).replace(/^https:\/\//, "") : tt("No address yet")
   return (
     <div className="group overflow-hidden rounded-[10px] border border-border bg-card transition-colors hover:border-foreground/20">
       <SmartLink
@@ -151,7 +153,7 @@ function SiteCard({ site }: { site: Site }) {
          * breakpoint instead of at the one width it was measured for.
          */
         className="relative block aspect-[16/10] w-full overflow-hidden bg-muted/40"
-        aria-label={`Edit ${site.name}`}
+        aria-label={tt("Edit {name}", { name: site.name })}
       >
         {/*
           * THE SITE AS YOU LAST LEFT IT — published or not.
@@ -235,11 +237,11 @@ function SiteCard({ site }: { site: Site }) {
 
         <div className="flex shrink-0 items-center gap-1">
           <Button asChild size="sm" variant="outline" className="h-8">
-            <SmartLink href={`/sites/${site.id}`}>Edit</SmartLink>
+            <SmartLink href={`/sites/${site.id}`}>{tt("Edit")}</SmartLink>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label="More">
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label={tt("More")}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -248,12 +250,12 @@ function SiteCard({ site }: { site: Site }) {
                 <DropdownMenuItem asChild>
                   <a href={publishedUrl(site.slug)} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    Open site
+                    {tt("Open site")}
                   </a>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
-                <SmartLink href={`/sites/${site.id}/settings`}>Settings</SmartLink>
+                <SmartLink href={`/sites/${site.id}/settings`}>{tt("Settings")}</SmartLink>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -272,13 +274,12 @@ export function SitesDashboard({ sites, canCreate }: { sites: Site[]; canCreate:
         <span className="mb-4 grid h-11 w-11 place-items-center rounded-[10px] border border-border">
           <Sparkles className="h-5 w-5 text-muted-foreground" />
         </span>
-        <h2 className="text-lg font-semibold">Build your first website.</h2>
+        <h2 className="text-lg font-semibold">{tt("Build your first website.")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Describe what you want and Storelib AI writes it. Start from a template, or from nothing
-          at all.
+          {tt("Describe what you want and Storelib AI writes it. Start from a template, or from nothing at all.")}
         </p>
         <div className="mt-6 flex gap-2">
-          <Button onClick={() => router.push("/app/sites/new")}>Create site</Button>
+          <Button onClick={() => router.push("/app/sites/new")}>{tt("Create site")}</Button>
         </div>
         {canCreate && <p className="mt-4 text-xs text-muted-foreground">{canCreate}</p>}
       </div>
@@ -297,7 +298,7 @@ export function SitesDashboard({ sites, canCreate }: { sites: Site[]; canCreate:
         className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
       >
         <Plus className="h-5 w-5" />
-        New site
+        {tt("New site")}
       </button>
     </div>
   )

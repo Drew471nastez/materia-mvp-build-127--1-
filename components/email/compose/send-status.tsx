@@ -10,8 +10,10 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { outstanding, wentOut, type CampaignStatus, type RecipientCounts } from "@/lib/email-campaigns/state"
 import { buttonPrimary, buttonSecondary, card } from "./ui"
+import { tt, ttx } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
-const n = (v: number) => v.toLocaleString("en-US")
+const n = (v: number) => v.toLocaleString(appLocale())
 
 export function SendStatus({
   status,
@@ -40,38 +42,38 @@ export function SendStatus({
 
   const headline =
     status === "queued"
-      ? "Getting ready to send"
+      ? tt("Getting ready to send")
       : status === "sending"
-        ? `Sending to ${n(total)} ${total === 1 ? "person" : "people"}`
+        ? tt("Sending to {total, plural, one {# person} other {# people}}", { total })
         : status === "sent"
-          ? `Sent to ${n(out)} ${out === 1 ? "person" : "people"}`
+          ? tt("Sent to {out, plural, one {# person} other {# people}}", { out })
           : status === "partially_failed"
-            ? `Sent to ${n(out)} of ${n(total)}`
+            ? tt("Sent to {out} of {total}", { out: n(out), total: n(total) })
             : status === "cancelled"
-              ? `Stopped after ${n(out)}`
-              : "Not sent"
+              ? tt("Stopped after {out}", { out: n(out) })
+              : tt("Not sent")
 
   const rows: { label: string; value: number; tone?: "critical" }[] = c
     ? [
-        { label: "Sent", value: out },
-        ...(c.delivered ? [{ label: "Delivered", value: c.delivered }] : []),
-        ...(c.bounced ? [{ label: "Bounced", value: c.bounced, tone: "critical" as const }] : []),
-        ...(c.failed ? [{ label: "Not sent", value: c.failed, tone: "critical" as const }] : []),
-        ...(c.unknown ? [{ label: "May not have arrived", value: c.unknown }] : []),
-        ...(c.skipped ? [{ label: "Left the list before their turn", value: c.skipped }] : []),
-        ...(waiting ? [{ label: "Waiting", value: waiting }] : []),
+        { label: tt("Sent"), value: out },
+        ...(c.delivered ? [{ label: ttx("emails", "Delivered"), value: c.delivered }] : []),
+        ...(c.bounced ? [{ label: tt("Bounced"), value: c.bounced, tone: "critical" as const }] : []),
+        ...(c.failed ? [{ label: tt("Not sent"), value: c.failed, tone: "critical" as const }] : []),
+        ...(c.unknown ? [{ label: tt("May not have arrived"), value: c.unknown }] : []),
+        ...(c.skipped ? [{ label: tt("Left the list before their turn"), value: c.skipped }] : []),
+        ...(waiting ? [{ label: tt("Waiting"), value: waiting }] : []),
       ]
     : []
 
   return (
-    <section aria-label="Send" className={cn(card, "overflow-hidden")} data-send-status={status}>
+    <section aria-label={tt("Send")} className={cn(card, "overflow-hidden")} data-send-status={status}>
       <div className="px-5 pb-4 pt-5">
         <p className="text-[18px] font-semibold text-[#1a1a2e]" aria-live="polite">
           {headline}
         </p>
         <p className="mt-0.5 text-[13px] text-[#6b7280]">{audienceLabel}</p>
         {running ? (
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#eef0f2]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={done} aria-label="Sent so far">
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#eef0f2]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={done} aria-label={tt("Sent so far")}>
             <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${Math.max(3, done)}%` }} />
           </div>
         ) : null}
@@ -103,7 +105,7 @@ export function SendStatus({
               setBusy(null)
             }}
           >
-            {busy === "stop" ? "Stopping…" : "Stop sending"}
+            {busy === "stop" ? tt("Stopping…") : tt("Stop sending")}
           </button>
         ) : null}
         {!running && c && c.failed > 0 && (status === "partially_failed" || status === "failed") ? (
@@ -117,11 +119,11 @@ export function SendStatus({
               setBusy(null)
             }}
           >
-            {busy === "retry" ? "Sending…" : `Send again to the ${n(c.failed)} not sent`}
+            {busy === "retry" ? tt("Sending…") : tt("Send again to the {failed} not sent", { failed: n(c.failed) })}
           </button>
         ) : null}
         <button type="button" className={buttonPrimary} onClick={onBack}>
-          Back to emails
+          {tt("Back to emails")}
         </button>
       </div>
     </section>

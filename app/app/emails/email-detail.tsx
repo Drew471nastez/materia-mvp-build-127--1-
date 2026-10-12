@@ -32,6 +32,8 @@ import { STATUS_LABEL, readStatus, type CampaignStatus } from "@/lib/email-campa
 import { cn } from "@/lib/utils"
 import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { loadReport, reportKey, type EmailReport } from "./emails-data"
+import { tt, ttx } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface EmailSeed {
   id: string
@@ -44,15 +46,15 @@ export interface EmailSeed {
 export type EmailAction = "unschedule" | "stop" | "retry" | "duplicate" | "delete" | "test"
 
 const AUDIENCE: Record<string, string> = {
-  all: "All subscribers",
-  subscribers: "All subscribers",
-  last_24h: "Joined in the last 24 hours",
-  last_7days: "Joined in the last 7 days",
-  last_30days: "Joined in the last 30 days",
-  last_90days: "Joined in the last 90 days",
-  onepage: "Joined on your OnePage",
-  store_builder: "Joined on your website",
-  segment: "A segment",
+  get all() { return tt("All subscribers") },
+  get subscribers() { return tt("All subscribers") },
+  get last_24h() { return tt("Joined in the last 24 hours") },
+  get last_7days() { return tt("Joined in the last 7 days") },
+  get last_30days() { return tt("Joined in the last 30 days") },
+  get last_90days() { return tt("Joined in the last 90 days") },
+  get onepage() { return tt("Joined on your OnePage") },
+  get store_builder() { return tt("Joined on your website") },
+  get segment() { return tt("A segment") },
 }
 
 function when(iso?: string | null): string {
@@ -60,10 +62,10 @@ function when(iso?: string | null): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
   const sameYear = d.getFullYear() === new Date().getFullYear()
-  return d.toLocaleString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), hour: "numeric", minute: "2-digit" })
+  return d.toLocaleString(appLocale(), zoned({ month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), hour: "numeric", minute: "2-digit" }))
 }
 
-const n = (v: number) => Math.round(v).toLocaleString("en-US")
+const n = (v: number) => Math.round(v).toLocaleString(appLocale())
 function pct(part: number, whole: number): string {
   if (!whole) return ""
   return `${Math.round((part / whole) * 1000) / 10}%`
@@ -92,7 +94,7 @@ export function EmailDetail({
   const { data: report, error } = useCached<EmailReport>(reportKey(seed.id), () => loadReport(seed.id))
   const c = report?.campaign
   const status = readStatus(c?.status ?? seed.status)
-  const subject = (c?.subject ?? seed.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || (report ? "Untitled" : "")
+  const subject = (c?.subject ?? seed.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || (report ? tt("Untitled") : "")
   const [busy, setBusy] = React.useState<EmailAction | null>(null)
   const [dialog, setDialog] = React.useState<null | "delete" | "test">(null)
   /* A computer sees the email at its own 600px, scaled to the column; a phone sees it life size. */
@@ -132,44 +134,44 @@ export function EmailDetail({
   const editHref = `/app/emails/edit/${seed.id}`
   const failed = report?.stats?.failed ?? 0
   const items: ActionMenuItem[] = [
-    { label: "Send a test to yourself", icon: <Send className="h-4 w-4" />, onClick: () => setDialog("test") },
+    { label: tt("Send a test to yourself"), icon: <Send className="h-4 w-4" />, onClick: () => setDialog("test") },
     ...(status === "sent" || status === "partially_failed" || status === "failed" || status === "cancelled" || running
       ? []
-      : [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void run("duplicate") }]),
+      : [{ label: tt("Duplicate"), icon: <Copy className="h-4 w-4" />, onClick: () => void run("duplicate") }]),
     ...(failed > 0 && !running && (status === "partially_failed" || status === "failed")
-      ? [{ label: `Send again to the ${n(failed)} not sent`, icon: <Send className="h-4 w-4" />, onClick: () => void run("retry") }]
+      ? [{ label: tt("Send again to the {failed} not sent", { failed: n(failed) }), icon: <Send className="h-4 w-4" />, onClick: () => void run("retry") }]
       : []),
-    ...(running ? [] : [{ label: "Delete", icon: <Trash2 className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setDialog("delete") }]),
+    ...(running ? [] : [{ label: tt("Delete"), icon: <Trash2 className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setDialog("delete") }]),
   ]
 
   const primary =
     status === "draft" || status === "scheduled" ? (
       <Link href={editHref} prefetch className={buttonPrimary} onMouseEnter={() => router.prefetch(editHref)}>
-        Edit
+        {tt("Edit")}
       </Link>
     ) : running ? (
       <button type="button" className={cn(buttonSecondary, "text-[#b42318]")} disabled={busy !== null} onClick={() => void run("stop")}>
-        {busy === "stop" ? "Stopping" : "Stop sending"}
+        {busy === "stop" ? tt("Stopping") : tt("Stop sending")}
       </button>
     ) : (
       <button type="button" className={buttonPrimary} disabled={busy !== null} onClick={() => void run("duplicate")}>
-        {busy === "duplicate" ? "Copying" : "Duplicate"}
+        {busy === "duplicate" ? tt("Copying") : tt("Duplicate")}
       </button>
     )
 
-  const audience = c ? AUDIENCE[c.audience_type] ?? "All subscribers" : ""
+  const audience = c ? AUDIENCE[c.audience_type] ?? tt("All subscribers") : ""
   const subtitle =
     status === "scheduled"
-      ? `Goes out ${when(c?.scheduled_at ?? seed.scheduled_at)}${audience ? ` to ${audience.toLowerCase()}` : ""}`
+      ? tt("Goes out {date}{value}", { date: when(c?.scheduled_at ?? seed.scheduled_at), value: audience ? tt(" to {value}", { value: audience.toLowerCase() }) : "" })
       : status === "draft"
-        ? `Draft${c?.updated_at ? `, edited ${when(c.updated_at)}` : ""}`
-        : `${running ? "Started" : "Sent"} ${when(c?.sent_at ?? seed.sent_at)}${audience ? ` to ${audience.toLowerCase()}` : ""}`
+        ? tt("Draft{value}", { value: c?.updated_at ? tt(", edited {date}", { date: when(c.updated_at) }) : "" })
+        : `${running ? tt("Started") : tt("Sent")} ${when(c?.sent_at ?? seed.sent_at)}${audience ? tt(" to {value}", { value: audience.toLowerCase() }) : ""}`
 
   return (
     <>
       <OrderBarFrame
         back={
-          <button type="button" onClick={onBack} aria-label="Back to emails" className={cn(iconButton, "h-9 w-9")}>
+          <button type="button" onClick={onBack} aria-label={tt("Back to emails")} className={cn(iconButton, "h-9 w-9")}>
             <ArrowLeft className="h-5 w-5" />
           </button>
         }
@@ -183,16 +185,16 @@ export function EmailDetail({
           <>
             {status === "scheduled" ? (
               <button type="button" className={cn(buttonSecondary, "hidden sm:inline-flex")} disabled={busy !== null} onClick={() => void run("unschedule")}>
-                {busy === "unschedule" ? "Unscheduling" : "Unschedule"}
+                {busy === "unschedule" ? tt("Unscheduling") : tt("Unschedule")}
               </button>
             ) : null}
             <ResponsiveActionMenu
               title={subject}
               menuWidth="w-64"
-              items={status === "scheduled" ? [{ label: "Unschedule", onClick: () => void run("unschedule") }, ...items] : items}
+              items={status === "scheduled" ? [{ label: tt("Unschedule"), onClick: () => void run("unschedule") }, ...items] : items}
               trigger={
-                <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} disabled={busy !== null} aria-label="More actions">
-                  <span className="hidden sm:inline">More actions</span>
+                <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} disabled={busy !== null} aria-label={tt("More actions")}>
+                  <span className="hidden sm:inline">{tt("More actions")}</span>
                   <MoreHorizontal className="h-4 w-4 sm:hidden" />
                   <ChevronDown className="hidden h-4 w-4 sm:block" />
                 </button>
@@ -208,10 +210,10 @@ export function EmailDetail({
         {!report ? (
           error ? (
             <div className={cn(card, "px-5 py-10 text-center")}>
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">This email could not be opened</p>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("This email could not be opened")}</p>
               <p className="mt-1 text-[13px] text-[#6b7280]">{error}</p>
               <button type="button" className={cn(buttonSecondary, "mt-4")} onClick={() => refresh(reportKey(seed.id))}>
-                Try again
+                {tt("Try again")}
               </button>
             </div>
           ) : (
@@ -220,7 +222,7 @@ export function EmailDetail({
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
             {report.stats ? <Performance report={report} className="lg:col-start-1 lg:row-start-1" /> : null}
-            <section aria-label="The email" className={cn(card, "min-w-0 overflow-hidden lg:col-start-1", report.stats ? "lg:row-start-2" : "lg:row-start-1")}>
+            <section aria-label={tt("The email")} className={cn(card, "min-w-0 overflow-hidden lg:col-start-1", report.stats ? "lg:row-start-2" : "lg:row-start-1")}>
               {report.html ? (
                 <EmailPreview
                   html={report.html}
@@ -232,7 +234,7 @@ export function EmailDetail({
                   when={c?.sent_at && status !== "draft" && status !== "scheduled" ? when(c.sent_at) : c?.scheduled_at && status === "scheduled" ? when(c.scheduled_at) : "now"}
                 />
               ) : (
-                <p className="px-5 py-10 text-center text-[13px] text-[#6b7280]">Nothing to show yet.</p>
+                <p className="px-5 py-10 text-center text-[13px] text-[#6b7280]">{tt("Nothing to show yet.")}</p>
               )}
             </section>
             <div className="grid min-w-0 content-start gap-4 lg:col-start-2 lg:row-span-3 lg:row-start-1">
@@ -246,11 +248,11 @@ export function EmailDetail({
       <ComposeDialog
         open={dialog === "delete"}
         onClose={() => setDialog(null)}
-        title="Delete this email?"
+        title={tt("Delete this email?")}
         footer={
           <>
             <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button
               type="button"
@@ -261,13 +263,13 @@ export function EmailDetail({
                 await run("delete")
               }}
             >
-              Delete
+              {tt("Delete")}
             </button>
           </>
         }
       >
         <p className="text-[14px] text-[#1a1a2e]">
-          {status === "draft" || status === "scheduled" ? "The draft is removed and nothing is sent." : "The email and its numbers are removed from Storelib. What was sent stays in people's inboxes."}
+          {status === "draft" || status === "scheduled" ? tt("The draft is removed and nothing is sent.") : tt("The email and its numbers are removed from Storelib. What was sent stays in people's inboxes.")}
         </p>
       </ComposeDialog>
 
@@ -295,30 +297,30 @@ function Performance({ report, className }: { report: EmailReport; className?: s
   const reported = s.delivered > 0 || s.bounced > 0
   const base = reported ? s.delivered : s.sent
   const cells: { label: string; help: string; value: string; note?: string }[] = [
-    { label: "Sent", help: "Emails the email service accepted for delivery.", value: n(s.sent), note: s.waiting ? `${n(s.waiting)} waiting` : undefined },
+    { label: tt("Sent"), help: tt("Emails the email service accepted for delivery."), value: n(s.sent), note: s.waiting ? tt("{waiting} waiting", { waiting: n(s.waiting) }) : undefined },
     {
-      label: "Delivered",
-      help: "Emails the receiving mail server confirmed. Reported by the email service a little after sending.",
+      label: ttx("emails", "Delivered"),
+      help: tt("Emails the receiving mail server confirmed. Reported by the email service a little after sending."),
       value: reported ? n(s.delivered) : "–",
-      note: reported ? pct(s.delivered, s.sent) : "no reports yet",
+      note: reported ? pct(s.delivered, s.sent) : tt("no reports yet"),
     },
     {
-      label: "Opened",
-      help: "People who opened it at least once. Some mail apps load pictures for everyone and some for nobody, so treat it as a guide.",
+      label: tt("Opened"),
+      help: tt("People who opened it at least once. Some mail apps load pictures for everyone and some for nobody, so treat it as a guide."),
       value: c.track_opens ? n(s.opened) : "Off",
-      note: c.track_opens ? pct(s.opened, base) : "not counted",
+      note: c.track_opens ? pct(s.opened, base) : tt("not counted"),
     },
-    { label: "Clicked", help: "People who clicked at least one link.", value: n(s.clicked), note: pct(s.clicked, base) },
-    { label: "Bounced", help: "Addresses the receiving server refused for good. They are not sent to again.", value: n(s.bounced + s.complained), note: s.complained ? `${n(s.complained)} marked it as spam` : pct(s.bounced, s.sent) },
-    { label: "Unsubscribed", help: "People who left your list from this email.", value: n(s.unsubscribed), note: pct(s.unsubscribed, base) },
+    { label: tt("Clicked"), help: tt("People who clicked at least one link."), value: n(s.clicked), note: pct(s.clicked, base) },
+    { label: tt("Bounced"), help: tt("Addresses the receiving server refused for good. They are not sent to again."), value: n(s.bounced + s.complained), note: s.complained ? tt("{complained} marked it as spam", { complained: n(s.complained) }) : pct(s.bounced, s.sent) },
+    { label: tt("Unsubscribed"), help: tt("People who left your list from this email."), value: n(s.unsubscribed), note: pct(s.unsubscribed, base) },
   ]
   const notes = [
-    s.unknown ? `${n(s.unknown)} may not have arrived: the email service did not answer, so ${s.unknown === 1 ? "it was" : "they were"} not sent again.` : null,
-    s.failed ? `${n(s.failed)} ${s.failed === 1 ? "was" : "were"} not sent.${c.last_error && !/may have arrived/.test(c.last_error) ? ` ${c.last_error}` : ""}` : null,
-    s.skipped ? `${n(s.skipped)} left your list before ${s.skipped === 1 ? "their turn and was" : "their turn and were"} not sent.` : null,
+    s.unknown ? tt("{unknown} may not have arrived: the email service did not answer, so {unknown, plural, one {it was} other {they were}} not sent again.", { unknown: s.unknown }) : null,
+    s.failed ? tt("{failed, plural, one {# was} other {# were}} not sent.{value}", { failed: s.failed, value: c.last_error && !/may have arrived/.test(c.last_error) ? ` ${c.last_error}` : "" }) : null,
+    s.skipped ? tt("{skipped} left your list before {skipped, plural, one {their turn and was} other {their turn and were}} not sent.", { skipped: s.skipped }) : null,
   ].filter(Boolean) as string[]
   return (
-    <section aria-label="How it did" className={cn(card, "min-w-0 overflow-hidden", className)}>
+    <section aria-label={tt("How it did")} className={cn(card, "min-w-0 overflow-hidden", className)}>
       <div className="orders-strip grid grid-cols-2 sm:grid-cols-3">
         {cells.map((r, i) => (
           <div
@@ -357,30 +359,30 @@ function Details({ report, audience }: { report: EmailReport; audience: string }
   const c = report.campaign
   const s = report.sender
   return (
-    <section aria-label="Details" className={cn(card, "min-w-0")}>
-      <h2 className="px-4 pt-3.5 text-[14px] font-semibold text-[#1a1a2e]">Details</h2>
+    <section aria-label={tt("Details")} className={cn(card, "min-w-0")}>
+      <h2 className="px-4 pt-3.5 text-[14px] font-semibold text-[#1a1a2e]">{tt("Details")}</h2>
       <dl className="divide-y divide-[#f1f2f4] px-4 pb-2 pt-1">
-        <Row label="To">
+        <Row label={tt("To")}>
           {audience}
-          {report.stats ? <span className="text-[#6b7280]"> · {n(report.stats.sent + report.stats.failed + report.stats.unknown + report.stats.waiting)} people</span> : null}
+          {report.stats ? <span className="text-[#6b7280]"> · {n(report.stats.sent + report.stats.failed + report.stats.unknown + report.stats.waiting)} {tt("people")}</span> : null}
         </Row>
         {s ? (
-          <Row label="From">
+          <Row label={tt("From")}>
             {s.name}
-            <span className="block text-[12px] text-[#6b7280]">Replies go to {s.replyTo}</span>
+            <span className="block text-[12px] text-[#6b7280]">{tt("Replies go to {replyTo}", { replyTo: s.replyTo })}</span>
           </Row>
         ) : null}
-        <Row label="Subject">{c.subject || "No subject"}</Row>
-        <Row label="Preview">{c.preview_text ? c.preview_text : <span className="text-[#9ca3af]">None</span>}</Row>
-        {c.scheduled_at && c.status === "scheduled" ? <Row label="Goes out">{when(c.scheduled_at)}</Row> : null}
-        {c.sent_at && c.status !== "draft" && c.status !== "scheduled" ? <Row label="Sent">{when(c.sent_at)}</Row> : null}
-        {c.completed_at ? <Row label="Finished">{when(c.completed_at)}</Row> : null}
-        <Row label="Opens">{c.track_opens ? "Counted" : "Not counted"}</Row>
+        <Row label={tt("Subject")}>{c.subject || tt("No subject")}</Row>
+        <Row label={tt("Preview")}>{c.preview_text ? c.preview_text : <span className="text-[#9ca3af]">{tt("None")}</span>}</Row>
+        {c.scheduled_at && c.status === "scheduled" ? <Row label={tt("Goes out")}>{when(c.scheduled_at)}</Row> : null}
+        {c.sent_at && c.status !== "draft" && c.status !== "scheduled" ? <Row label={tt("Sent")}>{when(c.sent_at)}</Row> : null}
+        {c.completed_at ? <Row label={tt("Finished")}>{when(c.completed_at)}</Row> : null}
+        <Row label={tt("Opens")}>{c.track_opens ? tt("Counted") : tt("Not counted")}</Row>
         {s && !s.address ? (
-          <Row label="Address">
-            <span className="text-[#5c4300]">None in the footer. </span>
+          <Row label={tt("Address")}>
+            <span className="text-[#5c4300]">{tt("None in the footer.")} </span>
             <Link href="/app/settings" className="font-medium text-[#1a1a2e] underline underline-offset-2">
-              Add it in Settings
+              {tt("Add it in Settings")}
             </Link>
           </Row>
         ) : null}
@@ -400,8 +402,8 @@ function linkLabel(url: string): string {
 
 function Links({ links }: { links: EmailReport["links"] }) {
   return (
-    <section aria-label="Links clicked" className={cn(card, "min-w-0")}>
-      <h2 className="px-4 pt-3.5 text-[14px] font-semibold text-[#1a1a2e]">Links clicked</h2>
+    <section aria-label={tt("Links clicked")} className={cn(card, "min-w-0")}>
+      <h2 className="px-4 pt-3.5 text-[14px] font-semibold text-[#1a1a2e]">{tt("Links clicked")}</h2>
       <ul className="divide-y divide-[#f1f2f4] px-4 pb-2 pt-1">
         {links.map((l) => (
           <li key={l.url} className="flex min-w-0 items-center gap-3 py-2 text-[13px]">
@@ -413,7 +415,7 @@ function Links({ links }: { links: EmailReport["links"] }) {
           </li>
         ))}
       </ul>
-      <p className="px-4 pb-3 text-[12px] text-[#6b7280]">People who clicked each link</p>
+      <p className="px-4 pb-3 text-[12px] text-[#6b7280]">{tt("People who clicked each link")}</p>
     </section>
   )
 }
@@ -427,27 +429,27 @@ function TestDialog({ open, onClose, campaignId }: { open: boolean; onClose: () 
     setState({ busy: true, done: null, error: null })
     const res = await fetch("/api/email/send-test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_id: campaignId }) }).catch(() => null)
     const data = res ? await res.json().catch(() => ({})) : {}
-    setState({ busy: false, done: res?.ok ? data.sent_to ?? "your address" : null, error: res?.ok ? null : data.error ?? "The test was not sent." })
+    setState({ busy: false, done: res?.ok ? data.sent_to ?? tt("your address") : null, error: res?.ok ? null : data.error ?? tt("The test was not sent.") })
   }
   return (
     <ComposeDialog
       open={open}
       onClose={onClose}
-      title="Send a test"
+      title={tt("Send a test")}
       footer={
         <>
           <button type="button" className={buttonSecondary} onClick={onClose}>
-            {state.done ? "Done" : "Cancel"}
+            {state.done ? tt("Done") : tt("Cancel")}
           </button>
           {!state.done ? (
             <button type="button" className={buttonPrimary} disabled={state.busy} onClick={() => void send()}>
-              {state.busy ? "Sending" : "Send test"}
+              {state.busy ? tt("Sending") : tt("Send test")}
             </button>
           ) : null}
         </>
       }
     >
-      <p className="text-[14px] text-[#1a1a2e]">{state.done ? `Sent to ${state.done}. It can take a minute to arrive.` : "This email, as your subscribers get it, to your own address."}</p>
+      <p className="text-[14px] text-[#1a1a2e]">{state.done ? tt("Sent to {done}. It can take a minute to arrive.", { done: state.done }) : tt("This email, as your subscribers get it, to your own address.")}</p>
       {state.error ? <p className="mt-2 text-[13px] text-[#b42318]">{state.error}</p> : null}
     </ComposeDialog>
   )

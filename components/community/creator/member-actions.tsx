@@ -30,6 +30,7 @@ import type { Role } from "@/lib/communities/types"
 import type { BadgeView, CommunityHead, MemberActionTaken } from "./view-types"
 import { MUTE_CHOICES, memberChoices, memberConfirmText, memberDoneText, type MemberChoice } from "./logic"
 import { Confirm, Dialog, Notice, Segmented, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 export interface ActOnPerson {
   userId: string
@@ -119,10 +120,10 @@ export function useMemberActions({ head, meId, tiers, badges, onDone }: { head: 
           onConfirm={(reason) => void patch(open.person, open.choice, { reason: reason || undefined })}
         />
       ) : null}
-      {open?.kind === "mute" ? <MuteDialog name={open.person.name} busy={busy} onClose={() => setOpen(null)} onMute={(hours, reason) => void patch(open.person, { key: "mute", label: "Mute", action: "mute", hours }, { until: hours, reason: reason || undefined })} /> : null}
-      {open?.kind === "comp" ? <CompDialog base={base} tiers={tiers} person={open.person} onClose={() => setOpen(null)} onDone={() => { setOpen(null); toast("Complimentary access given"); onDone({ key: "comp", label: "", action: "complimentary" }, open.person) }} /> : null}
-      {open?.kind === "points" ? <PointsDialog base={base} person={open.person} onClose={() => setOpen(null)} onDone={(n) => { setOpen(null); toast(`${n > 0 ? "+" : ""}${n} points for ${open.person.name}`); onDone({ key: "points", label: "", action: "points" }, open.person) }} /> : null}
-      {open?.kind === "badge" ? <BadgeDialog base={base} badges={badges} person={open.person} onClose={() => setOpen(null)} onDone={(b) => { setOpen(null); toast(`${b} given to ${open.person.name}`) }} /> : null}
+      {open?.kind === "mute" ? <MuteDialog name={open.person.name} busy={busy} onClose={() => setOpen(null)} onMute={(hours, reason) => void patch(open.person, { key: "mute", label: tt("Mute"), action: "mute", hours }, { until: hours, reason: reason || undefined })} /> : null}
+      {open?.kind === "comp" ? <CompDialog base={base} tiers={tiers} person={open.person} onClose={() => setOpen(null)} onDone={() => { setOpen(null); toast(tt("Complimentary access given")); onDone({ key: "comp", label: "", action: "complimentary" }, open.person) }} /> : null}
+      {open?.kind === "points" ? <PointsDialog base={base} person={open.person} onClose={() => setOpen(null)} onDone={(n) => { setOpen(null); toast(tt("{value}{n} points for {name}", { value: n > 0 ? "+" : "", n, name: open.person.name })); onDone({ key: "points", label: "", action: "points" }, open.person) }} /> : null}
+      {open?.kind === "badge" ? <BadgeDialog base={base} badges={badges} person={open.person} onClose={() => setOpen(null)} onDone={(b) => { setOpen(null); toast(tt("{b} given to {name}", { b, name: open.person.name })) }} /> : null}
     </>
   )
 
@@ -138,25 +139,25 @@ function MuteDialog({ name, busy, onClose, onMute }: { name: string; busy: boole
     <Dialog
       open
       onClose={onClose}
-      title={`Mute ${name}`}
+      title={tt("Mute {name}", { name })}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" disabled={busy} onClick={() => onMute(Number(hours), reason)} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-mute-confirm="">
-            {busy ? "Working" : "Mute"}
+            {busy ? tt("Working") : tt("Mute")}
           </button>
         </>
       }
     >
-      <p className="mb-3 text-[13.5px] leading-snug text-[#4b5563]">They can read everything but cannot post, comment, react or chat until it ends.</p>
-      <Segmented value={hours} onChange={setHours} label="How long" className="w-full" options={MUTE_CHOICES.map((c) => ({ value: String(c.hours), label: c.label }))} />
+      <p className="mb-3 text-[13.5px] leading-snug text-[#4b5563]">{tt("They can read everything but cannot post, comment, react or chat until it ends.")}</p>
+      <Segmented value={hours} onChange={setHours} label={tt("How long")} className="w-full" options={MUTE_CHOICES.map((c) => ({ value: String(c.hours), label: c.label }))} />
       <div className="mt-3">
         <label htmlFor="mute-reason" className={label}>
-          Reason (kept in the audit log)
+          {tt("Reason (kept in the audit log)")}
         </label>
-        <input id="mute-reason" value={reason} onChange={(e) => setReason(e.target.value.slice(0, 500))} placeholder="Optional" className={cn(field, "h-11 sm:h-10")} />
+        <input id="mute-reason" value={reason} onChange={(e) => setReason(e.target.value.slice(0, 500))} placeholder={tt("Optional")} className={cn(field, "h-11 sm:h-10")} />
       </div>
     </Dialog>
   )
@@ -177,21 +178,21 @@ function CompDialog({ base, tiers, person, onClose, onDone }: { base: string; ti
     <Dialog
       open
       onClose={onClose}
-      title={`Complimentary access for ${person.name}`}
+      title={tt("Complimentary access for {name}", { name: person.name })}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" onClick={() => void submit()} disabled={busy || !tier} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? "Working" : "Give access"}
+            {busy ? tt("Working") : tt("Give access")}
           </button>
         </>
       }
     >
-      <p className="mb-3 text-[13.5px] leading-snug text-[#4b5563]">They get this tier without paying, until you end it.</p>
+      <p className="mb-3 text-[13.5px] leading-snug text-[#4b5563]">{tt("They get this tier without paying, until you end it.")}</p>
       <label htmlFor="comp-tier" className={label}>
-        Tier
+        {tt("Tier")}
       </label>
       <select id="comp-tier" value={tier} onChange={(e) => setTier(e.target.value)} className={selectField}>
         {tiers.map((t) => (
@@ -226,31 +227,31 @@ function PointsDialog({ base, person, onClose, onDone }: { base: string; person:
     <Dialog
       open
       onClose={onClose}
-      title={`Points for ${person.name}`}
+      title={tt("Points for {name}", { name: person.name })}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" onClick={() => void submit()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? "Working" : "Give points"}
+            {busy ? tt("Working") : tt("Give points")}
           </button>
         </>
       }
     >
-      <p className="mb-3 text-[13px] text-[#6b7280]">{typeof person.points === "number" ? `They have ${person.points} now. ` : ""}A negative number takes points away.</p>
+      <p className="mb-3 text-[13px] text-[#6b7280]">{typeof person.points === "number" ? tt("They have {points} now. ", { points: person.points }) : ""}{tt("A negative number takes points away.")}</p>
       <div className="grid grid-cols-[120px_1fr] gap-3">
         <div>
           <label htmlFor="pts-n" className={label}>
-            Points
+            {tt("Points")}
           </label>
           <input id="pts-n" inputMode="numeric" value={points} onChange={(e) => setPoints(e.target.value.replace(/[^\d-]/g, "").slice(0, 6))} className={cn(field, "h-11 tabular-nums sm:h-10")} />
         </div>
         <div>
           <label htmlFor="pts-note" className={label}>
-            What for
+            {tt("What for")}
           </label>
-          <input id="pts-note" value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Optional" className={cn(field, "h-11 sm:h-10")} />
+          <input id="pts-note" value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder={tt("Optional")} className={cn(field, "h-11 sm:h-10")} />
         </div>
       </div>
       {error ? (
@@ -271,20 +272,20 @@ function BadgeDialog({ base, badges, person, onClose, onDone }: { base: string; 
     const res = await send(`${base}/gamification/badges/${badge}`, "POST", { userId: person.userId, on: true })
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error))
-    onDone(badges.find((b) => b.id === badge)?.name ?? "Badge")
+    onDone(badges.find((b) => b.id === badge)?.name ?? tt("Badge"))
   }
   return (
     <Dialog
       open
       onClose={onClose}
-      title={`A badge for ${person.name}`}
+      title={tt("A badge for {name}", { name: person.name })}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" onClick={() => void submit()} disabled={busy || !badge} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? "Working" : "Give badge"}
+            {busy ? tt("Working") : tt("Give badge")}
           </button>
         </>
       }

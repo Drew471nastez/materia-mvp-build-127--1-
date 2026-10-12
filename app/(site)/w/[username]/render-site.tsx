@@ -291,7 +291,8 @@ export async function renderSite(
           (lib/analytics/property). It was one view a visit, whatever was read.
           Previews and cover renders never reach this line. */}
       <TrackView type="store" creatorId={site.creatorId} />
-      <StoreTracking creatorId={site.creatorId} />
+      {/* Consent mode asks the regions that need a yes only where the site shows the cookie banner (lib/store/ga.ts). */}
+      <StoreTracking creatorId={site.creatorId} asks={(site.themeSettings as Record<string, unknown> | null)?.cookie_banner_show !== false} />
       {/* How fast the page was for this visitor: LCP, INP and CLS, once, as
           they leave. Published pages only, like the line above. */}
       <SiteVitals installId={site.installId} />

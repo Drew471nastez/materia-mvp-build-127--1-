@@ -53,6 +53,7 @@ import { withAnswer } from "@/components/community/member/poll"
 import { EMOJI_POPOVER, FIT_POPOVER, GIF_POPOVER, POPOVER_EDGE, fitBox } from "@/components/ui/popover-fit"
 import { REPORT_REASONS, type CommunityRow, type PollView } from "@/lib/communities/types"
 import type { Viewer } from "@/lib/communities/server/context"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -67,7 +68,7 @@ function check(name: string, ok: boolean, detail?: string) {
     console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
 const LOOM = "0123456789abcdef0123456789abcdef"

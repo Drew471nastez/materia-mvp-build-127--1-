@@ -1,3 +1,5 @@
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 /**
  * ===========================================================================
  *  A PERIOD OF TIME, THE ONE WAY EVERY /app PAGE PICKS ONE
@@ -174,14 +176,14 @@ export function presetRange(id: PresetId, today: Ymd, firstDay: Ymd = "2020-01-0
 }
 
 export const PRESET_LABEL: Record<PresetId, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  last_7_days: "Last 7 days",
-  last_30_days: "Last 30 days",
-  last_90_days: "Last 90 days",
-  last_12_months: "Last 12 months",
-  month_to_date: "Month to date",
-  all_time: "All time",
+  get today() { return tt("Today") },
+  get yesterday() { return tt("Yesterday") },
+  get last_7_days() { return tt("Last 7 days") },
+  get last_30_days() { return tt("Last 30 days") },
+  get last_90_days() { return tt("Last 90 days") },
+  get last_12_months() { return tt("Last 12 months") },
+  get month_to_date() { return tt("Month to date") },
+  get all_time() { return tt("All time") },
 }
 
 /**
@@ -229,10 +231,10 @@ export function resolveValue(v: Partial<RangeValue> | null | undefined, today: Y
 /* ── comparison ────────────────────────────────────────────────────────── */
 
 export const COMPARE_LABEL: Record<CompareMode, string> = {
-  none: "No comparison",
-  previous_period: "Previous period",
-  previous_year: "Previous year",
-  custom: "Custom",
+  get none() { return tt("No comparison") },
+  get previous_period() { return tt("Previous period") },
+  get previous_year() { return tt("Previous year") },
+  get custom() { return tt("Custom") },
 }
 
 /**
@@ -270,24 +272,54 @@ export function compareBounds(r: DateRange, c: CompareValue, timeZone: string, n
 
 /* ── words ─────────────────────────────────────────────────────────────── */
 
+/* English fallbacks for a browser without Intl; monthName() asks Intl first. i18n-ignore-start */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+/* i18n-ignore-end */
 
+/** A month's name in the dashboard's language ("Oct", "octubre", "paź"). */
 export function monthName(m: number, long = false): string {
-  return (long ? MONTHS_LONG : MONTHS)[((m % 12) + 12) % 12]
+  const i = ((m % 12) + 12) % 12
+  try {
+    return new Intl.DateTimeFormat(appLocale(), { month: long ? "long" : "short", timeZone: "UTC" }).format(new Date(Date.UTC(2024, i, 15)))
+  } catch {
+    return (long ? MONTHS_LONG : MONTHS)[i]
+  }
 }
 
-/** "January 1, 2025", for the date boxes. */
-export function longDate(v: Ymd): string {
+const utc = (v: Ymd) => {
   const { y, m, d } = parts(v)
-  return `${MONTHS_LONG[m]} ${d}, ${y}`
+  return new Date(Date.UTC(y, m, d, 12))
+}
+
+/** "January 1, 2025" / "1 de enero de 2025" / "1. Januar 2025", for the date boxes. */
+export function longDate(v: Ymd): string {
+  try {
+    return new Intl.DateTimeFormat(appLocale(), { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(utc(v))
+  } catch {
+    const { y, m, d } = parts(v)
+    return `${MONTHS_LONG[m]} ${d}, ${y}`
+  }
 }
 
 /**
  * What the button says: "Jan 1–Dec 31, 2025", "Dec 28, 2024–Jan 3, 2025",
- * "Mar 4, 2025" for one day. The year is written once when both ends share it.
+ * "Mar 4, 2025" for one day, in the dashboard's language: Intl writes the
+ * year once when both ends share it, and puts the day first where the
+ * language does ("1–31 dic 2025").
  */
 export function rangeLabel(r: DateRange): string {
+  /* English keeps its own form, "Jan 1–Dec 31, 2025"; other languages take Intl's. */
+  if (appLocale() !== "en-US") {
+    try {
+      const f = new Intl.DateTimeFormat(appLocale(), { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+      if (r.start === r.end) return f.format(utc(r.start))
+      const ranged = f as Intl.DateTimeFormat & { formatRange?: (a: Date, b: Date) => string }
+      if (typeof ranged.formatRange === "function") return ranged.formatRange(utc(r.start), utc(r.end))
+    } catch {
+      /* An old Intl: the English form below. */
+    }
+  }
   const a = parts(r.start)
   const b = parts(r.end)
   if (r.start === r.end) return `${MONTHS[a.m]} ${a.d}, ${a.y}`
@@ -315,17 +347,38 @@ export function parseTyped(text: string): Ymd | null {
     const v = ymdOf(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
     return isYmd(v) && v === `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}` ? v : null
   }
-  const us = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t)
-  if (us) {
-    const v = `${us[3]}-${us[1].padStart(2, "0")}-${us[2].padStart(2, "0")}`
+  /* 31/1/2025 in English is m/d/y; everywhere else d/m/y, and d.m.y in German and Polish. */
+  const dayFirst = !appLocale().startsWith("en-US")
+  const numeric = /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/.exec(t)
+  if (numeric) {
+    const [first, second] = [numeric[1], numeric[2]]
+    const [mm, dd] = dayFirst ? [second, first] : [first, second]
+    const v = `${numeric[3]}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`
     return isYmd(v) ? v : null
   }
-  const words = /^([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})$/.exec(t)
-  if (words) {
-    const name = words[1].toLowerCase()
-    const m = MONTHS_LONG.findIndex((x) => x.toLowerCase().startsWith(name.slice(0, 3)))
+  /* Words: "January 1, 2025", "1 de enero de 2025", "1. Januar 2025", "1 stycznia 2025". */
+  const tokens = (t as string).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,]/g, " ").split(" ").filter((w) => w && !/^(de|di|del|of|the)$/.test(w))
+  const year = tokens.find((w) => /^\d{4}$/.test(w))
+  const day = tokens.find((w) => /^\d{1,2}$/.test(w))
+  const word = tokens.find((w) => /^\p{L}{3,}$/u.test(w))
+  if (year && day && word && tokens.length === 3) {
+    const plain = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "")
+    const names: string[][] = [MONTHS_LONG.map(plain)]
+    try {
+      for (const style of ["long", "short"] as const) {
+        const f = new Intl.DateTimeFormat(appLocale(), { month: style, day: "numeric", timeZone: "UTC" })
+        names.push(Array.from({ length: 12 }, (_, i) => plain(f.formatToParts(new Date(Date.UTC(2024, i, 15))).find((p) => p.type === "month")?.value ?? "")))
+      }
+    } catch {
+      /* English names only. */
+    }
+    let m = -1
+    for (const list of names) {
+      m = list.findIndex((x) => x && (x === word || (word.length >= 3 && x.startsWith(word.slice(0, Math.max(3, Math.min(word.length, x.length)))))))
+      if (m >= 0) break
+    }
     if (m < 0) return null
-    const v = `${words[3]}-${String(m + 1).padStart(2, "0")}-${words[2].padStart(2, "0")}`
+    const v = `${year}-${String(m + 1).padStart(2, "0")}-${day.padStart(2, "0")}`
     return isYmd(v) ? v : null
   }
   return null

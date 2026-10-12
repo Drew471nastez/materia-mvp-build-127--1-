@@ -132,10 +132,11 @@ console.log("\nTOUCH: nothing changes before a real press; the row of places tak
 console.log("\nTHIRD SLOT: Create post and Library change one after the other, across the two layouts' bars too (item 6)")
 {
   const bar = code("components/nav/buyer-tab-bar.tsx")
-  check("a bar that mounts starts from the glyph the last bar showed, and changes from there on the next frame", /useState<"library" \| "compose">\(\(\) => lastThird \?\? shownKey\)/.test(bar) && /lastThird = shownKey/.test(bar) && /requestAnimationFrame\(\(\) => setShown\(shownKey\)\)/.test(bar))
-  const outMs = Number(/const SWAP_OUT_MS = (\d+)/.exec(bar)?.[1])
-  const inMs = Number(/const SWAP_IN_MS = (\d+)/.exec(bar)?.[1])
-  check("the arriving glyph waits for the leaving one to be gone (never two at once)", /opacity \$\{SWAP_IN_MS\}ms \$\{EASE\} \$\{SWAP_OUT_MS\}ms/.test(bar) && /opacity \$\{SWAP_OUT_MS\}ms ease-out, scale 0s linear \$\{SWAP_OUT_MS\}ms/.test(bar) && outMs <= 120 && inMs <= 200, { outMs, inMs })
+  /* Round 25, the owner: "too glitchy and flashy: make the change unnoticeable" (tests/surfaces25.test.ts). A bar that mounts
+     shows its page's glyph on the frame the page changes; within one bar the two cross in about five frames, never an empty slot. */
+  const ms = Number(/export const SWAP_MS = (\d+)/.exec(bar)?.[1])
+  check("a bar that mounts shows its own glyph on its first frame (round 25: no replay after the page has landed)", !/lastThird/.test(bar) && /const here = key === shownKey/.test(bar))
+  check("within one bar the two glyphs cross on opacity alone, quickly, never both gone", /transition: `opacity \$\{SWAP_MS\}ms \$\{here \? SWAP_IN : SWAP_OUT\}`/.test(bar) && ms > 0 && ms <= 120, { ms })
 }
 
 console.log("\nSHOW MORE: the next posts come up into view and arrive softly (item 7)")

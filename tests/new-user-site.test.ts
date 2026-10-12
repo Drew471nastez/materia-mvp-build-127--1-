@@ -28,6 +28,7 @@ import { STORELIB_DEFAULT_ID } from "@/lib/website-builder/theme-registry"
 import { fileLinkHref, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { money, productImages, imageIndexForVariant } from "@/lib/products/product-page-model"
 import { createRequire } from "node:module"
+import { untt } from "./i18n-source"
 
 /*
   `server-only` throws outside a bundler under tsx; the push runner already
@@ -54,7 +55,7 @@ function check(name: string, ok: boolean, detail = "") {
 function section(t: string) { console.log(`\n${t}`) }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 /** A fake element tree: an anchor with attributes, and what it sits in. */

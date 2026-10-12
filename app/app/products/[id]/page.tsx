@@ -2,9 +2,13 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { loadProductEditor } from "../load-editor"
 import { ProductEditor } from "../new/product-editor"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = {
-  title: "Edit product",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Edit product"),
+  }
 }
 
 interface ProductEditPageProps {

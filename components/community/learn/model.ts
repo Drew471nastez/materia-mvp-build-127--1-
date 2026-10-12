@@ -4,6 +4,8 @@
  * words, a price already formatted, and nothing here is a storage path.
  */
 import type { ProgramMode, ProgramStatus } from "@/lib/communities/learn"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export type ProgramLockReason = "level" | "paid" | "drip" | "tier" | "product" | "role" | "not_member"
 
@@ -95,36 +97,36 @@ export interface LearnBuilderData {
 
 /** "12 lessons", "1 lesson", "No lessons yet". */
 export function lessonsLabel(n: number): string {
-  if (n <= 0) return "No lessons yet"
-  return `${n} ${n === 1 ? "lesson" : "lessons"}`
+  if (n <= 0) return tt("No lessons yet")
+  return tt("{n, plural, one {# lesson} other {# lessons}}", { n })
 }
 
 /** "Opens on Mar 4" in the viewer's zone, from the stored instant. */
 export function opensOnLabel(iso: string, timeZone?: string): string {
   const t = Date.parse(iso)
-  if (!Number.isFinite(t)) return "Opens soon"
+  if (!Number.isFinite(t)) return tt("Opens soon")
   let day: string
   try {
-    day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone }).format(t)
+    day = new Intl.DateTimeFormat(appLocale(), zoned({ month: "short", day: "numeric", timeZone })).format(t)
   } catch {
-    day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(t)
+    day = new Intl.DateTimeFormat(appLocale(), zoned({ month: "short", day: "numeric" })).format(t)
   }
-  return `Opens on ${day}`
+  return tt("Opens on {day}", { day })
 }
 
 /** The short line under a locked program's title: what would open it. */
 export function lockHint(lock: ProgramLock, now: number = Date.now()): string {
   switch (lock.reason) {
     case "drip": {
-      if (!lock.opensAt) return "Opens soon"
+      if (!lock.opensAt) return tt("Opens soon")
       const days = Math.max(1, Math.ceil((Date.parse(lock.opensAt) - now) / 86_400_000))
-      return days === 1 ? "Opens tomorrow" : `Opens in ${days} days`
+      return days === 1 ? tt("Opens tomorrow") : tt("Opens in {days} days", { days })
     }
     case "level":
-      return `Opens at ${lock.label.toLowerCase()}`
+      return tt("Opens at {value}", { value: lock.label.toLowerCase() })
     case "paid":
-      return "Sold separately"
+      return tt("Sold separately")
     default:
-      return "Not part of your membership"
+      return tt("Not part of your membership")
   }
 }

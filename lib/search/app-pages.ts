@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * The places in Storelib the header search can take somebody, matched in
  * the browser as they type, before the server has answered anything.
@@ -21,29 +22,29 @@ export interface PageFlags {
 }
 
 export const APP_PAGES: readonly AppPage[] = [
-  { label: "Dashboard", href: "/app", group: "Pages", words: "home overview" },
-  { label: "Products", href: "/app/products", group: "Pages", words: "digital downloads" },
-  { label: "New product", href: "/app/products/new", group: "Pages", words: "add create digital course sell" },
-  { label: "New course", href: "/app/products/new?type=course", group: "Pages", words: "video lessons create add" },
+  { get label() { return tt("Dashboard") }, href: "/app", group: "Pages", get words() { return tt("home overview") } },
+  { get label() { return tt("Products") }, href: "/app/products", group: "Pages", get words() { return tt("digital downloads") } },
+  { get label() { return tt("New product") }, href: "/app/products/new", group: "Pages", get words() { return tt("add create digital course sell") } },
+  { get label() { return tt("New course") }, href: "/app/products/new?type=course", group: "Pages", get words() { return tt("video lessons create add") } },
   /* No Memberships page here: memberships are communities now. Somebody who types it finds Community, while the switch is on. */
-  { label: "Community", href: "/app/community", group: "Pages", words: "communities members spaces feed classroom events invite moderation membership memberships subscription", flag: "communities" },
-  { label: "New community", href: "/app/community/new", group: "Pages", words: "paid community create add membership monthly yearly", flag: "communities" },
-  { label: "Coupons", href: "/app/coupons", group: "Pages", words: "discount codes" },
-  { label: "Reviews", href: "/app/reviews", group: "Pages", words: "ratings stars reply report buyers" },
-  { label: "Orders", href: "/app/orders", group: "Pages", words: "sales refunds customers buyers" },
-  { label: "Analytics", href: "/app/analytics", group: "Pages", words: "traffic visitors views" },
-  { label: "Creator Page", href: "/creator-page", group: "Pages", words: "profile bio storefront" },
-  { label: "Website", href: "/app/website-builder", group: "Pages", words: "site builder theme" },
-  { label: "OnePage", href: "/app/onepage", group: "Pages", words: "link in bio" },
-  { label: "Emails", href: "/app/emails", group: "Pages", words: "subscribers contacts campaigns newsletter automations" },
-  { label: "Payouts", href: "/app/payouts", group: "Pages", words: "revenue transactions balance money" },
-  { label: "Explore", href: "/explore", group: "Pages", words: "discover" },
-  { label: "Library", href: "/account/library", group: "Pages", words: "purchases" },
-  { label: "Help", href: "/help", group: "Pages", words: "support questions" },
-  { label: "Settings", href: "/app/settings", group: "Settings", words: "profile account" },
-  { label: "Payments", href: "/app/settings/payments", group: "Settings", words: "stripe paypal connect" },
-  { label: "Billing", href: "/app/settings/billing", group: "Settings", words: "plan subscription invoices payment methods" },
-  { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", group: "Settings", words: "plan pricing" },
+  { get label() { return tt("Community") }, href: "/app/community", group: "Pages", get words() { return tt("communities members spaces feed classroom events invite moderation membership memberships subscription") }, flag: "communities" },
+  { get label() { return tt("New community") }, href: "/app/community/new", group: "Pages", get words() { return tt("paid community create add membership monthly yearly") }, flag: "communities" },
+  { get label() { return tt("Coupons") }, href: "/app/coupons", group: "Pages", get words() { return tt("discount codes") } },
+  { get label() { return tt("Reviews") }, href: "/app/reviews", group: "Pages", get words() { return tt("ratings stars reply report buyers") } },
+  { get label() { return tt("Orders") }, href: "/app/orders", group: "Pages", get words() { return tt("sales refunds customers buyers") } },
+  { get label() { return tt("Analytics") }, href: "/app/analytics", group: "Pages", get words() { return tt("traffic visitors views") } },
+  { get label() { return tt("Creator Page") }, href: "/creator-page", group: "Pages", get words() { return tt("profile bio storefront") } },
+  { get label() { return tt("Website") }, href: "/app/website-builder", group: "Pages", get words() { return tt("site builder theme") } },
+  { label: "OnePage", href: "/app/onepage", group: "Pages", get words() { return tt("link in bio") } },
+  { get label() { return tt("Emails") }, href: "/app/emails", group: "Pages", get words() { return tt("subscribers contacts campaigns newsletter automations") } },
+  { get label() { return tt("Payouts") }, href: "/app/payouts", group: "Pages", get words() { return tt("revenue transactions balance money") } },
+  { get label() { return tt("Explore") }, href: "/explore", group: "Pages", words: "discover" },
+  { get label() { return tt("Library") }, href: "/account/library", group: "Pages", words: "purchases" },
+  { get label() { return tt("Help") }, href: "/help", group: "Pages", get words() { return tt("support questions") } },
+  { get label() { return tt("Settings") }, href: "/app/settings", group: "Settings", get words() { return tt("profile account") } },
+  { get label() { return tt("Payments") }, href: "/app/settings/payments", group: "Settings", get words() { return tt("stripe paypal connect") } },
+  { get label() { return tt("Billing") }, href: "/app/settings/billing", group: "Settings", get words() { return tt("plan subscription invoices payment methods") } },
+  { get label() { return tt("Upgrade to Pro") }, href: "/app/settings/billing/upgrade", group: "Settings", get words() { return tt("plan pricing") } },
 ]
 
 /** What an empty search offers: the places people go most. */

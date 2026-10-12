@@ -39,6 +39,8 @@ import type { Order } from "@/lib/orders/order-view"
 import { CSV_HEADER, csvCell, encodeRuns, ordersCsv, type ExportFormat } from "@/lib/orders/export-csv"
 import { saveFile, savedMessage } from "@/lib/platform/save-file"
 import { buttonPrimary, buttonSecondary } from "./order-parts"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export type ExportScope = "page" | "all" | "selected" | "matching" | "dates"
 export type { ExportFormat }
@@ -49,7 +51,7 @@ export { csvCell, CSV_HEADER, ordersCsv }
 /** The Export button the panel hangs from on a computer (app/app/orders/orders-list.tsx). */
 export const EXPORT_ANCHOR = "data-orders-export"
 
-const count = (n: number) => n.toLocaleString("en-US")
+const count = (n: number) => n.toLocaleString(appLocale())
 const plural = (n: number) => `${count(n)} order${n === 1 ? "" : "s"}`
 
 /** One choice: the date picker's row, with a radio's semantics. 48px on a phone. */
@@ -191,37 +193,37 @@ export function ExportOrders({
             body: JSON.stringify({ numbers, format, timeZone, name }),
           })
           const data = await res.json().catch(() => ({}))
-          if (!res.ok || !data?.url) throw new Error(data?.error || "The export could not be made. Try again.")
+          if (!res.ok || !data?.url) throw new Error(data?.error || tt("The export could not be made. Try again."))
           return data.url as string
         },
       })
       setBusy(false)
       onClose()
-      onDone(outcome === "downloaded" ? `${what} exported` : savedMessage(outcome, "Orders file"))
+      onDone(outcome === "downloaded" ? tt("{what} exported", { what }) : savedMessage(outcome, tt("Orders file")))
     } catch (error) {
       /* It stays open, with what was chosen, to try again. */
       setBusy(false)
-      onDone((error as Error)?.message || "The export could not be made. Try again.")
+      onDone((error as Error)?.message || tt("The export could not be made. Try again."))
     }
   }
 
-  const label = busy ? "Exporting…" : chosen.length === 0 ? "Nothing to export" : `Export ${plural(chosen.length)}`
-  const viewDetail = `${valueLabel(period)}${filtering ? ", filtered" : ""} · ${count(matching.length)}`
+  const label = busy ? tt("Exporting…") : chosen.length === 0 ? tt("Nothing to export") : tt("Export {count}", { count: plural(chosen.length) })
+  const viewDetail = `${valueLabel(period)}${filtering ? tt(", filtered") : ""} · ${count(matching.length)}`
 
   const choices = (compact: boolean) => (
     <>
-      <Group compact={compact} label="Orders">
-        <Choice compact={compact} checked={scope === "matching"} onSelect={() => setScope("matching")} label="This view" detail={viewDetail} />
+      <Group compact={compact} label={tt("Orders")}>
+        <Choice compact={compact} checked={scope === "matching"} onSelect={() => setScope("matching")} label={tt("This view")} detail={viewDetail} />
         {selected.size > 0 ? (
-          <Choice compact={compact} checked={scope === "selected"} onSelect={() => setScope("selected")} label="Selected" detail={count(selected.size)} />
+          <Choice compact={compact} checked={scope === "selected"} onSelect={() => setScope("selected")} label={tt("Selected")} detail={count(selected.size)} />
         ) : null}
-        <Choice compact={compact} checked={scope === "page"} onSelect={() => setScope("page")} label="This page" detail={count(pageOrders.length)} />
-        <Choice compact={compact} checked={scope === "all"} onSelect={() => setScope("all")} label="All orders" detail={count(all.length)} />
+        <Choice compact={compact} checked={scope === "page"} onSelect={() => setScope("page")} label={tt("This page")} detail={count(pageOrders.length)} />
+        <Choice compact={compact} checked={scope === "all"} onSelect={() => setScope("all")} label={tt("All orders")} detail={count(all.length)} />
         <Choice
           compact={compact}
           checked={scope === "dates"}
           onSelect={() => setScope("dates")}
-          label="By date"
+          label={tt("By date")}
           detail={scope === "dates" ? `${rangeLabel(dates)} · ${count(byDate.length)}` : null}
         />
       </Group>
@@ -231,16 +233,16 @@ export function ExportOrders({
         </div>
       ) : null}
       <div aria-hidden className={cn("h-px bg-[#eef0f2]", compact ? "mx-3 my-1.5" : "mx-2 my-1")} />
-      <Group compact={compact} label="File">
-        <Choice compact={compact} checked={format === "spreadsheet"} onSelect={() => setFormat("spreadsheet")} label="Spreadsheet" detail="Excel, Numbers, Sheets" />
-        <Choice compact={compact} checked={format === "plain"} onSelect={() => setFormat("plain")} label="Plain CSV" detail="UTF-8, for other tools" />
+      <Group compact={compact} label={tt("File")}>
+        <Choice compact={compact} checked={format === "spreadsheet"} onSelect={() => setFormat("spreadsheet")} label={tt("Spreadsheet")} detail={tt("Excel, Numbers, Sheets")} />
+        <Choice compact={compact} checked={format === "plain"} onSelect={() => setFormat("plain")} label={tt("Plain CSV")} detail={tt("UTF-8, for other tools")} />
       </Group>
     </>
   )
 
   if (phone) {
     return (
-      <BottomSheet isOpen={open} onClose={onClose} title="Export orders" dismissible={!busy}>
+      <BottomSheet isOpen={open} onClose={onClose} title={tt("Export orders")} dismissible={!busy}>
         <div data-export-sheet="" className="px-2 pb-1 pt-1">
           {choices(true)}
         </div>
@@ -298,7 +300,7 @@ function ExportPanel({
         align="end"
         sideOffset={6}
         collisionPadding={12}
-        aria-label="Export orders"
+        aria-label={tt("Export orders")}
         data-export-panel=""
         className={cn(pickerSurface, "flex max-h-[min(640px,var(--radix-popover-content-available-height))] w-[340px] flex-col")}
         onInteractOutside={(e) => {
@@ -315,11 +317,11 @@ function ExportPanel({
           anchor()?.focus({ preventScroll: true })
         }}
       >
-        <p className="shrink-0 px-4 pb-0.5 pt-3 text-[13px] font-semibold text-[#1a1a2e]">Export orders</p>
+        <p className="shrink-0 px-4 pb-0.5 pt-3 text-[13px] font-semibold text-[#1a1a2e]">{tt("Export orders")}</p>
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">{body}</div>
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#eef0f2] px-3 py-2.5">
           <button type="button" className={buttonSecondary} onClick={onClose} disabled={busy}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" className={buttonPrimary} onClick={onRun} disabled={!ready || busy} aria-busy={busy || undefined}>
             {label}

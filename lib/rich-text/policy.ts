@@ -23,6 +23,7 @@
  * Nothing on the list can run code, fetch through CSS, or move itself on top
  * of the page.
  */
+import { msg, tt, type Vars } from "@/lib/i18n/text"
 
 /** Tags a stored description keeps. Everything else is unwrapped or dropped. */
 export const STORED_TAGS = new Set([
@@ -392,14 +393,15 @@ export function byteLength(value: string): number {
 }
 
 /** Why a description cannot be saved as it is, in words the editor shows; null when it can. */
-export function descriptionTooLong(html: string): string | null {
+export function descriptionTooLong(html: string, say: (source: string, vars?: Vars) => string = tt): string | null {
   const bytes = byteLength(html)
   if (bytes <= MAX_DESCRIPTION_BYTES) return null
-  const kb = (n: number) => `${Math.ceil(n / 1024)} KB`
+  const kb = (n: number) => `${Math.ceil(n / 1024)} KB` // i18n-ignore: a size
   const inline = /<img[^>]+src="data:/i.test(html)
+  const vars = { size: kb(bytes), limit: kb(MAX_DESCRIPTION_BYTES) }
   return inline
-    ? `The description is ${kb(bytes)}, over the ${kb(MAX_DESCRIPTION_BYTES)} limit. Pictures saved inside the text by the old editor count toward it: remove them and add them again with the photo button.`
-    : `The description is ${kb(bytes)}, over the ${kb(MAX_DESCRIPTION_BYTES)} limit. Shorten it, or remove formatting that came with a paste.`
+    ? say(msg("The description is {size}, over the {limit} limit. Pictures saved inside the text by the old editor count toward it: remove them and add them again with the photo button."), vars)
+    : say(msg("The description is {size}, over the {limit} limit. Shorten it, or remove formatting that came with a paste."), vars)
 }
 
 /** An absolute web link, which opens in a new tab and passes nothing on. */

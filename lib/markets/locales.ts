@@ -95,7 +95,9 @@ export function localizedPath(path: string, locale: string, defaultLocale: strin
 /**
  * The language a visitor's browser asks for first, among the website's
  * published ones (Accept-Language). Only a suggestion: a visitor's own
- * choice is always kept over it, and nobody is redirected by it.
+ * choice is always kept over it. Show visitors their own language
+ * (lib/markets/visitor-language.ts) is what may act on it, and only when
+ * the store turns it on.
  */
 export function preferredLocale(acceptLanguage: string | null | undefined, published: readonly string[]): string | null {
   if (!acceptLanguage || published.length === 0) return null

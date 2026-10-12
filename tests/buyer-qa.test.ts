@@ -13,6 +13,7 @@ import { PRIMARY, SECONDARY, SMALL } from "../components/library/library-ui"
 import { listPrice } from "../lib/pricing/list-price"
 import { planInterval, planIntervals, withPriceIntervals } from "../lib/memberships/intervals"
 import { onboardingResume } from "../lib/account/onboarding-resume"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -20,7 +21,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
 
 async function membershipPrices() {

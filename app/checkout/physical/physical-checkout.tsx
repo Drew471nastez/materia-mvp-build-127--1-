@@ -44,6 +44,8 @@ import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe
 import { getStripePromise, isCapacitorShell } from "../parts/stripe-loader"
 import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
+import { VariantEdit } from "../parts/variant-edit"
+import type { ChoicesByProduct } from "@/lib/checkout/variant-choices"
 import { CHECKOUT_CURRENCY, money as sharedMoney } from "../parts/ui"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
 
@@ -63,6 +65,8 @@ interface Quote {
   creatorId: string
   lines: QuoteLine[]
   dropped: string[]
+  /** What each line could be changed to (lib/checkout/variant-choices-server). */
+  choices?: ChoicesByProduct
   stockIssues: { productId: string; variantId: string | null; title: string; available: number }[]
   requiresShipping: boolean
   coupon: { code: string; label: string | null; freeShipping: boolean } | null
@@ -259,16 +263,33 @@ export function PhysicalCheckout({
   }
 
   /* A change here is the cart's too, when the cart is where it came from. */
-  const changeQty = (i: number, q: number) => {
+  const changeQty = (i: number, q: number) => changeItems((prev) => (q <= 0 ? prev.filter((_, j) => j !== i) : prev.map((it, j) => (j === i ? { ...it, quantity: Math.min(999, q) } : it))))
+  /* Another option of the same product: the line changes (or joins that option's line), and the quote prices it all again. */
+  const changeVariant = (i: number, variantId: string) => {
+    const line = items?.[i]
+    const to = line ? quote?.choices?.[line.productId]?.variants.find((v) => v.id === variantId) : undefined
+    if (!line || !to || (line.variantId ?? null) === variantId) return
+    changeItems(
+      (prev) => {
+        const target = prev.findIndex((x, j) => j !== i && x.productId === line.productId && x.variantId === variantId)
+        if (target < 0) return prev.map((x, j) => (j === i ? { ...x, variantId } : x))
+        return prev.flatMap((x, j) => (j === i ? [] : j === target ? [{ ...x, quantity: Math.min(999, x.quantity + line.quantity) }] : [x]))
+      },
+      { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.priceCents } },
+    )
+  }
+  const changeItems = (change: (prev: LinkItem[]) => LinkItem[], swap?: { productId: string; from: string | null; to: { variantId: string; variantName: string | null; priceCents: number } }) => {
     setItems((prev) => {
       if (!prev) return prev
-      const next = q <= 0 ? prev.filter((_, j) => j !== i) : prev.map((it, j) => (j === i ? { ...it, quantity: Math.min(999, q) } : it))
+      const next = change(prev)
       if (fromCart && shopId) {
         try {
           const key = cartStorageKey(shopId)
           const lines = parseCart(window.localStorage.getItem(key))
           const kept: CartLine[] = []
-          for (const l of lines) {
+          for (const was of lines) {
+            const l = swap && was.productId === swap.productId && (was.variantId ?? null) === swap.from ? { ...was, variantId: swap.to.variantId, variantName: swap.to.variantName, priceCents: swap.to.priceCents } : was
+            if (kept.some((k) => k.productId === l.productId && (k.variantId ?? null) === (l.variantId ?? null))) continue
             const match = next.find((x) => x.productId === l.productId && (x.variantId ?? null) === (l.variantId ?? null))
             if (match) kept.push({ ...l, quantity: match.quantity })
           }
@@ -376,6 +397,7 @@ export function PhysicalCheckout({
     if (!address.line1.trim()) return "line1"
     if (config.address2 === "required" && !address.line2.trim()) return "line2"
     if (!address.city.trim()) return "city"
+    if (addressFormat(address.country).region?.required && !address.region.trim()) return "region"
     if (config.phone === "required" && !address.phone.trim()) return "phone"
     if (postalCodeRequired(address.country) && !address.postalCode.trim()) return "postalCode"
     if (!optionId) return "delivery"
@@ -404,7 +426,15 @@ export function PhysicalCheckout({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.title}</p>
-                {l.variantName ? <p className="text-[13px] text-[#6b7280]">{l.variantName}</p> : null}
+                <VariantEdit
+                  choices={quote.choices?.[l.productId]}
+                  currentId={l.variantId}
+                  currentName={l.variantName}
+                  title={l.title}
+                  busy={quoting}
+                  editable={idx >= 0 && !paying}
+                  onChange={(v) => changeVariant(idx, v)}
+                />
                 {l.type === "physical" && idx >= 0 ? (
                   <div className="mt-1.5 inline-flex h-8 items-center rounded-lg border border-[#e5e7eb]">
                     <button type="button" aria-label="Fewer" onClick={() => changeQty(idx, l.quantity - 1)} className="grid h-8 w-8 place-items-center text-[#4b5563]">

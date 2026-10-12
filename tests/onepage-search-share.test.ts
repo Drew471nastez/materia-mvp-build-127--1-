@@ -336,7 +336,7 @@ const stubs: Record<string, string> = {
   "@/components/analytics/track-view": stub("track", `export const TrackView = () => null\n`),
   "@/components/attribution/capture-touch": stub("touch", `export const CaptureTouch = () => null\n`),
   "@/lib/onepage/ensure-onepage": stub("ensure", `export const ensureOnePage = async () => null\n`),
-  "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\n`),
+  "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\nexport const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, back() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`),
   "next/og": stub(
     "og",
     `import { createRequire } from "node:module"\nconst require = createRequire(${JSON.stringify(join(process.cwd(), "package.json"))})\nexport const ImageResponse = require("next/og").ImageResponse\n`,

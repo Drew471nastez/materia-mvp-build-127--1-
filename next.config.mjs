@@ -280,6 +280,13 @@ const nextConfig = {
         ],
       },
       {
+        // Integration logos (public/integrations). Without this they were served max-age=0, so every card waited on a revalidation before its logo painted. A file only changes with a deploy, and a day in the cache with a week's revalidation is safe.
+        source: '/integrations/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+      {
         // Android App Links verification — must be 200 + application/json, no redirects
         source: '/.well-known/assetlinks.json',
         headers: [

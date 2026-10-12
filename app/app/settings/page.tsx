@@ -3,9 +3,13 @@ import type { Metadata } from "next"
 import { SettingsSheet } from "@/components/app/settings-sheet"
 import { SettingsPlaceholder } from "@/components/app/settings/settings-placeholder"
 import { SettingsForm } from "./_view"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = {
-  title: "Settings",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Settings"),
+  }
 }
 
 /*

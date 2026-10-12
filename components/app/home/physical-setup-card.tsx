@@ -13,6 +13,7 @@ import { AppLink } from "@/components/app/app-link"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import type { PhysicalStep } from "@/lib/home/physical-setup"
 import { useReadiness } from "@/components/physical/readiness-client"
+import { tt } from "@/lib/i18n/text"
 
 export function PhysicalSetupCard() {
   const physical = usePhysicalCommerceEnabled()
@@ -53,16 +54,16 @@ export function PhysicalSetupCard() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <h2 id="physical-setup-title" className="text-[14px] font-semibold text-[#1a1a2e]">
-              Selling physical products
+              {tt("Selling physical products")}
             </h2>
             <span className="text-[12px] font-medium tabular-nums text-[#9ca3af]">
-              {done} of {steps.length}
+              {tt("{done} of {length}", { done, length: steps.length })}
             </span>
           </div>
-          <p className="mt-0.5 text-[13px] text-[#6b7280]">{blockers.length ? "Payments first: buyers can't pay until they are set up." : "Five steps and your store can take orders it ships."}</p>
+          <p className="mt-0.5 text-[13px] text-[#6b7280]">{blockers.length ? tt("Payments first: buyers can't pay until they are set up.") : tt("Five steps and your store can take orders it ships.")}</p>
         </div>
       </div>
-      <div className="mx-5 mt-3 h-[5px] overflow-hidden rounded-full bg-[#eef0f3]" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done} aria-label="Physical setup progress">
+      <div className="mx-5 mt-3 h-[5px] overflow-hidden rounded-full bg-[#eef0f3]" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done} aria-label={tt("Physical setup progress")}>
         <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${(done / steps.length) * 100}%` }} />
       </div>
       <ul className="mt-3 px-2 pb-3">

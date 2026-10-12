@@ -22,6 +22,8 @@ import { Pencil, Trash2 } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 import { api, peekGet } from "@/components/physical/ui"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]"
 const MAX = 500
@@ -74,7 +76,7 @@ export function AiMemoryPanel() {
       const r = await api<{ memory?: Memory; duplicate?: boolean }>(PATH, { method: "POST", body: { content } })
       const data = r.ok ? r.data : null
       if (!r.ok || !data?.memory) {
-        setError((!r.ok && r.error) || "That could not be kept. Try again.")
+        setError((!r.ok && r.error) || tt("That could not be kept. Try again."))
         return
       }
       const kept = data.memory
@@ -83,7 +85,7 @@ export function AiMemoryPanel() {
       const box = document.getElementById("ai-memory-new")
       if (box) box.style.height = ""
     } catch {
-      setError("That could not be kept. Try again.")
+      setError(tt("That could not be kept. Try again."))
     } finally {
       setBusy(false)
     }
@@ -97,7 +99,7 @@ export function AiMemoryPanel() {
       if (!r.ok) throw new Error(r.error)
       setLoad((l) => (l.state === "ready" ? { ...l, memories: l.memories.filter((m) => m.id !== id) } : l))
     } catch {
-      setError("That could not be deleted. Try again.")
+      setError(tt("That could not be deleted. Try again."))
     } finally {
       setRemoving(null)
     }
@@ -113,7 +115,7 @@ export function AiMemoryPanel() {
       const r = await api<{ memory?: Memory }>(`${PATH}/${encodeURIComponent(editing.id)}`, { method: "PATCH", body: { content } })
       const data = r.ok ? r.data : null
       if (!r.ok || !data?.memory) {
-        setError((!r.ok && r.error) || "That could not be kept. Try again.")
+        setError((!r.ok && r.error) || tt("That could not be kept. Try again."))
         return
       }
       const kept = data.memory
@@ -125,7 +127,7 @@ export function AiMemoryPanel() {
       )
       setEditing(null)
     } catch {
-      setError("That could not be kept. Try again.")
+      setError(tt("That could not be kept. Try again."))
     } finally {
       setSaving(false)
     }
@@ -134,22 +136,22 @@ export function AiMemoryPanel() {
   return (
     <section className={CARD} aria-labelledby="ai-memory-heading" data-account-panel="ai-memory">
       <h3 id="ai-memory-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
-        AI Memory
+        {tt("AI Memory")}
       </h3>
       <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">
-        Storelib AI reads these before every change on every one of your websites. Tell it &ldquo;remember this&rdquo; in the builder, or add one here.
+        {tt("Storelib AI reads these before every change on every one of your websites. Tell it “remember this” in the builder, or add one here.")}
       </p>
 
       {load.state === "error" ? (
         <div className="mt-4 flex flex-col items-start gap-3" data-ai-memory-error="">
-          <p className="text-[13px] text-[#6b7280]">Your AI Memory did not load.</p>
+          <p className="text-[13px] text-[#6b7280]">{tt("Your AI Memory did not load.")}</p>
           <button type="button" onClick={() => void read()} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[13px]")}>
-            Try again
+            {tt("Try again")}
           </button>
         </div>
       ) : load.state === "ready" && !load.setUp ? (
         <p className="mt-4 rounded-xl bg-[#f6f7f9] px-3.5 py-3 text-[13px] leading-[1.45] text-[#4b5563]" data-ai-memory-not-set-up="">
-          AI Memory is not set up on this Storelib yet. Storelib AI still keeps notes for each website on its own.
+          {tt("AI Memory is not set up on this Storelib yet. Storelib AI still keeps notes for each website on its own.")}
         </p>
       ) : (
         <>
@@ -177,7 +179,7 @@ export function AiMemoryPanel() {
             }}
           >
             <label htmlFor="ai-memory-new" className="sr-only">
-              Something to remember
+              {tt("Something to remember")}
             </label>
             <textarea
               id="ai-memory-new"
@@ -196,15 +198,15 @@ export function AiMemoryPanel() {
                   void add()
                 }
               }}
-              placeholder="Prices in euros. No gradients. Keep product names short."
+              placeholder={tt("Prices in euros. No gradients. Keep product names short.")}
               className="block min-h-[64px] w-full resize-none rounded-t-xl bg-transparent px-3.5 pb-1 pt-3 text-[16px] leading-[22px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[14.5px]"
               disabled={load.state !== "ready" || busy}
               data-ai-memory-input=""
             />
             <div className="flex items-center justify-between gap-3 px-2 pb-2 pl-3.5">
-              <span className="text-[12px] tabular-nums text-[#9ca3af]">{draft.length > MAX - 80 ? `${MAX - draft.length} left` : "Enter to keep it"}</span>
+              <span className="text-[12px] tabular-nums text-[#9ca3af]">{draft.length > MAX - 80 ? tt("{value} left", { value: MAX - draft.length }) : tt("Enter to keep it")}</span>
               <button type="submit" disabled={!draft.trim() || busy || load.state !== "ready"} className={cn(primaryDepth, "h-10 rounded-xl px-5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60 sm:h-9")} data-ai-memory-remember="">
-                {busy ? "Saving" : "Remember"}
+                {busy ? tt("Saving") : tt("Remember")}
               </button>
             </div>
           </form>
@@ -222,7 +224,7 @@ export function AiMemoryPanel() {
                 </li>
               ))
             ) : load.memories.length === 0 ? (
-              <li className="py-4 text-[13px] text-[#6b7280]">Nothing yet.</li>
+              <li className="py-4 text-[13px] text-[#6b7280]">{tt("Nothing yet.")}</li>
             ) : (
               load.memories.map((m) => (
                 <li key={m.id} className="flex min-h-12 items-start justify-between gap-3 py-3" data-ai-memory={m.id}>
@@ -240,7 +242,7 @@ export function AiMemoryPanel() {
                         value={editing.text}
                         maxLength={MAX}
                         rows={2}
-                        aria-label="Correct this memory"
+                        aria-label={tt("Correct this memory")}
                         onChange={(e) => setEditing({ id: m.id, text: e.target.value })}
                         onKeyDown={(e) => {
                           if (e.key === "Escape") setEditing(null)
@@ -253,10 +255,10 @@ export function AiMemoryPanel() {
                       />
                       <div className="mt-2 flex gap-2">
                         <button type="submit" disabled={saving || !editing.text.trim()} className={cn(primaryDepth, "h-9 rounded-xl px-4 text-[13px] disabled:opacity-60")}>
-                          {saving ? "Saving" : "Save"}
+                          {saving ? tt("Saving") : tt("Save")}
                         </button>
                         <button type="button" onClick={() => setEditing(null)} className={cn(secondaryDepth, "h-9 rounded-xl px-4 text-[13px]")}>
-                          Cancel
+                          {tt("Cancel")}
                         </button>
                       </div>
                     </form>
@@ -265,7 +267,7 @@ export function AiMemoryPanel() {
                       <div className="min-w-0">
                         <p className="break-words text-[14px] leading-[1.45] text-[#1a1a2e]">{m.content}</p>
                         <p className="mt-0.5 text-[12px] text-[#9ca3af]">
-                          {m.source === "assistant" ? "Kept by Storelib AI" : "Added by you"} · {new Date(m.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                          {m.source === "assistant" ? tt("Kept by Storelib AI") : tt("Added by you")} · {new Date(m.createdAt).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" }))}
                         </p>
                       </div>
                       <div className="-mr-2 flex shrink-0">

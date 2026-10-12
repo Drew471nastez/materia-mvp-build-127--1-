@@ -35,6 +35,7 @@ import Link from "next/link"
 import { ArrowRight, Check, Loader2, X } from "lucide-react"
 import { SWAP_EASE, SWAP_MS, TextSwap } from "@/components/ui/text-swap"
 import { OFFERED_PLANS, YEARLY_BILLING_LIVE, YEARLY_SAVING_PERCENT, pricedFor, type BillingInterval, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
+import { tt } from "@/lib/i18n/text"
 
 export interface PlanCardAction {
   label: string
@@ -163,7 +164,7 @@ function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: O
   const content = action.loading ? (
     <>
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-      Processing
+      {tt("Processing")}
     </>
   ) : (
     <>
@@ -214,7 +215,7 @@ function PlanCard({
   /* Yearly Pro is shown, not sold, until its Stripe price exists (lib/billing/plans). */
   const heldAction = (i: BillingInterval): PlanCardAction => {
     const held = i === "yearly" && plan.priceCents > 0 && !YEARLY_BILLING_LIVE && !action.settled
-    return held ? { label: "Yearly opens soon", settled: true } : action
+    return held ? { label: tt("Yearly opens soon"), settled: true } : action
   }
   const monthlyAction = heldAction("monthly")
   const yearlyAction = heldAction("yearly")
@@ -281,7 +282,7 @@ function PlanCard({
               <span className={`flex h-[18px] w-[18px] shrink-0 mt-px items-center justify-center rounded-full ${look.dot}`} aria-hidden="true">
                 <Check className="h-[11px] w-[11px] text-white" strokeWidth={3.25} />
               </span>
-              {feature}
+              {tt(feature)}
             </li>
           ))}
           {plan.excluded.map((feature) => (
@@ -290,7 +291,7 @@ function PlanCard({
                 <X className="h-[11px] w-[11px] text-[#6b7280]" strokeWidth={3.25} />
               </span>
               <span>
-                <span className="sr-only">Not included: </span>
+                <span className="sr-only">{tt("Not included:")} </span>
                 {feature}
               </span>
             </li>
@@ -434,7 +435,7 @@ function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingI
   return (
     <div
       role="radiogroup"
-      aria-label="Billing"
+      aria-label={tt("Billing")}
       data-billing-interval={value}
       className={`relative inline-grid shrink-0 grid-cols-2 rounded-full bg-[#eceef1] shadow-[inset_0_1px_2px_rgba(16,24,40,0.10),inset_0_0_0_1px_rgba(16,24,40,0.04)] ${small ? "p-[3px]" : "p-1"}`}
     >
@@ -466,10 +467,10 @@ function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingI
                 : "h-9 gap-1.5 px-4 sm:px-5"
             } ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
           >
-            {option === "monthly" ? "Monthly" : "Yearly"}
+            {option === "monthly" ? tt("Monthly") : tt("Yearly")}
             {option === "yearly" ? (
               <span className={`rounded-full bg-[#111113] font-semibold text-white ${small ? "px-1.5 text-[10.5px] leading-[16px]" : "px-1.5 py-px text-[10.5px] leading-4"}`}>
-                Save {YEARLY_SAVING_PERCENT}%
+                {tt("Save")} {YEARLY_SAVING_PERCENT}%
               </span>
             ) : null}
           </button>

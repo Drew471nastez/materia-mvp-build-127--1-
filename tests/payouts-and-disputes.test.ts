@@ -27,6 +27,7 @@ import { cleanCreatorNote, disputeFeeMinor, isClosed, isInquiry, outcomeOf, reas
 import { creatorBusinessProfile } from "@/lib/payments/stripe/business-profile"
 import { demoToken, demoTokenValid, passwordMatches } from "@/lib/payouts-demo/gate"
 import { buildScenario, SCENARIOS, type ScenarioId } from "@/components/app/payouts-demo/scenarios"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -41,7 +42,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 /* The push harness runs the compiled suite as an ES module, where __dirname does not exist; the repo root is the working directory. */
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 /** A file without its block comments: what it does, rather than what it says about itself. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "")
 

@@ -15,6 +15,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -29,7 +30,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /** What a person reads: the JSX text between tags, and string literals in the markup. Comments are left out. */
 function visibleText(source: string): string {
@@ -60,7 +61,7 @@ function main() {
 
   const onepage = read("components/onepage/onboarding-modal.tsx")
   console.log("\nthe OnePage onboarding's own words")
-  check("it starts with the name, and says everything can change", /Let's get started\s*<\/h1>/.test(onepage) && /Start with your name\. You can change everything later\./.test(onepage))
+  check("it starts with the name, and says everything can change", /Let('|&apos;)s get started\s*<\/h1>/.test(onepage) && /Start with your name\. You can change everything later\./.test(onepage))
   check("the goals say what they are for, without sales talk", /Bring customers to my business\./.test(onepage) && !/convert customers/.test(onepage))
   check("the loading screen says what it is doing", /Setting up your OnePage/.test(onepage) && /Almost there/.test(onepage) && /Your OnePage is ready\./.test(onepage))
 

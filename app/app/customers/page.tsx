@@ -6,12 +6,21 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Users } from "lucide-react"
 import { pageUser } from "@/lib/auth/page-user"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
+import { LOCALE_TAG } from "@/lib/i18n/text"
+import { accountTimeZone } from "@/lib/account/time-zone"
 
-export const metadata = {
-  title: "Customers",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Customers"),
+  }
 }
 
 export default async function CustomersPage() {
+  const { tt, language } = await getServerTt()
+  const locale = LOCALE_TAG[language] ?? "en-US"
   const admin = createAdminClient()
 
   /* The /app layout's own answers, through the per-request cache
@@ -55,17 +64,20 @@ export default async function CustomersPage() {
   ])
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: "USD",
     }).format(cents / 100)
   }
 
+  /* The day in the zone chosen in Settings, as the rest of /app shows it; the server's own clock is UTC. */
+  const zone = accountTimeZone(null, user.user_metadata) ?? undefined
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-US", {
+    return new Date(date).toLocaleDateString(locale, {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: zone,
     })
   }
 
@@ -76,8 +88,8 @@ export default async function CustomersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Customers</h1>
-        <p className="text-muted-foreground">Manage your customer relationships</p>
+        <h1 className="text-2xl font-semibold">{tt("Customers")}</h1>
+        <p className="text-muted-foreground">{tt("Manage your customer relationships")}</p>
       </div>
 
       <Card>
@@ -85,7 +97,7 @@ export default async function CustomersPage() {
           <div className="flex items-center gap-3">
             <Search className="h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Search through customers and orders..."
+              placeholder={tt("Search through customers and orders...")}
               className="border-0 shadow-none focus-visible:ring-0"
             />
           </div>
@@ -94,7 +106,7 @@ export default async function CustomersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Customers ({customers?.length || 0})</CardTitle>
+          <CardTitle>{tt("All Customers (")}{customers?.length || 0})</CardTitle>
         </CardHeader>
         <CardContent className="p-0 sm:p-6 sm:pt-0">
           {customers && customers.length > 0 ? (
@@ -131,9 +143,9 @@ export default async function CustomersPage() {
                       )}
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>
-                          {orders.length} order{orders.length !== 1 ? "s" : ""}
+                          {tt("{length, plural, one {# order} other {# orders}}", { length: orders.length })}
                         </span>
-                        <span>Total: {formatPrice(customer.total_spent_cents)}</span>
+                        <span>{tt("Total: {amount}", { amount: formatPrice(customer.total_spent_cents) })}</span>
                       </div>
                     </div>
                   )
@@ -145,12 +157,12 @@ export default async function CustomersPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Customer</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Location</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Last Order</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Orders</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Total Spent</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Joined</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Customer")}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Location")}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Last Order")}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Orders")}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Total Spent")}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Joined")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -193,9 +205,9 @@ export default async function CustomersPage() {
           ) : (
             <div className="py-12 text-center px-4">
               <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">No customers yet</p>
+              <p className="mt-4 text-muted-foreground">{tt("No customers yet")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Customers will appear here when they purchase your products.
+                {tt("Customers will appear here when they purchase your products.")}
               </p>
             </div>
           )}

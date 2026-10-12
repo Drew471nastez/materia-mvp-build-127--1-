@@ -23,6 +23,7 @@
  */
 import type { Place } from "./places"
 import { placeKey } from "./places"
+import { warmMemberCover } from "@/lib/communities/member-cover"
 
 /*
   A PLACE'S DATA, AS THIS CACHE SEES IT: anything with a kind. The full shape is place-data.ts's PlaceData (the props of every
@@ -148,6 +149,15 @@ export function placeUrl(communityId: string, place: Place, lesson?: string | nu
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/**
+ * A member's profile read ahead (their link hovered or pressed) brings their cover's file with it, decoded, so the
+ * profile opens with its cover already whole (round J1, lib/communities/member-cover.ts).
+ */
+function warmProfileCover(data: PlaceData) {
+  const person = data.kind === "profile" ? (data as { data?: { person?: { coverUrl?: string | null; coverCrop?: { zoom?: number } } } | null }).data?.person : null
+  if (person?.coverUrl) warmMemberCover(person.coverUrl, person.coverCrop?.zoom ?? 1)
+}
+
 async function askOnce(url: string): Promise<{ answer: PlaceAnswer | null; status: number }> {
   const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" })
   const answer = (await res.json().catch(() => null)) as PlaceAnswer | null
@@ -169,6 +179,7 @@ export function loadPlaceData(communityId: string, place: Place, opts: { lesson?
         const { answer, status } = await askOnce(url)
         if (answer && answer.ok) {
           const got = { data: answer.data, at: Date.now() }
+          warmProfileCover(answer.data)
           held.set(k, got)
           missingPlaces.delete(k)
           changed()

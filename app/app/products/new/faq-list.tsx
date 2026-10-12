@@ -44,6 +44,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import type { FAQItem } from "./editor-form"
 import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hold-to-drag"
+import { tt } from "@/lib/i18n/text"
 
 /** Up and down only: a question never goes sideways. */
 const vertical: Modifier = ({ transform }) => ({ ...transform, x: 0 })
@@ -65,12 +66,12 @@ export function FaqList({
   const place = (id: UniqueIdentifier | undefined) => (id == null ? 0 : orderRef.current.indexOf(id) + 1)
   const count = faqs.length
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up question ${place(active.id)} of ${count}.`,
+    onDragStart: ({ active }) => tt("Picked up question {id} of {count}.", { id: place(active.id), count }),
     onDragOver: ({ active, over }) =>
-      over ? `Question ${place(active.id)} is now at position ${place(over.id)} of ${count}.` : undefined,
+      over ? tt("Question {id} is now at position {id2} of {count}.", { id: place(active.id), id2: place(over.id), count }) : undefined,
     onDragEnd: ({ active, over }) =>
-      over ? `Question ${place(active.id)} dropped at position ${place(over.id)} of ${count}.` : "Question dropped where it was.",
-    onDragCancel: ({ active }) => `Cancelled. Question ${place(active.id)} is back where it was.`,
+      over ? tt("Question {id} dropped at position {id2} of {count}.", { id: place(active.id), id2: place(over.id), count }) : tt("Question dropped where it was."),
+    onDragCancel: ({ active }) => tt("Cancelled. Question {id} is back where it was.", { id: place(active.id) }),
   }
 
   const onDragStart = (e: DragStartEvent) => {
@@ -97,7 +98,7 @@ export function FaqList({
         announcements,
         screenReaderInstructions: {
           draggable:
-            "To move a question, press Space or Enter on its handle, then the up and down arrow keys. Press Space or Enter again to drop it, or Escape to put it back.",
+            tt("To move a question, press Space or Enter on its handle, then the up and down arrow keys. Press Space or Enter again to drop it, or Escape to put it back."),
         },
       }}
       onDragStart={onDragStart}
@@ -164,7 +165,7 @@ function FaqCard({
             data-faq-handle=""
             {...attributes}
             {...listeners}
-            aria-label={`Move question ${position}`}
+            aria-label={tt("Move question {position}", { position })}
             className={cn(
               "flex h-11 min-w-0 flex-1 items-center gap-2 pl-3 pr-2 text-left outline-none sm:h-10",
               HANDLE_TOUCH,
@@ -172,14 +173,14 @@ function FaqCard({
             )}
           >
             <GripVertical aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-            <span className="text-[13px] font-medium text-[#1a1a2e]">Question {position}</span>
-            <span className="ml-auto text-[12px] text-[#9ca3af] sm:hidden">Hold to drag</span>
+            <span className="text-[13px] font-medium text-[#1a1a2e]">{tt("Question {position}", { position })}</span>
+            <span className="ml-auto text-[12px] text-[#9ca3af] sm:hidden">{tt("Hold to drag")}</span>
           </button>
           {onRemove ? (
             <button
               type="button"
               onClick={onRemove}
-              aria-label={`Remove question ${position}`}
+              aria-label={tt("Remove question {position}", { position })}
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#9ca3af] transition-colors duration-100 hover:bg-[#fef1ee] hover:text-[#c4290c] active:bg-[#fde4df] sm:h-8 sm:w-8"
             >
               <Trash2 className="h-4 w-4" />
@@ -189,26 +190,26 @@ function FaqCard({
         <div className="space-y-2.5 p-3 sm:space-y-3 sm:p-4">
           <div className="space-y-1">
             <label htmlFor={`faq-q-${faq.id}`} className="text-[12px] font-medium text-[#6b7280]">
-              Question
+              {tt("Question")}
             </label>
             <Input
               id={`faq-q-${faq.id}`}
               value={faq.question}
               onChange={(e) => onUpdate({ question: e.target.value })}
               className="h-10 rounded-lg border-gray-200 bg-gray-50 text-sm font-medium transition-colors focus:bg-white"
-              placeholder="What do buyers ask?"
+              placeholder={tt("What do buyers ask?")}
             />
           </div>
           <div className="space-y-1">
             <label htmlFor={`faq-a-${faq.id}`} className="text-[12px] font-medium text-[#6b7280]">
-              Answer
+              {tt("Answer")}
             </label>
             <Textarea
               id={`faq-a-${faq.id}`}
               value={faq.answer}
               onChange={(e) => onUpdate({ answer: e.target.value })}
               className="min-h-[60px] resize-none rounded-lg border-gray-200 bg-gray-50 text-sm transition-colors focus:bg-white sm:min-h-[70px]"
-              placeholder="Your answer"
+              placeholder={tt("Your answer")}
             />
           </div>
         </div>

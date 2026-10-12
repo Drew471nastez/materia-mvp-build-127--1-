@@ -25,6 +25,7 @@ import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -36,7 +37,7 @@ function check(name: string, ok: boolean, detail = "") {
 function section(t: string) { console.log(`\n${t}`) }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 const theme = Object.fromEntries(
   THEME_SETTINGS_GROUPS.flatMap((g) => (g.fields ?? []).filter((f) => f.default !== undefined).map((f) => [f.id, f.default])),
 ) as unknown as ThemeSettingsValues

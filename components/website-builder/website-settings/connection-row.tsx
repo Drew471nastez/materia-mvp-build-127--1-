@@ -21,6 +21,7 @@ import { Loader2 } from "lucide-react"
 import { COLLAPSE_OPEN_MS, Collapse } from "@/components/website-builder/editor/collapse"
 import { cn } from "@/lib/utils"
 import { buttonClass } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 /**
  *   off        not connected
@@ -143,7 +144,7 @@ export function ConnectionRow({
             className={cn(buttonClass, "min-w-[88px] md:min-w-[80px]")}
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-            {open ? "Done" : action}
+            {open ? tt("Done") : action}
           </button>
         )}
       </div>

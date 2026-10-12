@@ -21,6 +21,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import { PickerDivider, PickerRow, onRowsKey, pickerButton, pickerSurface, usePhone } from "@/components/app/date-range-picker"
 import { propertyParam, sameProperty, type PropertyOption, type PropertySelector } from "@/lib/analytics/properties"
+import { tt } from "@/lib/i18n/text"
 
 function List({ options, value, compact, onPick }: { options: PropertyOption[]; value: PropertySelector; compact: boolean; onPick: (p: PropertySelector) => void }) {
   const [all, ...places] = options
@@ -28,7 +29,7 @@ function List({ options, value, compact, onPick }: { options: PropertyOption[]; 
   const named = websites.length > 1
   return (
     <div className={compact ? "px-2 pb-2 pt-1" : "p-1.5"}>
-      <div role="menu" aria-label="Property" onKeyDown={onRowsKey}>
+      <div role="menu" aria-label={tt("Property")} onKeyDown={onRowsKey}>
         <PickerRow rowKey="all" compact={compact} checked={sameProperty(value, all.value)} onClick={() => onPick(all.value)}>
           {all.label}
         </PickerRow>
@@ -37,7 +38,7 @@ function List({ options, value, compact, onPick }: { options: PropertyOption[]; 
           <React.Fragment key={propertyParam(o.value) ?? "all"}>
             {/* Several websites are a group of their own under the rest. */}
             {named && o.value.type === "website" && places[i - 1]?.value.type !== "website" ? <PickerDivider compact={compact} /> : null}
-            <PickerRow rowKey={propertyParam(o.value) ?? "all"} compact={compact} checked={sameProperty(value, o.value)} detail={named && o.value.type === "website" ? "Website" : null} onClick={() => onPick(o.value)}>
+            <PickerRow rowKey={propertyParam(o.value) ?? "all"} compact={compact} checked={sameProperty(value, o.value)} detail={named && o.value.type === "website" ? tt("Website") : null} onClick={() => onPick(o.value)}>
               {o.label}
             </PickerRow>
           </React.Fragment>
@@ -60,7 +61,7 @@ export function PropertyPicker({
 }) {
   const [open, setOpen] = React.useState(false)
   const phone = usePhone()
-  const label = options.find((o) => sameProperty(o.value, value))?.label ?? options[0]?.label ?? "All pages"
+  const label = options.find((o) => sameProperty(o.value, value))?.label ?? options[0]?.label ?? tt("All pages")
   /* A choice closes the picker at once; the page catches up behind it. */
   const pick = (p: PropertySelector) => {
     setOpen(false)
@@ -87,7 +88,7 @@ export function PropertyPicker({
     return (
       <>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Property">
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Property")}>
           <div data-property-list="">
             <List options={options} value={value} compact onPick={pick} />
           </div>

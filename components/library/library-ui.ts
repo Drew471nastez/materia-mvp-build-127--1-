@@ -64,5 +64,8 @@ export function shortDate(iso: string | null | undefined): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+  /* One formatter for the page: toLocaleDateString builds a new one on every call, which a list of purchases paid per row (round 25: 27ms of the library's arrival at 4x CPU). */
+  SHORT_DATE ??= new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+  return SHORT_DATE.format(d)
 }
+let SHORT_DATE: Intl.DateTimeFormat | null = null

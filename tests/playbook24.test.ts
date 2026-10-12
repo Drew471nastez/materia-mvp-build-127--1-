@@ -33,6 +33,7 @@ import { helpArticleJsonLd, helpFaq, helpHowTo } from "@/lib/help/structured-dat
 import { PROVIDERS } from "@/lib/physical/providers"
 import { EXPLAINERS } from "@/lib/settings/explainers"
 import { HELP_TOPICS } from "@/lib/help/questions"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -47,7 +48,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail !== undefined ? ` (${JSON.stringify(detail)})` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const a = helpArticle("physical-products", "playbook")!
 const body = a?.body ?? []
 const text = a ? [a.title, a.summary, articleText(a)].join(" ") : ""

@@ -14,6 +14,7 @@ import { blockingItems, recommendedItems, type PhysicalReadiness } from "@/lib/p
 import { CARD, CARD_PAD, CARD_TITLE, MUTED } from "./ui"
 import { ReadinessLink, useReadiness } from "./readiness-client"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function ReadinessChecklist({ version }: { version: string }) {
   const r = useReadiness(version, { freshOnOpen: true })
@@ -26,12 +27,12 @@ export function ChecklistView({ r }: { r: PhysicalReadiness }) {
   const blocking = blockingItems(r)
   const recommended = recommendedItems(r)
   const selling = r.live > 0
-  const title = blocking.length ? (selling ? "Buyers can't check out yet" : "Before buyers can check out") : selling ? "Ready to take orders" : "Ready when you publish"
+  const title = blocking.length ? (selling ? tt("Buyers can't check out yet") : tt("Before buyers can check out")) : selling ? tt("Ready to take orders") : tt("Ready when you publish")
   const line = blocking.length
-    ? `${blocking.length === 1 ? "One thing stops" : `${blocking.length} things stop`} a sale or a shipment.${recommended.length ? ` ${recommended.length} more ${recommended.length === 1 ? "is" : "are"} worth doing.` : ""}`
+    ? tt("{value} a sale or a shipment.{value2}", { value: blocking.length === 1 ? tt("One thing stops") : tt("{length} things stop", { length: blocking.length }), value2: recommended.length ? tt(" {length} more {length, plural, one {is} other {are}} worth doing.", { length: recommended.length }) : "" })
     : recommended.length
-      ? `Nothing blocks a sale. ${recommended.length === 1 ? "One thing is" : `${recommended.length} things are`} worth doing.`
-      : "Nothing stops a buyer checking out or an order shipping."
+      ? tt("Nothing blocks a sale. {value} worth doing.", { value: recommended.length === 1 ? tt("One thing is") : tt("{length} things are", { length: recommended.length }) })
+      : tt("Nothing stops a buyer checking out or an order shipping.")
   return (
     <section data-physical-checklist="" data-blocking={blocking.length || undefined} className={cn(CARD, CARD_PAD)}>
       <div className="flex items-start gap-3">

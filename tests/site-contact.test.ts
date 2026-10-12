@@ -35,6 +35,7 @@ import { handleContact, type ContactDeps } from "@/lib/site-contact/handle"
 import { formIntent } from "@/lib/website-builder/form-intent"
 import { cleanContactSource, sourceView, legacySurface } from "@/lib/contacts/contact-source"
 import { planContact } from "@/lib/contacts/checkout-contact"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -44,7 +45,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   else { failed++; failures.push(label); process.stdout.write(`  FAIL  ${label}${detail === undefined ? "" : `\n        ${typeof detail === "string" ? detail : JSON.stringify(detail)}`}\n`) }
 }
 function section(title: string) { process.stdout.write(`\n${title}\n`) }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const CREATOR = "11111111-1111-4111-8111-111111111111"
 const VISITOR_EMAIL = "jo.visitor@example.org"

@@ -34,6 +34,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -49,7 +50,7 @@ function check(label: string, ok: boolean, detail?: string) {
   }
 }
 
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const hook = read("lib/ui/use-entrance-on-change.ts")
 const explore = read("components/explore/explore-page-client.tsx")
 const category = read("components/explore/category-page-client.tsx")

@@ -8,6 +8,7 @@ import { OwnAiSettings } from "./own-ai"
 import { OwnDatabaseSettings } from "./own-database"
 import { Card, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 /** The lines on Connections. "other" is shown once it is asked for, or has a key. */
 type ConnectionId = "claude" | "codex" | "github" | "other"
@@ -45,18 +46,18 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle>Connections</PageTitle>
-      <Lead>Use your own OpenAI key in Storelib AI, or let Claude Code, Codex or a GitHub repository change this website. What they write is a draft until you publish.</Lead>
+      <PageTitle>{tt("Connections")}</PageTitle>
+      <Lead>{tt("Use your own OpenAI key in Storelib AI, or let Claude Code, Codex or a GitHub repository change this website. What they write is a draft until you publish.")}</Lead>
 
       {/* First: the one that needs nothing installed, and is what the chat's Connect AI button is usually after. */}
       <OwnAiSettings />
 
-      <h2 className="mt-8 text-[15px] font-semibold text-white md:mt-9 md:text-[14.5px]">Or code in your own tools</h2>
+      <h2 className="mt-8 text-[15px] font-semibold text-white md:mt-9 md:text-[14.5px]">{tt("Or code in your own tools")}</h2>
       <p className="mt-1 text-[13.5px] leading-snug text-white/50 md:text-[13px]">
-        Connect GitHub and Claude Code or Codex can work on this website from a repository, with every change in its history.
+        {tt("Connect GitHub and Claude Code or Codex can work on this website from a repository, with every change in its history.")}
       </p>
       <section
-        aria-label="Connections"
+        aria-label={tt("Connections")}
         className="mt-3 divide-y divide-white/[0.07] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
       >
         {/*
@@ -78,27 +79,27 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
       </section>
       {!showOther && (
         <p className="mt-3 text-[13.5px] text-white/45 md:text-[13px]">
-          Another tool that works with MCP?{" "}
+          {tt("Another tool that works with MCP?")}{" "}
           <InlineButton
             onClick={() => {
               setOpen("other")
               if (!agents.fresh.other && agents.making !== "other") void agents.make("other")
             }}
           >
-            Connect it
+            {tt("Connect it")}
           </InlineButton>
         </p>
       )}
 
-      <Card title="Code">
-        <Row label="Section files" hint="Every section of this website is a .storelib file you can read and change.">
+      <Card title={tt("Code")}>
+        <Row label={tt("Section files")} hint={tt("Every section of this website is a .storelib file you can read and change.")}>
           <button type="button" onClick={ctx.onOpenCode} className={buttonClass}>
-            Edit code
+            {tt("Edit code")}
           </button>
         </Row>
-        <Row label="Developer docs" hint="How sections, settings, checkout and the agent API work.">
+        <Row label={tt("Developer docs")} hint={tt("How sections, settings, checkout and the agent API work.")}>
           <a href="/developers" target="_blank" rel="noopener noreferrer" className={buttonClass}>
-            Open docs
+            {tt("Open docs")}
           </a>
         </Row>
       </Card>

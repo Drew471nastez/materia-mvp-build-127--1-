@@ -47,6 +47,7 @@ import { runCommunityJobs } from "@/lib/communities/server/notify"
 import { lastUsedOrder } from "@/lib/communities/server/native-start"
 import { JOB_KINDS, PLATFORM_JOB_KINDS, type JobRow } from "@/lib/communities/types"
 import { accessTokenOf, isCommunityStart, sanitizeNativeHome } from "@/lib/native-bridge"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -61,7 +62,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${typeof detail === "string" ? detail : JSON.stringify(detail)})`}`)
   }
 }
-const read = (f: string) => readFileSync(f, "utf8")
+const read = (f: string) => untt(readFileSync(f, "utf8"), f)
 const code = (f: string) => stripComments(read(f))
 
 /* ── A small PostgREST stand in: what the inbox, the fan outs and the queue call ── */

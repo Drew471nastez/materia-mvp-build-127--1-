@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { discardAllUnsaved, hasUnsaved, markDirty, requestLeave, saveAllUnsaved, setLeaveAsker, subscribeUnsaved } from "../lib/settings/unsaved-guard"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -14,7 +15,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 async function guard() {
   console.log("\nLeaving with changes that aren't saved\n")
@@ -84,7 +85,8 @@ function wiring() {
   /* Changed on purpose (round 23, the owner: "no slide delay, no flash, back returns to where you were"): no sideways push or pop, a 120ms fade from 0.55, and Back lands on the list exactly where it was (tests/integrations23.test.ts, scripts/check-integrations23.mjs). */
   check("a card opens its page and Back the list in place, opacity only, never from blank", /const SWAP_FROM = 0\.55/.test(dir) && /el\.animate\(\[\{ opacity: SWAP_FROM \}, \{ opacity: 1 \}\]/.test(dir) && !/PAGE_SHIFT/.test(dir))
   check("Back returns to where the list was, set before the frame is painted", /box\.scrollTop = at\.scroll/.test(dir) && /React\.useLayoutEffect/.test(dir))
-  check("a category keeps the pills where they are and the cards settle in", /box\.scrollTop \+= now - want/.test(dir) && /\{ opacity: 0\.4, transform: "translate3d\(0, 6px, 0\)" \}/.test(dir))
+  /* Changed on purpose (the owner: the pills were "buggy and glitchy"): the cards no longer fade up from 0.4 on every press, they are simply there. */
+  check("a category keeps the pills where they are, and the cards are there at once", /box\.scrollTop \+= now - want/.test(dir) && !/translate3d\(0, 6px, 0\)/.test(dir))
   check("the page has a header with the mark, where it stands, and the action", /data-integration-header=""/.test(dir) && /data-integration-standing=\{status\}/.test(dir) && /data-integration-action=""/.test(dir))
 
   console.log("\nActivity, Store details, Plan\n")

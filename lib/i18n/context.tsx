@@ -1,7 +1,58 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, Fragment, type ReactNode } from "react"
 import { translations, getTranslation, LANGUAGES, type LanguageCode, type TranslationKey } from "./translations"
+import { loadCatalog, setCatalog } from "./text"
+
+/**
+ * The languages /app speaks: the ones lib/i18n/translations has words for.
+ * A stored or detected choice outside them reads in English rather than in
+ * a language that is only half there.
+ */
+function offered(code: string | null | undefined): LanguageCode | null {
+  if (!code) return null
+  if (code in translations) return code as LanguageCode
+  if (code === "pt" && "pt-BR" in translations) return "pt-BR" as LanguageCode
+  return null
+}
+
+/** The browser's own language, when /app speaks it: "pt-PT" reads Brazilian Portuguese, "de-AT" German. */
+function detected(): LanguageCode | null {
+  try {
+    const prefs = navigator.languages?.length ? navigator.languages : [navigator.language]
+    for (const raw of prefs) {
+      if (!raw) continue
+      const exact = offered(raw)
+      if (exact) return exact
+      const base = raw.split("-")[0].toLowerCase()
+      const loose = offered(base) ?? (Object.keys(translations).find((c) => c.split("-")[0] === base) as LanguageCode | undefined) ?? null
+      if (loose) return loose
+    }
+  } catch {
+    /* No navigator. */
+  }
+  return null
+}
+
+/** The server reads this cookie (lib/i18n/server), so its own pages agree with the client's. */
+function writeCookie(lang: string) {
+  try {
+    document.cookie = `${LANGUAGE_STORAGE_KEY}=${lang}; path=/; max-age=31536000; samesite=lax`
+  } catch {
+    /* A refused cookie: the server's pages read in English. */
+  }
+}
+
+/** The language's words, fetched and handed to tt() (lib/i18n/text). A failed fetch reads in English. */
+async function bringWords(lang: string): Promise<void> {
+  let words: Record<string, string> = {}
+  try {
+    words = await loadCatalog(lang)
+  } catch {
+    words = {}
+  }
+  setCatalog(lang, words)
+}
 
 interface LanguageContextType {
   language: LanguageCode
@@ -33,29 +84,39 @@ export function LanguageProvider({
   const [language, setLanguageState] = useState<LanguageCode>("en")
   const [isHydrated, setIsHydrated] = useState(false)
 
-  // Load language from localStorage on mount
+  // The stored choice (or the browser's), and its words, before /app is drawn.
   useEffect(() => {
-    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
-    if (stored && LANGUAGES.some(l => l.code === stored)) {
-      setLanguageState(stored as LanguageCode)
-    } else {
-      // Try to detect browser language
-      const browserLang = navigator.language.split("-")[0]
-      if (LANGUAGES.some(l => l.code === browserLang || l.code.startsWith(browserLang))) {
-        const matched = LANGUAGES.find(l => l.code === browserLang || l.code.startsWith(browserLang))
-        if (matched) {
-          setLanguageState(matched.code)
-        }
-      }
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
+    } catch {
+      stored = null
     }
-    setIsHydrated(true)
+    const lang = offered(stored) ?? detected() ?? "en"
+    let live = true
+    void bringWords(lang).then(() => {
+      if (!live) return
+      setLanguageState(lang)
+      document.documentElement.lang = lang === "pt-BR" ? "pt" : lang.split("-")[0]
+      writeCookie(lang)
+      setIsHydrated(true)
+    })
+    return () => {
+      live = false
+    }
   }, [])
 
   const setLanguage = useCallback((lang: LanguageCode) => {
-    setLanguageState(lang)
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang)
-    // Update document lang attribute
-    document.documentElement.lang = lang.split("-")[0]
+    const next = offered(lang) ?? "en"
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, next)
+    } catch {
+      /* Private window: this visit only. */
+    }
+    writeCookie(next)
+    document.documentElement.lang = next === "pt-BR" ? "pt" : next.split("-")[0]
+    /* The words first, then the switch: never a frame of keys or of half one language. */
+    void bringWords(next).then(() => setLanguageState(next))
   }, [])
 
   const t = useCallback((key: TranslationKey): string => {
@@ -70,7 +131,8 @@ export function LanguageProvider({
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t, languages: LANGUAGES }}>
-      {children}
+      {/* Keyed by the language: a new choice draws /app again, so every tt() reads the new words. */}
+      <Fragment key={language}>{children}</Fragment>
     </LanguageContext.Provider>
   )
 }

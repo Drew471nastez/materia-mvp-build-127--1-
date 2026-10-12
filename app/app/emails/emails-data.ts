@@ -10,6 +10,7 @@ import type { RecipientCounts } from "@/lib/email-campaigns/state"
 import type { CampaignRow, EmailsTab, FlowRow, FlowTotals, MessageRow, OverviewStats, SubscriberRow } from "./emails-home"
 import { api } from "@/components/physical/ui"
 import { CUSTOMER_EMAILS_PATH, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { tt } from "@/lib/i18n/text"
 
 export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts"]
 
@@ -52,7 +53,7 @@ export function currentCreator(): Promise<{ creatorId: string } | null> {
 async function json<T>(url: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error((data as { error?: string }).error || "Could not load")
+  if (!res.ok) throw new Error((data as { error?: string }).error || tt("Could not load"))
   return data as T
 }
 
@@ -64,7 +65,7 @@ export interface SubscribersData {
 
 export async function loadSubscribers(): Promise<SubscribersData> {
   const me = await currentCreator()
-  if (!me) throw new Error("Sign in again to see your subscribers.")
+  if (!me) throw new Error(tt("Sign in again to see your subscribers."))
   const supabase = createClient()
   const { data, error } = await supabase
     .from("subscribers")
@@ -75,7 +76,7 @@ export async function loadSubscribers(): Promise<SubscribersData> {
   if (error) {
     /* Before the contact-source columns existed. */
     const basic = await supabase.from("subscribers").select("id, email, name, source, status, subscribed_at, unsubscribed_at").eq("creator_id", me.creatorId).order("subscribed_at", { ascending: false })
-    if (basic.error) throw new Error("Could not load your subscribers.")
+    if (basic.error) throw new Error(tt("Could not load your subscribers."))
     rows = basic.data as SubscriberRow[]
   }
   const list = rows ?? []
@@ -111,7 +112,7 @@ const MESSAGE_COLUMNS = "id, email, name, subject, message, site, page, consent,
  */
 export async function loadMessages(): Promise<MessagesData> {
   const me = await currentCreator()
-  if (!me) throw new Error("Sign in again to see your messages.")
+  if (!me) throw new Error(tt("Sign in again to see your messages."))
   const supabase = createClient()
   const read = (columns: string) =>
     supabase.from("site_contact_messages").select(columns).eq("creator_id", me.creatorId).order("created_at", { ascending: false }).limit(500)
@@ -123,21 +124,21 @@ export async function loadMessages(): Promise<MessagesData> {
   if (error) {
     /* Before the contact form's own part has run there is no table: nothing to show, said plainly. */
     if (/42P01|PGRST205|does not exist/i.test(`${error.code} ${error.message}`)) return { available: false, rows: [] }
-    throw new Error("Could not load your messages.")
+    throw new Error(tt("Could not load your messages."))
   }
   return { available: true, rows: (data ?? []) as unknown as MessageRow[] }
 }
 
 export async function loadFlows(): Promise<FlowRow[]> {
   const me = await currentCreator()
-  if (!me) throw new Error("Sign in again to see your automations.")
+  if (!me) throw new Error(tt("Sign in again to see your automations."))
   const supabase = createClient()
   const { data, error } = await supabase
     .from("email_flows")
     .select("id, name, trigger_type, trigger_config, status, steps, updated_at")
     .eq("creator_id", me.creatorId)
     .order("created_at", { ascending: false })
-  if (error) throw new Error("Could not load your automations.")
+  if (error) throw new Error(tt("Could not load your automations."))
   /* What each has sent, from the engine's own records. Before its SQL has run there are none, and the columns read a dash. */
   const { data: totals } = await supabase.rpc("email_flow_totals").then(
     (r: { data: unknown }) => r,
@@ -205,7 +206,7 @@ export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
  */
 export async function loadCustomerEmails(): Promise<CustomerEmailsData> {
   const r = await api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)
-  if (!r.ok) throw new Error(r.error || "Could not load your customer emails.")
+  if (!r.ok) throw new Error(r.error || tt("Could not load your customer emails."))
   return r.data
 }
 

@@ -7,6 +7,7 @@ import { siteStoreName, siteTabTitle } from "@/lib/website-builder/tab-title"
 import { siteIconUrl } from "@/lib/website-builder/site-icon"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
 
@@ -29,6 +30,7 @@ function previewOf(ctx: SettingsContext) {
     title: siteTabTitle({ page: { kind: "home" }, storeName: store, siteTitle: str(ctx.settings.seo_title) }),
     /* What another page's tab reads like, said under the field. */
     example: siteTabTitle({ page: { kind: "page", name: "About" }, storeName: store }),
+    /* What the site itself serves when none is written (app/(site)/w/[username]/render-site.tsx), word for word. i18n-ignore-next-line */
     description: str(ctx.settings.seo_description).trim() || `Visit ${store}'s website on Storelib`,
   }
 }
@@ -49,7 +51,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle>SEO & Social</PageTitle>
+      <PageTitle>{tt("SEO & Social")}</PageTitle>
 
       {/* What a search result looks like, drawn from the same fallbacks the
           live page uses, in a search page's own dark colours. */}
@@ -60,7 +62,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
       </div>
 
       <Card footer={GOES_LIVE}>
-        <Row label="Site title" hint="Your home page's browser tab and search result. Leave it empty to use your store name." stack htmlFor="wb-seo-title">
+        <Row label={tt("Site title")} hint={tt("Your home page's browser tab and search result. Leave it empty to use your store name.")} stack htmlFor="wb-seo-title">
           <div className="flex flex-col gap-1.5">
             <input
               id="wb-seo-title"
@@ -71,12 +73,12 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
               className={inputClass + " md:w-full"}
             />
             <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 truncate text-[12.5px] text-white/45" data-tab-example="">Other pages read like &ldquo;{preview.example}&rdquo;</p>
+              <p className="min-w-0 truncate text-[12.5px] text-white/45" data-tab-example="">{tt("Other pages read like “{example}”", { example: preview.example })}</p>
               <Counter value={title} max={60} />
             </div>
           </div>
         </Row>
-        <Row label="Meta description" hint="The line under the title. One or two sentences about what you sell." stack htmlFor="wb-seo-description">
+        <Row label={tt("Meta description")} hint={tt("The line under the title. One or two sentences about what you sell.")} stack htmlFor="wb-seo-description">
           <div className="flex flex-col gap-1.5">
             <textarea
               id="wb-seo-description"
@@ -98,7 +100,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
           from here is a choice to remove. A value saved before still reads
           (theme-metadata.ts).
         */}
-        <Row label="Social image" hint="Shown when a link to your website is shared. 1200 × 630 works everywhere." stack>
+        <Row label={tt("Social image")} hint={tt("Shown when a link to your website is shared. 1200 × 630 works everywhere.")} stack>
           <div className="flex max-w-[420px] flex-col gap-3">
             <SharePreview image={image} title={preview.title} description={preview.description} address={ctx.websiteUrlDisplay} />
             <div className="dark">
@@ -107,11 +109,11 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
           </div>
         </Row>
         <Row
-          label="Search engines"
-          hint={listed ? "Google and others may list this website." : "Search engines are asked not to list this website."}
+          label={tt("Search engines")}
+          hint={listed ? tt("Google and others may list this website.") : tt("Search engines are asked not to list this website.")}
           inline
         >
-          <Toggle checked={listed} onChange={(on) => ctx.onSettingChange("seo_robots", on)} label="Let search engines list this website" />
+          <Toggle checked={listed} onChange={(on) => ctx.onSettingChange("seo_robots", on)} label={tt("Let search engines list this website")} />
         </Row>
       </Card>
     </>
@@ -128,13 +130,13 @@ function SharePreview({ image, title, description, address }: { image?: string; 
   const shown = image && failed !== image ? image : null
   return (
     /* A shared link as a messaging app draws it in its dark theme, on the page's own dark (it was a white card). */
-    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1c1e] text-left" aria-label="Shared link preview" data-share-preview="">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1c1e] text-left" aria-label={tt("Shared link preview")} data-share-preview="">
       <div className="relative aspect-[1200/630] w-full bg-white/[0.04]">
         {shown ? (
           <img src={shown} alt="" className="absolute inset-0 h-full w-full object-cover" onError={() => setFailed(shown)} />
         ) : (
           <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[12.5px] text-white/45">
-            No picture yet. Your logo or first hero picture is used instead.
+            {tt("No picture yet. Your logo or first hero picture is used instead.")}
           </p>
         )}
       </div>

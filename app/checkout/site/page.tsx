@@ -18,6 +18,8 @@ import { CART_COOKIE, readCartCookie } from "@/lib/storelib-theme/compat/site"
 import type { LinkItem } from "@/lib/physical/cart-link"
 import { ensureSiteWalletDomain } from "@/lib/custom-domains/stripe-pmd"
 import { SiteCheckout, SiteProblem } from "./site-checkout"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { gaCheckoutOf } from "@/lib/store/ga"
 
 export const dynamic = "force-dynamic"
 
@@ -141,6 +143,9 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const gate = siteGate(config, buyer)
 
   return (
+    <>
+    {/* The store's own Google Analytics and pixels on its checkout: begin_checkout with what is in it (lib/store/ga.ts). */}
+    <StoreTracking creatorId={site.creatorId} checkout={answer?.ok ? gaCheckoutOf(answer.quote.lines, null) : null} />
     <SiteCheckout
       shopId={site.creatorId}
       brand={brand}
@@ -161,5 +166,6 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       currencyNote={currencyNote}
       currency={currency}
     />
+    </>
   )
 }

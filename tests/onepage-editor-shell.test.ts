@@ -16,6 +16,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -30,7 +31,7 @@ function check(label: string, ok: boolean) {
     console.log(`  FAIL  ${label}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const editor = read("components/onepage/onepage-editor.tsx")
 const css = read("app/globals.css")
 const design = read("components/onepage/tabs/design-tab.tsx")

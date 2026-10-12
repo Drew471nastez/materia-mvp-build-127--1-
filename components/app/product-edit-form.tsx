@@ -49,8 +49,9 @@ import type { Product, DigitalAsset } from "@/lib/types"
 import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
-import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { DescriptionField as DescriptionRichEditor } from "@/components/store-builder/description-field"
 import { getProductShareUrl } from "@/lib/url-helpers"
+import { tt, msg } from "@/lib/i18n/text"
 
 interface ProductEditFormProps {
   product: Product & {
@@ -68,14 +69,14 @@ interface ProductEditFormProps {
 }
 
 const REFUND_POLICY_OPTIONS = [
-  { value: 'no_refunds', label: 'No refunds allowed' },
+  { value: 'no_refunds', get label() { return tt("No refunds allowed") } },
   { value: '7_day', label: '7-day money back guarantee' },
   { value: '14_day', label: '14-day money back guarantee' },
   { value: '30_day', label: '30-day money back guarantee' },
   { value: '6_month', label: '6-month money back guarantee' },
 ]
 
-const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
+const DEFAULT_WHATS_INCLUDED = [msg("Instant download access"), msg("All included files"), msg("Lifetime access")]
 
 export function ProductEditForm({ product, assets: initialAssets, creatorId, creatorUsername }: ProductEditFormProps) {
   const router = useRouter()
@@ -95,7 +96,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
   const [status, setStatus] = useState(product.status)
 
   const initialWhatsIncluded =
-    product.whats_included && product.whats_included.length > 0 ? product.whats_included : [...DEFAULT_WHATS_INCLUDED]
+    product.whats_included && product.whats_included.length > 0 ? product.whats_included : DEFAULT_WHATS_INCLUDED.map((line) => tt(line))
   const [whatsIncluded, setWhatsIncluded] = useState<string[]>(initialWhatsIncluded)
   const [newIncludeItem, setNewIncludeItem] = useState("")
   const [showSalesBadge, setShowSalesBadge] = useState(product.show_sales_badge !== false)
@@ -194,14 +195,14 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
       router.refresh()
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : tt("An error occurred"))
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this product? This action cannot be undone.")) return
+    if (!confirm(tt("Are you sure you want to delete this product? This action cannot be undone."))) return
 
     const supabase = createClient()
     const { error } = await supabase.from("products").delete().eq("id", product.id)
@@ -220,11 +221,11 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
   const togglePublish = async () => {
     if (status === "draft") {
       if (!thumbnailUrl) {
-        setError("Please upload a cover image before publishing")
+        setError(tt("Please upload a cover image before publishing"))
         return
       }
       if (product.type === "digital" && assets.length === 0) {
-        setError("Please upload at least one file before publishing a digital product")
+        setError(tt("Please upload at least one file before publishing a digital product"))
         return
       }
     }
@@ -288,7 +289,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
           className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to products
+          {tt("Back to products")}
         </Link>
         <div className="flex items-center justify-between">
           <div>
@@ -301,17 +302,17 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
                 {product.type}
               </Badge>
               {product.sales_count > 0 && (
-                <span className="text-sm text-muted-foreground">{product.sales_count} sales</span>
+                <span className="text-sm text-muted-foreground">{tt("{sales_count} sales", { sales_count: product.sales_count })}</span>
               )}
             </div>
           </div>
           <div className="flex gap-2">
             {status === "published" && (
               <>
-                <Button variant="outline" size="icon" onClick={copyProductLink} title="Copy product link">
+                <Button variant="outline" size="icon" onClick={copyProductLink} title={tt("Copy product link")}>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
-                <Button variant="outline" size="icon" asChild title="View product page">
+                <Button variant="outline" size="icon" asChild title={tt("View product page")}>
                   <SmartLink href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4" />
                   </SmartLink>
@@ -323,7 +324,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
               onClick={togglePublish}
               disabled={!canPublish && status === "draft"}
             >
-              {status === "published" ? "Unpublish" : "Publish"}
+              {status === "published" ? tt("Unpublish") : tt("Publish")}
             </Button>
           </div>
         </div>
@@ -332,21 +333,21 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
       {!thumbnailUrl && (
         <div className="mb-6 flex items-center gap-2 rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>Upload a cover image to publish this product</span>
+          <span>{tt("Upload a cover image to publish this product")}</span>
         </div>
       )}
       {product.type === "digital" && assets.length === 0 && (
         <div className="mb-6 flex items-center gap-2 rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>Upload at least one file to publish this digital product</span>
+          <span>{tt("Upload at least one file to publish this digital product")}</span>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>Cover Image</CardTitle>
-            <CardDescription>Required. This is the main image customers will see.</CardDescription>
+            <CardTitle>{tt("Cover Image")}</CardTitle>
+            <CardDescription>{tt("Required. This is the main image customers will see.")}</CardDescription>
           </CardHeader>
           <CardContent>
             <ImageUpload
@@ -362,8 +363,8 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>Gallery Images</CardTitle>
-            <CardDescription>Optional. Drag to reorder images.</CardDescription>
+            <CardTitle>{tt("Gallery Images")}</CardTitle>
+            <CardDescription>{tt("Optional. Drag to reorder images.")}</CardDescription>
           </CardHeader>
           <CardContent>
             <DraggableGalleryUpload
@@ -377,15 +378,15 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>Product Details</CardTitle>
+            <CardTitle>{tt("Product Details")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">{tt("Title")}</Label>
               <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{tt("Description")}</Label>
               <DescriptionRichEditor
                 value={description}
                 onChange={setDescription}
@@ -394,7 +395,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
             </div>
             <div className="grid gap-2">
               {isLoadingCategories ? (
-                <div className="text-sm text-muted-foreground">Loading categories...</div>
+                <div className="text-sm text-muted-foreground">{tt("Loading categories...")}</div>
               ) : (
                 <CategoriesSelector selectedCategory={categoryId} onChange={setCategoryId} />
               )}
@@ -404,16 +405,15 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>What&apos;s Included</CardTitle>
+            <CardTitle>{tt("What's Included")}</CardTitle>
             <CardDescription>
-              Customize the bullet points shown on the product page. Default items (with lock icon) cannot be deleted
-              but can be edited.
+              {tt("Customize the bullet points shown on the product page. Default items (with lock icon) cannot be deleted but can be edited.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="e.g. 50+ premium templates"
+                placeholder={tt("e.g. 50+ premium templates")}
                 value={newIncludeItem}
                 onChange={(e) => setNewIncludeItem(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addIncludeItem())}
@@ -459,13 +459,13 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>Pricing</CardTitle>
-            <CardDescription>Set your price and optional sale pricing</CardDescription>
+            <CardTitle>{tt("Pricing")}</CardTitle>
+            <CardDescription>{tt("Set your price and optional sale pricing")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="price">Price (USD)</Label>
+                <Label htmlFor="price">{tt("Price (USD)")}</Label>
                 <Input
                   id="price"
                   type="number"
@@ -477,13 +477,13 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="compareAtPrice">Compare at price (optional)</Label>
+                <Label htmlFor="compareAtPrice">{tt("Compare at price (optional)")}</Label>
                 <Input
                   id="compareAtPrice"
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="Original price for sales"
+                  placeholder={tt("Original price for sales")}
                   value={compareAtPrice}
                   onChange={(e) => setCompareAtPrice(e.target.value)}
                 />
@@ -491,8 +491,8 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border p-4">
               <div>
-                <p className="font-medium">Show sales badge</p>
-                <p className="text-sm text-muted-foreground">Display number of sales on product page</p>
+                <p className="font-medium">{tt("Show sales badge")}</p>
+                <p className="text-sm text-muted-foreground">{tt("Display number of sales on product page")}</p>
               </div>
               <Switch checked={showSalesBadge} onCheckedChange={setShowSalesBadge} />
             </div>
@@ -501,14 +501,14 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>Refund Policy</CardTitle>
-            <CardDescription>Set your refund policy to build customer trust</CardDescription>
+            <CardTitle>{tt("Refund Policy")}</CardTitle>
+            <CardDescription>{tt("Set your refund policy to build customer trust")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border border-border p-4">
               <div>
-                <p className="font-medium">Enable refund policy</p>
-                <p className="text-sm text-muted-foreground">Show refund policy on product page</p>
+                <p className="font-medium">{tt("Enable refund policy")}</p>
+                <p className="text-sm text-muted-foreground">{tt("Show refund policy on product page")}</p>
               </div>
               <Switch checked={refundPolicyEnabled} onCheckedChange={setRefundPolicyEnabled} />
             </div>
@@ -516,10 +516,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
             {refundPolicyEnabled && (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="refundPolicyType">Refund policy</Label>
+                  <Label htmlFor="refundPolicyType">{tt("Refund policy")}</Label>
                   <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
                     <SelectTrigger id="refundPolicyType">
-                      <SelectValue placeholder="Select a refund policy" />
+                      <SelectValue placeholder={tt("Select a refund policy")} />
                     </SelectTrigger>
                     <SelectContent>
                       {REFUND_POLICY_OPTIONS.map((option) => (
@@ -533,14 +533,14 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
                 <div className="grid gap-2">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="refundFinePrint">Fine print (optional)</Label>
+                    <Label htmlFor="refundFinePrint">{tt("Fine print (optional)")}</Label>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p>Extra conditions or details about refunds. Shown to customers in a popup when they click on the refund policy.</p>
+                          <p>{tt("Extra conditions or details about refunds. Shown to customers in a popup when they click on the refund policy.")}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -549,7 +549,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
                     id="refundFinePrint"
                     value={refundPolicyFinePrint}
                     onChange={(e) => setRefundPolicyFinePrint(e.target.value)}
-                    placeholder="e.g. Refunds are only available for unused products. Contact support within the refund period."
+                    placeholder={tt("e.g. Refunds are only available for unused products. Contact support within the refund period.")}
                     rows={3}
                   />
                 </div>
@@ -562,19 +562,19 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
           <Card className="border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                Digital Files
+                {tt("Digital Files")}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      If multiple files, upload ZIP.
+                      {tt("If multiple files, upload ZIP.")}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </CardTitle>
-              <CardDescription>Upload the files customers will receive after purchase (max 1GB each)</CardDescription>
+              <CardDescription>{tt("Upload the files customers will receive after purchase (max 1GB each)")}</CardDescription>
             </CardHeader>
             <CardContent>
               <FileUpload
@@ -610,19 +610,19 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {tt("Saving...")}
                 </>
               ) : (
-                "Save changes"
+                tt("Save changes")
               )}
             </Button>
             <Button type="button" variant="outline" asChild>
-              <Link href="/app/products">Cancel</Link>
+              <Link href="/app/products">{tt("Cancel")}</Link>
             </Button>
           </div>
           <Button type="button" variant="destructive" onClick={handleDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete
+            {tt("Delete")}
           </Button>
         </div>
       </form>

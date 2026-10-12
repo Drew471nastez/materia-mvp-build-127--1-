@@ -17,6 +17,7 @@ import { ColorField } from "@/components/storefront/color-field"
 import { GradientEditor, parseGradient } from "@/components/website-builder/editor/gradient-editor"
 import { cleanBackground } from "@/lib/storelib-theme/values"
 import { SEGMENTS, segment } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 function isGradient(v: string): boolean {
   return /gradient\(/i.test(v)
@@ -62,16 +63,16 @@ export function BackgroundControl({
           style={{ background: cleanBackground(current) || "transparent" }}
         />
       </div>
-      <div className={SEGMENTS} role="radiogroup" aria-label={`${label} kind`}>
+      <div className={SEGMENTS} role="radiogroup" aria-label={tt("{label} kind", { label })}>
         <button type="button" role="radio" aria-checked={mode === "solid"} className={segment(mode === "solid")} onClick={toSolid}>
-          Solid
+          {tt("Solid")}
         </button>
         <button type="button" role="radio" aria-checked={mode === "gradient"} className={segment(mode === "gradient")} onClick={toGradient}>
-          Gradient
+          {tt("Gradient")}
         </button>
       </div>
       {mode === "solid" ? (
-        <ColorField label="Colour" value={isGradient(current) ? "" : current} fallback={/^#[0-9a-f]{6}$/i.test(fallback) ? fallback : "#ffffff"} onChange={onChange} />
+        <ColorField label={tt("Colour")} value={isGradient(current) ? "" : current} fallback={/^#[0-9a-f]{6}$/i.test(fallback) ? fallback : "#ffffff"} onChange={onChange} />
       ) : (
         <GradientEditor value={isGradient(current) ? current : ""} onChange={onChange} />
       )}

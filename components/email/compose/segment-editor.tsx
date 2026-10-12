@@ -23,6 +23,7 @@ import { usePhone } from "@/components/app/date-range-picker"
 import { cn } from "@/lib/utils"
 import { JOINED_DAYS, NO_RULES, SEGMENT_SOURCES, SOURCE_LABEL, describeRules, type Purchased, type SegmentRules, type SegmentSource } from "@/lib/email-campaigns/segments"
 import type { SegmentOption } from "./audience-picker"
+import { tt } from "@/lib/i18n/text"
 
 /** A field that brings the keyboard up (a checkbox or a select does not). */
 function typesText(el: Element | null): el is HTMLElement {
@@ -112,11 +113,11 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
     try {
       const res = await fetch("/api/email/segments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, rules }) })
       const d = await res.json().catch(() => null)
-      if (!res.ok || !d?.segment) return setError(d?.error ?? "The segment could not be saved. Try again.")
+      if (!res.ok || !d?.segment) return setError(d?.error ?? tt("The segment could not be saved. Try again."))
       onSaved({ id: d.segment.id, name: d.segment.name, count: d.segment.count ?? null })
       onClose()
     } catch {
-      setError("The segment could not be saved. Check your connection and try again.")
+      setError(tt("The segment could not be saved. Check your connection and try again."))
     } finally {
       setBusy(false)
     }
@@ -124,23 +125,23 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
 
   const countLine = (
     <p className="min-w-0 truncate text-[13px] text-[#6b7280]" data-segment-count="">
-      {counting && count === null ? "Counting" : count === null ? "" : `${count.toLocaleString("en-US")} ${count === 1 ? "person" : "people"} subscribed`}
+      {counting && count === null ? tt("Counting") : count === null ? "" : tt("{value, plural, one {# person} other {# people}} subscribed", { value: count })}
     </p>
   )
   const saveButton = (
     <button type="button" className={cn(BTN_PRIMARY, phone && "h-11 px-5 text-[15px]")} onClick={() => void save()} disabled={busy || !name.trim() || noProducts}>
-      {busy ? "Saving" : "Save segment"}
+      {busy ? tt("Saving") : tt("Save segment")}
     </button>
   )
   const form = (
       <div className={cn("space-y-4", phone && "[&_input:not([type=checkbox])]:text-[16px] [&_select]:text-[16px]")} data-segment-editor="">
-        <Field label="Name" htmlFor="segment-name">
+        <Field label={tt("Name")} htmlFor="segment-name">
           <TextInput
             id="segment-name"
             value={name}
             maxLength={80}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Bought in the last 90 days"
+            placeholder={tt("Bought in the last 90 days")}
             autoFocus={!phone}
             enterKeyHint="done"
             onKeyDown={(e) => {
@@ -151,19 +152,19 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
             }}
           />
         </Field>
-        <Field label="Joined your list" htmlFor="segment-joined">
+        <Field label={tt("Joined your list")} htmlFor="segment-joined">
           <SelectInput id="segment-joined" value={rules.joinedWithinDays ? String(rules.joinedWithinDays) : ""} onChange={(v) => set({ joinedWithinDays: v ? Number(v) : null })}>
-            <option value="">Any time</option>
+            <option value="">{tt("Any time")}</option>
             {JOINED_DAYS.map((d) => (
               <option key={d} value={String(d)}>
-                {d === 365 ? "In the last year" : `In the last ${d} days`}
+                {d === 365 ? tt("In the last year") : tt("In the last {d} days", { d })}
               </option>
             ))}
           </SelectInput>
         </Field>
-        <Field label="Where they joined" htmlFor="segment-source">
+        <Field label={tt("Where they joined")} htmlFor="segment-source">
           <SelectInput id="segment-source" value={rules.source ?? ""} onChange={(v) => set({ source: (v || null) as SegmentSource | null })}>
-            <option value="">Anywhere</option>
+            <option value="">{tt("Anywhere")}</option>
             {SEGMENT_SOURCES.map((s) => (
               <option key={s} value={s}>
                 {SOURCE_LABEL[s]}
@@ -171,16 +172,16 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
             ))}
           </SelectInput>
         </Field>
-        <Field label="Purchases" htmlFor="segment-purchased">
+        <Field label={tt("Purchases")} htmlFor="segment-purchased">
           <SelectInput id="segment-purchased" value={rules.purchased} onChange={(v) => set({ purchased: v as Purchased, productIds: v === "products" ? rules.productIds : [] })}>
-            <option value="any">Anyone</option>
-            <option value="bought">Bought something from you</option>
-            <option value="not_bought">Never bought from you</option>
-            {products.length ? <option value="products">Bought a product you pick</option> : null}
+            <option value="any">{tt("Anyone")}</option>
+            <option value="bought">{tt("Bought something from you")}</option>
+            <option value="not_bought">{tt("Never bought from you")}</option>
+            {products.length ? <option value="products">{tt("Bought a product you pick")}</option> : null}
           </SelectInput>
         </Field>
         {rules.purchased === "products" ? (
-          <div className="max-h-[200px] space-y-1 overflow-y-auto rounded-xl border border-[#eceef1] p-2" role="group" aria-label="Products">
+          <div className="max-h-[200px] space-y-1 overflow-y-auto rounded-xl border border-[#eceef1] p-2" role="group" aria-label={tt("Products")}>
             {products.map((p) => {
               const on = rules.productIds.includes(p.id)
               return (
@@ -194,10 +195,10 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
         ) : null}
         {noProducts ? (
           <p className="text-[13px] text-[#6b7280]" data-segment-hint="">
-            Pick at least one product to save this segment.
+            {tt("Pick at least one product to save this segment.")}
           </p>
         ) : null}
-        <p className="text-[13px] text-[#6b7280]">{describeRules(rules, title)}. Only people still subscribed are ever sent to.</p>
+        <p className="text-[13px] text-[#6b7280]">{describeRules(rules, title)}{tt(". Only people still subscribed are ever sent to.")}</p>
         {error ? <Notice>{error}</Notice> : null}
       </div>
   )
@@ -207,7 +208,7 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
       <BottomSheet
         isOpen={open}
         onClose={onClose}
-        label="New segment"
+        label={tt("New segment")}
         hideFrom="sm"
         fill
         aboveKeyboard
@@ -215,14 +216,14 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
         dismissible={!busy}
         header={
           <div className="flex h-11 items-center justify-between gap-3 px-4">
-            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">New segment</h2>
+            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{tt("New segment")}</h2>
             {typing ? (
               /* The caret stays in the field through the press (no blur on pointerdown), so the tap is never lost to a sheet that moved. */
               <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={putKeyboardAway} className="inline-flex h-9 items-center rounded-full bg-[#f1f2f4] px-4 text-[15px] font-semibold text-[#1a1a2e] active:bg-[#e6e8eb] [-webkit-tap-highlight-color:transparent]" data-segment-done="">
-                Done
+                {tt("Done")}
               </button>
             ) : (
-              <button type="button" onClick={onClose} aria-label="Close" disabled={busy} className="-mr-1.5 grid h-10 w-10 place-items-center rounded-full text-[#6b7280] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]">
+              <button type="button" onClick={onClose} aria-label={tt("Close")} disabled={busy} className="-mr-1.5 grid h-10 w-10 place-items-center rounded-full text-[#6b7280] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]">
                 <X className="h-5 w-5" />
               </button>
             )}
@@ -253,13 +254,13 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
     <Modal
       open={open}
       onClose={onClose}
-      title="New segment"
+      title={tt("New segment")}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
           {countLine}
           <div className="flex shrink-0 gap-2">
             <button type="button" className={BTN_SECONDARY} onClick={onClose} disabled={busy}>
-              Cancel
+              {tt("Cancel")}
             </button>
             {saveButton}
           </div>

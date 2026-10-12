@@ -4,12 +4,17 @@ import { AnalyticsClient } from "./analytics-client"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorProperties } from "@/lib/analytics/report-read"
 import type { CreatorProperties } from "@/lib/analytics/properties"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export const metadata = {
-  title: "Analytics",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Analytics"),
+  }
 }
 
 /**

@@ -22,6 +22,7 @@ import { localizeSections, sourceHash, translatablesOf, translationMap, type Tra
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { convertPriceText, convertedCents, moneyFormatFor, pricingFor } from "@/lib/markets/pricing"
 import { siteNameIn, siteRouteInLanguage, splitSiteName } from "@/lib/markets/site-name"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -30,7 +31,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const section = (type: string, markup: string, settings: unknown[] = [], blocks: unknown[] = []) => `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify({ type, name: type, settings, blocks })}\n</schema>\n`
 
 const files: Record<string, string> = {

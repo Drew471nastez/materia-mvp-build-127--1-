@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { PanelBottom, PanelTop } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -49,14 +50,14 @@ export function ReplaceChromeConfirm({
   if (!open || !mounted) return null
 
   const Icon = kind === "header" ? PanelTop : PanelBottom
-  const group = kind === "header" ? "Header" : "Footer"
+  const group = kind === "header" ? tt("Header") : tt("Footer")
 
   return createPortal(
     <div className="wb-leave-scrim fixed inset-0 z-[320] flex items-center justify-center p-4" onClick={onCancel}>
       <div
         role="alertdialog"
         aria-modal="true"
-        aria-label={`Replace the ${kind}`}
+        aria-label={tt("Replace the {kind}", { kind })}
         data-replace-chrome={kind}
         onClick={(e) => e.stopPropagation()}
         className={cn(
@@ -69,9 +70,9 @@ export function ReplaceChromeConfirm({
             <Icon className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-[19px] font-semibold leading-tight">Replace the {kind}?</h2>
+            <h2 className="text-[19px] font-semibold leading-tight">{tt("Replace the {kind}?", { kind })}</h2>
             <p className="mt-2.5 text-[14.5px] leading-relaxed text-white/70">
-              {next} becomes the {kind} on every page. {current} is hidden with its settings kept, and you can show it again from the {group} group.
+              {tt("{next} becomes the {kind} on every page. {current} is hidden with its settings kept, and you can show it again from the {group} group.", { next, kind, current, group })}
             </p>
           </div>
         </div>
@@ -83,14 +84,14 @@ export function ReplaceChromeConfirm({
             autoFocus
             className="h-10 rounded-xl px-4 text-[14px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
           >
-            Cancel
+            {tt("Cancel")}
           </button>
           <button
             type="button"
             onClick={onReplace}
             className="h-10 rounded-xl bg-white/[0.12] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-white/20"
           >
-            Replace {kind}
+            {tt("Replace {kind}", { kind })}
           </button>
         </div>
       </div>

@@ -59,6 +59,7 @@ import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 import { getMainDomain, getStoreInternalPath } from "@/lib/url-helpers"
 import { HtmlClass } from "@/components/platform/html-class"
+import { tt } from "@/lib/i18n/text"
 
 export function CreatorPageWorkspace({
   handle,
@@ -383,8 +384,8 @@ export function CreatorPageWorkspace({
         <button
           type="button"
           onClick={leave}
-          aria-label="Back to Storelib"
-          title="Back to Storelib"
+          aria-label={tt("Back to Storelib")}
+          title={tt("Back to Storelib")}
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
         >
           <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -401,7 +402,7 @@ export function CreatorPageWorkspace({
               label and the thing it labels cannot disagree.
             */}
             {getMainDomain()}{getStoreInternalPath(handle)}
-            {published ? "" : "  ·  not published yet"}
+            {published ? "" : tt("  ·  not published yet")}
           </p>
         </div>
 
@@ -420,7 +421,7 @@ export function CreatorPageWorkspace({
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white transition-colors hover:bg-[#2a2a3e]"
         >
           <ExternalLink className="h-4 w-4" />
-          <span className="hidden sm:inline">Share</span>
+          <span className="hidden sm:inline">{tt("Share")}</span>
         </button>
       </div>
 
@@ -461,7 +462,7 @@ export function CreatorPageWorkspace({
               data-leaving={!firstLoad}
               aria-hidden={!firstLoad}
             >
-              {loaderShown && <BuilderLoader tone="light" lines={["Loading your page"]} />}
+              {loaderShown && <BuilderLoader tone="light" lines={[tt("Loading your page")]} />}
             </div>
           )}
           {([0, 1] as const).map((i) =>
@@ -470,7 +471,7 @@ export function CreatorPageWorkspace({
                 key={i}
                 ref={(el) => { frames.current[i] = el }}
                 src={srcs[i]}
-                title={i === front ? `${displayName}'s creator page` : "Loading the next version"}
+                title={i === front ? tt("{displayName}'s creator page", { displayName }) : tt("Loading the next version")}
                 aria-hidden={i !== front}
                 onLoad={() => onFrameLoad(i)}
                 className={cn(
@@ -494,15 +495,15 @@ export function CreatorPageWorkspace({
         </div>
       </div>
 
-      <SaveNotification key={savedToast} show={savedToast > 0} message="Saved" duration={2200} />
+      <SaveNotification key={savedToast} show={savedToast > 0} message={tt("Saved")} duration={2200} />
 
       <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} isPhone={isPhone} />
 
       {/* The builder's own going-back screen: dark glass over everything, with
           the loader drawn in white on it. `tone` names the surface it is ON. */}
       {leaving && (
-        <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
-          <BuilderLoader className="wb-leaving-content" tone="dark" lines={["Going back", "Almost there"]} />
+        <div className="wb-leaving" role="status" aria-live="polite" aria-label={tt("Going back")}>
+          <BuilderLoader className="wb-leaving-content" tone="dark" lines={[tt("Going back"), tt("Almost there")]} />
         </div>
       )}
     </div>

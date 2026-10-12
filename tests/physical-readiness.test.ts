@@ -37,6 +37,7 @@ import { emailClass } from "@/lib/notify/email-budget"
 import { renderEmail, renderInApp } from "@/lib/notify/templates"
 import type { ChannelResult, DomainEvent, OutgoingEmail } from "@/lib/notify/types"
 import { MemoryNotifyStore } from "./notify-memory-store"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -51,7 +52,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail !== undefined ? ` ${JSON.stringify(detail)}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const realLog = console.log
 console.log = (...a: unknown[]) => {
   if (typeof a[0] === "string" && a[0].startsWith("{")) return

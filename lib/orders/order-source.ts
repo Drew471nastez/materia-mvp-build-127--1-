@@ -39,6 +39,7 @@
  */
 
 import { hostIs, isSearchHost, socialNetworkOfHost } from "@/lib/analytics/sources"
+import { tt } from "@/lib/i18n/text"
 
 export type OrderSource = "storelib" | "website"
 
@@ -82,46 +83,46 @@ export interface OrderOrigin {
 }
 
 export const SURFACE_LABEL: Record<OrderSurface, string> = {
-  website: "Website",
-  profile: "Profile",
+  get website() { return tt("Website") },
+  get profile() { return tt("Profile") },
   onepage: "OnePage",
-  product: "Product page",
-  explore: "Explore",
-  link: "Checkout link",
-  admin: "Test sale",
+  get product() { return tt("Product page") },
+  get explore() { return tt("Explore") },
+  get link() { return tt("Checkout link") },
+  get admin() { return tt("Test sale") },
 }
 
 /** The names a visit's origin is recorded under, and how they read. */
 export const FROM_LABEL: Record<string, string> = {
-  direct: "Direct",
+  get direct() { return tt("Direct") },
   storelib: "Storelib",
-  email: "Email",
+  get email() { return tt("Email") },
   instagram: "Instagram",
   tiktok: "TikTok",
   youtube: "YouTube",
   facebook: "Facebook",
   x: "X",
-  threads: "Threads",
+  get threads() { return tt("Threads") },
   pinterest: "Pinterest",
   linkedin: "LinkedIn",
-  snapchat: "Snapchat",
-  reddit: "Reddit",
+  get snapchat() { return tt("Snapchat") },
+  get reddit() { return tt("Reddit") },
   whatsapp: "WhatsApp",
   telegram: "Telegram",
   discord: "Discord",
   twitch: "Twitch",
-  bluesky: "Bluesky",
-  tumblr: "Tumblr",
+  get bluesky() { return tt("Bluesky") },
+  get tumblr() { return tt("Tumblr") },
   google: "Google",
-  bing: "Bing",
+  get bing() { return tt("Bing") },
   duckduckgo: "DuckDuckGo",
-  yahoo: "Yahoo",
-  ecosia: "Ecosia",
-  brave: "Brave Search",
-  baidu: "Baidu",
-  yandex: "Yandex",
+  get yahoo() { return tt("Yahoo") },
+  get ecosia() { return tt("Ecosia") },
+  get brave() { return tt("Brave Search") },
+  get baidu() { return tt("Baidu") },
+  get yandex() { return tt("Yandex") },
   chatgpt: "ChatGPT",
-  perplexity: "Perplexity",
+  get perplexity() { return tt("Perplexity") },
 }
 
 const HOST = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::\d{1,5})?$/
@@ -382,8 +383,8 @@ export function fromLabel(from: string): string {
  * when not even that was.
  */
 export function sourceText(source: OrderSource | null | undefined, origin: OrderOrigin | null | undefined): string {
-  if (!source) return "Not recorded"
-  const parts = [source === "website" ? "Website" : "Storelib"]
+  if (!source) return tt("Not recorded")
+  const parts = [source === "website" ? tt("Website") : "Storelib"]
   const where = originWhere(source, origin)
   if (where) parts.push(where)
   const from = originFrom(origin)
@@ -401,7 +402,7 @@ export function originWhere(source: OrderSource | null | undefined, origin: Orde
 /** "from Instagram", "Direct", or null when nothing was seen. */
 export function originFrom(origin: OrderOrigin | null | undefined): string | null {
   if (!origin?.from) return null
-  return origin.from === "direct" ? "Direct" : `from ${fromLabel(origin.from)}`
+  return origin.from === "direct" ? tt("Direct") : tt("from {name}", { name: fromLabel(origin.from) })
 }
 
 /** Everything after the channel, for a column of its own: "Product page · from Google · utm_campaign spring". */
@@ -412,8 +413,8 @@ export function sourceDetailText(source: OrderSource | null | undefined, origin:
 /** "utm_source ig · utm_campaign spring", or null. */
 export function originCampaign(origin: OrderOrigin | null | undefined): string | null {
   const parts = [
-    origin?.utm_source ? `utm_source ${origin.utm_source}` : null,
-    origin?.utm_campaign ? `utm_campaign ${origin.utm_campaign}` : null,
+    origin?.utm_source ? tt("utm_source {utm_source}", { utm_source: origin.utm_source }) : null,
+    origin?.utm_campaign ? tt("utm_campaign {utm_campaign}", { utm_campaign: origin.utm_campaign }) : null,
   ].filter(Boolean)
   return parts.length ? parts.join(" · ") : null
 }

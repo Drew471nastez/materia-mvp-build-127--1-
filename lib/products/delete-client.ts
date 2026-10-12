@@ -1,5 +1,7 @@
 "use client"
 
+import { tt } from "@/lib/i18n/text"
+
 /**
  * ===========================================================================
  *  DELETE, FROM ANY SCREEN, AND A LIST THAT REMEMBERS IT
@@ -38,23 +40,23 @@ export async function deleteProduct(productId: string): Promise<DeleteOutcome> {
       body: JSON.stringify({ productId }),
     })
   } catch {
-    throw new Error("No connection. Nothing was deleted")
+    throw new Error(tt("No connection. Nothing was deleted"))
   }
   const body = (await res.json().catch(() => null)) as
     | { ok?: boolean; outcome?: string; error?: string; message?: string; status?: string; archived?: boolean; slug?: string | null }
     | null
-  if (!res.ok || !body?.ok) throw new Error(body?.error || "Could not delete the product")
+  if (!res.ok || !body?.ok) throw new Error(body?.error || tt("Could not delete the product"))
   if (body.outcome === "deleted") return { outcome: "deleted", status: String(body.status ?? ""), slug: body.slug ?? null }
   if (body.outcome === "archived") {
     return {
       outcome: "archived",
-      message: body.message || "It was archived instead",
+      message: body.message || tt("It was archived instead"),
       status: String(body.status ?? "archived"),
       archived: body.archived !== false,
       slug: body.slug ?? null,
     }
   }
-  throw new Error("Could not delete the product")
+  throw new Error(tt("Could not delete the product"))
 }
 
 /* ── The question, true before the press ──────────────────────────────── */
@@ -84,22 +86,22 @@ export async function previewProductDelete(productId: string, timeoutMs = 4000):
 
 /** The words of the question, one set for every screen that deletes. */
 export function deleteQuestion(name: string, kind: DeleteKind): { title: string; body: string; confirm: string } {
-  const what = name.trim() || "this product"
+  const what = name.trim() || tt("this product")
   if (kind === "archive") {
     return {
-      title: `Archive ${what}?`,
-      body: "It has sales, so it will be archived, not deleted. It comes off your page and buyers keep their access.",
-      confirm: "Archive",
+      title: tt("Archive {what}?", { what }),
+      body: tt("It has sales, so it will be archived, not deleted. It comes off your page and buyers keep their access."),
+      confirm: tt("Archive"),
     }
   }
   if (kind === "unknown") {
     return {
-      title: `Delete ${what}?`,
-      body: "It comes off your page. If it has sales it is archived instead, so buyers keep their access.",
-      confirm: "Delete",
+      title: tt("Delete {what}?", { what }),
+      body: tt("It comes off your page. If it has sales it is archived instead, so buyers keep their access."),
+      confirm: tt("Delete"),
     }
   }
-  return { title: `Delete ${what}?`, body: "It comes off your page and cannot be brought back.", confirm: "Delete" }
+  return { title: tt("Delete {what}?", { what }), body: tt("It comes off your page and cannot be brought back."), confirm: tt("Delete") }
 }
 
 /* ── What this tab has changed, for the list's kept copy ─────────────────── */

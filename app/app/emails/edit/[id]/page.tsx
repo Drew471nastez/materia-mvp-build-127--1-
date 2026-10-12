@@ -4,8 +4,13 @@
  * for the signed-in creator's own email.
  */
 import { ComposePage } from "@/components/email/compose/compose-page"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata = { title: "Edit email" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("Edit email") }
+}
 
 export default async function EditEmailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

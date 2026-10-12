@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { Card, ErrorNote, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 interface BackupRow {
   id: string
@@ -16,16 +18,16 @@ interface BackupRow {
 function backupWhen(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  const date = d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })
-  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-  return `${date} at ${time}`
+  const date = d.toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "long", year: "numeric" }))
+  const time = d.toLocaleTimeString(appLocale(), zoned({ hour: "2-digit", minute: "2-digit" }))
+  return tt("{date} at {time}", { date, time })
 }
 
 const SOURCE_WORD: Record<BackupRow["source"], string> = {
-  ai: "After a Storelib AI task",
-  publish: "When you published",
-  manual: "Saved by you",
-  restore: "Before a restore",
+  get ai() { return tt("After a Storelib AI task") },
+  get publish() { return tt("When you published") },
+  get manual() { return tt("Saved by you") },
+  get restore() { return tt("Before a restore") },
 }
 
 /**
@@ -62,11 +64,11 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
     try {
       const res = await fetch(`/api/website-builder/themes/${ctx.installId}/backups`)
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || "Could not load backups")
+      if (!res.ok) throw new Error(json?.error || tt("Could not load backups"))
       setBackups(json.backups ?? [])
     } catch (e) {
       setBackups([])
-      setError(e instanceof Error ? e.message : "Could not load backups")
+      setError(e instanceof Error ? e.message : tt("Could not load backups"))
     }
   }, [ctx.installId])
 
@@ -82,13 +84,13 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
       const res = await fetch(`/api/website-builder/themes/${ctx.installId}/backups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: "manual", label: "Manual backup" }),
+        body: JSON.stringify({ source: "manual", label: tt("Manual backup") }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || "Could not save a backup")
+      if (!res.ok) throw new Error(json?.error || tt("Could not save a backup"))
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save a backup")
+      setError(e instanceof Error ? e.message : tt("Could not save a backup"))
     } finally {
       setBackingUp(false)
     }
@@ -101,11 +103,11 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
     try {
       const res = await fetch(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}/restore`, { method: "POST" })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || "Could not restore this backup")
+      if (!res.ok) throw new Error(json?.error || tt("Could not restore this backup"))
       setConfirming(null)
       ctx.onRestored?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not restore this backup")
+      setError(e instanceof Error ? e.message : tt("Could not restore this backup"))
       setConfirming(null)
     } finally {
       setRestoring(false)
@@ -125,10 +127,10 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
         body: "{}",
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || "Could not duplicate this website")
+      if (!res.ok) throw new Error(json?.error || tt("Could not duplicate this website"))
       setCopied(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not duplicate this website")
+      setError(e instanceof Error ? e.message : tt("Could not duplicate this website"))
     } finally {
       setCopying(false)
     }
@@ -140,42 +142,41 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
         aside={
           <button type="button" onClick={() => void backUpNow()} disabled={backingUp} className={buttonClass}>
             {backingUp && <Loader2 className="h-4 w-4 animate-spin" />}
-            Back up now
+            {tt("Back up now")}
           </button>
         }
       >
-        Backups & Versions
+        {tt("Backups & Versions")}
       </PageTitle>
       <Lead>
-        A backup is saved automatically each time Storelib AI finishes a task and each time you publish. Restore one to put
-        your draft back to that moment.
+        {tt("A backup is saved automatically each time Storelib AI finishes a task and each time you publish. Restore one to put your draft back to that moment.")}
       </Lead>
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      <Card title="Restore points" footer="The newest 30 are kept. A backup identical to the one before it is not saved twice.">
+      <Card title={tt("Restore points")} footer={tt("The newest 30 are kept. A backup identical to the one before it is not saved twice.")}>
         {backups === null ? (
           <div className="flex items-center justify-center py-12 text-white/45">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : backups.length === 0 ? (
-          <p className="px-4 py-10 text-center text-[14.5px] text-white/50 md:px-6">No backups yet.</p>
+          <p className="px-4 py-10 text-center text-[14.5px] text-white/50 md:px-6">{tt("No backups yet.")}</p>
         ) : (
           backups.map((b) => (
             <Row key={b.id} label={b.label} hint={`${backupWhen(b.created_at)} · ${SOURCE_WORD[b.source]}`} inline>
               <button type="button" onClick={() => setConfirming(b)} className={buttonClass}>
-                Restore
+                {tt("Restore")}
               </button>
             </Row>
           ))
         )}
       </Card>
 
-      <Card title="Duplicate">
-        <Row label="Copy this website" hint={copied ? "Copied. The copy is a draft in your library." : "Makes a draft copy with the same pages, sections and settings."} inline>
+      <Card title={tt("Duplicate")}>
+        <Row label={tt("Copy this website")} hint={copied ? tt("Copied. The copy is a draft in your library.") : tt("Makes a draft copy with the same pages, sections and settings.")} inline>
           <button type="button" onClick={() => void duplicate()} disabled={copying || copied} className={buttonClass}>
             {copying ? <Loader2 className="h-4 w-4 animate-spin" /> : copied ? <Check className="h-4 w-4" /> : null}
-            {copied ? "Copied" : "Duplicate"}
+            {copied ? tt("Copied") : tt("Duplicate")}
           </button>
         </Row>
       </Card>
@@ -190,22 +191,22 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
           <div
             role="alertdialog"
             aria-modal="true"
-            aria-label="Restore this backup"
+            aria-label={tt("Restore this backup")}
             onClick={(e) => e.stopPropagation()}
             className="wb-settings-in w-full max-w-[460px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 text-white shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] md:p-6"
           >
-            <h2 className="text-[20px] font-semibold">Restore this backup?</h2>
+            <h2 className="text-[20px] font-semibold">{tt("Restore this backup?")}</h2>
             <p className="mt-2 text-[15px] leading-relaxed text-white/70">
-              Your draft will be replaced with the website as it was on <span className="text-white">{backupWhen(confirming.created_at)}</span>.
+              {tt("Your draft will be replaced with the website as it was on")} <span className="text-white">{backupWhen(confirming.created_at)}</span>.
             </p>
             <ul className="mt-4 space-y-2 text-[14px] text-white/70">
               <li className="flex gap-2.5">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
-                A backup of the draft you have now is saved first, so this can be undone.
+                {tt("A backup of the draft you have now is saved first, so this can be undone.")}
               </li>
               <li className="flex gap-2.5">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
-                Nothing changes on your live site until you publish.
+                {tt("Nothing changes on your live site until you publish.")}
               </li>
             </ul>
             <div className="mt-6 grid grid-cols-2 gap-2.5 md:flex md:justify-end">
@@ -215,7 +216,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
                 disabled={restoring}
                 className="h-11 rounded-xl px-4 text-[15px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white active:bg-white/[0.06] md:h-10 md:text-[14px]"
               >
-                Cancel
+                {tt("Cancel")}
               </button>
               <button
                 type="button"
@@ -224,7 +225,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
                 className="flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-60 md:h-10 md:text-[14px]"
               >
                 {restoring && <Loader2 className="h-4 w-4 animate-spin" />}
-                {restoring ? "Restoring" : "Restore"}
+                {restoring ? tt("Restoring") : tt("Restore")}
               </button>
             </div>
           </div>

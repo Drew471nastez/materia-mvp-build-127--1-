@@ -88,12 +88,13 @@ import {
 import { ChipTextInput, type ChipTextInputHandle } from "./chip-text-input"
 import { useEditorFieldEnv } from "./context"
 import { NOTE } from "./styles"
+import { tt, msg } from "@/lib/i18n/text"
 
 /** A field's name above it, as the sidebar has always drawn one. */
 export const FIELD_LABEL = "text-xs font-medium text-muted-foreground mb-1.5 block"
 
 /** What the button is called, to a screen reader. */
-export const INSERT_LABEL = "Insert shop data"
+export const INSERT_LABEL = msg("Insert shop data")
 
 export function DynamicSourceField({
   field,
@@ -227,7 +228,7 @@ export function DynamicSourceField({
 
   /* Up and down move through the list, Home and End to its ends. */
   const onListKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return // i18n-ignore: key names
     const options = Array.from(list.current?.querySelectorAll<HTMLButtonElement>("[role='option']") ?? [])
     if (options.length === 0) return
     e.preventDefault()
@@ -249,7 +250,7 @@ export function DynamicSourceField({
     <button
       ref={button}
       type="button"
-      aria-label={INSERT_LABEL}
+      aria-label={tt(INSERT_LABEL)}
       aria-haspopup="listbox"
       aria-expanded={open}
       data-dynamic-action=""
@@ -309,7 +310,7 @@ export function DynamicSourceField({
                     <span className="truncate">{source?.label ?? bound}</span>
                     <button
                       type="button"
-                      aria-label={`Disconnect ${source?.label ?? bound}`}
+                      aria-label={tt("Disconnect {value}", { value: source?.label ?? bound })}
                       onClick={disconnect}
                       className="relative inline-flex h-5 w-5 max-sm:h-7 max-sm:w-7 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-neutral-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 [-webkit-tap-highlight-color:transparent] before:absolute before:content-[''] max-sm:before:-inset-2"
                     >
@@ -339,7 +340,7 @@ export function DynamicSourceField({
           ref={list}
           className="max-h-72 overflow-y-auto wb-slim-scroll py-1"
           role="listbox"
-          aria-label="Shop data"
+          aria-label={tt("Shop data")}
           onKeyDown={onListKey}
         >
           {Object.entries(groups).map(([group, items]) => (
@@ -364,7 +365,7 @@ export function DynamicSourceField({
       </FieldPopover>
       {parts.length > 0 && (
         <p className={`${NOTE} mt-1`} data-dynamic-note="">
-          On the page:{" "}
+          {tt("On the page:")}{" "}
           {parts.map((p, i) =>
             "source" in p ? (
               <span key={i} className="font-medium text-foreground">{p.label}</span>

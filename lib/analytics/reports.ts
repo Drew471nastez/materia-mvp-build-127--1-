@@ -55,6 +55,8 @@ import {
   type PropertySelector,
   type SubscriberRowLike,
 } from "./properties"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
 
@@ -319,14 +321,14 @@ export function sessionsOf(views: ViewRow[], w: Span, timeZone: string): Session
 /* ─── Labels ──────────────────────────────────────────────────────────── */
 
 export const SOURCE_LABEL: Record<string, string> = {
-  direct: "Direct",
-  organic_search: "Search",
-  paid_search: "Paid search",
-  paid: "Paid",
-  email: "Email",
-  affiliate: "Affiliate",
-  referral: "Referral",
-  social: "Social",
+  get direct() { return tt("Direct") },
+  get organic_search() { return tt("Search") },
+  get paid_search() { return tt("Paid search") },
+  get paid() { return tt("Paid") },
+  get email() { return tt("Email") },
+  get affiliate() { return tt("Affiliate") },
+  get referral() { return tt("Referral") },
+  get social() { return tt("Social") },
 }
 
 export const SOCIAL_LABEL: Record<string, string> = {
@@ -337,15 +339,15 @@ export const SOCIAL_LABEL: Record<string, string> = {
   youtube: "YouTube",
   pinterest: "Pinterest",
   linkedin: "LinkedIn",
-  snapchat: "Snapchat",
-  reddit: "Reddit",
-  threads: "Threads",
+  get snapchat() { return tt("Snapchat") },
+  get reddit() { return tt("Reddit") },
+  get threads() { return tt("Threads") },
   whatsapp: "WhatsApp",
   telegram: "Telegram",
   discord: "Discord",
   twitch: "Twitch",
-  bluesky: "Bluesky",
-  tumblr: "Tumblr",
+  get bluesky() { return tt("Bluesky") },
+  get tumblr() { return tt("Tumblr") },
 }
 
 export function sourceGroup(category: string | null | undefined): string {
@@ -366,14 +368,16 @@ function titleCase(s: string): string {
 /** A source category in words: the network for social ones ("Instagram"), else the group ("Search"). */
 export function sourceName(category: string | null | undefined): string {
   const n = socialNetwork(category)
-  if (n) return SOCIAL_LABEL[n] ?? (n === "other" ? "Social" : titleCase(n))
+  if (n) return SOCIAL_LABEL[n] ?? (n === "other" ? tt("Social") : titleCase(n))
   return SOURCE_LABEL[sourceGroup(category)]
 }
 
 export function countryName(code: string, stored?: string | null): string {
-  if (stored && stored.length > 2) return stored
+  const locale = appLocale()
+  /* The stored name is English; another language names the country itself. */
+  if (stored && stored.length > 2 && (locale.startsWith("en") || !/^[A-Z]{2}$/.test(code))) return stored
   try {
-    return new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code
+    return new Intl.DisplayNames([locale], { type: "region" }).of(code) || stored || code
   } catch {
     return code
   }
@@ -791,7 +795,7 @@ export function foldLegacyOnePage(
       const host = deps.hostOf(v.referrer)
       const internal = !host || isInternalReferrer(host, deps.mainDomain)
       const agent = deps.parseAgent(v.user_agent)
-      bump("source", deps.categorize(internal ? "Direct" : host, v.user_agent ?? null))
+      bump("source", deps.categorize(internal ? tt("Direct") : host, v.user_agent ?? null))
       bump("referrer", internal ? "direct" : host)
       bump("device", (agent.device || "").toLowerCase() || "unknown")
       bump("country", (v.country_code || "").toUpperCase() || "unknown")
@@ -876,7 +880,7 @@ export function referrerKeyer(mainDomain: string) {
   return (k: string) => {
     const d = k.trim().toLowerCase().replace(/^www\./, "")
     if (!d || d === "direct") return null
-    if (d === OTHER) return { key: OTHER, label: "Other websites" }
+    if (d === OTHER) return { key: OTHER, label: tt("Other websites") }
     /* A whole host, not a suffix: "mystorelib.com" is somebody else's site. */
     const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || isInternalReferrer(d, mainDomain)
     return self ? null : { key: d, label: d }
@@ -884,11 +888,11 @@ export function referrerKeyer(mainDomain: string) {
 }
 
 function deviceLabel(d: string): string {
-  if (d === "mobile") return "Mobile"
-  if (d === "desktop") return "Desktop"
-  if (d === "tablet") return "Tablet"
-  if (d === OTHER) return "Other"
-  return "Unknown"
+  if (d === "mobile") return tt("Mobile")
+  if (d === "desktop") return tt("Desktop")
+  if (d === "tablet") return tt("Tablet")
+  if (d === OTHER) return tt("Other")
+  return tt("Unknown")
 }
 
 /** What a OnePage block is called on the page, else where the link goes. */
@@ -904,8 +908,8 @@ function linkLabel(link: string, labels: Record<string, string>): string {
       return host
     }
   }
-  if (/^(mailto|tel|sms):$/.test(link)) return link === "mailto:" ? "Email" : link === "tel:" ? "Phone" : "Text message"
-  return "Link"
+  if (/^(mailto|tel|sms):$/.test(link)) return link === "mailto:" ? tt("Email") : link === "tel:" ? tt("Phone") : tt("Text message")
+  return tt("Link")
 }
 
 export function buildReports(input: {
@@ -1008,7 +1012,7 @@ export function buildReports(input: {
   const pageTotal = sum((now.pages ?? []).map((p) => Number(p[3]) || 0))
   const topPages: PageRow[] = (now.pages ?? []).map(([pt, pid, path, views, visitors]) => ({
     key: `${pt ?? ""}|${pid ?? ""}|${path ?? ""}`,
-    label: path ?? (pt === "onepage" ? "OnePage" : "Page unknown"),
+    label: path ?? (pt === "onepage" ? "OnePage" : tt("Page unknown")),
     place: placeLabel(pt, pid),
     views: Number(views) || 0,
     visitors: Number(visitors) || 0,
@@ -1054,7 +1058,7 @@ export function buildReports(input: {
     return [...rows.entries()]
       .map(([key, r]) => ({
         key,
-        label: key === REMOVED_PRODUCT ? "Removed product" : input.productTitles[key],
+        label: key === REMOVED_PRODUCT ? tt("Removed product") : input.productTitles[key],
         views: r.views,
         orders: r.orders,
         salesCents: r.cents,
@@ -1075,10 +1079,10 @@ export function buildReports(input: {
     if (partial) return []
     const values = [now.visitors ?? 0, now.product_visitors ?? 0, now.checkouts ?? 0, ordersNow.length]
     const steps: Array<Pick<FunnelStep, "key" | "label">> = [
-      { key: "visitors", label: "Visitors" },
-      { key: "product", label: "Viewed a product" },
-      { key: "checkout", label: "Started checkout" },
-      { key: "orders", label: "Ordered" },
+      { key: "visitors", label: tt("Visitors") },
+      { key: "product", label: tt("Viewed a product") },
+      { key: "checkout", label: tt("Started checkout") },
+      { key: "orders", label: tt("Ordered") },
     ]
     return steps.map((s, i) => {
       const value = values[i]
@@ -1127,7 +1131,7 @@ export function buildReports(input: {
       }) : [],
       bySource: rows((r) => {
         const source = r.last_touch?.source ?? null
-        return source ? { key: sourceName(source), label: sourceName(source) } : { key: "not_recorded", label: "Not recorded" }
+        return source ? { key: sourceName(source), label: sourceName(source) } : { key: "not_recorded", label: tt("Not recorded") }
       }),
     }
   })()
@@ -1136,22 +1140,22 @@ export function buildReports(input: {
   const before = then.maps ?? {}
   const breakdowns: Reports["breakdowns"] = {
     source: mapRows(maps.source, before.source, (k) => {
-      if (k === OTHER) return { key: "other", label: "Other" }
+      if (k === OTHER) return { key: "other", label: tt("Other") }
       const g = sourceGroup(k)
       return { key: g, label: SOURCE_LABEL[g] }
     }),
     social: mapRows(maps.source, before.source, (k) => {
       const nw = socialNetwork(k)
-      return nw ? { key: nw, label: SOCIAL_LABEL[nw] ?? (nw === "other" ? "Other social" : titleCase(nw)) } : null
+      return nw ? { key: nw, label: SOCIAL_LABEL[nw] ?? (nw === "other" ? tt("Other social") : titleCase(nw)) } : null
     }),
     referrer: mapRows(maps.referrer, before.referrer, referrerKeyer(mainDomain)),
-    campaign: mapRows(maps.campaign, before.campaign, (k) => (k === OTHER ? { key: OTHER, label: "Other campaigns" } : k.trim() ? { key: k.toLowerCase(), label: k } : null)),
+    campaign: mapRows(maps.campaign, before.campaign, (k) => (k === OTHER ? { key: OTHER, label: tt("Other campaigns") } : k.trim() ? { key: k.toLowerCase(), label: k } : null)),
     country: mapRows(maps.country, before.country, (k) =>
       k === "unknown" || k === "XX" || k === OTHER || !/^[A-Z]{2}$/.test(k) ? null : { key: k, label: countryName(k) },
     ).map((r) => ({ ...r, extra: { code: r.key } })),
     device: mapRows(maps.device, before.device, (k) => ({ key: k === OTHER ? OTHER : ["mobile", "desktop", "tablet"].includes(k) ? k : "unknown", label: deviceLabel(k) })),
     browser: mapRows(maps.browser, before.browser, (k) =>
-      k === "unknown" ? { key: "unknown", label: "Unknown" } : k === OTHER ? { key: OTHER, label: "Other" } : { key: k, label: titleCase(k) },
+      k === "unknown" ? { key: "unknown", label: tt("Unknown") } : k === OTHER ? { key: OTHER, label: tt("Other") } : { key: k, label: titleCase(k) },
     ),
   }
 

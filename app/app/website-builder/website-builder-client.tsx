@@ -105,6 +105,8 @@ import {
   type Incoming,
   type IncomingKind,
 } from "./incoming"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 export interface WebsiteSummary {
   id: string
@@ -247,7 +249,7 @@ function DraftBadge({ offline = false }: { offline?: boolean }) {
         offline ? "bg-[#ffef9d] text-[#4f4700]" : "bg-[#f1f2f4] text-[#3f3f46]",
       )}
     >
-      {offline ? "Offline" : "Draft"}
+      {offline ? tt("Offline") : tt("Draft")}
     </span>
   )
 }
@@ -520,7 +522,7 @@ function PendingCover({ name, preparing }: { name: string; preparing: boolean })
     <span
       data-cover-pending={preparing ? "preparing" : "waiting"}
       role="img"
-      aria-label={preparing ? `${name}, preparing preview` : name}
+      aria-label={preparing ? tt("{name}, preparing preview", { name }) : name}
       className="@container relative flex h-full w-full flex-col items-center justify-center bg-[#f3f4f6] px-[8%] text-center"
     >
       {preparing && <span aria-hidden className="wb-incoming-pulse absolute inset-0 bg-[#e6e8ec]" />}
@@ -529,7 +531,7 @@ function PendingCover({ name, preparing }: { name: string; preparing: boolean })
       </span>
       {preparing && (
         <span aria-hidden className="relative mt-1.5 hidden text-[12.5px] text-[#6b7280] @min-[260px]:block">
-          Preparing preview
+          {tt("Preparing preview")}
         </span>
       )}
     </span>
@@ -570,7 +572,7 @@ function SiteAddress({ url, display }: { url: string; display: string }) {
       <button
         type="button"
         onClick={copy}
-        aria-label={copied ? "Address copied" : "Copy address"}
+        aria-label={copied ? tt("Address copied") : tt("Copy address")}
         className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#9ca3af] transition-colors hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
       >
         <Copy className={cn("h-3.5 w-3.5 transition-opacity duration-150", copied && "opacity-0")} />
@@ -619,8 +621,8 @@ function ViewLabel() {
   return (
     <>
       <Eye aria-hidden className="h-4 w-4 text-[#4b5563] sm:hidden" strokeWidth={1.9} />
-      <span className="sm:hidden">View</span>
-      <span className="hidden sm:inline">View website</span>
+      <span className="sm:hidden">{tt("View")}</span>
+      <span className="hidden sm:inline">{tt("View website")}</span>
     </>
   )
 }
@@ -911,10 +913,10 @@ export function WebsiteBuilderClient({
   })
 
   const publish = (i: WebsiteSummary) =>
-    run(`${i.id}:publish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "publish" })), `${i.name} is live`, "Could not publish")
+    run(`${i.id}:publish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "publish" })), tt("{name} is live", { name: i.name }), tt("Could not publish"))
 
   const unpublish = (i: WebsiteSummary) =>
-    run(`${i.id}:unpublish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "unpublish" })), `${i.name} is offline`, "Could not unpublish")
+    run(`${i.id}:unpublish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "unpublish" })), tt("{name} is offline", { name: i.name }), tt("Could not unpublish"))
 
   /** Something is on its way in: a second one waits for it. */
   const making = !!incoming && incoming.phase !== "error"
@@ -1076,22 +1078,22 @@ export function WebsiteBuilderClient({
     const again = () => void duplicate(i)
     return make(
       "duplicate",
-      `${i.name} (copy)`,
+      tt("{name} (copy)", { name: i.name }),
       async () => {
         const res = await fetch(`/api/website-builder/themes/${i.id}/duplicate`, json("POST", {}))
         return { ok: res.ok, data: await res.json().catch(() => ({})) }
       },
-      () => `Copied ${i.name}`,
-      "Could not duplicate",
+      () => tt("Copied {name}", { name: i.name }),
+      tt("Could not duplicate"),
       again,
     )
   }
 
   const rename = (i: WebsiteSummary, name: string) =>
-    run(`${i.id}:rename`, () => fetch(`/api/website-builder/themes/${i.id}`, json("PATCH", { name })), "Renamed", "Could not rename")
+    run(`${i.id}:rename`, () => fetch(`/api/website-builder/themes/${i.id}`, json("PATCH", { name })), tt("Renamed"), tt("Could not rename"))
 
   const remove = (i: WebsiteSummary) =>
-    run(`${i.id}:delete`, () => fetch(`/api/website-builder/themes/${i.id}`, { method: "DELETE" }), `Removed ${i.name}`, "Could not remove")
+    run(`${i.id}:delete`, () => fetch(`/api/website-builder/themes/${i.id}`, { method: "DELETE" }), tt("Removed {name}", { name: i.name }), tt("Could not remove"))
 
   const addTheme = (def: ThemeDefinition): Promise<void> | undefined => {
     if (slotsLeft === 0) {
@@ -1106,8 +1108,8 @@ export function WebsiteBuilderClient({
         const res = await fetch("/api/website-builder/themes/add", json("POST", { theme_id: def.id }))
         return { ok: res.ok, data: await res.json().catch(() => ({})) }
       },
-      () => `${def.name} added`,
-      "Could not add theme",
+      () => tt("{name} added", { name: def.name }),
+      tt("Could not add theme"),
       () => void addTheme(def),
     )
   }
@@ -1118,7 +1120,7 @@ export function WebsiteBuilderClient({
       const res = await fetch(`/api/website-builder/themes/${i.id}/export`)
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
-        toast({ title: d.error ?? "Could not export", variant: "destructive" })
+        toast({ title: d.error ?? tt("Could not export"), variant: "destructive" })
         return
       }
       const blob = await res.blob()
@@ -1133,7 +1135,7 @@ export function WebsiteBuilderClient({
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      toast({ title: `Exported ${i.name}` })
+      toast({ title: tt("Exported {name}", { name: i.name }) })
     } finally {
       setBusy(null)
     }
@@ -1157,12 +1159,12 @@ export function WebsiteBuilderClient({
       nameFromFile(file),
       (progress, sent) => importThemeFile(file, { progress, sent }),
       (data) =>
-        `Imported ${typeof data.name === "string" ? data.name : nameFromFile(file)}${typeof data.media === "string" && data.media && data.media !== "nothing" ? ` with ${data.media}` : ""}` +
+        tt("Imported {value}{value2}", { value: typeof data.name === "string" ? data.name : nameFromFile(file), value2: typeof data.media === "string" && data.media && data.media !== "nothing" ? tt(" with {media}", { media: data.media }) : "" }) +
         /* A second header or footer the package wrote as a section, left out so the site keeps its own. */
         (Array.isArray(data.left_out) && data.left_out.length ? `. Its extra ${data.left_out.join(" and ")} section was left out; the site's own is used` : "") +
         /* A Shopify theme: how many of its sections made it across (lib/storelib-theme/shopify/convert.ts). */
         (typeof (data.shopify as { summary?: unknown } | undefined)?.summary === "string" ? `. ${(data.shopify as { summary: string }).summary}` : ""),
-      "Could not import that file",
+      tt("Could not import that file"),
       () => void importZip(file),
     )
   }
@@ -1202,7 +1204,7 @@ export function WebsiteBuilderClient({
     if (importing) return
     const file = droppedThemeFile(e.dataTransfer.files)
     if (!file) {
-      toast({ title: "Drop a .storelib-theme.zip file", variant: "destructive" })
+      toast({ title: tt("Drop a .storelib-theme.zip file"), variant: "destructive" })
       return
     }
     void importZip(file)
@@ -1219,22 +1221,22 @@ export function WebsiteBuilderClient({
   const menuFor = (i: WebsiteSummary, opts: { publish?: boolean } = {}): ActionMenuItem[] => {
     const items: ActionMenuItem[] = []
     /* A site that was live and was taken offline goes back up from its own row. */
-    if (opts.publish) items.push({ label: i.status === "unpublished" ? "Publish again" : "Publish", icon: <Rocket />, onClick: () => setPublishing(i) })
+    if (opts.publish) items.push({ label: i.status === "unpublished" ? tt("Publish again") : tt("Publish"), icon: <Rocket />, onClick: () => setPublishing(i) })
     items.push(
-      { label: "Edit code", icon: <Code2 />, onClick: () => go(editorHref(username, i.id, "code")), separatorBefore: items.length > 0 },
+      { label: tt("Edit code"), icon: <Code2 />, onClick: () => go(editorHref(username, i.id, "code")), separatorBefore: items.length > 0 },
       /* The live site's settings are the Settings button beside Edit website; a draft's are here. */
-      ...(i.status === "published" ? [] : [{ label: "Website settings", icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
-      { label: "Rename", icon: <Pencil />, onClick: () => setRenaming(i) },
-      { label: "Duplicate", icon: <Layers />, onClick: () => void duplicate(i) },
-      { label: "Export theme", icon: <Download />, onClick: () => void exportTheme(i) },
+      ...(i.status === "published" ? [] : [{ label: tt("Website settings"), icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
+      { label: tt("Rename"), icon: <Pencil />, onClick: () => setRenaming(i) },
+      { label: tt("Duplicate"), icon: <Layers />, onClick: () => void duplicate(i) },
+      { label: tt("Export theme"), icon: <Download />, onClick: () => void exportTheme(i) },
     )
     if (i.status === "published") {
-      items.push({ label: "Take offline", icon: <EyeOff />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
+      items.push({ label: tt("Take offline"), icon: <EyeOff />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
     } else if (installs.length > 1) {
       /* Not the only website: an empty library is given the default theme
          again on the next visit, so removing the last one would only put a
          fresh copy back. */
-      items.push({ label: "Remove", icon: <Trash2 />, onClick: () => setDeleting(i), variant: "destructive", separatorBefore: true })
+      items.push({ label: tt("Remove"), icon: <Trash2 />, onClick: () => setDeleting(i), variant: "destructive", separatorBefore: true })
     }
     return items
   }
@@ -1248,17 +1250,17 @@ export function WebsiteBuilderClient({
    */
   const publicControl: { label: string; live: boolean; busy: boolean; items: ActionMenuItem[] } | null = live
     ? {
-        label: "Public",
+        label: tt("Public"),
         live: true,
         busy: busy === `${live.id}:unpublish`,
-        items: [{ label: "Take offline", icon: <EyeOff />, onClick: () => setUnpublishing(live), variant: "warning" }],
+        items: [{ label: tt("Take offline"), icon: <EyeOff />, onClick: () => setUnpublishing(live), variant: "warning" }],
       }
     : offline
       ? {
-          label: "Unpublished",
+          label: tt("Unpublished"),
           live: false,
           busy: busy === `${offline.id}:publish`,
-          items: [{ label: "Publish again", icon: <Rocket />, onClick: () => setPublishing(offline) }],
+          items: [{ label: tt("Publish again"), icon: <Rocket />, onClick: () => setPublishing(offline) }],
         }
       : null
 
@@ -1312,7 +1314,7 @@ export function WebsiteBuilderClient({
             crossed eye), and the two never show the same mark. */}
         <div>
           <div className="flex items-center justify-between gap-3" data-title-row="">
-            <h1 className="min-w-0 truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
+            <h1 className="min-w-0 truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">{tt("Website")}</h1>
             {(publicControl || siteUrl) && (
               <div className="flex shrink-0 items-center gap-2">
                 {publicControl && (
@@ -1339,11 +1341,11 @@ export function WebsiteBuilderClient({
                 )}
                 {siteUrl &&
                   (live ? (
-                    <a href={ownOpen(siteUrl)} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className={HEADER_BUTTON}>
+                    <a href={ownOpen(siteUrl)} target="_blank" rel="noopener noreferrer" aria-label={tt("View website")} data-control="view" className={HEADER_BUTTON}>
                       <ViewLabel />
                     </a>
                   ) : (
-                    <button type="button" disabled aria-label="View website" data-control="view" className={HEADER_BUTTON}>
+                    <button type="button" disabled aria-label={tt("View website")} data-control="view" className={HEADER_BUTTON}>
                       <ViewLabel />
                     </button>
                   ))}
@@ -1372,7 +1374,7 @@ export function WebsiteBuilderClient({
                     <button
                       type="button"
                       onClick={() => go(editorHref(username, live.id))}
-                      aria-label={`Edit ${live.name}`}
+                      aria-label={tt("Edit {name}", { name: live.name })}
                       data-cover=""
                       data-picture-press=""
                       className={COVER_FRAME}
@@ -1392,18 +1394,18 @@ export function WebsiteBuilderClient({
                         theme row only when it is not the site's name again. */}
                     <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[13px]">
                       <div className="flex items-center justify-between gap-4 py-2.5">
-                        <dt className="text-[#6b7280]">Published</dt>
-                        <dd className="text-right font-medium text-[#1a1a2e]">{live.published_at ? since(live.published_at) : "Yes"}</dd>
+                        <dt className="text-[#6b7280]">{tt("Published")}</dt>
+                        <dd className="text-right font-medium text-[#1a1a2e]">{live.published_at ? since(live.published_at) : tt("Yes")}</dd>
                       </div>
                       <div className="flex items-center justify-between gap-4 py-2.5">
-                        <dt className="text-[#6b7280]">Last edited</dt>
+                        <dt className="text-[#6b7280]">{tt("Last edited")}</dt>
                         <dd className="text-right font-medium text-[#1a1a2e]">{since(live.saved_at)}</dd>
                       </div>
                       {/* Its visitors and orders in the last 30 days, opening Analytics filtered to this website (components/app/analytics-summary-line). */}
                       <AnalyticsSummaryFact property={`website:${live.id}`} />
                       {live.theme && live.theme.name !== live.name && (
                         <div className="flex items-center justify-between gap-4 py-2.5">
-                          <dt className="text-[#6b7280]">Theme</dt>
+                          <dt className="text-[#6b7280]">{tt("Theme")}</dt>
                           <dd className="min-w-0 truncate text-right font-medium text-[#1a1a2e]">
                             {live.theme.name} <span className="font-normal text-[#9ca3af]">v{live.theme.version}</span>
                           </dd>
@@ -1417,14 +1419,14 @@ export function WebsiteBuilderClient({
                         onClick={() => go(editorHref(username, live.id))}
                         className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
                       >
-                        Edit website
+                        {tt("Edit website")}
                       </Button>
                       <Tooltip delayDuration={400}>
                         <TooltipTrigger asChild>
                           <button
                             type="button"
                             data-control="settings"
-                            aria-label="Settings"
+                            aria-label={tt("Settings")}
                             onClick={() => go(editorHref(username, live.id, "settings"))}
                             className={SETTINGS_ON_CARD}
                           >
@@ -1432,7 +1434,7 @@ export function WebsiteBuilderClient({
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
-                          Settings
+                          {tt("Settings")}
                         </TooltipContent>
                       </Tooltip>
                       <ResponsiveActionMenu
@@ -1440,7 +1442,7 @@ export function WebsiteBuilderClient({
                         items={menuFor(live)}
                         menuWidth="w-56"
                         trigger={
-                          <button type="button" aria-label={`More actions for ${live.name}`} data-more-button="" className={MORE_ON_CARD}>
+                          <button type="button" aria-label={tt("More actions for {name}", { name: live.name })} data-more-button="" className={MORE_ON_CARD}>
                             {busy?.startsWith(live.id) ? (
                               <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
                             ) : (
@@ -1461,7 +1463,7 @@ export function WebsiteBuilderClient({
                   <button
                     type="button"
                     onClick={() => go(editorHref(username, starter.id))}
-                    aria-label={`Customize ${starter.name}`}
+                    aria-label={tt("Customize {name}", { name: starter.name })}
                     data-cover=""
                     data-picture-press=""
                     className={COVER_FRAME}
@@ -1473,19 +1475,19 @@ export function WebsiteBuilderClient({
                   {/* Said as what it is, not as "Draft", a word that reads as a fault here. */}
                   <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#6b7280]" data-starter-status="">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#9ca3af]" />
-                    Not published yet
+                    {tt("Not published yet")}
                   </span>
                   <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
                     {starter.name}
                   </h2>
                   <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[13px]">
                     <div className="flex items-center justify-between gap-4 py-2.5">
-                      <dt className="text-[#6b7280]">Last edited</dt>
+                      <dt className="text-[#6b7280]">{tt("Last edited")}</dt>
                       <dd className="text-right font-medium text-[#1a1a2e]">{since(starter.saved_at)}</dd>
                     </div>
                     {starter.theme && starter.theme.name !== starter.name && (
                       <div className="flex items-center justify-between gap-4 py-2.5">
-                        <dt className="text-[#6b7280]">Theme</dt>
+                        <dt className="text-[#6b7280]">{tt("Theme")}</dt>
                         <dd className="min-w-0 truncate text-right font-medium text-[#1a1a2e]">{starter.theme.name}</dd>
                       </div>
                     )}
@@ -1496,7 +1498,7 @@ export function WebsiteBuilderClient({
                       className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
                       data-control="customize"
                     >
-                      Customize
+                      {tt("Customize")}
                     </Button>
                     <button
                       type="button"
@@ -1506,14 +1508,14 @@ export function WebsiteBuilderClient({
                       className={PUBLISH_ON_CARD}
                     >
                       {busy === `${starter.id}:publish` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} />}
-                      Publish
+                      {tt("Publish")}
                     </button>
                     <ResponsiveActionMenu
                       title={starter.name}
                       items={menuFor(starter)}
                       menuWidth="w-56"
                       trigger={
-                        <button type="button" aria-label={`More actions for ${starter.name}`} data-more-button="" className={MORE_ON_CARD}>
+                        <button type="button" aria-label={tt("More actions for {name}", { name: starter.name })} data-more-button="" className={MORE_ON_CARD}>
                           {busy?.startsWith(starter.id) && busy !== `${starter.id}:publish` ? (
                             <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
                           ) : (
@@ -1533,9 +1535,9 @@ export function WebsiteBuilderClient({
                   <Rocket className="h-4.5 w-4.5" />
                 </span>
                 <h2 id="live-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
-                  No website yet
+                  {tt("No website yet")}
                 </h2>
-                <p className="max-w-[320px] text-[13px] text-[#6b7280]">Start from a theme, change what you like, and publish when it is ready.</p>
+                <p className="max-w-[320px] text-[13px] text-[#6b7280]">{tt("Start from a theme, change what you like, and publish when it is ready.")}</p>
                 {explore[0] && (
                   <Button
                     onClick={() => void addTheme(explore[0])}
@@ -1543,7 +1545,7 @@ export function WebsiteBuilderClient({
                     className="mt-2 h-11 rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2d2d44] sm:h-10"
                   >
                     {making && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Add {explore[0].name}
+                    {tt("Add {name}", { name: explore[0].name })}
                   </Button>
                 )}
               </div>
@@ -1556,10 +1558,10 @@ export function WebsiteBuilderClient({
                   {offline ? <EyeOff className="h-4.5 w-4.5" /> : <Rocket className="h-4.5 w-4.5" />}
                 </span>
                 <h2 id="live-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
-                  {offline ? "Your website is offline" : "Nothing is live"}
+                  {offline ? tt("Your website is offline") : tt("Nothing is live")}
                 </h2>
                 <p className="max-w-[320px] text-[13px] text-[#6b7280]">
-                  {offline ? <>Visitors see a placeholder. {offline.name} was the last one live.</> : "Publish a website from your library."}
+                  {offline ? <>{tt("Visitors see a placeholder. {name} was the last one live.", { name: offline.name })}</> : tt("Publish a website from your library.")}
                 </p>
                 {offline && (
                   <Button
@@ -1568,7 +1570,7 @@ export function WebsiteBuilderClient({
                     className="mt-2 h-11 rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2d2d44] sm:h-10"
                   >
                     {busy === `${offline.id}:publish` && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Publish again
+                    {tt("Publish again")}
                   </Button>
                 )}
               </div>
@@ -1588,7 +1590,7 @@ export function WebsiteBuilderClient({
           className="space-y-3"
         >
           <SectionHeading
-            title="Library"
+            title={tt("Library")}
             /**
              * How full it is, as a count of websites, with the rule behind a
              * dotted underline: one live and the rest drafts (LIBRARY_RULE). "2 left" answered
@@ -1601,11 +1603,11 @@ export function WebsiteBuilderClient({
                   <span className="text-[12.5px] font-medium tabular-nums text-[#6b7280]">
                     {/* A library from before the limit can hold more than it
                         allows, and "5 of 3" reads as a broken counter. */}
-                    {slotsUsed > THEME_INSTALL_LIMIT ? `${slotsUsed} websites` : `${slotsUsed} of ${THEME_INSTALL_LIMIT} websites`}
+                    {slotsUsed > THEME_INSTALL_LIMIT ? tt("{slotsUsed} websites", { slotsUsed }) : tt("{slotsUsed} of {themeInstallLimit} websites", { slotsUsed, themeInstallLimit: THEME_INSTALL_LIMIT })}
                   </span>
                 }
                 title={LIBRARY_RULE_TITLE}
-                description={`${LIBRARY_RULE} One is live at a time, and the others are drafts you can edit and publish in its place. Remove one to add another.`}
+                description={tt("{libraryRule} One is live at a time, and the others are drafts you can edit and publish in its place. Remove one to add another.", { libraryRule: LIBRARY_RULE })}
               />
             }
           >
@@ -1633,7 +1635,7 @@ export function WebsiteBuilderClient({
               className="h-11 min-w-[140px] rounded-xl px-3 text-[13px] font-medium tabular-nums text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e] disabled:opacity-100"
             >
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {importing && incoming ? (incoming.phase === "uploading" ? `Uploading ${Math.round(incoming.progress * 100)}%` : "Importing") : "Import theme"}
+              {importing && incoming ? (incoming.phase === "uploading" ? tt("Uploading {value}%", { value: Math.round(incoming.progress * 100) }) : tt("Importing")) : tt("Import theme")}
             </Button>
             <Button
               asChild
@@ -1652,11 +1654,11 @@ export function WebsiteBuilderClient({
                 }}
               >
                 <Plus className="h-4 w-4" />
-                Add theme
+                {tt("Add theme")}
               </Link>
             </Button>
           </SectionHeading>
-          <h2 id="library-heading" className="sr-only">Library</h2>
+          <h2 id="library-heading" className="sr-only">{tt("Library")}</h2>
 
           {/* ── A table, not a stack of cards ───────────────────────────
               Column headings once, at the top, and each website a row under
@@ -1674,7 +1676,7 @@ export function WebsiteBuilderClient({
             >
               <span className={cn("inline-flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-white px-4 py-2 text-[13.5px] font-semibold text-[#1a1a2e] shadow-[0_10px_30px_-16px_rgba(17,24,39,0.45)] transition-transform duration-200", libraryDrop ? "scale-100" : "scale-95")}>
                 <Upload className="h-4 w-4" />
-                Drop to import
+                {tt("Drop to import")}
               </span>
             </div>
             {ringed && (
@@ -1687,17 +1689,17 @@ export function WebsiteBuilderClient({
             )}
             {library.length === 0 && !showingIncoming ? (
               <div className="px-6 py-9 text-center text-[13px] text-[#6b7280]">
-                No drafts. Add a theme to start another website.
+                {tt("No drafts. Add a theme to start another website.")}
               </div>
             ) : (
               <table className="w-full table-fixed border-collapse text-left">
                 <thead className="hidden bg-[#fafbfb] sm:table-header-group">
                   <tr className="border-b border-[#eceef1] text-[12px] font-medium text-[#6b7280]">
-                    <th scope="col" className="h-9 px-4 font-medium">Website</th>
-                    <th scope="col" className="h-9 w-[104px] px-3 font-medium">Status</th>
-                    <th scope="col" className="hidden h-9 w-[132px] px-3 font-medium md:table-cell">Last edited</th>
+                    <th scope="col" className="h-9 px-4 font-medium">{tt("Website")}</th>
+                    <th scope="col" className="h-9 w-[104px] px-3 font-medium">{tt("Status")}</th>
+                    <th scope="col" className="hidden h-9 w-[132px] px-3 font-medium md:table-cell">{tt("Last edited")}</th>
                     <th scope="col" className="h-9 w-[216px] px-4 text-right font-medium">
-                      <span className="sr-only">Actions</span>
+                      <span className="sr-only">{tt("Actions")}</span>
                     </th>
                   </tr>
                 </thead>
@@ -1734,7 +1736,7 @@ export function WebsiteBuilderClient({
                             type="button"
                             onClick={() => go(editorHref(username, i.id))}
                             className="flex w-full min-w-0 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4"
-                            aria-label={`Edit ${i.name}`}
+                            aria-label={tt("Edit {name}", { name: i.name })}
                           >
                             <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-28">
                               <span className="block aspect-[16/10]">
@@ -1746,8 +1748,8 @@ export function WebsiteBuilderClient({
                               <span className="mt-0.5 block truncate text-[12.5px] text-[#6b7280]">
                                 {/* On a phone the columns fold in here, and the
                                     edit time is the fact worth the room. */}
-                                <span className="hidden sm:inline">{def ? getIndustry(def.industry).label : i.theme?.name ?? "Theme"}</span>
-                                <span className="sm:hidden">{i.id === offline?.id ? "Offline" : "Draft"} · Edited {since(i.saved_at)}</span>
+                                <span className="hidden sm:inline">{def ? getIndustry(def.industry).label : i.theme?.name ?? tt("Theme")}</span>
+                                <span className="sm:hidden">{i.id === offline?.id ? tt("Offline") : tt("Draft")} · {tt("Edited {saved_at}", { saved_at: since(i.saved_at) })}</span>
                               </span>
                             </span>
                           </button>
@@ -1765,13 +1767,13 @@ export function WebsiteBuilderClient({
                               className="hidden h-9 rounded-lg border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f8f9fa] sm:inline-flex"
                             >
                               {busy === `${i.id}:publish` && <Loader2 className="h-4 w-4 animate-spin" />}
-                              Publish
+                              {tt("Publish")}
                             </Button>
                             <Button
                               onClick={() => go(editorHref(username, i.id))}
                               className="hidden h-9 rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white hover:bg-[#2d2d44] sm:inline-flex"
                             >
-                              Edit
+                              {tt("Edit")}
                             </Button>
                             <ResponsiveActionMenu
                               title={i.name}
@@ -1780,7 +1782,7 @@ export function WebsiteBuilderClient({
                               trigger={
                                 <button
                                   type="button"
-                                  aria-label={`More actions for ${i.name}`}
+                                  aria-label={tt("More actions for {name}", { name: i.name })}
                                   data-more-button=""
                                   className={MORE_ON_ROW}
                                 >
@@ -1822,17 +1824,17 @@ export function WebsiteBuilderClient({
           className="space-y-3 pb-6 [contain-intrinsic-size:auto_420px] [content-visibility:auto] max-md:[content-visibility:hidden] max-md:data-shown:[content-visibility:auto]"
           data-page-block
         >
-          <SectionHeading title="Browse themes">
+          <SectionHeading title={tt("Browse themes")}>
             <Link
               href="/app/website-builder/themes"
               onClick={() => startNavigationLoading()}
               className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] transition-colors duration-150 hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
             >
-              Browse
+              {tt("Browse")}
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </SectionHeading>
-          <h2 id="explore-heading" className="sr-only">Browse themes</h2>
+          <h2 id="explore-heading" className="sr-only">{tt("Browse themes")}</h2>
           <div className="space-y-3">
             {explore.map((t) => (
               <ExploreRow
@@ -1863,15 +1865,15 @@ export function WebsiteBuilderClient({
       <AlertDialog open={!!publishing} onOpenChange={(o) => !o && setPublishing(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Publish “{publishing?.name}”?</AlertDialogTitle>
+            <AlertDialogTitle>{tt("Publish “{name}”?", { name: publishing?.name })}</AlertDialogTitle>
             <AlertDialogDescription>
               {live
-                ? <>It replaces “{live.name}” at <span className="font-medium text-foreground">{siteDisplay}</span>. Nothing is deleted.</>
-                : <>It goes live at <span className="font-medium text-foreground">{siteDisplay}</span>.</>}
+                ? <Rich text={tt("It replaces “{name}” at {site}. Nothing is deleted.", { name: live.name })} parts={{ site: <span className="font-medium text-foreground">{siteDisplay}</span> }} />
+                : <Rich text={tt("It goes live at {site}.")} parts={{ site: <span className="font-medium text-foreground">{siteDisplay}</span> }} />}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg">{tt("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-lg bg-[#1a1a2e] hover:bg-[#2d2d44]"
               onClick={() => {
@@ -1880,7 +1882,7 @@ export function WebsiteBuilderClient({
                 if (target) void publish(target)
               }}
             >
-              Publish
+              {tt("Publish")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1889,11 +1891,11 @@ export function WebsiteBuilderClient({
       <AlertDialog open={!!unpublishing} onOpenChange={(o) => !o && setUnpublishing(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Take “{unpublishing?.name}” offline?</AlertDialogTitle>
-            <AlertDialogDescription>Visitors see a placeholder until you publish again.</AlertDialogDescription>
+            <AlertDialogTitle>{tt("Take “{name}” offline?", { name: unpublishing?.name })}</AlertDialogTitle>
+            <AlertDialogDescription>{tt("Visitors see a placeholder until you publish again.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg">{tt("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-lg bg-amber-600 hover:bg-amber-700"
               onClick={() => {
@@ -1902,7 +1904,7 @@ export function WebsiteBuilderClient({
                 if (target) void unpublish(target)
               }}
             >
-              Take offline
+              {tt("Take offline")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1922,11 +1924,11 @@ export function WebsiteBuilderClient({
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove “{deleting?.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>Its pages, settings and code are deleted. Export first to keep a copy.</AlertDialogDescription>
+            <AlertDialogTitle>{tt("Remove “{name}”?", { name: deleting?.name })}</AlertDialogTitle>
+            <AlertDialogDescription>{tt("Its pages, settings and code are deleted. Export first to keep a copy.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg">{tt("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-lg bg-red-600 hover:bg-red-700"
               onClick={() => {
@@ -1935,7 +1937,7 @@ export function WebsiteBuilderClient({
                 if (target) void remove(target)
               }}
             >
-              Remove
+              {tt("Remove")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1989,7 +1991,7 @@ function ExploreRow({
       /* pointer-fine, for the reason on the library row above. */
       className="flex items-center gap-3 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-colors duration-150 pointer-fine:hover:bg-[#fcfcfd] sm:gap-4"
     >
-      <button type="button" onClick={onOpen} aria-label={`Preview ${def.name}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4">
+      <button type="button" onClick={onOpen} aria-label={tt("Preview {name}", { name: def.name })} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4">
         <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-32">
           <span className="block aspect-[16/10]">
             <ThemeCover spec={coverSpecFromDefinition(def)} className="block h-full w-full" />
@@ -2003,12 +2005,12 @@ function ExploreRow({
       {inLibrary ? (
         <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[#f1f2f4] px-3 text-[12.5px] font-medium text-[#3f3f46]">
           <Check className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">In library</span>
+          <span className="hidden sm:inline">{tt("In library")}</span>
         </span>
       ) : (
         <Button onClick={onAdd} disabled={busy} className="h-11 shrink-0 rounded-lg bg-[#1a1a2e] px-3 sm:h-9 text-[13px] font-semibold text-white hover:bg-[#2d2d44]">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          Add
+          {tt("Add")}
         </Button>
       )}
     </div>
@@ -2046,7 +2048,7 @@ function RenameDialog({
     <Dialog open={!!install} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="rounded-2xl sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Rename</DialogTitle>
+          <DialogTitle>{tt("Rename")}</DialogTitle>
         </DialogHeader>
         <Input
           value={name}
@@ -2062,10 +2064,10 @@ function RenameDialog({
           className="h-10 rounded-lg"
         />
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="rounded-lg">Cancel</Button>
+          <Button variant="outline" onClick={onClose} className="rounded-lg">{tt("Cancel")}</Button>
           <Button onClick={() => void submit()} disabled={saving || !name.trim()} className="rounded-lg bg-[#1a1a2e] hover:bg-[#2d2d44]">
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save
+            {tt("Save")}
           </Button>
         </DialogFooter>
       </DialogContent>

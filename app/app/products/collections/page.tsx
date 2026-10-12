@@ -5,11 +5,15 @@ import { creatorForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { collectionsArea } from "@/lib/physical/collections-server"
 import { CollectionsClient } from "./collections-client"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export const metadata: Metadata = { title: "Collections" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("Collections") }
+}
 
 /**
  * Products › Collections, read on the server like the products list

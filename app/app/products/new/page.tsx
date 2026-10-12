@@ -6,6 +6,7 @@ import { NewProductKindPage } from "./kind-chooser"
 import { NEW_COMMUNITY_HREF, kindFromParam } from "./product-kinds"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { communitiesEnabled } from "@/lib/communities/flag"
+import { getServerTt } from "@/lib/i18n/server"
 
 interface NewProductPageProps {
   searchParams: Promise<{ edit?: string; type?: string }>
@@ -13,8 +14,9 @@ interface NewProductPageProps {
 
 export async function generateMetadata({ searchParams }: NewProductPageProps): Promise<Metadata> {
   const kind = kindFromParam((await searchParams).type)
-  if (kind === "physical") return { title: "New physical product" }
-  return { title: kind === "course" ? "New course" : "New product" }
+  const { tt } = await getServerTt()
+  if (kind === "physical") return { title: tt("New physical product") }
+  return { title: kind === "course" ? tt("New course") : tt("New product") }
 }
 
 /**

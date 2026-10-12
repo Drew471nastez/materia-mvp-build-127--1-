@@ -48,6 +48,7 @@ import { ColorField } from "@/components/onepage/color-picker"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { hapticTap } from "@/lib/native-bridge"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
+import { tt } from "@/lib/i18n/text"
 
 const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
 
@@ -75,7 +76,7 @@ const backShade = cn(
   "transition-opacity duration-[120ms] ease-out group-hover/back:opacity-60 group-active/back:opacity-100",
 )
 
-export function PanelHeader({ title, onBack, backLabel = "Back", action }: { title: string; onBack?: () => void; backLabel?: string; action?: React.ReactNode }) {
+export function PanelHeader({ title, onBack, backLabel = tt("Back"), action }: { title: string; onBack?: () => void; backLabel?: string; action?: React.ReactNode }) {
   return (
     <div data-panel-header="" className="mb-6 flex min-h-11 items-center gap-3">
       {onBack ? (
@@ -325,7 +326,7 @@ export function ColorRow({
     <SettingRow label={label} description={description}>
       {onClear && value ? (
         <button type="button" onClick={onClear} className={cn("h-11 cursor-pointer rounded-full px-2 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]", focusRing)}>
-          Reset
+          {tt("Reset")}
         </button>
       ) : null}
       <ColorField value={value} onChange={onChange} label={label} suggestions={suggestions} emptyLabel={emptyLabel} fallback={fallback} />

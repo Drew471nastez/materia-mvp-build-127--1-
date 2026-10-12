@@ -5,6 +5,7 @@ import { Check, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 interface SaveNotificationProps {
   show: boolean
@@ -16,7 +17,7 @@ interface SaveNotificationProps {
 
 export function SaveNotification({
   show,
-  message = "Changes saved",
+  message = tt("Changes saved"),
   duration = 3000,
   icon,
   position,

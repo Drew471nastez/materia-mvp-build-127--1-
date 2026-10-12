@@ -88,7 +88,6 @@ export async function productDelivery(db: Db, creatorId: string, productId: stri
       .maybeSingle()
     if (!product) return null
     const p = product as { price_cents?: number | null; track_inventory?: boolean | null; continue_selling?: boolean | null; shipping_profile_id?: string | null; weight_grams?: number | null; requires_shipping?: boolean | null; fulfillment_method?: string | null }
-    if (p.requires_shipping === false) return { ship: null, pickup: {}, local: false }
     const [{ data: settings }, profiles, locations, { data: variantRows }] = await Promise.all([
       db.from("commerce_settings").select("default_location_id").eq("creator_id", creatorId).maybeSingle(),
       loadProfiles(db as never, creatorId).catch(() => [] as ShippingProfile[]),

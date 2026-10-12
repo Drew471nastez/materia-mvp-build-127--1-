@@ -38,6 +38,7 @@ import { promptForPictures, restoreExchanges, type StoredMessage } from "../lib/
 import { attachmentsFor, keepImages, pathOnInstall, type StoreClients } from "../lib/website-builder/agent/attachment-store"
 import { isMissingBucket, isMissingTable } from "../lib/website-builder/agent/db-errors"
 import { titleFrom } from "../lib/website-builder/agent/chat"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -47,7 +48,7 @@ function check(name: string, ok: boolean, detail = "") {
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
 const section = (name: string) => console.log(`\n${name}`)
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const INSTALL = "aaaaaaaa-0000-4000-8000-0000000000e1"
 const OTHER = "bbbbbbbb-0000-4000-8000-0000000000e2"

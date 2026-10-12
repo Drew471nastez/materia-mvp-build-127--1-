@@ -38,6 +38,7 @@ import { blockChoices, type BlockChoice } from "./add-block-button"
 import type { BlockSchema } from "@/lib/website-builder/types"
 import { useReorder } from "./controls/use-reorder"
 import { TREE_NAME, TREE_ROW, TREE_STEP, TreeAddRow, TreeSpacer, TreeTwisty, rowIndent } from "./tree-parts"
+import { tt } from "@/lib/i18n/text"
 
 export interface TreeBlock {
   id: string
@@ -168,7 +169,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
                   return next
                 })
               }
-              label={expanded ? `Close ${name}` : `Open ${name}`}
+              label={expanded ? tt("Close {name}", { name }) : tt("Open {name}", { name })}
               data-tree-toggle=""
             />
           ) : (
@@ -184,7 +185,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
               <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full transition-opacity group-hover/block:opacity-0 max-sm:opacity-0", selected ? "bg-[#6b7280]" : "bg-[#c4c7cd]")} />
               <button
                 type="button"
-                aria-label={`Drag to reorder ${name}`}
+                aria-label={tt("Drag to reorder {name}", { name })}
                 data-block-grip=""
                 onClick={(e) => e.stopPropagation()}
                 className={cn(
@@ -205,7 +206,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
           {onToggleHidden && (
             <button
               type="button"
-              aria-label={block.hidden ? `Show ${name}` : `Hide ${name}`}
+              aria-label={block.hidden ? tt("Show {name}", { name }) : tt("Hide {name}", { name })}
               aria-pressed={!!block.hidden}
               data-block-hide=""
               onClick={(e) => {
@@ -224,8 +225,8 @@ export function BlockTreeLevel<B extends TreeBlock>({
           {onRemove && !still && (
             <button
               type="button"
-              aria-label={`Delete ${detail || name}`}
-              title="Delete"
+              aria-label={tt("Delete {value}", { value: detail || name })}
+              title={tt("Delete")}
               data-block-remove=""
               onClick={(e) => {
                 e.stopPropagation()
@@ -278,8 +279,8 @@ export function TreeAddBlock({
   if (choices.length === 0 || disabledReason) return null
   /* "Add question", and "Add FAQ item" rather than "Add faq item": an acronym keeps its capitals. */
   const one = choices[0]?.label ?? ""
-  const text = choices.length === 1 ? `Add ${/^[A-Z]{2,}\b/.test(one) ? one : one.charAt(0).toLowerCase() + one.slice(1)}` : "Add block"
+  const text = choices.length === 1 ? tt("Add {value}", { value: /^[A-Z]{2,}\b/.test(one) ? one : one.charAt(0).toLowerCase() + one.slice(1) }) : tt("Add block")
   const button = <TreeAddRow data-add-block="" data-tree-add-block={depth} depth={depth} label={text} onClick={choices.length === 1 ? () => onAdd(choices[0]) : undefined} />
   if (choices.length === 1) return button
-  return <ResponsiveActionMenu title="Add block" align="start" menuWidth="w-60" items={items} trigger={button} />
+  return <ResponsiveActionMenu title={tt("Add block")} align="start" menuWidth="w-60" items={items} trigger={button} />
 }

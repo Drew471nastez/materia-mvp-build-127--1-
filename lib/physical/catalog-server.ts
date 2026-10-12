@@ -80,7 +80,7 @@ export function variantFromRow(r: Record<string, any>, product: Record<string, a
     imageUrl: r.image_url ?? null,
     trackInventory: r.track_inventory ?? product.track_inventory ?? true,
     inventoryPolicy: r.inventory_policy === "continue" || (r.inventory_policy == null && product.continue_selling) ? "continue" : "deny",
-    requiresShipping: r.requires_shipping ?? product.requires_shipping ?? true,
+    requiresShipping: true,
     taxable: r.taxable ?? product.taxable ?? true,
     active: r.active !== false,
     fulfillmentLocationId: r.fulfillment_location_id ?? product.fulfillment_location_id ?? null,
@@ -110,7 +110,8 @@ export async function loadPhysicalProduct(db: Db, creatorId: string, productId: 
     productId,
     vendor: p.vendor ?? null,
     tags: p.tags ?? [],
-    requiresShipping: p.requires_shipping ?? true,
+    /* Always: a physical product is shipped or picked up (checkout-pricing-server), so the editor says so whatever an old row holds. */
+    requiresShipping: true,
     weightGrams: p.weight_grams ?? null,
     lengthMm: p.length_mm ?? null,
     widthMm: p.width_mm ?? null,
@@ -244,7 +245,8 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
   const productUpdate: Record<string, unknown> = {
     vendor: text(body.vendor, 120),
     tags,
-    requires_shipping: body.requiresShipping !== false,
+    /* Every save writes it back to true, so an old row's false is repaired the first time the product is saved. */
+    requires_shipping: true,
     weight_grams: body.weightGrams === null || body.weightGrams === "" || body.weightGrams === undefined ? null : int(body.weightGrams, 0, 1_000_000),
     length_mm: body.lengthMm ? int(body.lengthMm, 0, 10_000) : null,
     width_mm: body.widthMm ? int(body.widthMm, 0, 10_000) : null,

@@ -411,6 +411,24 @@ export function setLineQuantity(items: LinkItem[], line: { productId: string; va
   return items.flatMap((i, n) => (!sameLine(i, line) ? [i] : n === at ? [{ ...i, quantity: capped }] : []))
 }
 
+/**
+ * The cart with one line changed to another option of its product (a size,
+ * an edition), keeping its quantity and properties. Already in the cart as
+ * that option: the two become one line, their quantities together (held to
+ * the line maximum; the quote holds them to stock and the per order limit).
+ * A line at its own price never reaches here (the quote offers it nothing).
+ */
+export function setLineVariant(items: LinkItem[], line: { productId: string; variantId: string | null }, variantId: string): LinkItem[] {
+  if (!variantId || (line.variantId ?? null) === variantId) return items
+  const at = items.findIndex((i) => sameLine(i, line))
+  if (at < 0) return items
+  const moving = items[at]
+  const target = items.findIndex((i, n) => n !== at && i.productId === line.productId && i.variantId === variantId)
+  if (target < 0) return items.map((i, n) => (n === at ? { ...i, variantId } : i))
+  const quantity = Math.min(LINE_QUANTITY_MAX, items[target].quantity + moving.quantity)
+  return items.flatMap((i, n) => (n === at ? [] : n === target ? [{ ...i, quantity }] : [i]))
+}
+
 /** The cart in the order the server returned quantities for: `adjusted` (a line over its per order limit) replaces what was asked. */
 export function applyAdjusted(items: LinkItem[], adjusted: { productId: string; variantId: string | null; quantity: number }[] | undefined): LinkItem[] {
   if (!adjusted || adjusted.length === 0) return items
@@ -430,6 +448,13 @@ export function themeCartAfter<E extends { p: string; v: string | null; q: numbe
     if (seen.has(key)) continue
     seen.add(key)
     out.push({ ...e, q: Math.max(1, Math.min(LINE_QUANTITY_MAX, Math.floor(item.quantity) || 1)) })
+  }
+  /* A line changed to another option at checkout: the theme's entry for that product takes the new option, with its properties, rather than going. */
+  for (const i of items) {
+    if (!i.variantId || out.some((o) => o.p === i.productId && (o.v ?? null) === i.variantId)) continue
+    const was = entries.find((e) => e.p === i.productId && !out.some((o) => o.p === e.p && (o.v ?? null) === (e.v ?? null)))
+    if (!was) continue
+    out.push({ ...was, v: i.variantId, q: Math.max(1, Math.min(LINE_QUANTITY_MAX, Math.floor(i.quantity) || 1)) })
   }
   return out
 }

@@ -13,15 +13,16 @@ import { SeoPanel } from "@/components/onepage/seo-panel"
 import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
 import { BADGE_TYPES, buttonStyleOf, checkPageSlug, type ButtonStyle } from "@/lib/onepage/settings-rules"
 import { PRO_CHECKOUT_PLAN_ID, offeredPlan, planDisplayName, planHighlights, type PlanId } from "@/lib/billing/plans"
+import { tt } from "@/lib/i18n/text"
 
 /* Words only: a row of stock icons beside six words said nothing the words did not. */
 const SETTINGS_SECTIONS = [
-  { id: "basic", label: "Basic info" },
+  { id: "basic", get label() { return tt("Basic info") } },
   { id: "seo", label: "SEO" },
-  { id: "subscribe", label: "Subscribe" },
-  { id: "share", label: "Share" },
-  { id: "verified", label: "Verified badge" },
-  { id: "billing", label: "Billing" },
+  { id: "subscribe", get label() { return tt("Subscribe") } },
+  { id: "share", get label() { return tt("Share") } },
+  { id: "verified", get label() { return tt("Verified badge") } },
+  { id: "billing", get label() { return tt("Billing") } },
 ] as const
 type SectionId = (typeof SETTINGS_SECTIONS)[number]["id"]
 
@@ -45,7 +46,7 @@ function SettingsSections({ panels }: { panels: Record<SectionId, ReactNode> }) 
         <div className="sticky top-0">
           <PillTabs
             dataRow="settings-list"
-            label="Settings"
+            label={tt("Settings")}
             items={SETTINGS_SECTIONS}
             value={active}
             onChange={setActive}
@@ -68,7 +69,7 @@ function SettingsSections({ panels }: { panels: Record<SectionId, ReactNode> }) 
       <div className="md:hidden sticky top-0 z-20 -mx-4 -mt-4 px-4 pt-4 pb-2 mb-2 bg-white">
         <PillTabs
           dataRow="settings-chips"
-          label="Settings"
+          label={tt("Settings")}
           items={SETTINGS_SECTIONS}
           value={active}
           onChange={setActive}
@@ -88,17 +89,17 @@ function SettingsSections({ panels }: { panels: Record<SectionId, ReactNode> }) 
 }
 
 const BADGE_LABELS: Record<(typeof BADGE_TYPES)[number], string> = {
-  verified_creator: "Verified Creator",
-  verified_brand: "Verified Brand",
-  verified_business: "Verified Business",
-  official_page: "Official Page",
-  verified_artist: "Verified Artist",
+  get verified_creator() { return tt("Verified Creator") },
+  get verified_brand() { return tt("Verified Brand") },
+  get verified_business() { return tt("Verified Business") },
+  get official_page() { return tt("Official Page") },
+  get verified_artist() { return tt("Verified Artist") },
 }
 
 const STYLE_OPTIONS: readonly { id: ButtonStyle; label: string }[] = [
-  { id: "glass", label: "Glass" },
-  { id: "white", label: "White" },
-  { id: "black", label: "Black" },
+  { id: "glass", get label() { return tt("Glass") } },
+  { id: "white", get label() { return tt("White") } },
+  { id: "black", get label() { return tt("Black") } },
 ]
 
 const VERIFIED_PATH =
@@ -208,7 +209,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         const res = await fetch(`/api/onepage/address?name=${encodeURIComponent(typedName)}`, { signal: controller.signal, cache: "no-store" })
         const body = (await res.json().catch(() => ({}))) as { available?: boolean | null; error?: string }
         if (body.available === true) setAvailability({ name: typedName, state: "free" })
-        else if (body.available === false) setAvailability({ name: typedName, state: "taken", error: body.error || "That page address is taken" })
+        else if (body.available === false) setAvailability({ name: typedName, state: "taken", error: body.error || tt("That page address is taken") })
         else setAvailability({ name: typedName, state: "unknown" })
       } catch {
         if (!controller.signal.aborted) setAvailability({ name: typedName, state: "unknown" })
@@ -281,7 +282,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
   const slugPending = pageSlug !== onepage.slug
   const unsaved = isDirty || slugPending
   const failed = saveState === "error" && unsaved
-  const status = saving ? "Saving…" : failed ? "Not saved. Try again" : unsaved ? "Unsaved changes" : "All changes saved"
+  const status = saving ? tt("Saving…") : failed ? tt("Not saved. Try again") : unsaved ? tt("Unsaved changes") : tt("All changes saved")
 
   const saveRow = (
     <div className="flex items-center justify-between gap-3 border-t border-[#f0f0f2] pt-4" data-settings-save="">
@@ -300,7 +301,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         className={cn(primaryDepth, "h-10 gap-2 rounded-lg px-4 text-[14px] disabled:cursor-not-allowed disabled:opacity-40")}
       >
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        {failed ? "Try again" : "Save"}
+        {failed ? tt("Try again") : tt("Save")}
       </button>
     </div>
   )
@@ -320,7 +321,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
 
       <div className="space-y-1.5">
         <label htmlFor="op-page-name" className="text-[13px] font-medium text-[#374151]">
-          Page name
+          {tt("Page name")}
         </label>
         {/* Written to the page as it is typed: the preview, the header on the page and the search title follow it. */}
         <input
@@ -329,14 +330,14 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           value={onepage.title || ""}
           maxLength={80}
           onChange={(e) => updateProfile({ title: e.target.value })}
-          placeholder="Your name or brand"
+          placeholder={tt("Your name or brand")}
           className={fieldInput}
         />
       </div>
 
       <div className="space-y-1.5">
         <label htmlFor="op-page-slug" className="text-[13px] font-medium text-[#374151]">
-          Page address
+          {tt("Page address")}
         </label>
         <div
           className={cn(
@@ -371,10 +372,10 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             {availability?.error}
           </p>
         ) : slugPending && availability?.name === typedName && availability.state === "checking" ? (
-          <p className="text-[12.5px] text-[#6b7280]" data-slug-checking="">Checking {onePageDomain}/{typedName}</p>
+          <p className="text-[12.5px] text-[#6b7280]" data-slug-checking="">{tt("Checking {onePageDomain}/{typedName}", { onePageDomain, typedName })}</p>
         ) : slugPending ? (
           <p className="text-[12.5px] text-[#6b7280]" data-slug-free={availability?.state === "free" ? "" : undefined}>
-            {availability?.state === "free" ? `${onePageDomain}/${typedName} is free. ` : ""}Your page moves to this address when you save. The old one stops working.
+            {availability?.state === "free" ? tt("{onePageDomain}/{typedName} is free. ", { onePageDomain, typedName }) : ""}{tt("Your page moves to this address when you save. The old one stops working.")}
           </p>
         ) : null}
       </div>
@@ -385,7 +386,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         </p>
         <button type="button" onClick={copyUrl} className={cn(secondaryDepth, "h-9 rounded-lg px-3 text-[13px]")}>
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? "Copied" : "Copy link"}
+          {copied ? tt("Copied") : tt("Copy link")}
         </button>
       </div>
 
@@ -400,18 +401,18 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     const style = buttonStyleOf(settings[styleKey], kind === "subscribe" ? "glass" : "white")
     return (
       <div className="space-y-5" data-settings-toggle={kind}>
-        {title(kind === "subscribe" ? "Subscribe" : "Share")}
+        {title(kind === "subscribe" ? tt("Subscribe") : tt("Share"))}
         <SwitchRow
-          label={kind === "subscribe" ? "Subscribe button" : "Share button"}
-          description={kind === "subscribe" ? "A bell at the top right of your page. Visitors leave their email." : "At the top left of your page. Visitors copy the link or send it on."}
+          label={kind === "subscribe" ? tt("Subscribe button") : tt("Share button")}
+          description={kind === "subscribe" ? tt("A bell at the top right of your page. Visitors leave their email.") : tt("At the top left of your page. Visitors copy the link or send it on.")}
           checked={enabled}
           onChange={(on) => updateSettings({ [enabledKey]: on } as never)}
         />
         {enabled ? (
           <div className="space-y-2">
-            <p className="text-[13px] font-medium text-[#374151]">Button style</p>
+            <p className="text-[13px] font-medium text-[#374151]">{tt("Button style")}</p>
             <Segmented
-              label="Button style"
+              label={tt("Button style")}
               value={style}
               options={STYLE_OPTIONS.map((o) => ({ ...o }))}
               onChange={(id) => updateSettings({ [styleKey]: id } as never)}
@@ -419,7 +420,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           </div>
         ) : null}
         {kind === "subscribe" && enabled ? (
-          <p className="text-[12.5px] text-[#6b7280]">Turning it off keeps the subscribers you have.</p>
+          <p className="text-[12.5px] text-[#6b7280]">{tt("Turning it off keeps the subscribers you have.")}</p>
         ) : null}
         {saveRow}
       </div>
@@ -433,18 +434,18 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     const type = (BADGE_TYPES as readonly string[]).includes(settings.verified_badge_type) ? (settings.verified_badge_type as (typeof BADGE_TYPES)[number]) : "verified_creator"
     return (
       <div className="space-y-5" data-settings-verified="">
-        {title("Verified badge")}
+        {title(tt("Verified badge"))}
         <SwitchRow
-          label="Verified badge"
-          description={hasPaidPlan ? "A check mark beside your name" : "A check mark beside your name. Saving it needs a paid plan"}
+          label={tt("Verified badge")}
+          description={hasPaidPlan ? tt("A check mark beside your name") : tt("A check mark beside your name. Saving it needs a paid plan")}
           checked={enabled}
           onChange={(on) => updateSettings({ verified_badge_enabled: on, ...(on ? { verified_badge_type: type } : {}) } as never)}
-          extra={<ProMark title={hasPaidPlan ? "Included in your plan" : "Pro"} />}
+          extra={<ProMark title={hasPaidPlan ? tt("Included in your plan") : "Pro"} />}
         />
         {enabled ? (
           <div className="space-y-1.5">
             <label htmlFor="op-badge-type" className="text-[13px] font-medium text-[#374151]">
-              What it says
+              {tt("What it says")}
             </label>
             {/* The phone's own picker on a phone, a list on a computer: a native select, with the editor's box around it. */}
             <div className="relative">
@@ -464,7 +465,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
               <ChevronDown aria-hidden className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
             </div>
             <div className="flex items-center gap-1.5 pt-2 text-[15px] font-semibold text-[#1a1a2e]" data-badge-preview="">
-              <span className="truncate">{onepage.title || "Your name"}</span>
+              <span className="truncate">{onepage.title || tt("Your name")}</span>
               <svg viewBox="0 0 22 22" className="h-4 w-4 shrink-0 text-[#1d9bf0]" fill="currentColor" aria-label={BADGE_LABELS[type]}>
                 <path d={VERIFIED_PATH} />
               </svg>
@@ -484,9 +485,9 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
 
   const renderBilling = () => (
     <div className="space-y-5" data-settings-billing="">
-      {title("Billing")}
+      {title(tt("Billing"))}
       <div className="rounded-xl border border-[#e5e7eb] px-4 py-3.5">
-        <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Your plan</p>
+        <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Your plan")}</p>
         {planLoading ? (
           <div className="mt-2 h-6 w-24 animate-pulse rounded bg-[#f3f4f6]" />
         ) : (
@@ -501,7 +502,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
       {!planLoading && !hasPaidPlan && (
         <div className="rounded-xl border border-[#e5e7eb] px-4 py-3.5">
           <div className="mb-3 flex items-baseline justify-between gap-3">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">{proOffer.name} plan</p>
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("{name} plan", { name: proOffer.name })}</p>
             <p className="text-[14px] text-[#4b5563]">
               {proOffer.price}
               {proOffer.period}
@@ -516,7 +517,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             ))}
           </ul>
           <button type="button" className={cn(primaryDepth, "h-10 w-full rounded-lg text-[14px]")} onClick={() => router.push("/app/settings/billing/upgrade")}>
-            Upgrade to {proOffer.name}
+            {tt("Upgrade to {name}", { name: proOffer.name })}
           </button>
         </div>
       )}
@@ -525,7 +526,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         href="/app/settings/billing"
         className="flex min-h-11 w-full items-center justify-between rounded-xl border border-[#e5e7eb] px-4 py-3 text-[14px] text-[#1a1a2e] transition-colors hover:bg-[#f9fafb]"
       >
-        Billing and invoices
+        {tt("Billing and invoices")}
         <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
       </Link>
     </div>

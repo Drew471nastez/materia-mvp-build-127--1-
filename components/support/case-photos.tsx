@@ -10,6 +10,7 @@
 import * as React from "react"
 import { ImagePlus, X } from "lucide-react"
 import { CASE_PHOTO_TYPES, MAX_CASE_PHOTOS, MAX_CASE_PHOTO_BYTES } from "@/lib/support/cases"
+import { tt } from "@/lib/i18n/text"
 
 /** What one request may carry in photos, all together: under the 4.5 MB a serverless request takes, with room for the words. */
 export const MAX_CASE_PHOTOS_TOTAL = 4 * 1024 * 1024
@@ -50,16 +51,16 @@ export function useCasePhotos() {
     const files = Array.from(list ?? [])
     if (!files.length) return
     const room = MAX_CASE_PHOTOS - photos.length
-    if (files.length > room) setError(`Up to ${MAX_CASE_PHOTOS} photos with a message.`)
+    if (files.length > room) setError(tt("Up to {maxCasePhotos} photos with a message.", { maxCasePhotos: MAX_CASE_PHOTOS }))
     const next: PickedPhoto[] = []
     for (const f of files.slice(0, Math.max(0, room))) {
       if (!(CASE_PHOTO_TYPES as readonly string[]).includes(f.type)) {
-        setError(`${f.name} isn't a photo. Use a JPEG, PNG, WebP or GIF.`)
+        setError(tt("{name} isn't a photo. Use a JPEG, PNG, WebP or GIF.", { name: f.name }))
         continue
       }
       const s = await smaller(f)
       if (s.size > MAX_CASE_PHOTO_BYTES) {
-        setError(`${f.name} is too large. A photo can be up to 8 MB.`)
+        setError(tt("{name} is too large. A photo can be up to 8 MB.", { name: f.name }))
         continue
       }
       next.push({ file: s, preview: URL.createObjectURL(s) })
@@ -67,7 +68,7 @@ export function useCasePhotos() {
     const total = [...photos, ...next].reduce((n, p) => n + p.file.size, 0)
     if (total > MAX_CASE_PHOTOS_TOTAL) {
       next.forEach((p) => URL.revokeObjectURL(p.preview))
-      return setError("These photos are too large together. Send fewer, or smaller ones.")
+      return setError(tt("These photos are too large together. Send fewer, or smaller ones."))
     }
     setPhotos((p) => [...p, ...next])
   }
@@ -93,7 +94,7 @@ export function CasePhotoPicker({ state, disabled }: { state: ReturnType<typeof 
             <li key={p.preview} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.preview} alt="" className="h-16 w-16 rounded-lg border border-[#e5e7eb] object-cover" />
-              <button type="button" onClick={() => state.remove(i)} aria-label="Remove photo" className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-[#1a1a2e] text-white">
+              <button type="button" onClick={() => state.remove(i)} aria-label={tt("Remove photo")} className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-[#1a1a2e] text-white">
                 <X className="h-3.5 w-3.5" />
               </button>
             </li>
@@ -103,7 +104,7 @@ export function CasePhotoPicker({ state, disabled }: { state: ReturnType<typeof 
       {state.photos.length < MAX_CASE_PHOTOS ? (
         <button type="button" disabled={disabled} onClick={() => input.current?.click()} className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-dashed border-[#c9cdd3] px-3 text-[13.5px] font-medium text-[#4b5563] hover:bg-[#f8f9fa] disabled:opacity-60" data-case-photos-add="">
           <ImagePlus className="h-4 w-4" aria-hidden />
-          {state.photos.length ? "Add another photo" : "Add photos"}
+          {state.photos.length ? tt("Add another photo") : tt("Add photos")}
         </button>
       ) : null}
       <input

@@ -16,13 +16,14 @@
 // out an hour later, which is what a phone's own alarm does.
 
 import { parts, todayIn, ymdOf, type Ymd } from "@/lib/date-range/range"
+import { appTimeZone } from "@/lib/i18n/format"
 
 export { todayIn, type Ymd }
 
-/** The creator's time zone, or UTC where the browser will not say. */
+/** The creator's time zone: the one chosen in Settings, else the device's, else UTC. */
 export function viewerZone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    return appTimeZone()
   } catch {
     return "UTC"
   }

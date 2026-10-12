@@ -16,6 +16,7 @@
 import { readFileSync } from "node:fs"
 import { LOOK_RESET, BLOCK_COLOUR_FIELDS, buttonStyleFor, contrastRatio, lookFromTemplate, readableOn, withoutOwnColours } from "@/lib/onepage/theme-apply"
 import type { OnePage, OnePageBlock } from "@/lib/onepage/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -24,7 +25,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 
 console.log("\nEvery setting a theme can leave behind is reset")
 const design = read("components/onepage/tabs/design-tab.tsx")

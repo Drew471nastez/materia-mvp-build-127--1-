@@ -24,6 +24,7 @@ import { fromGrams, fromMm, toGrams, toMm } from "@/lib/physical/units"
 import { orderConfirmationEmail, shipmentEmail, supplierOrderEmail } from "@/lib/physical/email-templates"
 import { PROVIDERS } from "@/lib/physical/providers"
 import type { Location, ShippingProfile, ShippingRate } from "@/lib/physical/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -36,7 +37,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 function walk(dir: string): string[] {
   return readdirSync(join(process.cwd(), dir)).flatMap((n) => {
@@ -194,7 +195,7 @@ console.log("\nAddresses")
   check("an unknown country is refused", !readAddress({ name: "A", line1: "B", city: "C", postalCode: "1", country: "XX" }).ok)
   const noZip = readAddress({ name: "A", line1: "B", city: "C", country: "US" })
   check("a postal code where the post uses one", noZip.ok === false && noZip.field === "postalCode")
-  check("not where it doesn't", postalCodeRequired("AE") === false && readAddress({ name: "A", line1: "B", city: "Dubai", country: "AE" }).ok)
+  check("not where it doesn't", postalCodeRequired("AE") === false && readAddress({ name: "A", line1: "B", city: "Dubai", region: "Dubai", country: "AE" }).ok)
   check("markup is stripped", readAddress({ name: "<b>Ana</b>", line1: "x", city: "y", postalCode: "123", country: "DE" }).ok && (readAddress({ name: "<b>Ana</b>", line1: "x", city: "y", postalCode: "123", country: "DE" }) as { address: { name: string } }).address.name === "bAna/b")
   check("lines for a label", addressLines({ name: "Ana", line1: "Str 5", city: "Cluj", postalCode: "400001", country: "RO" }).join("|") === "Ana|Str 5|Cluj, 400001|Romania")
 }

@@ -61,6 +61,7 @@ import { notifyUser } from "@/lib/notifications/user-inbox"
 import { fanoutAnnouncement } from "@/lib/communities/server/jobs/fanout_announcement"
 import { JOB_HANDLERS } from "@/lib/communities/server/jobs/index"
 import { JOB_KINDS, PLATFORM_JOB_KINDS, type JobRow } from "@/lib/communities/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -75,7 +76,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${typeof detail === "string" ? detail : JSON.stringify(detail)})`}`)
   }
 }
-const read = (f: string) => readFileSync(f, "utf8")
+const read = (f: string) => untt(readFileSync(f, "utf8"), f)
 const code = (f: string) => stripComments(read(f))
 
 /* ── A small PostgREST stand in ──────────────────────────────────────────── */

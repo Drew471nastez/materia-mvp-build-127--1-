@@ -43,17 +43,18 @@ import { iconButton } from "@/app/app/orders/order-parts"
 import { checkCreate, DESCRIPTION_CHARS, type CommunityType, type PriceInterval } from "./logic"
 import { ChoiceCards, EditorCard, Notice, PicturePick, PriceInput, Segmented, errorText, field, label, send } from "./parts"
 import { UpgradeSheet } from "./upgrade-sheet"
+import { tt } from "@/lib/i18n/text"
 
 const TYPES: { value: CommunityType; title: string; detail: string }[] = [
-  { value: "free", title: "Free", detail: "Anyone can join." },
-  { value: "paid", title: "Paid membership", detail: "Members pay to join, every month, every year or once." },
-  { value: "private", title: "Private", detail: "Invite only. Hidden from Explore." },
+  { value: "free", title: "Free", get detail() { return tt("Anyone can join.") } },
+  { value: "paid", get title() { return tt("Paid membership") }, get detail() { return tt("Members pay to join, every month, every year or once.") } },
+  { value: "private", get title() { return tt("Private") }, get detail() { return tt("Invite only. Hidden from Explore.") } },
 ]
 
 const INTERVALS: { value: PriceInterval; label: string }[] = [
-  { value: "month", label: "Monthly" },
-  { value: "year", label: "Yearly" },
-  { value: "once", label: "One time" },
+  { value: "month", get label() { return tt("Monthly") } },
+  { value: "year", get label() { return tt("Yearly") } },
+  { value: "once", get label() { return tt("One time") } },
 ]
 
 /** Create, in the editor's Save depth: the same height as Cancel, a spinner over the word while it works. */
@@ -67,11 +68,11 @@ function CreateButton({ busy, onCreate }: { busy: boolean; onCreate: () => void 
       className={cn(primaryDepth, "relative h-10 rounded-[10px] px-4 text-[15px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]", busy && "cursor-default")}
     >
       <span className={cn(busy && "opacity-0")}>
-        Create<span className="max-sm:hidden"> community</span>
+        {tt("Create")}<span className="max-sm:hidden"> {tt("community")}</span>
       </span>
       {busy ? (
         <span aria-hidden className="absolute inset-0 grid place-items-center">
-          <ActivitySpinner size={16} label="Creating" className="text-white" />
+          <ActivitySpinner size={16} label={tt("Creating")} className="text-white" />
         </span>
       ) : null}
     </button>
@@ -98,7 +99,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
   }, [limitReached])
 
   const cents = centsFromInput(price)
-  const priceText = cents && Number.isFinite(cents) ? (interval === "once" ? `${money(cents)} once, for lifetime access` : pricePer(cents, interval)) : null
+  const priceText = cents && Number.isFinite(cents) ? (interval === "once" ? tt("{amount} once, for lifetime access", { amount: money(cents) }) : pricePer(cents, interval)) : null
   const address = slugify(name) || "your-community"
   const touched = Boolean(name.trim() || description.trim() || logo || cover || price)
 
@@ -123,7 +124,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
     }
     if (!res.ok || !res.data.id) {
       setBusy(false)
-      setError({ text: errorText(res.data.error, "The community could not be made. Try again."), field: res.data.field })
+      setError({ text: errorText(res.data.error, tt("The community could not be made. Try again.")), field: res.data.field })
       return
     }
     router.push(`/app/community/${res.data.id}?created=1`)
@@ -135,10 +136,10 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
     <div className="orders-pane flex h-full flex-col overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-create-community="">
       {/* THE BAR, BELOW 1024px: Cancel and Create at the top, as New product has them. */}
       <div data-create-bar="" className="sticky top-0 z-30 shrink-0 bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)] lg:hidden">
-        <h1 className="sr-only">New community</h1>
+        <h1 className="sr-only">{tt("New community")}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 app-gutter sm:h-16 sm:px-6">
           <Link href="/app/community" className={barButton} data-create-cancel="">
-            Cancel
+            {tt("Cancel")}
           </Link>
           <CreateButton busy={busy} onCreate={() => void submit()} />
         </div>
@@ -147,10 +148,10 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
       <form onSubmit={(e) => void submit(e)} noValidate data-create-form="" className="mx-auto w-full max-w-[760px] shrink-0 app-gutter pb-28 pt-3 sm:pt-4 lg:max-w-[1200px] lg:px-8 lg:pb-8 lg:pt-6">
         {/* THE HEADER, FROM 1024px: back to Community and the title. */}
         <header data-create-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex">
-          <Link href="/app/community" aria-label="Back to Community" title="Community" className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
+          <Link href="/app/community" aria-label={tt("Back to Community")} title={tt("Community")} className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">New community</h1>
+          <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{tt("New community")}</h1>
         </header>
 
         {error && !["name", "price"].includes(error.field ?? "") ? (
@@ -161,10 +162,10 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
 
         <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-5">
           <div className="min-w-0 space-y-3 sm:space-y-4">
-            <EditorCard title="About" id="about">
+            <EditorCard title={tt("About")} id="about">
               <div>
                 <label htmlFor="c-name" className={label}>
-                  Name
+                  {tt("Name")}
                 </label>
                 <input
                   ref={nameRef}
@@ -174,7 +175,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                     setName(e.target.value.slice(0, 80))
                     if (bad("name")) setError(null)
                   }}
-                  placeholder="The Morning Writers"
+                  placeholder={tt("The Morning Writers")}
                   autoComplete="off"
                   enterKeyHint="next"
                   aria-invalid={bad("name") || undefined}
@@ -188,34 +189,34 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
               </div>
               <div>
                 <label htmlFor="c-description" className={label}>
-                  Description
+                  {tt("Description")}
                 </label>
                 <textarea
                   id="c-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_CHARS))}
                   rows={4}
-                  placeholder="Who it is for and what members do here"
+                  placeholder={tt("Who it is for and what members do here")}
                   aria-invalid={bad("description") || undefined}
                   className={cn(field, "min-h-[104px] resize-y py-2.5 leading-relaxed", bad("description") && "border-[#dc2626]")}
                 />
               </div>
             </EditorCard>
 
-            <EditorCard title="Photos" hint="Both optional. Change them, and add a gallery, any time." id="photos">
+            <EditorCard title={tt("Photos")} hint={tt("Both optional. Change them, and add a gallery, any time.")} id="photos">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-[auto_1fr] sm:gap-6">
                 <div>
-                  <p className={label}>Logo</p>
+                  <p className={label}>{tt("Logo")}</p>
                   <PicturePick value={logo} onChange={setLogo} shape="square" name="logo" onError={(m) => setError({ text: m })} />
                 </div>
                 <div className="min-w-0">
-                  <p className={label}>Cover</p>
+                  <p className={label}>{tt("Cover")}</p>
                   <PicturePick value={cover} onChange={setCover} shape="wide" name="cover" onError={(m) => setError({ text: m })} />
                 </div>
               </div>
             </EditorCard>
 
-            <EditorCard title="Who can join" id="access">
+            <EditorCard title={tt("Who can join")} id="access">
               <ChoiceCards
                 value={type}
                 onChange={(v) => {
@@ -223,14 +224,14 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                   setError(null)
                 }}
                 options={TYPES}
-                label="Who can join"
+                label={tt("Who can join")}
                 rows
               />
               {type === "paid" ? (
                 <div className="grid grid-cols-1 gap-3 border-t border-[#f1f2f4] pt-4 sm:grid-cols-[180px_1fr] sm:items-end" data-paid-fields="">
                   <div>
                     <label htmlFor="c-price" className={label}>
-                      Price
+                      {tt("Price")}
                     </label>
                     <PriceInput
                       id="c-price"
@@ -244,10 +245,10 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                     />
                   </div>
                   <div className="min-w-0">
-                    <Segmented value={interval} onChange={setInterval} options={INTERVALS} label="How often" className="w-full sm:w-auto" />
+                    <Segmented value={interval} onChange={setInterval} options={INTERVALS} label={tt("How often")} className="w-full sm:w-auto" />
                   </div>
                   <p className={cn("text-[12.5px] sm:col-span-2", bad("price") ? "text-[#b91c1c]" : "text-[#6b7280]")} role={bad("price") ? "alert" : undefined}>
-                    {bad("price") ? error?.text : priceText ? `Members pay ${priceText}.` : "Members pay through Stripe. You can add a yearly price or more tiers later."}
+                    {bad("price") ? error?.text : priceText ? tt("Members pay {priceText}.", { priceText }) : tt("Members pay through Stripe. You can add a yearly price or more tiers later.")}
                   </p>
                 </div>
               ) : null}
@@ -255,17 +256,17 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
           </div>
 
           <div className="min-w-0 space-y-3 sm:space-y-4 lg:sticky lg:top-6">
-            <EditorCard title="Address" hint="Made from the name. Change it in Settings any time." id="address">
+            <EditorCard title={tt("Address")} hint={tt("Made from the name. Change it in Settings any time.")} id="address">
               <p className="truncate rounded-lg bg-[#f6f7f8] px-3 py-2.5 text-[13.5px] text-[#4b5563]" data-create-address="">
-                storelib.com/community/<span className="font-medium text-[#1a1a2e]">{address}</span>
+                {"storelib.com/community/"}<span className="font-medium text-[#1a1a2e]">{address}</span>
               </p>
             </EditorCard>
-            <EditorCard title="Status" id="status">
+            <EditorCard title={tt("Status")} id="status">
               <p className="flex items-center gap-2 text-[14px] text-[#1a1a2e]">
                 <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#e0a100]" />
-                Draft
+                {tt("Draft")}
               </p>
-              <p className="text-[13px] leading-snug text-[#6b7280]">Only you and your team see it until you publish. The Overview lists what to do first.</p>
+              <p className="text-[13px] leading-snug text-[#6b7280]">{tt("Only you and your team see it until you publish. The Overview lists what to do first.")}</p>
             </EditorCard>
           </div>
         </div>
@@ -276,11 +277,11 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-8">
           <p className="flex min-w-0 items-center gap-2 text-[14px] leading-5" data-create-state="">
             <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", touched ? "bg-[#8b5cf6]" : "bg-[#b6bac1]")} />
-            <span className={cn("truncate", touched ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{touched ? "Not created yet" : "New community"}</span>
+            <span className={cn("truncate", touched ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{touched ? tt("Not created yet") : tt("New community")}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <Link href="/app/community" className={barButton}>
-              Cancel
+              {tt("Cancel")}
             </Link>
             <CreateButton busy={busy} onCreate={() => void submit()} />
           </div>

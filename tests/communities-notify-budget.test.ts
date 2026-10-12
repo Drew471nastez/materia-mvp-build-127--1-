@@ -62,6 +62,7 @@ import { NOTIFICATION_TYPES, type ChannelResult, type DomainEvent, type Outgoing
 import type { JobRow } from "@/lib/communities/types"
 import { promptAllowed, RECENT_DAYS, SNOOZE_DAYS } from "@/components/notifications/web-push-prompt"
 import { MemoryNotifyStore } from "./notify-memory-store"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -76,7 +77,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${typeof detail === "string" ? detail : JSON.stringify(detail)})`}`)
   }
 }
-const read = (f: string) => readFileSync(f, "utf8")
+const read = (f: string) => untt(readFileSync(f, "utf8"), f)
 const code = (f: string) => stripComments(read(f))
 
 /* The engine writes one JSON line per step: kept out of the way. */

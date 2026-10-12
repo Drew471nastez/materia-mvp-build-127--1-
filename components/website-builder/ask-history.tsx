@@ -36,6 +36,8 @@ import {
   type ListedConversation,
 } from "@/lib/website-builder/ask-client"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 /** What a row opens: a conversation by id, or the messages from before conversations. */
 export type HistoryTarget = { kind: "one"; id: string; title: string } | { kind: "earlier" }
@@ -49,37 +51,37 @@ export function whenLabel(iso: string, now = Date.now()): string {
   const ms = now - at.getTime()
   if (!Number.isFinite(ms)) return ""
   const minutes = Math.floor(ms / 60_000)
-  if (minutes < 1) return "Just now"
-  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 1) return tt("Just now")
+  if (minutes < 60) return tt("{minutes} min ago", { minutes })
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
   const day = new Date(at)
   day.setHours(0, 0, 0, 0)
   const days = Math.round((today.getTime() - day.getTime()) / 86_400_000)
-  if (days === 0) return at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-  if (days === 1) return "Yesterday"
-  if (days < 7) return at.toLocaleDateString(undefined, { weekday: "short" })
-  return at.toLocaleDateString(undefined, {
+  if (days === 0) return at.toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" }))
+  if (days === 1) return tt("Yesterday")
+  if (days < 7) return at.toLocaleDateString(appLocale(), zoned({ weekday: "short" }))
+  return at.toLocaleDateString(appLocale(), zoned({
     day: "numeric",
     month: "short",
     ...(at.getFullYear() === today.getFullYear() ? {} : { year: "numeric" }),
-  })
+  }))
 }
 
 /** The heading a conversation is filed under: "Today", "Yesterday", "Previous 7 days", "Previous 30 days", "August 2026". */
 export function dayGroup(iso: string, now = Date.now()): string {
   const at = new Date(iso)
-  if (!Number.isFinite(at.getTime())) return "Earlier"
+  if (!Number.isFinite(at.getTime())) return tt("Earlier")
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
   const day = new Date(at)
   day.setHours(0, 0, 0, 0)
   const days = Math.round((today.getTime() - day.getTime()) / 86_400_000)
-  if (days <= 0) return "Today"
-  if (days === 1) return "Yesterday"
-  if (days < 7) return "Previous 7 days"
-  if (days < 30) return "Previous 30 days"
-  return at.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+  if (days <= 0) return tt("Today")
+  if (days === 1) return tt("Yesterday")
+  if (days < 7) return tt("Previous 7 days")
+  if (days < 30) return tt("Previous 30 days")
+  return at.toLocaleDateString(appLocale(), zoned({ month: "long", year: "numeric" }))
 }
 
 interface Item {
@@ -91,9 +93,9 @@ interface Item {
 }
 
 const DELETE_PROBLEM: Record<DeleteProblem, string> = {
-  not_set_up: "Deleting needs the database update to be run first.",
-  not_found: "That chat was already gone.",
-  failed: "That did not delete. Try again in a moment.",
+  get not_set_up() { return tt("Deleting needs the database update to be run first.") },
+  get not_found() { return tt("That chat was already gone.") },
+  get failed() { return tt("That did not delete. Try again in a moment.") },
 }
 
 export function AskHistory({
@@ -208,7 +210,7 @@ export function AskHistory({
         disabled={busy}
         className={cn("shrink-0 rounded-full bg-[#dc2626] px-3 text-[12.5px] font-medium text-white transition-opacity disabled:opacity-60", phone ? "h-10" : "h-8")}
       >
-        {busy ? "Deleting" : yes}
+        {busy ? tt("Deleting") : yes}
       </button>
       <button
         type="button"
@@ -217,7 +219,7 @@ export function AskHistory({
         disabled={busy}
         className={cn("shrink-0 rounded-full px-2.5 text-[12.5px] text-[#6b7280] hover:text-[#1a1a2e]", phone ? "h-10" : "h-8")}
       >
-        Keep
+        {tt("Keep")}
       </button>
     </>
   )
@@ -232,17 +234,17 @@ export function AskHistory({
       {rows === null ? (
         <p className="flex items-center gap-2 px-3 py-3 text-[13px] text-[#6b7280]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading
+          {tt("Loading")}
         </p>
       ) : problem === "not_set_up" ? (
         <div data-history-not-set-up="" className="px-3 py-3">
-          <p className="text-[13px] leading-relaxed text-[#1a1a2e]">History turns on once the database update is run.</p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#6b7280]">Until then your messages on this website are kept as one chat.</p>
+          <p className="text-[13px] leading-relaxed text-[#1a1a2e]">{tt("History turns on once the database update is run.")}</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-[#6b7280]">{tt("Until then your messages on this website are kept as one chat.")}</p>
           <div className="mt-3 flex items-center gap-2">
             {confirming === "all" ? (
               <>
-                <span className="min-w-0 flex-1 text-[13px] text-[#1a1a2e]">Delete this chat?</span>
-                {confirmButtons(() => void removeAll(), "Delete")}
+                <span className="min-w-0 flex-1 text-[13px] text-[#1a1a2e]">{tt("Delete this chat?")}</span>
+                {confirmButtons(() => void removeAll(), tt("Delete"))}
               </>
             ) : (
               <button
@@ -252,21 +254,21 @@ export function AskHistory({
                 disabled={locked}
                 className="h-8 rounded-full text-[12.5px] text-[#6b7280] transition-colors hover:text-[#dc2626] disabled:opacity-40"
               >
-                Delete this chat
+                {tt("Delete this chat")}
               </button>
             )}
           </div>
         </div>
       ) : problem === "read_failed" && items.length === 0 ? (
         <p className="px-3 py-3 text-[13px] leading-relaxed text-[#6b7280]">
-          Your chats could not be loaded. Nothing is lost; try again in a moment.
+          {tt("Your chats could not be loaded. Nothing is lost; try again in a moment.")}
         </p>
       ) : items.length === 0 ? (
-        <p className="px-3 py-3 text-[13px] leading-relaxed text-[#6b7280]">No chats yet. Every chat on this website is kept here.</p>
+        <p className="px-3 py-3 text-[13px] leading-relaxed text-[#6b7280]">{tt("No chats yet. Every chat on this website is kept here.")}</p>
       ) : (
         <>
           {locked && (
-            <p className="px-3 pb-1 pt-2 text-[12px] text-[#6b7280]">Other chats open once the current change finishes.</p>
+            <p className="px-3 pb-1 pt-2 text-[12px] text-[#6b7280]">{tt("Other chats open once the current change finishes.")}</p>
           )}
           {groups.map((group) => (
             <section key={group.label} data-history-group={group.label} className="pt-2">
@@ -276,8 +278,8 @@ export function AskHistory({
                   <li key={item.key} data-history-item={item.key}>
                     {confirming === item.key ? (
                       <div data-history-confirm="" className={cn("flex items-center gap-2 rounded-xl bg-[#dc2626]/[0.06] pl-3 pr-1.5", rowHeight)}>
-                        <span className="min-w-0 flex-1 truncate text-[13px] text-[#1a1a2e]">Delete this chat?</span>
-                        {confirmButtons(() => void removeOne(item), "Delete")}
+                        <span className="min-w-0 flex-1 truncate text-[13px] text-[#1a1a2e]">{tt("Delete this chat?")}</span>
+                        {confirmButtons(() => void removeOne(item), tt("Delete"))}
                       </div>
                     ) : (
                       <div className="group/row relative">
@@ -312,8 +314,8 @@ export function AskHistory({
                             setConfirming(item.key)
                           }}
                           disabled={locked && item.active}
-                          aria-label={`Delete ${item.title}`}
-                          title="Delete"
+                          aria-label={tt("Delete {title}", { title: item.title })}
+                          title={tt("Delete")}
                           className={cn(
                             "absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full text-[#6b7280] transition-[opacity,background-color,color] hover:bg-black/[0.05] hover:text-[#dc2626] disabled:hidden",
                             phone ? "h-11 w-11" : "h-8 w-8 opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100",
@@ -332,9 +334,9 @@ export function AskHistory({
             {confirming === "all" ? (
               <div data-history-confirm="all" className={cn("flex items-center gap-2 rounded-xl bg-[#dc2626]/[0.06] pl-2 pr-1.5", rowHeight)}>
                 <span className="min-w-0 flex-1 text-[13px] leading-snug text-[#1a1a2e]">
-                  Delete all {items.length} chat{items.length === 1 ? "" : "s"} on this website?
+                  {tt("Delete all {length, plural, one {# chat} other {# chats}} on this website?", { length: items.length })}
                 </span>
-                {confirmButtons(() => void removeAll(), "Delete all")}
+                {confirmButtons(() => void removeAll(), tt("Delete all"))}
               </div>
             ) : (
               <button
@@ -347,7 +349,7 @@ export function AskHistory({
                 disabled={locked}
                 className={cn("rounded-full px-2 text-[12.5px] text-[#6b7280] transition-colors hover:text-[#dc2626] disabled:opacity-40", phone ? "h-11" : "h-8")}
               >
-                Delete all chats
+                {tt("Delete all chats")}
               </button>
             )}
           </div>

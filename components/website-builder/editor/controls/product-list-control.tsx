@@ -26,6 +26,7 @@ import { useEditorFieldEnv, type PickerProduct } from "./context"
 import { ADD_BUTTON, ICON_BUTTON, NOTE } from "./styles"
 import { useReorder } from "./use-reorder"
 import { EmptyPicker } from "./empty-picker"
+import { tt } from "@/lib/i18n/text"
 
 const DEFAULT_LIMIT = 12
 
@@ -84,28 +85,28 @@ export function ProductListControl({
   return (
     <div className="space-y-2" data-product-list="">
       {chosen.length > 0 && (
-        <ul ref={listRef} className="space-y-1.5" aria-label={label ? `${label}, in order` : "Chosen products, in order"}>
+        <ul ref={listRef} className="space-y-1.5" aria-label={label ? tt("{label}, in order", { label }) : tt("Chosen products, in order")}>
           {chosen.map((key, i) => {
             const p = find(key)
             return (
               <li key={`${key}-${i}`} data-reorder-row="" style={rowStyle(i)} className="flex items-center gap-2 rounded-lg border border-border bg-background p-1.5 pr-1">
-                <button type="button" aria-label={`Move ${p?.title ?? "product"}`} title="Drag to move" className="flex h-9 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 hover:text-foreground active:cursor-grabbing" {...gripProps(i)}>
+                <button type="button" aria-label={tt("Move {value}", { value: p?.title ?? "product" })} title={tt("Drag to move")} className="flex h-9 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 hover:text-foreground active:cursor-grabbing" {...gripProps(i)}>
                   <GripVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </button>
                 <Thumb product={p} />
                 <span className="min-w-0 flex-1">
                   <span className={cn("block truncate text-[13px] max-sm:text-[15px] font-medium", !p && "text-muted-foreground")}>
-                    {p ? p.title : "A product that is no longer published"}
+                    {p ? p.title : tt("A product that is no longer published")}
                   </span>
                   {p?.price && <span className="block text-[11px] max-sm:text-[13px] text-muted-foreground tabular-nums">{p.price}</span>}
                 </span>
-                <button type="button" className={ICON_BUTTON} aria-label={`Move ${p?.title ?? "product"} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>
+                <button type="button" className={ICON_BUTTON} aria-label={tt("Move {value} up", { value: p?.title ?? "product" })} disabled={i === 0} onClick={() => move(i, i - 1)}>
                   <ArrowUp className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" className={ICON_BUTTON} aria-label={`Move ${p?.title ?? "product"} down`} disabled={i === chosen.length - 1} onClick={() => move(i, i + 1)}>
+                <button type="button" className={ICON_BUTTON} aria-label={tt("Move {value} down", { value: p?.title ?? "product" })} disabled={i === chosen.length - 1} onClick={() => move(i, i + 1)}>
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" className={ICON_BUTTON} aria-label={`Remove ${p?.title ?? "product"}`} onClick={() => remove(i)}>
+                <button type="button" className={ICON_BUTTON} aria-label={tt("Remove {value}", { value: p?.title ?? "product" })} onClick={() => remove(i)}>
                   <X className="h-3.5 w-3.5" />
                 </button>
               </li>
@@ -117,7 +118,7 @@ export function ProductListControl({
       {products.length === 0 ? (
         <EmptyPicker kind="product" />
       ) : chosen.length >= max ? (
-        <p className={NOTE}>This section shows {max} at most. Remove one to add another.</p>
+        <p className={NOTE}>{tt("This section shows {max} at most. Remove one to add another.", { max })}</p>
       ) : (
         <FieldPopover
           open={open}
@@ -125,7 +126,7 @@ export function ProductListControl({
           trigger={
             <button type="button" className={ADD_BUTTON} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
               <Plus className="h-3.5 w-3.5" />
-              Add product
+              {tt("Add product")}
             </button>
           }
         >
@@ -136,7 +137,7 @@ export function ProductListControl({
                 type="search"
                 autoFocus={!phone}
                 className="h-7 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                placeholder="Search your products"
+                placeholder={tt("Search your products")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -148,8 +149,8 @@ export function ProductListControl({
               />
             </label>
           </div>
-          <ul role="listbox" aria-label="Your products" className="max-h-60 overflow-y-auto wb-slim-scroll py-1">
-            {offer.length === 0 && <li className="px-3 py-2.5 text-[13px] text-muted-foreground">{q ? "Nothing matches that." : "Every product is already in the list."}</li>}
+          <ul role="listbox" aria-label={tt("Your products")} className="max-h-60 overflow-y-auto wb-slim-scroll py-1">
+            {offer.length === 0 && <li className="px-3 py-2.5 text-[13px] text-muted-foreground">{q ? tt("Nothing matches that.") : tt("Every product is already in the list.")}</li>}
             {offer.map((p) => (
               <li key={p.id} role="option" aria-selected={false}>
                 <button type="button" className="flex w-full items-center gap-2.5 px-2.5 py-1.5 max-sm:min-h-12 text-left transition-colors hover:bg-muted/60" onClick={() => add(p.id)}>
@@ -211,15 +212,15 @@ export function ProductPickerControl({ value, onChange, label }: { value: string
           {current === CURRENT_REF ? <span aria-hidden className="h-9 w-9 shrink-0 rounded-md border border-dashed border-border bg-muted" /> : <Thumb product={chosen} />}
           <span className="min-w-0 flex-1">
             <span className={cn("block truncate text-[13px] max-sm:text-[15px] font-medium", current !== CURRENT_REF && !chosen && "text-muted-foreground")}>
-              {current === CURRENT_REF ? "This page's product" : chosen ? chosen.title : "A product that is no longer published"}
+              {current === CURRENT_REF ? tt("This page's product") : chosen ? chosen.title : tt("A product that is no longer published")}
             </span>
             {current === CURRENT_REF ? (
-              <span className="block text-[11px] max-sm:text-[13px] text-muted-foreground">Each product page shows its own</span>
+              <span className="block text-[11px] max-sm:text-[13px] text-muted-foreground">{tt("Each product page shows its own")}</span>
             ) : (
               chosen?.price && <span className="block text-[11px] max-sm:text-[13px] text-muted-foreground tabular-nums">{chosen.price}</span>
             )}
           </span>
-          <button type="button" className={ICON_BUTTON} aria-label={`Clear ${label ?? "product"}`} onClick={() => onChange("")}>
+          <button type="button" className={ICON_BUTTON} aria-label={tt("Clear {value}", { value: label ?? "product" })} onClick={() => onChange("")}>
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -233,7 +234,7 @@ export function ProductPickerControl({ value, onChange, label }: { value: string
           onOpenChange={(o) => { setOpen(o); if (!o) setQuery("") }}
           trigger={
             <button type="button" className={ADD_BUTTON} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-              {current ? "Change" : <><Plus className="h-3.5 w-3.5" />Choose a product</>}
+              {current ? tt("Change") : <><Plus className="h-3.5 w-3.5" />{tt("Choose a product")}</>}
             </button>
           }
         >
@@ -244,7 +245,7 @@ export function ProductPickerControl({ value, onChange, label }: { value: string
                 type="search"
                 autoFocus={!phone}
                 className="h-7 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                placeholder="Search your products"
+                placeholder={tt("Search your products")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -256,16 +257,16 @@ export function ProductPickerControl({ value, onChange, label }: { value: string
               />
             </label>
           </div>
-          <ul role="listbox" aria-label="Your products" className="max-h-60 overflow-y-auto wb-slim-scroll py-1">
+          <ul role="listbox" aria-label={tt("Your products")} className="max-h-60 overflow-y-auto wb-slim-scroll py-1">
             {onProductPage && current !== CURRENT_REF && !q && (
               <li role="option" aria-selected={false}>
                 <button type="button" className="flex w-full items-center gap-2.5 px-2.5 py-1.5 max-sm:min-h-12 text-left transition-colors hover:bg-muted/60" onClick={() => pick(CURRENT_REF)}>
                   <span aria-hidden className="h-9 w-9 shrink-0 rounded-md border border-dashed border-border bg-muted" />
-                  <span className="min-w-0 flex-1 truncate text-[13px] max-sm:text-[15px] font-medium">This page&rsquo;s product</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] max-sm:text-[15px] font-medium">{tt("This page’s product")}</span>
                 </button>
               </li>
             )}
-            {offer.length === 0 && <li className="px-3 py-2.5 text-[13px] text-muted-foreground">{q ? "Nothing matches that." : "No other products yet."}</li>}
+            {offer.length === 0 && <li className="px-3 py-2.5 text-[13px] text-muted-foreground">{q ? tt("Nothing matches that.") : tt("No other products yet.")}</li>}
             {offer.map((p) => (
               <li key={p.id} role="option" aria-selected={false}>
                 <button type="button" className="flex w-full items-center gap-2.5 px-2.5 py-1.5 max-sm:min-h-12 text-left transition-colors hover:bg-muted/60" onClick={() => pick(p.url || p.id)}>

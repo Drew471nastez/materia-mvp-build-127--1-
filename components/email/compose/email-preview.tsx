@@ -15,6 +15,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Segmented } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 export type PreviewMode = "desktop" | "mobile"
 
@@ -96,15 +97,15 @@ export function EmailPreview({
       {bare ? null : (
       <div className="flex items-center justify-between gap-3 border-b border-[#eef0f2] px-4 py-2.5">
         <p className="text-[13px] font-medium text-[#1a1a2e]">
-          Preview
+          {tt("Preview")}
         </p>
         <Segmented
-          label="Preview size"
+          label={tt("Preview size")}
           value={mode}
           onChange={onMode}
           options={[
-            { value: "desktop", label: "Desktop" },
-            { value: "mobile", label: "Phone" },
+            { value: "desktop", label: tt("Desktop") },
+            { value: "mobile", label: tt("Phone") },
           ]}
         />
       </div>
@@ -114,14 +115,14 @@ export function EmailPreview({
           <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{senderName}</p>
           <p className="shrink-0 text-[12px] text-[#6b7280]">{when}</p>
         </div>
-        <p className={cn("truncate text-[13px]", subject ? "font-medium text-[#1a1a2e]" : "text-[#9ca3af]")}>{subject || "No subject yet"}</p>
-        <p className="truncate text-[13px] text-[#6b7280]">{previewText || "The first words of the email show here unless you add preview text."}</p>
+        <p className={cn("truncate text-[13px]", subject ? "font-medium text-[#1a1a2e]" : "text-[#9ca3af]")}>{subject || tt("No subject yet")}</p>
+        <p className="truncate text-[13px] text-[#6b7280]">{previewText || tt("The first words of the email show here unless you add preview text.")}</p>
       </div>
       <div ref={boxRef} className="bg-[#f4f5f7] p-0">
         <div className="mx-auto overflow-hidden" style={{ width: width * scale, height: height * scale }}>
           <iframe
             ref={frameRef}
-            title="Email preview"
+            title={tt("Email preview")}
             sandbox="allow-same-origin"
             srcDoc={shown}
             onLoad={onLoad}

@@ -23,6 +23,7 @@
  * matches the registry's defaultOn for the types in that category.
  */
 import type { PreferenceCategory } from "./types"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type PreferenceChannel = "email" | "in_app"
 export const PREFERENCE_CHANNELS: readonly PreferenceChannel[] = ["email", "in_app"]
@@ -42,67 +43,67 @@ export interface CategoryInfo {
 export const CATEGORY_INFO: readonly CategoryInfo[] = [
   {
     category: "sales",
-    label: "Sales",
-    detail: "New sales and your first sale.",
+    get label() { return tt("Sales") },
+    get detail() { return tt("New sales and your first sale.") },
     required: false,
     defaults: { email: true, in_app: true },
-    emails: "sale emails",
+    get emails() { return tt("sale emails") },
   },
   {
     category: "payouts_and_payments",
-    label: "Payouts and payments",
-    detail: "Payouts, payment setup and anything that stops you getting paid.",
+    get label() { return tt("Payouts and payments") },
+    get detail() { return tt("Payouts, payment setup and anything that stops you getting paid.") },
     required: true,
     defaults: { email: true, in_app: true },
-    emails: "payout and payment emails",
+    get emails() { return tt("payout and payment emails") },
   },
   {
     category: "product_and_store",
-    label: "Product and store",
-    detail: "Published products, domains and your store.",
+    get label() { return tt("Product and store") },
+    get detail() { return tt("Published products, domains and your store.") },
     required: false,
     defaults: { email: true, in_app: true },
-    emails: "product and store emails",
+    get emails() { return tt("product and store emails") },
   },
   {
     category: "account",
-    label: "Account",
-    detail: "Changes to your account and its email address.",
+    get label() { return tt("Account") },
+    get detail() { return tt("Changes to your account and its email address.") },
     required: true,
     defaults: { email: true, in_app: true },
-    emails: "account emails",
+    get emails() { return tt("account emails") },
   },
   {
     category: "security",
-    label: "Security",
-    detail: "Password changes and sign in alerts.",
+    get label() { return tt("Security") },
+    get detail() { return tt("Password changes and sign in alerts.") },
     required: true,
     defaults: { email: true, in_app: true },
-    emails: "security emails",
+    get emails() { return tt("security emails") },
   },
   {
     category: "tips",
-    label: "Tips and ideas",
-    detail: "Ways other creators sell more.",
+    get label() { return tt("Tips and ideas") },
+    get detail() { return tt("Ways other creators sell more.") },
     required: false,
     defaults: { email: false, in_app: true },
-    emails: "tips and ideas emails",
+    get emails() { return tt("tips and ideas emails") },
   },
   {
     category: "lifecycle",
-    label: "Onboarding reminders",
-    detail: "A nudge when your first product or payment setup is not done yet.",
+    get label() { return tt("Onboarding reminders") },
+    get detail() { return tt("A nudge when your first product or payment setup is not done yet.") },
     required: false,
     defaults: { email: true, in_app: true },
-    emails: "onboarding reminders",
+    get emails() { return tt("onboarding reminders") },
   },
   {
     category: "marketing",
-    label: "Storelib news",
-    detail: "New features and announcements.",
+    get label() { return tt("Storelib news") },
+    get detail() { return tt("New features and announcements.") },
     required: false,
     defaults: { email: false, in_app: false },
-    emails: "Storelib news emails",
+    get emails() { return tt("Storelib news emails") },
   },
 ]
 
@@ -111,7 +112,7 @@ export const REQUIRED_CATEGORIES: readonly PreferenceCategory[] = CATEGORY_INFO.
 /** The categories an unsubscribe link can be signed for. Never security, account or payouts and payments. */
 export const UNSUBSCRIBABLE: readonly PreferenceCategory[] = ["sales", "product_and_store", "lifecycle", "tips", "marketing"]
 
-export const REQUIRED_WHY = "Security and payment notices are always sent."
+export const REQUIRED_WHY = msg("Security and payment notices are always sent.")
 
 export function infoFor(category: unknown): CategoryInfo | null {
   return CATEGORY_INFO.find((c) => c.category === category) ?? null
@@ -176,17 +177,17 @@ export interface PreferenceChange {
  */
 export function parseChanges(body: unknown): { changes: PreferenceChange[] } | { error: string } {
   const raw = body && typeof body === "object" ? (body as Record<string, unknown>) : null
-  if (!raw) return { error: "Nothing to change." }
+  if (!raw) return { error: tt("Nothing to change.") }
   const list = Array.isArray(raw.changes) ? raw.changes : [raw]
-  if (list.length === 0 || list.length > 20) return { error: "Nothing to change." }
+  if (list.length === 0 || list.length > 20) return { error: tt("Nothing to change.") }
   const changes: PreferenceChange[] = []
   for (const item of list) {
     const c = item && typeof item === "object" ? (item as Record<string, unknown>) : {}
     const info = infoFor(c.category)
-    if (!info) return { error: "That is not a notification setting." }
-    if (info.required) return { error: `${info.label} notices are always sent.` }
-    if (c.channel !== "email" && c.channel !== "in_app") return { error: "That is not a notification setting." }
-    if (typeof c.enabled !== "boolean") return { error: "Nothing to change." }
+    if (!info) return { error: tt("That is not a notification setting.") }
+    if (info.required) return { error: tt("{label} notices are always sent.", { label: info.label }) }
+    if (c.channel !== "email" && c.channel !== "in_app") return { error: tt("That is not a notification setting.") }
+    if (typeof c.enabled !== "boolean") return { error: tt("Nothing to change.") }
     changes.push({ category: info.category, channel: c.channel, enabled: c.enabled })
   }
   return { changes }

@@ -3,6 +3,7 @@
 /** Small pieces the Learn builder and the program editor share. */
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function usePhone(): boolean {
   const [phone, setPhone] = React.useState(false)
@@ -22,7 +23,7 @@ export async function learnRequest<T = Record<string, unknown>>(url: string, met
     const data = (await res.json().catch(() => ({}))) as T & { error?: string; field?: string }
     return { ok: res.ok, status: res.status, data }
   } catch {
-    return { ok: false, status: 0, data: { error: "You look offline. Try again." } as T & { error?: string } }
+    return { ok: false, status: 0, data: { error: tt("You look offline. Try again.") } as T & { error?: string } }
   }
 }
 
@@ -30,7 +31,7 @@ export function StatusPill({ status }: { status: "draft" | "published" }) {
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[1px] text-[11.5px] font-medium", status === "published" ? "bg-[#e9f6ef] text-[#1d6b45]" : "bg-[#fdf3dc] text-[#8a5a00]")} data-status={status}>
       <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", status === "published" ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
-      {status === "published" ? "Published" : "Draft"}
+      {status === "published" ? tt("Published") : tt("Draft")}
     </span>
   )
 }

@@ -58,18 +58,19 @@ import {
 } from "lucide-react"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export type PictureAlign = "left" | "center" | "right"
 
 const SIZES: Array<{ label: string; pct: number; name: string }> = [
-  { label: "S", pct: 33, name: "Small, a third of the width" },
-  { label: "M", pct: 50, name: "Medium, half the width" },
-  { label: "L", pct: 75, name: "Large, three quarters of the width" },
-  { label: "Full", pct: 100, name: "Full width" },
+  { label: "S", pct: 33, get name() { return tt("Small, a third of the width") } },
+  { label: "M", pct: 50, get name() { return tt("Medium, half the width") } },
+  { label: "L", pct: 75, get name() { return tt("Large, three quarters of the width") } },
+  { get label() { return tt("Full") }, pct: 100, get name() { return tt("Full width") } },
 ]
 
 const RATIOS: Array<{ label: string; value: string | null; w: number; h: number }> = [
-  { label: "Original", value: null, w: 14, h: 10 },
+  { get label() { return tt("Original") }, value: null, w: 14, h: 10 },
   { label: "16:9", value: "16 / 9", w: 16, h: 9 },
   { label: "4:3", value: "4 / 3", w: 4, h: 3 },
   { label: "1:1", value: "1 / 1", w: 1, h: 1 },
@@ -77,9 +78,9 @@ const RATIOS: Array<{ label: string; value: string | null; w: number; h: number 
 ]
 
 const PLACES: Array<{ value: PictureAlign; name: string; icon: typeof AlignLeft }> = [
-  { value: "left", name: "Left", icon: AlignLeft },
-  { value: "center", name: "Centre", icon: AlignCenter },
-  { value: "right", name: "Right", icon: AlignRight },
+  { value: "left", get name() { return tt("Left") }, icon: AlignLeft },
+  { value: "center", get name() { return tt("Centre") }, icon: AlignCenter },
+  { value: "right", get name() { return tt("Right") }, icon: AlignRight },
 ]
 
 /** One curve for everything here that comes and goes. */
@@ -404,7 +405,7 @@ export function PictureControls({
         <div
           ref={barInnerRef}
           role="toolbar"
-          aria-label="Picture"
+          aria-label={tt("Picture")}
           data-picture-bar=""
           onMouseDown={(e) => {
             /* The text keeps its focus and its caret while the row is used. */
@@ -413,11 +414,11 @@ export function PictureControls({
           className="flex items-center gap-0.5 overflow-x-auto rounded-xl bg-[#111113]/95 p-1 shadow-[0_12px_28px_-10px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ opacity: 0 }}
         >
-          <Tip label={`Position: ${(current ?? PLACES[0]).name}, then ${next.name.toLowerCase()}`}>
+          <Tip label={tt("Position: {name}, then {value}", { name: (current ?? PLACES[0]).name, value: next.name.toLowerCase() })}>
             <button
               type="button"
               data-picture-position={align ?? ""}
-              aria-label={`Position, ${current ? current.name.toLowerCase() : "not set"}`}
+              aria-label={tt("Position, {value}", { value: current ? current.name.toLowerCase() : tt("not set") })}
               onClick={() => set(() => img.setAttribute("data-align", next.value))}
               className={cn(barButton, current && barOn)}
             >
@@ -425,7 +426,7 @@ export function PictureControls({
             </button>
           </Tip>
           {barRule}
-          <div role="group" aria-label="Size" className="flex shrink-0 items-center rounded-lg bg-white/[0.06] p-px">
+          <div role="group" aria-label={tt("Size")} className="flex shrink-0 items-center rounded-lg bg-white/[0.06] p-px">
             {SIZES.map((s) => (
               <Tip key={s.label} label={s.name}>
                 <button
@@ -451,7 +452,7 @@ export function PictureControls({
             <button
               ref={shapeRef}
               type="button"
-              aria-label="Shape"
+              aria-label={tt("Shape")}
               aria-haspopup="menu"
               aria-expanded={menu === "shape"}
               onClick={() => setMenu((m) => (m === "shape" ? null : "shape"))}
@@ -461,21 +462,21 @@ export function PictureControls({
               <svg aria-hidden viewBox="0 0 10 6" className="h-1.5 w-2 shrink-0 opacity-70"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
           </Tip>
-          <Tip label="Describe it for screen readers">
-            <button type="button" aria-label="Alt text" onClick={onAlt} className={cn(barButton, "tracking-wide")}>
-              Alt
+          <Tip label={tt("Describe it for screen readers")}>
+            <button type="button" aria-label={tt("Alt text")} onClick={onAlt} className={cn(barButton, "tracking-wide")}>
+              {tt("Alt")}
             </button>
           </Tip>
-          <Tip label="Remove picture">
-            <button type="button" aria-label="Remove picture" onClick={onRemove} className={barButton}>
+          <Tip label={tt("Remove picture")}>
+            <button type="button" aria-label={tt("Remove picture")} onClick={onRemove} className={barButton}>
               <Trash2 className="h-4 w-4" />
             </button>
           </Tip>
-          <Tip label="More">
+          <Tip label={tt("More")}>
             <button
               ref={moreRef}
               type="button"
-              aria-label="More"
+              aria-label={tt("More")}
               aria-haspopup="menu"
               aria-expanded={menu === "more"}
               onClick={() => setMenu((m) => (m === "more" ? null : "more"))}
@@ -487,7 +488,7 @@ export function PictureControls({
         </div>
       </div>
 
-      <BarMenu open={menu === "shape"} label="Shape" anchorRef={shapeRef} frameRef={frameRef} barRef={barRef} onClose={closeMenu}>
+      <BarMenu open={menu === "shape"} label={tt("Shape")} anchorRef={shapeRef} frameRef={frameRef} barRef={barRef} onClose={closeMenu}>
         {RATIOS.map((r) => {
           const on = r.value === ratio
           return (
@@ -508,14 +509,14 @@ export function PictureControls({
           )
         })}
       </BarMenu>
-      <BarMenu open={menu === "more"} label="More" anchorRef={moreRef} frameRef={frameRef} barRef={barRef} onClose={closeMenu}>
+      <BarMenu open={menu === "more"} label={tt("More")} anchorRef={moreRef} frameRef={frameRef} barRef={barRef} onClose={closeMenu}>
         <button type="button" role="menuitem" onClick={() => onMove(-1)} className={menuItem}>
           <ArrowUp aria-hidden className="h-4 w-4 shrink-0" />
-          <span>Move up</span>
+          <span>{tt("Move up")}</span>
         </button>
         <button type="button" role="menuitem" onClick={() => onMove(1)} className={menuItem}>
           <ArrowDown aria-hidden className="h-4 w-4 shrink-0" />
-          <span>Move down</span>
+          <span>{tt("Move down")}</span>
         </button>
       </BarMenu>
     </TooltipPrimitive.Provider>

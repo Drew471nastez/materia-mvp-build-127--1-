@@ -3,6 +3,7 @@
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { tt, msg } from "@/lib/i18n/text"
 
 interface ChangelogEntry {
   date: string
@@ -14,133 +15,133 @@ interface ChangelogEntry {
 
 const changelogData: ChangelogEntry[] = [
   {
-    date: "March 4",
+    get date() { return tt("March 4") },
     type: "fix",
-    category: "Navigation",
-    title: "Sign In Button Fix on Seller Pages",
-    description: "Fixed Sign In and Log In buttons on seller store pages (subdomains) to correctly redirect to storelib.com instead of staying on the seller subdomain.",
+    category: msg("Navigation"),
+    get title() { return tt("Sign In Button Fix on Seller Pages") },
+    get description() { return tt("Fixed Sign In and Log In buttons on seller store pages (subdomains) to correctly redirect to storelib.com instead of staying on the seller subdomain.") },
   },
   {
-    date: "March 4",
+    get date() { return tt("March 4") },
     type: "improvement",
-    category: "Payouts",
-    title: "Revenue Chart Default & Net Indicator",
-    description: "Revenue chart now defaults to All Time view so lifetime revenue is always visible. Added Net earnings indicator to the chart legend alongside Revenue and Refunds.",
+    category: msg("Payouts"),
+    get title() { return tt("Revenue Chart Default & Net Indicator") },
+    get description() { return tt("Revenue chart now defaults to All Time view so lifetime revenue is always visible. Added Net earnings indicator to the chart legend alongside Revenue and Refunds.") },
   },
   {
-    date: "March 4",
+    get date() { return tt("March 4") },
     type: "improvement",
-    category: "Analytics",
-    title: "Refunds Visible in Revenue Chart",
-    description: "Refund data now appears on the analytics chart when viewing the Revenue metric, matching the payouts chart behavior.",
+    category: msg("Analytics"),
+    get title() { return tt("Refunds Visible in Revenue Chart") },
+    get description() { return tt("Refund data now appears on the analytics chart when viewing the Revenue metric, matching the payouts chart behavior.") },
   },
   {
-    date: "March 4",
+    get date() { return tt("March 4") },
     type: "fix",
-    category: "Payouts",
-    title: "First Payout Banner Logic",
-    description: "The first payout setup banner no longer shows after a successful payout has been completed.",
+    category: msg("Payouts"),
+    get title() { return tt("First Payout Banner Logic") },
+    get description() { return tt("The first payout setup banner no longer shows after a successful payout has been completed.") },
   },
   {
-    date: "March 4",
+    get date() { return tt("March 4") },
     type: "improvement",
-    category: "Settings",
-    title: "Upgrade Page Improvements",
-    description: "Renamed Professional plan to Pro, added smooth loading skeleton, and ensured equal height pricing tier cards on the upgrade page.",
+    category: msg("Settings"),
+    get title() { return tt("Upgrade Page Improvements") },
+    get description() { return tt("Renamed Professional plan to Pro, added smooth loading skeleton, and ensured equal height pricing tier cards on the upgrade page.") },
   },
   {
-    date: "March 4",
+    get date() { return tt("March 4") },
     type: "improvement",
-    category: "Navigation",
-    title: "Updated Loading Skeletons",
-    description: "Improved loading skeleton structures for Explore, Analytics, and Upgrade pages to better match actual page layouts.",
+    category: msg("Navigation"),
+    get title() { return tt("Updated Loading Skeletons") },
+    get description() { return tt("Improved loading skeleton structures for Explore, Analytics, and Upgrade pages to better match actual page layouts.") },
   },
   {
-    date: "February 4",
+    get date() { return tt("February 4") },
     type: "feature",
-    category: "Settings",
-    title: "Privacy Controls & Account Security",
-    description: "New Privacy tab in settings allowing you to manage AI features, personalization, delete your account, and sign out from all devices at once.",
+    category: msg("Settings"),
+    get title() { return tt("Privacy Controls & Account Security") },
+    get description() { return tt("New Privacy tab in settings allowing you to manage AI features, personalization, delete your account, and sign out from all devices at once.") },
   },
   {
-    date: "February 3",
+    get date() { return tt("February 3") },
     type: "improvement",
-    category: "Settings",
-    title: "Enhanced Settings Page Experience",
-    description: "Improved settings page with smoother sticky save bar animations, toast notifications, and faster tab navigation with skeleton loading.",
+    category: msg("Settings"),
+    get title() { return tt("Enhanced Settings Page Experience") },
+    get description() { return tt("Improved settings page with smoother sticky save bar animations, toast notifications, and faster tab navigation with skeleton loading.") },
   },
   {
-    date: "February 2",
+    get date() { return tt("February 2") },
     type: "feature",
-    category: "Analytics",
-    title: "KPI Blur Animations",
-    description: "Added smooth blur transition animations to all KPI cards across Dashboard, Analytics, and Sales pages for a more polished loading experience.",
+    category: msg("Analytics"),
+    get title() { return tt("KPI Blur Animations") },
+    get description() { return tt("Added smooth blur transition animations to all KPI cards across Dashboard, Analytics, and Sales pages for a more polished loading experience.") },
   },
   {
-    date: "February 1",
+    get date() { return tt("February 1") },
     type: "improvement",
-    category: "Store Builder",
-    title: "Store Builder UI Improvements",
-    description: "Enhanced button clickability and z-index handling in the Store Builder editor for better editing experience.",
+    category: msg("Store Builder"),
+    get title() { return tt("Store Builder UI Improvements") },
+    get description() { return tt("Enhanced button clickability and z-index handling in the Store Builder editor for better editing experience.") },
   },
   {
-    date: "January 30",
+    get date() { return tt("January 30") },
     type: "fix",
-    category: "Profile",
-    title: "Avatar Fallback Logic",
-    description: "Fixed avatar display to properly fall back through settings, store builder, OnePage, and Google authentication.",
+    category: msg("Profile"),
+    get title() { return tt("Avatar Fallback Logic") },
+    get description() { return tt("Fixed avatar display to properly fall back through settings, store builder, OnePage, and Google authentication.") },
   },
   {
-    date: "January 28",
+    get date() { return tt("January 28") },
     type: "feature",
-    category: "Dashboard",
-    title: "Live Visitors Indicator",
-    description: "Added real-time live visitors indicator on the dashboard with automatic polling updates showing current active users.",
+    category: msg("Dashboard"),
+    get title() { return tt("Live Visitors Indicator") },
+    get description() { return tt("Added real-time live visitors indicator on the dashboard with automatic polling updates showing current active users.") },
   },
   {
-    date: "January 25",
+    get date() { return tt("January 25") },
     type: "feature",
-    category: "Navigation",
-    title: "Navigation Loading Bar",
-    description: "Added smooth glowing loading bar that appears during page navigation across the entire application.",
+    category: msg("Navigation"),
+    get title() { return tt("Navigation Loading Bar") },
+    get description() { return tt("Added smooth glowing loading bar that appears during page navigation across the entire application.") },
   },
   {
-    date: "January 22",
+    get date() { return tt("January 22") },
     type: "improvement",
-    category: "Emails",
-    title: "Email Subscriber Badges",
-    description: "Added 'resubscribed' badge for subscribers who unsubscribed and then subscribed again to your list.",
+    category: msg("Emails"),
+    get title() { return tt("Email Subscriber Badges") },
+    get description() { return tt("Added 'resubscribed' badge for subscribers who unsubscribed and then subscribed again to your list.") },
   },
   {
-    date: "January 20",
+    get date() { return tt("January 20") },
     type: "fix",
-    category: "Settings",
-    title: "Sidebar Avatar Sync",
-    description: "Fixed sidebar avatar to properly sync with settings profile photo across the entire application.",
+    category: msg("Settings"),
+    get title() { return tt("Sidebar Avatar Sync") },
+    get description() { return tt("Fixed sidebar avatar to properly sync with settings profile photo across the entire application.") },
   },
   {
-    date: "January 18",
+    get date() { return tt("January 18") },
     type: "feature",
-    category: "Products",
-    title: "Dynamic Favicon",
-    description: "Product pages now display the seller's profile avatar as the browser favicon for brand consistency.",
+    category: msg("Products"),
+    get title() { return tt("Dynamic Favicon") },
+    get description() { return tt("Product pages now display the seller's profile avatar as the browser favicon for brand consistency.") },
   },
 ]
 
-const categories = ["All", "Settings", "Analytics", "Dashboard", "Payouts", "Store Builder", "Profile", "Navigation", "Emails", "Products"]
+const categories = [msg("All"), msg("Settings"), msg("Analytics"), msg("Dashboard"), msg("Payouts"), msg("Store Builder"), msg("Profile"), msg("Navigation"), msg("Emails"), msg("Products")]
 
 const getTypeLabel = (type: string) => {
   switch (type) {
     case "feature":
-      return "New"
+      return tt("New")
     case "improvement":
-      return "Improvement"
+      return tt("Improvement")
     case "fix":
-      return "Fix"
+      return tt("Fix")
     case "update":
-      return "Update"
+      return tt("Update")
     default:
-      return "Change"
+      return tt("Change")
   }
 }
 
@@ -161,11 +162,11 @@ export default function ChangelogPage() {
             className="inline-flex items-center gap-1.5 text-[13px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors mb-4"
           >
             <ChevronLeft className="h-4 w-4" />
-            Back to Settings
+            {tt("Back to Settings")}
           </Link>
-          <h1 className="text-[32px] sm:text-[40px] font-bold text-[#1a1a2e] tracking-tight">Changelog</h1>
+          <h1 className="text-[32px] sm:text-[40px] font-bold text-[#1a1a2e] tracking-tight">{tt("Changelog")}</h1>
           <p className="text-[15px] text-[#6b7280] mt-2">
-            New updates and improvements to Storelib.
+            {tt("New updates and improvements to Storelib.")}
           </p>
         </div>
 
@@ -205,7 +206,7 @@ export default function ChangelogPage() {
                         {getTypeLabel(entry.type)}
                       </span>
                       <span className="text-[12px] text-[#9ca3af]">
-                        {entry.category}
+                        {tt(entry.category)}
                       </span>
                     </div>
                   </div>
@@ -217,7 +218,7 @@ export default function ChangelogPage() {
           {/* Filter sidebar */}
           <div className="hidden lg:block w-48 flex-shrink-0">
             <div className="sticky top-8">
-              <h3 className="text-[14px] font-semibold text-[#1a1a2e] mb-3">Filter</h3>
+              <h3 className="text-[14px] font-semibold text-[#1a1a2e] mb-3">{tt("Filter")}</h3>
               <div className="space-y-1">
                 {categories.map((category) => (
                   <label
@@ -244,7 +245,7 @@ export default function ChangelogPage() {
                       }`}
                       onClick={() => setSelectedCategory(category)}
                     >
-                      {category}
+                      {tt(category)}
                     </span>
                   </label>
                 ))}
@@ -255,7 +256,7 @@ export default function ChangelogPage() {
 
         {/* Mobile filter */}
         <div className="lg:hidden mt-8 pt-6 border-t border-[#e5e7eb]">
-          <h3 className="text-[14px] font-semibold text-[#1a1a2e] mb-3">Filter by category</h3>
+          <h3 className="text-[14px] font-semibold text-[#1a1a2e] mb-3">{tt("Filter by category")}</h3>
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
               <button
@@ -267,7 +268,7 @@ export default function ChangelogPage() {
                     : "text-[#6b7280] border-[#e5e7eb] hover:border-[#d1d5db]"
                 }`}
               >
-                {category}
+                {tt(category)}
               </button>
             ))}
           </div>
@@ -276,9 +277,9 @@ export default function ChangelogPage() {
         {/* Footer */}
         <div className="mt-12 pt-8 border-t border-[#e5e7eb]">
           <p className="text-[13px] text-[#9ca3af]">
-            Have feedback or feature requests?{" "}
+            {tt("Have feedback or feature requests?")}{" "}
             <a href="mailto:support@storelib.com" className="text-[#1a1a2e] hover:underline">
-              Let us know
+              {tt("Let us know")}
             </a>
           </p>
         </div>

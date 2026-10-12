@@ -1,12 +1,17 @@
 import { redirect } from "next/navigation"
 import { CouponsClient } from "./coupons-client"
 import { loadCouponArea } from "./load-coupons"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export const metadata = {
-  title: "Coupons",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Coupons"),
+  }
 }
 
 export default async function CouponsPage() {

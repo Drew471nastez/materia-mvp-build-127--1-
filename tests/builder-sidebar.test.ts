@@ -29,6 +29,7 @@ import { COLLAPSE_CLOSE_MS, COLLAPSE_OPEN_MS } from "@/components/website-builde
 import { whereItGoes } from "@/lib/website-builder/insert-words"
 import { arrivalScrollTarget } from "@/lib/website-builder/section-arrival"
 import { lazyImages, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -44,7 +45,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${said}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 function main() {
   const editor = read("app/website-builder/editor/[installId]/page.tsx")

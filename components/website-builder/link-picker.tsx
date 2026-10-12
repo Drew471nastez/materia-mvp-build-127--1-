@@ -41,6 +41,7 @@ import {
   type LinkMenuEntry,
 } from "@/lib/website-builder/link-menu"
 import { normalizePath, splitSectionHref, type AnchorCandidate } from "@/lib/website-builder/section-anchors"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -187,7 +188,7 @@ export function LinkPicker({
       <LinkAddressField value={bare} onChange={(href) => onChange(withNewTab(href, newTab))} targets={targets} placeholder={placeholder} />
       {bare ? (
         <label htmlFor={switchId} data-link-new-tab="" className="mt-2 flex cursor-pointer items-center justify-between gap-3 text-[12.5px] text-muted-foreground">
-          Open in a new tab
+          {tt("Open in a new tab")}
           <button
             id={switchId}
             type="button"
@@ -563,7 +564,7 @@ function LinkAddressField({
         <span className={cn("min-w-0 flex-1 truncate text-foreground", phone ? "text-[15px]" : "text-[13px]")} title={t.href}>
           {t.label}
         </span>
-        {current && <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label="Linked now" />}
+        {current && <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label={tt("Linked now")} />}
         {drills && (
           /**
            * THE PAGE'S SECTIONS, beside the page. The row picks the page;
@@ -573,8 +574,8 @@ function LinkAddressField({
           <button
             type="button"
             tabIndex={-1}
-            aria-label={`Sections on ${t.label}`}
-            title="Sections"
+            aria-label={tt("Sections on {label}", { label: t.label })}
+            title={tt("Sections")}
             onClick={(e) => {
               e.stopPropagation()
               openSections(t, false)
@@ -605,7 +606,7 @@ function LinkAddressField({
           close()
         }}
         onEscape={onEscape}
-        sheetLabel="Choose where this link goes"
+        sheetLabel={tt("Choose where this link goes")}
         sheetHeader={
           sheet ? (
             <div className="shrink-0 px-3 pb-2 pt-1">
@@ -619,8 +620,8 @@ function LinkAddressField({
                   autoCorrect="off"
                   spellCheck={false}
                   data-link-sheet-search=""
-                  aria-label="Search pages and products, or paste an address"
-                  placeholder="Search, or paste an address"
+                  aria-label={tt("Search pages and products, or paste an address")}
+                  placeholder={tt("Search, or paste an address")}
                   value={typed ? draft : ""}
                   onChange={(e) => {
                     setDraft(e.target.value)
@@ -645,7 +646,7 @@ function LinkAddressField({
                 >
                   <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">
-                    Use <span className="font-medium">{typedAddress && typedAddress.ok ? typedAddress.href : ""}</span>
+                    {tt("Use")} <span className="font-medium">{typedAddress && typedAddress.ok ? typedAddress.href : ""}</span>
                   </span>
                 </button>
               )}
@@ -679,7 +680,7 @@ function LinkAddressField({
               aria-invalid={error ? true : undefined}
               title={known && !focused ? known.href : undefined}
               value={shown}
-              placeholder={placeholder || "Type an address or pick a page"}
+              placeholder={placeholder || tt("Type an address or pick a page")}
               /* On a phone the field is a door to the sheet: typing happens in the sheet's own box, above the keyboard. */
               readOnly={sheet}
               onClick={() => {
@@ -738,7 +739,7 @@ function LinkAddressField({
             <button
               type="button"
               tabIndex={-1}
-              aria-label="Pages and products"
+              aria-label={tt("Pages and products")}
               aria-expanded={showList}
               /* Keeps the cursor where it is; a press here is not a blur. */
               onMouseDown={(e) => e.preventDefault()}
@@ -770,7 +771,7 @@ function LinkAddressField({
         <div
           id={listId}
           role="listbox"
-          aria-label={drill ? `Sections on ${drill.label}` : entry ? entry.category.label : "Pages and products"}
+          aria-label={drill ? tt("Sections on {label}", { label: drill.label }) : entry ? entry.category.label : tt("Pages and products")}
           onMouseDown={(e) => e.preventDefault()}
           ref={boxRef}
           className="flex min-h-0 flex-col overflow-hidden"
@@ -789,7 +790,7 @@ function LinkAddressField({
             >
               <div className={cn(optionClass(0), "gap-1.5 pl-1.5")}>
                 <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} />
-                <span className={cn("min-w-0 flex-1 truncate font-medium text-foreground", phone ? "text-[15px]" : "text-[13px]")}>Back</span>
+                <span className={cn("min-w-0 flex-1 truncate font-medium text-foreground", phone ? "text-[15px]" : "text-[13px]")}>{tt("Back")}</span>
                 {back.count >= 0 && <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{resultCount(back.count)}</span>}
               </div>
             </div>
@@ -829,7 +830,7 @@ function LinkAddressField({
                 })}
                 {drill && !searching && (drillList === null || drillList.length === 0) && (
                   <p className={cn("px-2 text-muted-foreground", phone ? "py-3 text-[14px]" : "py-2 text-[12px]")}>
-                    {drillList === null ? "Loading sections" : "No sections on this page yet"}
+                    {drillList === null ? tt("Loading sections") : tt("No sections on this page yet")}
                   </p>
                 )}
               </div>

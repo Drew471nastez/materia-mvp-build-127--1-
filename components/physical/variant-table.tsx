@@ -41,6 +41,7 @@ import type { Location, ProductOption } from "@/lib/physical/types"
 import type { WeightUnit } from "@/lib/physical/units"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, DecimalInput, FIELD_COMPACT, Field, Modal, MoneyInput, NumberInput, Reveal, SelectInput, TextInput, Toggle, centsOf } from "./ui"
 import { groupByFirst, priceRange, variantThumbSrc, type VariantRow } from "./variant-rows"
+import { tt } from "@/lib/i18n/text"
 
 /** One line per variant at every width: photo, name, price, quantity, more. */
 const GRID = "grid grid-cols-[34px_minmax(0,1fr)_84px_60px_28px] items-center gap-x-2 md:grid-cols-[40px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.7fr)_32px] md:gap-x-3"
@@ -134,31 +135,31 @@ export function VariantTable(props: VariantTableProps) {
     <div className="mt-4" data-variant-table="">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-[#6b7280]" aria-live="polite">
-          {rows.length} {rows.length === 1 ? "variant" : "variants"}
-          {sold < rows.length ? `, ${rows.length - sold} not sold` : ""}
+          {tt("{n, plural, one {# variant} other {# variants}}", { n: rows.length })}
+          {sold < rows.length ? tt(", {value} not sold", { value: rows.length - sold }) : ""}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {trackInventory && locations.length > 1 ? (
-            <SelectInput value={stockAt} onChange={setStockAt} className="w-[180px]" aria-label="Location for the quantity column">
+            <SelectInput value={stockAt} onChange={setStockAt} className="w-[180px]" aria-label={tt("Location for the quantity column")}>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
-                  At {l.name}
+                  {tt("At {name}", { name: l.name })}
                 </option>
               ))}
             </SelectInput>
           ) : null}
           <button type="button" data-variants-edit-all="" onClick={() => setBulk(true)} className={cn(BTN_SECONDARY, "h-8 px-2.5 text-[13px]")}>
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            Edit all
+            {tt("Edit all")}
           </button>
         </div>
       </div>
       <div className="overflow-hidden rounded-xl border border-[#eceef1] bg-white">
         <div className={cn(GRID, "border-b border-[#eceef1] bg-[#f8f9fa] px-2.5 py-1.5 text-[12px] font-medium text-[#6b7280] md:px-3")} data-variant-head="">
           <span />
-          <span className="truncate">{grouped ? `By ${options[0].name.toLowerCase()}` : "Variant"}</span>
-          <span>Price</span>
-          <span>{trackInventory ? "Qty" : "Stock"}</span>
+          <span className="truncate">{grouped ? tt("By {value}", { value: options[0].name.toLowerCase() }) : tt("Variant")}</span>
+          <span>{tt("Price")}</span>
+          <span>{trackInventory ? tt("Qty") : tt("Stock")}</span>
           <span />
         </div>
         {grouped
@@ -211,7 +212,7 @@ const Thumb = React.memo(function Thumb({ url, pendingUrl, label, onPick, onRemo
       <button
         type="button"
         onClick={onPick}
-        aria-label={src ? `Change the photo for ${label}` : `Add a photo for ${label}`}
+        aria-label={src ? tt("Change the photo for {label}", { label }) : tt("Add a photo for {label}", { label })}
         className={cn(
           "grid h-full w-full place-items-center overflow-hidden rounded-lg border bg-[#f3f4f6] text-[#9ca3af] outline-none transition-colors hover:border-[#9ca3af] hover:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40",
           src ? "border-[#e5e7eb]" : "border-dashed border-[#d1d5db] bg-[#fafafa]",
@@ -233,14 +234,14 @@ const Thumb = React.memo(function Thumb({ url, pendingUrl, label, onPick, onRemo
         )}
       </button>
       {pendingUrl ? (
-        <span className="pointer-events-none absolute inset-0 grid place-items-center" aria-label="Uploading" data-variant-thumb-uploading="">
+        <span className="pointer-events-none absolute inset-0 grid place-items-center" aria-label={tt("Uploading")} data-variant-thumb-uploading="">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-[#1a1a2e]" />
         </span>
       ) : url && onRemove ? (
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`Remove the photo for ${label}`}
+          aria-label={tt("Remove the photo for {label}", { label })}
           data-variant-thumb-remove=""
           className="pointer-events-none absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#4b5563] opacity-0 shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-opacity duration-100 hover:text-[#1a1a2e] focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100"
         >
@@ -268,17 +269,17 @@ const GroupLine = React.memo(function GroupLine({ value, rows, folded, toggle, b
   const range = priceRange(rows, basePrice, (c) => formatStoreMoney(c, currency))
   return (
     <div className={cn(GRID, "px-2.5 py-2 md:px-3")}>
-      <Thumb url={image} pendingUrl={pendingUrl} label={`every ${value}`} onPick={() => pickImage(keys, value)} onRemove={() => patchRows(keys, () => ({ imageUrl: null }))} />
+      <Thumb url={image} pendingUrl={pendingUrl} label={tt("every {value}", { value })} onPick={() => pickImage(keys, value)} onRemove={() => patchRows(keys, () => ({ imageUrl: null }))} />
       <button type="button" onClick={() => toggle(value)} aria-expanded={!folded} className="flex min-w-0 flex-col items-start text-left outline-none focus-visible:underline">
         <span className="max-w-full truncate text-[14px] font-medium leading-5 text-[#1a1a2e]">{value}</span>
         <span className="max-w-full truncate text-[12px] leading-4 text-[#6b7280]">
-          {rows.length} {rows.length === 1 ? "variant" : "variants"}
+          {tt("{n, plural, one {# variant} other {# variants}}", { n: rows.length })}
           {prices.size > 1 && range ? `, ${range}` : ""}
         </span>
       </button>
-      <MoneyInput compact aria-label={`Price for every ${value}`} value={shared} placeholder={prices.size > 1 ? "Mixed" : basePrice || undefined} onChange={(v) => patchRows(keys, () => ({ price: v }))} />
-      <span className={cn("truncate text-[13px] tabular-nums text-[#4b5563]", trackInventory && stockAt && "text-center")} aria-label={trackInventory && stockAt ? `${qty} in all` : undefined}>{trackInventory && stockAt ? qty : "Not tracked"}</span>
-      <button type="button" onClick={() => toggle(value)} aria-label={folded ? `Show ${value}` : `Hide ${value}`} className={cn(BTN_GHOST, "h-8 w-7 px-0 md:w-8")}>
+      <MoneyInput compact aria-label={tt("Price for every {value}", { value })} value={shared} placeholder={prices.size > 1 ? tt("Mixed") : basePrice || undefined} onChange={(v) => patchRows(keys, () => ({ price: v }))} />
+      <span className={cn("truncate text-[13px] tabular-nums text-[#4b5563]", trackInventory && stockAt && "text-center")} aria-label={trackInventory && stockAt ? tt("{qty} in all", { qty }) : undefined}>{trackInventory && stockAt ? qty : tt("Not tracked")}</span>
+      <button type="button" onClick={() => toggle(value)} aria-label={folded ? tt("Show {value}", { value }) : tt("Hide {value}", { value })} className={cn(BTN_GHOST, "h-8 w-7 px-0 md:w-8")}>
         <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", !folded && "rotate-180")} />
       </button>
     </div>
@@ -307,7 +308,7 @@ const VariantLine = React.memo(function VariantLine({ row, label, nested, enteri
   const saleProblem = compareAtProblem(row.compareAt, priceNow)
   const codeProblem = barcodeProblem(row.barcode)
   const flagged = !!saleProblem || !!codeProblem || skuShared
-  const extra = [row.sku && `SKU ${row.sku}`, row.compareAt && !saleProblem && "On sale", committed > 0 && `${committed} held`].filter(Boolean).join(" · ")
+  const extra = [row.sku && tt("SKU {sku}", { sku: row.sku }), row.compareAt && !saleProblem && tt("On sale"), committed > 0 && tt("{committed} held", { committed })].filter(Boolean).join(" · ")
   const pick = () => pickImage([key], name)
   const remove = () => patchRows([key], () => ({ imageUrl: null }))
   return (
@@ -317,20 +318,20 @@ const VariantLine = React.memo(function VariantLine({ row, label, nested, enteri
         <button type="button" onClick={() => toggle(key)} className="flex min-w-0 flex-col items-start text-left outline-none focus-visible:underline">
           <span className={cn("line-clamp-2 max-w-full break-words text-[13.5px] leading-[18px] md:text-[14px]", row.active ? "font-medium text-[#1a1a2e]" : "text-[#9ca3af] line-through")}>{label || name}</span>
           {!row.active ? (
-            <span className="text-[12px] leading-4 text-[#6b7280]">Not sold</span>
+            <span className="text-[12px] leading-4 text-[#6b7280]">{tt("Not sold")}</span>
           ) : flagged ? (
-            <span className="text-[12px] leading-4 text-[#b45309]">Check details</span>
+            <span className="text-[12px] leading-4 text-[#b45309]">{tt("Check details")}</span>
           ) : extra ? (
             <span className="max-w-full truncate text-[12px] leading-4 text-[#6b7280]">{extra}</span>
           ) : null}
         </button>
-        <MoneyInput compact aria-label={`Price for ${name}`} value={row.price} placeholder={basePrice || undefined} onChange={(v) => setRow(key, { price: v })} />
+        <MoneyInput compact aria-label={tt("Price for {name}", { name })} value={row.price} placeholder={basePrice || undefined} onChange={(v) => setRow(key, { price: v })} />
         {trackInventory && stockAt ? (
-          <NumberInput compact inputMode="numeric" aria-label={`Quantity for ${name}`} value={row.stock[stockAt] ?? ""} placeholder="0" onChange={(v) => setRow(key, { stock: { ...row.stock, [stockAt]: v } })} className="px-2 text-center" />
+          <NumberInput compact inputMode="numeric" aria-label={tt("Quantity for {name}", { name })} value={row.stock[stockAt] ?? ""} placeholder="0" onChange={(v) => setRow(key, { stock: { ...row.stock, [stockAt]: v } })} className="px-2 text-center" />
         ) : (
-          <span className="text-[12px] leading-4 text-[#6b7280]">Not tracked</span>
+          <span className="text-[12px] leading-4 text-[#6b7280]">{tt("Not tracked")}</span>
         )}
-        <button type="button" aria-expanded={open} aria-label={`More for ${name}`} onClick={() => toggle(key)} className={cn(BTN_GHOST, "h-8 w-7 px-0 md:w-8")}>
+        <button type="button" aria-expanded={open} aria-label={tt("More for {name}", { name })} onClick={() => toggle(key)} className={cn(BTN_GHOST, "h-8 w-7 px-0 md:w-8")}>
           <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")} />
         </button>
       </div>
@@ -340,15 +341,15 @@ const VariantLine = React.memo(function VariantLine({ row, label, nested, enteri
             <div className="col-span-2 flex items-center gap-3 sm:col-span-3" data-variant-photo="">
               <Thumb url={row.imageUrl} pendingUrl={pendingUrl} label={name} onPick={pick} size="h-14 w-14" />
               <div className="min-w-0">
-                <p className="text-[12.5px] font-medium text-[#4b5563]">Photo</p>
-                <p className="truncate text-[12px] leading-4 text-[#9ca3af]">{pendingUrl ? "Uploading" : row.imageUrl ? "Shown when it's picked" : "None: the product's photo shows"}</p>
+                <p className="text-[12.5px] font-medium text-[#4b5563]">{tt("Photo")}</p>
+                <p className="truncate text-[12px] leading-4 text-[#9ca3af]">{pendingUrl ? tt("Uploading") : row.imageUrl ? tt("Shown when it's picked") : tt("None: the product's photo shows")}</p>
                 <div className="mt-1 flex items-center gap-3 text-[12.5px] font-medium">
                   <button type="button" onClick={pick} className="text-[#1a1a2e] underline-offset-2 hover:underline">
-                    {row.imageUrl ? "Change" : "Add photo"}
+                    {row.imageUrl ? tt("Change") : tt("Add photo")}
                   </button>
                   {row.imageUrl && !pendingUrl ? (
                     <button type="button" onClick={remove} className="text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-                      Remove
+                      {tt("Remove")}
                     </button>
                   ) : null}
                 </div>
@@ -366,24 +367,24 @@ function VariantDetails({ row, rowKey: key, basePrice, weightUnit, setRow, skuSh
   const margin = marginPercent(centsOf(row.price) ?? centsOf(basePrice) ?? 0, centsOf(row.cost))
   return (
     <>
-      <Small label="Compare-at price" note={saleProblem} hint="Shown crossed out">
-        <MoneyInput compact value={row.compareAt} onChange={(v) => setRow(key, { compareAt: v })} placeholder="Optional" />
+      <Small label={tt("Compare-at price")} note={saleProblem} hint={tt("Shown crossed out")}>
+        <MoneyInput compact value={row.compareAt} onChange={(v) => setRow(key, { compareAt: v })} placeholder={tt("Optional")} />
       </Small>
-      <Small label="Cost per item" hint={margin !== null ? `${margin}% margin` : "Buyers never see it"}>
-        <MoneyInput compact value={row.cost} onChange={(v) => setRow(key, { cost: v })} placeholder="Optional" />
+      <Small label={tt("Cost per item")} hint={margin !== null ? tt("{margin}% margin", { margin }) : tt("Buyers never see it")}>
+        <MoneyInput compact value={row.cost} onChange={(v) => setRow(key, { cost: v })} placeholder={tt("Optional")} />
       </Small>
-      <Small label="SKU" note={skuShared ? "Another variant has this SKU" : null}>
-        <TextInput value={row.sku} maxLength={64} autoComplete="off" placeholder="Optional" onChange={(e) => setRow(key, { sku: skuTyped(e.target.value) })} className={FIELD_COMPACT} />
+      <Small label="SKU" note={skuShared ? tt("Another variant has this SKU") : null}>
+        <TextInput value={row.sku} maxLength={64} autoComplete="off" placeholder={tt("Optional")} onChange={(e) => setRow(key, { sku: skuTyped(e.target.value) })} className={FIELD_COMPACT} />
       </Small>
-      <Small label="Barcode" note={codeProblem} hint="UPC, EAN or ISBN">
-        <TextInput value={row.barcode} maxLength={14} inputMode="numeric" autoComplete="off" placeholder="Optional" onChange={(e) => setRow(key, { barcode: barcodeTyped(e.target.value) })} className={FIELD_COMPACT} />
+      <Small label={tt("Barcode")} note={codeProblem} hint={tt("UPC, EAN or ISBN")}>
+        <TextInput value={row.barcode} maxLength={14} inputMode="numeric" autoComplete="off" placeholder={tt("Optional")} onChange={(e) => setRow(key, { barcode: barcodeTyped(e.target.value) })} className={FIELD_COMPACT} />
       </Small>
-      <Small label="Weight" hint="Blank: the product's">
-        <DecimalInput compact value={row.weight} onChange={(v) => setRow(key, { weight: v })} suffix={weightUnit} placeholder="Same" />
+      <Small label={tt("Weight")} hint={tt("Blank: the product's")}>
+        <DecimalInput compact value={row.weight} onChange={(v) => setRow(key, { weight: v })} suffix={weightUnit} placeholder={tt("Same")} />
       </Small>
       <div className="col-span-2 flex items-end sm:col-span-1">
         <div className="w-full rounded-lg bg-[#f8f9fa] px-3 py-2">
-          <Toggle label="Sell this variant" description={row.active ? "Buyers can choose it" : "Hidden. Stock and orders stay"} checked={row.active} onChange={(v) => setRow(key, { active: v })} />
+          <Toggle label={tt("Sell this variant")} description={row.active ? tt("Buyers can choose it") : tt("Hidden. Stock and orders stay")} checked={row.active} onChange={(v) => setRow(key, { active: v })} />
         </div>
       </div>
     </>
@@ -442,22 +443,22 @@ function BulkEdit({ open, onClose, rows, options, trackInventory, stockAt, locat
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit variants"
+      title={tt("Edit variants")}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" className={BTN_PRIMARY} disabled={nothing || target.length === 0} onClick={apply} data-bulk-apply="">
-            Apply to {target.length}
+            {tt("Apply to {length}", { length: target.length })}
           </button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Apply to">
-          <SelectInput value={scope} onChange={setScope} aria-label="Which variants">
-            <option value="all">All {rows.length} variants</option>
+        <Field label={tt("Apply to")}>
+          <SelectInput value={scope} onChange={setScope} aria-label={tt("Which variants")}>
+            <option value="all">{tt("All {length} variants", { length: rows.length })}</option>
             {options.map((o, pos) =>
               o.values.map((v) => (
                 <option key={`${pos}-${v}`} value={`${pos}\u0001${v}`}>
@@ -468,25 +469,25 @@ function BulkEdit({ open, onClose, rows, options, trackInventory, stockAt, locat
           </SelectInput>
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Price">
-            <MoneyInput value={price} onChange={setPrice} placeholder="Unchanged" />
+          <Field label={tt("Price")}>
+            <MoneyInput value={price} onChange={setPrice} placeholder={tt("Unchanged")} />
           </Field>
-          <Field label="Compare-at price">
-            <MoneyInput value={compareAt} onChange={setCompareAt} placeholder="Unchanged" />
+          <Field label={tt("Compare-at price")}>
+            <MoneyInput value={compareAt} onChange={setCompareAt} placeholder={tt("Unchanged")} />
           </Field>
           {trackInventory && stockAt ? (
-            <Field label="Quantity" hint={locations.length > 1 && where ? `At ${where.name}` : undefined}>
-              <NumberInput value={qty} onChange={setQty} placeholder="Unchanged" />
+            <Field label={tt("Quantity")} hint={locations.length > 1 && where ? tt("At {name}", { name: where.name }) : undefined}>
+              <NumberInput value={qty} onChange={setQty} placeholder={tt("Unchanged")} />
             </Field>
           ) : null}
-          <Field label="Weight">
-            <DecimalInput value={weight} onChange={setWeight} placeholder="Unchanged" suffix={weightUnit} />
+          <Field label={tt("Weight")}>
+            <DecimalInput value={weight} onChange={setWeight} placeholder={tt("Unchanged")} suffix={weightUnit} />
           </Field>
-          <Field label="Cost per item">
-            <MoneyInput value={cost} onChange={setCost} placeholder="Unchanged" />
+          <Field label={tt("Cost per item")}>
+            <MoneyInput value={cost} onChange={setCost} placeholder={tt("Unchanged")} />
           </Field>
         </div>
-        <p className="text-[13px] text-[#6b7280]">Empty fields stay as they are.</p>
+        <p className="text-[13px] text-[#6b7280]">{tt("Empty fields stay as they are.")}</p>
       </div>
     </Modal>
   )

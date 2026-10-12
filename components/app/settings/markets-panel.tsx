@@ -42,6 +42,7 @@ import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { CountryFlag } from "./country-picker"
 import { TranslateSheet } from "./translate-sheet"
+import { activeLocale, tt, ttx } from "@/lib/i18n/text"
 
 const PATH = "/api/store/markets"
 
@@ -54,17 +55,20 @@ interface Loaded {
 }
 
 const ROUNDING_LABEL: Record<PriceRounding, string> = {
-  none: "As converted",
-  whole: "Up to a whole number",
-  nine_nine: "Ending in .99",
+  get none() { return tt("As converted") },
+  get whole() { return tt("Up to a whole number") },
+  get nine_nine() { return tt("Ending in .99") },
 }
 
-/** "French · Français": the creator's word for it and the visitor's. */
+/** "French · Français", "Französisch · Français": the creator's word for it, in the dashboard's language, and the visitor's. */
 function languageLabel(code: string): string {
-  const english = languageName(code, "en")
+  const mine = languageName(code, activeLocale())
   const own = languageName(code)
-  return english === own ? english : `${english} · ${own}`
+  return mine === own ? mine : `${mine} · ${own}`
 }
+
+/** The market every store starts with is named "Home" in its data; it reads in the dashboard's language until the creator renames it. */
+const marketName = (m: { name: string; primary?: boolean }) => (m.primary && m.name.trim().toLowerCase() === "home" ? ttx("market", "Home") : m.name)
 
 export function MarketsPanel() {
   const [data, setData] = React.useState<Loaded | null>(() => peekGet<Loaded>(PATH))
@@ -116,7 +120,7 @@ export function MarketsPanel() {
   if (!data || !draft) {
     return (
       <div className="space-y-4 sm:space-y-6" data-markets-panel="" aria-busy={!error}>
-        <Card title="Languages" description="Your website in more languages.">
+        <Card title={tt("Languages")} description={tt("Your website in more languages.")}>
           {error ? <Notice>{error}</Notice> : <div className="h-24" />}
         </Card>
       </div>
@@ -126,18 +130,18 @@ export function MarketsPanel() {
   const used = new Set([draft.defaultLanguage, ...draft.languages.map((l) => l.code)])
   const offer = SITE_LANGUAGE_CODES.filter((c) => !used.has(c))
   const home = draft.markets.find((m) => m.primary)
-  const status = state === "saving" ? "Saving" : state === "saved" ? "Saved" : null
+  const status = state === "saving" ? tt("Saving") : state === "saved" ? tt("Saved") : null
   const setPublished = (code: string, published: boolean) => commit({ ...draft, languages: draft.languages.map((x) => (x.code === code ? { ...x, published } : x)) })
 
   return (
     <div className="space-y-4 sm:space-y-6" data-markets-panel="">
-      {!data.ready ? <Notice tone="amber">Markets and languages aren&apos;t set up yet. Run SQL part 136 in Supabase, then come back here.</Notice> : null}
+      {!data.ready ? <Notice tone="amber">{tt("Markets and languages aren't set up yet. Run SQL part 136 in Supabase, then come back here.")}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
 
       <Card
-        title="Languages"
+        title={tt("Languages")}
         help="languages"
-        description="Your website in more languages, each at its own address like /fr."
+        description={tt("Your website in more languages, each at its own address like /fr.")}
         action={status ? <span className="text-[12.5px] text-[#6b7280]" aria-live="polite" data-markets-status="">{status}</span> : null}
       >
         <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-languages="">
@@ -145,10 +149,10 @@ export function MarketsPanel() {
             <LanguageBadge code={draft.defaultLanguage} />
             <span className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
               <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(draft.defaultLanguage)}</span>
-              <span className="block text-[12.5px] text-[#6b7280]">Default · your website as it is written</span>
+              <span className="block text-[12.5px] text-[#6b7280]">{tt("Default · your website as it is written")}</span>
             </span>
             <label className="relative ml-12 inline-flex sm:ml-0">
-              <span className="sr-only">Default language</span>
+              <span className="sr-only">{tt("Default language")}</span>
               <select
                 value={draft.defaultLanguage}
                 onChange={(e) => {
@@ -159,7 +163,7 @@ export function MarketsPanel() {
               >
                 {[...new Set([draft.defaultLanguage, ...SITE_LANGUAGE_CODES])].map((c) => (
                   <option key={c} value={c}>
-                    {languageName(c, "en")}
+                    {languageName(c, activeLocale())}
                   </option>
                 ))}
               </select>
@@ -172,23 +176,24 @@ export function MarketsPanel() {
               <span className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
                 <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(l.code)}</span>
                 <span className="block text-[12.5px] text-[#6b7280]">
-                  /{l.code.toLowerCase()} · {l.published ? "Live on your website" : "Hidden until published"}
+                  /{l.code.toLowerCase()} · {l.published ? tt("Live on your website") : tt("Hidden until published")}
                 </span>
               </span>
-              <span className="ml-12 flex items-center gap-2 sm:ml-0">
+              {/* Wraps on a phone: "Przetłumacz", "Opublikowana" and the bin are wider than Translate and Published. */}
+              <span className="ml-12 flex flex-wrap items-center gap-2 sm:ml-0">
                 <button type="button" className={cn(BTN_SECONDARY, "h-9 px-3")} onClick={() => setTranslating(l.code)} data-translate-language={l.code}>
-                  Translate
+                  {tt("Translate")}
                 </button>
                 <label className="flex items-center gap-2 pl-1 text-[12.5px] font-medium text-[#4b5563]">
-                  <span>Published</span>
-                  <Switch checked={l.published} onCheckedChange={(v) => setPublished(l.code, v)} aria-label={`Publish ${languageName(l.code, "en")}`} />
+                  <span>{tt("Published")}</span>
+                  <Switch checked={l.published} onCheckedChange={(v) => setPublished(l.code, v)} aria-label={tt("Publish {name}", { name: languageName(l.code, activeLocale()) })} />
                 </label>
                 <button
                   type="button"
-                  aria-label={`Remove ${languageName(l.code, "en")}`}
+                  aria-label={tt("Remove {name}", { name: languageName(l.code, activeLocale()) })}
                   className={cn(BTN_GHOST, "w-9 px-0 text-[#6b7280]")}
                   onClick={() => {
-                    if (!window.confirm(`Remove ${languageName(l.code, "en")}? Its translations are kept, in case you add it again.`)) return
+                    if (!window.confirm(tt("Remove {name}? Its translations are kept, in case you add it again.", { name: languageName(l.code, activeLocale()) }))) return
                     commit({ ...draft, languages: draft.languages.filter((x) => x.code !== l.code), markets: draft.markets.map((m) => (m.language === l.code ? { ...m, language: null } : m)) })
                   }}
                 >
@@ -200,14 +205,29 @@ export function MarketsPanel() {
         </ul>
         <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setPicking(true)} disabled={!data.ready} data-add-language="">
           <Plus className="h-4 w-4" />
-          Add a language
+          {tt("Add a language")}
         </button>
+        {/* Show visitors their own language (lib/markets/visitor-language.ts): saved as it is switched, like the rest. */}
+        <div className="mt-4 border-t border-[#f1f2f4] pt-4" data-visitor-language="">
+          <Toggle
+            id="visitor-language"
+            label={tt("Show visitors their own language")}
+            description={
+              draft.languages.some((l) => l.published)
+                ? tt("A first visit opens in the language the visitor's browser asks for, once, on your website and your storelib.com page. A close match gets a small offer instead.")
+                : tt("Works once a language is published: a first visit opens in the language the visitor's browser asks for.")
+            }
+            checked={draft.visitorLanguage === true}
+            disabled={!data.ready}
+            onChange={(v) => commit({ ...draft, visitorLanguage: v })}
+          />
+        </div>
       </Card>
 
       <Card
-        title="Markets"
+        title={tt("Markets")}
         help="markets"
-        description="Show prices in your visitors' own currency."
+        description={tt("Show prices in your visitors' own currency.")}
       >
         <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
           {draft.markets.map((m) => (
@@ -218,15 +238,15 @@ export function MarketsPanel() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                    <span className="truncate">{m.name}</span>
-                    {m.primary && m.name.trim().toLowerCase() !== "home" ? <Pill tone="gray">Home</Pill> : null}
-                    {!m.active ? <Pill tone="gray">Off</Pill> : null}
+                    <span className="truncate">{marketName(m)}</span>
+                    {m.primary && m.name.trim().toLowerCase() !== "home" ? <Pill tone="gray">{tt("Home")}</Pill> : null}
+                    {!m.active ? <Pill tone="gray">{tt("Off")}</Pill> : null}
                   </span>
                   <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">
-                    {m.primary ? "Everywhere else" : m.countries.length === 0 ? "No countries yet" : m.countries.length <= 3 ? m.countries.map(countryName).join(", ") : `${m.countries.length} countries`}
+                    {m.primary ? tt("Everywhere else") : m.countries.length === 0 ? tt("No countries yet") : m.countries.length <= 3 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}
                     {" · "}
                     {m.currency ?? data.baseCurrency}
-                    {m.language ? ` · ${languageName(m.language, "en")}` : ""}
+                    {m.language ? ` · ${languageName(m.language, activeLocale())}` : ""}
                   </span>
                 </span>
                 <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
@@ -237,13 +257,13 @@ export function MarketsPanel() {
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")} disabled={!data.ready} data-add-market="">
             <Plus className="h-4 w-4" />
-            Add a market
+            {tt("Add a market")}
           </button>
           <span className="text-[12.5px] text-[#6b7280]" data-fx={data.fx ? (data.fx.fresh ? "fresh" : "old") : "none"}>
-            {data.fx ? (data.fx.fresh ? `Rates from ${data.fx.asOf}` : `Rates from ${data.fx.asOf} are too old: your own prices show`) : "Exchange rates aren't in yet: your own prices show"}
+            {data.fx ? (data.fx.fresh ? tt("Rates from {asOf}", { asOf: data.fx.asOf }) : tt("Rates from {asOf} are too old: your own prices show", { asOf: data.fx.asOf })) : tt("Exchange rates aren't in yet: your own prices show")}
           </span>
         </div>
-        {home ? null : <Notice tone="amber" className="mt-3">Choose one market as your home.</Notice>}
+        {home ? null : <Notice tone="amber" className="mt-3">{tt("Choose one market as your home.")}</Notice>}
       </Card>
 
       <LanguagePicker
@@ -313,14 +333,14 @@ function LanguagePicker({ open, options, onClose, onPick }: { open: boolean; opt
     if (open) setQuery("")
   }, [open])
   const q = query.trim().toLowerCase()
-  const shown = options.filter((c) => !q || languageName(c, "en").toLowerCase().includes(q) || languageName(c).toLowerCase().includes(q) || c.toLowerCase() === q)
+  const shown = options.filter((c) => !q || languageName(c, activeLocale()).toLowerCase().includes(q) || languageName(c, "en").toLowerCase().includes(q) || languageName(c).toLowerCase().includes(q) || c.toLowerCase() === q)
   return (
-    <Modal open={open} onClose={onClose} title="Add a language">
+    <Modal open={open} onClose={onClose} title={tt("Add a language")}>
       <div className="space-y-3" data-language-picker="">
         <label className="relative block">
-          <span className="sr-only">Search languages</span>
+          <span className="sr-only">{tt("Search languages")}</span>
           <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-          <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search languages" className="pl-9" />
+          <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search languages")} className="pl-9" />
         </label>
         <ul className="-mx-1 max-h-[min(420px,55vh)] overflow-y-auto overscroll-contain">
           {shown.map((c) => (
@@ -328,13 +348,13 @@ function LanguagePicker({ open, options, onClose, onPick }: { open: boolean; opt
               <button type="button" onClick={() => onPick(c)} className="flex h-11 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-[#f8f9fa] active:bg-[#f3f4f6]" data-pick-language={c}>
                 <LanguageBadge code={c} />
                 <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">
-                  <span className="font-medium">{languageName(c, "en")}</span>
-                  {languageName(c) !== languageName(c, "en") ? <span className="text-[#6b7280]"> · {languageName(c)}</span> : null}
+                  <span className="font-medium">{languageName(c, activeLocale())}</span>
+                  {languageName(c) !== languageName(c, activeLocale()) ? <span className="text-[#6b7280]"> · {languageName(c)}</span> : null}
                 </span>
               </button>
             </li>
           ))}
-          {shown.length === 0 ? <li className="px-2 py-6 text-center text-[13.5px] text-[#6b7280]">No language matches.</li> : null}
+          {shown.length === 0 ? <li className="px-2 py-6 text-center text-[13.5px] text-[#6b7280]">{tt("No language matches.")}</li> : null}
         </ul>
       </div>
     </Modal>
@@ -392,7 +412,7 @@ function MarketEditor({
       open={market !== null}
       onClose={onClose}
       wide
-      title={market === "new" ? "Add a market" : `Edit ${m.name || "market"}`}
+      title={market === "new" ? tt("Add a market") : tt("Edit {value}", { value: marketName(m) || tt("market") })}
       footer={
         <div className="flex items-center gap-2">
           {existing ? (
@@ -400,31 +420,31 @@ function MarketEditor({
               type="button"
               className={cn(BTN_GHOST, "mr-auto text-[#6b7280]")}
               onClick={() => {
-                if (window.confirm(`Remove ${m.name || "this market"}? Its countries go back to your home market.`)) onRemove(m.id)
+                if (window.confirm(tt("Remove {value}? Its countries go back to your home market.", { value: m.name || tt("this market") }))) onRemove(m.id)
               }}
               data-remove-market=""
             >
               <Trash2 className="h-4 w-4" />
-              Remove
+              {tt("Remove")}
             </button>
           ) : null}
           <button type="button" className={cn(BTN_SECONDARY, !existing && "ml-auto")} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" className={BTN_PRIMARY} disabled={!m.name.trim() || (!m.primary && m.countries.length === 0)} onClick={() => onDone({ ...m, name: m.name.trim() })}>
-            {market === "new" ? "Add market" : "Done"}
+            {market === "new" ? tt("Add market") : tt("Done")}
           </button>
         </div>
       }
     >
       <div className="space-y-5" data-market-editor="">
-        <Field label="Name">
-          <TextInput value={m.name} onChange={(e) => setM({ ...m, name: e.target.value.slice(0, 60) })} placeholder="Europe" maxLength={60} />
+        <Field label={tt("Name")}>
+          <TextInput value={m.name} onChange={(e) => setM({ ...m, name: e.target.value.slice(0, 60) })} placeholder={tt("Europe")} maxLength={60} />
         </Field>
 
         {!m.primary ? (
           <div className="space-y-3">
-            <p className="text-[13.5px] font-medium text-[#1a1a2e]">Countries</p>
+            <p className="text-[13.5px] font-medium text-[#1a1a2e]">{tt("Countries")}</p>
             <div className="flex flex-wrap gap-1.5" data-market-regions="">
               {REGIONS.map((r) => {
                 const full = regionFull(r.countries)
@@ -443,9 +463,9 @@ function MarketEditor({
               })}
             </div>
             <label className="relative block">
-              <span className="sr-only">Search countries</span>
+              <span className="sr-only">{tt("Search countries")}</span>
               <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-              <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search a country to add" className="pl-9" />
+              <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search a country to add")} className="pl-9" />
             </label>
             {q ? (
               <ul className="max-h-[220px] divide-y divide-[#f4f4f6] overflow-y-auto overscroll-contain rounded-xl border border-[#eceef1]" data-market-countries="">
@@ -457,12 +477,12 @@ function MarketEditor({
                       <button type="button" disabled={!!other} onClick={() => toggle(c.code)} className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left text-[14px]", other ? "cursor-not-allowed opacity-50" : "hover:bg-[#fafafb]")}>
                         <CountryFlag code={c.code} near={false} />
                         <span className="flex-1 text-[#1a1a2e]">{c.name}</span>
-                        {other ? <span className="text-[12px] text-[#9ca3af]">In {other}</span> : on ? <Check className="h-4 w-4 text-[#1a1a2e]" /> : <Plus className="h-4 w-4 text-[#9ca3af]" />}
+                        {other ? <span className="text-[12px] text-[#9ca3af]">{tt("In {other}", { other })}</span> : on ? <Check className="h-4 w-4 text-[#1a1a2e]" /> : <Plus className="h-4 w-4 text-[#9ca3af]" />}
                       </button>
                     </li>
                   )
                 })}
-                {shown.length === 0 ? <li className="px-3 py-4 text-center text-[13px] text-[#6b7280]">No country matches.</li> : null}
+                {shown.length === 0 ? <li className="px-3 py-4 text-center text-[13px] text-[#6b7280]">{tt("No country matches.")}</li> : null}
               </ul>
             ) : null}
             {m.countries.length ? (
@@ -470,7 +490,7 @@ function MarketEditor({
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[12.5px] text-[#6b7280]">{m.countries.length} {m.countries.length === 1 ? "country" : "countries"}</span>
                   <button type="button" className="text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e]" onClick={() => setM({ ...m, countries: [] })}>
-                    Clear
+                    {tt("Clear")}
                   </button>
                 </div>
                 <ul className="flex max-h-[148px] flex-wrap gap-1.5 overflow-y-auto overscroll-contain" data-market-chosen="">
@@ -479,7 +499,7 @@ function MarketEditor({
                       <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#f3f4f6] pl-2.5 pr-1 text-[12.5px] font-medium text-[#1a1a2e]">
                         <CountryFlag code={c} className="h-[12px] w-[18px]" />
                         {countryName(c)}
-                        <button type="button" aria-label={`Remove ${countryName(c)}`} onClick={() => toggle(c)} className="grid h-6 w-6 place-items-center rounded-full text-[#6b7280] hover:bg-[#e5e7eb]">
+                        <button type="button" aria-label={tt("Remove {count}", { count: countryName(c) })} onClick={() => toggle(c)} className="grid h-6 w-6 place-items-center rounded-full text-[#6b7280] hover:bg-[#e5e7eb]">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </span>
@@ -488,18 +508,18 @@ function MarketEditor({
                 </ul>
               </div>
             ) : (
-              <p className="text-[12.5px] text-[#6b7280]">Pick a region or search for a country. A country can be in one market only.</p>
+              <p className="text-[12.5px] text-[#6b7280]">{tt("Pick a region or search for a country. A country can be in one market only.")}</p>
             )}
           </div>
         ) : (
-          <p className="text-[13.5px] leading-5 text-[#4b5563]">Your home market: every country not in another market, at your own prices in {baseCurrency}.</p>
+          <p className="text-[13.5px] leading-5 text-[#4b5563]">{tt("Your home market: every country not in another market, at your own prices in {baseCurrency}.", { baseCurrency })}</p>
         )}
 
         {!m.primary ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Currency" hint={currencies.length ? `Converted from ${baseCurrency} at the day's rate. Cards are charged in ${chargeCurrency}.` : "Exchange rates aren't in yet: try again in a minute."}>
+            <Field label={tt("Currency")} hint={currencies.length ? tt("Converted from {baseCurrency} at the day's rate. Cards are charged in {chargeCurrency}.", { baseCurrency, chargeCurrency }) : tt("Exchange rates aren't in yet: try again in a minute.")}>
               <SelectInput value={m.currency ?? ""} onChange={(v) => setM({ ...m, currency: v || null })}>
-                <option value="">{baseCurrency} (your prices)</option>
+                <option value="">{tt("{baseCurrency} (your prices)", { baseCurrency })}</option>
                 {currencies
                   .filter((c) => c !== baseCurrency)
                   .map((c) => (
@@ -509,14 +529,14 @@ function MarketEditor({
                   ))}
               </SelectInput>
             </Field>
-            <Field label="Language" hint="What its visitors see first.">
+            <Field label={tt("Language")} hint={tt("What its visitors see first.")}>
               <SelectInput value={m.language ?? ""} onChange={(v) => setM({ ...m, language: v || null })}>
-                <option value="">{languageName(localization.defaultLanguage, "en")} (default)</option>
+                <option value="">{tt("{name} (default)", { name: languageName(localization.defaultLanguage, activeLocale()) })}</option>
                 {languages
                   .filter((l) => l !== localization.defaultLanguage)
                   .map((l) => (
                     <option key={l} value={l}>
-                      {languageName(l, "en")}
+                      {languageName(l, activeLocale())}
                     </option>
                   ))}
               </SelectInput>
@@ -527,12 +547,12 @@ function MarketEditor({
         {!m.primary && m.currency ? (
           <div className="rounded-xl border border-[#eceef1]">
             <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex w-full items-center justify-between px-3.5 py-3 text-left text-[13.5px] font-medium text-[#1a1a2e]">
-              Rounding and price adjustment
+              {tt("Rounding and price adjustment")}
               <ChevronDown aria-hidden className={cn("h-4 w-4 text-[#6b7280] transition-transform", more && "rotate-180")} />
             </button>
             {more ? (
               <div className="grid gap-4 border-t border-[#f1f2f4] px-3.5 py-3.5 sm:grid-cols-2">
-                <Field label="Rounding">
+                <Field label={tt("Rounding")}>
                   <SelectInput value={m.rounding} onChange={(v) => setM({ ...m, rounding: v as PriceRounding })}>
                     {(Object.keys(ROUNDING_LABEL) as PriceRounding[]).map((r) => (
                       <option key={r} value={r}>
@@ -541,7 +561,7 @@ function MarketEditor({
                     ))}
                   </SelectInput>
                 </Field>
-                <Field label="Adjustment (%)" hint="Raise or lower prices here.">
+                <Field label={tt("Adjustment (%)")} hint={tt("Raise or lower prices here.")}>
                   <TextInput
                     inputMode="decimal"
                     value={m.adjustBps ? String(m.adjustBps / 100) : ""}
@@ -557,7 +577,7 @@ function MarketEditor({
           </div>
         ) : null}
 
-        {!m.primary ? <Toggle label="Active" description="Off, its countries see your home market." checked={m.active} onChange={(v) => setM({ ...m, active: v })} /> : null}
+        {!m.primary ? <Toggle label={tt("Active")} description={tt("Off, its countries see your home market.")} checked={m.active} onChange={(v) => setM({ ...m, active: v })} /> : null}
       </div>
     </Modal>
   )

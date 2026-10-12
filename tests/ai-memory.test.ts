@@ -12,6 +12,7 @@ import { buildSection, type ThemeState } from "@/lib/website-builder/agent/opera
 import { BRIEF_KEY, readBrief } from "@/lib/website-builder/agent/project-state"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, ProviderRequest, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -24,7 +25,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /* ── A fake of the few PostgREST calls the store makes, with row level security's effect ── */
 type Row = { id: string; creator_id: string; install_id: string | null; content: string; source: string; created_at: string }

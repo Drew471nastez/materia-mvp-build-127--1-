@@ -77,13 +77,27 @@ async function websiteLanguageOf(db: Db, creatorId: string): Promise<string> {
   return normalizeLocale(lang) ?? "en"
 }
 
+/** store_localization.visitor_language is SQL part 173's: a database without it answers as before, with the setting off. */
+export function visitorLanguageMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && /visitor_language/.test(error.message ?? "")
+}
+
+export const VISITOR_LANGUAGE_NEEDS_PART = "Showing visitors their own language needs a database update. Run SQL part 173 in Supabase, then turn it on again."
+
+/** The row, with Show visitors their own language when part 173 has run. */
+export async function readLocalizationRow(db: Db, creatorId: string): Promise<{ data: { default_language: string; languages: unknown; markets: unknown; visitor_language?: boolean | null } | null; error: { code?: string; message?: string } | null }> {
+  const first = await db.from("store_localization").select("default_language, languages, markets, visitor_language").eq("creator_id", creatorId).maybeSingle()
+  if (!visitorLanguageMissing(first.error)) return first
+  return db.from("store_localization").select("default_language, languages, markets").eq("creator_id", creatorId).maybeSingle()
+}
+
 export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization }> {
-  const { data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", creatorId).maybeSingle()
+  const { data, error } = await readLocalizationRow(db, creatorId)
   const fresh = async () => defaultLocalization(...(await Promise.all([homeCountryOf(db, creatorId), websiteLanguageOf(db, creatorId)])))
   if (error) return { ready: !marketsMissing(error), value: await fresh() }
   if (!data) return { ready: true, value: await fresh() }
-  const row = data as { default_language: string; languages: unknown; markets: unknown }
-  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets }, { baseCurrency })
+  const row = data
+  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true }, { baseCurrency })
   return { ready: true, value: checked.ok ? checked.value : defaultLocalization(await homeCountryOf(db, creatorId), row.default_language) }
 }
 
@@ -91,9 +105,17 @@ export async function saveLocalization(db: Db, creatorId: string, input: unknown
   const checked = validateLocalization(input, { baseCurrency })
   if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
   const v = checked.value
-  const { error } = await db
-    .from("store_localization")
-    .upsert({ creator_id: creatorId, default_language: v.defaultLanguage, languages: v.languages, markets: v.markets, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
+  const row = { creator_id: creatorId, default_language: v.defaultLanguage, languages: v.languages, markets: v.markets, updated_at: new Date().toISOString() }
+  let { error } = await db.from("store_localization").upsert({ ...row, visitor_language: v.visitorLanguage === true }, { onConflict: "creator_id" })
+  /* Part 173 not run: everything else is kept, and the switch says what it needs when it was turned on. */
+  if (error && visitorLanguageMissing(error)) {
+    ;({ error } = await db.from("store_localization").upsert(row, { onConflict: "creator_id" }))
+    if (!error && v.visitorLanguage) {
+      revalidateTag(localizationTag(creatorId), { expire: 0 })
+      return { ok: false, status: 409, error: VISITOR_LANGUAGE_NEEDS_PART }
+    }
+    v.visitorLanguage = false
+  }
   if (error) return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save. Try again." }
   revalidateTag(localizationTag(creatorId), { expire: 0 })
   return { ok: true, value: v }

@@ -13,6 +13,7 @@ import * as React from "react"
 import { X } from "lucide-react"
 import { blockingItems } from "@/lib/physical/readiness"
 import { ReadinessLink, useReadiness } from "@/components/physical/readiness-client"
+import { tt } from "@/lib/i18n/text"
 
 const KEY = "storelib:builder-physical-readiness-closed"
 
@@ -37,18 +38,18 @@ export function PhysicalReadinessNotice() {
     >
       <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[#f79009]" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-semibold text-[#1a1a2e]">Buyers can&apos;t check out your physical products yet</span>
-        <span className="block truncate text-[12px] text-[#6b7280]">{items.length === 1 ? first.title : `${first.title}, and ${items.length - 1} more`}</span>
+        <span className="block truncate text-[13px] font-semibold text-[#1a1a2e]">{tt("Buyers can't check out your physical products yet")}</span>
+        <span className="block truncate text-[12px] text-[#6b7280]">{items.length === 1 ? first.title : tt("{title}, and {value} more", { title: first.title, value: items.length - 1 })}</span>
       </span>
       <ReadinessLink
         href={items.length === 1 ? first.href : "/app/settings?tab=shipping"}
         className="shrink-0 cursor-pointer rounded-lg bg-[#1a1a2e] px-3 py-1.5 text-[12px] font-medium text-white outline-none transition-colors hover:bg-black focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30"
       >
-        Fix
+        {tt("Fix")}
       </ReadinessLink>
       <button
         type="button"
-        aria-label="Close"
+        aria-label={tt("Close")}
         onClick={() => {
           setClosed(true)
           try {

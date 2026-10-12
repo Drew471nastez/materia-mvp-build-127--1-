@@ -12,6 +12,7 @@ import * as React from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { channelKey, startingChannels, type Channel } from "@/lib/store/channels"
+import { tt } from "@/lib/i18n/text"
 
 export interface SalesChannelsHandle {
   /** Writes the ticks for this product; an error's words, or null. */
@@ -77,20 +78,20 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
             const starting = physical ? startingChannels(d.channels.filter(forPhysical), d.defaultKey) : startingChannels(d.channels, d.defaultKey)
             const off = d.channels.map(channelKey).filter((k) => !starting.has(k))
             const put = await fetch("/api/store/channels/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ productId: id, off }) })
-            return put.ok ? null : "The sales channels were not saved."
+            return put.ok ? null : tt("The sales channels were not saved.")
           } catch {
-            return "The sales channels were not saved."
+            return tt("The sales channels were not saved.")
           }
         }
         if (!loaded || !loaded.ready || !dirty.current) return null
         const off = loaded.channels.map(channelKey).filter((k) => !on.has(k))
         try {
           const r = await fetch("/api/store/channels/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ productId: id, off }) })
-          if (!r.ok) return ((await r.json().catch(() => ({}))) as { error?: string }).error ?? "The sales channels were not saved."
+          if (!r.ok) return ((await r.json().catch(() => ({}))) as { error?: string }).error ?? tt("The sales channels were not saved.")
           dirty.current = false
           return null
         } catch {
-          return "The sales channels were not saved."
+          return tt("The sales channels were not saved.")
         }
       },
     }),
@@ -115,9 +116,9 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
   return (
     <div className={cardClass} data-sales-channels="">
       <div>
-        <h2 className={titleClass}>Sales channels</h2>
+        <h2 className={titleClass}>{tt("Sales channels")}</h2>
         <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-          {listedCount === 0 ? "Listed nowhere: sold by its link alone." : shown.length === 1 ? "Where it's listed." : `Listed on ${listedCount} of ${shown.length}.`}
+          {listedCount === 0 ? tt("Listed nowhere: sold by its link alone.") : shown.length === 1 ? tt("Where it's listed.") : tt("Listed on {listedCount} of {length}.", { listedCount, length: shown.length })}
         </p>
       </div>
       <ul className="-mx-1 space-y-0.5" data-channel-list="">
@@ -131,7 +132,7 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
                 <span className="min-w-0">
                   <span className="block text-[14px] font-medium leading-5 text-[#1a1a2e]">
                     {c.name}
-                    {!c.enabled ? <span className="font-normal text-[#9ca3af]"> · off</span> : null}
+                    {!c.enabled ? <span className="font-normal text-[#9ca3af]"> · {tt("off")}</span> : null}
                   </span>
                   {c.description ? <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{c.description}</span> : null}
                 </span>
@@ -141,9 +142,9 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
         })}
       </ul>
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
-        {physical && ownChannels === 0 ? "Sell it somewhere else too, like a market stall? Add that as a channel. " : "Its link works wherever it's listed. "}
+        {physical && ownChannels === 0 ? tt("Sell it somewhere else too, like a market stall? Add that as a channel. ") : tt("Its link works wherever it's listed. ")}
         <Link href="/app/settings?tab=channels" prefetch={false} className="font-medium text-[#1a1a2e] underline underline-offset-2">
-          Manage channels
+          {tt("Manage channels")}
         </Link>
       </p>
     </div>

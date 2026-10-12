@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  SUPPORT REQUESTS: WHAT ONE IS, IN WORDS BOTH SIDES SHARE
@@ -14,23 +15,23 @@
 export const TOPICS = ["orders", "payments", "disputes", "payouts", "shipping", "account", "website", "bug", "other"] as const
 export type Topic = (typeof TOPICS)[number]
 export const TOPIC_LABELS: Record<Topic, string> = {
-  orders: "An order",
-  payments: "Payments",
-  disputes: "A dispute or chargeback",
-  payouts: "Payouts",
-  shipping: "Shipping",
-  account: "My account",
-  website: "My website",
-  bug: "Something isn't working",
-  other: "Something else",
+  get orders() { return tt("An order") },
+  get payments() { return tt("Payments") },
+  get disputes() { return tt("A dispute or chargeback") },
+  get payouts() { return tt("Payouts") },
+  get shipping() { return tt("Shipping") },
+  get account() { return tt("My account") },
+  get website() { return tt("My website") },
+  get bug() { return tt("Something isn't working") },
+  get other() { return tt("Something else") },
 }
 
 export const STATUSES = ["open", "waiting", "resolved"] as const
 export type TicketStatus = (typeof STATUSES)[number]
 /** As the store reads it. */
-export const STATUS_FOR_STORE: Record<TicketStatus, string> = { open: "With Storelib", waiting: "Your reply", resolved: "Resolved" }
+export const STATUS_FOR_STORE: Record<TicketStatus, string> = { get open() { return tt("With Storelib") }, get waiting() { return tt("Your reply") }, get resolved() { return tt("Resolved") } }
 /** As Storelib reads it. */
-export const STATUS_FOR_ADMIN: Record<TicketStatus, string> = { open: "Needs a reply", waiting: "Waiting on the store", resolved: "Resolved" }
+export const STATUS_FOR_ADMIN: Record<TicketStatus, string> = { get open() { return tt("Needs a reply") }, get waiting() { return tt("Waiting on the store") }, get resolved() { return tt("Resolved") } }
 
 export const PRIORITIES = ["low", "normal", "high", "urgent"] as const
 export type Priority = (typeof PRIORITIES)[number]
@@ -62,14 +63,14 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\r
 
 /** A new request as the store sent it, or what is missing. */
 export function readNewTicket(body: Record<string, unknown> | null): { ok: true; topic: Topic; subject: string; message: string; orderRef: string | null } | { ok: false; error: string } {
-  if (!body) return { ok: false, error: "Bad request." }
+  if (!body) return { ok: false, error: tt("Bad request.") }
   const topic = TOPICS.includes(body.topic as Topic) ? (body.topic as Topic) : "other"
   const subject = text(body.subject, 150)
   const message = text(body.message, MAX_BODY)
   const orderRef = text(body.orderRef, 60).replace(/^#/, "") || null
-  if (!subject) return { ok: false, error: "Add a subject, a few words on what it's about." }
-  if (message.length < 10) return { ok: false, error: "Tell us a bit more, so we can help the first time." }
-  if (orderRef && !/^[A-Za-z0-9_-]{4,60}$/.test(orderRef)) return { ok: false, error: "That order number doesn't look right. It's the code after # on the order." }
+  if (!subject) return { ok: false, error: tt("Add a subject, a few words on what it's about.") }
+  if (message.length < 10) return { ok: false, error: tt("Tell us a bit more, so we can help the first time.") }
+  if (orderRef && !/^[A-Za-z0-9_-]{4,60}$/.test(orderRef)) return { ok: false, error: tt("That order number doesn't look right. It's the code after # on the order.") }
   return { ok: true, topic, subject, message, orderRef }
 }
 

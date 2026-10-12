@@ -14,6 +14,7 @@ import { DEFAULT_QUERY, filterOrders, groupOrders, inView, paramsFromQuery, quer
 import { orderEvents, physicalEvents, type PhysicalHistory } from "@/lib/orders/timeline"
 import { guessCarrier, trackingUrl } from "@/lib/physical/status"
 import { NOTE_MAX, cleanNote } from "@/lib/physical/notes"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -22,7 +23,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const base = (id: string, over: Partial<OrderRow> = {}): OrderRow => ({
   id,

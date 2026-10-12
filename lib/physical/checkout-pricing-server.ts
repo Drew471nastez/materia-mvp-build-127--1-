@@ -250,7 +250,8 @@ export async function priceCheckout(
       const priced = baseFor(v ?? p, item.customPriceCents)
       if (priced.ok === false) return { ok: false, status: 400, error: `${p.title}: ${priced.error}` }
       const unit = priced.cents
-      if (unit <= 0) {
+      /* $0 is a price (a free download beside what ships); only an amount that can't be read is left out. */
+      if (!Number.isFinite(unit) || unit < 0) {
         dropped.push(p.title)
         continue
       }
@@ -283,11 +284,13 @@ export async function priceCheckout(
       dropped.push(item.variantId ? `${p.title} (that option is no longer sold)` : `${p.title} (choose an option)`)
       continue
     }
-    const unit = Math.max(0, Math.round(Number(v.price_cents ?? p.price_cents ?? 0)))
-    if (unit <= 0) {
+    /* A thing that ships may sell at $0 (a free sample, a gift with an order); a price that can't be read is not on sale. */
+    const raw = Number(v.price_cents ?? p.price_cents)
+    if (!Number.isFinite(raw) || raw < 0) {
       dropped.push(p.title)
       continue
     }
+    const unit = Math.round(raw)
     const policy: "deny" | "continue" = v.inventory_policy === "continue" || p.continue_selling ? "continue" : "deny"
     /* Where it ships from: its own location, else the one with enough available, else the default. */
     const own = v.fulfillment_location_id ?? p.fulfillment_location_id ?? null
@@ -318,7 +321,8 @@ export async function priceCheckout(
       quantity: item.quantity,
       unitCents: unit,
       discountCents: 0,
-      requiresShipping: v.requires_shipping ?? p.requires_shipping ?? true,
+      /* A THING THAT SHIPS IS NEVER PAID FOR WITHOUT WHERE TO. Whatever the row says (a row written while the column defaulted to false sold with no address): a physical line is shipped or picked up, and a hand over in person is local pickup. */
+      requiresShipping: true,
       taxable: v.taxable ?? p.taxable ?? true,
       weightGrams: Math.max(0, Number(v.weight_grams ?? p.weight_grams ?? 0)),
       locationId,

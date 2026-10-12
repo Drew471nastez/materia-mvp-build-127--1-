@@ -80,6 +80,7 @@ import { adminCount, communityStats, HEARTBEAT_MS, onlineCount, ONLINE_WINDOW_MS
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { FEED_SORTS, cursorAfter, decodeCursor, encodeCursor, feedSort, keysetCondition, listFeed, unreadSince } from "@/lib/communities/server/feed"
 import { AHEAD_AT_ONCE, AHEAD_MAX, FRESH_MS, addPost, clearViews, dropSaved, firstPage, loadView, patchPost, prefetchView, prefetchViews, readView, viewKey, viewUrl, writeView } from "@/components/community/member/feed-cache"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -94,7 +95,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 /* Code without its comments, so a check reads what runs. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
@@ -584,9 +585,9 @@ async function main() {
     check("the leaderboard keeps the three columns, so the right card never makes an extra one", !/onLeaderboard \? "xl:grid-cols-\[280px_minmax\(0,1fr\)\]"/.test(frame) && /xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]"/.test(frame))
     /* Round 11, ask 20: About is a place in the same columns (the left column stays from 1280px); its sheet takes the middle and the right. */
     check("round 11: About sits in the same columns, its sheet across the middle and the right from 1280px", !/\{about \? \(\s*<div className=\{ARRIVE\} data-community-body="">/.test(frame) && /\$\{about \? ABOUT_BOX : ""\}/.test(frame) && /data-community-place=\{about \? "about" : wideCenter && !about \? "lesson" : undefined\}/.test(frame))
-    check("a program lesson player takes the middle and right columns too, so the video is not squeezed", /const wideCenter = about \|\| lessonPage \|\| shown\.kind === "learn" \|\| shown\.kind === "calendar" \|\| shown\.kind === "event"/.test(frame))
+    check("a program lesson player takes the middle and right columns too, so the video is not squeezed", /const wideCenter = about \|\| lessonPage \|\| profilePage \|\| shown\.kind === "learn" \|\| shown\.kind === "calendar" \|\| shown\.kind === "event"/.test(frame))
     /* Round 15: the host lands a place the member moved to (a fade from 35% and a 6px rise, 180ms, on the compositor); the feed's lists are one slot, so a space switched in place never remounts. */
-    check("round 9: what arrives in the middle fades in (opacity, on what is inserted), so a place swapping in eases in and a space switched in place never remounts", /el\.animate\(\[\{ opacity: 0\.35, translate: "0 6px" \}, \{ opacity: 1, translate: "0 0" \}\], \{ duration: ARRIVE_MS, easing: ARRIVE_EASE \}\)/.test(code("components/community/member/place-host.tsx")) && /\(prefers-reduced-motion: reduce\)"\)\.matches\) return\s*el\.animate\(\[\{ opacity: 0\.35/.test(code("components/community/member/place-host.tsx")) && /if \(place\.kind === "feed" \|\| place\.kind === "saved"\) return "feed"/.test(code("lib/communities/client/places.ts")))
+    check("round 9: what arrives in the middle fades in (opacity, on what is inserted), so a place swapping in eases in and a space switched in place never remounts", /else el\.animate\(\[\{ opacity: ARRIVE_FROM_OPACITY, translate: `0 \$\{ARRIVE_RISE_PX\}px` \}, \{ opacity: 1, translate: "0 0" \}\], \{ duration: ARRIVE_MS, easing: ARRIVE_EASE \}\)/.test(code("components/community/member/place-host.tsx")) && /export const ARRIVE_FROM_OPACITY = 0\.35/.test(code("components/community/member/place-host.tsx")) && /\(prefers-reduced-motion: reduce\)"\)\.matches\) return\s*if \(window\.matchMedia\?\.\(ARRIVE_WIDE\)\.matches\) el\.animate\(\[\{ opacity: ARRIVE_WIDE_FROM_OPACITY/.test(code("components/community/member/place-host.tsx")) && /if \(place\.kind === "feed" \|\| place\.kind === "saved"\) return "feed"/.test(code("lib/communities/client/places.ts")))
     check("round 9: the bar and the side cards are memoised and handed the same props from place to place", /export const CommunityTopBar = memo\(CommunityTopBarInner\)/.test(code("components/community/member/top-bar.tsx")) && /export const WallCommunityCard = memo\(WallCommunityCardInner\)/.test(code("components/community/member/wall.tsx")) && /export const WallUpcoming = memo\(WallUpcomingInner\)/.test(code("components/community/member/wall.tsx")) && /export const WallContributorsCard = memo\(WallContributorsCardInner\)/.test(code("components/community/member/wall.tsx")) && /const tabs = useMemo\(\(\) => <SectionTabs/.test(frame) && /const searchProp = useMemo\(/.test(frame) && /const place = useMemo<PlaceState>\(\(\) => \(\{ tab, onGo: noGo \}\), \[tab, noGo\]\)/.test(frame))
     check("round 9: the bar reads nothing from the address but a visitor's Log in, in a piece of its own", /function LogInLink\(\{ base \}: \{ base: string \}\) \{\s*const pathname = usePathname\(\)/.test(code("components/community/member/top-bar.tsx")) && (code("components/community/member/top-bar.tsx").match(/usePathname\(\)/g) || []).length === 1)
     /* Round 24: read again on every move through the app's prefetch plan (full on a capable phone), Leaderboard and Members first. */

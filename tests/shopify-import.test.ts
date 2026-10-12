@@ -322,7 +322,8 @@ async function shopifyZip(): Promise<JSZip> {
   shell.file("config/settings_schema.json", "[]")
   shell.file("sections/a.liquid", "<div></div>")
   const noLayout = await convertShopifyTheme(shell)
-  check("a theme with no layout/theme.liquid is refused, saying so", noLayout.ok === false && /layout\/theme\.liquid/.test(noLayout.error))
+  /* Round 25: said without naming the template language, as the creator reads it. */
+  check("a theme with no layout/theme.liquid is refused, saying so", noLayout.ok === false && /no layout/.test(noLayout.error) && !/liquid|shopify/i.test(noLayout.error))
   const stray = await shopifyZip()
   stray.file("README.md", "hello")
   const withStray = await convertShopifyTheme(stray)

@@ -9,6 +9,7 @@ import { ensureUsername } from "@/lib/profile/ensure-username"
 import { readPrivacy } from "@/lib/profile/privacy"
 import { accountIsCreator } from "@/lib/profile/account-creator"
 import { missingCoverColumn } from "@/lib/profile/cover"
+import { chooseCover, pageLookOf } from "@/lib/profile/page-look"
 import { readProfileLocation } from "@/lib/profile/location"
 import type { ComponentProps } from "react"
 import type { AccountSettings } from "@/components/account/account-settings"
@@ -69,12 +70,16 @@ export async function loadAccountSettingsForUser(
       }
     })(),
     (async () => {
+      /* Their creator page's cover, read beside their own: Settings shows it when they have none of their own, and offers it back when they do (round J1). */
+      const page = pageLookOf(admin, user.id)
+        .then((look) => chooseCover(null, look).page)
+        .catch(() => null)
       try {
         const { data, error } = await admin.from("profiles").select("cover_url").eq("id", user.id).maybeSingle()
-        if (error) return { url: null, supported: !missingCoverColumn(error) }
-        return { url: ((data as { cover_url?: string | null } | null)?.cover_url || "").trim() || null, supported: true }
+        if (error) return { url: null, supported: !missingCoverColumn(error), page: await page }
+        return { url: ((data as { cover_url?: string | null } | null)?.cover_url || "").trim() || null, supported: true, page: await page }
       } catch {
-        return { url: null, supported: false }
+        return { url: null, supported: false, page: await page }
       }
     })(),
     accountIsCreator(user.id),

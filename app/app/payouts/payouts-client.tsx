@@ -102,6 +102,8 @@ import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-ran
 import { useToast } from "@/hooks/use-toast";
 import { useReasons } from "@/lib/store/use-reasons";
 import type { StorelibStatusView } from "@/lib/payments/stripe/status";
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -186,7 +188,7 @@ function fmt(minor: number, currency = "usd") {
   const code = (currency || "usd").toUpperCase();
   const d = decimalsOf(code);
   try {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(appLocale(), {
       style: "currency",
       currency: code,
       minimumFractionDigits: d,
@@ -202,7 +204,7 @@ function fmtCompact(minor: number, currency = "usd") {
   if (val >= 1_000_000)
     return `${(val / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (val >= 1_000) return `${(val / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(appLocale(), {
     style: "currency",
     currency: currency.toUpperCase(),
     minimumFractionDigits: 0,
@@ -214,14 +216,14 @@ function fmtCompact(minor: number, currency = "usd") {
 function fmtDay(day: string) {
   const d = new Date(`${day}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return day;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", timeZone: "UTC" }));
 }
 
 /** The settlement wait in words, from the account's own schedule when Stripe gave it. */
 function settleText(days: number | null) {
   return days && days > 0
-    ? `New sales become available about ${days} days after they are paid.`
-    : "New sales become available after a short settlement wait.";
+    ? tt("New sales become available about {days} days after they are paid.", { days })
+    : tt("New sales become available after a short settlement wait.");
 }
 
 /** The help article on how payouts work (lib/help/articles.ts). */
@@ -229,17 +231,17 @@ const HOW_PAYOUTS_WORK = "/help/orders-and-payouts/how-payouts-work";
 
 function fmtDate(dateStr: string) {
   const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return new Date(dateStr).toLocaleDateString(appLocale(), zoned({
     month: "short",
     day: "numeric",
     year: "numeric",
     timeZone: tz,
-  });
+  }));
 }
 
 function fmtFullDate(dateStr: string) {
   const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return new Date(dateStr).toLocaleDateString(appLocale(), zoned({
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -248,17 +250,17 @@ function fmtFullDate(dateStr: string) {
     minute: "2-digit",
     timeZoneName: "short",
     timeZone: tz,
-  });
+  }));
 }
 
 function fmtUnix(ts: number) {
   const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
-  return new Date(ts * 1000).toLocaleDateString("en-US", {
+  return new Date(ts * 1000).toLocaleDateString(appLocale(), zoned({
     month: "short",
     day: "numeric",
     year: "numeric",
     timeZone: tz,
-  });
+  }));
 }
 
 /* ─── Statuses, in Orders' badges ─────────────────────────────────────────── */
@@ -275,17 +277,17 @@ type Tone = "neutral" | "attention" | "critical" | "success";
 function saleStatus(status: string): { tone: Tone; label: string } {
   switch (status) {
     case "completed":
-      return { tone: "neutral", label: "Paid" };
+      return { tone: "neutral", label: tt("Paid") };
     case "pending":
-      return { tone: "attention", label: "Payment pending" };
+      return { tone: "attention", label: tt("Payment pending") };
     case "refunded":
-      return { tone: "neutral", label: "Refunded" };
+      return { tone: "neutral", label: tt("Refunded") };
     case "disputed":
-      return { tone: "critical", label: "Disputed" };
+      return { tone: "critical", label: tt("Disputed") };
     case "failed":
-      return { tone: "critical", label: "Failed" };
+      return { tone: "critical", label: tt("Failed") };
     default:
-      return { tone: "neutral", label: status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ") : "Unknown" };
+      return { tone: "neutral", label: status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ") : tt("Unknown") };
   }
 }
 
@@ -302,15 +304,15 @@ function SaleBadge({ status }: { status: string }) {
 function payoutStatusConfig(status: string): { tone: Tone; label: string } {
   switch (status) {
     case "paid":
-      return { tone: "success", label: "Paid" };
+      return { tone: "success", label: tt("Paid") };
     case "in_transit":
-      return { tone: "neutral", label: "In transit" };
+      return { tone: "neutral", label: tt("In transit") };
     case "pending":
-      return { tone: "attention", label: "Pending" };
+      return { tone: "attention", label: tt("Pending") };
     case "failed":
-      return { tone: "critical", label: "Failed" };
+      return { tone: "critical", label: tt("Failed") };
     case "canceled":
-      return { tone: "neutral", label: "Canceled" };
+      return { tone: "neutral", label: tt("Canceled") };
     default:
       return { tone: "neutral", label: status };
   }
@@ -579,7 +581,7 @@ function PanelHead({ title, description, onClose }: { title: string; description
         {description ? <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">{description}</p> : null}
       </div>
       {onClose ? (
-        <button type="button" aria-label="Close" onClick={onClose} className={cn(iconButton, "-mr-1.5 -mt-1 hidden sm:inline-flex")}>
+        <button type="button" aria-label={tt("Close")} onClick={onClose} className={cn(iconButton, "-mr-1.5 -mt-1 hidden sm:inline-flex")}>
           <X className="h-4 w-4" />
         </button>
       ) : null}
@@ -688,7 +690,7 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
     if (!active || !payload?.length) return null;
     const labelText = isHourly
       ? fmtHour(label)
-      : new Date(label + "T00:00:00").toLocaleDateString("en-US", {
+      : new Date(label + "T00:00:00").toLocaleDateString(appLocale(), {
           month: "short",
           day: "numeric",
           year: "numeric",
@@ -705,13 +707,12 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
         )}
         {refundVal && refundVal.value > 0 && (
           <p className="tabular-nums text-[#b42318]">
-            −{fmt(refundVal.value, currency)} refunded
+            −{fmt(refundVal.value, currency)} {tt("refunded")}
           </p>
         )}
         {payload[0]?.payload?.count > 0 && (
           <p className="text-[#9ca3af]">
-            {payload[0].payload.count} sale
-            {payload[0].payload.count !== 1 ? "s" : ""}
+            {tt("{count, plural, one {# sale} other {# sales}}", { count: payload[0].payload.count })}
           </p>
         )}
       </div>
@@ -719,12 +720,12 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
   };
 
   return (
-    <section aria-label="Revenue" className={cn(card, "min-w-0 overflow-hidden")}>
+    <section aria-label={tt("Revenue")} className={cn(card, "min-w-0 overflow-hidden")}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-3.5">
         <div className="min-w-0">
           <HelpLabel
-            label="Revenue"
-            description="What your completed sales took in over this period, before fees and refunds."
+            label={tt("Revenue")}
+            description={tt("What your completed sales took in over this period, before fees and refunds.")}
             className="text-[12px] font-medium text-[#4b5563]"
           />
           {/* The figure it had, soft, while the period is read: never a grey bar. */}
@@ -753,8 +754,8 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
         ) : !hasData && !isHourly ? (
           /* Daily mode, no sales in the period. */
           <div className="flex h-48 flex-col items-center justify-center px-4 text-center">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">No revenue in this period</p>
-            <p className="mt-1 text-[13px] text-[#6b7280]">Pick a longer period, or come back after your next sale.</p>
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No revenue in this period")}</p>
+            <p className="mt-1 text-[13px] text-[#6b7280]">{tt("Pick a longer period, or come back after your next sale.")}</p>
           </div>
         ) : !isHourly && chartData.length <= 1 ? (
           /* Daily mode, a single day: a lone dot says nothing, so the day's figure and count instead. */
@@ -765,7 +766,7 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
             <p className="mt-0.5 text-[13px] text-[#6b7280]">
               {chartData[0]?.count
                 ? `${chartData[0].count} sale${chartData[0].count !== 1 ? "s" : ""}`
-                : "No sales yet"}
+                : tt("No sales yet")}
             </p>
           </div>
         ) : (
@@ -798,7 +799,7 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
                 tickFormatter={(v) =>
                   isHourly
                     ? fmtHour(v)
-                    : new Date(v + "T00:00:00").toLocaleDateString("en-US", {
+                    : new Date(v + "T00:00:00").toLocaleDateString(appLocale(), {
                         month: "short",
                         day: "numeric",
                       })
@@ -826,7 +827,7 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
                 fillOpacity={totalRefunds > 0 ? 1 : 0}
                 dot={false}
                 activeDot={totalRefunds > 0 ? { r: 3, fill: "#f43f5e", strokeWidth: 0 } : false}
-                name="Refunds"
+                name={tt("Refunds")}
                 animationDuration={1200}
                 animationEasing="ease-in-out"
                 animationBegin={200}
@@ -839,7 +840,7 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
                 fill="url(#revGrad)"
                 dot={false}
                 activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
-                name="Revenue"
+                name={tt("Revenue")}
                 animationDuration={1200}
                 animationEasing="ease-in-out"
                 animationBegin={0}
@@ -853,12 +854,12 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
       <div className="flex h-10 items-center gap-4 border-t border-[#f0f1f3] px-4 text-[12px] text-[#6b7280]">
         <span className="flex items-center gap-1.5">
           <span className="h-[3px] w-3 shrink-0 rounded-full bg-[#8b5cf6]" />
-          Revenue
+          {tt("Revenue")}
         </span>
         {!loading && !error && totalRefunds > 0 ? (
           <span className="flex items-center gap-1.5">
             <span className="h-[3px] w-3 shrink-0 rounded-full bg-[#f43f5e]" />
-            Refunds <span className="tabular-nums">−{fmt(totalRefunds, currency)}</span>
+            {tt("Refunds")} <span className="tabular-nums">−{fmt(totalRefunds, currency)}</span>
           </span>
         ) : null}
         {!loading && !error && otherCurrencies.length > 0 ? (
@@ -896,14 +897,14 @@ function useWithdraw(onSuccess: () => void) {
       const r = await fetch("/api/stripe/cashout", { method: "POST" });
       const json = await r.json();
       if (!r.ok || json.error)
-        throw new Error(json.error || "Withdrawal failed");
+        throw new Error(json.error || tt("Withdrawal failed"));
       setSuccessPayout({
         amount: json.payout.amount,
         currency: json.payout.currency,
       });
       toast({
-        title: "Withdrawal sent",
-        description: `${fmt(json.payout.amount, json.payout.currency)} is on its way to your bank.`,
+        title: tt("Withdrawal sent"),
+        description: tt("{value} is on its way to your bank.", { value: fmt(json.payout.amount, json.payout.currency) }),
       });
     } catch (e: any) {
       setError(e.message);
@@ -980,36 +981,36 @@ function BalanceCard({
   const next = upcoming[0];
 
   const helper = !payoutsEnabled
-    ? "Finish setting up payments to cash out."
+    ? tt("Finish setting up payments to cash out.")
     : isNegative
-      ? "Your balance is below zero after a refund or dispute. New sales cover it first, with nothing for you to do."
+      ? tt("Your balance is below zero after a refund or dispute. New sales cover it first, with nothing for you to do.")
       : effectiveBalance <= 0
         ? next
-          ? `${fmt(next.amount, next.currency)} becomes available on ${fmtDay(next.date)}.`
+          ? tt("{value} becomes available on {date}.", { value: fmt(next.amount, next.currency), date: fmtDay(next.date) })
           : settleText(settleDays)
-        : "Cash out sends your whole available balance to your bank.";
+        : tt("Cash out sends your whole available balance to your bank.");
 
   return (
-    <section aria-label="Balance" data-balance="" className={cn(card, "overflow-hidden")}>
+    <section aria-label={tt("Balance")} data-balance="" className={cn(card, "overflow-hidden")}>
       {withdraw.successPayout ? (
         <div role="status" className="flex flex-col gap-3 border-b border-[#eef0f2] bg-[#f6fbf7] px-4 py-3 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-start gap-2.5">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#15803d]" />
             <p className="text-[13px] leading-5 text-[#1a1a2e]">
-              <span className="font-semibold tabular-nums">{fmt(withdraw.successPayout.amount, withdraw.successPayout.currency)}</span> is on its way to your bank.
-              <span className="text-[#4b5563]"> It usually arrives in 1 to 3 business days.</span>
+              <span className="font-semibold tabular-nums">{fmt(withdraw.successPayout.amount, withdraw.successPayout.currency)}</span> {tt("is on its way to your bank.")}
+              <span className="text-[#4b5563]"> {tt("It usually arrives in 1 to 3 business days.")}</span>
             </p>
           </div>
           <button type="button" onClick={withdraw.dismiss} className={cn(secondaryDepth, "h-11 w-full rounded-xl px-4 text-[14px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
-            View payouts
+            {tt("View payouts")}
           </button>
         </div>
       ) : null}
 
       <div className="flex items-center justify-between gap-3 pl-4 pr-2.5 pt-2 sm:pt-2.5">
-        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Balance</h2>
+        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Balance")}</h2>
         <Press look={cn(secondaryDepth, "h-7 rounded-lg px-2.5 text-[12px]")} onClick={onDetails} aria-haspopup="dialog" data-balance-details="">
-          Details
+          {tt("Details")}
         </Press>
       </div>
 
@@ -1017,24 +1018,24 @@ function BalanceCard({
         <Figure
           big
           className="col-span-2 border-b border-[#eef0f2] sm:col-span-1 sm:border-b-0"
-          label="Available"
+          label={tt("Available")}
           value={isNegative ? `-${fmt(Math.abs(effectiveBalance), currency)}` : fmt(effectiveBalance, currency)}
-          foot={isNegative ? "Owed after a refund or dispute" : canCashOut ? "Ready to cash out" : "Nothing ready yet"}
+          foot={isNegative ? tt("Owed after a refund or dispute") : canCashOut ? tt("Ready to cash out") : tt("Nothing ready yet")}
           loading={!balanceReady}
           critical={isNegative}
         />
         <Figure
           className="border-[#eef0f2] sm:border-l"
-          label="Arriving soon"
+          label={tt("Arriving soon")}
           value={fmt(pending, currency)}
-          foot={pending > 0 && next ? `Next on ${fmtDay(next.date)}` : pending > 0 ? "Settling" : "Nothing settling"}
+          foot={pending > 0 && next ? tt("Next on {date}", { date: fmtDay(next.date) }) : pending > 0 ? tt("Settling") : tt("Nothing settling")}
           loading={!balanceReady}
         />
         <Figure
           className="border-l border-[#eef0f2]"
-          label="On the way"
+          label={tt("On the way")}
           value={fmt(inTransit, currency)}
-          foot={inTransit > 0 ? "Due in 1 to 3 days" : "Nothing in transit"}
+          foot={inTransit > 0 ? tt("Due in 1 to 3 days") : tt("Nothing in transit")}
           loading={!payoutsRead}
         />
       </div>
@@ -1043,7 +1044,7 @@ function BalanceCard({
         <div role="alert" className="flex items-start gap-2 border-t border-[#f5c9c3] bg-[#fef3f2] px-4 py-2.5">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#b42318]" />
           <p className="min-w-0 flex-1 text-[13px] text-[#8a1c0f]">{withdraw.error}</p>
-          <button type="button" aria-label="Dismiss" onClick={withdraw.clearError} className="-my-1 -mr-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#8a1c0f]/70 hover:bg-[#fde8e7]">
+          <button type="button" aria-label={tt("Dismiss")} onClick={withdraw.clearError} className="-my-1 -mr-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#8a1c0f]/70 hover:bg-[#fde8e7]">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -1055,7 +1056,7 @@ function BalanceCard({
           href={HOW_PAYOUTS_WORK}
           className="shrink-0 text-[12px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline max-md:-my-3 max-md:inline-flex max-md:h-11 max-md:items-center"
         >
-          How payouts work
+          {tt("How payouts work")}
         </a>
       </div>
     </section>
@@ -1107,8 +1108,8 @@ function BalanceDetails({
   const body = (
     <div className="px-5 pb-2 pt-3">
       <div className="rounded-xl border border-[#eceef1] px-3 py-2">
-        <Line label="Available to cash out" value={fmt(available, currency)} />
-        <Line label="Arriving soon" value={fmt(pending, currency)} />
+        <Line label={tt("Available to cash out")} value={fmt(available, currency)} />
+        <Line label={tt("Arriving soon")} value={fmt(pending, currency)} />
         {/* The day each part of it becomes available, from Stripe. */}
         {upcomingLoading ? (
           <ShimmerRows className="pb-1 pl-3" rows={3} rowHeight={20} cols={["45%", "22%"]} divided={false} inset={false} />
@@ -1116,21 +1117,21 @@ function BalanceDetails({
           <ul className="mb-1 ml-3 border-l border-[#eceef1] pl-3" data-upcoming="">
             {upcoming.map((item) => (
               <li key={item.date} className="flex items-baseline justify-between gap-3 py-0.5 text-[12px] text-[#6b7280]">
-                <span className="min-w-0 truncate">Available {fmtDay(item.date)}</span>
+                <span className="min-w-0 truncate">{tt("Available")} {fmtDay(item.date)}</span>
                 <span className="shrink-0 whitespace-nowrap tabular-nums">{fmt(item.amount, item.currency)}</span>
               </li>
             ))}
           </ul>
         ) : null}
         <div className="my-1.5 border-t border-[#f0f1f3]" />
-        <Line label="Total balance" value={fmt(available + pending, currency)} strong />
-        {inTransit > 0 ? <Line label="On the way to your bank" value={fmt(inTransit, currency)} muted /> : null}
+        <Line label={tt("Total balance")} value={fmt(available + pending, currency)} strong />
+        {inTransit > 0 ? <Line label={tt("On the way to your bank")} value={fmt(inTransit, currency)} muted /> : null}
       </div>
       <p className="mt-3 text-[12px] leading-5 text-[#6b7280]">
         {settleDays && settleDays > 0
-          ? `Each sale becomes available about ${settleDays} days after it is paid. That wait is set by our payment partner for your country and protects against refunds and disputes.`
-          : "Each sale becomes available after a short settlement wait set by our payment partner for your country."}{" "}
-        Once it is available you can cash it out, and it usually reaches your bank in 1 to 3 business days.
+          ? tt("Each sale becomes available about {settleDays} days after it is paid. That wait is set by our payment partner for your country and protects against refunds and disputes.", { settleDays })
+          : tt("Each sale becomes available after a short settlement wait set by our payment partner for your country.")}{" "}
+        {tt("Once it is available you can cash it out, and it usually reaches your bank in 1 to 3 business days.")}
       </p>
       <div className="mt-3 border-t border-[#f0f1f3] pt-3">
         {bankLoading ? (
@@ -1141,9 +1142,9 @@ function BalanceDetails({
           <p className="text-[13px] leading-5 text-[#4b5563]">
             {bank ? (
               <>
-                Cash outs go to{" "}
+                {tt("Cash outs go to")}{" "}
                 <span className="font-medium text-[#1a1a2e]">
-                  {bank.bankName || "Bank account"} ••••{bank.last4}
+                  {bank.bankName || tt("Bank account")} ••••{bank.last4}
                 </span>
                 .{" "}
               </>
@@ -1153,7 +1154,7 @@ function BalanceDetails({
               onClick={onUpdateBank}
               className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
             >
-              {bank ? "Update bank" : "Add a bank account"}
+              {bank ? tt("Update bank") : tt("Add a bank account")}
             </button>
           </p>
         )}
@@ -1163,26 +1164,26 @@ function BalanceDetails({
   const footer = (
     <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
       <button type="button" className={SHEET_SECONDARY} onClick={onClose}>
-        Close
+        {tt("Close")}
       </button>
       {payoutsEnabled ? (
         <button type="button" className={SHEET_CASH_OUT} onClick={onCashOut} disabled={cashingOut} aria-disabled={!canCashOut || undefined}>
           {cashingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {cashingOut ? "Cashing out" : canCashOut ? `Cash out ${fmt(available, currency)}` : "Cash out"}
+          {cashingOut ? tt("Cashing out") : canCashOut ? tt("Cash out {value}", { value: fmt(available, currency) }) : tt("Cash out")}
         </button>
       ) : null}
     </div>
   );
   return (
     <>
-      <DesktopDialog open={open} onClose={onClose} label="Balance details">
-        <PanelHead title="Balance details" onClose={onClose} />
+      <DesktopDialog open={open} onClose={onClose} label={tt("Balance details")}>
+        <PanelHead title={tt("Balance details")} onClose={onClose} />
         <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
         {footer}
       </DesktopDialog>
       {/* A phone: the shared sheet. */}
-      <BottomSheet isOpen={open} onClose={onClose} label="Balance details">
-        <PanelHead title="Balance details" />
+      <BottomSheet isOpen={open} onClose={onClose} label={tt("Balance details")}>
+        <PanelHead title={tt("Balance details")} />
         {body}
         {footer}
       </BottomSheet>
@@ -1251,25 +1252,25 @@ function DisputesCard() {
   const shown = showPast ? rows : open.length > 0 ? open : past.slice(0, 3);
 
   return (
-    <section id="disputes" aria-label="Disputes" data-disputes="" className={cn(card, "scroll-mt-24 overflow-hidden animate-in fade-in-0 duration-300")}>
+    <section id="disputes" aria-label={tt("Disputes")} data-disputes="" className={cn(card, "scroll-mt-24 overflow-hidden animate-in fade-in-0 duration-300")}>
       <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-3">
-        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Disputes</h2>
-        <span className="text-[12px] text-[#6b7280]">{open.length > 0 ? `${open.length} open` : "None open"}</span>
+        <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Disputes")}</h2>
+        <span className="text-[12px] text-[#6b7280]">{open.length > 0 ? tt("{length} open", { length: open.length }) : tt("None open")}</span>
       </div>
       <ul>
         {shown.map((d) => {
-          const due = d.evidenceDueBy ? new Date(d.evidenceDueBy).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+          const due = d.evidenceDueBy ? new Date(d.evidenceDueBy).toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric" })) : null;
           return (
             <li key={d.id} data-dispute={d.stage} className="flex flex-col gap-2.5 border-t border-[#f1f2f4] px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">{d.productTitle || "A sale"}</span>
+                  <span className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">{d.productTitle || tt("A sale")}</span>
                   <StatusBadge tone={DISPUTE_TONE[d.tone]}>{d.label}</StatusBadge>
                 </div>
                 <p className="mt-1 text-[12.5px] leading-[18px] text-[#4b5563]">{d.reason}</p>
                 <p className="mt-0.5 text-[12px] leading-[17px] text-[#6b7280]">
                   {d.line}
-                  {due ? <span className="font-medium text-[#1a1a2e]"> Evidence by {due}.</span> : null}
+                  {due ? <span className="font-medium text-[#1a1a2e]"> {tt("Evidence by {due}.", { due })}</span> : null}
                 </p>
               </div>
               <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1.5">
@@ -1280,11 +1281,11 @@ function DisputesCard() {
                     onClick={() => setNoteFor(d)}
                     className={cn(secondaryDepth, "h-11 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
                   >
-                    {d.noteSent ? "Update evidence" : "Add evidence"}
+                    {d.noteSent ? tt("Update evidence") : tt("Add evidence")}
                   </button>
                 ) : d.noteSent ? (
                   <span className="inline-flex items-center gap-1 text-[12px] text-[#067647]">
-                    <Check className="h-3 w-3" strokeWidth={3} /> Evidence sent
+                    <Check className="h-3 w-3" strokeWidth={3} /> {tt("Evidence sent")}
                   </span>
                 ) : null}
               </div>
@@ -1298,7 +1299,7 @@ function DisputesCard() {
           onClick={() => setShowPast((v) => !v)}
           className="flex h-11 w-full cursor-pointer items-center justify-center border-t border-[#f1f2f4] bg-[#fafafb] text-[12px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e] md:h-10"
         >
-          {showPast ? "Show open only" : `Show ${past.length} closed`}
+          {showPast ? tt("Show open only") : tt("Show {length} closed", { length: past.length })}
         </button>
       ) : null}
       <EvidencePanel dispute={noteFor} onClose={() => setNoteFor(null)} onSaved={() => { setNoteFor(null); void load(); }} />
@@ -1332,11 +1333,11 @@ function EvidencePanel({ dispute, onClose, onSaved }: { dispute: CreatorDispute 
         body: JSON.stringify({ id: dispute.id, note: text }),
       });
       const json = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(typeof json.error === "string" ? json.error : "We couldn't save that just now.");
-      toast({ title: "Evidence sent", description: "Storelib includes it in the answer to the bank." });
+      if (!r.ok) throw new Error(typeof json.error === "string" ? json.error : tt("We couldn't save that just now."));
+      toast({ title: tt("Evidence sent"), description: tt("Storelib includes it in the answer to the bank.") });
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "We couldn't save that just now.");
+      setError(e instanceof Error ? e.message : tt("We couldn't save that just now."));
     } finally {
       setBusy(false);
     }
@@ -1345,39 +1346,39 @@ function EvidencePanel({ dispute, onClose, onSaved }: { dispute: CreatorDispute 
   const body = (
     <div className="px-5 pb-2 pt-3">
       <p className="text-[13px] leading-5 text-[#4b5563]">
-        Describe what shows the sale was real: what the buyer bought, that the files were delivered or downloaded, and any messages with them. Plain words are best.
+        {tt("Describe what shows the sale was real: what the buyer bought, that the files were delivered or downloaded, and any messages with them. Plain words are best.")}
       </p>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, 4000))}
         rows={6}
-        placeholder="The buyer bought my preset pack on Oct 3, got the download email and downloaded the files twice the same day."
+        placeholder={tt("The buyer bought my preset pack on Oct 3, got the download email and downloaded the files twice the same day.")}
         className="mt-3 w-full resize-y rounded-[10px] border border-[#e3e5e8] bg-white px-3 py-2.5 text-[16px] leading-6 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:text-[14px] sm:leading-5"
       />
       <div className="mt-1 flex items-center justify-between text-[11px] text-[#9ca3af]">
-        <span>{error ? <span className="text-[#c4290c]">{error}</span> : "Only Storelib sees this."}</span>
+        <span>{error ? <span className="text-[#c4290c]">{error}</span> : tt("Only Storelib sees this.")}</span>
         <span className="tabular-nums">{text.length} / 4000</span>
       </div>
     </div>
   );
   const footer = (
     <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
-      <button type="button" className={SHEET_SECONDARY} onClick={onClose}>Cancel</button>
+      <button type="button" className={SHEET_SECONDARY} onClick={onClose}>{tt("Cancel")}</button>
       <button type="button" className={SHEET_PRIMARY} onClick={() => void save()} disabled={busy || text.trim().length < 10}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        {busy ? "Sending" : "Send evidence"}
+        {busy ? tt("Sending") : tt("Send evidence")}
       </button>
     </div>
   );
   return (
     <>
-      <DesktopDialog open={open} onClose={onClose} label="Add evidence">
-        <PanelHead title="Add evidence" description={dispute ? `${dispute.productTitle || "A sale"}, ${fmt(dispute.amountMinor, dispute.currency)}` : undefined} onClose={onClose} />
+      <DesktopDialog open={open} onClose={onClose} label={tt("Add evidence")}>
+        <PanelHead title={tt("Add evidence")} description={dispute ? `${dispute.productTitle || tt("A sale")}, ${fmt(dispute.amountMinor, dispute.currency)}` : undefined} onClose={onClose} />
         {body}
         {footer}
       </DesktopDialog>
-      <BottomSheet isOpen={open} onClose={onClose} label="Add evidence">
-        <PanelHead title="Add evidence" description={dispute ? `${dispute.productTitle || "A sale"}, ${fmt(dispute.amountMinor, dispute.currency)}` : undefined} />
+      <BottomSheet isOpen={open} onClose={onClose} label={tt("Add evidence")}>
+        <PanelHead title={tt("Add evidence")} description={dispute ? `${dispute.productTitle || tt("A sale")}, ${fmt(dispute.amountMinor, dispute.currency)}` : undefined} />
         {body}
         {footer}
       </BottomSheet>
@@ -1423,12 +1424,12 @@ function OrderTimeline({
   }, [orderId, isFree]);
 
   if (isFree)
-    return <p className="text-[13px] text-[#6b7280]">A free order has no payout.</p>;
+    return <p className="text-[13px] text-[#6b7280]">{tt("A free order has no payout.")}</p>;
   /* The timeline's own shape, three steps of it, while it is read. */
   if (loading) return <ShimmerRows rows={3} rowHeight={45} cols={["40%", "20%"]} divided={false} lead inset={false} />;
   if (error) return <p className="text-[13px] text-[#b42318]">{error}</p>;
   if (!timeline.length)
-    return <p className="text-[13px] text-[#6b7280]">Nothing to show yet.</p>;
+    return <p className="text-[13px] text-[#6b7280]">{tt("Nothing to show yet.")}</p>;
 
   /*
     Each step a dot on a thin line: done in ink with a tick, waiting on
@@ -1658,11 +1659,11 @@ function OrderDetailsModal({
     if (!order) return;
     const currentCount = receiptResendCounts[order.id] || 0;
     if (currentCount >= 5) {
-      showNotification("Resend limit reached", "error");
+      showNotification(tt("Resend limit reached"), "error");
       return;
     }
     if (!order.receipt_token) {
-      showNotification("This order has no receipt to send", "error");
+      showNotification(tt("This order has no receipt to send"), "error");
       return;
     }
     setResendLoading(true);
@@ -1676,12 +1677,12 @@ function OrderDetailsModal({
       if (r.ok && data.success) {
         const newCounts = { ...receiptResendCounts, [order.id]: currentCount + 1 };
         setReceiptResendCounts(newCounts);
-        showNotification(`Receipt sent to buyer (${currentCount + 1}/5)`);
+        showNotification(tt("Receipt sent to buyer ({value}/5)", { value: currentCount + 1 }));
       } else {
-        showNotification(data.error || "Could not resend. Try again.", "error");
+        showNotification(data.error || tt("Could not resend. Try again."), "error");
       }
     } catch {
-      showNotification("Could not resend. Try again.", "error");
+      showNotification(tt("Could not resend. Try again."), "error");
     } finally {
       setResendLoading(false);
     }
@@ -1704,7 +1705,7 @@ function OrderDetailsModal({
     if (!order) return;
     const email = editEmail.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError("Enter a full address, like name@example.com");
+      setEmailError(tt("Enter a full address, like name@example.com"));
       return;
     }
     setEmailSaving(true);
@@ -1716,13 +1717,13 @@ function OrderDetailsModal({
         body: JSON.stringify({ email }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "The email was not changed. Try again.");
+      if (!r.ok) throw new Error(data?.error || tt("The email was not changed. Try again."));
       const saved = typeof data?.email === "string" ? data.email : email;
       setEmailOverrides((prev) => ({ ...prev, [order.id]: saved }));
       setShowEditEmail(false);
-      showNotification(data?.sent > 0 ? "Email changed, receipt sent" : "Email changed");
+      showNotification(data?.sent > 0 ? tt("Email changed, receipt sent") : tt("Email changed"));
     } catch (e: any) {
-      setEmailError(e?.message || "The email was not changed. Try again.");
+      setEmailError(e?.message || tt("The email was not changed. Try again."));
     } finally {
       setEmailSaving(false);
     }
@@ -1746,19 +1747,19 @@ function OrderDetailsModal({
         body: JSON.stringify({ orderId: order.id, reason: refundReason }),
       });
       const json = await r.json();
-      if (!r.ok || json.error) throw new Error(json.error || "Refund failed");
+      if (!r.ok || json.error) throw new Error(json.error || tt("Refund failed"));
       setShowRefundConfirm(false);
       if (json.pending) {
-        showNotification("Refund is processing");
+        showNotification(tt("Refund is processing"));
         return;
       }
       setRefundDone(true);
       // Pass the refunded amount so the parent can instantly update the balance UI
       onRefundSuccess?.(order.amount_cents);
-      showNotification("Refund issued");
+      showNotification(tt("Refund issued"));
     } catch (e: any) {
       setRefundError(e.message);
-      showNotification("Could not refund", "error");
+      showNotification(tt("Could not refund"), "error");
     } finally {
       setRefundLoading(false);
     }
@@ -1771,8 +1772,8 @@ function OrderDetailsModal({
   const buyerEmail =
     emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email || null;
   const coverImage = order.product?.thumbnail_url;
-  const productTitle = order.product?.title || "Unknown product";
-  const productType = order.product?.type || "Digital product";
+  const productTitle = order.product?.title || tt("Unknown product");
+  const productType = order.product?.type || tt("Digital product");
   const shortId = order.id.slice(0, 8);
   const status = refundDone ? "refunded" : order.status;
   const canRefund = order.status === "completed" && !refundDone;
@@ -1786,7 +1787,7 @@ function OrderDetailsModal({
           ? "Free"
           : order.payment_method
             ? order.payment_method.charAt(0).toUpperCase() + order.payment_method.slice(1)
-            : "Card";
+            : tt("Card");
 
   const content = (phone: boolean) => (
     <div className="space-y-3.5">
@@ -1803,62 +1804,62 @@ function OrderDetailsModal({
       {order.status === "disputed" ? (
         <Notice
           tone="critical"
-          title="The buyer disputed this payment"
+          title={tt("The buyer disputed this payment")}
           body={
             <>
-              Your share of this {fmt(order.amount_cents, currency)} sale is held while the buyer&apos;s bank decides, which usually takes 60 to 75 days. Storelib answers the bank for you; add your evidence under Disputes on Payouts.
+              {tt("Your share of this")} {fmt(order.amount_cents, currency)} {tt("sale is held while the buyer's bank decides, which usually takes 60 to 75 days. Storelib answers the bank for you; add your evidence under Disputes on Payouts.")}
             </>
           }
         />
       ) : null}
 
       {refundDone ? (
-        <Notice tone="neutral" title="Refund issued" body="The buyer gets the money back on their original payment method." />
+        <Notice tone="neutral" title={tt("Refund issued")} body={tt("The buyer gets the money back on their original payment method.")} />
       ) : null}
 
       <div className="space-y-3.5">
-        <Part title="Payment">
+        <Part title={tt("Payment")}>
           <div className="rounded-xl border border-[#eceef1] px-3 py-1.5">
-            <Line label="Paid" value={fmt(order.amount_cents, currency)} />
-            <Line label="Fee" value={`−${fmt(order.fee_cents || 0, currency)}`} muted />
-            <Line label="You receive" value={fmt(net, currency)} strong />
+            <Line label={tt("Paid")} value={fmt(order.amount_cents, currency)} />
+            <Line label={tt("Fee")} value={`−${fmt(order.fee_cents || 0, currency)}`} muted />
+            <Line label={tt("You receive")} value={fmt(net, currency)} strong />
             {order.status === "refunded" && order.refund_amount_cents ? (
-              <Line label="Refunded" value={`−${fmt(order.refund_amount_cents, currency)}`} />
+              <Line label={tt("Refunded")} value={`−${fmt(order.refund_amount_cents, currency)}`} />
             ) : null}
           </div>
           <dl className="mt-1.5">
-            <Field label="Method">{method}</Field>
-            {order.status === "refunded" && order.refunded_at ? <Field label="Refunded">{fmtFullDate(order.refunded_at)}</Field> : null}
-            {order.status === "refunded" && order.refund_reason ? <Field label="Reason">{order.refund_reason}</Field> : null}
+            <Field label={tt("Method")}>{method}</Field>
+            {order.status === "refunded" && order.refunded_at ? <Field label={tt("Refunded")}>{fmtFullDate(order.refunded_at)}</Field> : null}
+            {order.status === "refunded" && order.refund_reason ? <Field label={tt("Reason")}>{order.refund_reason}</Field> : null}
           </dl>
         </Part>
 
         <Part
-          title="Customer"
+          title={tt("Customer")}
           aside={
             <button type="button" onClick={openEditEmail} className="-mr-1 cursor-pointer rounded-md px-1 text-[12px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline max-sm:-my-3 max-sm:h-11">
-              Change email
+              {tt("Change email")}
             </button>
           }
         >
           <dl>
-            <Field label="Name">{buyerName || <span className="text-[#9ca3af]">Not given</span>}</Field>
-            <Field label="Email">{buyerEmail ? <span className="break-all">{buyerEmail}</span> : <span className="text-[#9ca3af]">No email</span>}</Field>
-            {order.buyer_country ? <Field label="Country">{order.buyer_country}</Field> : null}
-            {device ? <Field label="Device">{device}</Field> : null}
+            <Field label={tt("Name")}>{buyerName || <span className="text-[#9ca3af]">{tt("Not given")}</span>}</Field>
+            <Field label={tt("Email")}>{buyerEmail ? <span className="break-all">{buyerEmail}</span> : <span className="text-[#9ca3af]">{tt("No email")}</span>}</Field>
+            {order.buyer_country ? <Field label={tt("Country")}>{order.buyer_country}</Field> : null}
+            {device ? <Field label={tt("Device")}>{device}</Field> : null}
           </dl>
         </Part>
 
-        <Part title="Details">
+        <Part title={tt("Details")}>
           <dl>
-            <Field label="Placed">{fmtFullDate(order.created_at)}</Field>
-            <Field label="Order">
+            <Field label={tt("Placed")}>{fmtFullDate(order.created_at)}</Field>
+            <Field label={tt("Order")}>
               <span className="inline-flex items-center gap-1.5">
                 <code className="rounded bg-[#f3f4f6] px-1.5 py-0.5 font-mono text-[12px] text-[#303036]">#{shortId}</code>
                 <button
                   type="button"
                   onClick={handleCopyId}
-                  aria-label="Copy order ID"
+                  aria-label={tt("Copy order ID")}
                   className="-my-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-[#9ca3af] hover:bg-[#f1f2f4] hover:text-[#4b5563] max-sm:-my-2.5 max-sm:h-11 max-sm:w-11"
                 >
                   {copiedId ? <Check className="h-3.5 w-3.5 text-[#15803d]" /> : <Copy className="h-3.5 w-3.5" />}
@@ -1868,9 +1869,9 @@ function OrderDetailsModal({
           </dl>
         </Part>
 
-        <Part title="Payout">
+        <Part title={tt("Payout")}>
           {order.amount_cents === 0 ? (
-            <p className="text-[13px] text-[#6b7280]">A free order has no payout.</p>
+            <p className="text-[13px] text-[#6b7280]">{tt("A free order has no payout.")}</p>
           ) : phone || showTimeline ? (
             <OrderTimeline orderId={order.id} amountCents={order.amount_cents} />
           ) : (
@@ -1879,7 +1880,7 @@ function OrderDetailsModal({
               onClick={() => setShowTimeline(true)}
               className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}
             >
-              <Clock className="h-3.5 w-3.5" /> Show when it reaches your balance
+              <Clock className="h-3.5 w-3.5" /> {tt("Show when it reaches your balance")}
             </button>
           )}
         </Part>
@@ -1896,30 +1897,30 @@ function OrderDetailsModal({
       className={SHEET_SECONDARY}
     >
       <FileText className="h-3.5 w-3.5" />
-      Invoice
+      {tt("Invoice")}
     </a>
   ) : (
-    <button type="button" disabled className={SHEET_SECONDARY} title="No invoice for this order">
+    <button type="button" disabled className={SHEET_SECONDARY} title={tt("No invoice for this order")}>
       <FileText className="h-3.5 w-3.5" />
-      Invoice
+      {tt("Invoice")}
     </button>
   );
   const resend = (
     <button type="button" onClick={handleResend} disabled={resendLoading} className={SHEET_SECONDARY}>
       {resendLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-      {resendLoading ? "Sending" : `Resend receipt${receiptResendCounts[order.id] ? ` (${receiptResendCounts[order.id]}/5)` : ""}`}
+      {resendLoading ? tt("Sending") : tt("Resend receipt{value}", { value: receiptResendCounts[order.id] ? ` (${receiptResendCounts[order.id]}/5)` : "" })}
     </button>
   );
   const changeEmail = (
     <button type="button" onClick={openEditEmail} className={SHEET_SECONDARY}>
       <Mail className="h-3.5 w-3.5" />
-      Change email
+      {tt("Change email")}
     </button>
   );
   const refund = canRefund ? (
     <button type="button" onClick={openRefund} className={SHEET_PRIMARY}>
       <RotateCcw className="h-3.5 w-3.5" />
-      Refund
+      {tt("Refund")}
     </button>
   ) : null;
 
@@ -1928,13 +1929,13 @@ function OrderDetailsModal({
       <div className="flex items-center gap-3 rounded-xl border border-[#eceef1] p-3">
         <Thumb src={order.product?.thumbnail_url} size={40} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{order.product?.title || "Product"}</p>
+          <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{order.product?.title || tt("Product")}</p>
           <p className="truncate text-[12px] text-[#6b7280]">{order.buyer_email || order.customer_email || ""}</p>
         </div>
         <p className="shrink-0 text-[13px] font-semibold tabular-nums text-[#1a1a2e]">{fmt(order.amount_cents, currency)}</p>
       </div>
       <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-        Reason
+        {tt("Reason")}
         <select value={refundReason} onChange={(e) => setRefundReason(e.target.value)} className={FIELD}>
           {REFUND_REASONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -1954,15 +1955,15 @@ function OrderDetailsModal({
   const refundFooter = (
     <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
       <button type="button" onClick={closeRefundSheet} disabled={refundLoading} className={SHEET_SECONDARY}>
-        Cancel
+        {tt("Cancel")}
       </button>
       <button type="button" onClick={handleRefundConfirm} disabled={refundLoading || !refundReason} className={SHEET_PRIMARY}>
         {refundLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        {refundLoading ? "Refunding" : `Refund ${fmt(order.amount_cents, currency)}`}
+        {refundLoading ? tt("Refunding") : tt("Refund {value}", { value: fmt(order.amount_cents, currency) })}
       </button>
     </div>
   );
-  const refundDescription = "The money goes back to the buyer's original payment method, and they get an email about it.";
+  const refundDescription = tt("The money goes back to the buyer's original payment method, and they get an email about it.");
 
   const trimmedEmail = editEmail.trim();
   const currentEmail = (buyerEmail || "").trim().toLowerCase();
@@ -1981,7 +1982,7 @@ function OrderDetailsModal({
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
-          aria-label="New email address"
+          aria-label={tt("New email address")}
           value={editEmail}
           onChange={(e) => setEditEmail(e.target.value)}
           placeholder="name@example.com"
@@ -1991,16 +1992,16 @@ function OrderDetailsModal({
       </div>
       <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
         <button type="button" onClick={closeEditEmail} disabled={emailSaving} className={SHEET_SECONDARY}>
-          Cancel
+          {tt("Cancel")}
         </button>
         <button type="submit" disabled={!emailValid || emailSaving} className={SHEET_PRIMARY}>
           {emailSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {emailSaving ? "Saving" : "Save and send"}
+          {emailSaving ? tt("Saving") : tt("Save and send")}
         </button>
       </div>
     </form>
   );
-  const emailDescription = `Order #${shortId} moves to the new address, and the receipt with the download link is sent there.`;
+  const emailDescription = tt("Order #{shortId} moves to the new address, and the receipt with the download link is sent there.", { shortId });
 
   return createPortal(
     <>
@@ -2018,7 +2019,7 @@ function OrderDetailsModal({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`Order #${shortId}`}
+          aria-label={tt("Order #{shortId}", { shortId })}
           className={cn(
             DIALOG_PANEL,
             "max-w-[580px] transition-[opacity,scale]",
@@ -2032,7 +2033,7 @@ function OrderDetailsModal({
           <div className="flex items-start justify-between gap-3 border-b border-[#eef0f2] px-5 pb-3 pt-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <h2 className="text-[16px] font-semibold text-[#1a1a2e]">Order #{shortId}</h2>
+                <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Order #{shortId}", { shortId })}</h2>
                 <SaleBadge status={status} />
               </div>
               <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">
@@ -2040,7 +2041,7 @@ function OrderDetailsModal({
                 {buyerName ? ` · ${buyerName}` : buyerEmail ? ` · ${buyerEmail}` : ""}
               </p>
             </div>
-            <button type="button" aria-label="Close" onClick={handleClose} className={cn(iconButton, "-mr-1.5")}>
+            <button type="button" aria-label={tt("Close")} onClick={handleClose} className={cn(iconButton, "-mr-1.5")}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -2064,13 +2065,13 @@ function OrderDetailsModal({
       <BottomSheet
         isOpen={isOpen}
         onClose={onClose}
-        label={`Order #${shortId}`}
+        label={tt("Order #{shortId}", { shortId })}
         fill
         maxHeight="72vh"
         header={
           <div className="flex items-start justify-between gap-3 border-b border-[#eef0f2] px-4 pb-3 pt-1">
             <div className="min-w-0">
-              <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Order #{shortId}</h3>
+              <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Order #{shortId}", { shortId })}</h3>
               <p className="mt-0.5 truncate text-[12px] text-[#6b7280]">{fmtDate(order.created_at)}</p>
             </div>
             <SaleBadge status={status} />
@@ -2090,15 +2091,15 @@ function OrderDetailsModal({
       </BottomSheet>
 
       {/* ── Refund: a dialog over the order on a computer ── */}
-      <DesktopDialog open={showRefundConfirm} onClose={closeRefundSheet} label="Refund this sale" z="z-[60]">
-        <PanelHead title="Refund this sale" description={refundDescription} onClose={closeRefundSheet} />
+      <DesktopDialog open={showRefundConfirm} onClose={closeRefundSheet} label={tt("Refund this sale")} z="z-[60]">
+        <PanelHead title={tt("Refund this sale")} description={refundDescription} onClose={closeRefundSheet} />
         {refundBody}
         {refundFooter}
       </DesktopDialog>
 
       {/* A phone: the shared sheet, over the order's own. */}
-      <BottomSheet isOpen={showRefundConfirm} onClose={closeRefundSheet} label="Refund this sale" dismissible={!refundLoading}>
-        <PanelHead title="Refund this sale" description={refundDescription} />
+      <BottomSheet isOpen={showRefundConfirm} onClose={closeRefundSheet} label={tt("Refund this sale")} dismissible={!refundLoading}>
+        <PanelHead title={tt("Refund this sale")} description={refundDescription} />
         {refundBody}
         {refundFooter}
       </BottomSheet>
@@ -2107,16 +2108,16 @@ function OrderDetailsModal({
       {showEditEmail && order && (
         <div data-app-sheet="open" className="fixed inset-0 z-[210] hidden items-center justify-center p-4 sm:flex">
           <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-200" onClick={closeEditEmail} />
-          <div role="dialog" aria-modal="true" aria-label="Change customer email" className={cn(DIALOG_PANEL, "max-w-[440px] animate-in fade-in-0 zoom-in-95 duration-200")}>
-            <PanelHead title="Change customer email" description={emailDescription} onClose={closeEditEmail} />
+          <div role="dialog" aria-modal="true" aria-label={tt("Change customer email")} className={cn(DIALOG_PANEL, "max-w-[440px] animate-in fade-in-0 zoom-in-95 duration-200")}>
+            <PanelHead title={tt("Change customer email")} description={emailDescription} onClose={closeEditEmail} />
             {emailBody}
           </div>
         </div>
       )}
 
       {/* A phone: the shared sheet, on the keyboard. */}
-      <BottomSheet isOpen={showEditEmail} onClose={closeEditEmail} label="Change customer email" aboveKeyboard dismissible={!emailSaving}>
-        <PanelHead title="Change customer email" description={emailDescription} />
+      <BottomSheet isOpen={showEditEmail} onClose={closeEditEmail} label={tt("Change customer email")} aboveKeyboard dismissible={!emailSaving}>
+        <PanelHead title={tt("Change customer email")} description={emailDescription} />
         {emailBody}
       </BottomSheet>
 
@@ -2162,11 +2163,11 @@ function exportOrdersCsv(orders: OrderPayment[], currency: string): void {
   /* Each sale in the currency it was charged in, with that currency's decimals, and the currency in its own column. */
   const plain = (minor: number, c: string) => (minor / 10 ** decimalsOf(c)).toFixed(decimalsOf(c));
   const rows: string[][] = [
-    ["Date", "Order ID", "Product", "Customer Email", "Amount", "Currency", "Status", "Refunded Amount"],
+    [tt("Date"), tt("Order ID"), tt("Product"), tt("Customer Email"), tt("Amount"), tt("Currency"), tt("Status"), tt("Refunded Amount")],
     ...orders.map((o) => {
       const c = (o.currency || currency).toUpperCase();
       return [
-        new Date(o.created_at).toLocaleDateString("en-US"),
+        new Date(o.created_at).toLocaleDateString(appLocale(), zoned()),
         o.id,
         o.product?.title || "",
         o.buyer_email || o.customer_email || "",
@@ -2186,14 +2187,14 @@ async function exportPayoutsCsv(): Promise<boolean> {
   const json = await r.json();
   if (!json.payouts?.length) return false;
   const rows: string[][] = [
-    ["Date", "Amount", "Currency", "Status", "Arrival Date", "Destination"],
+    [tt("Date"), tt("Amount"), tt("Currency"), tt("Status"), tt("Arrival Date"), tt("Destination")],
     ...json.payouts.map((p: any) => [
-      new Date(p.created * 1000).toLocaleDateString("en-US"),
+      new Date(p.created * 1000).toLocaleDateString(appLocale(), zoned()),
       (p.amount / 10 ** decimalsOf(p.currency || "usd")).toFixed(decimalsOf(p.currency || "usd")),
       p.currency.toUpperCase(),
       p.status,
       p.arrival_date
-        ? new Date(p.arrival_date * 1000).toLocaleDateString("en-US")
+        ? new Date(p.arrival_date * 1000).toLocaleDateString(appLocale(), zoned())
         : "",
       p.destination || "",
     ]),
@@ -2232,7 +2233,7 @@ function TaxDocumentsSection({
     setDownloadingYear(year);
     try {
       const r = await fetch(`/api/stripe/tax-summary?year=${year}`);
-      if (!r.ok) throw new Error("Failed to fetch");
+      if (!r.ok) throw new Error(tt("Failed to fetch"));
       const data = await r.json();
       setSummaryData(data);
       setShowSummary(true);
@@ -2248,7 +2249,7 @@ function TaxDocumentsSection({
   };
 
   const fmtUsd = (cents: number) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat(appLocale(), {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 2,
@@ -2263,8 +2264,8 @@ function TaxDocumentsSection({
               <FileText className="h-4 w-4 text-[#8b5cf6]" />
             </div>
             <div>
-              <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Tax Documents</h3>
-              <p className="text-[11px] text-[#9ca3af]">1099-K forms and earnings summaries</p>
+              <h3 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Tax Documents")}</h3>
+              <p className="text-[11px] text-[#9ca3af]">{tt("1099-K forms and earnings summaries")}</p>
             </div>
           </div>
         </div>
@@ -2283,15 +2284,15 @@ function TaxDocumentsSection({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] font-semibold text-[#1a1a2e]">
-                        {yearData.year} Tax Year
+                        {tt("{year} Tax Year", { year: yearData.year })}
                       </span>
                       {yearData.isEligible ? (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#dcfce7] text-[#16a34a]">
-                          1099-K Eligible
+                          {tt("1099-K Eligible")}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#f3f4f6] text-[#6b7280]">
-                          Below Threshold
+                          {tt("Below Threshold")}
                         </span>
                       )}
                     </div>
@@ -2301,10 +2302,10 @@ function TaxDocumentsSection({
                       <div>
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[11px] text-[#6b7280]">
-                            Gross earnings: {fmtUsd(yearData.grossCents)}
+                            {tt("Gross earnings:")} {fmtUsd(yearData.grossCents)}
                           </span>
                           <span className="text-[11px] text-[#9ca3af]">
-                            {fmtUsd(threshold)} threshold
+                            {fmtUsd(threshold)} {tt("threshold")}
                           </span>
                         </div>
                         <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
@@ -2322,10 +2323,10 @@ function TaxDocumentsSection({
                       <div>
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[11px] text-[#6b7280]">
-                            Transactions: {yearData.transactionCount.toLocaleString()}
+                            {tt("Transactions: {value}", { value: yearData.transactionCount.toLocaleString(appLocale()) })}
                           </span>
                           <span className="text-[11px] text-[#9ca3af]">
-                            {txThreshold} threshold
+                            {tt("{txThreshold} threshold", { txThreshold })}
                           </span>
                         </div>
                         <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
@@ -2343,15 +2344,15 @@ function TaxDocumentsSection({
                     {yearData.isEligible ? (
                       <p className="text-[11px] text-[#16a34a] mt-2">
                         {isCurrentYear
-                          ? "You're on track to receive a 1099-K. Stripe will email it by January 31."
-                          : "Your 1099-K is available. Check your email or download from Stripe."
+                          ? tt("You're on track to receive a 1099-K. Stripe will email it by January 31.")
+                          : tt("Your 1099-K is available. Check your email or download from Stripe.")
                         }
                       </p>
                     ) : (
                       <p className="text-[11px] text-[#6b7280] mt-2">
                         {isCurrentYear
-                          ? "You haven't met the federal 1099-K threshold yet this year."
-                          : "You didn't meet the threshold. Download a draft summary for your tax professional."
+                          ? tt("You haven't met the federal 1099-K threshold yet this year.")
+                          : tt("You didn't meet the threshold. Download a draft summary for your tax professional.")
                         }
                       </p>
                     )}
@@ -2367,7 +2368,7 @@ function TaxDocumentsSection({
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-lg transition-colors"
                       >
                         <Download className="h-3 w-3" />
-                        1099-K
+                        {tt("1099-K")}
                       </a>
                     ) : null}
                     {!isCurrentYear && (
@@ -2381,7 +2382,7 @@ function TaxDocumentsSection({
                         ) : (
                           <FileText className="h-3 w-3" />
                         )}
-                        Draft Summary
+                        {tt("Draft Summary")}
                       </button>
                     )}
                   </div>
@@ -2394,18 +2395,17 @@ function TaxDocumentsSection({
         {/* Info footer */}
         <div className="px-5 py-3 bg-[#fafafa] border-t border-[#f3f4f6]">
           <p className="text-[11px] text-[#9ca3af] leading-relaxed">
-            You'll receive a 1099-K if you earned $20,000+ across 200+ transactions in a tax year.
-            Stripe sends official forms directly to your email by January 31.
+            {tt("You'll receive a 1099-K if you earned $20,000+ across 200+ transactions in a tax year. Stripe sends official forms directly to your email by January 31.")}
             {taxData.stripeExpressDashboardUrl && (
               <>
-                {" "}You can also access forms from your{" "}
+                {" "}{tt("You can also access forms from your")}{" "}
                 <a
                   href={taxData.stripeExpressDashboardUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#8b5cf6] hover:underline"
                 >
-                  Stripe Dashboard
+                  {tt("Stripe Dashboard")}
                 </a>.
               </>
             )}
@@ -2425,9 +2425,9 @@ function TaxDocumentsSection({
             <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <div>
                 <h2 className="text-[16px] font-bold text-[#1a1a2e]">
-                  {summaryData.year} Earnings Summary
+                  {tt("{year} Earnings Summary", { year: summaryData.year })}
                 </h2>
-                <p className="text-[11px] text-[#9ca3af] mt-0.5">Draft, not an official tax document</p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">{tt("Draft, not an official tax document")}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -2435,7 +2435,7 @@ function TaxDocumentsSection({
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] hover:bg-[#e5e7eb] rounded-lg transition-colors"
                 >
                   <Download className="h-3 w-3" />
-                  Print / Save PDF
+                  {tt("Print / Save PDF")}
                 </button>
                 <button onClick={() => setShowSummary(false)} className="p-1.5 hover:bg-[#f3f4f6] rounded-lg transition-colors">
                   <X className="h-4 w-4 text-[#6b7280]" />
@@ -2457,43 +2457,43 @@ function TaxDocumentsSection({
 
               {/* Summary totals */}
               <div>
-                <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">Summary for {summaryData.sellerName}</h3>
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">{tt("Summary for {sellerName}", { sellerName: summaryData.sellerName })}</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-[#f9fafb] rounded-xl px-4 py-3">
-                    <p className="text-[11px] text-[#6b7280]">Gross Earnings</p>
+                    <p className="text-[11px] text-[#6b7280]">{tt("Gross Earnings")}</p>
                     <p className="text-[16px] font-bold text-[#1a1a2e] mt-0.5">{fmtUsd(summaryData.grossEarnings)}</p>
                   </div>
                   <div className="bg-[#f9fafb] rounded-xl px-4 py-3">
-                    <p className="text-[11px] text-[#6b7280]">Platform Fees</p>
+                    <p className="text-[11px] text-[#6b7280]">{tt("Platform Fees")}</p>
                     <p className="text-[16px] font-bold text-[#ef4444] mt-0.5">-{fmtUsd(summaryData.platformFees)}</p>
                   </div>
                   <div className="bg-[#f9fafb] rounded-xl px-4 py-3">
-                    <p className="text-[11px] text-[#6b7280]">Refunds</p>
+                    <p className="text-[11px] text-[#6b7280]">{tt("Refunds")}</p>
                     <p className="text-[16px] font-bold text-[#ef4444] mt-0.5">-{fmtUsd(summaryData.refunds)}</p>
                   </div>
                   <div className="bg-[#f5f3ff] rounded-xl px-4 py-3">
-                    <p className="text-[11px] text-[#6b7280]">Net Earnings</p>
+                    <p className="text-[11px] text-[#6b7280]">{tt("Net Earnings")}</p>
                     <p className="text-[16px] font-bold text-[#8b5cf6] mt-0.5">{fmtUsd(summaryData.netEarnings)}</p>
                   </div>
                 </div>
                 <p className="text-[11px] text-[#9ca3af] mt-2">
-                  {summaryData.transactionCount.toLocaleString()} transactions total
+                  {tt("{value} transactions total", { value: summaryData.transactionCount.toLocaleString(appLocale()) })}
                 </p>
               </div>
 
               {/* Monthly breakdown */}
               {summaryData.monthlyBreakdown?.length > 0 && (
                 <div>
-                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">Monthly Breakdown</h3>
+                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">{tt("Monthly Breakdown")}</h3>
                   <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
                     <table className="w-full text-[12px]">
                       <thead>
                         <tr className="bg-[#f9fafb]">
-                          <th className="text-left px-4 py-2.5 text-[#6b7280] font-medium">Month</th>
-                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Gross</th>
-                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Fees</th>
-                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Net</th>
-                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium"># Txns</th>
+                          <th className="text-left px-4 py-2.5 text-[#6b7280] font-medium">{tt("Month")}</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">{tt("Gross")}</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">{tt("Fees")}</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">{tt("Net")}</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">{tt("# Txns")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#f3f4f6]">
@@ -2515,15 +2515,15 @@ function TaxDocumentsSection({
               {/* Product breakdown */}
               {summaryData.productBreakdown?.length > 0 && (
                 <div>
-                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">By Product</h3>
+                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">{tt("By Product")}</h3>
                   <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
                     <table className="w-full text-[12px]">
                       <thead>
                         <tr className="bg-[#f9fafb]">
-                          <th className="text-left px-4 py-2.5 text-[#6b7280] font-medium">Product</th>
-                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Gross</th>
-                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Net</th>
-                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium"># Sales</th>
+                          <th className="text-left px-4 py-2.5 text-[#6b7280] font-medium">{tt("Product")}</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">{tt("Gross")}</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">{tt("Net")}</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">{tt("# Sales")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#f3f4f6]">
@@ -2544,18 +2544,18 @@ function TaxDocumentsSection({
               {/* Eligibility note */}
               <div className="px-4 py-3 bg-[#f9fafb] rounded-xl">
                 <p className="text-[11px] text-[#6b7280] leading-relaxed">
-                  <strong>1099-K eligibility:</strong>{" "}
+                  <strong>{tt("1099-K eligibility:")}</strong>{" "}
                   {summaryData.isEligible ? (
-                    <>You met the federal threshold ({fmtUsd(summaryData.grossEarnings)} gross across {summaryData.transactionCount} transactions). Stripe will send your official 1099-K by January 31.</>
+                    <>{tt("You met the federal threshold (")}{fmtUsd(summaryData.grossEarnings)} {tt("gross across {transactionCount} transactions). Stripe will send your official 1099-K by January 31.", { transactionCount: summaryData.transactionCount })}</>
                   ) : (
-                    <>You did not meet the federal threshold ($20,000 + 200 transactions). This draft summary is for your records. Ask a tax professional for filing guidance.</>
+                    <>{tt("You did not meet the federal threshold ($20,000 + 200 transactions). This draft summary is for your records. Ask a tax professional for filing guidance.")}</>
                   )}
                 </p>
               </div>
 
               {/* Generated timestamp */}
               <p className="text-[10px] text-[#9ca3af] text-center">
-                Generated {new Date(summaryData.generatedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })} · Storelib
+                {tt("Generated {date} · Storelib", { date: new Date(summaryData.generatedAt).toLocaleDateString(appLocale(), zoned({ month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })) })}
               </p>
             </div>
           </div>
@@ -2593,37 +2593,37 @@ type PayoutMethodData = {
 
 // Storelib model: every account is manual, and sellers cash out with the button
 function payoutSpeedLabel(_schedule: PayoutMethodData["payoutSchedule"]): string {
-  return "Manual cash outs";
+  return tt("Manual cash outs");
 }
 
 // Friendly labels for Stripe requirement keys
 const REQUIREMENT_LABELS: Record<string, string> = {
-  "individual.verification.document": "Photo ID",
-  "individual.verification.additional_document": "Additional ID document",
-  "individual.id_number": "SSN or tax ID",
-  "individual.dob.day": "Date of birth",
-  "individual.dob.month": "Date of birth",
-  "individual.dob.year": "Date of birth",
-  "individual.address.line1": "Home address",
-  "individual.address.city": "Home address",
-  "individual.address.state": "Home address",
-  "individual.address.postal_code": "Home address",
-  "individual.first_name": "Legal name",
-  "individual.last_name": "Legal name",
-  "individual.email": "Email address",
-  "individual.phone": "Phone number",
-  "individual.ssn_last_4": "Last 4 of SSN",
-  "business_profile.url": "Website URL",
-  "business_profile.mcc": "Business category",
-  "company.tax_id": "Business tax ID",
-  "company.name": "Business name",
-  "company.address.line1": "Business address",
-  "company.address.city": "Business address",
-  "company.address.state": "Business address",
-  "company.address.postal_code": "Business address",
-  "external_account": "Bank account",
-  "tos_acceptance.date": "Terms of service",
-  "tos_acceptance.ip": "Terms of service",
+  get "individual.verification.document"() { return tt("Photo ID") },
+  get "individual.verification.additional_document"() { return tt("Additional ID document") },
+  get "individual.id_number"() { return tt("SSN or tax ID") },
+  get "individual.dob.day"() { return tt("Date of birth") },
+  get "individual.dob.month"() { return tt("Date of birth") },
+  get "individual.dob.year"() { return tt("Date of birth") },
+  get "individual.address.line1"() { return tt("Home address") },
+  get "individual.address.city"() { return tt("Home address") },
+  get "individual.address.state"() { return tt("Home address") },
+  get "individual.address.postal_code"() { return tt("Home address") },
+  get "individual.first_name"() { return tt("Legal name") },
+  get "individual.last_name"() { return tt("Legal name") },
+  get "individual.email"() { return tt("Email address") },
+  get "individual.phone"() { return tt("Phone number") },
+  get "individual.ssn_last_4"() { return tt("Last 4 of SSN") },
+  get "business_profile.url"() { return tt("Website URL") },
+  get "business_profile.mcc"() { return tt("Business category") },
+  get "company.tax_id"() { return tt("Business tax ID") },
+  get "company.name"() { return tt("Business name") },
+  get "company.address.line1"() { return tt("Business address") },
+  get "company.address.city"() { return tt("Business address") },
+  get "company.address.state"() { return tt("Business address") },
+  get "company.address.postal_code"() { return tt("Business address") },
+  get "external_account"() { return tt("Bank account") },
+  get "tos_acceptance.date"() { return tt("Terms of service") },
+  get "tos_acceptance.ip"() { return tt("Terms of service") },
 };
 
 function friendlyRequirements(keys: string[]): string[] {
@@ -2712,15 +2712,15 @@ function PayoutMethodCard({
     ? null
     : moreDue
       ? {
-          title: !data?.payoutsEnabled || hasPastDueRequirements ? "More information is needed for payouts" : "Stripe needs a little more",
+          title: !data?.payoutsEnabled || hasPastDueRequirements ? tt("More information is needed for payouts") : tt("Stripe needs a little more"),
           body: friendlyReqs.slice(0, 2).join(" · ") + (friendlyReqs.length > 2 ? ` · +${friendlyReqs.length - 2}` : ""),
-          action: "Continue",
+          action: tt("Continue"),
           setup: true,
         }
       : needsOnboarding && !needsBank
-        ? { title: "Finish your account setup to receive payouts", action: "Continue", setup: true }
+        ? { title: tt("Finish your account setup to receive payouts"), action: tt("Continue"), setup: true }
         : hasVerificationNeeded
-          ? { title: "Complete verification to receive payouts", action: "Continue", setup: true }
+          ? { title: tt("Complete verification to receive payouts"), action: tt("Continue"), setup: true }
           : null;
 
   const meta = bank
@@ -2732,7 +2732,7 @@ function PayoutMethodCard({
     : [];
 
   return (
-    <section aria-label="Payout account" data-payout-account="" className={cn(card, "overflow-hidden")}>
+    <section aria-label={tt("Payout account")} data-payout-account="" className={cn(card, "overflow-hidden")}>
       {notice ? (
         <button
           type="button"
@@ -2746,7 +2746,7 @@ function PayoutMethodCard({
             <span className="font-medium">{notice.title}</span>
             {notice.body ? <span className="text-[#4b5563]"> · {notice.body}</span> : null}
           </span>
-          <span className="shrink-0 text-[12px] font-semibold text-[#1a1a2e]">{opening ? "Opening" : notice.action}</span>
+          <span className="shrink-0 text-[12px] font-semibold text-[#1a1a2e]">{opening ? tt("Opening") : notice.action}</span>
         </button>
       ) : null}
 
@@ -2756,14 +2756,14 @@ function PayoutMethodCard({
             <Landmark className="h-[18px] w-[18px]" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-medium text-[#6b7280]">Payout account</p>
+            <p className="text-[12px] font-medium text-[#6b7280]">{tt("Payout account")}</p>
             {loading ? (
               <Shimmer className="flex h-5 items-center">
                 <ShimmerBlock className="h-3.5 w-48 rounded-full" />
               </Shimmer>
             ) : bank ? (
               <p className="text-[14px] leading-5 text-[#1a1a2e] sm:truncate">
-                <span className="font-semibold">{bank.bankName || "Bank account"}</span>{" "}
+                <span className="font-semibold">{bank.bankName || tt("Bank account")}</span>{" "}
                 <span className="tabular-nums text-[#6b7280]">••••{bank.last4}</span>
                 {meta.length ? (
                   <span className="block truncate text-[13px] text-[#6b7280] sm:inline sm:text-[14px]">
@@ -2773,7 +2773,7 @@ function PayoutMethodCard({
                 ) : null}
               </p>
             ) : (
-              <p className="text-[14px] leading-5 text-[#4b5563]">No bank account yet</p>
+              <p className="text-[14px] leading-5 text-[#4b5563]">{tt("No bank account yet")}</p>
             )}
           </div>
         </div>
@@ -2787,7 +2787,7 @@ function PayoutMethodCard({
           data-update-bank=""
         >
           {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          {opening ? "Opening" : needsBank ? "Add bank" : "Update bank"}
+          {opening ? tt("Opening") : needsBank ? tt("Add bank") : tt("Update bank")}
         </button>
       </div>
 
@@ -2801,14 +2801,14 @@ function PayoutMethodCard({
       */}
       {!loading && data ? (
         <div className="flex items-center justify-between gap-3 border-t border-[#f1f2f4] bg-[#fafafb] px-4 py-2.5">
-          <p className="min-w-0 text-[12px] leading-5 text-[#6b7280]">Selling under a different name or business?</p>
+          <p className="min-w-0 text-[12px] leading-5 text-[#6b7280]">{tt("Selling under a different name or business?")}</p>
           <button
             type="button"
             onClick={() => setSwitching(true)}
             className="shrink-0 cursor-pointer text-[12px] font-medium text-[#4b5563] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline max-md:-my-3 max-md:inline-flex max-md:h-11 max-md:items-center"
             data-switch-account=""
           >
-            Use a different account
+            {tt("Use a different account")}
           </button>
         </div>
       ) : null}
@@ -2873,10 +2873,10 @@ function SwitchAccountPanel({
         body: JSON.stringify({ confirm: true }),
       });
       const json = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) throw new Error(json.error || "We couldn't disconnect just now. Nothing was changed.");
+      if (!r.ok) throw new Error(json.error || tt("We couldn't disconnect just now. Nothing was changed."));
       onDone();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "We couldn't disconnect just now. Nothing was changed.");
+      setError(e instanceof Error ? e.message : tt("We couldn't disconnect just now. Nothing was changed."));
       setBusy(false);
     }
   };
@@ -2884,25 +2884,25 @@ function SwitchAccountPanel({
   const body = (
     <div className="px-5 pb-2 pt-3">
       <p className="text-[13px] leading-5 text-[#4b5563]">
-        Your payments account is disconnected and you set payments up again, on whichever account you like. It is the way to move to a different name, a business, or a different bank country.
+        {tt("Your payments account is disconnected and you set payments up again, on whichever account you like. It is the way to move to a different name, a business, or a different bank country.")}
       </p>
       <ul className="mt-3 space-y-1.5 text-[13px] leading-5 text-[#4b5563]">
         <li className="flex gap-2">
           <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#15803d]" strokeWidth={3} />
-          <span>Your orders, payouts and everything already paid out stay exactly as they are.</span>
+          <span>{tt("Your orders, payouts and everything already paid out stay exactly as they are.")}</span>
         </li>
         <li className="flex gap-2">
           <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#15803d]" strokeWidth={3} />
-          <span>Buyers keep their files and their access.</span>
+          <span>{tt("Buyers keep their files and their access.")}</span>
         </li>
         <li className="flex gap-2">
           <AlertCircle className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#b54708]" />
-          <span>Checkout is closed until payments are set up again, so buyers cannot pay you in the meantime.</span>
+          <span>{tt("Checkout is closed until payments are set up again, so buyers cannot pay you in the meantime.")}</span>
         </li>
       </ul>
       {holding > 0 ? (
         <p className="mt-3 rounded-xl border border-[#f3e3b3] bg-[#fffaeb] px-3.5 py-2.5 text-[12.5px] leading-5 text-[#8a5a08]">
-          You still have {fmt(holding, currency)} in this account. Cash out everything available and wait for the rest to settle first: it cannot be moved to a new account afterwards.
+          {tt("You still have")} {fmt(holding, currency)} {tt("in this account. Cash out everything available and wait for the rest to settle first: it cannot be moved to a new account afterwards.")}
         </p>
       ) : null}
       {error ? (
@@ -2915,7 +2915,7 @@ function SwitchAccountPanel({
   const footer = (
     <div className="flex flex-col-reverse gap-2 border-t border-[#eef0f2] px-5 py-3 sm:flex-row sm:justify-end">
       <button type="button" className={SHEET_SECONDARY} onClick={onClose} disabled={busy}>
-        Keep this account
+        {tt("Keep this account")}
       </button>
       <button
         type="button"
@@ -2925,19 +2925,19 @@ function SwitchAccountPanel({
         data-confirm-switch=""
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        {busy ? "Disconnecting" : "Disconnect and set up again"}
+        {busy ? tt("Disconnecting") : tt("Disconnect and set up again")}
       </button>
     </div>
   );
   return (
     <>
-      <DesktopDialog open={open} onClose={onClose} label="Use a different account" width="max-w-[480px]">
-        <PanelHead title="Use a different account" onClose={onClose} />
+      <DesktopDialog open={open} onClose={onClose} label={tt("Use a different account")} width="max-w-[480px]">
+        <PanelHead title={tt("Use a different account")} onClose={onClose} />
         {body}
         {footer}
       </DesktopDialog>
-      <BottomSheet isOpen={open} onClose={onClose} label="Use a different account">
-        <PanelHead title="Use a different account" />
+      <BottomSheet isOpen={open} onClose={onClose} label={tt("Use a different account")}>
+        <PanelHead title={tt("Use a different account")} />
         {body}
         {footer}
       </BottomSheet>
@@ -3010,21 +3010,21 @@ function PayoutsHistoryList({
   if (!payouts.length) {
     return (
       <div data-empty="" className="flex flex-col items-center px-6 py-14 text-center">
-        <p className="text-[15px] font-semibold text-[#1a1a2e]">No payouts yet</p>
+        <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("No payouts yet")}</p>
         <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
-          Every cash out to your bank shows up here, with the day it arrives.
+          {tt("Every cash out to your bank shows up here, with the day it arrives.")}
         </p>
       </div>
     );
   }
 
   const arrival = (p: StripePayout) =>
-    p.arrival_date ? (p.status === "paid" ? `Arrived ${fmtUnix(p.arrival_date)}` : `Due ${fmtUnix(p.arrival_date)}`) : null;
+    p.arrival_date ? (p.status === "paid" ? tt("Arrived {arrival_date}", { arrival_date: fmtUnix(p.arrival_date) }) : tt("Due {arrival_date}", { arrival_date: fmtUnix(p.arrival_date) })) : null;
 
   return (
     <>
       {/* A phone: one 64px row per payout, the amount and its days, the status at the right. */}
-      <ul aria-label="Payouts" className="md:hidden">
+      <ul aria-label={tt("Payouts")} className="md:hidden">
         {visiblePayouts.map((p) => {
           const cfg = payoutStatusConfig(p.status);
           return (
@@ -3047,12 +3047,12 @@ function PayoutsHistoryList({
       <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table">
         <thead>
           <tr className="h-9 text-left text-[12px] text-[#6b7280]">
-            <th scope="col" className="w-[124px] border-b border-[#eef0f2] pl-4 pr-3 font-medium">Date</th>
-            <th scope="col" className="w-[120px] border-b border-[#eef0f2] px-3 text-right font-medium">Amount</th>
-            <th scope="col" className="w-[124px] border-b border-[#eef0f2] px-3 font-medium">Status</th>
-            <th scope="col" className="border-b border-[#eef0f2] px-3 font-medium">Arrival</th>
-            <th scope="col" className="hidden border-b border-[#eef0f2] px-3 font-medium lg:table-cell">Destination</th>
-            <th scope="col" className="hidden w-[250px] border-b border-[#eef0f2] pl-3 pr-4 font-medium xl:table-cell">Payout ID</th>
+            <th scope="col" className="w-[124px] border-b border-[#eef0f2] pl-4 pr-3 font-medium">{tt("Date")}</th>
+            <th scope="col" className="w-[120px] border-b border-[#eef0f2] px-3 text-right font-medium">{tt("Amount")}</th>
+            <th scope="col" className="w-[124px] border-b border-[#eef0f2] px-3 font-medium">{tt("Status")}</th>
+            <th scope="col" className="border-b border-[#eef0f2] px-3 font-medium">{tt("Arrival")}</th>
+            <th scope="col" className="hidden border-b border-[#eef0f2] px-3 font-medium lg:table-cell">{tt("Destination")}</th>
+            <th scope="col" className="hidden w-[250px] border-b border-[#eef0f2] pl-3 pr-4 font-medium xl:table-cell">{tt("Payout ID")}</th>
           </tr>
         </thead>
         <tbody className="[&>tr+tr>td]:border-t [&>tr+tr>td]:border-[#f1f2f4]">
@@ -3066,7 +3066,7 @@ function PayoutsHistoryList({
                   <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
                 </td>
                 <td className="truncate bg-white px-3 text-[#4b5563]">
-                  {arrival(p) ?? <span className="text-[#9ca3af]">Usually 1 to 3 business days</span>}
+                  {arrival(p) ?? <span className="text-[#9ca3af]">{tt("Usually 1 to 3 business days")}</span>}
                 </td>
                 <td className="hidden truncate bg-white px-3 text-[#4b5563] lg:table-cell">
                   {p.destination || <span className="text-[#9ca3af]">&ndash;</span>}
@@ -3114,10 +3114,10 @@ const PAGE_SIZE = 10;
 
 type SalesFilter = "all" | "completed" | "refunded" | "disputed";
 const FILTER_LABEL: Record<SalesFilter, string> = {
-  all: "All",
-  completed: "Paid",
-  refunded: "Refunded",
-  disputed: "Disputed",
+  get all() { return tt("All") },
+  get completed() { return tt("Paid") },
+  get refunded() { return tt("Refunded") },
+  get disputed() { return tt("Disputed") },
 };
 
 /**
@@ -3369,11 +3369,11 @@ export function PayoutsClient({
     if (withdraw.loading) return;
     if (!canCashOut) {
       toast({
-        title: "Nothing to cash out yet",
+        title: tt("Nothing to cash out yet"),
         description: effectiveBalance < 0
-          ? "Your available balance has to be above zero first."
+          ? tt("Your available balance has to be above zero first.")
           : upcoming[0]
-            ? `${fmt(upcoming[0].amount, upcoming[0].currency)} becomes available on ${fmtDay(upcoming[0].date)}.`
+            ? tt("{value} becomes available on {date}.", { value: fmt(upcoming[0].amount, upcoming[0].currency), date: fmtDay(upcoming[0].date) })
             : settleText(settleDays),
       });
       return;
@@ -3407,19 +3407,19 @@ export function PayoutsClient({
   const exportItems = useMemo<ActionMenuItem[]>(
     () => [
       {
-        label: "Earnings summary (CSV)",
+        label: tt("Earnings summary (CSV)"),
         icon: <FileText />,
         onClick: () => exportOrdersCsv(filteredOrders, salesCurrency),
       },
       {
-        label: "Payouts history (CSV)",
+        label: tt("Payouts history (CSV)"),
         icon: <Landmark />,
         onClick: () => {
           exportPayoutsCsv()
             .then((saved) => {
-              if (!saved) toast({ title: "No payouts to export yet" });
+              if (!saved) toast({ title: tt("No payouts to export yet") });
             })
-            .catch(() => toast({ title: "Export failed. Try again.", variant: "destructive" }));
+            .catch(() => toast({ title: tt("Export failed. Try again."), variant: "destructive" }));
         },
       },
     ],
@@ -3436,22 +3436,22 @@ export function PayoutsClient({
   const actions = paymentsReady ? (
     <>
       <ResponsiveActionMenu
-        title="Export"
+        title={tt("Export")}
         align="end"
         menuWidth="w-60"
         trigger={
-          <Press aria-label="Export" className="max-md:hidden" look={LOOK_SECONDARY} data-payouts-export="">
+          <Press aria-label={tt("Export")} className="max-md:hidden" look={LOOK_SECONDARY} data-payouts-export="">
             <Download className="h-3.5 w-3.5 text-[#6b7280]" />
-            Export
+            {tt("Export")}
           </Press>
         }
         items={exportItems}
       />
       <ResponsiveActionMenu
-        title="Export"
+        title={tt("Export")}
         align="end"
         trigger={
-          <Press aria-label="Export" className="md:hidden" look={LOOK_ICON} data-payouts-export="">
+          <Press aria-label={tt("Export")} className="md:hidden" look={LOOK_ICON} data-payouts-export="">
             <Download className="h-4 w-4" />
           </Press>
         }
@@ -3466,7 +3466,7 @@ export function PayoutsClient({
           data-cash-out=""
         >
           {withdraw.loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          {withdraw.loading ? "Cashing out" : "Cash out"}
+          {withdraw.loading ? tt("Cashing out") : tt("Cash out")}
         </Press>
       ) : null}
     </>
@@ -3480,7 +3480,7 @@ export function PayoutsClient({
   */
   if (!paymentsReady) {
     return (
-      <div aria-label="Set up payouts" data-payouts-setup="" className="mt-4 w-full">
+      <div aria-label={tt("Set up payouts")} data-payouts-setup="" className="mt-4 w-full">
         <StorelibPaymentsInline compact />
       </div>
     );
@@ -3498,18 +3498,18 @@ export function PayoutsClient({
       return (
         <Notice
           tone="critical"
-          title={activeDisputeCount === 1 ? "A buyer disputed a payment" : `${activeDisputeCount} payments are disputed`}
+          title={activeDisputeCount === 1 ? tt("A buyer disputed a payment") : tt("{activeDisputeCount} payments are disputed", { activeDisputeCount })}
           body={
             <>
-              Your share of {fmt(totalDisputedAmount, salesCurrency)} in sales is held while the buyer&apos;s bank decides. Storelib answers the bank for you; add anything that proves the sale below.
+              {tt("Your share of")} {fmt(totalDisputedAmount, salesCurrency)} {tt("in sales is held while the buyer's bank decides. Storelib answers the bank for you; add anything that proves the sale below.")}
               {negativeBalance > 0 ? (
                 <span className="mt-1 block font-medium text-[#8a1c0f]">
-                  Your balance is -{fmt(negativeBalance, salesCurrency)} because of it. New sales cover the difference.
+                  {tt("Your balance is -")}{fmt(negativeBalance, salesCurrency)} {tt("because of it. New sales cover the difference.")}
                 </span>
               ) : null}
             </>
           }
-          action={{ label: "See disputes", onClick: () => document.getElementById("disputes")?.scrollIntoView({ behavior: "smooth", block: "start" }) }}
+          action={{ label: tt("See disputes"), onClick: () => document.getElementById("disputes")?.scrollIntoView({ behavior: "smooth", block: "start" }) }}
         />
       );
     }
@@ -3519,8 +3519,8 @@ export function PayoutsClient({
       return (
         <Notice
           tone="attention"
-          title="Your balance is below zero after a refund"
-          body={`${fmt(negativeBalance, salesCurrency)} was taken back from your balance. New sales cover it first, with nothing for you to do, and Cash out comes back once your balance is above zero.`}
+          title={tt("Your balance is below zero after a refund")}
+          body={tt("{value} was taken back from your balance. New sales cover it first, with nothing for you to do, and Cash out comes back once your balance is above zero.", { value: fmt(negativeBalance, salesCurrency) })}
         />
       );
     }
@@ -3530,9 +3530,9 @@ export function PayoutsClient({
       return (
         <Notice
           tone="critical"
-          title="Your last payout failed"
-          body="The money is back in your available balance. Check your bank details, then cash out again."
-          action={{ label: "Update bank", onClick: openAccountPanel }}
+          title={tt("Your last payout failed")}
+          body={tt("The money is back in your available balance. Check your bank details, then cash out again.")}
+          action={{ label: tt("Update bank"), onClick: openAccountPanel }}
         />
       );
     }
@@ -3542,7 +3542,7 @@ export function PayoutsClient({
       /* 2 to 4: what Stripe needs, in Storelib's words, from the same status as the payments card. */
       if (paymentsStatus && paymentsStatus.status !== "ACTIVE" && paymentsStatus.status !== "NOT_STARTED") {
         const s = paymentsStatus;
-        const by = s.deadline ? ` Needed by ${new Date(s.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}.` : "";
+        const by = s.deadline ? tt(" Needed by {date}.", { date: new Date(s.deadline).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" })) }) : "";
         return (
           <Notice
             tone={s.action ? "attention" : "neutral"}
@@ -3550,7 +3550,7 @@ export function PayoutsClient({
             body={`${s.line}${by}`}
             action={
               s.action === "support"
-                ? { label: s.actionLabel ?? "Contact support", onClick: () => { window.location.href = "mailto:support@storelib.com"; } }
+                ? { label: s.actionLabel ?? tt("Contact support"), onClick: () => { window.location.href = "mailto:support@storelib.com"; } }
                 : s.action && s.actionLabel
                   ? { label: s.actionLabel, onClick: openAccountPanel }
                   : undefined
@@ -3564,8 +3564,8 @@ export function PayoutsClient({
         return (
           <Notice
             tone="attention"
-            title="Finish setting up payments to cash out"
-            action={{ label: "Continue", onClick: openAccountPanel }}
+            title={tt("Finish setting up payments to cash out")}
+            action={{ label: tt("Continue"), onClick: openAccountPanel }}
           />
         );
       }
@@ -3576,8 +3576,8 @@ export function PayoutsClient({
       return (
         <Notice
           tone="neutral"
-          title="A payout is on its way to your bank"
-          body="It usually arrives in 1 to 3 business days."
+          title={tt("A payout is on its way to your bank")}
+          body={tt("It usually arrives in 1 to 3 business days.")}
         />
       );
     }
@@ -3588,8 +3588,8 @@ export function PayoutsClient({
       return (
         <Notice
           tone="neutral"
-          title="Your first payout can take a little longer"
-          body="Stripe takes extra time with a new account. Later payouts are faster."
+          title={tt("Your first payout can take a little longer")}
+          body={tt("Stripe takes extra time with a new account. Later payouts are faster.")}
         />
       );
     }
@@ -3615,8 +3615,8 @@ export function PayoutsClient({
     }));
 
   const tabs = [
-    { value: "sales" as const, label: "Sales" },
-    { value: "payouts" as const, label: "Payouts" },
+    { value: "sales" as const, label: tt("Sales") },
+    { value: "payouts" as const, label: tt("Payouts") },
   ];
   const tabIndex = recentTab === "sales" ? 0 : 1;
   const from = listLength === 0 ? 0 : recentPage * PAGE_SIZE + 1;
@@ -3661,11 +3661,11 @@ export function PayoutsClient({
         between them, a tint under the pointer, statuses as Orders' badges.
         A phone has rows of its own, 64px, the whole row the press.
       */}
-      <section aria-label="Sales and payouts" data-activity="" className={cn(card, "overflow-hidden")}>
+      <section aria-label={tt("Sales and payouts")} data-activity="" className={cn(card, "overflow-hidden")}>
         <div className="flex h-14 items-center gap-2 border-b border-[#eef0f2] pl-2 pr-1.5 md:h-12 md:pl-3 md:pr-2">
           <div
             role="tablist"
-            aria-label="Show"
+            aria-label={tt("Show")}
             className="relative grid h-11 w-[176px] shrink-0 grid-cols-2 md:h-8 md:w-[168px]"
           >
             <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-[4px] top-[4px] rounded-[9px] bg-[#eceef1] md:inset-y-0" />
@@ -3701,12 +3701,12 @@ export function PayoutsClient({
           {recentTab === "sales" && initialOrders.length > 0 ? (
             <div className="ml-auto">
               <ResponsiveActionMenu
-                title="Show sales"
+                title={tt("Show sales")}
                 align="end"
                 menuWidth="w-52"
                 trigger={
                   <Press
-                    aria-label={`Showing ${FILTER_LABEL[salesFilter]} sales. Change`}
+                    aria-label={tt("Showing {filter} sales. Change", { filter: FILTER_LABEL[salesFilter] })}
                     look={cn(LOOK_SECONDARY, salesFilter !== "all" && "bg-[#f1f2f4]")}
                     data-sales-filter=""
                   >
@@ -3735,11 +3735,11 @@ export function PayoutsClient({
             />
           ) : pagedOrders.length === 0 ? (
             <div data-empty="" className="flex flex-col items-center px-6 py-14 text-center">
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">{initialOrders.length === 0 ? "No sales yet" : "No sales match"}</p>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{initialOrders.length === 0 ? tt("No sales yet") : tt("No sales match")}</p>
               <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
                 {initialOrders.length === 0
-                  ? "Your sales show up here as soon as someone buys, with what they paid and what you keep."
-                  : "Nothing with this status. Show all sales to see the rest."}
+                  ? tt("Your sales show up here as soon as someone buys, with what they paid and what you keep.")
+                  : tt("Nothing with this status. Show all sales to see the rest.")}
               </p>
               {initialOrders.length > 0 ? (
                 <button
@@ -3747,7 +3747,7 @@ export function PayoutsClient({
                   className={cn(LOOK_SECONDARY, "mt-4 max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[14px]")}
                   onClick={() => smoothSwitch(() => { setSalesFilter("all"); setRecentPage(0); })}
                 >
-                  Show all sales
+                  {tt("Show all sales")}
                 </button>
               ) : null}
             </div>
@@ -3759,10 +3759,10 @@ export function PayoutsClient({
                 right, and a status under it only when the sale is not simply
                 paid, so the list is quiet unless something needs a look.
               */}
-              <ul aria-label="Sales" className="md:hidden">
+              <ul aria-label={tt("Sales")} className="md:hidden">
                 {pagedOrders.map((order) => {
-                  const name = customerNameOf(order) || order.buyer?.email || order.buyer_email || "Customer";
-                  const day = new Date(order.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  const name = customerNameOf(order) || order.buyer?.email || order.buyer_email || tt("Customer");
+                  const day = new Date(order.created_at).toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric" }));
                   return (
                     <li key={order.id} className="relative [&+li]:before:absolute [&+li]:before:left-[68px] [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#eceef1]">
                       <button
@@ -3775,7 +3775,7 @@ export function PayoutsClient({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[14px] font-medium leading-[18px] text-[#1a1a2e]">{name}</span>
                           <span className="mt-1 block truncate text-[12px] leading-4 text-[#6b7280]">
-                            {day} · {order.product?.title || "Product"}
+                            {day} · {order.product?.title || tt("Product")}
                           </span>
                         </span>
                         <span className="flex shrink-0 flex-col items-end gap-1">
@@ -3799,12 +3799,12 @@ export function PayoutsClient({
               <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table">
                 <thead>
                   <tr className="h-9 text-left text-[12px] text-[#6b7280]">
-                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium">Customer</th>
-                    <th scope="col" className="hidden w-[34%] border-b border-[#eef0f2] px-3 font-medium lg:table-cell">Product</th>
-                    <th scope="col" className="w-[120px] border-b border-[#eef0f2] px-3 font-medium">Date</th>
-                    <th scope="col" className="w-[140px] border-b border-[#eef0f2] px-3 font-medium">Status</th>
-                    <th scope="col" className="w-[110px] border-b border-[#eef0f2] px-3 text-right font-medium">Amount</th>
-                    <th scope="col" className="w-[52px] border-b border-[#eef0f2]" aria-label="Actions" />
+                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium">{tt("Customer")}</th>
+                    <th scope="col" className="hidden w-[34%] border-b border-[#eef0f2] px-3 font-medium lg:table-cell">{tt("Product")}</th>
+                    <th scope="col" className="w-[120px] border-b border-[#eef0f2] px-3 font-medium">{tt("Date")}</th>
+                    <th scope="col" className="w-[140px] border-b border-[#eef0f2] px-3 font-medium">{tt("Status")}</th>
+                    <th scope="col" className="w-[110px] border-b border-[#eef0f2] px-3 text-right font-medium">{tt("Amount")}</th>
+                    <th scope="col" className="w-[52px] border-b border-[#eef0f2]" aria-label={tt("Actions")} />
                   </tr>
                 </thead>
                 <tbody className="[&>tr+tr>td]:border-t [&>tr+tr>td]:border-[#f1f2f4]">
@@ -3812,9 +3812,9 @@ export function PayoutsClient({
                     const name = customerNameOf(order);
                     const email = order.buyer?.email || order.buyer_email || "";
                     const rowItems: ActionMenuItem[] = [
-                      { label: "View sale", icon: <FileText />, onClick: () => openOrderDetails(order) },
+                      { label: tt("View sale"), icon: <FileText />, onClick: () => openOrderDetails(order) },
                       ...(order.status === "completed"
-                        ? [{ label: "Refund", icon: <RotateCcw />, variant: "destructive" as const, separatorBefore: true, onClick: () => openOrderDetails(order, true) }]
+                        ? [{ label: tt("Refund"), icon: <RotateCcw />, variant: "destructive" as const, separatorBefore: true, onClick: () => openOrderDetails(order, true) }]
                         : []),
                     ];
                     return (
@@ -3834,14 +3834,14 @@ export function PayoutsClient({
                             onClick={() => openOrderDetails(order)}
                             className="block max-w-full cursor-pointer truncate text-left font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline"
                           >
-                            {name || email || "Customer"}
+                            {name || email || tt("Customer")}
                           </button>
                           {name && email ? <span className="block truncate text-[12px] text-[#6b7280]">{email}</span> : null}
                         </td>
                         <td className="hidden bg-white px-3 lg:table-cell">
                           <span className="flex min-w-0 items-center gap-2.5">
                             <Thumb src={order.product?.thumbnail_url} size={32} />
-                            <span className="min-w-0 truncate text-[#303036]">{order.product?.title || "Product"}</span>
+                            <span className="min-w-0 truncate text-[#303036]">{order.product?.title || tt("Product")}</span>
                           </span>
                         </td>
                         <td className="whitespace-nowrap bg-white px-3 text-[#4b5563]">{fmtDate(order.created_at)}</td>
@@ -3852,9 +3852,9 @@ export function PayoutsClient({
                         <td className="bg-white pr-2.5">
                           <div className="flex justify-end">
                             <ResponsiveActionMenu
-                              title={name || "Sale"}
+                              title={name || tt("Sale")}
                               align="end"
-                              trigger={<RowMenuButton label={`Actions for this sale`} className="h-7 w-7" />}
+                              trigger={<RowMenuButton label={tt("Actions for this sale")} className="h-7 w-7" />}
                               items={rowItems}
                             />
                           </div>
@@ -3871,13 +3871,13 @@ export function PayoutsClient({
         {listLength > 0 ? (
           <div className="flex h-12 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] pl-4 pr-1.5 md:h-11 md:pr-3">
             <span className="text-[12px] tabular-nums text-[#6b7280]">
-              {from}–{to} of {listLength.toLocaleString("en-US")}
+              {tt("{from}–{to} of {value}", { from, to, value: listLength.toLocaleString(appLocale()) })}
             </span>
             <div className="flex items-center md:gap-1">
-              <Press aria-label="Previous page" look={LOOK_ARROW} disabled={recentPage <= 0} onClick={() => changePage(Math.max(0, recentPage - 1))}>
+              <Press aria-label={tt("Previous page")} look={LOOK_ARROW} disabled={recentPage <= 0} onClick={() => changePage(Math.max(0, recentPage - 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Press>
-              <Press aria-label="Next page" look={LOOK_ARROW} disabled={recentPage >= pageCount - 1} onClick={() => changePage(Math.min(pageCount - 1, recentPage + 1))}>
+              <Press aria-label={tt("Next page")} look={LOOK_ARROW} disabled={recentPage >= pageCount - 1} onClick={() => changePage(Math.min(pageCount - 1, recentPage + 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Press>
             </div>

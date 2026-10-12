@@ -62,6 +62,7 @@ import { navEntries, sectionFromPath } from "@/components/community/member/nav"
 import { REOPEN, moderationMenu, muteUntil } from "@/components/community/member/moderation"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { CommentRow, CommunityRow, Role, SpaceRow } from "@/lib/communities/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -76,7 +77,7 @@ function check(name: string, ok: boolean, detail?: string) {
     console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 const walk = (dir: string): string[] => (existsSync(dir) ? readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : [join(dir, f)])) : [])
 

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils"
 import { BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, Pill, api } from "@/components/physical/ui"
 import { Switch } from "@/components/ui/switch"
 import { languageName } from "@/lib/markets/locales"
+import { activeLocale, tt } from "@/lib/i18n/text"
 
 type Status = "missing" | "outdated" | "draft" | "done"
 interface Item {
@@ -52,10 +53,10 @@ interface Loaded {
 }
 
 const STATUS: Record<Status, { label: string; tone: "gray" | "amber" | "blue" | "green" }> = {
-  missing: { label: "To translate", tone: "gray" },
-  outdated: { label: "Changed", tone: "amber" },
-  draft: { label: "AI draft", tone: "blue" },
-  done: { label: "Done", tone: "green" },
+  missing: { get label() { return tt("To translate") }, tone: "gray" },
+  outdated: { get label() { return tt("Changed") }, tone: "amber" },
+  draft: { get label() { return tt("AI draft") }, tone: "blue" },
+  done: { get label() { return tt("Done") }, tone: "green" },
 }
 
 type Filter = "todo" | "all"
@@ -123,7 +124,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     setApprove(new Set())
     await load(locale)
     setBusy(null)
-    setNote("Saved")
+    setNote(tt("Saved"))
     window.setTimeout(() => setNote(null), 1800)
   }
 
@@ -140,15 +141,15 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
         break
       }
       total += r.data.drafted
-      setNote(r.data.left ? `${total} drafted, ${r.data.left} to go` : null)
+      setNote(r.data.left ? tt("{total} drafted, {left} to go", { total, left: r.data.left }) : null)
       if (!r.data.left || r.data.drafted === 0) break
     }
     await load(locale)
     setBusy(null)
-    setNote(total ? `${total} drafted. Read them, then approve.` : "Nothing left to draft.")
+    setNote(total ? tt("{total} drafted. Read them, then approve.", { total }) : tt("Nothing left to draft."))
   }
 
-  const name = locale ? languageName(locale, "en") : ""
+  const name = locale ? languageName(locale, activeLocale()) : ""
   const shownGroups = (data?.groups ?? [])
     .map((g) => ({ ...g, items: g.items.filter((i) => filter === "all" || i.status !== "done" || i.key in edits) }))
     .filter((g) => g.items.length)
@@ -158,30 +159,30 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
       open={!!locale}
       onClose={onClose}
       wide
-      title={`Translate to ${name}`}
+      title={tt("Translate to {name}", { name })}
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2">
           {onPublish ? (
             <label className="mr-auto flex items-center gap-2 text-[13px] font-medium text-[#1a1a2e]" data-translate-publish="">
-              <Switch checked={published} onCheckedChange={onPublish} aria-label={`Publish ${name}`} className="!min-h-0 shrink-0" />
-              {published ? "Live on your website" : "Publish"}
+              <Switch checked={published} onCheckedChange={onPublish} aria-label={tt("Publish {name}", { name })} className="!min-h-0 shrink-0" />
+              {published ? tt("Live on your website") : tt("Publish")}
             </label>
           ) : note ? (
             <span className="mr-auto text-[13px] text-[#4b5563]">{note}</span>
           ) : null}
           {drafts.length ? (
             <button type="button" className={BTN_SECONDARY} disabled={!!busy} onClick={() => void save(drafts.map((d) => d.key))}>
-              Approve all ({drafts.length})
+              {tt("Approve all ({length})", { length: drafts.length })}
             </button>
           ) : null}
           <button type="button" className={BTN_PRIMARY} disabled={!!busy || pending === 0} onClick={() => void save()} data-save-translations="">
-            {busy === "save" ? "Saving" : pending ? `Save ${pending}` : "Save"}
+            {busy === "save" ? tt("Saving") : pending ? tt("Save {pending}", { pending }) : tt("Save")}
           </button>
         </div>
       }
     >
       <div className="space-y-4" data-translate-sheet={locale ?? ""}>
-        {data && !data.ready ? <Notice tone="amber">Translations aren&apos;t set up yet. Run SQL part 136 in Supabase, then try again.</Notice> : null}
+        {data && !data.ready ? <Notice tone="amber">{tt("Translations aren't set up yet. Run SQL part 136 in Supabase, then try again.")}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         {data ? (
           <div className="space-y-3">
@@ -189,9 +190,9 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
               <div data-translate-progress="">
                 <div className="flex items-baseline justify-between text-[13px]">
                   <span className="font-medium text-[#1a1a2e]">
-                    {data.progress.done} of {data.progress.total} translated
+                    {tt("{done} of {total} translated", { done: data.progress.done, total: data.progress.total })}
                   </span>
-                  <span className="text-[#6b7280]">The rest shows in {languageName(defaultLanguage, "en")}</span>
+                  <span className="text-[#6b7280]">{tt("The rest shows in {name}", { name: languageName(defaultLanguage, activeLocale()) })}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
                   <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${Math.round((data.progress.done / data.progress.total) * 100)}%` }} />
@@ -203,10 +204,10 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
               {items.some((i) => i.status === "missing" || i.status === "outdated") ? (
                 <button type="button" className={cn(BTN_PRIMARY, "h-10")} onClick={() => void draftWithAi()} disabled={!!busy} data-translate-ai="">
                   <Sparkles className="h-4 w-4" />
-                  {busy === "ai" ? "Translating" : "Translate everything with AI"}
+                  {busy === "ai" ? tt("Translating") : tt("Translate everything with AI")}
                 </button>
               ) : null}
-              <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label="Show">
+              <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
                 {(["todo", "all"] as Filter[]).map((f) => (
                   <button
                     key={f}
@@ -216,7 +217,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                     onClick={() => setFilter(f)}
                     className={cn("h-8 rounded-md px-3 text-[13px] font-medium transition-colors", filter === f ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
                   >
-                    {f === "todo" ? "To do" : "All"}
+                    {f === "todo" ? tt("To do") : tt("All")}
                   </button>
                 ))}
               </div>
@@ -226,7 +227,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
           <div className="h-40" aria-busy="true" />
         ) : null}
 
-        {data && shownGroups.length === 0 ? <p className="py-6 text-center text-[13.5px] text-[#6b7280]">{items.length ? "Everything is translated." : "Your website has no text to translate yet."}</p> : null}
+        {data && shownGroups.length === 0 ? <p className="py-6 text-center text-[13.5px] text-[#6b7280]">{items.length ? tt("Everything is translated.") : tt("Your website has no text to translate yet.")}</p> : null}
 
         {shownGroups.map((g) => (
           <section key={g.id} aria-labelledby={`tr-${g.id}`} className="space-y-2">
@@ -261,7 +262,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                               })
                             }
                           />
-                          Approve
+                          {tt("Approve")}
                         </label>
                       ) : null}
                     </div>
@@ -271,20 +272,20 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                         value={value}
                         onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
                         rows={Math.min(8, Math.max(2, Math.ceil(i.source.length / 70)))}
-                        placeholder={`In ${name}`}
-                        aria-label={`${i.label} in ${name}`}
+                        placeholder={tt("In {name}", { name })}
+                        aria-label={tt("{label} in {name}", { label: i.label, name })}
                         className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[16px] leading-6 sm:text-[14px] sm:leading-5 text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
                       />
                     ) : (
                       <input
                         value={value}
                         onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
-                        placeholder={`In ${name}`}
-                        aria-label={`${i.label} in ${name}`}
+                        placeholder={tt("In {name}", { name })}
+                        aria-label={tt("{label} in {name}", { label: i.label, name })}
                         className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] sm:text-[14px] outline-none transition-colors focus:border-[#1a1a2e]"
                       />
                     )}
-                    {i.rich ? <p className="text-[12px] text-[#9ca3af]">Edited here, it&apos;s saved as plain text: a blank line starts a new paragraph.</p> : null}
+                    {i.rich ? <p className="text-[12px] text-[#9ca3af]">{tt("Edited here, it's saved as plain text: a blank line starts a new paragraph.")}</p> : null}
                   </li>
                 )
               })}

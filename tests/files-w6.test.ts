@@ -19,6 +19,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileThumb, rawSize, thumbable, thumbSlot, tooSmallFor } from "@/lib/files/thumb"
 import { deleteLibraryFiles, listLibrary } from "@/lib/files/library"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -27,7 +28,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const lib = read("components/files/files-library.tsx")
 const owner = { userId: "user-1", creatorId: "creator-1" }
 

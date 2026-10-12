@@ -42,6 +42,7 @@ import { join } from "node:path"
 
 import { ARCHIVED_FOR_LINKS, ARCHIVED_FOR_SALES, deleteOwnProduct, previewDelete, productHasSales } from "@/lib/products/delete-product"
 import { deleteProduct, deleteQuestion, isStale, leaveNotice, previewProductDelete, rememberDeleted, rememberStatus, takeNotice, withChanges } from "@/lib/products/delete-client"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -57,7 +58,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${d}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1")
 
 /* ── A database with the foreign keys a real one has ────────────────────── */

@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  WHO CAN FULFIL A SHOP'S ORDERS, AND WHAT IS LIVE TODAY
@@ -56,18 +57,18 @@ export interface ProviderInfo {
 }
 
 export const PROVIDERS: ProviderInfo[] = [
-  { id: "manual", name: "Ship it yourself", category: "fulfillment", availability: "live", description: "Pack and ship orders yourself, then add tracking on the order.", fields: [] },
-  { id: "supplier_email", name: "Supplier by email", category: "supplier", availability: "live", description: "Each paid order is emailed to the location's supplier with the items and the address. Add tracking when they reply.", fields: ["email"] },
-  { id: "custom_webhook", name: "Your own system (webhook)", category: "fulfillment", availability: "live", description: "Each paid order is sent to your https address as JSON, signed with your secret (X-Storelib-Signature).", fields: ["url", "webhook_secret"] },
-  { id: "csv", name: "CSV export", category: "fulfillment", availability: "live", description: "Download unfulfilled orders as a CSV for a warehouse or a spreadsheet.", fields: [] },
-  { id: "printful", name: "Printful", category: "print_on_demand", availability: "connect", description: "Each paid order for your Printful location is sent to your Printful store by SKU, and its tracking comes back to your buyer.", fields: ["api_key"], docsUrl: "https://developers.printful.com/docs/", verifies: true },
-  { id: "printify", name: "Printify", category: "print_on_demand", availability: "connect", description: "Each paid order for your Printify location is sent to your Printify shop by SKU, and its tracking comes back to your buyer.", fields: ["api_key"], docsUrl: "https://developers.printify.com/", verifies: true },
-  { id: "gelato", name: "Gelato", category: "print_on_demand", availability: "connect", description: "Each paid order for your Gelato location is sent to Gelato with the product and print file you matched, printed near your buyer, and its tracking comes back.", fields: ["api_key"], docsUrl: "https://dashboard.gelato.com/docs/", verifies: true },
-  { id: "cj_dropshipping", name: "CJ Dropshipping", category: "dropshipping", availability: "connect", description: "Each paid order for your CJ location is sent to CJ with the CJ variants you matched, its tracking comes back, and CJ's stock can keep yours in step.", fields: ["api_key"], docsUrl: "https://developers.cjdropshipping.com/", verifies: true },
+  { id: "manual", name: "Ship it yourself", category: "fulfillment", availability: "live", get description() { return tt("Pack and ship orders yourself, then add tracking on the order.") }, fields: [] },
+  { id: "supplier_email", name: "Supplier by email", category: "supplier", availability: "live", get description() { return tt("Each paid order is emailed to the location's supplier with the items and the address. Add tracking when they reply.") }, fields: ["email"] },
+  { id: "custom_webhook", name: "Your own system (webhook)", category: "fulfillment", availability: "live", get description() { return tt("Each paid order is sent to your https address as JSON, signed with your secret (X-Storelib-Signature).") }, fields: ["url", "webhook_secret"] },
+  { id: "csv", name: "CSV export", category: "fulfillment", availability: "live", get description() { return tt("Download unfulfilled orders as a CSV for a warehouse or a spreadsheet.") }, fields: [] },
+  { id: "printful", name: "Printful", category: "print_on_demand", availability: "connect", get description() { return tt("Each paid order for your Printful location is sent to your Printful store by SKU, and its tracking comes back to your buyer.") }, fields: ["api_key"], docsUrl: "https://developers.printful.com/docs/", verifies: true },
+  { id: "printify", name: "Printify", category: "print_on_demand", availability: "connect", get description() { return tt("Each paid order for your Printify location is sent to your Printify shop by SKU, and its tracking comes back to your buyer.") }, fields: ["api_key"], docsUrl: "https://developers.printify.com/", verifies: true },
+  { id: "gelato", name: "Gelato", category: "print_on_demand", availability: "connect", get description() { return tt("Each paid order for your Gelato location is sent to Gelato with the product and print file you matched, printed near your buyer, and its tracking comes back.") }, fields: ["api_key"], docsUrl: "https://dashboard.gelato.com/docs/", verifies: true },
+  { id: "cj_dropshipping", name: "CJ Dropshipping", category: "dropshipping", availability: "connect", get description() { return tt("Each paid order for your CJ location is sent to CJ with the CJ variants you matched, its tracking comes back, and CJ's stock can keep yours in step.") }, fields: ["api_key"], docsUrl: "https://developers.cjdropshipping.com/", verifies: true },
   /* Shipping apps (lib/integrations/shipping): labels from the order page with Shippo and EasyPost, whole orders out to ShipStation and its tracking back. */
-  { id: "shipstation", name: "ShipStation", category: "shipping", availability: "connect", description: "Each paid order you ship goes to ShipStation. Print the label there and the tracking comes back to your buyer.", fields: ["api_key", "api_secret"], docsUrl: "https://www.shipstation.com/docs/api/", verifies: true },
-  { id: "shippo", name: "Shippo", category: "shipping", availability: "connect", description: "Buy and print labels from the order page at Shippo's rates. The tracking number goes on the shipment.", fields: ["api_key"], docsUrl: "https://docs.goshippo.com/", verifies: true },
-  { id: "easypost", name: "EasyPost", category: "shipping", availability: "connect", description: "Buy and print labels from the order page at EasyPost's rates. The tracking number goes on the shipment.", fields: ["api_key"], docsUrl: "https://docs.easypost.com/", verifies: true },
+  { id: "shipstation", name: "ShipStation", category: "shipping", availability: "connect", get description() { return tt("Each paid order you ship goes to ShipStation. Print the label there and the tracking comes back to your buyer.") }, fields: ["api_key", "api_secret"], docsUrl: "https://www.shipstation.com/docs/api/", verifies: true },
+  { id: "shippo", name: "Shippo", category: "shipping", availability: "connect", get description() { return tt("Buy and print labels from the order page at Shippo's rates. The tracking number goes on the shipment.") }, fields: ["api_key"], docsUrl: "https://docs.goshippo.com/", verifies: true },
+  { id: "easypost", name: "EasyPost", category: "shipping", availability: "connect", get description() { return tt("Buy and print labels from the order page at EasyPost's rates. The tracking number goes on the shipment.") }, fields: ["api_key"], docsUrl: "https://docs.easypost.com/", verifies: true },
 ]
 
 export function providerInfo(id: string): ProviderInfo | null {
@@ -75,9 +76,9 @@ export function providerInfo(id: string): ProviderInfo | null {
 }
 
 export const CATEGORY_LABEL: Record<ProviderCategory, string> = {
-  fulfillment: "Fulfillment",
-  print_on_demand: "Print on demand",
-  dropshipping: "Dropshipping",
-  supplier: "Suppliers",
-  shipping: "Shipping labels and rates",
+  get fulfillment() { return tt("Fulfillment") },
+  get print_on_demand() { return tt("Print on demand") },
+  get dropshipping() { return tt("Dropshipping") },
+  get supplier() { return tt("Suppliers") },
+  get shipping() { return tt("Shipping labels and rates") },
 }

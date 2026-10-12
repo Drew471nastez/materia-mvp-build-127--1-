@@ -22,6 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import { PickerDivider, PickerRow, onRowsKey, pickerButton, pickerSurface, usePhone } from "@/components/app/date-range-picker"
+import { tt } from "@/lib/i18n/text"
 
 /** More than this many products and the list can be searched. */
 export const SEARCH_FROM = 9
@@ -60,8 +61,8 @@ function List({
                 e.currentTarget.closest("[data-product-picker]")?.querySelector<HTMLElement>("[data-row]")?.focus()
               }
             }}
-            placeholder="Search products"
-            aria-label="Search products"
+            placeholder={tt("Search products")}
+            aria-label={tt("Search products")}
             autoComplete="off"
             data-product-search
             className={cn(
@@ -72,22 +73,22 @@ function List({
           />
         </div>
       ) : null}
-      <div role="menu" aria-label="Product" onKeyDown={onRowsKey} className={cn(!compact && "max-h-[320px] overflow-y-auto overscroll-contain")}>
+      <div role="menu" aria-label={tt("Product")} onKeyDown={onRowsKey} className={cn(!compact && "max-h-[320px] overflow-y-auto overscroll-contain")}>
         {!q ? (
           <>
             <PickerRow rowKey="all" compact={compact} checked={value === "all"} onClick={() => onPick("all")}>
-              All products
+              {tt("All products")}
             </PickerRow>
             {products.length ? <PickerDivider compact={compact} /> : null}
           </>
         ) : null}
         {shown.map((p) => (
           <PickerRow key={p.id} rowKey={p.id} compact={compact} checked={value === p.id} onClick={() => onPick(p.id)}>
-            {p.title || "Untitled product"}
+            {p.title || tt("Untitled product")}
           </PickerRow>
         ))}
         {q && shown.length === 0 ? (
-          <p className={cn("px-3 py-2 text-[#6b7280]", compact ? "text-[15px]" : "text-[13px]")}>No product called “{query.trim()}”</p>
+          <p className={cn("px-3 py-2 text-[#6b7280]", compact ? "text-[15px]" : "text-[13px]")}>{tt("No product called “{value}”", { value: query.trim() })}</p>
         ) : null}
       </div>
     </div>
@@ -112,7 +113,7 @@ export function ProductPicker({
   /* A new list each time it opens, so a search never outlives the open it was typed in. */
   const [session, setSession] = React.useState(0)
   const phone = usePhone()
-  const label = value === "all" ? "All products" : products.find((p) => p.id === value)?.title || "All products"
+  const label = value === "all" ? tt("All products") : products.find((p) => p.id === value)?.title || tt("All products")
   const setShown = (o: boolean) => {
     if (o) setSession((s) => s + 1)
     setOpen(o)
@@ -142,7 +143,7 @@ export function ProductPicker({
     return (
       <>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Product">
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Product")}>
           <div data-product-picker>{list(true)}</div>
         </BottomSheet>
       </>

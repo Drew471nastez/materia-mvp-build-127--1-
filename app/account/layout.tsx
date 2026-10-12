@@ -21,7 +21,8 @@ import { LibraryBgFix } from "@/components/library/library-bg-fix"
 import { AccountColumn } from "@/components/account/account-column"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { followCounts } from "@/lib/profile/follows"
-import { ownCover } from "@/lib/profile/member-profile-data"
+/* Their own cover, else their creator page's: the one every surface draws (round J1, lib/profile/page-look.ts). */
+import { personCover } from "@/lib/profile/page-look"
 import { accountIsCreator } from "@/lib/profile/account-creator"
 
 /** One signed in person's own pages: never in a search index. */
@@ -107,7 +108,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   /* Cached for the request: the settings page reads the same row. The bio is one more read beside it, not after it. */
   const admin = createAdminClient()
   const [profile, bio, counts, cover, creator] = user
-    ? await Promise.all([profileForRequest(user.id), readBio(user.id), followCounts(admin, user.id), ownCover(admin, user.id), accountIsCreator(user.id)])
+    ? await Promise.all([profileForRequest(user.id), readBio(user.id), followCounts(admin, user.id), personCover(admin, user.id), accountIsCreator(user.id)])
     : [null, null, { followers: 0, following: 0 }, null, false]
   /* EVERY ACCOUNT HAS A HANDLE: one that never had one gets it here, the first time it is needed (lib/profile/ensure-username). */
   const username = user ? profile?.username || (profile ? await ensureUsername(admin, user.id) : null) : null
@@ -118,7 +119,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
         username: username || null,
         avatarUrl: profile?.avatar_url || null,
         bio,
-        coverUrl: cover,
+        coverUrl: cover?.value ?? null,
+        ownCoverUrl: cover?.source === "own" ? cover.value : null,
+        pageCoverUrl: cover?.page ?? null,
         followers: counts.followers,
         following: counts.following,
         creator,

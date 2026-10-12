@@ -69,6 +69,7 @@ import { displayName } from "./directory"
 import { followCounts, isFollowing } from "@/lib/profile/follows"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { parseProfileCover } from "@/lib/profile/cover"
+import { chooseCover, ownCoverValue, pageLookOf } from "@/lib/profile/page-look"
 import { personHref } from "@/lib/profile/person-href"
 import { TIME_ZONE_COOKIE, isTimeZone, readTimeZone } from "@/lib/orders/time-zone"
 import { boardFrom, parseActivityAnswer, standingOf, zoneToday, type LevelStep, type MemberBoard } from "../member-activity"
@@ -124,18 +125,12 @@ export async function resolveProfileRef(db: Db, viewer: Pick<Viewer, "userId">, 
   return one<ProfileRow>(() => db.from("profiles").select(PROFILE_FIELDS).ilike("username", literal(next)).limit(1).maybeSingle())
 }
 
-/** Their cover as stored: only a picture of ours (https), with its crop; nothing for anything else. */
-async function coverOf(db: Db, userId: string): Promise<{ url: string | null; crop: { x: number; y: number; zoom: number } }> {
-  const row = await one<{ cover_url?: string | null }>(() => db.from("profiles").select("cover_url").eq("id", userId).maybeSingle())
-  const cover = parseProfileCover(row?.cover_url ?? null)
-  const url = cover.url && /^https:\/\//.test(cover.url) ? cover.url : null
-  return { url, crop: { x: cover.crop.x, y: cover.crop.y, zoom: cover.crop.zoom } }
-}
-
-async function hasStorefront(db: Db, userId: string): Promise<boolean> {
-  const row = await one<{ onboarding_completed: boolean | null }>(() => db.from("creators").select("onboarding_completed").eq("user_id", userId).maybeSingle())
-  return !!row?.onboarding_completed
-}
+/*
+ * THEIR COVER AND THEIR WORDS (round 25, then round J1). Their own cover from Settings first, else their creator page's
+ * (the published header's cover with its crop, then the creators row), else none: lib/profile/page-look.ts, the one read
+ * the account page and Settings make too, so a person shows the same cover everywhere. The words the same way.
+ */
+export { pageLookOf, type PageLook } from "@/lib/profile/page-look"
 
 interface MemberFacts {
   community_id: string
@@ -468,17 +463,20 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
   if (!self && (!theirs || theirs.status !== "active" || theirs.banned_at)) return null
 
   const mine = self ? await myCommunities(db, viewer.userId) : null
-  const [cover, place, counts, following, storefront, posts, activity, board] = await Promise.all([
-    coverOf(db, person.id),
+  const [own, place, counts, following, look, posts, activity, board] = await Promise.all([
+    ownCoverValue(db, person.id),
     readProfileLocation(db, person.id),
     followCounts(db, person.id),
     self ? Promise.resolve(false) : isFollowing(db, viewer.userId, person.id),
-    hasStorefront(db, person.id),
+    pageLookOf(db, person.id),
     mine ? myPostsPage(db, viewer.userId, null, mine) : communityPostsPage(db, community, viewer, person.id, null),
     mine ? myRecentActivity(db, viewer.userId, mine) : Promise.resolve(null),
     !self && theirs ? memberBoard(db, community, theirs, person.id, { now }) : Promise.resolve(null),
   ])
   const role = theirs?.role && theirs.role !== "member" ? (theirs.role as ProfilePerson["role"]) : null
+  const storefront = look.hasStorefront
+  /* Their own cover (Settings) first, else their page's (personCover); the same for the words about them (PageLook). */
+  const cover = parseProfileCover(chooseCover(own, look).value)
   const page = personHref({ username: person.username, hasStorefront: storefront })
   return {
     self,
@@ -488,8 +486,8 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
       name: displayName(person),
       avatarUrl: person.avatar_url,
       coverUrl: cover.url,
-      coverCrop: cover.crop,
-      bio: (person.bio || "").trim() || null,
+      coverCrop: { x: cover.crop.x, y: cover.crop.y, zoom: cover.crop.zoom },
+      bio: (person.bio || "").trim() || look.bio,
       location: locationLine(place),
       role,
       level: typeof theirs?.level === "number" ? theirs.level : null,

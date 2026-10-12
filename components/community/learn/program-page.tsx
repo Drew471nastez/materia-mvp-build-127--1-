@@ -23,6 +23,7 @@ import type { PlayerData } from "@/lib/courses/types"
 import { lessonsLabel, opensOnLabel, type ProgramCard } from "./model"
 import { BuyProgram } from "./program-checkout"
 import { cameFromLearn } from "./learn-history"
+import { tt } from "@/lib/i18n/text"
 
 export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref: string }) {
   const nav = useCommunityNavigator()
@@ -40,7 +41,7 @@ export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref
     },
     [nav],
   )
-  return <CoursePlayer data={data} backHref={learnHref} backLabel="Learn" embedded onBack={onBack} />
+  return <CoursePlayer data={data} backHref={learnHref} backLabel={tt("Learn")} embedded onBack={onBack} />
 }
 
 /** What is inside, for a program the member cannot open yet: each module with its lesson titles. */
@@ -53,19 +54,19 @@ function sentence(p: ProgramCard, timeZone?: string): string {
   if (!l) return ""
   switch (l.reason) {
     case "paid":
-      return "This program is sold on its own. Buy it once and it stays in your Learn for as long as you are a member."
+      return tt("This program is sold on its own. Buy it once and it stays in your Learn for as long as you are a member.")
     case "drip":
-      return `${l.opensAt ? opensOnLabel(l.opensAt, timeZone) : "It opens soon"}. Programs like this open a set number of days after you join.`
+      return tt("{value}. Programs like this open a set number of days after you join.", { value: l.opensAt ? opensOnLabel(l.opensAt, timeZone) : tt("It opens soon") })
     case "level":
-      return `This program opens at ${l.label.toLowerCase()}. Levels come from taking part in the community.`
+      return tt("This program opens at {value}. Levels come from taking part in the community.", { value: l.label.toLowerCase() })
     case "tier":
-      return `This program is for ${l.label}.`
+      return tt("This program is for {label}.", { label: l.label })
     case "product":
-      return `This program is for ${l.label.charAt(0).toLowerCase()}${l.label.slice(1)}.`
+      return tt("This program is for {value}{value2}.", { value: l.label.charAt(0).toLowerCase(), value2: l.label.slice(1) })
     case "role":
-      return `This program is for ${l.label.toLowerCase()} of the community.`
+      return tt("This program is for {value} of the community.", { value: l.label.toLowerCase() })
     default:
-      return "This program is for members."
+      return tt("This program is for members.")
   }
 }
 
@@ -76,7 +77,7 @@ function Back({ href }: { href: string }) {
       className="mb-4 inline-flex h-10 items-center gap-1.5 rounded-[10px] pr-2 text-[14px] font-medium text-[#4b5563] transition-[color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-x-0.5 hover:text-[#1a1a2e] motion-reduce:transition-none motion-reduce:hover:translate-x-0"
     >
       <ArrowLeft className="h-4 w-4" />
-      Learn
+      {tt("Learn")}
     </Link>
   )
 }
@@ -146,11 +147,11 @@ export function LockedProgram({
             ) : null}
             {upgrade ? (
               <Link href={aboutHref} className={`${BTN_PRIMARY} h-11 min-[420px]:flex-1 sm:h-10`}>
-                See membership options
+                {tt("See membership options")}
               </Link>
             ) : null}
             <Link href={learnHref} className={`${BTN_SECONDARY} h-11 min-[420px]:flex-1 sm:h-10`}>
-              Back to Learn
+              {tt("Back to Learn")}
             </Link>
           </div>
         </div>
@@ -163,8 +164,8 @@ export function LockedProgram({
 /** The modules and their lesson titles: what a member would get. Titles only, nothing to open. */
 function Outline({ outline }: { outline: ProgramOutline }) {
   return (
-    <section aria-label="What is inside" className="border-t border-[#eef0f2] px-4 pb-4 pt-4 sm:px-6 sm:pb-5" data-program-outline>
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#6b7280]">Inside</h2>
+    <section aria-label={tt("What is inside")} className="border-t border-[#eef0f2] px-4 pb-4 pt-4 sm:px-6 sm:pb-5" data-program-outline>
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#6b7280]">{tt("Inside")}</h2>
       <ol className="mt-2 divide-y divide-[#f0f1f3]">
         {outline.modules.map((m, i) => (
           <li key={m.id} className="py-2.5">
@@ -182,7 +183,7 @@ function Outline({ outline }: { outline: ProgramOutline }) {
                     {t}
                   </li>
                 ))}
-                {m.lessons.length > 4 ? <li className="text-[13px] leading-6 text-[#9ca3af]">and {m.lessons.length - 4} more</li> : null}
+                {m.lessons.length > 4 ? <li className="text-[13px] leading-6 text-[#9ca3af]">{tt("and {value} more", { value: m.lessons.length - 4 })}</li> : null}
               </ul>
             ) : null}
           </li>
@@ -202,10 +203,10 @@ export function EmptyProgram({ program, learnHref, manageHref }: { program: Prog
         <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6">
           <h1 className="text-[21px] font-bold leading-snug tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">{program.title}</h1>
           {program.summary ? <p className="mt-2 whitespace-pre-line text-[15px] leading-6 text-[#374151]">{program.summary}</p> : null}
-          <p className="mt-3 text-[14px] leading-6 text-[#6b7280]">{manageHref ? "Add the first module and its lessons, and they show up here." : "The lessons show up here as soon as they are added."}</p>
+          <p className="mt-3 text-[14px] leading-6 text-[#6b7280]">{manageHref ? tt("Add the first module and its lessons, and they show up here.") : tt("The lessons show up here as soon as they are added.")}</p>
           {manageHref ? (
             <Link href={manageHref} className={`${BTN_PRIMARY} mt-5 h-11 sm:h-10`}>
-              Add lessons
+              {tt("Add lessons")}
             </Link>
           ) : null}
         </div>

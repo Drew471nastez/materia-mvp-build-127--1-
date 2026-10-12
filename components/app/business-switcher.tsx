@@ -10,6 +10,7 @@ import { canAddBusiness, LIMIT_REACHED } from "@/lib/businesses/rules"
 import { createBusiness, openAgain, SWITCH_FAILED, SwitchFailed, SwitchStalled, switchBusiness, type SwitchSteps } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 import { ROLE_LABEL, roleHome, type MemberRole } from "@/lib/team/roles"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -296,7 +297,7 @@ export function BusinessSwitcher({
         stalled(e.next, {})
         return
       }
-      setError(e instanceof Error && e.message ? e.message : "The business could not be created. Try again.")
+      setError(e instanceof Error && e.message ? e.message : tt("The business could not be created. Try again."))
       /* As a failed switch: busy until the screen has gone, then the menu under it says why. */
       if (screen.current) screen.current.fail()
       else screenGone()
@@ -313,14 +314,14 @@ export function BusinessSwitcher({
     <span className="min-w-0 flex-1">
       <span className={cn("block truncate font-medium text-neutral-900", sheet ? "text-[15px]" : "text-[13px]")}>{b.name}</span>
       <span className={cn("block truncate text-neutral-500", sheet ? "text-[13px]" : "text-[11.5px]")}>
-        {!b.ready ? "Setting up" : b.handle ? `@${b.handle}` : ""}
+        {!b.ready ? tt("Setting up") : b.handle ? `@${b.handle}` : ""}
       </span>
     </span>
   )
   const teamNameAndRole = (t: TeamStoreRow) => (
     <span className="min-w-0 flex-1">
       <span className={cn("block truncate font-medium text-neutral-900", sheet ? "text-[15px]" : "text-[13px]")}>{t.name}</span>
-      <span className={cn("block truncate text-neutral-500", sheet ? "text-[13px]" : "text-[11.5px]")}>{ROLE_LABEL[t.role]} · Team</span>
+      <span className={cn("block truncate text-neutral-500", sheet ? "text-[13px]" : "text-[11.5px]")}>{ROLE_LABEL[t.role]} · {tt("Team")}</span>
     </span>
   )
   /* The last line of the list, in the photo's column so its words line up with the names above. */
@@ -378,7 +379,7 @@ export function BusinessSwitcher({
         <ChevronsUpDown
           className={cn("shrink-0 text-neutral-400", sheet ? "h-[18px] w-[18px]" : "h-4 w-4")}
           strokeWidth={1.75}
-          aria-label={expanded ? "Hide businesses" : "Switch business"}
+          aria-label={expanded ? tt("Hide businesses") : tt("Switch business")}
         />
       </button>
 
@@ -437,7 +438,7 @@ export function BusinessSwitcher({
             <span className="grid shrink-0 place-items-center text-neutral-400" style={{ width: avatarSize }}>
               <Plus className={sheet ? "h-[18px] w-[18px]" : "h-4 w-4"} strokeWidth={1.75} />
             </span>
-            New business
+            {tt("New business")}
           </button>
         </div>
       </div>
@@ -454,7 +455,7 @@ export function BusinessSwitcher({
             <>
               {" "}
               <button type="button" onClick={retry} data-business-retry="" className="font-medium underline underline-offset-2 [-webkit-tap-highlight-color:transparent]">
-                Try again
+                {tt("Try again")}
               </button>
             </>
           )}

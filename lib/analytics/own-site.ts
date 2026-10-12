@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { isNativeApp } from "@/lib/platform-utils"
 
 /**
  * ===========================================================================
@@ -37,6 +38,8 @@ import { useEffect, useState } from "react"
 const REFRESH_MS = 25 * 60_000
 
 let token: string | null = null
+/* Storelib's own domain, when the token's answer also marked every site under it (sl_own_d): those open at their plain address. */
+let sitesDomain: string | null = null
 let mintedAt = 0
 let asking: Promise<void> | null = null
 const waiting = new Set<() => void>()
@@ -56,9 +59,10 @@ export function primeOwnMarker(): void {
   if (asking) return
   asking = fetch("/api/analytics/own/token", { credentials: "same-origin", cache: "no-store" })
     .then((res) => (res.ok ? res.json() : null))
-    .then((data: { token?: string | null } | null) => {
+    .then((data: { token?: string | null; sitesMarked?: boolean; sitesDomain?: string } | null) => {
       if (data && typeof data.token === "string" && data.token) {
         token = data.token
+        sitesDomain = data.sitesMarked === true && typeof data.sitesDomain === "string" && data.sitesDomain ? data.sitesDomain.toLowerCase() : null
         mintedAt = Date.now()
         for (const draw of waiting) draw()
       }
@@ -87,6 +91,9 @@ export function ownOpen(siteUrl: string | null | undefined): string {
     return plain
   }
   if (!openable(url)) return plain
+  /* A site on Storelib's own domain is already marked (sl_own_d): its plain address, with no hop through the marker route for the browser to show first. */
+  /* Not from the app's shell: it opens the site in the phone's own browser, which never had the app's cookie. */
+  if (sitesDomain && !isNativeApp() && url.hostname.toLowerCase().endsWith(`.${sitesDomain}`)) return plain
   const to = `${url.pathname}${url.search}` || "/"
   const marker = new URL("/api/analytics/own", url.origin)
   marker.searchParams.set("t", token)
@@ -116,6 +123,7 @@ export function useOwnMarker(): void {
 /** For the tests: the module keeps the token in memory, so they can clear it. */
 export function forgetOwnMarker(): void {
   token = null
+  sitesDomain = null
   mintedAt = 0
   waiting.clear()
 }

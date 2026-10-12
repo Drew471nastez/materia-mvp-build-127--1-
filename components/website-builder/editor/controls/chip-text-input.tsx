@@ -25,6 +25,7 @@ import * as React from "react"
 
 import { dynamicSource, placeholderFor } from "@/lib/storelib-theme/dynamic"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 const TOKEN = /\{\{\s*([a-z_]+(?:\.[a-z_]+){1,2})\s*\}\}/g
 
@@ -60,7 +61,7 @@ function chipNode(id: string, label: string): HTMLElement {
   x.type = "button"
   x.tabIndex = -1
   x.dataset.chipRemove = ""
-  x.setAttribute("aria-label", `Remove ${label}`)
+  x.setAttribute("aria-label", tt("Remove {label}", { label }))
   x.className = "inline-flex h-4 w-4 items-center justify-center rounded-[4px] text-[#9ca3af] hover:bg-[#dfe1e5] hover:text-[#374151] max-sm:h-5 max-sm:w-5"
   x.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
   chip.append(name, x)

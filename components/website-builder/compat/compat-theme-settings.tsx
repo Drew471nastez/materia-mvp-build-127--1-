@@ -11,11 +11,12 @@
  * the ids the theme's markup reads them by.
  */
 import { useEffect, useState, type ReactNode } from "react"
-import { ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight } from "lucide-react"
 import { loadCompatFiles } from "./compat-files"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
 import { OVERRIDE_GROUP } from "@/lib/storelib-theme/compat/overrides"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * A colour scheme's colour is kept at shopify[group][scheme].settings[id]; its
@@ -33,6 +34,32 @@ function writeAt(value: unknown, path: string[], v: unknown): Record<string, unk
   const [head, ...rest] = path
   base[head] = rest.length ? writeAt(base[head], rest, v) : v
   return base
+}
+
+/*
+  A THEME'S COLOUR SCHEMES, NAMED AND FOLDED. A scheme's heading used to be
+  its key in the theme's settings ("scheme-0302a2b1-…"), as an 11px grey
+  caption, and every scheme's ten colours ran on under it: unreadable, and
+  one long list. Each scheme is now a row as Shopify's editor shows them,
+  "Scheme 1", "Scheme 2", with a chip in its own background and text colour,
+  and only the one opened shows its colours. Drawn here, so a theme imported
+  before is shown the same way.
+*/
+const SCHEME_HEADER = /^scheme_(\d+)_hdr$/
+/** group::scheme of the scheme a heading starts: the next setting's id says it. */
+function schemeOf(settings: SchemaField[], i: number): string | null {
+  const next = settings[i + 1]?.id ?? ""
+  const parts = next.split(SEP)
+  return parts.length >= 4 && parts[2] === "settings" ? `${parts[0]}${SEP}${parts[1]}` : null
+}
+function colourOf(scheme: unknown, words: string[]): string | null {
+  const settings = scheme && typeof scheme === "object" ? ((scheme as Record<string, unknown>).settings as Record<string, unknown> | undefined) : undefined
+  if (!settings) return null
+  for (const w of words) {
+    const hit = Object.entries(settings).find(([k, v]) => k.toLowerCase().includes(w) && typeof v === "string" && /^(#|rgb)/i.test(v))
+    if (hit) return hit[1] as string
+  }
+  return null
 }
 
 interface Group {
@@ -61,6 +88,8 @@ export function CompatThemeSettings({
   back: (label: string, onBack: () => void) => ReactNode
 }) {
   const [groups, setGroups] = useState<Group[] | null>(null)
+  /* The colour scheme open in its group (group::scheme); the first one until another is chosen. */
+  const [openScheme, setOpenScheme] = useState<string | null>(null)
   useEffect(() => {
     let live = true
     void loadCompatFiles(installId).then((files) => {
@@ -85,27 +114,62 @@ export function CompatThemeSettings({
       <div className="flex h-full flex-col" data-compat-theme-group={group.name}>
         {back(group.name, () => onOpen(null))}
         <div data-sheet-scroll className="wb-slim-scroll flex-1 space-y-4 overflow-y-auto px-3.5 py-3.5">
-          {visibleFields(group.settings, values).map((field) => (
-            <div key={field.id}>
-              {renderField(field, readAt(values, field.id) ?? field.default, (v) => {
-                if (!field.id.includes(SEP)) return onChange(field.id, v)
-                const [top, ...rest] = field.id.split(SEP)
-                onChange(top, writeAt(values[top], rest, v))
-              })}
-            </div>
-          ))}
+          {(() => {
+            const fields = visibleFields(group.settings, values)
+            const firstScheme = fields.map((f, i) => (SCHEME_HEADER.test(f.id) ? schemeOf(fields, i) : null)).find(Boolean) ?? null
+            const opened = openScheme ?? firstScheme
+            return fields.map((field, i) => {
+              const header = SCHEME_HEADER.exec(field.id)
+              const scheme = header ? schemeOf(fields, i) : null
+              if (header && scheme) {
+                const on = opened === scheme
+                const stored = readAt(values, scheme)
+                const bg = colourOf(stored, ["background"]) ?? "#ffffff"
+                const fg = colourOf(stored, ["foreground", "text", "heading"]) ?? "#1a1a2e"
+                return (
+                  <button
+                    key={field.id}
+                    type="button"
+                    aria-expanded={on}
+                    onClick={() => setOpenScheme(on ? "" : scheme)}
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors duration-100 hover:bg-muted/50"
+                    data-compat-scheme={scheme}
+                  >
+                    <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-black/10 text-[12px] font-semibold" style={{ background: bg, color: fg }}>
+                      {"Aa" /* i18n-ignore: a type sample, not a word */}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-foreground">{tt("Scheme {n}", { n: header[1] })}</span>
+                    <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 ${on ? "rotate-180" : ""}`} />
+                  </button>
+                )
+              }
+              /* A scheme's colour shows under its own row, only while that row is open. */
+              const parts = field.id.split(SEP)
+              const owner = parts.length >= 4 && parts[2] === "settings" && SCHEME_HEADER.test(fields.slice(0, i).reverse().find((f) => SCHEME_HEADER.test(f.id))?.id ?? "") ? `${parts[0]}${SEP}${parts[1]}` : null
+              if (owner && owner !== opened) return null
+              return (
+                <div key={field.id} className={owner ? "pl-1" : undefined}>
+                  {renderField(field, readAt(values, field.id) ?? field.default, (v) => {
+                    if (!field.id.includes(SEP)) return onChange(field.id, v)
+                    const [top, ...rest] = field.id.split(SEP)
+                    onChange(top, writeAt(values[top], rest, v))
+                  })}
+                </div>
+              )
+            })
+          })()}
         </div>
       </div>
     )
   }
   return (
     <div className="flex h-full flex-col">
-      {back("Theme settings", () => onOpen("__back__"))}
+      {back(tt("Theme settings"), () => onOpen("__back__"))}
       <div data-sheet-scroll className="wb-slim-scroll flex-1 overflow-y-auto p-2">
         {groups === null ? (
-          <p className="px-3 py-2 text-[14px] text-[#6b7280]">Loading…</p>
+          <p className="px-3 py-2 text-[14px] text-[#6b7280]">{tt("Loading…")}</p>
         ) : groups.length === 0 ? (
-          <p className="px-3 py-2 text-[14px] text-[#6b7280]">This theme has no settings of its own.</p>
+          <p className="px-3 py-2 text-[14px] text-[#6b7280]">{tt("This theme has no settings of its own.")}</p>
         ) : (
           groups.map((g) => (
             <button

@@ -7,6 +7,7 @@
  */
 import * as React from "react"
 import { FolderOpen, Package, Plus } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
 
 export function EmptyPicker({ kind }: { kind: "product" | "collection" }) {
   const product = kind === "product"
@@ -17,8 +18,8 @@ export function EmptyPicker({ kind }: { kind: "product" | "collection" }) {
         <Icon className="h-4 w-4" strokeWidth={1.75} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] font-medium text-[#1a1a2e]">{product ? "No products yet" : "No collections yet"}</span>
-        <span className="block truncate text-[11.5px] text-[#6b7280]">{product ? "Publish one and pick it here." : "Group products, then pick one here."}</span>
+        <span className="block text-[12.5px] font-medium text-[#1a1a2e]">{product ? tt("No products yet") : tt("No collections yet")}</span>
+        <span className="block truncate text-[11.5px] text-[#6b7280]">{product ? tt("Publish one and pick it here.") : tt("Group products, then pick one here.")}</span>
       </span>
       <a
         href={product ? "/app/products/new" : "/app/products/collections"}
@@ -27,7 +28,7 @@ export function EmptyPicker({ kind }: { kind: "product" | "collection" }) {
         className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-[#1a1a2e] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-black max-sm:h-10"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-        {product ? "Add" : "Create"}
+        {product ? tt("Add") : tt("Create")}
       </a>
     </div>
   )

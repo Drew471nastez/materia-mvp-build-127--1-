@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { tt } from "@/lib/i18n/text"
 
 // 3D Coin icon for creator/monetize
 const CoinIcon = () => (
@@ -120,10 +121,10 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
           {/* Title & Subtext */}
           <div className="text-center mb-5 sm:mb-6">
             <h1 className="text-[24px] sm:text-[32px] font-bold leading-tight mb-1.5">
-              Welcome
+              {tt("Welcome")}
             </h1>
             <p className="text-gray-500 text-xs sm:text-sm">
-              Choose how you want to use Storelib.
+              {tt("Choose how you want to use Storelib.")}
             </p>
           </div>
 
@@ -145,9 +146,9 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
               <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-gray-100 text-gray-600">
                 <CoinIcon />
               </div>
-              <h3 className="text-base font-semibold mb-0.5">I'm a creator</h3>
+              <h3 className="text-base font-semibold mb-0.5">{tt("I'm a creator")}</h3>
               <p className="text-gray-500 text-xs sm:text-sm mb-3">
-                Create pages and sell products.
+                {tt("Create pages and sell products.")}
               </p>
               <button
                 disabled={isLoading}
@@ -164,7 +165,7 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
                     <Loader2 className="w-4 h-4 animate-spin" />
                   </span>
                 ) : (
-                  "Continue"
+                  tt("Continue")
                 )}
               </button>
             </div>
@@ -185,9 +186,9 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
               <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-gray-100 text-gray-600">
                 <UserIcon />
               </div>
-              <h3 className="text-base font-semibold mb-0.5">I'm a buyer</h3>
+              <h3 className="text-base font-semibold mb-0.5">{tt("I'm a buyer")}</h3>
               <p className="text-gray-500 text-xs sm:text-sm mb-3">
-                Explore and purchase from creators.
+                {tt("Explore and purchase from creators.")}
               </p>
               <button
                 disabled={isLoading}
@@ -204,7 +205,7 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
                     <Loader2 className="w-4 h-4 animate-spin" />
                   </span>
                 ) : (
-                  "Continue"
+                  tt("Continue")
                 )}
               </button>
             </div>
@@ -212,7 +213,7 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
 
           {/* Footer */}
           <p className="text-center text-gray-400 text-[11px] sm:text-xs">
-            You can switch later.
+            {tt("You can switch later.")}
           </p>
         </div>
       </DialogContent>

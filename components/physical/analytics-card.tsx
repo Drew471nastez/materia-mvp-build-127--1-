@@ -17,6 +17,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { Pill, api, money } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 interface Data {
   orders: number
@@ -70,23 +71,23 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
   return (
     <section data-card="physical" data-physical-analytics="" className="mt-4 flex min-w-0 flex-col rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <header className="flex min-h-[52px] flex-col justify-center gap-0.5 px-5 pt-4">
-        <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Physical sales</h3>
-        <p className="text-[12.5px] text-[#6b7280]">Orders you ship or hand over, for the period above.</p>
+        <h3 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Physical sales")}</h3>
+        <p className="text-[12.5px] text-[#6b7280]">{tt("Orders you ship or hand over, for the period above.")}</p>
       </header>
       <div className={cn("space-y-4 px-5 pb-5 pt-3 transition-[opacity,filter] duration-200", loading && data ? "opacity-60 blur-[1px]" : "", !data ? "opacity-60" : "")} aria-busy={loading}>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          {stat("Orders", d.orders, `${d.units} ${d.units === 1 ? "unit" : "units"} sold`)}
-          {stat("Sales", money(d.revenueCents), d.shippingCents ? `${money(d.shippingCents)} shipping` : undefined)}
-          {stat("To ship", d.unfulfilled + d.partiallyFulfilled, d.averageHoursToShip !== null ? `Ships in ${d.averageHoursToShip < 48 ? `${Math.round(d.averageHoursToShip)} h` : `${Math.round(d.averageHoursToShip / 24)} days`} on average` : undefined)}
-          {stat("Returns", d.returns, d.returnRate !== null ? `${d.returnRate}% of orders` : undefined)}
+          {stat(tt("Orders"), d.orders, tt("{units, plural, one {# unit} other {# units}} sold", { units: d.units }))}
+          {stat(tt("Sales"), money(d.revenueCents), d.shippingCents ? tt("{amount} shipping", { amount: money(d.shippingCents) }) : undefined)}
+          {stat(tt("To ship"), d.unfulfilled + d.partiallyFulfilled, d.averageHoursToShip !== null ? tt("Ships in {value} on average", { value: d.averageHoursToShip < 48 ? `${Math.round(d.averageHoursToShip)} h` : tt("{value} days", { value: Math.round(d.averageHoursToShip / 24) }) }) : undefined)}
+          {stat(tt("Returns"), d.returns, d.returnRate !== null ? tt("{returnRate}% of orders", { returnRate: d.returnRate }) : undefined)}
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between gap-3">
             <div role="tablist" className="inline-flex shrink-0 items-center rounded-lg bg-[#f1f2f4] p-0.5">
               {(
                 [
-                  ["products", "Top products"],
-                  ["stock", "Stock"],
+                  ["products", tt("Top products")],
+                  ["stock", tt("Stock")],
                 ] as const
               ).map(([v, label]) => (
                 <button
@@ -106,20 +107,20 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
             </div>
             {tab === "stock" ? (
               <Link href="/app/inventory" className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
-                Inventory
+                {tt("Inventory")}
               </Link>
             ) : null}
           </div>
           {tab === "products" ? (
             d.topProducts.length === 0 ? (
-              <p className="py-2 text-[13px] text-[#6b7280]">{data ? "No physical sales in this period." : "\u00a0"}</p>
+              <p className="py-2 text-[13px] text-[#6b7280]">{data ? tt("No physical sales in this period.") : "\u00a0"}</p>
             ) : (
               <ul className="divide-y divide-[#f1f2f4]">
                 {d.topProducts.map((p) => (
                   <li key={p.title} className="flex items-center justify-between gap-3 py-2 text-[13.5px]">
                     <span className="min-w-0 truncate text-[#1a1a2e]">{p.title}</span>
                     <span className="shrink-0 tabular-nums text-[#6b7280]">
-                      {p.units} sold · {money(p.revenueCents)}
+                      {tt("{units} sold · {amount}", { units: p.units, amount: money(p.revenueCents) })}
                     </span>
                   </li>
                 ))}
@@ -128,8 +129,8 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
           ) : (
             <>
               <p className="mb-2 text-[13px] text-[#6b7280]">
-                {d.stockValueCents ? `${money(d.stockValueCents)} on hand at cost. ` : ""}
-                {d.outOfStock ? `${d.outOfStock} sold out.` : "Nothing sold out."}
+                {d.stockValueCents ? tt("{amount} on hand at cost. ", { amount: money(d.stockValueCents) }) : ""}
+                {d.outOfStock ? tt("{outOfStock} sold out.", { outOfStock: d.outOfStock }) : tt("Nothing sold out.")}
               </p>
               <ul className="divide-y divide-[#f1f2f4]">
                 {d.lowStock.map((l) => (
@@ -138,7 +139,7 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
                       {l.title}
                       {l.variantName !== "Default" ? <span className="text-[#6b7280]">, {l.variantName}</span> : null}
                     </span>
-                    <Pill tone="amber">{l.available} left</Pill>
+                    <Pill tone="amber">{tt("{available} left", { available: l.available })}</Pill>
                   </li>
                 ))}
               </ul>

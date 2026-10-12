@@ -88,7 +88,8 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
   return (
     <div
       key={navFadeKey(pathname)}
-      className={`min-w-0${enter ? " library-content-enter" : ""}${landing ? ` ${LANDING_CLASS}` : ""}`}
+      /* The library lands from most of the way there (app/globals.css .library-land, round 25): never a blank first frame. */
+      className={`min-w-0${enter ? " library-content-enter" : ""}${landing ? ` ${onLibrary ? "library-land" : LANDING_CLASS}` : ""}`}
       data-account-nav-fade={onLibrary ? "library" : "profile"}
     >
       {children}

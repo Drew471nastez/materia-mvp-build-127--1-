@@ -49,6 +49,7 @@ import { tierPrice, zoneFor } from "../lib/physical/rates"
 import type { ShippingProfile, ShippingZone } from "../lib/physical/types"
 import { PLATFORM_DISALLOW } from "../lib/seo/indexing"
 import { HELP_TOPICS } from "../lib/help/questions"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -63,7 +64,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail !== undefined ? ` (${JSON.stringify(detail)})` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const P = PHYSICAL_ARTICLES
 const art = (slug: string) => P.find((a) => a.slug === slug)!
 const text = (slug: string) => {

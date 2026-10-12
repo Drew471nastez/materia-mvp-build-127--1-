@@ -14,6 +14,8 @@ import { PaymentsPanelWaiting, PaymentsSetupFlow, type SetupMode } from "@/compo
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
 import { readsLikeStripe } from "@/lib/payments/verify-id"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 /*
  * One rule for the whole of payments (lib/payments/verify-id.ts
@@ -22,7 +24,7 @@ import { cn } from "@/lib/utils"
  */
 function safeError(message: string): string {
   if (!message.trim() || readsLikeStripe(message) || /\n\s+at\s|\{\s*"/.test(message)) {
-    return "Something went wrong. Try again in a moment."
+    return tt("Something went wrong. Try again in a moment.")
   }
   return message
 }
@@ -35,7 +37,7 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
     cache: "no-store",
   })
   const data = (await res.json().catch(() => ({}))) as T & { error?: string }
-  if (!res.ok) throw new Error(safeError(data.error || "Something went wrong. Try again in a moment."))
+  if (!res.ok) throw new Error(safeError(data.error || tt("Something went wrong. Try again in a moment.")))
   return data
 }
 
@@ -79,7 +81,7 @@ export function StorelibPaymentsSettings({
       setData(next)
       setError(null)
     } catch (e) {
-      setError(safeError(e instanceof Error ? e.message : "Could not load payments."))
+      setError(safeError(e instanceof Error ? e.message : tt("Could not load payments.")))
     } finally {
       setRefreshing(false)
     }
@@ -172,7 +174,7 @@ export function StorelibPaymentsSettings({
   ) : null
 
   /* Only the panel: the waiting one until the overview arrives, so the press is answered at once. */
-  if (panelOnly) return flow ?? <PaymentsPanelWaiting open={panel.open} onClose={closePanel} label={panel.mode === "bank" ? "Payout account" : "Payments"} />
+  if (panelOnly) return flow ?? <PaymentsPanelWaiting open={panel.open} onClose={closePanel} label={panel.mode === "bank" ? tt("Payout account") : tt("Payments")} />
 
   const loading = !data && !error
 
@@ -182,7 +184,7 @@ export function StorelibPaymentsSettings({
         <AlertCircle className="h-4 w-4 shrink-0 text-[#be123c]" />
         <p className="flex-1 text-[14px] text-[#1a1a2e]">{error}</p>
         <button type="button" className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")} onClick={() => void load()}>
-          Try again
+          {tt("Try again")}
         </button>
       </div>
     )
@@ -194,7 +196,7 @@ export function StorelibPaymentsSettings({
       ? STATUS_PILL.ACTIVE.label
       : view
         ? STATUS_PILL[view.status].label
-        : data?.statusLabel ?? (beat === "done" ? "Payments active" : "Action required")
+        : data?.statusLabel ?? (beat === "done" ? tt("Payments active") : tt("Action required"))
   const live = checkoutLive || (view ? view.canCharge : beat === "done")
   const needsSomething = !checkoutLive && !!view && view.status !== "ACTIVE" && !!view.action
   const hasAccount = beat !== "personal"
@@ -212,7 +214,7 @@ export function StorelibPaymentsSettings({
       setData(await call<Overview>("disconnect", { confirm: true }))
       setConfirmDisconnect(false)
     } catch (e) {
-      setError(safeError(e instanceof Error ? e.message : "Could not disconnect."))
+      setError(safeError(e instanceof Error ? e.message : tt("Could not disconnect.")))
     } finally {
       setBusy(false)
     }
@@ -240,8 +242,8 @@ export function StorelibPaymentsSettings({
               <div className="flex min-w-0 items-start gap-3 sm:flex-1">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#d97706]" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-[#1a1a2e]">Setup not finished</p>
-                  <p className="text-[12px] leading-[17px] text-[#6b7280]">Finish above, or disconnect to start over.</p>
+                  <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("Setup not finished")}</p>
+                  <p className="text-[12px] leading-[17px] text-[#6b7280]">{tt("Finish above, or disconnect to start over.")}</p>
                 </div>
               </div>
               <button
@@ -250,7 +252,7 @@ export function StorelibPaymentsSettings({
                 onClick={() => void disconnect()}
                 className={cn(secondaryDepth, "h-10 w-full rounded-lg px-3 text-[13px] sm:h-8 sm:w-auto sm:shrink-0", confirmDisconnect && "border-[#fecdd3] text-[#be123c]")}
               >
-                {busy ? "Disconnecting" : confirmDisconnect ? "Confirm" : "Disconnect"}
+                {busy ? tt("Disconnecting") : confirmDisconnect ? tt("Confirm") : tt("Disconnect")}
               </button>
             </div>
           ) : null
@@ -270,21 +272,21 @@ export function StorelibPaymentsSettings({
             ) : null}
             <Row
               icon={<Landmark className="h-4 w-4" />}
-              title="Payout account"
-              line={data.payoutDestination?.last4 ? maskedBank(data.payoutDestination) : "Add a bank account"}
+              title={tt("Payout account")}
+              line={data.payoutDestination?.last4 ? maskedBank(data.payoutDestination) : tt("Add a bank account")}
               action={data.payoutDestination?.last4 ? "Change" : "Add"}
               onClick={() => openPanel(beat === "done" ? "bank" : "setup")}
             />
-            <Row icon={<UserRound className="h-4 w-4" />} title="Account details" line="Name, address and identity" action="Review" onClick={() => openPanel(beat === "done" ? "details" : "setup")} />
+            <Row icon={<UserRound className="h-4 w-4" />} title={tt("Account details")} line={tt("Name, address and identity")} action="Review" onClick={() => openPanel(beat === "done" ? "details" : "setup")} />
           </div>
         ) : view?.status === "VERIFYING" || (!view && beat === "review") ? (
-          <Empty icon={<Clock className="h-5 w-5" />} title="Verification in progress" line="We're checking your information. No action is needed right now." />
+          <Empty icon={<Clock className="h-5 w-5" />} title={tt("Verification in progress")} line={tt("We're checking your information. No action is needed right now.")} />
         ) : view?.action === "support" && !checkoutLive ? (
           <Empty icon={<AlertCircle className="h-5 w-5" />} title={view.title} line={view.line} action={view.actionLabel ?? "Contact support"} href="mailto:support@storelib.com" />
         ) : (
           <Empty
-            title={view && view.status !== "NOT_STARTED" ? view.title : "Get paid with Storelib"}
-            line={view && view.status !== "NOT_STARTED" ? view.line : "Receive earnings directly to your bank account."}
+            title={view && view.status !== "NOT_STARTED" ? view.title : tt("Get paid with Storelib")}
+            line={view && view.status !== "NOT_STARTED" ? view.line : tt("Receive earnings directly to your bank account.")}
             action={view?.actionLabel ?? (hasAccount ? "Continue setup" : "Set up payouts")}
             onClick={() => openPanel(modeFor(view?.action))}
           />
@@ -293,9 +295,9 @@ export function StorelibPaymentsSettings({
 
       {data.badge === "active" && primaryBal && !compact ? (
         <section className="rounded-2xl border border-[#e5e7eb] bg-white px-5 py-4">
-          <p className="text-[12px] font-medium text-[#6b7280]">Available</p>
+          <p className="text-[12px] font-medium text-[#6b7280]">{tt("Available")}</p>
           <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-[#1a1a2e]">{money(primaryBal.availableMinor, primaryBal.currency)}</p>
-          <p className="text-[12px] text-[#6b7280]">{money(primaryBal.pendingMinor, primaryBal.currency)} on the way</p>
+          <p className="text-[12px] text-[#6b7280]">{tt("{amount} on the way", { amount: money(primaryBal.pendingMinor, primaryBal.currency) })}</p>
         </section>
       ) : null}
 
@@ -304,8 +306,8 @@ export function StorelibPaymentsSettings({
     </div>
   ) : data ? (
     <div className="rounded-2xl border border-[#e5e7eb] bg-white px-5 py-5 sm:px-6">
-      <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Storelib Payments</h3>
-      <p className="mt-1 text-[13px] text-[#6b7280]">Payments are not switched on yet.</p>
+      <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Storelib Payments")}</h3>
+      <p className="mt-1 text-[13px] text-[#6b7280]">{tt("Payments are not switched on yet.")}</p>
     </div>
   ) : null
 
@@ -318,7 +320,7 @@ export function StorelibPaymentsSettings({
 
 /** "RO•• •••• •••• 4821 · RON": the country and the last four, never more. */
 function maskedBank(b: { country?: string | null; last4?: string | null; currency?: string | null; bankName?: string | null }): string {
-  const lead = b.country ? `${b.country.toUpperCase()}•• •••• •••• ` : `${b.bankName || "Bank"} •••• `
+  const lead = b.country ? `${b.country.toUpperCase()}•• •••• •••• ` : `${b.bankName || tt("Bank")} •••• `
   return `${lead}${b.last4}${b.currency ? ` · ${b.currency.toUpperCase()}` : ""}`
 }
 
@@ -363,7 +365,7 @@ function Row({ icon, title, line, action, onClick }: { icon: React.ReactNode; ti
 
 /** Payments are on, and Stripe wants something: one line, one action, and the date if there is one. */
 function Notice({ title, line, deadline, action, href, onClick }: { title: string; line: string; deadline: string | null; action: string | null; href?: string; onClick: () => void }) {
-  const by = deadline ? new Date(deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null
+  const by = deadline ? new Date(deadline).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" })) : null
   const cls = cn(primaryDepth, "inline-flex h-10 w-full items-center justify-center rounded-lg px-3 text-[13px] sm:h-8 sm:w-auto sm:shrink-0")
   return (
     <div role="status" data-payments-notice="" className="mx-4 my-3 flex flex-col gap-3 rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-3 sm:mx-5 sm:flex-row sm:items-center">
@@ -373,7 +375,7 @@ function Notice({ title, line, deadline, action, href, onClick }: { title: strin
           <p className="text-[13px] font-medium text-[#1a1a2e]">{title}</p>
           <p className="text-[12px] leading-[17px] text-[#6b7280]">
             {line}
-            {by ? ` Needed by ${by}.` : ""}
+            {by ? tt(" Needed by {by}.", { by }) : ""}
           </p>
         </div>
       </div>

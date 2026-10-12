@@ -58,6 +58,8 @@ import { appliedLayout, blankBlocks, detectLayout, envelopeAfter, layoutEdited, 
 import { useMedia } from "./format-bar"
 import { SendStatus } from "./send-status"
 import { afterLayerMove } from "@/components/app/page-layer"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, appTimeZone, instantAt, wallClockIn, zoned } from "@/lib/i18n/format"
 
 export interface ComposerProps {
   campaignId: string | null
@@ -97,7 +99,7 @@ function when(iso: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  return d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+  return d.toLocaleString(appLocale(), zoned({ weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: string; errors?: Problem[] } }> {
@@ -106,7 +108,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; s
     const data = await res.json().catch(() => ({}))
     return { ok: res.ok, status: res.status, data }
   } catch {
-    return { ok: false, status: 0, data: { error: "You seem to be offline. Check your connection and try again." } as T & { error: string } }
+    return { ok: false, status: 0, data: { error: tt("You seem to be offline. Check your connection and try again.") } as T & { error: string } }
   }
 }
 
@@ -232,7 +234,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       const ahead = await takeFresh<Answer>(campaignKey(id), 5_000).catch(() => undefined)
       const r = ahead?.campaign ? { ok: true, status: 200, data: ahead as Answer & { error?: string } } : await api<Answer>(`/api/email/campaigns/${id}`)
       if (!r.ok) {
-        setLoadError(r.data.error ?? "This email could not be opened.")
+        setLoadError(r.data.error ?? tt("This email could not be opened."))
         setLoading(false)
         return
       }
@@ -372,12 +374,12 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
             return false
           }
           setSave("conflict")
-          setSaveError(r.data.error ?? "This email was changed somewhere else.")
+          setSaveError(r.data.error ?? tt("This email was changed somewhere else."))
           return false
         }
         if ((r.data as { field?: string }).field === "audience") setFieldError((f) => ({ ...f, audience: r.data.error }))
         setSave("error")
-        setSaveError(r.data.error ?? "Not saved. Check your connection.")
+        setSaveError(r.data.error ?? tt("Not saved. Check your connection."))
         return false
       })()
       inFlight.current = run
@@ -470,7 +472,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       body: JSON.stringify({ campaign_id: latest.current.loaded.id, dry_run: true, expected_updated_at: latest.current.loaded.version }),
     }).then((r) => {
       if (r.ok) setConfirm({ loading: false, error: null, recipients: r.data.recipients, excluded: r.data.excluded, warnings: r.data.warnings, sender: r.data.sender })
-      else setConfirm({ loading: false, error: r.data.error ?? "This email cannot be sent yet." })
+      else setConfirm({ loading: false, error: r.data.error ?? tt("This email cannot be sent yet.") })
     })
   }, [dialog])
 
@@ -484,7 +486,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     })
     setSending(false)
     if (!r.ok) {
-      setConfirm((c) => ({ ...c, error: r.data.error ?? "Not sent. Try again." }))
+      setConfirm((c) => ({ ...c, error: r.data.error ?? tt("Not sent. Try again.") }))
       return
     }
     setDialog(null)
@@ -504,14 +506,14 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const stop = async () => {
     if (!loaded) return
     const r = await api<{ status: CampaignStatus }>(`/api/email/campaigns/${loaded.id}/stop`, { method: "POST" })
-    if (!r.ok) setSaveError(r.data.error ?? "Could not stop it.")
+    if (!r.ok) setSaveError(r.data.error ?? tt("Could not stop it."))
     await load(loaded.id)
   }
 
   const retry = async () => {
     if (!loaded) return
     const r = await api<{ status: CampaignStatus }>("/api/email/send", { method: "POST", body: JSON.stringify({ campaign_id: loaded.id, retry_failed: true }) })
-    if (!r.ok) setSaveError(r.data.error ?? "Could not send again.")
+    if (!r.ok) setSaveError(r.data.error ?? tt("Could not send again."))
     await load(loaded.id)
   }
 
@@ -530,8 +532,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     })
     setScheduleBusy(false)
     if (!r.ok) {
-      if (at) setScheduleError(r.data.error ?? "Not scheduled. Try again.")
-      else setSaveError(r.data.error ?? "Could not unschedule.")
+      if (at) setScheduleError(r.data.error ?? tt("Not scheduled. Try again."))
+      else setSaveError(r.data.error ?? tt("Could not unschedule."))
       return
     }
     const c = r.data.campaign
@@ -545,7 +547,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const sendTest = async () => {
     setTest({ busy: true, done: null, error: null })
     const r = await api<{ sent_to: string }>("/api/email/send-test", { method: "POST", body: JSON.stringify({ subject, preview_text: previewText, body: bodyHtml }) })
-    setTest({ busy: false, done: r.ok ? r.data.sent_to : null, error: r.ok ? null : r.data.error ?? "The test was not sent." })
+    setTest({ busy: false, done: r.ok ? r.data.sent_to : null, error: r.ok ? null : r.data.error ?? tt("The test was not sent.") })
   }
 
   const uploadImage = async (file: File): Promise<string> => {
@@ -553,7 +555,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     form.append("file", file)
     const res = await fetch("/api/email/upload-image", { method: "POST", body: form })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok || typeof data.url !== "string") throw new Error(data.error || "The image did not upload. Try again.")
+    if (!res.ok || typeof data.url !== "string") throw new Error(data.error || tt("The image did not upload. Try again."))
     return data.url
   }
 
@@ -661,33 +663,33 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   /* ─── Drawing ─── */
 
-  const title = subject.trim() || (loaded ? "Untitled email" : "New email")
+  const title = subject.trim() || (loaded ? tt("Untitled email") : tt("New email"))
   const tone = status === "failed" ? "critical" : status === "partially_failed" ? "critical" : status === "sending" || status === "queued" || status === "scheduled" ? "attention" : status === "sent" ? "success" : "neutral"
   const sub =
     status === "scheduled"
-      ? `Goes out ${when(loaded?.scheduledAt ?? null)}`
+      ? tt("Goes out {date}", { date: when(loaded?.scheduledAt ?? null) })
       : !editable
         ? loaded?.sentAt
-          ? `Sent ${when(loaded.sentAt)}`
+          ? tt("Sent {date}", { date: when(loaded.sentAt) })
           : ""
         : save === "saving"
-          ? "Saving…"
+          ? tt("Saving…")
           : save === "pending"
-            ? "Unsaved changes"
+            ? tt("Unsaved changes")
             : save === "error"
-              ? "Not saved"
+              ? tt("Not saved")
               : save === "conflict"
-                ? "Changed somewhere else"
+                ? tt("Changed somewhere else")
                 : loaded
-                  ? "Saved"
-                  : "Not saved yet"
+                  ? tt("Saved")
+                  : tt("Not saved yet")
   const aud = audienceLabel(audience, options, segments)
 
   const moreItems: ActionMenuItem[] = [
-    { label: "Send a test to yourself", onClick: () => { setTest({ busy: false, done: null, error: null }); setDialog("test") } },
+    { label: tt("Send a test to yourself"), onClick: () => { setTest({ busy: false, done: null, error: null }); setDialog("test") } },
     status === "scheduled"
-      ? { label: "Unschedule", onClick: () => void schedule(null) }
-      : { label: "Schedule", onClick: () => void beginSend("schedule") },
+      ? { label: tt("Unschedule"), onClick: () => void schedule(null) }
+      : { label: tt("Schedule"), onClick: () => void beginSend("schedule") },
   ]
 
   if (loadError) {
@@ -696,7 +698,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
         <div className={cn("mx-auto pt-16 text-center", LIST_WIDTH, GUTTER)}>
           <p className="text-[15px] font-semibold text-[#1a1a2e]">{loadError}</p>
           <button type="button" className={cn(buttonSecondary, "mt-4")} onClick={() => onExit()}>
-            Back to emails
+            {tt("Back to emails")}
           </button>
         </div>
       </div>
@@ -707,7 +709,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     <div ref={paneRef} data-compose="" className="orders-pane page-scroll flex h-full flex-col overflow-y-auto overflow-x-hidden bg-[#f8f9fa] app-page-enter [scroll-padding-bottom:72px]">
       <PaneBar width={LIST_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
         <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
-          <button type="button" onClick={back} aria-label="Back to emails" className={cn(iconButton, "h-9 w-9")}>
+          <button type="button" onClick={back} aria-label={tt("Back to emails")} className={cn(iconButton, "h-9 w-9")}>
             <ArrowLeft className="h-5 w-5" />
           </button>
         </div>
@@ -719,32 +721,32 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           {editable && !loading ? (
             <>
               <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} onClick={() => { setTest({ busy: false, done: null, error: null }); setDialog("test") }}>
-                Send test
+                {tt("Send test")}
               </button>
               {status === "scheduled" ? (
                 <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} onClick={() => void schedule(null)}>
-                  Unschedule
+                  {tt("Unschedule")}
                 </button>
               ) : (
                 <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} onClick={() => void beginSend("schedule")}>
-                  Schedule
+                  {tt("Schedule")}
                 </button>
               )}
               <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex lg:hidden")} onClick={() => setPreviewOpen(true)} data-open-preview="bar">
-                Preview
+                {tt("Preview")}
               </button>
               <ResponsiveActionMenu
-                title="Email"
+                title={tt("Email")}
                 align="end"
                 items={moreItems}
                 trigger={
-                  <button type="button" className={cn(buttonSecondary, "px-2 md:hidden")} aria-label="More actions">
+                  <button type="button" className={cn(buttonSecondary, "px-2 md:hidden")} aria-label={tt("More actions")}>
                     <MoreHorizontal className="h-4 w-4" />
                   </button>
                 }
               />
               <button type="button" className={cn(buttonAccent, "hidden md:inline-flex")} onClick={() => void beginSend("send")} data-send-button="">
-                {status === "scheduled" ? "Send now" : "Send"}
+                {status === "scheduled" ? tt("Send now") : tt("Send")}
               </button>
             </>
           ) : null}
@@ -773,7 +775,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                 {save === "conflict" && loaded ? (
                   <>
                     <button type="button" className={buttonSecondary} onClick={() => void load(loaded.id)}>
-                      Load that version
+                      {tt("Load that version")}
                     </button>
                     <button
                       type="button"
@@ -787,12 +789,12 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                         }
                       }}
                     >
-                      Keep mine
+                      {tt("Keep mine")}
                     </button>
                   </>
                 ) : (
                   <button type="button" className={buttonSecondary} onClick={() => void saveNow(true)}>
-                    Try again
+                    {tt("Try again")}
                   </button>
                 )}
               </div>
@@ -801,7 +803,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
           {status === "failed" && editable && loaded?.lastError ? (
             <div role="status" className="mb-3 rounded-xl border border-[#f3c1b9] bg-[#fdf1ef] px-4 py-3 text-[13px] text-[#8a1c0f]">
-              This email was not sent. {loaded.lastError} Fix it and send it again.
+              {tt("This email was not sent. {lastError} Fix it and send it again.", { lastError: loaded.lastError })}
             </div>
           ) : null}
 
@@ -809,8 +811,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
             <div className="min-w-0 space-y-4">
               {editable ? (
                 <>
-                  <section aria-label="Envelope" className={cn(card, "divide-y divide-[#eef0f2]")}>
-                    <Row label="To" htmlFor="compose-to" error={fieldError.audience}>
+                  <section aria-label={tt("Envelope")} className={cn(card, "divide-y divide-[#eef0f2]")}>
+                    <Row label={tt("To")} htmlFor="compose-to" error={fieldError.audience}>
                       <AudiencePicker
                         id="compose-to"
                         value={audience}
@@ -824,20 +826,20 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                         }}
                       />
                     </Row>
-                    <Row label="From">
+                    <Row label={tt("From")}>
                       <p className="flex h-11 min-w-0 items-center truncate text-[16px] text-[#1a1a2e] sm:h-9 sm:text-[14px]">
                         <span className="truncate">
                           {me.name}
-                          {me.replyTo ? <span className="text-[#6b7280]"> · replies go to {me.replyTo}</span> : null}
+                          {me.replyTo ? <span className="text-[#6b7280]"> · {tt("replies go to {replyTo}", { replyTo: me.replyTo })}</span> : null}
                         </span>
                       </p>
                     </Row>
                     <Row
-                      label="Subject"
+                      label={tt("Subject")}
                       htmlFor="compose-subject"
                       error={fieldError.subject}
                       counter={subject.length > SUBJECT_SHORT - 10 ? `${subject.length}/${SUBJECT_MAX}` : null}
-                      hint={!fieldError.subject && subject.trim().length > SUBJECT_SHORT ? "Phones cut subjects past about 60 characters." : null}
+                      hint={!fieldError.subject && subject.trim().length > SUBJECT_SHORT ? tt("Phones cut subjects past about 60 characters.") : null}
                     >
                       <input
                         id="compose-subject"
@@ -847,13 +849,13 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                           setSubject(e.target.value)
                           if (fieldError.subject) setFieldError((f) => ({ ...f, subject: undefined }))
                         }}
-                        placeholder="What is this email about?"
+                        placeholder={tt("What is this email about?")}
                         aria-invalid={!!fieldError.subject}
                         className="h-11 w-full min-w-0 bg-transparent text-[16px] font-medium text-[#1a1a2e] outline-none placeholder:font-normal placeholder:text-[#9ca3af] sm:h-9 sm:text-[14px]"
                       />
                     </Row>
                     <Row
-                      label="Preview"
+                      label={tt("Preview")}
                       htmlFor="compose-preview"
                       error={fieldError.previewText}
                       counter={previewText.length > 100 ? `${previewText.length}/${PREVIEW_MAX}` : null}
@@ -866,15 +868,15 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                           setPreviewText(e.target.value)
                           if (fieldError.previewText) setFieldError((f) => ({ ...f, previewText: undefined }))
                         }}
-                        placeholder="The line shown after the subject in the inbox"
+                        placeholder={tt("The line shown after the subject in the inbox")}
                         className="h-11 w-full min-w-0 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:h-9 sm:text-[14px]"
                       />
                     </Row>
                     {canSetOpens ? (
-                      <Row label="Opens" htmlFor="compose-opens">
+                      <Row label={tt("Opens")} htmlFor="compose-opens">
                         <label className="flex h-11 min-w-0 cursor-pointer items-center justify-between gap-3 sm:h-9">
-                          <span className="truncate text-[14px] text-[#4b5563]">{trackOpens ? "Counted" : "Not counted"}</span>
-                          <Switch id="compose-opens" checked={trackOpens} onCheckedChange={setTrackOpens} aria-label="Count opens" />
+                          <span className="truncate text-[14px] text-[#4b5563]">{trackOpens ? tt("Counted") : tt("Not counted")}</span>
+                          <Switch id="compose-opens" checked={trackOpens} onCheckedChange={setTrackOpens} aria-label={tt("Count opens")} />
                         </label>
                       </Row>
                     ) : null}
@@ -889,15 +891,15 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                       onRemove={() => chooseLayout("blank")}
                     />
                   ) : null}
-                  <section aria-label="Email" className={cn(card, "overflow-clip", fieldError.body && "shadow-[0_0_0_2px_#d72c0d]")}>
+                  <section aria-label={tt("Email")} className={cn(card, "overflow-clip", fieldError.body && "shadow-[0_0_0_2px_#d72c0d]")}>
                     <BlockEditor doc={doc} creatorId={me.creatorId} username={me.username} issues={issues} showIssues={showIssues} theme={theme} onUploadImage={uploadImage} />
                   </section>
                   {fieldError.body ? <p className={errorClass}>{fieldError.body}</p> : null}
                   {canStart ? <StarterList onPick={chooseLayout} /> : null}
                   {plan ? (
                     <p className={cn(helpClass, "px-1")}>
-                      {plan.used.toLocaleString("en-US")} of {plan.limit.toLocaleString("en-US")} emails used this month
-                      {aud.count !== null ? ` · this one goes to about ${aud.count.toLocaleString("en-US")}` : ""}
+                      {tt("{value} of {value2} emails used this month", { value: plan.used.toLocaleString(appLocale()), value2: plan.limit.toLocaleString(appLocale()) })}
+                      {aud.count !== null ? tt(" · this one goes to about {value}", { value: aud.count.toLocaleString(appLocale()) }) : ""}
                     </p>
                   ) : null}
                 </>
@@ -907,13 +909,13 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
             </div>
 
             <aside
-              aria-label="Preview"
+              aria-label={tt("Preview")}
               className={cn("min-w-0 lg:sticky", editable && "hidden lg:block")}
               style={{ top: "calc(var(--compose-bar, 60px) + 16px)" }}
             >
               <div className={cn(card, "overflow-hidden lg:max-h-[var(--compose-room)] lg:overflow-y-auto")}>
                 {editable && !wide ? null : (
-                <EmailPreview html={previewHtml} senderName={me.name || "You"} subject={personalizeSubject(subject, reader)} previewText={personalizeSubject(previewText, reader)} mode={previewMode} onMode={setPreviewMode} />
+                <EmailPreview html={previewHtml} senderName={me.name || tt("You")} subject={personalizeSubject(subject, reader)} previewText={personalizeSubject(previewText, reader)} mode={previewMode} onMode={setPreviewMode} />
                 )}
               </div>
             </aside>
@@ -933,10 +935,10 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
         >
           <div className="flex gap-2 border-t border-[#e5e7eb] bg-white px-4 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pt-2.5 shadow-[0_-6px_20px_-14px_rgba(17,24,39,0.2)]">
             <button type="button" className={cn(buttonSecondary, "h-11 flex-1 text-[15px]")} onClick={() => setPreviewOpen(true)} data-open-preview="foot">
-              Preview
+              {tt("Preview")}
             </button>
             <button type="button" className={cn(buttonAccent, "h-11 flex-1 text-[15px]")} onClick={() => void beginSend("send")} data-send-button="foot">
-              {status === "scheduled" ? "Send now" : "Send"}
+              {status === "scheduled" ? tt("Send now") : tt("Send")}
             </button>
           </div>
         </div>
@@ -947,7 +949,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           open={previewOpen}
           onClose={() => setPreviewOpen(false)}
           html={previewHtml}
-          senderName={me.name || "You"}
+          senderName={me.name || tt("You")}
           subject={personalizeSubject(subject, reader)}
           previewText={personalizeSubject(previewText, reader)}
           mode={previewMode}
@@ -958,47 +960,47 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       <ComposeDialog
         open={dialog === "send"}
         onClose={() => setDialog(null)}
-        title={status === "scheduled" ? "Send it now?" : "Send this email?"}
+        title={status === "scheduled" ? tt("Send it now?") : tt("Send this email?")}
         footer={
           <>
             <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" className={buttonAccent} disabled={confirm.loading || !!confirm.error || sending} onClick={() => void sendNow()} data-confirm-send="">
-              {sending ? "Sending…" : confirm.recipients ? `Send to ${confirm.recipients.toLocaleString("en-US")}` : "Send"}
+              {sending ? tt("Sending…") : confirm.recipients ? tt("Send to {value}", { value: confirm.recipients.toLocaleString(appLocale()) }) : tt("Send")}
             </button>
           </>
         }
       >
         {confirm.loading ? (
-          <p className="py-4 text-[14px] text-[#6b7280]">Counting who it goes to…</p>
+          <p className="py-4 text-[14px] text-[#6b7280]">{tt("Counting who it goes to…")}</p>
         ) : confirm.error ? (
           <p className="py-2 text-[14px] text-[#b42318]">{confirm.error}</p>
         ) : (
           <dl className="grid gap-3 text-[14px]">
             <div>
-              <dt className="text-[12px] font-medium text-[#6b7280]">To</dt>
+              <dt className="text-[12px] font-medium text-[#6b7280]">{tt("To")}</dt>
               <dd className="text-[#1a1a2e]">
-                <span className="font-semibold tabular-nums">{(confirm.recipients ?? 0).toLocaleString("en-US")}</span> {confirm.recipients === 1 ? "person" : "people"} in {aud.label.toLowerCase()}
+                <span className="font-semibold tabular-nums">{(confirm.recipients ?? 0).toLocaleString(appLocale())}</span> {tt("{recipients, plural, one {person} other {people}} in", { recipients: confirm.recipients })} {aud.label.toLowerCase()}
                 {confirm.excluded ? (
                   <span className="block text-[13px] text-[#6b7280]">
-                    {confirm.excluded.toLocaleString("en-US")} left out: unsubscribed, bounced, or not a working address.
+                    {tt("{value} left out: unsubscribed, bounced, or not a working address.", { value: confirm.excluded.toLocaleString(appLocale()) })}
                   </span>
                 ) : null}
               </dd>
             </div>
             <div>
-              <dt className="text-[12px] font-medium text-[#6b7280]">From</dt>
+              <dt className="text-[12px] font-medium text-[#6b7280]">{tt("From")}</dt>
               <dd className="break-words text-[#1a1a2e]">{confirm.sender?.from}</dd>
-              <dd className="break-words text-[13px] text-[#6b7280]">Replies go to {confirm.sender?.replyTo}</dd>
+              <dd className="break-words text-[13px] text-[#6b7280]">{tt("Replies go to {replyTo}", { replyTo: confirm.sender?.replyTo })}</dd>
               {confirm.sender && !confirm.sender.address ? (
                 <dd className="mt-1 text-[13px] text-[#5c4300]">
-                  No postal address in the footer. Marketing email must carry one in the US and many other places: add it under Settings, Address.
+                  {tt("No postal address in the footer. Marketing email must carry one in the US and many other places: add it under Settings, Address.")}
                 </dd>
               ) : null}
             </div>
             <div>
-              <dt className="text-[12px] font-medium text-[#6b7280]">Subject</dt>
+              <dt className="text-[12px] font-medium text-[#6b7280]">{tt("Subject")}</dt>
               <dd className="break-words text-[#1a1a2e]">{subject}</dd>
             </div>
             {confirm.warnings?.length ? (
@@ -1008,7 +1010,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                 ))}
               </div>
             ) : null}
-            <p className="text-[13px] text-[#6b7280]">Once it starts it cannot be taken back. You can stop the ones not yet sent.</p>
+            <p className="text-[13px] text-[#6b7280]">{tt("Once it starts it cannot be taken back. You can stop the ones not yet sent.")}</p>
           </dl>
         )}
       </ComposeDialog>
@@ -1028,15 +1030,15 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       <ComposeDialog
         open={dialog === "test"}
         onClose={() => setDialog(null)}
-        title="Send a test"
+        title={tt("Send a test")}
         footer={
           <>
             <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>
-              {test.done ? "Done" : "Cancel"}
+              {test.done ? tt("Done") : tt("Cancel")}
             </button>
             {!test.done ? (
               <button type="button" className={buttonPrimary} disabled={test.busy || !subject.trim()} onClick={() => void sendTest()}>
-                {test.busy ? "Sending…" : "Send test"}
+                {test.busy ? tt("Sending…") : tt("Send test")}
               </button>
             ) : null}
           </>
@@ -1044,33 +1046,33 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       >
         <p className="text-[14px] text-[#1a1a2e]">
           {test.done ? (
-            <>Sent to {test.done}. It can take a minute to arrive.</>
+            <>{tt("Sent to {done}. It can take a minute to arrive.", { done: test.done })}</>
           ) : (
             <>
-              The email as your subscribers will get it, with your name filled in, to <span className="font-medium">{me.email ?? "your account's email"}</span>.
+              {tt("The email as your subscribers will get it, with your name filled in, to")} <span className="font-medium">{me.email ?? tt("your account's email")}</span>.
             </>
           )}
         </p>
-        {!subject.trim() ? <p className={cn(helpClass, "mt-2")}>Add a subject first.</p> : null}
+        {!subject.trim() ? <p className={cn(helpClass, "mt-2")}>{tt("Add a subject first.")}</p> : null}
         {test.error ? <p className={cn(errorClass, "mt-2 text-[13px]")}>{test.error}</p> : null}
       </ComposeDialog>
 
       <ComposeDialog
         open={dialog === "leave"}
         onClose={() => setDialog(null)}
-        title="Leave without saving?"
+        title={tt("Leave without saving?")}
         footer={
           <>
             <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>
-              Stay
+              {tt("Stay")}
             </button>
             <button type="button" className={buttonPrimary} onClick={() => onExit("drafts")}>
-              Leave
+              {tt("Leave")}
             </button>
           </>
         }
       >
-        <p className="text-[14px] text-[#1a1a2e]">Your latest changes are not saved. {saveError}</p>
+        <p className="text-[14px] text-[#1a1a2e]">{tt("Your latest changes are not saved. {saveError}", { saveError })}</p>
       </ComposeDialog>
     </div>
   )
@@ -1108,50 +1110,51 @@ function Row({
 /* ─── Scheduling: a day, and a whole hour, because the queue runs on the hour ─── */
 
 function ScheduleDialog({ open, onClose, busy, error, onSchedule }: { open: boolean; onClose: () => void; busy: boolean; error: string | null; onSchedule: (d: Date) => void }) {
-  const tz = React.useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  /* The creator's time zone (Settings), not the device's: "9:00" is 9:00 where they said they are. */
+  const tz = React.useMemo(() => appTimeZone(), [])
   const next = React.useMemo(() => {
-    const d = new Date()
-    d.setMinutes(0, 0, 0)
-    d.setHours(d.getHours() + (open ? 2 : 2))
-    return d
-  }, [open])
-  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-  const [day, setDay] = React.useState(ymd(next))
-  const [hour, setHour] = React.useState(next.getHours())
+    /* Two hours on, on the hour; worked out again each time the dialog opens. */
+    const w = wallClockIn(Date.now() + (open ? 2 : 2) * 3_600_000, tz)
+    return { ...w, min: 0 }
+  }, [open, tz])
+  const ymdOf = (w: { y: number; m: number; d: number }) => `${w.y}-${String(w.m + 1).padStart(2, "0")}-${String(w.d).padStart(2, "0")}`
+  const [day, setDay] = React.useState(ymdOf(next))
+  const [hour, setHour] = React.useState(next.h)
   React.useEffect(() => {
     if (open) {
-      setDay(ymd(next))
-      setHour(next.getHours())
+      setDay(ymdOf(next))
+      setHour(next.h)
     }
   }, [open, next])
   const [y, m, d] = day.split("-").map(Number)
-  const at = new Date(y, (m || 1) - 1, d || 1, hour, 0, 0, 0)
+  const at = instantAt(y, (m || 1) - 1, d || 1, hour, 0, tz)
   const past = at.getTime() < Date.now() + 5 * 60_000
-  const hours = Array.from({ length: 24 }, (_, h) => ({ h, label: new Date(2000, 0, 1, h).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) }))
+  /* Hours as the wall clock says them, in the dashboard's language: "9:00 AM", "09:00". */
+  const hours = Array.from({ length: 24 }, (_, h) => ({ h, label: new Date(Date.UTC(2000, 0, 1, h)).toLocaleTimeString(appLocale(), { hour: "numeric", minute: "2-digit", timeZone: "UTC" }) }))
   const field = "h-11 w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] sm:h-9 sm:text-[14px]"
   return (
     <ComposeDialog
       open={open}
       onClose={onClose}
-      title="Schedule"
+      title={tt("Schedule")}
       footer={
         <>
           <button type="button" className={buttonSecondary} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" className={buttonPrimary} disabled={busy || past} onClick={() => onSchedule(at)}>
-            {busy ? "Scheduling…" : "Schedule"}
+            {busy ? tt("Scheduling…") : tt("Schedule")}
           </button>
         </>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5">
-          <span className="text-[13px] font-medium text-[#1a1a2e]">Day</span>
-          <input type="date" className={field} value={day} min={ymd(new Date())} onChange={(e) => setDay(e.target.value)} />
+          <span className="text-[13px] font-medium text-[#1a1a2e]">{tt("Day")}</span>
+          <input type="date" className={field} value={day} min={ymdOf(wallClockIn(Date.now(), tz))} onChange={(e) => setDay(e.target.value)} />
         </label>
         <label className="grid gap-1.5">
-          <span className="text-[13px] font-medium text-[#1a1a2e]">Time</span>
+          <span className="text-[13px] font-medium text-[#1a1a2e]">{tt("Time")}</span>
           <select className={field} value={hour} onChange={(e) => setHour(Number(e.target.value))}>
             {hours.map((o) => (
               <option key={o.h} value={o.h}>
@@ -1162,7 +1165,7 @@ function ScheduleDialog({ open, onClose, busy, error, onSchedule }: { open: bool
         </label>
       </div>
       <p className={cn("mt-3 text-[13px]", past ? "text-[#b42318]" : "text-[#6b7280]")}>
-        {past ? "Choose a time later than now." : `Goes out ${when(at.toISOString())}, your time (${tz.replace(/_/g, " ")}).`}
+        {past ? tt("Choose a time later than now.") : tt("Goes out {date}, your time ({value}).", { date: when(at.toISOString()), value: tz.replace(/_/g, " ") })}
       </p>
       {error ? <p className={cn(errorClass, "mt-2 text-[13px]")}>{error}</p> : null}
     </ComposeDialog>
@@ -1171,7 +1174,7 @@ function ScheduleDialog({ open, onClose, busy, error, onSchedule }: { open: bool
 
 function ComposeSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading" className={cn("skeleton-deferred mx-auto grid gap-4 pt-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]", LIST_WIDTH, GUTTER)}>
+    <div aria-busy="true" aria-label={tt("Loading")} className={cn("skeleton-deferred mx-auto grid gap-4 pt-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]", LIST_WIDTH, GUTTER)}>
       <div className="space-y-4">
         <div className={cn(card, "h-[168px]")} />
         <div className={cn(card, "h-[420px]")} />

@@ -21,6 +21,7 @@ import { exportShopifyTheme } from "../lib/storelib-theme/compat/export"
 import { compatPageForHref } from "../lib/storelib-theme/compat/install"
 import { answer } from "../lib/storelib-theme/compat/site"
 import type { SectionInstance } from "../lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -29,7 +30,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
 const root = join(__dirname, "..")
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 ;(async () => {
   console.log("\nWhat a save route accepts\n")

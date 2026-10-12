@@ -1,7 +1,11 @@
 import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = {
-  title: "Changelog",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Changelog"),
+  }
 }
 
 export default function ChangelogLayout({

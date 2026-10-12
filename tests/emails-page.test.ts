@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { listBehindShows } from "@/app/app/emails/list-return"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -14,7 +15,7 @@ function check(name: string, ok: boolean, detail = "") {
   if (ok) { passed++; console.log(`  ok    ${name}`) }
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const page = read("app/app/emails/emails-client.tsx")
 const home = read("app/app/emails/emails-home.tsx")
 const detail = read("app/app/emails/email-detail.tsx")

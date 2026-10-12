@@ -41,6 +41,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { FIT_POPOVER, fitBox } from "@/components/ui/popover-fit"
 import { EMOJI_GROUPS, readRecentEmoji, rememberEmoji, searchEmoji } from "@/lib/rich-text/emoji"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 function usePhone(query = "(max-width: 639px)") {
   const [phone, setPhone] = React.useState(false)
@@ -207,8 +208,8 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search emoji"
-            aria-label="Search emoji"
+            placeholder={tt("Search emoji")}
+            aria-label={tt("Search emoji")}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
@@ -216,7 +217,7 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
             className={cn("min-w-0 flex-1 bg-transparent text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden", phone ? "text-[16px]" : "text-[14px]")}
           />
           {query ? (
-            <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="-mr-1 flex h-7 w-7 items-center justify-center rounded-full text-[#6b7280] [@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e]">
+            <button type="button" aria-label={tt("Clear search")} onClick={() => setQuery("")} className="-mr-1 flex h-7 w-7 items-center justify-center rounded-full text-[#6b7280] [@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e]">
               <X className="h-4 w-4" />
             </button>
           ) : null}
@@ -237,13 +238,13 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
           found.length ? (
             <div className="pb-2"><EmojiGrid list={found} phone={phone} /></div>
           ) : (
-            <p className="px-2 py-6 text-center text-[13px] text-[#6b7280]">No emoji for “{query.trim()}”</p>
+            <p className="px-2 py-6 text-center text-[13px] text-[#6b7280]">{tt("No emoji for “{value}”", { value: query.trim() })}</p>
           )
         ) : (
           <>
             {recent.length ? (
               <section className="pb-1">
-                <p className="px-1.5 pb-1 pt-1 text-[12px] font-medium text-[#6b7280]">Recently used</p>
+                <p className="px-1.5 pb-1 pt-1 text-[12px] font-medium text-[#6b7280]">{tt("Recently used")}</p>
                 <EmojiGrid list={recent} phone={phone} />
               </section>
             ) : null}
@@ -293,7 +294,7 @@ export function EmojiControl({
   const trigger = (
     <button
       type="button"
-      aria-label="Emoji"
+      aria-label={tt("Emoji")}
       aria-haspopup="dialog"
       aria-expanded={open}
       data-emoji-trigger=""
@@ -316,7 +317,7 @@ export function EmojiControl({
         <BottomSheet
           isOpen={open}
           onClose={close}
-          label="Emoji"
+          label={tt("Emoji")}
           height="min(62dvh, 520px)"
           maxHeight="min(62dvh, 520px)"
           fill

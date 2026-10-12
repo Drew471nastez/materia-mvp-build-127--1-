@@ -22,7 +22,9 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fakeDb } from "./_fake-db"
 import { stripComments } from "./_source"
-import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, shipsToCountries, themeCartAfter } from "@/lib/checkout/site-checkout"
+import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, shipsToCountries, themeCartAfter } from "@/lib/checkout/site-checkout"
+import { variantChoices } from "@/lib/checkout/variant-choices-server"
+import { pickByValue } from "@/app/checkout/parts/variant-edit"
 import { clampToLimits, shippedQuote } from "@/lib/checkout/site-quote-server"
 import { DEFAULT_CHECKOUT } from "@/lib/store/checkout-config"
 import type { ShippingProfile } from "@/lib/physical/types"
@@ -43,7 +45,9 @@ const M = "5b1c0000-0000-4000-8000-0000000000b1"
 const S = "5b1c0000-0000-4000-8000-0000000000b2"
 const STUDIO = "5b1c0000-0000-4000-8000-0000000000c1"
 
-function shop(over: { maxPerOrder?: number | null; levelM?: number; requiresShipping?: boolean } = {}) {
+const L = "5b1c0000-0000-4000-8000-0000000000b3"
+
+function shop(over: { maxPerOrder?: number | null; levelM?: number; requiresShipping?: boolean; sizes?: boolean; priceS?: number } = {}) {
   const rate = (r: Record<string, unknown>) => ({ creator_id: SHOP, active: true, position: 0, tiers: [], min_value: null, max_value: null, free_over_cents: null, min_days: 2, max_days: 4, ...r })
   return fakeDb({
     products: [
@@ -51,13 +55,16 @@ function shop(over: { maxPerOrder?: number | null; levelM?: number; requiresShip
     ],
     product_variants: [
       { id: M, product_id: SLEEVE, name: "M", price_cents: 3500, weight_grams: 200, track_inventory: true, inventory_policy: "deny", requires_shipping: null, taxable: true, active: true, fulfillment_location_id: null, fulfillment_method: null },
-      { id: S, product_id: SLEEVE, name: "S", price_cents: 3500, weight_grams: 200, track_inventory: true, inventory_policy: "deny", requires_shipping: null, taxable: true, active: true, fulfillment_location_id: null, fulfillment_method: null },
-    ],
+      { id: S, product_id: SLEEVE, name: "S", price_cents: over.priceS ?? 3500, weight_grams: 200, track_inventory: true, inventory_policy: "deny", requires_shipping: null, taxable: true, active: true, fulfillment_location_id: null, fulfillment_method: null },
+      ...(over.sizes ? [{ id: L, product_id: SLEEVE, name: "L", price_cents: 3900, weight_grams: 220, track_inventory: true, inventory_policy: "deny", requires_shipping: null, taxable: true, active: true, fulfillment_location_id: null, fulfillment_method: null }] : []),
+    ].map((v, n) => ({ ...v, option1: v.name, position: n })),
+    product_options: over.sizes ? [{ product_id: SLEEVE, position: 1, name: "Size", values: ["S", "M", "L"] }] : [],
     commerce_settings: [{ creator_id: SHOP, default_location_id: STUDIO, unit_system: "metric", returns_enabled: true, return_window_days: 30, tax_mode: "none", low_stock_default: 5, low_stock_alerts: true }],
     inventory_locations: [{ id: STUDIO, creator_id: SHOP, name: "Studio", kind: "home", country: "RO", city: "Cluj", address_line1: "Str. Lunga 1", postal_code: "400001", active: true, fulfills_orders: true, holds_inventory: true, priority: 0, forwarding: "none", pickup_enabled: true, pickup_instructions: "Side door", pickup_ready: "2h", pickup_hours: "Mon to Fri 9:00 to 17:00" }],
     inventory_levels: [
       { variant_id: M, location_id: STUDIO, creator_id: SHOP, available: over.levelM ?? 3 },
       { variant_id: S, location_id: STUDIO, creator_id: SHOP, available: 10 },
+      ...(over.sizes ? [{ variant_id: L, location_id: STUDIO, creator_id: SHOP, available: 0 }] : []),
     ],
     shipping_profiles: [{ id: "general", creator_id: SHOP, name: "General", is_default: true, created_at: "2026-01-01" }],
     shipping_zones: [
@@ -87,6 +94,61 @@ async function main() {
     check("an imported theme's cart cookie follows: changed, removed, nothing added", after.length === 1 && after[0].k === "a" && after[0].q === 3, after)
   }
 
+  /* The owner: "let customers correct their selections without having to go back to the product page." */
+  section("CHANGE THE OPTION IN CHECKOUT: a size, an edition, without leaving")
+  {
+    const items = [{ productId: SLEEVE, variantId: M, quantity: 2 }]
+    const moved = setLineVariant(items, { productId: SLEEVE, variantId: M }, S)
+    check("a line changes to another option, keeping its quantity", moved.length === 1 && moved[0].variantId === S && moved[0].quantity === 2, moved)
+    const merged = setLineVariant([{ productId: SLEEVE, variantId: M, quantity: 2 }, { productId: SLEEVE, variantId: S, quantity: 1 }], { productId: SLEEVE, variantId: M }, S)
+    check("  onto an option already in the cart: one line, the two quantities together", merged.length === 1 && merged[0].variantId === S && merged[0].quantity === 3, merged)
+    check("  the same option, or none, changes nothing", setLineVariant(items, { productId: SLEEVE, variantId: M }, M) === items && setLineVariant(items, { productId: SLEEVE, variantId: M }, "") === items)
+    const theme = themeCartAfter([{ k: "a", p: SLEEVE, v: M, q: 2, props: { Gift: "yes" } }], [{ productId: SLEEVE, variantId: S, quantity: 2 }])
+    check("  an imported theme's cart cookie follows the change, with the line's properties", theme.length === 1 && theme[0].v === S && theme[0].k === "a" && theme[0].props.Gift === "yes", theme)
+
+    const choices = await variantChoices(shop({ sizes: true }) as never, [SLEEVE])
+    const c = choices[SLEEVE]
+    check("the quote's choices: the options, each value, and every option with its price", !!c && c.options[0]?.name === "Size" && JSON.stringify(c.options[0].values) === '["S","M","L"]' && c.variants.length === 3 && c.variants.find((v) => v.id === L)?.priceCents === 3900, c)
+    check("  sold out by the product page's own rule (L has none left)", c?.variants.find((v) => v.id === L)?.available === false && c?.variants.find((v) => v.id === S)?.available === true, c?.variants)
+    check("  a product with one option has nothing to change", Object.keys(await variantChoices(fakeDb({ products: [{ id: SLEEVE, creator_id: SHOP, type: "physical", status: "published" }], product_variants: [{ id: M, product_id: SLEEVE, name: "M", price_cents: 100, active: true }], product_options: [] }) as never, [SLEEVE])).length === 0)
+    check("  a read that fails is a checkout with nothing to change, never an error", JSON.stringify(await variantChoices({ from: () => { throw new Error("down") } } as never, [SLEEVE])) === "{}")
+    const EBOOK = "5b1c0000-0000-4000-8000-0000000000d1"
+    const digital = await variantChoices(fakeDb({
+      products: [{ id: EBOOK, creator_id: SHOP, type: "digital", status: "published" }],
+      product_variants: [
+        { id: "5b1c0000-0000-4000-8000-0000000000d2", product_id: EBOOK, name: "Standard", price_cents: 1500, active: true, position: 0 },
+        { id: "5b1c0000-0000-4000-8000-0000000000d3", product_id: EBOOK, name: "Deluxe", price_cents: 2900, active: true, position: 1 },
+        { id: "5b1c0000-0000-4000-8000-0000000000d4", product_id: EBOOK, name: "Name your price", price_cents: 500, active: true, position: 2, pay_what_you_want: true },
+      ],
+      product_options: [],
+    }) as never, [EBOOK])
+    check("a download with editions: one list of its options by name, each on sale, pay what you want left out", JSON.stringify(digital[EBOOK]?.options) === "[]" && JSON.stringify(digital[EBOOK]?.variants.map((v) => `${v.name}:${v.priceCents}:${v.available}`)) === '["Standard:1500:true","Deluxe:2900:true"]', digital)
+    if (c) {
+      check("the picker takes the value chosen when that option is on sale", pickByValue(c, M, 0, "S") === S)
+      check("  and never a sold out one: nothing is changed", pickByValue(c, M, 0, "L") === null)
+    }
+    const q = await shippedQuote(shop({ sizes: true }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: M, quantity: 1 }], country: "RO" }, null)
+    check("the website checkout's quote carries them", q.ok === true && q.quote.choices?.[SLEEVE]?.variants.length === 3, q.ok ? q.quote.choices : q)
+    const after = await shippedQuote(shop({ sizes: true }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: L, quantity: 1 }], country: "RO" }, null)
+    check("  and the order changed to another option is priced again from the database (L at its own price; sold out, so short)", after.ok === true && after.quote.short?.[0]?.variantId === L && after.quote.stockIssues.length === 1, after.ok ? after.quote.short : after)
+    const page = code("app/checkout/site/site-checkout.tsx")
+    check("the page: Edit on each line and on a short line, the change through the same path as - / +", /<VariantEdit\s+choices=\{quote\.choices\?\.\[l\.productId\]\}/.test(page) && /commitItems\(setLineVariant\(items, line, variantId\)/.test(page) && /A size that sold out is changed to one in stock right here/.test(readFileSync(join(process.cwd(), "app/checkout/site/site-checkout.tsx"), "utf8")))
+    check("  this browser's cart follows the new option rather than losing the line", /swap && was\.productId === swap\.productId/.test(page))
+    const other = code("app/checkout/physical/physical-checkout.tsx")
+    check("the storelib.com cart checkout has the same picker, from its own quote", /<VariantEdit/.test(other) && /variantChoices\(db,/.test(code("app/api/physical/checkout/quote/route.ts")))
+  }
+
+  /* The owner: "when I set up a price for a variant I want to set it to 0, and it tells me to set up a price for S." */
+  section("$0 IS A PRICE: a free option ships like any other")
+  {
+    const free = await shippedQuote(shop({ priceS: 0 }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: S, quantity: 1 }], country: "RO" }, null)
+    check("a $0 option stays in the order at $0, with its shipping", free.ok === true && free.quote.lines.length === 1 && free.quote.lines[0].unitCents === 0 && free.quote.totals.shippingCents === 1500 && free.quote.dropped.length === 0, free.ok ? { lines: free.quote.lines, totals: free.quote.totals, dropped: free.quote.dropped } : free)
+    const cards = code("components/physical/product-cards.tsx")
+    check("the editor takes $0, asks for a price only when there is none, and refuses only between nothing and $0.50", /if \(p === null\) return multi \? tt\("Set a price for \{name\}"/.test(cards) && /if \(p > 0 && p < 50\)/.test(cards) && !/p === null \|\| p < 50/.test(cards))
+    const editor = code("app/app/products/new/product-editor.tsx")
+    check("every card's change turns Save on, a saved product too (justSaved cleared with it)", /const markDirty = useCallback\(\(\) => \{\s*setHasUnsavedChanges\(true\)\s*setJustSaved\(false\)\s*\}, \[\]\)/.test(editor) && /const markPhysicalDirty = markDirty/.test(editor) && /onChange=\{markDirty\}/.test(editor) && !/setHasUnsavedChanges\(true\), \[\]\)/.test(editor))
+  }
+
   section("SERVER: priced again from the database, with how far each line may go")
   {
     const q = await shippedQuote(shop() as never, SHOP, { items: [{ productId: SLEEVE, variantId: M, quantity: 1, unitCents: 1 }, { productId: SLEEVE, variantId: S, quantity: 2 }], country: "RO" }, null)
@@ -106,12 +168,15 @@ async function main() {
     check("a country the shop doesn't ship to: no options, the reason given", fr.ok === true && fr.quote.delivery.ok === false && !!fr.quote.delivery.error && fr.quote.delivery.options.length === 0, fr.ok ? fr.quote.delivery : fr)
   }
 
-  section("NOT SHIPPED: \"This product is shipped\" off, or a row written without it")
+  /* Changed on purpose (the owner: "customers can reach payment without entering a shipping address... prevent this from ever happening again"): a row that says not shipped is shipped all the same. */
+  section("NEVER WITHOUT AN ADDRESS: a row that says not shipped, or was written without it")
   {
     const hand = await shippedQuote(shop({ requiresShipping: false }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: M, quantity: 1 }] }, null)
-    check("no address is asked, and it is still a physical order with - / +", hand.ok === true && !hand.quote.requiresShipping && hand.quote.physical === true && hand.quote.lines[0].maxQuantity === 3, hand)
+    check("the address and the delivery are asked all the same, with - / +", hand.ok === true && hand.quote.requiresShipping === true && hand.quote.lines[0].requiresShipping === true && hand.quote.lines[0].maxQuantity === 3, hand)
+    const ro = await shippedQuote(shop({ requiresShipping: false }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: M, quantity: 1 }], country: "RO" }, null)
+    check("  and priced with its shipping", ro.ok === true && ro.quote.delivery.options.length > 0 && ro.quote.totals.shippingCents >= 0, ro.ok ? ro.quote.delivery : ro)
     const sql = readFileSync(join(process.cwd(), "supabase/sql/run-now/161_physical_products_ship_by_default.sql"), "utf8")
-    check("part 161: a physical product ships by default, as every reader already assumes; no rows changed", /ALTER TABLE public\.products ALTER COLUMN requires_shipping SET DEFAULT true;/.test(sql) && !/^UPDATE/im.test(sql) && sql.trim().split("\n").every((l) => l.trim().endsWith(";") || l.trim().endsWith("*/")))
+    check("part 161: a physical product ships by default", /ALTER TABLE public\.products ALTER COLUMN requires_shipping SET DEFAULT true;/.test(sql) && sql.trim().split("\n").every((l) => l.trim().endsWith(";") || l.trim().endsWith("*/")))
   }
 
   section("LIMIT and SHORT")

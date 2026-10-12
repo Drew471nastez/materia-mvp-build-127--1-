@@ -47,6 +47,7 @@ import { themeFiles, gitBlobSha, roleOf, readsBack } from "@/lib/github-sync/lay
 import { compatSchemaChange } from "@/lib/github-sync/sync"
 import { travels } from "@/lib/github-sync/mirror"
 import { wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -55,7 +56,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 function main() {
   console.log("\nThe webhook is GitHub's or it is refused")

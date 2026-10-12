@@ -11,6 +11,7 @@ import { join } from "node:path"
 import { OWN_DB_KEY, OWN_DB_URL, checkDatabaseUrl, checkPublicKey, ownDatabase } from "@/lib/website-builder/own-database"
 import { GUEST_SOURCE } from "@/lib/storelib-theme/sandbox/guest-source"
 import { CAPABILITIES } from "@/lib/storelib-theme/storelib/script"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -19,7 +20,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url")
 const jwt = (role: string) => `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ iss: "supabase", ref: "abcd", role })}.signature`
 

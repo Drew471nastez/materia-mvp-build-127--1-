@@ -53,9 +53,10 @@ import {
 import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { SPINNER_WAIT_MS } from "@/components/ui/activity-spinner"
 import { SHIMMER_SWAP_MS, SHIMMER_WAIT_MS } from "@/components/ui/shimmer"
+import { untt } from "./i18n-source"
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 let passed = 0
@@ -294,8 +295,8 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
-    /<Suspense fallback=\{<PayoutsWaiting \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady \}\)\}\s*<\/Suspense>/.test(payoutsPage)
-      && /function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage)
+    /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts")? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+      && (/function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage) || /function PayoutsWaiting\(\{ label \}: \{ label: string \}\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label=\{label\}>/.test(payoutsPage) /* its words from the page, in the request's language */)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))
       && /stripe\.balance\.retrieve/.test(payoutsPage.slice(payoutsPage.indexOf("async function PayoutsBody"))))

@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import type { BadgeView, CommunityHead, LevelView } from "./view-types"
 import { checkLevels } from "./logic"
 import { Confirm, Notice, Section, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 export function GamificationPanel({ head, levels: initialLevels, badges: initialBadges }: { head: CommunityHead; levels: LevelView[]; badges: BadgeView[] }) {
   const router = useRouter()
@@ -36,7 +37,7 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
       setEnabled(!on)
       return toast(errorText(res.data.error))
     }
-    toast(on ? "Points and levels are on" : "Points and levels are off")
+    toast(on ? tt("Points and levels are on") : tt("Points and levels are off"))
     router.refresh()
   }
 
@@ -49,11 +50,11 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
     setBusy(null)
     if (!res.ok) return setError(errorText(res.data.error))
     setSaved(JSON.stringify(levels))
-    toast("Levels saved. Members moved to the level their points reach.")
+    toast(tt("Levels saved. Members moved to the level their points reach."))
   }
 
   const addBadge = async () => {
-    if (!badge.name.trim()) return setError("Give the badge a name.")
+    if (!badge.name.trim()) return setError(tt("Give the badge a name."))
     setBusy("badge")
     setError(null)
     const res = await send<{ badge?: BadgeView }>(`${base}/badges`, "POST", badge)
@@ -61,7 +62,7 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
     if (!res.ok || !res.data.badge) return setError(errorText(res.data.error))
     setBadges((x) => [...x, res.data.badge as BadgeView])
     setBadge({ name: "", icon: "", description: "" })
-    toast("Badge added")
+    toast(tt("Badge added"))
   }
 
   const removeBadge = async () => {
@@ -72,28 +73,28 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
     if (!res.ok) return toast(errorText(res.data.error))
     setBadges((x) => x.filter((b) => b.id !== deleting.id))
     setDeleting(null)
-    toast("Badge deleted")
+    toast(tt("Badge deleted"))
   }
 
   return (
     <div className="space-y-4" data-gamification="">
       <Section>
-        <Toggle checked={enabled} onChange={(v) => void toggle(v)} title="Points and levels" hint="Members earn points when their posts and comments get reactions, and climb levels. A leaderboard shows in the community." />
+        <Toggle checked={enabled} onChange={(v) => void toggle(v)} title={tt("Points and levels")} hint={tt("Members earn points when their posts and comments get reactions, and climb levels. A leaderboard shows in the community.")} />
       </Section>
 
-      <Section title="Levels" hint="How many points each level takes. Level 1 is where everyone starts." action={dirty ? <button type="button" onClick={() => void saveLevels()} disabled={busy === "levels"} className={buttonPrimary}>{busy === "levels" ? "Saving" : "Save levels"}</button> : null}>
+      <Section title={tt("Levels")} hint={tt("How many points each level takes. Level 1 is where everyone starts.")} action={dirty ? <button type="button" onClick={() => void saveLevels()} disabled={busy === "levels"} className={buttonPrimary}>{busy === "levels" ? tt("Saving") : tt("Save levels")}</button> : null}>
         <ol className="space-y-2" data-levels="">
           {levels.map((l, i) => (
             <li key={i} className="grid grid-cols-[28px_1fr_92px_40px] items-center gap-2 sm:grid-cols-[28px_1fr_110px_1fr_40px]">
               <span className="text-[13px] font-semibold tabular-nums text-[#6b7280]">{i + 1}</span>
-              <input aria-label={`Level ${i + 1} name`} value={l.name} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, name: e.target.value.slice(0, 40) } : x)))} className={cn(field, "h-11 sm:h-10")} />
+              <input aria-label={tt("Level {value} name", { value: i + 1 })} value={l.name} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, name: e.target.value.slice(0, 40) } : x)))} className={cn(field, "h-11 sm:h-10")} />
               <div className="relative">
-                <input aria-label={`Points for level ${i + 1}`} inputMode="numeric" disabled={i === 0} value={i === 0 ? "0" : l.minPoints} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, minPoints: e.target.value.replace(/\D/g, "").slice(0, 7) } : x)))} className={cn(field, "h-11 pr-8 tabular-nums sm:h-10")} />
-                <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[12px] text-[#9ca3af]">pts</span>
+                <input aria-label={tt("Points for level {value}", { value: i + 1 })} inputMode="numeric" disabled={i === 0} value={i === 0 ? "0" : l.minPoints} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, minPoints: e.target.value.replace(/\D/g, "").slice(0, 7) } : x)))} className={cn(field, "h-11 pr-8 tabular-nums sm:h-10")} />
+                <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[12px] text-[#9ca3af]">{tt("pts")}</span>
               </div>
-              <input aria-label={`What level ${i + 1} gives`} value={l.reward} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, reward: e.target.value.slice(0, 200) } : x)))} placeholder="What it gives (optional)" className={cn(field, "hidden h-10 sm:block")} />
+              <input aria-label={tt("What level {value} gives", { value: i + 1 })} value={l.reward} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, reward: e.target.value.slice(0, 200) } : x)))} placeholder={tt("What it gives (optional)")} className={cn(field, "hidden h-10 sm:block")} />
               {i > 0 && i === levels.length - 1 ? (
-                <button type="button" aria-label={`Remove level ${i + 1}`} onClick={() => setLevels(levels.slice(0, -1))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
+                <button type="button" aria-label={tt("Remove level {value}", { value: i + 1 })} onClick={() => setLevels(levels.slice(0, -1))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
                   <Trash2 aria-hidden className="h-4 w-4" />
                 </button>
               ) : (
@@ -105,12 +106,12 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
         {levels.length < 20 ? (
           <button type="button" onClick={() => setLevels([...levels, { name: "", minPoints: String((Number(levels[levels.length - 1]?.minPoints) || 0) * 2 || 10), reward: "" }])} className={cn(buttonSecondary, "mt-3")}>
             <Plus aria-hidden className="h-4 w-4" />
-            Add a level
+            {tt("Add a level")}
           </button>
         ) : null}
       </Section>
 
-      <Section title="Badges" hint="Give them by hand from a member's row in Members.">
+      <Section title={tt("Badges")} hint={tt("Give them by hand from a member's row in Members.")}>
         {badges.length ? (
           <ul className="-my-1 mb-3 divide-y divide-[#f1f2f4]" data-badges="">
             {badges.map((b) => (
@@ -120,9 +121,9 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{b.name}</p>
-                  <p className="truncate text-[12.5px] text-[#6b7280]">{[b.description, `${b.awarded} ${b.awarded === 1 ? "member has it" : "members have it"}`].filter(Boolean).join(" · ")}</p>
+                  <p className="truncate text-[12.5px] text-[#6b7280]">{[b.description, `${b.awarded} ${b.awarded === 1 ? tt("member has it") : tt("members have it")}`].filter(Boolean).join(" · ")}</p>
                 </div>
-                <button type="button" aria-label={`Delete ${b.name}`} onClick={() => setDeleting(b)} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
+                <button type="button" aria-label={tt("Delete {name}", { name: b.name })} onClick={() => setDeleting(b)} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
                   <Trash2 aria-hidden className="h-4 w-4" />
                 </button>
               </li>
@@ -132,31 +133,31 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
         <div className="grid grid-cols-[64px_1fr] gap-2 sm:grid-cols-[64px_1fr_1.4fr_auto]">
           <div>
             <label htmlFor="b-icon" className={label}>
-              Icon
+              {tt("Icon")}
             </label>
             <input id="b-icon" value={badge.icon} onChange={(e) => setBadge({ ...badge, icon: [...e.target.value].slice(-2).join("") })} placeholder="🏅" className={cn(field, "h-11 text-center text-[18px] sm:h-10")} />
           </div>
           <div>
             <label htmlFor="b-name" className={label}>
-              Name
+              {tt("Name")}
             </label>
-            <input id="b-name" value={badge.name} onChange={(e) => setBadge({ ...badge, name: e.target.value.slice(0, 60) })} placeholder="First win" className={cn(field, "h-11 sm:h-10")} />
+            <input id="b-name" value={badge.name} onChange={(e) => setBadge({ ...badge, name: e.target.value.slice(0, 60) })} placeholder={tt("First win")} className={cn(field, "h-11 sm:h-10")} />
           </div>
           <div className="col-span-2 sm:col-span-1">
             <label htmlFor="b-desc" className={label}>
-              What it is for
+              {tt("What it is for")}
             </label>
-            <input id="b-desc" value={badge.description} onChange={(e) => setBadge({ ...badge, description: e.target.value.slice(0, 300) })} placeholder="Optional" className={cn(field, "h-11 sm:h-10")} />
+            <input id="b-desc" value={badge.description} onChange={(e) => setBadge({ ...badge, description: e.target.value.slice(0, 300) })} placeholder={tt("Optional")} className={cn(field, "h-11 sm:h-10")} />
           </div>
           <div className="col-span-2 flex items-end sm:col-span-1">
             <button type="button" onClick={() => void addBadge()} disabled={busy === "badge"} className={cn(buttonSecondary, "h-11 w-full sm:h-10 sm:w-auto")}>
-              {busy === "badge" ? "Adding" : "Add badge"}
+              {busy === "badge" ? tt("Adding") : tt("Add badge")}
             </button>
           </div>
         </div>
       </Section>
       {error ? <Notice>{error}</Notice> : null}
-      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={`Delete ${deleting?.name ?? "this badge"}?`} detail="Members who have it lose it." action="Delete" danger busy={busy === "delete"} onConfirm={() => void removeBadge()} />
+      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this badge") })} detail={tt("Members who have it lose it.")} action="Delete" danger busy={busy === "delete"} onConfirm={() => void removeBadge()} />
     </div>
   )
 }

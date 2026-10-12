@@ -23,6 +23,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { isFooterlessPage, isShopPage, siteFooterFor } from "../lib/nav/site-footer"
 import { buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -30,7 +31,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
 
 console.log("\nThe black footer, by page and by who is looking")

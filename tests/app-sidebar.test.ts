@@ -25,6 +25,7 @@
  * Run with:  npm run test:push
  */
 
+import { untt } from "./i18n-source"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -57,8 +58,8 @@ function stripComments(src: string): string {
 
 const NAV = join(root, "components/app/sidebar-desktop-nav.tsx")
 const SHELL = join(root, "components/app/sidebar.tsx")
-const navSource = readFileSync(NAV, "utf8")
-const shellSource = readFileSync(SHELL, "utf8")
+const navSource = untt(readFileSync(NAV, "utf8"), NAV)
+const shellSource = untt(readFileSync(SHELL, "utf8"), SHELL)
 
 // ===========================================================================
 section("Nothing in the rail is declared during a render")
@@ -109,7 +110,7 @@ section("Nothing in the rail is declared during a render")
   check(
     "and the rail is 240px, with everything beside it moved to match",
     /w-\[240px\]/.test(shellSource) &&
-      /md:pl-\[240px\]/.test(readFileSync(join(root, "app/app/layout.tsx"), "utf8")),
+      /md:pl-\[240px\]/.test(untt(readFileSync(join(root, "app/app/layout.tsx"), "utf8"), "app/app/layout.tsx")),
   )
 }
 
@@ -224,7 +225,7 @@ section("A row is the same size in every state")
     /const REST_WEIGHT = 470/.test(navSource) &&
       /const ACTIVE_WEIGHT = 575/.test(navSource) &&
       /* Inter's own call: Roboto beside it loads one weight on purpose, for community card titles only. */
-      !/Inter\(\{[^}]*weight:/.test(readFileSync(join(root, "app/layout.tsx"), "utf8")),
+      !/Inter\(\{[^}]*weight:/.test(untt(readFileSync(join(root, "app/layout.tsx"), "utf8"), "app/layout.tsx")),
   )
   check(
     /* Changed on purpose (round U): the active row's faint shadow eases with its colours. */
@@ -434,7 +435,7 @@ section("A row is the same size in every state")
      * reported the submenu as open.
      */
     /data-nav-submenu=\{open \? "open" : "closed"\}/.test(navSource) &&
-      /\[data-nav-submenu\]/.test(readFileSync(join(root, "scripts/check-sidebar.mjs"), "utf8")),
+      /\[data-nav-submenu\]/.test(untt(readFileSync(join(root, "scripts/check-sidebar.mjs"), "utf8"), "scripts/check-sidebar.mjs")),
   )
   check(
     "the chevron is outside the link, in a fixed box, pinned to the right",
@@ -529,7 +530,7 @@ section("The sidebar advertises nothing that does not exist")
 
 /* Round AD: Integrations has its own page, always in the sidebar, the installed ones under it with their logos. */
 {
-  const r = (f: string) => readFileSync(join(root, f), "utf8")
+  const r = (f: string) => untt(readFileSync(join(root, f), "utf8"))
   const sidebar = r("components/app/sidebar.tsx")
   check("Integrations is always a row, to its own page", /href: "\/app\/integrations",\s*label: "Integrations"/.test(sidebar) && !/if \(installedIntegrations\.length > 0\) \{\s*const at/.test(sidebar))
   check("  each installed one under it, with its own small logo, to its page there", /href: `\/app\/integrations\?integration=\$\{encodeURIComponent\(i\.id\)\}`/.test(sidebar) && /thumb: <MiniMark/.test(sidebar) && /logo: i\.logo \?\? null/.test(r("app/api/store/integrations/installed/route.ts")))

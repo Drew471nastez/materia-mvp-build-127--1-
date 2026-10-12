@@ -19,6 +19,7 @@ import * as React from "react"
 import { CountryFlag } from "@/components/app/settings/country-picker"
 import { callingCode, digitsFromKept, examplePhone, formatNational, fullNumber, nationalDigits } from "@/lib/account/phone"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function PhoneField({
   country,
@@ -109,7 +110,7 @@ export function PhoneField({
         ref={input}
         id={id}
         aria-invalid={invalid || undefined}
-        aria-label={code ? `Phone number, after +${code}` : "Phone number, with the country code"}
+        aria-label={code ? tt("Phone number, after +{code}", { code }) : tt("Phone number, with the country code")}
         type="tel"
         inputMode="tel"
         autoComplete="tel-national"

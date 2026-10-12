@@ -1,11 +1,16 @@
 import { redirect } from "next/navigation"
 import { currentCreatorId } from "@/lib/creators/current"
 import { IntegrationsClient } from "./integrations-client"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export const metadata = { title: "Integrations" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("Integrations") }
+}
 
 /**
  * /app/integrations: the store's integrations on a page of their own, as

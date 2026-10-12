@@ -26,7 +26,17 @@ import { Pencil } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { decodeHtmlEntities } from "@/lib/html-entities"
 import { cleanStoredHtml, looksLikeHtml } from "@/lib/rich-text/html"
-import { RichTextEditor } from "@/components/app/rich-text-editor"
+
+/*
+  THE EDITOR IS LOADED WHEN IT IS NEEDED. This file is on every product and
+  creator page (RichDescriptionContent), and it imported the whole rich text
+  editor, emoji picker and all, so every buyer downloaded the seller's
+  editor with the page. It is fetched now only when the creator page's
+  editor is open, from the moment the pointer reaches Edit, so the field is
+  there by the time Edit is pressed.
+*/
+const loadField = () => import("./description-field")
+const LazyField = React.lazy(() => loadField().then((m) => ({ default: m.DescriptionField })))
 
 interface ThemeColors {
   backgroundColor?: string
@@ -53,14 +63,11 @@ interface DescriptionRichEditorProps {
 }
 
 export function DescriptionRichEditor({ value, onChange, className }: DescriptionRichEditorProps) {
+  /* Held at the field's own height while it arrives, so nothing under it moves. */
   return (
-    <RichTextEditor
-      value={value}
-      onChange={onChange}
-      label="Description"
-      placeholder="What it is, who it is for, and what they get"
-      className={className}
-    />
+    <React.Suspense fallback={<div aria-busy="true" className={cn("min-h-[220px] rounded-xl border border-[#e5e7eb] bg-white", className)} />}>
+      <LazyField value={value} onChange={onChange} className={className} />
+    </React.Suspense>
   )
 }
 
@@ -102,6 +109,11 @@ export function DescriptionEditWrapper({
     return () => document.removeEventListener("mousedown", onDown)
   }, [isEditing])
 
+  /* In the editor, the field starts loading with the page's first idle moment, so Edit never waits on it. */
+  React.useEffect(() => {
+    if (isEditorMode) void loadField()
+  }, [isEditorMode])
+
   if (!isEditorMode) return <>{children}</>
 
   if (isEditing) {
@@ -131,6 +143,7 @@ export function DescriptionEditWrapper({
         <div className="min-w-0 flex-1">{children}</div>
         <button
           type="button"
+          onPointerEnter={() => void loadField()}
           onClick={() => setIsEditing(true)}
           className={cn(
             "mt-1 flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-1 text-xs font-medium opacity-70 transition-opacity hover:opacity-100",

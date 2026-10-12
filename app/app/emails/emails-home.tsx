@@ -47,6 +47,8 @@ import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
 import { CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
 import { visibleCustomerEmails } from "@/lib/emails/customer-catalog"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export type EmailsTab = "subscribers" | "messages" | "flows" | "customer" | "published" | "scheduled" | "drafts"
 
@@ -174,13 +176,13 @@ export interface EmailsHomeProps {
 }
 
 export const TABS: { id: EmailsTab; label: string }[] = [
-  { id: "subscribers", label: "Subscribers" },
-  { id: "messages", label: "Messages" },
-  { id: "flows", label: "Automations" },
-  { id: "customer", label: "Customer emails" },
-  { id: "published", label: "Sent" },
-  { id: "scheduled", label: "Scheduled" },
-  { id: "drafts", label: "Drafts" },
+  { id: "subscribers", get label() { return tt("Subscribers") } },
+  { id: "messages", get label() { return tt("Messages") } },
+  { id: "flows", get label() { return tt("Automations") } },
+  { id: "customer", get label() { return tt("Customer emails") } },
+  { id: "published", get label() { return tt("Sent") } },
+  { id: "scheduled", get label() { return tt("Scheduled") } },
+  { id: "drafts", get label() { return tt("Drafts") } },
 ]
 
 const PAGE_SIZE = 50
@@ -190,14 +192,14 @@ function formatDay(iso?: string | null): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
   const sameYear = d.getFullYear() === new Date().getFullYear()
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })
+  return d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) }))
 }
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  return `${formatDay(iso)}, ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+  return `${formatDay(iso)}, ${d.toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" }))}`
 }
 
 function rate(part: number, whole: number): string {
@@ -247,16 +249,16 @@ export function EmailsHome(props: EmailsHomeProps) {
     <>
       <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
         <div className="flex min-h-[48px] items-center justify-between gap-2">
-          <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Emails</h1>
+          <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Emails")}</h1>
           <div className="flex min-w-0 items-center gap-2">
             <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={cn(buttonSecondary, "px-2.5 sm:px-3")} data-new-automation="">
               <Plus className="hidden h-4 w-4 shrink-0 sm:block" />
-              <span className="sm:hidden">Automation</span>
-              <span className="hidden sm:inline">New automation</span>
+              <span className="sm:hidden">{tt("Automation")}</span>
+              <span className="hidden sm:inline">{tt("New automation")}</span>
             </Link>
             <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-email="">
               <Plus className="h-4 w-4 shrink-0" />
-              New email
+              {tt("New email")}
             </Link>
           </div>
         </div>
@@ -266,7 +268,7 @@ export function EmailsHome(props: EmailsHomeProps) {
       <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab}>
         <Metrics {...props} />
 
-        <section aria-label={TABS.find((t) => t.id === tab)?.label ?? "Emails"} className={cn(card, "mt-4 overflow-hidden")}>
+        <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
           {tab === "subscribers" ? <SubscribersTable {...props} /> : null}
           {tab === "messages" ? <MessagesTable {...props} /> : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
@@ -293,7 +295,7 @@ function Tabs({ tab, onTab, onIntent, counts }: { tab: EmailsTab; onTab: (t: Ema
     else if (left + el.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = left + el.offsetWidth - strip.clientWidth + 8
   }, [tab])
   return (
-    <div ref={stripRef} role="tablist" aria-label="Views" className="orders-strip -mx-1 flex h-11 items-center gap-0.5 overflow-x-auto px-1" data-email-tabs="">
+    <div ref={stripRef} role="tablist" aria-label={tt("Views")} className="orders-strip -mx-1 flex h-11 items-center gap-0.5 overflow-x-auto px-1" data-email-tabs="">
       {TABS.map((t) => {
         const active = t.id === tab
         return (
@@ -345,11 +347,11 @@ function Metrics(props: EmailsHomeProps) {
   if (!props.loading && waitedOn !== null && waitedOn !== props.tab) setWaitedOn(null)
   const waited = waitedOn === props.tab
   return (
-    <section aria-label="Email metrics" className={cn(card, "mt-4 overflow-hidden")}>
+    <section aria-label={tt("Email metrics")} className={cn(card, "mt-4 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
         {props.tab === "published" ? (
           <div className="flex min-w-[150px] shrink-0 flex-col px-4 py-3">
-            <span className="text-[12px] font-medium text-[#4b5563]">Period</span>
+            <span className="text-[12px] font-medium text-[#4b5563]">{tt("Period")}</span>
             <div className="mt-1 flex h-6 items-center">
               <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} className="-ml-1.5 h-7 px-1.5" />
             </div>
@@ -375,7 +377,7 @@ function Metrics(props: EmailsHomeProps) {
 }
 
 function readingsFor(p: EmailsHomeProps): Reading[] {
-  const n = (v: number) => Math.round(v).toLocaleString("en-US")
+  const n = (v: number) => Math.round(v).toLocaleString(appLocale())
   if (p.tab === "subscribers") {
     const on = p.subscribers.filter((s) => s.status === "subscribed")
     const surface = (s: SubscriberRow) => {
@@ -389,39 +391,39 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
        ones who bought before contacts were kept (checkoutBuyersCount). */
     const customers = p.subscribers.filter((s) => s.status === "customer").length + p.checkoutBuyersCount
     return [
-      { label: "Subscribers", help: "People on your list. Your emails go to them.", value: n(on.length) },
-      { label: "From your website", help: "People who signed up on a website you built with Storelib.", value: n(fromSites) },
-      { label: "From Storelib", help: "People who signed up on your Storelib profile, a product page or your OnePage.", value: n(fromStorelib) },
-      { label: "At checkout", help: "Buyers who asked to hear from you when they paid.", value: n(fromCheckout) },
-      { label: "Customers", help: "Buyers who did not ask for news. They get emails about what they bought, never one you send to your list.", value: n(customers) },
-      { label: "Unsubscribed", help: "People who asked to stop getting your emails. They are never sent another.", value: n(p.subscribers.filter((s) => s.status === "unsubscribed").length) },
+      { label: tt("Subscribers"), help: tt("People on your list. Your emails go to them."), value: n(on.length) },
+      { label: tt("From your website"), help: tt("People who signed up on a website you built with Storelib."), value: n(fromSites) },
+      { label: tt("From Storelib"), help: tt("People who signed up on your Storelib profile, a product page or your OnePage."), value: n(fromStorelib) },
+      { label: tt("At checkout"), help: tt("Buyers who asked to hear from you when they paid."), value: n(fromCheckout) },
+      { label: tt("Customers"), help: tt("Buyers who did not ask for news. They get emails about what they bought, never one you send to your list."), value: n(customers) },
+      { label: tt("Unsubscribed"), help: tt("People who asked to stop getting your emails. They are never sent another."), value: n(p.subscribers.filter((s) => s.status === "unsubscribed").length) },
     ]
   }
   if (p.tab === "messages") {
     const week = Date.now() - 7 * 86_400_000
     return [
-      { label: "Messages", help: "Messages people sent through the contact form on your website. Each one is emailed to you too.", value: n(p.messages.length) },
-      { label: "New", help: "Messages you have not opened here yet.", value: n(p.messages.filter((m) => !m.read_at).length) },
-      { label: "Last 7 days", help: "Messages sent in the last seven days.", value: n(p.messages.filter((m) => Date.parse(m.created_at) >= week).length) },
+      { label: tt("Messages"), help: tt("Messages people sent through the contact form on your website. Each one is emailed to you too."), value: n(p.messages.length) },
+      { label: tt("New"), help: tt("Messages you have not opened here yet."), value: n(p.messages.filter((m) => !m.read_at).length) },
+      { label: tt("Last 7 days"), help: tt("Messages sent in the last seven days."), value: n(p.messages.filter((m) => Date.parse(m.created_at) >= week).length) },
     ]
   }
   if (p.tab === "flows") {
     const sum = (k: keyof FlowTotals) => p.flows.reduce((total, f) => total + (f.totals?.[k] ?? 0), 0)
     const sent = sum("sent")
     return [
-      { label: "On", help: "Automations that are sending.", value: `${p.flows.filter((f) => f.status === "active").length} of ${p.flows.length}` },
-      { label: "In progress", help: "People partway through an automation right now.", value: n(sum("in_progress")) },
-      { label: "Emails sent", help: "Every email your automations have sent.", value: n(sent) },
-      { label: "Open rate", help: "Of the emails your automations sent, how many were opened. Some mail apps hide opens, so this is a floor.", value: sent ? `${Math.round((sum("opened") / sent) * 1000) / 10}%` : "–" },
+      { label: tt("On"), help: tt("Automations that are sending."), value: `${p.flows.filter((f) => f.status === "active").length} of ${p.flows.length}` },
+      { label: tt("In progress"), help: tt("People partway through an automation right now."), value: n(sum("in_progress")) },
+      { label: tt("Emails sent"), help: tt("Every email your automations have sent."), value: n(sent) },
+      { label: tt("Open rate"), help: tt("Of the emails your automations sent, how many were opened. Some mail apps hide opens, so this is a floor."), value: sent ? `${Math.round((sum("opened") / sent) * 1000) / 10}%` : "–" },
     ]
   }
   if (p.tab === "customer") {
     const c = p.customerEmails
     const listed = visibleCustomerEmails(p.physical)
     return [
-      { label: "Emails", help: "The emails your buyers get from your store: receipts, order and shipping updates, returns and the checkout reminder.", value: n(listed.length) },
-      { label: "Edited", help: "Emails you changed the words of. The rest go out with the default words.", value: c ? n(listed.filter((e) => c.copy[e.id]).length) : "–" },
-      { label: "Replies go to", help: "Your store's contact email, from Settings › Store details. A buyer who answers an email writes to it.", value: c?.shop.supportEmail || "–" },
+      { label: tt("Emails"), help: tt("The emails your buyers get from your store: receipts, order and shipping updates, returns and the checkout reminder."), value: n(listed.length) },
+      { label: tt("Edited"), help: tt("Emails you changed the words of. The rest go out with the default words."), value: c ? n(listed.filter((e) => c.copy[e.id]).length) : "–" },
+      { label: tt("Replies go to"), help: tt("Your store's contact email, from Settings › Store details. A buyer who answers an email writes to it."), value: c?.shop.supportEmail || "–" },
     ]
   }
   if (p.tab === "published") {
@@ -431,25 +433,25 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
     const o = p.overview
     const used = p.usage.limit > 0 ? Math.min(100, Math.round((p.usage.sent / p.usage.limit) * 100)) : 0
     return [
-      { label: "Sent", help: "Emails delivered to subscribers in this period.", value: o ? n(o.total_sent) : "–" },
-      { label: "Open rate", help: "Of the emails sent in this period, how many were opened.", value: o ? `${o.open_rate}%` : "–", note: o ? n(o.total_opened) : undefined },
-      { label: "Click rate", help: "Of the emails sent in this period, how many had a link clicked.", value: o ? `${o.click_rate}%` : "–", note: o ? n(o.total_clicked) : undefined },
-      { label: "Unsubscribed", help: "People who unsubscribed from an email sent in this period.", value: o ? n(o.total_unsubscribed) : "–" },
-      { label: "This month", help: "Emails sent this calendar month, against your plan's monthly limit.", value: n(p.usage.sent), note: `of ${n(p.usage.limit)} · ${used}%` },
+      { label: tt("Sent"), help: tt("Emails delivered to subscribers in this period."), value: o ? n(o.total_sent) : "–" },
+      { label: tt("Open rate"), help: tt("Of the emails sent in this period, how many were opened."), value: o ? `${o.open_rate}%` : "–", note: o ? n(o.total_opened) : undefined },
+      { label: tt("Click rate"), help: tt("Of the emails sent in this period, how many had a link clicked."), value: o ? `${o.click_rate}%` : "–", note: o ? n(o.total_clicked) : undefined },
+      { label: tt("Unsubscribed"), help: tt("People who unsubscribed from an email sent in this period."), value: o ? n(o.total_unsubscribed) : "–" },
+      { label: tt("This month"), help: tt("Emails sent this calendar month, against your plan's monthly limit."), value: n(p.usage.sent), note: tt("of {limit} · {used}%", { limit: n(p.usage.limit), used }) },
     ]
   }
   if (p.tab === "scheduled") {
     const next = p.campaigns.map((c) => c.scheduled_at).filter((x): x is string => !!x).sort()[0]
     return [
-      { label: "Scheduled", help: "Emails waiting to go out.", value: n(p.campaigns.length) },
-      { label: "Next goes out", help: "When the next scheduled email is sent.", value: next ? formatWhen(next) : "–" },
-      { label: "Recipients", help: "About how many people the scheduled emails go to, counted when each was scheduled.", value: n(p.campaigns.reduce((t, c) => t + (c.audience_count ?? 0), 0)) },
+      { label: tt("Scheduled"), help: tt("Emails waiting to go out."), value: n(p.campaigns.length) },
+      { label: tt("Next goes out"), help: tt("When the next scheduled email is sent."), value: next ? formatWhen(next) : "–" },
+      { label: tt("Recipients"), help: tt("About how many people the scheduled emails go to, counted when each was scheduled."), value: n(p.campaigns.reduce((t, c) => t + (c.audience_count ?? 0), 0)) },
     ]
   }
   const last = p.campaigns.map((c) => c.updated_at ?? c.created_at).filter(Boolean).sort().at(-1)
   return [
-    { label: "Drafts", help: "Emails you started and have not sent.", value: n(p.campaigns.length) },
-    { label: "Last edited", help: "When a draft was last changed.", value: last ? formatDay(last) : "–" },
+    { label: tt("Drafts"), help: tt("Emails you started and have not sent."), value: n(p.campaigns.length) },
+    { label: tt("Last edited"), help: tt("When a draft was last changed."), value: last ? formatDay(last) : "–" },
   ]
 }
 
@@ -483,7 +485,7 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
  * answer shows only the table.
  */
 function Loading() {
-  return <ShimmerRows rows={5} header cols={["34%", "16%", "14%", "10%"]} label="Loading" />
+  return <ShimmerRows rows={5} header cols={["34%", "16%", "14%", "10%"]} label={tt("Loading")} />
 }
 
 function Pager({ page, pages, total, onPage }: { page: number; pages: number; total: number; onPage: (p: number) => void }) {
@@ -493,14 +495,14 @@ function Pager({ page, pages, total, onPage }: { page: number; pages: number; to
   return (
     <div className="flex h-12 items-center justify-between border-t border-[#eef0f2] px-3 text-[13px] text-[#4b5563]">
       <span className="tabular-nums">
-        {from.toLocaleString("en-US")}–{to.toLocaleString("en-US")} of {total.toLocaleString("en-US")}
+        {tt("{value}–{value2} of {value3}", { value: from.toLocaleString(appLocale()), value2: to.toLocaleString(appLocale()), value3: total.toLocaleString(appLocale()) })}
       </span>
       <div className="flex gap-1">
         <button type="button" className={buttonSecondary} disabled={page <= 1} onClick={() => onPage(page - 1)}>
-          Previous
+          {tt("Previous")}
         </button>
         <button type="button" className={buttonSecondary} disabled={page >= pages} onClick={() => onPage(page + 1)}>
-          Next
+          {tt("Next")}
         </button>
       </div>
     </div>
@@ -509,10 +511,10 @@ function Pager({ page, pages, total, onPage }: { page: number; pages: number; to
 
 /** A send that is not simply done says so, in the tone of how much it needs the creator. */
 function SendBadge({ status }: { status?: string }) {
-  if (status === "queued" || status === "sending") return <StatusBadge tone="attention">Sending</StatusBadge>
-  if (status === "partially_failed") return <StatusBadge tone="critical">Partly sent</StatusBadge>
-  if (status === "failed") return <StatusBadge tone="critical">Not sent</StatusBadge>
-  if (status === "cancelled") return <StatusBadge tone="neutral">Stopped</StatusBadge>
+  if (status === "queued" || status === "sending") return <StatusBadge tone="attention">{tt("Sending")}</StatusBadge>
+  if (status === "partially_failed") return <StatusBadge tone="critical">{tt("Partly sent")}</StatusBadge>
+  if (status === "failed") return <StatusBadge tone="critical">{tt("Not sent")}</StatusBadge>
+  if (status === "cancelled") return <StatusBadge tone="neutral">{tt("Stopped")}</StatusBadge>
   return null
 }
 
@@ -523,11 +525,11 @@ function SubscriberStatus({ s }: { s: SubscriberRow }) {
 
 /** The Status filter's groups: a customer is its own, bounced and spam go with the ones who left. */
 const STATUS_GROUPS: Array<{ value: string; label: string; match: (status: string) => boolean }> = [
-  { value: "subscribed", label: "Subscribed", match: (s) => s === "subscribed" },
-  { value: "customer", label: "Customers", match: (s) => s === "customer" },
+  { value: "subscribed", get label() { return tt("Subscribed") }, match: (s) => s === "subscribed" },
+  { value: "customer", get label() { return tt("Customers") }, match: (s) => s === "customer" },
   /* People who wrote through a website's contact form and did not ask for news. */
-  { value: "wrote", label: "Wrote to you", match: (s) => s === "wrote" },
-  { value: "unsubscribed", label: "Unsubscribed", match: (s) => s !== "subscribed" && s !== "customer" && s !== "wrote" },
+  { value: "wrote", get label() { return tt("Wrote to you") }, match: (s) => s === "wrote" },
+  { value: "unsubscribed", get label() { return tt("Unsubscribed") }, match: (s) => s !== "subscribed" && s !== "customer" && s !== "wrote" },
 ]
 
 /** A filter as a chip in the table's toolbar, the way Orders draws its own. */
@@ -560,7 +562,7 @@ function FilterChip({
           </button>
         </PopoverTrigger>
         {value ? (
-          <button type="button" aria-label={`Clear ${label}`} className="flex h-full cursor-pointer items-center pr-2 text-[#6b7280] hover:text-[#1a1a2e]" onClick={() => onSelect("")}>
+          <button type="button" aria-label={tt("Clear {label}", { label })} className="flex h-full cursor-pointer items-center pr-2 text-[#6b7280] hover:text-[#1a1a2e]" onClick={() => onSelect("")}>
             <X className="h-3.5 w-3.5" />
           </button>
         ) : null}
@@ -624,7 +626,7 @@ function SubscribersTable(props: EmailsHomeProps) {
     /* Websites first, by size; then Storelib's own pages; Not recorded last. */
     return [...count.entries()]
       .sort(([ak, a], [bk, b]) => Number(ak === "none") - Number(bk === "none") || Number(!ak.startsWith("site:")) - Number(!bk.startsWith("site:")) || b.n - a.n)
-      .map(([key, c]) => ({ value: key, label: c.label, hint: `${c.n.toLocaleString("en-US")} ${c.n === 1 ? "contact" : "contacts"}` }))
+      .map(([key, c]) => ({ value: key, label: c.label, hint: tt("{n, plural, one {# contact} other {# contacts}}", { n: c.n }) }))
   }, [views])
 
   const rows = React.useMemo(
@@ -645,7 +647,7 @@ function SubscribersTable(props: EmailsHomeProps) {
     () =>
       STATUS_GROUPS.map((g) => {
         const n = props.subscribers.filter((s) => g.match(s.status)).length
-        return { value: g.value, label: g.label, hint: `${n.toLocaleString("en-US")} ${n === 1 ? "contact" : "contacts"}` }
+        return { value: g.value, label: g.label, hint: tt("{n, plural, one {# contact} other {# contacts}}", { n }) }
       }),
     [props.subscribers],
   )
@@ -664,11 +666,11 @@ function SubscribersTable(props: EmailsHomeProps) {
                 type="search"
                 value={props.search}
                 onChange={(e) => props.onSearch(e.target.value)}
-                placeholder="Search by email or name"
+                placeholder={tt("Search by email or name")}
                 className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
               />
               {props.search ? (
-                <button type="button" aria-label="Clear search" className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => props.onSearch("")}>
+                <button type="button" aria-label={tt("Clear search")} className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => props.onSearch("")}>
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
@@ -681,7 +683,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                 setSearching(false)
               }}
             >
-              Cancel
+              {tt("Cancel")}
             </button>
           </>
         ) : (
@@ -689,15 +691,15 @@ function SubscribersTable(props: EmailsHomeProps) {
             <div className="orders-strip flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1">
               {props.subscribers.length > 0 ? (
                 <>
-                  <FilterChip label="Status" value={statusName} options={[{ value: "", label: "Any status" }, ...statuses]} selected={status} onSelect={setStatus} />
-                  <FilterChip label="Source" value={sourceName} options={[{ value: "", label: "Any source" }, ...sources]} selected={source} onSelect={setSource} />
+                  <FilterChip label={tt("Status")} value={statusName} options={[{ value: "", label: tt("Any status") }, ...statuses]} selected={status} onSelect={setStatus} />
+                  <FilterChip label={tt("Source")} value={sourceName} options={[{ value: "", label: tt("Any source") }, ...sources]} selected={source} onSelect={setSource} />
                 </>
               ) : null}
             </div>
-            <button type="button" aria-label="Search subscribers" className={iconButton} onClick={() => setSearching(true)}>
+            <button type="button" aria-label={tt("Search subscribers")} className={iconButton} onClick={() => setSearching(true)}>
               <Search className="h-4 w-4" />
             </button>
-            <button type="button" aria-label="Export subscribers" className={iconButton} onClick={props.onExportSubscribers}>
+            <button type="button" aria-label={tt("Export subscribers")} className={iconButton} onClick={props.onExportSubscribers}>
               <Download className="h-4 w-4" />
             </button>
           </>
@@ -707,21 +709,21 @@ function SubscribersTable(props: EmailsHomeProps) {
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : rows.length === 0 ? (
           q || source || status ? (
-            <Empty title="No subscribers match" body="Try another email or name, or another source." />
+            <Empty title={tt("No subscribers match")} body={tt("Try another email or name, or another source.")} />
           ) : (
-            <Empty title="No subscribers yet" body="People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you." />
+            <Empty title={tt("No subscribers yet")} body={tt("People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you.")} />
           )
         ) : (
           <ScrollEdge>
             <table className="w-full min-w-[720px] border-collapse">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
-                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>Email</th>
-                  <th className={th}>Name</th>
-                  <th className={th}>Source</th>
-                  <th className={th}>Status</th>
-                  <th className={th}>Added</th>
-                  <th className={cn(th, "w-12")} aria-label="Actions" />
+                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>{tt("Email")}</th>
+                  <th className={th}>{tt("Name")}</th>
+                  <th className={th}>{tt("Source")}</th>
+                  <th className={th}>{tt("Status")}</th>
+                  <th className={th}>{tt("Added")}</th>
+                  <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f1f2f4]">
@@ -743,7 +745,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                         {/* The website's address is the part that matters: it keeps its
                             width, and the detail after it is what gets cut. */}
                         <span className="flex max-w-[380px] items-baseline gap-1.5">
-                          <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{v?.label ?? NOT_RECORDED}</span>
+                          <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{tt(v?.label ?? NOT_RECORDED)}</span>
                           {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
                         </span>
                       </td>
@@ -755,11 +757,11 @@ function SubscribersTable(props: EmailsHomeProps) {
                         <ResponsiveActionMenu
                           title={s.email}
                           align="end"
-                          trigger={<RowMenuButton label={`Actions for ${s.email}`} />}
+                          trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} />}
                           items={[
-                            { label: "Details", onClick: () => openContact(s) },
-                            { label: "Copy email", onClick: () => props.onCopyEmail(s.email) },
-                            { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
+                            { label: tt("Details"), onClick: () => openContact(s) },
+                            { label: tt("Copy email"), onClick: () => props.onCopyEmail(s.email) },
+                            { label: tt("Remove"), variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
                           ]}
                         />
                       </td>
@@ -806,11 +808,11 @@ function MessagesTable(props: EmailsHomeProps) {
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : props.messages.length === 0 ? (
           <Empty
-            title="No messages yet"
+            title={tt("No messages yet")}
             body={
               props.messagesAvailable
-                ? "When somebody writes to you through the contact form on your website, the message shows here and in your email."
-                : "Messages from your website's contact form are emailed to you. They show here once Storelib has finished setting this up."
+                ? tt("When somebody writes to you through the contact form on your website, the message shows here and in your email.")
+                : tt("Messages from your website's contact form are emailed to you. They show here once Storelib has finished setting this up.")
             }
           />
         ) : (
@@ -818,11 +820,11 @@ function MessagesTable(props: EmailsHomeProps) {
             <table className="w-full min-w-[720px] border-collapse" data-messages-table="">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
-                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>From</th>
-                  <th className={th}>Message</th>
-                  <th className={th}>Sent from</th>
-                  <th className={th}>Received</th>
-                  <th className={cn(th, "w-12")} aria-label="Actions" />
+                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>{tt("From")}</th>
+                  <th className={th}>{tt("Message")}</th>
+                  <th className={th}>{tt("Sent from")}</th>
+                  <th className={th}>{tt("Received")}</th>
+                  <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f1f2f4]">
@@ -842,7 +844,7 @@ function MessagesTable(props: EmailsHomeProps) {
                     >
                       <td data-scroll-edge="" className={cn(td, sticky)}>
                         <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[240px]">
-                          {fresh ? <span aria-label="New" className="h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]" /> : <span aria-hidden className="w-2 shrink-0" />}
+                          {fresh ? <span aria-label={tt("New")} className="h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]" /> : <span aria-hidden className="w-2 shrink-0" />}
                           <span className={cn("truncate", fresh ? "font-semibold" : "font-medium")}>{who}</span>
                         </span>
                       </td>
@@ -858,13 +860,13 @@ function MessagesTable(props: EmailsHomeProps) {
                         <ResponsiveActionMenu
                           title={who}
                           align="end"
-                          trigger={<RowMenuButton label={`Actions for the message from ${who}`} />}
+                          trigger={<RowMenuButton label={tt("Actions for the message from {who}", { who })} />}
                           items={[
-                            { label: "Open", onClick: () => props.onOpenMessage(m) },
-                            { label: "Reply", onClick: () => { window.location.href = replyHref(m) } },
-                            { label: fresh ? "Mark as read" : "Mark as new", onClick: () => props.onToggleRead(m) },
-                            { label: "Copy email", onClick: () => props.onCopyEmail(m.email) },
-                            { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },
+                            { label: tt("Open"), onClick: () => props.onOpenMessage(m) },
+                            { label: tt("Reply"), onClick: () => { window.location.href = replyHref(m) } },
+                            { label: fresh ? tt("Mark as read") : tt("Mark as new"), onClick: () => props.onToggleRead(m) },
+                            { label: tt("Copy email"), onClick: () => props.onCopyEmail(m.email) },
+                            { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },
                           ]}
                         />
                       </td>
@@ -893,33 +895,33 @@ function FlowsTable(props: EmailsHomeProps) {
   const press = usePress()
   const href = (f: FlowRow) => `/app/emails/flow/${f.id}`
   const menu = (f: FlowRow, on: boolean): ActionMenuItem[] => [
-    { label: "Edit", onClick: () => openLayer(router, href(f)) },
-    { label: on ? "Turn off" : "Turn on", onClick: () => props.onToggleFlow(f) },
-    { label: "Duplicate", onClick: () => props.onDuplicateFlow(f) },
-    { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
+    { label: tt("Edit"), onClick: () => openLayer(router, href(f)) },
+    { label: on ? tt("Turn off") : tt("Turn on"), onClick: () => props.onToggleFlow(f) },
+    { label: tt("Duplicate"), onClick: () => props.onDuplicateFlow(f) },
+    { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
   ]
   return (
     <>
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : props.flows.length === 0 ? (
           <Empty
-            title="No automations yet"
-            body="Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on."
+            title={tt("No automations yet")}
+            body={tt("Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on.")}
             action={
               <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={buttonAccent}>
                 <Plus className="h-4 w-4" />
-                Create an automation
+                {tt("Create an automation")}
               </Link>
             }
           />
         ) : (
           <>
-            <ul aria-label="Automations" className="divide-y divide-[#f1f2f4] md:hidden" data-flow-list="">
+            <ul aria-label={tt("Automations")} className="divide-y divide-[#f1f2f4] md:hidden" data-flow-list="">
               {props.flows.map((f) => {
-                const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
+                const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : tt("Not set")
                 const on = f.status === "active"
                 const t = f.totals
-                const numbers = t ? [t.in_progress > 0 ? `${t.in_progress.toLocaleString("en-US")} in progress` : null, `${t.sent.toLocaleString("en-US")} sent`, t.sent > 0 ? `${rate(t.opened, t.sent)} opened` : null].filter(Boolean).join(" · ") : null
+                const numbers = t ? [t.in_progress > 0 ? tt("{value} in progress", { value: t.in_progress.toLocaleString(appLocale()) }) : null, tt("{value} sent", { value: t.sent.toLocaleString(appLocale()) }), t.sent > 0 ? tt("{value} opened", { value: rate(t.opened, t.sent) }) : null].filter(Boolean).join(" · ") : null
                 return (
                   <li
                     key={f.id}
@@ -933,7 +935,7 @@ function FlowsTable(props: EmailsHomeProps) {
                         <Link href={href(f)} prefetch={false} className="min-w-0 break-words text-[15px] font-semibold leading-5 text-[#1a1a2e] outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
                           {f.name}
                         </Link>
-                        {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
+                        {t && t.failed > 0 ? <StatusBadge tone="critical">{tt("{failed} failed", { failed: t.failed })}</StatusBadge> : null}
                       </p>
                       <p className="mt-0.5 text-[13px] leading-[18px] text-[#4b5563]">{trigger}</p>
                       <p className="mt-0.5 text-[12px] leading-4 tabular-nums text-[#6b7280]">
@@ -943,9 +945,9 @@ function FlowsTable(props: EmailsHomeProps) {
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                       <span className="flex h-11 items-center px-1.5">
-                        <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={`Send ${f.name} automatically`} />
+                        <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={tt("Send {name} automatically", { name: f.name })} />
                       </span>
-                      <ResponsiveActionMenu title={f.name} align="end" trigger={<RowMenuButton label={`Actions for ${f.name}`} className="h-11 w-11" />} items={menu(f, on)} />
+                      <ResponsiveActionMenu title={f.name} align="end" trigger={<RowMenuButton label={tt("Actions for {name}", { name: f.name })} className="h-11 w-11" />} items={menu(f, on)} />
                     </div>
                   </li>
                 )
@@ -955,19 +957,19 @@ function FlowsTable(props: EmailsHomeProps) {
               <table className="w-full min-w-[720px] border-collapse">
                 <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                   <tr>
-                    <th data-scroll-edge="" className={cn(th, stickyHead)}>Automation</th>
-                    <th className={th}>Starts when</th>
-                    <th className={th}>Steps</th>
-                    <th className={cn(th, "text-right")}>In progress</th>
-                    <th className={cn(th, "text-right")}>Sent</th>
-                    <th className={cn(th, "text-right")}>Opened</th>
-                    <th className={th}>On</th>
-                    <th className={cn(th, "w-12")} aria-label="Actions" />
+                    <th data-scroll-edge="" className={cn(th, stickyHead)}>{tt("Automation")}</th>
+                    <th className={th}>{tt("Starts when")}</th>
+                    <th className={th}>{tt("Steps")}</th>
+                    <th className={cn(th, "text-right")}>{tt("In progress")}</th>
+                    <th className={cn(th, "text-right")}>{tt("Sent")}</th>
+                    <th className={cn(th, "text-right")}>{tt("Opened")}</th>
+                    <th className={th}>{tt("On")}</th>
+                    <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f1f2f4]">
                   {props.flows.map((f) => {
-                    const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
+                    const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : tt("Not set")
                     const on = f.status === "active"
                     const t = f.totals
                     return (
@@ -977,19 +979,19 @@ function FlowsTable(props: EmailsHomeProps) {
                             <Link href={href(f)} prefetch={false} className="truncate outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
                               {f.name}
                             </Link>
-                            {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
+                            {t && t.failed > 0 ? <StatusBadge tone="critical">{tt("{failed} failed", { failed: t.failed })}</StatusBadge> : null}
                           </span>
                         </td>
                         <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[240px] truncate">{trigger}</span></td>
                         <td className={cn(td, "text-[#4b5563]")}>{stepSummary(normalizeSteps(f.steps))}</td>
-                        <td className={cn(td, "text-right tabular-nums")}>{t ? t.in_progress.toLocaleString("en-US") : "–"}</td>
-                        <td className={cn(td, "text-right tabular-nums")}>{t ? t.sent.toLocaleString("en-US") : "–"}</td>
+                        <td className={cn(td, "text-right tabular-nums")}>{t ? t.in_progress.toLocaleString(appLocale()) : "–"}</td>
+                        <td className={cn(td, "text-right tabular-nums")}>{t ? t.sent.toLocaleString(appLocale()) : "–"}</td>
                         <td className={cn(td, "text-right tabular-nums")}>{t && t.sent > 0 ? rate(t.opened, t.sent) : "–"}</td>
                         <td className={td} onClick={(e) => e.stopPropagation()}>
-                          <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={`Send ${f.name} automatically`} />
+                          <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={tt("Send {name} automatically", { name: f.name })} />
                         </td>
                         <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                          <ResponsiveActionMenu title={f.name} align="end" trigger={<RowMenuButton label={`Actions for ${f.name}`} />} items={menu(f, on)} />
+                          <ResponsiveActionMenu title={f.name} align="end" trigger={<RowMenuButton label={tt("Actions for {name}", { name: f.name })} />} items={menu(f, on)} />
                         </td>
                       </tr>
                     )
@@ -1016,10 +1018,10 @@ function CampaignsTable(props: EmailsHomeProps) {
   const shown = props.campaigns.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const empty =
     tab === "published"
-      ? { title: "Nothing sent in this period", body: "Emails you send show up here with how many were opened and clicked." }
+      ? { title: tt("Nothing sent in this period"), body: tt("Emails you send show up here with how many were opened and clicked.") }
       : tab === "scheduled"
-        ? { title: "Nothing scheduled", body: "Write an email and choose when it goes out, and it waits here until then." }
-        : { title: "No drafts", body: "An email you start and do not send yet is kept here." }
+        ? { title: tt("Nothing scheduled"), body: tt("Write an email and choose when it goes out, and it waits here until then.") }
+        : { title: tt("No drafts"), body: tt("An email you start and do not send yet is kept here.") }
   const open = (c: CampaignRow) => (drafts ? openLayer(router, `/app/emails/edit/${c.id}`) : props.onOpenCampaign(c))
 
   return (
@@ -1031,7 +1033,7 @@ function CampaignsTable(props: EmailsHomeProps) {
             action={
               <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={buttonSecondary}>
                 <Plus className="h-4 w-4" />
-                New email
+                {tt("New email")}
               </Link>
             }
           />
@@ -1040,30 +1042,30 @@ function CampaignsTable(props: EmailsHomeProps) {
             <table className="w-full min-w-[640px] border-collapse">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
-                  <th data-scroll-edge="" className={cn(th, stickyHead)}>Subject</th>
-                  <th className={th}>{sent ? "Sent" : tab === "scheduled" ? "Goes out" : "Edited"}</th>
-                  <th className={cn(th, "text-right")}>Recipients</th>
-                  {sent ? <th className={cn(th, "text-right")}>Opened</th> : null}
-                  {sent ? <th className={cn(th, "text-right")}>Clicked</th> : null}
-                  <th className={cn(th, "w-12")} aria-label="Actions" />
+                  <th data-scroll-edge="" className={cn(th, stickyHead)}>{tt("Subject")}</th>
+                  <th className={th}>{sent ? tt("Sent") : tab === "scheduled" ? tt("Goes out") : tt("Edited")}</th>
+                  <th className={cn(th, "text-right")}>{tt("Recipients")}</th>
+                  {sent ? <th className={cn(th, "text-right")}>{tt("Opened")}</th> : null}
+                  {sent ? <th className={cn(th, "text-right")}>{tt("Clicked")}</th> : null}
+                  <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f1f2f4]">
                 {shown.map((c) => {
                   const recipients = c.recipient_count || c.audience_count || 0
                   const resent = /\(Resend\)/.test(c.subject ?? "")
-                  const title = (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || "Untitled"
+                  const title = (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || tt("Untitled")
                   const items: ActionMenuItem[] = drafts
                     ? [
-                        { label: "Edit", onClick: () => open(c) },
-                        { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
-                        { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
+                        { label: tt("Edit"), onClick: () => open(c) },
+                        { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
+                        { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
                       ]
                     : [
-                        { label: sent ? "View results" : "Open", onClick: () => open(c) },
-                        ...(tab === "scheduled" ? [{ label: "Edit", onClick: () => openLayer(router, `/app/emails/edit/${c.id}`) }] : []),
-                        { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
-                        ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
+                        { label: sent ? tt("View results") : tt("Open"), onClick: () => open(c) },
+                        ...(tab === "scheduled" ? [{ label: tt("Edit"), onClick: () => openLayer(router, `/app/emails/edit/${c.id}`) }] : []),
+                        { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
+                        ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
                       ]
                   return (
                     <tr key={c.id} className={cn("orders-row", pressable)} data-campaign-row={c.id} data-order-id={c.id} onClick={() => open(c)} {...press(c.id, () => props.onCampaignIntent(c))}>
@@ -1072,18 +1074,18 @@ function CampaignsTable(props: EmailsHomeProps) {
                             Narrow on a phone, so the columns scrolling under it still show. */}
                         <span className="flex min-w-0 max-w-[180px] items-center gap-2 sm:max-w-[320px]">
                           <span className="truncate font-medium">{title}</span>
-                          {resent ? <StatusBadge tone="neutral">Sent again</StatusBadge> : null}
+                          {resent ? <StatusBadge tone="neutral">{tt("Sent again")}</StatusBadge> : null}
                           {sent ? <SendBadge status={c.status} /> : null}
                         </span>
                       </td>
                       <td className={cn(td, "tabular-nums text-[#4b5563]")}>
                         {sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at)}
                       </td>
-                      <td className={cn(td, "text-right tabular-nums")}>{recipients ? recipients.toLocaleString("en-US") : "–"}</td>
+                      <td className={cn(td, "text-right tabular-nums")}>{recipients ? recipients.toLocaleString(appLocale()) : "–"}</td>
                       {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_opens ?? 0, recipients)}</td> : null}
                       {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_clicks ?? 0, recipients)}</td> : null}
                       <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                        <ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={`Actions for ${title}`} />} items={items} />
+                        <ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title })} />} items={items} />
                       </td>
                     </tr>
                   )

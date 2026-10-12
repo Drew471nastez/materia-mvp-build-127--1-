@@ -40,6 +40,7 @@ import { videoStill } from "@/components/community/member/media-upload"
 import { GALLERY_MAX, coverItem, coverUpload, coverVideo, galleryEmbed, galleryKey, moveItem, type GalleryEmbed, type GalleryItem } from "./logic"
 import type { GalleryVideoView } from "./view-types"
 import { PicturePick, buttonPrimary, buttonSecondary, field } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 interface Uploading {
   key: string
@@ -111,7 +112,7 @@ export function GalleryEditor({
 
   const uploadPictures = async (files: File[]) => {
     const take = files.slice(0, Math.max(0, room))
-    if (files.length > take.length) onError(`A gallery holds ${max}. The first ${take.length} were added.`)
+    if (files.length > take.length) onError(tt("A gallery holds {max}. The first {length} were added.", { max, length: take.length }))
     const jobs = take.map((file) => ({ file, key: `${Date.now()}-${Math.random().toString(36).slice(2)}` }))
     setUploading((u) => [...u, ...jobs.map((j) => ({ key: j.key, kind: "image" as const, name: j.file.name, percent: 0, preview: URL.createObjectURL(j.file) }))])
     /* One after another: a phone on a slow line finishes the first picture before it starts the next. */
@@ -120,9 +121,9 @@ export function GalleryEditor({
       try {
         const result = await uploader.start()
         if (result.publicUrl) add({ type: "image", url: result.publicUrl })
-        else onError("A picture did not upload. Try again.")
+        else onError(tt("A picture did not upload. Try again."))
       } catch (e) {
-        onError((e as { message?: string })?.message || "A picture did not upload. Try again.")
+        onError((e as { message?: string })?.message || tt("A picture did not upload. Try again."))
       } finally {
         uploader.destroy()
         done(j.key)
@@ -131,7 +132,7 @@ export function GalleryEditor({
   }
 
   const uploadVideo = async (file: File) => {
-    if (room <= 0) return onError(`A gallery holds ${max}.`)
+    if (room <= 0) return onError(tt("A gallery holds {max}.", { max }))
     const key = `${Date.now()}-v`
     setUploading((u) => [...u, { key, kind: "video", name: file.name, percent: 0, preview: null }])
     try {
@@ -139,7 +140,7 @@ export function GalleryEditor({
       setVideos((x) => ({ ...x, [v.id]: { status: v.status, thumbnailUrl: v.thumbnailUrl, durationSeconds: v.durationSeconds } }))
       add({ type: "video", videoId: v.id })
     } catch (e) {
-      onError((e as { message?: string })?.message || "The video did not upload. Try again.")
+      onError((e as { message?: string })?.message || tt("The video did not upload. Try again."))
     } finally {
       done(key)
     }
@@ -153,13 +154,13 @@ export function GalleryEditor({
   if (!ready)
     return (
       <p className="rounded-xl bg-[#f7f7f8] px-4 py-3 text-[13.5px] leading-snug text-[#4b5563]" data-gallery-not-ready="">
-        The gallery arrives with the next Storelib database update. Once it has run, add pictures and videos here.
+        {tt("The gallery arrives with the next Storelib database update. Once it has run, add pictures and videos here.")}
       </p>
     )
 
   return (
     <div data-gallery="">
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-label="Gallery">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-label={tt("Gallery")}>
         {value.map((item, i) => {
           const v = item.type === "video" ? videos[item.videoId] : null
           return (
@@ -218,37 +219,37 @@ export function GalleryEditor({
                 </span>
               ) : null}
               <span className="pointer-events-none absolute left-2 top-2 flex items-center gap-1">
-                {i === 0 ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#1a1a2e]">First</span> : null}
-                {item.type === "video" && v && v.status !== "ready" ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#92400e]">{v.status === "failed" ? "Failed" : "Processing"}</span> : null}
+                {i === 0 ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#1a1a2e]">{tt("First")}</span> : null}
+                {item.type === "video" && v && v.status !== "ready" ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#92400e]">{v.status === "failed" ? tt("Failed") : tt("Processing")}</span> : null}
                 {item.type === "embed" ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium text-white">{PROVIDER[item.provider]}</span> : null}
                 {item.type === "video" && v?.durationSeconds ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium tabular-nums text-white">{duration(v.durationSeconds)}</span> : null}
               </span>
               {/* A computer: the arrows and remove, when the pointer or the keyboard is on the tile. */}
               <span className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-between gap-1 opacity-0 transition-opacity duration-100 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 md:flex">
                 <span className="flex items-center gap-1">
-                  <TileButton label={`Move ${i + 1} earlier`} disabled={i === 0} onClick={() => move(i, i - 1)}>
+                  <TileButton label={tt("Move {value} earlier", { value: i + 1 })} disabled={i === 0} onClick={() => move(i, i - 1)}>
                     <ArrowLeft className="h-4 w-4" />
                   </TileButton>
-                  <TileButton label={`Move ${i + 1} later`} disabled={i === value.length - 1} onClick={() => move(i, i + 1)}>
+                  <TileButton label={tt("Move {value} later", { value: i + 1 })} disabled={i === value.length - 1} onClick={() => move(i, i + 1)}>
                     <ArrowRight className="h-4 w-4" />
                   </TileButton>
                 </span>
-                <TileButton label={`Remove ${item.type === "image" ? "picture" : "video"} ${i + 1}`} onClick={() => onChange(value.filter((_, j) => j !== i))}>
+                <TileButton label={tt("Remove {value} {value2}", { value: item.type === "image" ? "picture" : "video", value2: i + 1 })} onClick={() => onChange(value.filter((_, j) => j !== i))}>
                   <X className="h-4 w-4" />
                 </TileButton>
               </span>
               {/* A phone: one button, its menu as a sheet. */}
               <span className="absolute bottom-0.5 right-0.5 md:hidden">
                 <ResponsiveActionMenu
-                  title={item.type === "image" ? `Picture ${i + 1}` : `Video ${i + 1}`}
+                  title={item.type === "image" ? tt("Picture {value}", { value: i + 1 }) : tt("Video {value}", { value: i + 1 })}
                   align="end"
                   items={[
-                    ...(i > 0 ? [{ label: "Show first", onClick: () => move(i, 0) }, { label: "Move earlier", onClick: () => move(i, i - 1) }] : []),
-                    ...(i < value.length - 1 ? [{ label: "Move later", onClick: () => move(i, i + 1) }] : []),
-                    { label: "Remove", variant: "destructive" as const, separatorBefore: true, onClick: () => onChange(value.filter((_, j) => j !== i)) },
+                    ...(i > 0 ? [{ label: tt("Show first"), onClick: () => move(i, 0) }, { label: tt("Move earlier"), onClick: () => move(i, i - 1) }] : []),
+                    ...(i < value.length - 1 ? [{ label: tt("Move later"), onClick: () => move(i, i + 1) }] : []),
+                    { label: tt("Remove"), variant: "destructive" as const, separatorBefore: true, onClick: () => onChange(value.filter((_, j) => j !== i)) },
                   ]}
                   trigger={
-                    <button type="button" aria-label={`Change ${item.type === "image" ? "picture" : "video"} ${i + 1}`} data-tile-menu="" className="grid h-10 w-10 cursor-pointer place-items-center">
+                    <button type="button" aria-label={tt("Change {value} {value2}", { value: item.type === "image" ? "picture" : "video", value2: i + 1 })} data-tile-menu="" className="grid h-10 w-10 cursor-pointer place-items-center">
                       {/* Drawn 30px, pressed 40px: the picture stays the thing you see. */}
                       <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-white/92 text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
                         <MoreHorizontal className="h-4 w-4" />
@@ -268,7 +269,7 @@ export function GalleryEditor({
             ) : null}
             <span className="absolute inset-0 grid place-content-center justify-items-center gap-1.5 px-3 text-center">
               <Loader2 aria-hidden className="h-5 w-5 animate-spin text-[#1a1a2e]" />
-              <span className="max-w-full truncate text-[12px] font-medium text-[#1a1a2e]">{u.kind === "video" ? `Video ${u.percent}%` : `${u.percent}%`}</span>
+              <span className="max-w-full truncate text-[12px] font-medium text-[#1a1a2e]">{u.kind === "video" ? tt("Video {percent}%", { percent: u.percent }) : `${u.percent}%`}</span>
             </span>
             <span aria-hidden className="absolute inset-x-0 bottom-0 h-1 bg-black/10">
               <span className="block h-full bg-[#1a1a2e] transition-[width] duration-200" style={{ width: `${u.percent}%` }} />
@@ -277,8 +278,8 @@ export function GalleryEditor({
         ))}
         {value.length === 0 && uploading.length === 0 ? (
           <li className="col-span-full grid min-h-[132px] place-content-center justify-items-center gap-1 rounded-xl border border-dashed border-[#d9dce1] bg-[#fafafb] px-4 py-6 text-center">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">No pictures or videos yet</p>
-            <p className="text-[13px] text-[#6b7280]">Show what being a member looks like.</p>
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No pictures or videos yet")}</p>
+            <p className="text-[13px] text-[#6b7280]">{tt("Show what being a member looks like.")}</p>
           </li>
         ) : null}
       </ul>
@@ -309,21 +310,21 @@ export function GalleryEditor({
           <>
             <button type="button" onClick={() => pictures.current?.click()} className={cn(buttonSecondary, "h-10 sm:h-8")}>
               <ImagePlus aria-hidden className="h-4 w-4" />
-              Add pictures
+              {tt("Add pictures")}
             </button>
             <button type="button" onClick={() => movie.current?.click()} className={cn(buttonSecondary, "h-10 sm:h-8")}>
               <Video aria-hidden className="h-4 w-4" />
-              Add a video
+              {tt("Add a video")}
             </button>
             <button type="button" onClick={() => setLinking(true)} aria-expanded={linking} className={cn(buttonSecondary, "h-10 sm:h-8")} data-gallery-add-link="">
               <Link2 aria-hidden className="h-4 w-4" />
-              Add a video link
+              {tt("Add a video link")}
             </button>
           </>
         ) : null}
         <span className="text-[12.5px] tabular-nums text-[#6b7280]">
-          {value.length} of {GALLERY_MAX}
-          <span className="max-md:hidden">. Drag to reorder. Wide pictures look best.</span>
+          {tt("{length} of", { length: value.length })} {GALLERY_MAX}
+          <span className="max-md:hidden">{tt(". Drag to reorder. Wide pictures look best.")}</span>
         </span>
       </div>
       {linking && room > 0 ? (
@@ -331,7 +332,7 @@ export function GalleryEditor({
           className="mt-3"
           onCancel={() => setLinking(false)}
           onAdd={(embed) => {
-            if (latest.current.some((x) => keyOf(x) === keyOf(embed))) return "That video is already in the gallery."
+            if (latest.current.some((x) => keyOf(x) === keyOf(embed))) return tt("That video is already in the gallery.")
             add(embed)
             setLinking(false)
             return null
@@ -348,7 +349,7 @@ export function GalleryEditor({
  * the field (nothing is saved until the page's Save). Enter adds, Escape
  * closes.
  */
-export function VideoLinkField({ onAdd, onCancel, className, submitLabel = "Add" }: { onAdd: (embed: GalleryEmbed) => string | null; onCancel: () => void; className?: string; submitLabel?: string }) {
+export function VideoLinkField({ onAdd, onCancel, className, submitLabel = tt("Add") }: { onAdd: (embed: GalleryEmbed) => string | null; onCancel: () => void; className?: string; submitLabel?: string }) {
   const [text, setText] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const input = React.useRef<HTMLInputElement>(null)
@@ -357,7 +358,7 @@ export function VideoLinkField({ onAdd, onCancel, className, submitLabel = "Add"
   }, [])
   const submit = () => {
     const embed = galleryEmbed(text.trim())
-    if (!embed) return setError(text.trim() ? "That is not a YouTube or Vimeo video link." : "Paste a YouTube or Vimeo link.")
+    if (!embed) return setError(text.trim() ? tt("That is not a YouTube or Vimeo video link.") : tt("Paste a YouTube or Vimeo link."))
     const refused = onAdd(embed)
     if (refused) return setError(refused)
     setText("")
@@ -382,7 +383,7 @@ export function VideoLinkField({ onAdd, onCancel, className, submitLabel = "Add"
             } else if (e.key === "Escape") onCancel()
           }}
           placeholder="https://youtube.com/watch?v=… or vimeo.com/…"
-          aria-label="YouTube or Vimeo link"
+          aria-label={tt("YouTube or Vimeo link")}
           aria-invalid={!!error}
           className={cn(field, "h-11 min-w-0 flex-1 basis-full sm:h-9 sm:basis-auto", error && "border-[#f1b4ae]")}
         />
@@ -390,7 +391,7 @@ export function VideoLinkField({ onAdd, onCancel, className, submitLabel = "Add"
           {submitLabel}
         </button>
         <button type="button" onClick={onCancel} className={cn(buttonSecondary, "h-10 sm:h-9")}>
-          Cancel
+          {tt("Cancel")}
         </button>
       </div>
       {error ? (
@@ -398,7 +399,7 @@ export function VideoLinkField({ onAdd, onCancel, className, submitLabel = "Add"
           {error}
         </p>
       ) : (
-        <p className="mt-1.5 text-[12px] text-[#6b7280]">It plays on your page in the YouTube or Vimeo player.</p>
+        <p className="mt-1.5 text-[12px] text-[#6b7280]">{tt("It plays on your page in the YouTube or Vimeo player.")}</p>
       )}
     </div>
   )
@@ -453,7 +454,7 @@ export function CoverField({
 
   const setVideo = (embed: GalleryEmbed): string | null => {
     const rest = after(gallery).filter((x) => keyOf(x) !== keyOf(embed))
-    if (rest.length >= GALLERY_MAX) return `The gallery is full (${GALLERY_MAX}). Remove one first.`
+    if (rest.length >= GALLERY_MAX) return tt("The gallery is full ({galleryMax}). Remove one first.", { galleryMax: GALLERY_MAX })
     onChange({ coverUrl: null, gallery: [{ ...embed, cover: true }, ...rest] })
     setLinking(false)
     return null
@@ -461,8 +462,8 @@ export function CoverField({
 
   const uploadVideo = async (file: File | undefined) => {
     if (!file || !communityId || sending) return
-    if (!file.type.startsWith("video/")) return onError?.("That file is not a video.")
-    if (after(gallery).length >= GALLERY_MAX) return onError?.(`The gallery is full (${GALLERY_MAX}). Remove one first.`)
+    if (!file.type.startsWith("video/")) return onError?.(tt("That file is not a video."))
+    if (after(gallery).length >= GALLERY_MAX) return onError?.(tt("The gallery is full ({galleryMax}). Remove one first.", { galleryMax: GALLERY_MAX }))
     setLinking(false)
     setSending({ percent: 0, processing: false, still: null })
     const endpoint = `/api/app/community/${communityId}/videos`
@@ -492,7 +493,7 @@ export function CoverField({
       const others = after(now.gallery).filter((x) => !(x.type === "video" && x.videoId === ready.id))
       onChange({ coverUrl: stillUrl || ready.thumbnailUrl || now.coverUrl, gallery: [{ type: "video", videoId: ready.id, cover: true }, ...others] })
     } catch (e) {
-      onError?.((e as { message?: string })?.message || "The video did not upload. Try again.")
+      onError?.((e as { message?: string })?.message || tt("The video did not upload. Try again."))
     } finally {
       setSending((x) => {
         if (x?.still) URL.revokeObjectURL(x.still)
@@ -517,10 +518,10 @@ export function CoverField({
             ) : null}
             <span className="relative flex flex-col items-center gap-1 text-white">
               <Loader2 aria-hidden className="h-5 w-5 animate-spin" />
-              <span className="text-[12px] font-semibold tabular-nums">{sending.processing ? "Processing" : `${sending.percent}%`}</span>
+              <span className="text-[12px] font-semibold tabular-nums">{sending.processing ? tt("Processing") : `${sending.percent}%`}</span>
             </span>
           </span>
-          <p className="text-[12.5px] leading-snug text-[#6b7280]">{sending.processing ? "Getting the video ready to play." : "Uploading the video."}</p>
+          <p className="text-[12.5px] leading-snug text-[#6b7280]">{sending.processing ? tt("Getting the video ready to play.") : tt("Uploading the video.")}</p>
         </div>
       </div>
     )
@@ -538,19 +539,19 @@ export function CoverField({
             <span className="relative grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white">
               <Play aria-hidden className="ml-0.5 h-3.5 w-3.5 fill-current" />
             </span>
-            <span className="absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1 py-px text-[10.5px] font-medium text-white">{video ? PROVIDER[video.provider] : "Video"}</span>
+            <span className="absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1 py-px text-[10.5px] font-medium text-white">{video ? PROVIDER[video.provider] : tt("Video")}</span>
           </span>
           <div className="flex min-w-0 flex-col items-start gap-1">
             <button type="button" onClick={() => (video ? setLinking(true) : picker.current?.click())} className={cn(buttonSecondary, "h-10 sm:h-8")} data-cover-change="">
-              Change
+              {tt("Change")}
             </button>
             <button type="button" onClick={() => onChange({ coverUrl: video ? null : coverUrl, gallery: gallery.slice(1) })} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-8" data-cover-remove="">
               <X aria-hidden className="h-3.5 w-3.5" />
-              Remove
+              {tt("Remove")}
             </button>
           </div>
         </div>
-        {linking ? <VideoLinkField className="mt-3" submitLabel="Use" onCancel={() => setLinking(false)} onAdd={setVideo} /> : null}
+        {linking ? <VideoLinkField className="mt-3" submitLabel={tt("Use")} onCancel={() => setLinking(false)} onAdd={setVideo} /> : null}
       </div>
     )
   return (
@@ -558,18 +559,18 @@ export function CoverField({
       {fileInput}
       <PicturePick value={coverUrl} onChange={(v) => onChange({ coverUrl: v, gallery })} shape="wide" name="cover" onError={onError} />
       {linking ? (
-        <VideoLinkField className="mt-3" submitLabel="Use" onCancel={() => setLinking(false)} onAdd={setVideo} />
+        <VideoLinkField className="mt-3" submitLabel={tt("Use")} onCancel={() => setLinking(false)} onAdd={setVideo} />
       ) : (
         <div className="mt-1 flex flex-wrap items-center gap-x-4">
           {communityId ? (
             <button type="button" onClick={() => picker.current?.click()} className={quietLink} data-cover-upload-video="">
               <Video aria-hidden className="h-3.5 w-3.5" />
-              Upload a video
+              {tt("Upload a video")}
             </button>
           ) : null}
           <button type="button" onClick={() => setLinking(true)} className={quietLink} data-cover-use-link="">
             <Link2 aria-hidden className="h-3.5 w-3.5" />
-            {communityId ? "Use a YouTube or Vimeo link" : "Use a YouTube or Vimeo video instead"}
+            {communityId ? tt("Use a YouTube or Vimeo link") : tt("Use a YouTube or Vimeo video instead")}
           </button>
         </div>
       )}

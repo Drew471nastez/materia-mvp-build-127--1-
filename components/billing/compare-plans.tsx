@@ -33,6 +33,7 @@ import { useId, useState } from "react"
 import { Check, ChevronDown, X } from "lucide-react"
 import { formatPlanPrice, planComparison, planDisplayName, PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, type ComparisonValue } from "@/lib/billing/plans"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]"
 /* The feature, then Free, then Pro: one set of columns for the header, the group titles and the rows. */
@@ -44,11 +45,11 @@ function Answer({ value }: { value: ComparisonValue }) {
     return <span className="text-[13px] font-medium tabular-nums text-[#374151] sm:text-[14px]">{value}</span>
   }
   return value ? (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#e3f5e9]" role="img" aria-label="Included">
+    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#e3f5e9]" role="img" aria-label={tt("Included")}>
       <Check className="h-3.5 w-3.5 text-[#15803d]" strokeWidth={3} aria-hidden />
     </span>
   ) : (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#f1f2f4]" role="img" aria-label="Not included">
+    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#f1f2f4]" role="img" aria-label={tt("Not included")}>
       <X className="h-3.5 w-3.5 text-[#9ca3af]" strokeWidth={3} aria-hidden />
     </span>
   )
@@ -124,7 +125,7 @@ export function ComparePlans() {
     <section aria-labelledby="compare-plans-title" data-compare-plans="" className="mx-auto w-full max-w-[880px]">
       <div className="flex items-end justify-between gap-4">
         <h2 id="compare-plans-title" className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[40px]">
-          Compare plans
+          {tt("Compare plans")}
         </h2>
         <button
           type="button"
@@ -132,14 +133,14 @@ export function ComparePlans() {
           data-compare-all=""
           className="mb-1 inline-flex h-9 shrink-0 cursor-pointer items-center rounded-full border border-[#e5e7eb] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] outline-none transition-colors duration-150 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:mb-2 [-webkit-tap-highlight-color:transparent]"
         >
-          {allOpen ? "Collapse all" : "Expand all"}
+          {allOpen ? tt("Collapse all") : tt("Expand all")}
         </button>
       </div>
 
       <div data-compare-box="" className="mt-6 overflow-clip rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:mt-8">
         {/* The plan names, held under the page's bar while the rows scroll past. */}
         <div data-compare-head="" className={cn(COLUMNS, "sticky top-14 z-10 border-b border-[#eef0f2] bg-white sm:top-16")}>
-          <span className="flex items-center px-4 text-[12.5px] font-medium text-[#6b7280] sm:px-6 sm:text-[13px]">Features</span>
+          <span className="flex items-center px-4 text-[12.5px] font-medium text-[#6b7280] sm:px-6 sm:text-[13px]">{tt("Features")}</span>
           <span className="flex flex-col items-center justify-center py-3.5 text-center sm:py-4">
             <span className="text-[14px] font-semibold text-[#1a1a2e] sm:text-[16px]">{planDisplayName("free")}</span>
             <span className="text-[11.5px] text-[#6b7280] sm:text-[12px]">{formatPlanPrice(0)}</span>
@@ -148,8 +149,8 @@ export function ComparePlans() {
             <span className="text-[14px] font-semibold text-[#3b2bb8] sm:text-[16px]">{planDisplayName(PRO_CHECKOUT_PLAN_ID)}</span>
             <span className="text-[11.5px] text-[#5f6570] sm:text-[12px]">
               {formatPlanPrice(PRO_PRICE_CENTS)}
-              <span className="hidden sm:inline"> a month</span>
-              <span className="sm:hidden">/mo</span>
+              <span className="hidden sm:inline"> {tt("a month")}</span>
+              <span className="sm:hidden">{tt("/mo")}</span>
             </span>
           </span>
         </div>

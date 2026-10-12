@@ -40,6 +40,7 @@ import { mentionAt, mentionChoices } from "@/components/community/member/mention
 import { relativeTime } from "@/lib/communities/format"
 import { commentsOpen } from "@/lib/communities/server/comments"
 import { everyoneAllowed } from "@/lib/communities/server/mentions"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -54,7 +55,7 @@ function check(name: string, ok: boolean, detail?: string) {
     console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
 
