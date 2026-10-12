@@ -282,7 +282,7 @@ function PlanCard({
               <span className={`flex h-[18px] w-[18px] shrink-0 mt-px items-center justify-center rounded-full ${look.dot}`} aria-hidden="true">
                 <Check className="h-[11px] w-[11px] text-white" strokeWidth={3.25} />
               </span>
-              {feature}
+              {tt(feature)}
             </li>
           ))}
           {plan.excluded.map((feature) => (

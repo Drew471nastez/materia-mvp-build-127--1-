@@ -102,7 +102,7 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start gap-2 text-[13px] text-[#374151]">
                     <Check className="h-4 w-4 text-[#8b5cf6] shrink-0 mt-0.5" strokeWidth={2.5} />
-                    <span>{feature}</span>
+                    <span>{tt(feature)}</span>
                   </li>
                 ))}
               </ul>

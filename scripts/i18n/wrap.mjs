@@ -86,7 +86,7 @@ for (const rel of files) {
   const { sf, findings } = scanSource(text, rel)
   let todo = findings.filter((f) => !f.translated && !f.ignored)
   if (!todo.length) continue
-  if (isServerFile(rel, text)) {
+  if (isServerFile(rel, text) && !process.argv.includes("--server")) {
     for (const f of todo) manual.push(`${rel}:${f.line}\tserver\t${f.text}`)
     continue
   }
@@ -191,7 +191,43 @@ for (const rel of files) {
   edits.sort((a, b) => b.start - a.start)
   let out = text
   for (const e of edits) out = out.slice(0, e.start) + e.text + out.slice(e.end)
-  if (!/from\s*["']@\/lib\/i18n\/text["']/.test(out)) {
+  if (process.argv.includes("--server")) {
+    /* A server component: tt comes from the request (lib/i18n/server), bound at the top of each async function that uses it. */
+    const sf2 = ts.createSourceFile(rel, out, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+    const bodies = new Set()
+    const find = (n) => {
+      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "tt") {
+        let p = n.parent
+        let top = null
+        while (p) {
+          if ((ts.isFunctionDeclaration(p) || ts.isArrowFunction(p) || ts.isFunctionExpression(p)) && p.body && ts.isBlock(p.body)) top = p
+          p = p.parent
+        }
+        if (top) bodies.add(top)
+        else manual.push(`${rel}\tserver-no-function`)
+      }
+      ts.forEachChild(n, find)
+    }
+    find(sf2)
+    const inserts = []
+    for (const fn of bodies) {
+      if (/getServerTt\(/.test(fn.body.getText(sf2))) continue
+      const isAsync = fn.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword)
+      if (!isAsync) inserts.push({ at: fn.getStart(sf2), text: "async " , fix: fn.modifiers?.find((m) => m.kind === ts.SyntaxKind.ExportKeyword || m.kind === ts.SyntaxKind.DefaultKeyword) ? "after-modifiers" : "" , fn })
+      inserts.push({ at: fn.body.getStart(sf2) + 1, text: "\n  const { tt } = await getServerTt()" })
+    }
+    for (const ins of inserts.sort((a, b) => b.at - a.at)) {
+      let at = ins.at
+      if (ins.fix === "after-modifiers") {
+        const mods = ins.fn.modifiers.filter((m) => m.kind !== ts.SyntaxKind.AsyncKeyword)
+        at = mods[mods.length - 1].getEnd() + 1
+      }
+      out = out.slice(0, at) + ins.text + out.slice(at)
+    }
+    const sf3 = ts.createSourceFile(rel, out, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+    const last = sf3.statements.filter((x) => ts.isImportDeclaration(x)).pop()
+    if (!/getServerTt/.test(text)) out = last ? out.slice(0, last.getEnd()) + `\nimport { getServerTt } from "@/lib/i18n/server"` + out.slice(last.getEnd()) : `import { getServerTt } from "@/lib/i18n/server"\n` + out
+  } else if (!/from\s*["']@\/lib\/i18n\/text["']/.test(out)) {
     /* After the last import, or after the directive. */
     const sf2 = ts.createSourceFile(rel, out, ts.ScriptTarget.Latest, true, rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
     const imports = sf2.statements.filter((s) => ts.isImportDeclaration(s))

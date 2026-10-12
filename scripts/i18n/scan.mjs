@@ -194,6 +194,8 @@ export function looksLikeWords(raw) {
   if (/^[a-z0-9]+([-_][a-z0-9]+)+$/.test(s)) return false
   /* SQL column lists and query strings: "id, title, status". */
   if (/^[a-z_*]+(\s*,\s*[a-z_*()!:]+)+$/.test(s)) return false
+  /* PostgREST selects: "id, name, buyer:profiles!buyer_id(display_name, avatar_url)". */
+  if (!/[A-Z]/.test(s) && /^[\w\s,*:!().]+$/.test(s) && /_/.test(s) && /,/.test(s) && !/[.?!]\s*$/.test(s)) return false
   if (/^[a-z_]+\s*(asc|desc)$/i.test(s)) return false
   /* Date and number format strings. */
   if (/^[yMdHhmsaEZ:\-/., ]+$/.test(s) && /(yy|MM|dd|HH|mm)/.test(s)) return false
@@ -375,7 +377,13 @@ export function bindsTt(sf) {
   let found = false
   const visit = (n) => {
     if (found) return
-    if ((ts.isVariableDeclaration(n) || ts.isParameter(n) || ts.isBindingElement(n) || ts.isFunctionDeclaration(n)) && n.name && ts.isIdentifier(n.name) && n.name.text === "tt") found = true
+    if ((ts.isVariableDeclaration(n) || ts.isParameter(n) || ts.isBindingElement(n) || ts.isFunctionDeclaration(n)) && n.name && ts.isIdentifier(n.name) && n.name.text === "tt") {
+      /* The server's own tt (const { tt } = await getServerTt()) is ours too. */
+      let decl = n.parent
+      while (decl && !ts.isVariableDeclaration(decl) && !ts.isSourceFile(decl)) decl = decl.parent
+      const ours = decl && ts.isVariableDeclaration(decl) && decl.initializer && /getServerTt\(/.test(decl.initializer.getText())
+      if (!ours) found = true
+    }
     if (ts.isImportSpecifier(n) && n.name.text === "tt" && !(ts.isStringLiteral(n.parent.parent.parent.moduleSpecifier) && n.parent.parent.parent.moduleSpecifier.text === "@/lib/i18n/text")) found = true
     ts.forEachChild(n, visit)
   }

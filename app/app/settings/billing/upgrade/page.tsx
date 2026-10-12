@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { pageUser } from "@/lib/auth/page-user"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { msg } from "@/lib/i18n/text"
 
 const FREE_PLAN = {
   id: "free",
@@ -13,7 +14,8 @@ const FREE_PLAN = {
   billing_period: null,
   fee_percent: FREE_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: [`${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per transaction`, "Basic analytics", "Standard support"],
+  // i18n-ignore-next-line: the rate line is a price, the same in every language
+  features: [`${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per transaction`, msg("Basic analytics"), msg("Standard support")],
   is_active: true,
 }
 
@@ -25,7 +27,8 @@ const GROWTH_PLAN = {
   billing_period: "month",
   fee_percent: 0.03,
   fee_fixed_cents: 25,
-  features: ["3% + $0.25 per transaction", "Advanced analytics", "Priority support", "Custom domain"],
+  // i18n-ignore-next-line
+  features: ["3% + $0.25 per transaction", msg("Advanced analytics"), msg("Priority support"), msg("Custom domain")],
   is_active: true,
 }
 
@@ -37,7 +40,8 @@ const PRO_PLAN = {
   billing_period: "month",
   fee_percent: 0.015,
   fee_fixed_cents: 25,
-  features: ["1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label", "API access"],
+  // i18n-ignore-next-line
+  features: ["1.5% + $0.25 per transaction", msg("Premium analytics"), msg("Dedicated support"), msg("White-label"), msg("API access")],
   is_active: true,
 }
 
