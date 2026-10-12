@@ -108,8 +108,12 @@ async function fingerprint(ref: string): Promise<string> {
     const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ref)))
     return `sl-${Array.from(bytes.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("")}`
   } catch {
-    let h = 2166136261
-    for (let i = 0; i < ref.length; i++) h = Math.imul(h ^ ref.charCodeAt(i), 16777619) >>> 0
-    return `sl-${h.toString(16)}`
+    /* No SubtleCrypto (a page that is not https): two FNV-1a passes, the same sixteen characters every time for the same reference. */
+    const fnv = (seed: number) => {
+      let h = seed >>> 0
+      for (let i = 0; i < ref.length; i++) h = Math.imul(h ^ ref.charCodeAt(i), 16777619) >>> 0
+      return h.toString(16).padStart(8, "0")
+    }
+    return `sl-${fnv(2166136261)}${fnv(0x811c9dc5 ^ 0x5bd1e995)}`
   }
 }

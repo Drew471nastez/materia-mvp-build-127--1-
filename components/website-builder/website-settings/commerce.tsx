@@ -183,7 +183,7 @@ function GaBadge() {
   if (!ga?.id) return null
   const s = gaStanding(ga)
   return (
-    <span data-ga-badge={s.label.toLowerCase().replace(/\s+/g, "-")} className="inline-flex h-5 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-2 text-[11.5px] font-medium leading-none text-[#4b5563]">
+    <span data-ga-badge={s.label.toLowerCase().replace(/\s+/g, "-")} className="inline-flex h-5 items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.06] px-2 text-[11.5px] font-medium leading-none text-white/75">
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${GA_DOT[s.tone]}`} />
       Google Analytics · {s.label}
     </span>

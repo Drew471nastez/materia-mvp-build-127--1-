@@ -218,7 +218,7 @@ export function MarketsPanel() {
               label="Show visitors their own language"
               description={
                 draft.languages.some((l) => l.published)
-                  ? "On a first visit, your website and your storelib.com page open in the language the visitor's browser asks for, once. A close match, or only their country to go by, gets a small offer at the top of the page instead. Search engines and the language selector are unchanged."
+                  ? "On a first visit, your website and your storelib.com page open in the language the visitor's browser asks for, once. A close match, or only their country to go by, gets a small offer on the page instead. Search engines and the language selector are unchanged."
                   : "Works once a language is published. A first visit then opens in the language the visitor's browser asks for, or offers the closest one."
               }
               checked={draft.visitorLanguage === true}

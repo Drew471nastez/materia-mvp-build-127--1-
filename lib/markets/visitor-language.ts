@@ -133,7 +133,7 @@ export const LANGUAGE_CRAWLER = /bot|crawl|spider|slurp|preview|facebookexternal
 export const SUGGEST_WORDS: Record<string, { ask: string; close: string }> = {
   en: { ask: "View this site in {name}?", close: "Close" },
   es: { ask: "¿Ver este sitio en {name}?", close: "Cerrar" },
-  fr: { ask: "Voir ce site en {name} ?", close: "Fermer" },
+  fr: { ask: "Voir ce site en {name}\u00a0?", close: "Fermer" },
   de: { ask: "Diese Seite auf {name} ansehen?", close: "Schließen" },
   it: { ask: "Vedere questo sito in {name}?", close: "Chiudi" },
   pt: { ask: "Ver este site em {name}?", close: "Fechar" },
