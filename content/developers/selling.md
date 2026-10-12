@@ -249,7 +249,7 @@ The FAQ the creator writes in the product editor is `product.faqs` on the produc
 {% endfor %}
 ```
 
-The **Accordion FAQ** section does this when its Questions setting is **This product's questions**, and a rich text setting can take the **Product FAQ** dynamic source, `{{ product.faqs }}`.
+The product section's **Product questions** block draws them, and any rich text setting on the product page can take the **Product FAQ** dynamic source, `{{ product.faqs }}`.
 
 ### A card's own words, never its price
 

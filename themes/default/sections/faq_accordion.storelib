@@ -36,24 +36,6 @@
       </div>
     {% endif %}
 
-    {# On a product page the section can show the product's own questions,
-       from the FAQ in the product editor: plain words, escaped, line breaks
-       kept by CSS. Elsewhere, or with none, the questions below. #}
-    {% if settings.source == 'product' and product.faqs.size > 0 %}
-      <div class="qa__list" data-product-faqs>
-      {% for faq in product.faqs %}
-        <details class="qa"{% if forloop.first and settings.open_first %} open{% endif %}>
-          <summary class="qa__q">
-            <span>{{ faq.question }}</span>
-            <span class="qa__mark" aria-hidden="true"></span>
-          </summary>
-          <div class="qa__a qa__a--plain">{{ faq.answer }}</div>
-        </details>
-      {% endfor %}
-      </div>
-    {% elsif settings.source == 'product' and page.template == 'product' %}
-      {% if page.in_editor %}<p class="qa__empty">This product has no questions yet. Add them in the FAQ card of the product editor</p>{% endif %}
-    {% else %}
     {% for block in blocks %}
       {% if forloop.first %}<div class="qa__list">{% endif %}
       {# `open` on the first one when the section asks for it: an accordion
@@ -72,7 +54,6 @@
     {% else %}
       {% if page.in_editor %}<p class="qa__empty">Add questions in the sidebar</p>{% endif %}
     {% endfor %}
-    {% endif %}
 
   </div>
 </section>
@@ -129,7 +110,6 @@
 .qa[open] .qa__mark::after { transform: scaleY(0); opacity: 0; }
 
 .qa__a { padding: 0 2px 20px; font-size: 15px; line-height: 1.65; color: var(--s-para); }
-.qa__a--plain { white-space: pre-line; }
 .qa__a > :first-child { margin-top: 0; }
 .qa__a > :last-child { margin-bottom: 0; }
 .qa__empty { margin: 0; padding: 28px 0; text-align: center; font-size: 14px; color: var(--s-para); opacity: 0.7; }
@@ -154,9 +134,6 @@
     { "type": "textarea", "id": "subheading", "label": "Description" },
     { "type": "select", "id": "align", "label": "Header alignment", "default": "left",
       "options": [{ "value": "left", "label": "Left" }, { "value": "center", "label": "Center" }] },
-    { "type": "select", "id": "source", "label": "Questions", "default": "blocks",
-      "options": [{ "value": "blocks", "label": "The questions below" }, { "value": "product", "label": "This product's questions" }],
-      "info": "On a product page, This product's questions shows the FAQ from the product editor." },
     { "type": "checkbox", "id": "open_first", "label": "Open the first question", "default": true },
     { "type": "header", "id": "hdr_layout", "label": "Layout" },
     { "type": "select", "id": "max_width", "label": "Width", "default": "narrow",

@@ -21,7 +21,6 @@ import { productFaqs, productFaqsHtml } from "@/lib/products/product-faqs"
 import { productFacts, dynamicContext } from "@/lib/website-builder/storefront-data"
 import { fillSources, DYNAMIC_SOURCES } from "@/lib/storelib-theme/dynamic"
 import { FAQ_SEEDED, withProductBlocks, withProductFaq, mainProductSection } from "@/lib/website-builder/product-page"
-import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 
 let passed = 0
@@ -47,7 +46,7 @@ console.log("\nA photo for each variant: smooth in the editor")
   check("a variant's square loads a 128px copy, never the original", variantThumbSrc(own) === `/_next/image?url=${encodeURIComponent(own)}&w=128&q=88`, variantThumbSrc(own))
   check("  a local preview or another host is drawn as it is", variantThumbSrc("blob:x") === "blob:x" && variantThumbSrc("https://example.com/a.jpg") === "https://example.com/a.jpg")
   check("  faded in once decoded, in a fixed box, an empty one dashed with a plus", /data-\[loaded\]:opacity-100/.test(table) && /border-dashed/.test(table) && /<ImagePlus/.test(table))
-  check("  with a remove x on hover, and a spinner over the preview while it uploads", /data-variant-thumb-remove/.test(table) && /group-hover\/thumb:grid/.test(table) && /data-variant-thumb-uploading/.test(table))
+  check("  with a remove x on hover, and a spinner over the preview while it uploads", /data-variant-thumb-remove/.test(table) && /group-hover\/thumb:opacity-100/.test(table) && /focus-visible:opacity-100/.test(table) && /data-variant-thumb-uploading/.test(table))
   check("the variant's details show its photo with Change and Remove", /data-variant-photo=""/.test(table) && />\s*\{row\.imageUrl \? "Change" : "Add photo"\}/.test(table))
   check("an upload is the row's at once: a local preview, then the address, never saved as a preview", /URL\.createObjectURL\(file\)/.test(cards) && /setPending\(/.test(cards) && /patchRows\(keys, \(\) => \(\{ imageUrl: url \}\)\)/.test(cards))
   check("the picker offers the product's photos first, Upload, and Choose from your files", /data-variant-photo-choice/.test(cards) && /aria-label="Choose from your files"/.test(cards) && /<FilesLibraryChooser/.test(cards))
@@ -96,19 +95,8 @@ console.log("\nThe product's FAQ on every product page")
   check("  in a text setting: words only", !/</.test(String(fillSources("{{ product.faqs }}", "text", ctx))) && /Fit\?/.test(String(fillSources("{{ product.faqs }}", "text", ctx))))
   check("the builder's canvas reads them too", /faqs: p\.faqs \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /\$\{LIST_COLUMNS\}, faqs/.test(read("app/api/website-builder/products/route.ts")))
 
-  const faqSection = (source: string) => renderStorelibSection(
-    { id: "f", type: "faq_accordion", name: "FAQ", settings: { source, heading: "Questions" }, blocks: [{ id: "b1", type: "qa", settings: { question: "Typed question", answer: "<p>Typed</p>" } }] } as never,
-    {} as never,
-    { template: "product" } as never,
-    DEFAULT_THEME_SOURCES as never,
-    [],
-    { product: facts } as never,
-  )
-  const asProduct = faqSection("product")
-  check("an FAQ section set to This product's questions draws them, escaped", asProduct.ok === true && /data-product-faqs/.test(asProduct.html) && /Fit\?/.test(asProduct.html) && !/Typed question/.test(asProduct.html), asProduct.ok ? asProduct.html.slice(0, 300) : asProduct)
-  const asBlocks = faqSection("blocks")
-  check("  and its own questions otherwise", asBlocks.ok === true && /Typed question/.test(asBlocks.html) && !/Fit\?/.test(asBlocks.html))
-
+  /* Not an FAQ section option: Accordion FAQ is the reference section every AI prompt quotes, and its size is budgeted (tests/ai-reference.test.ts). */
+  check("the reference FAQ section is left as it was", !/product\.faqs/.test(DEFAULT_THEME_SOURCES["sections/faq_accordion.storelib"]))
   const old = { id: "s", type: "product", name: "Product", settings: { image_width: "50%" }, blocks: [{ id: "t", type: "title", settings: {} }, { id: "d", type: "description", settings: {} }, { id: "s2", type: "share", settings: {} }] }
   const seeded = withProductFaq(old as never)
   check("a website product section saved before the block gets Product questions under the description, once", seeded.blocks!.map((b) => b.type).join() === "title,description,product_faq,share" && seeded.settings[FAQ_SEEDED] === true)

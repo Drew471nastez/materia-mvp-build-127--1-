@@ -199,7 +199,7 @@ export function VariantTable(props: VariantTableProps) {
  * The square at the start of a row. Empty: a dashed square with a plus.
  * Set: the photo, faded in once decoded so it never paints half drawn, in a
  * box of fixed size so nothing beside it moves. With a mouse, a small x in
- * its corner takes the photo off (and with the keyboard); on a phone the
+ * its corner takes the photo off (Tab reaches it too); on a phone the
  * picker has Remove photo, and the row's details have Remove.
  * While an upload runs it shows the local preview, a little dimmed, with a
  * spinner: the photo is the row's the moment it is chosen.
@@ -242,7 +242,7 @@ const Thumb = React.memo(function Thumb({ url, pendingUrl, label, onPick, onRemo
           onClick={onRemove}
           aria-label={`Remove the photo for ${label}`}
           data-variant-thumb-remove=""
-          className="absolute -right-1.5 -top-1.5 hidden h-[18px] w-[18px] place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:text-[#1a1a2e] group-hover/thumb:grid group-has-[:focus-visible]/thumb:grid"
+          className="pointer-events-none absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#4b5563] opacity-0 shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-opacity duration-100 hover:text-[#1a1a2e] focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100"
         >
           <X className="h-2.5 w-2.5" />
         </button>

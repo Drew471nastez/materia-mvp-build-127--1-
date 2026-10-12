@@ -10,12 +10,12 @@
  *   a built website         the product section's Product questions block
  *                           (themes/default/sections/product.json), added to
  *                           a product section saved before the block existed
- *                           (lib/website-builder/product-page.ts); an FAQ
- *                           section set to "This product's questions"; and
- *                           the "Product FAQ" dynamic source
- *   an imported theme       `product.metafields.storelib.faqs`, a theme's
- *                           collapsible tab headed FAQ or Questions, else
- *                           a fallback under the description
+ *                           (lib/website-builder/product-page.ts);
+ *                           `product.faqs` in a section's template; and the
+ *                           "Product FAQ" dynamic source in any rich text
+ *   an imported theme       `product.metafields.storelib.faqs`, a row in the
+ *                           theme's own collapsible rows, else a block
+ *                           under the description
  *                           (lib/storelib-theme/compat/product-faq.ts)
  *
  * Pure and safe in the browser, so the builder's canvas reads the same.
