@@ -127,16 +127,24 @@ const TRACKER_COPY: Record<TrackerId, { category: IntegrationCategory; logo: str
   klaviyo: {
     category: "email",
     logo: "/integrations/klaviyo.png",
-    summary: "Your Klaviyo sign-up forms and onsite tracking on your website.",
-    about: ["Klaviyo's onsite script loads on every page of your website with your public site ID, so the sign-up forms you publish in Klaviyo show on your site and visitors who are already in Klaviyo are seen when they come back.", "Not connected yet: your Storelib subscribers and orders are not sent to Klaviyo. Keep exporting subscribers from Storelib for now."],
+    summary: "Your subscribers, customers and orders in Klaviyo, and its sign-up forms on your website.",
+    about: [
+      "Connect your Klaviyo account with a private API key and choose a list. The people who said yes to your emails (the news box at checkout, a sign up form, a contact you added with consent) join that list. Buyers who did not ask become profiles in Klaviyo, never list members.",
+      "Every sale is sent as it happens, downloads included: Placed Order and Ordered Product, then Fulfilled Order, Canceled Order and Refunded Order. A checkout whose news box was ticked sends Started Checkout, for your abandoned checkout flow.",
+      "Unsubscribes go both ways: someone who leaves in Klaviyo stops getting your Storelib emails, and someone who leaves on Storelib is unsubscribed in Klaviyo. Klaviyo's onsite script also loads on every page of your website with your public site ID, so your Klaviyo sign-up forms show there.",
+    ],
     counts: "Form sign-ups and Active on Site",
     docs: "https://help.klaviyo.com/hc/en-us/articles/115005080407",
   },
   omnisend: {
     category: "email",
     logo: "/integrations/omnisend.png",
-    summary: "Omnisend forms and page tracking on your website.",
-    about: ["Omnisend's snippet loads on every page of your website with your brand ID, so your Omnisend forms show there and page views are tracked for your automations.", "Not connected yet: your Storelib subscribers and orders are not sent to Omnisend."],
+    summary: "Your subscribers, customers and orders in Omnisend, and its forms on your website.",
+    about: [
+      "Connect your Omnisend brand with an API key. The people who said yes to your emails are email subscribers there; buyers who did not ask are contacts with no subscription.",
+      "Every sale is sent as it happens, downloads included, as Omnisend's own order events: placed order, paid for order, order fulfilled, order canceled and order refunded, so its order confirmation, shipping and win back automations work.",
+      "Unsubscribes go both ways: someone who leaves in Omnisend stops getting your Storelib emails, and someone who leaves on Storelib is unsubscribed in Omnisend. Omnisend's snippet also loads on every page of your website with your brand ID, so your Omnisend forms show there.",
+    ],
     counts: "Page views and form sign-ups",
     docs: "https://support.omnisend.com/en/articles/1061818-omnisend-snippet",
   },
@@ -204,7 +212,41 @@ function fromTracker(id: TrackerId): Integration {
       "Where cookie consent is required, asking for it is up to you.",
     ],
     docsUrl: c.docs,
+    ...(MARKETING_SYNC[id] ? { data: MARKETING_SYNC[id]!.data, glance: MARKETING_SYNC[id]!.glance } : {}),
   }
+}
+
+/**
+ * Klaviyo and Omnisend take more than their script once connected with a
+ * key (lib/integrations/marketing/sync-server.ts): what flows in and out,
+ * in the seller's words.
+ */
+function marketingData(name: string): string[] {
+  return [
+    `Out to ${name}: the email address and name of the people who said yes to your emails (only they are subscribed), the email and name of your other buyers (as customers, with no subscription), and each order: its number, items, prices, totals, discount code, delivery address and tracking.`,
+    `In from ${name}: who unsubscribed there, so Storelib stops emailing them. Nothing else is read.`,
+    `Your ${name} key is checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows its last four characters. Disconnect and nothing more is sent.`,
+  ]
+}
+const MARKETING_SYNC: Partial<Record<TrackerId, { data: string[]; glance: { label: string; value: string }[] }>> = {
+  klaviyo: {
+    data: marketingData("Klaviyo"),
+    glance: [
+      { label: "Sends", value: "Subscribers, customers, orders" },
+      { label: "Reads back", value: "Unsubscribes" },
+      { label: "You add", value: "A private API key and a list" },
+      { label: "Price", value: "Free on Storelib; Klaviyo's own pricing applies" },
+    ],
+  },
+  omnisend: {
+    data: marketingData("Omnisend"),
+    glance: [
+      { label: "Sends", value: "Subscribers, customers, orders" },
+      { label: "Reads back", value: "Unsubscribes" },
+      { label: "You add", value: "An API key" },
+      { label: "Price", value: "Free on Storelib; Omnisend's own pricing applies" },
+    ],
+  },
 }
 
 /** Printful and Printify, connected: how an order gets there and tracking gets back, in the seller's words. */
