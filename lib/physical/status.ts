@@ -194,33 +194,67 @@ export function guessCarrier(number: string | null | undefined): string | null {
  * days count from when the buyer has the items. For each shipment that was
  * not cancelled that is when it was delivered (picked up, for a pickup), or
  * when it was shipped if it has no tracking number to say it arrived (a
- * pickup marked ready counts from then too). A tracked shipment still on its
- * way has not started its window. An order with nothing to ship counts from
- * payment. The window is open while any shipment's is: not started yet, or
- * within its days. `endsAt` is the last day, once every shipment started.
+ * pickup marked ready counts from then too). An order with nothing to ship
+ * counts from payment. The window is open while any shipment's is: not
+ * started yet, or within its days. `endsAt` is the last day, once every
+ * shipment's start is known.
+ *
+ * A TRACKED PARCEL NEVER MARKED DELIVERED still has a window that ends. It
+ * counts from when the parcel should have arrived: the carrier's estimated
+ * delivery, or the day it shipped plus the delivery's longest promise (the
+ * zone rate's max days, ASSUMED_TRANSIT_DAYS when it gave none) plus
+ * DELIVERY_GRACE_DAYS, whichever comes first. Until then the window has not
+ * started, but its end is already known and the buyer is told the date.
+ * `assumed` says a start was worked out this way.
+ *
  * Pure: the buyer's order page and the return route read it the same way.
  */
+export const DELIVERY_GRACE_DAYS = 14
+export const ASSUMED_TRANSIT_DAYS = 10
+
 export function returnWindow(
-  o: { lines: { requiresShipping: boolean }[]; shipments: { status: string; trackingNumber: string | null; shippedAt: string | null; deliveredAt: string | null; provider?: string | null }[]; paidAt: string | null; pickup?: boolean },
+  o: {
+    lines: { requiresShipping: boolean }[]
+    shipments: { status: string; trackingNumber: string | null; shippedAt: string | null; deliveredAt: string | null; provider?: string | null; estimatedDeliveryAt?: string | null }[]
+    paidAt: string | null
+    pickup?: boolean
+    /** The delivery paid for: its longest promise in days, when the rate gave one. */
+    delivery?: { maxDays: number | null } | null
+  },
   days: number,
   now: number = Date.now(),
-): { open: boolean; started: boolean; endsAt: string | null } {
-  const span = Math.max(0, Math.floor(days)) * 86_400_000
-  const startOf = (iso: string | null) => {
+): { open: boolean; started: boolean; endsAt: string | null; assumed: boolean } {
+  const day = 86_400_000
+  const span = Math.max(0, Math.floor(days)) * day
+  const startOf = (iso: string | null | undefined) => {
     const t = iso ? Date.parse(iso) : NaN
     return Number.isFinite(t) ? t : null
   }
+  let assumed = false
   let starts: (number | null)[]
   if (!o.lines.some((l) => l.requiresShipping)) starts = [startOf(o.paidAt)]
   else {
     const live = o.shipments.filter((s) => s.status !== "cancelled")
-    if (live.length === 0) return { open: true, started: false, endsAt: null }
-    starts = live.map((s) => startOf(s.deliveredAt) ?? (o.pickup || s.provider === "pickup" || !s.trackingNumber ? startOf(s.shippedAt) : null))
+    if (live.length === 0) return { open: true, started: false, endsAt: null, assumed: false }
+    const transit = typeof o.delivery?.maxDays === "number" && o.delivery.maxDays > 0 ? Math.min(90, Math.floor(o.delivery.maxDays)) : ASSUMED_TRANSIT_DAYS
+    starts = live.map((s) => {
+      const delivered = startOf(s.deliveredAt)
+      if (delivered !== null) return delivered
+      const shipped = startOf(s.shippedAt)
+      if (o.pickup || s.provider === "pickup" || !s.trackingNumber) return shipped
+      if (shipped === null) return null
+      /* Tracked and never marked delivered: from when it should have arrived. */
+      const latest = shipped + (transit + DELIVERY_GRACE_DAYS) * day
+      const estimate = startOf(s.estimatedDeliveryAt)
+      assumed = true
+      return estimate !== null && estimate >= shipped ? Math.min(estimate, latest) : latest
+    })
   }
-  const started = starts.every((t) => t !== null)
+  const known = starts.every((t) => t !== null)
+  const started = known && (starts as number[]).every((t) => t <= now)
   const open = starts.some((t) => t === null || now - t <= span)
-  const last = started && starts.length ? Math.max(...(starts as number[])) + span : null
-  return { open, started, endsAt: last !== null ? new Date(last).toISOString() : null }
+  const last = known && starts.length ? Math.max(...(starts as number[])) + span : null
+  return { open, started, endsAt: last !== null ? new Date(last).toISOString() : null, assumed }
 }
 
 /** What buyers and the merchant call an order: short, stable, from its id. */

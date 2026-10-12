@@ -46,7 +46,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
   ])
   const cancelAsked = await cancelEvents(db, order.id)
   const returnable = returnableQuantities(progressOf(order))
-  /* Counted from delivery, or from shipping without tracking (lib/physical/status returnWindow), as the return route checks it. */
+  /* Counted from delivery, from shipping without tracking, or from when a tracked parcel never marked delivered should have arrived (lib/physical/status returnWindow), as the return route checks it. */
   const window = returnWindow({ ...order, pickup: order.deliveryMethod === "pickup" }, settings.returnWindowDays)
   const windowOpen = settings.returnsEnabled && window.open
   const openReturn = order.returns.some((r) => ["requested", "approved", "in_transit"].includes(r.status))
@@ -79,7 +79,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
           /* Its updates, oldest first, as statuses only: the seller's own notes stay on their side. */
           .map((s) => ({ id: s.id, status: s.status, carrier: s.carrier, trackingNumber: s.trackingNumber, trackingUrl: s.trackingUrl, shippedAt: s.shippedAt, deliveredAt: s.deliveredAt, items: s.items, updates: [...s.events].reverse().map((e) => ({ status: e.status, at: e.occurredAt })) })),
         returns: order.returns.map((r) => ({ id: r.id, status: r.status, createdAt: r.createdAt, reason: r.reasonLabel || reasonLabel(r.reason, "return", reasons) })),
-        returnPolicy: settings.returnsEnabled ? { days: settings.returnWindowDays, endsAt: window.endsAt, open: window.open } : null,
+        returnPolicy: settings.returnsEnabled ? { days: settings.returnWindowDays, endsAt: window.endsAt, open: window.open, started: window.started, assumed: window.assumed } : null,
       }}
       reasons={reasons.map((r) => ({ value: r.value, label: r.label }))}
       canReturn={windowOpen && !openReturn && [...returnable.values()].some((n) => n > 0)}

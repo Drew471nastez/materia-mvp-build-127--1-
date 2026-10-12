@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { readBody } from "@/lib/physical/auth"
 import { addressSubject, emailSubject, rateLimit } from "@/lib/api/rate-limit"
 import { appUrl } from "@/lib/notify/urls"
 import { readNewCase } from "@/lib/support/cases"
 import { openCase, orderForToken } from "@/lib/support/cases-server"
+import { readCaseRequest } from "@/lib/support/case-photos-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -15,6 +15,7 @@ const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(
  * A buyer asks for help with their order (lib/support/cases.ts).
  *
  *   POST { kind: "physical" | "digital", token, reason, message }
+ *   or the same as a form (multipart/form-data) with up to four `photos`
  *
  * `token` is the order's own receipt token, the key the buyer already holds
  * from their confirmation email and order page; nothing else opens a case.
@@ -22,7 +23,7 @@ const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(
  * answer is the case's private link, also emailed to the buyer.
  */
 export async function POST(request: Request) {
-  const body = await readBody(request)
+  const { body, photos } = await readCaseRequest(request)
   const kind = body?.kind === "digital" ? "digital" : "physical"
   const token = typeof body?.token === "string" ? body.token : ""
   const db = createAdminClient()
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   if (limited) return limited
   const input = readNewCase(body, kind)
   if (!input.ok) return json({ error: input.error }, 400)
-  const out = await openCase(db, order, input, appUrl("/").replace(/\/$/, ""))
+  const out = await openCase(db, order, { ...input, photos }, appUrl("/").replace(/\/$/, ""))
   if (!out.ok) return json({ error: out.error }, out.status)
-  return json({ id: out.id, link: out.link, existing: out.existing })
+  return json({ id: out.id, link: out.link, existing: out.existing, photosNotKept: out.photosNotKept === true })
 }

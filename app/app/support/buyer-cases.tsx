@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 import { BTN_PRIMARY, BTN_SECONDARY, Empty, FIELD, Notice, Pill, api, dateTime } from "@/components/physical/ui"
 import { CASE_REASON_LABELS, STATUS_FOR_STORE, type CaseMessage, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
 import { card } from "../orders/order-parts"
+import { CasePhotoStrip } from "@/components/support/case-photos"
 
 const TONE: Record<CaseStatus, "blue" | "amber" | "gray" | "red"> = { store: "amber", buyer: "blue", storelib: "red", resolved: "gray" }
 const AREA = cn(FIELD, "h-auto min-h-[120px] py-2.5 leading-[21px] sm:h-auto")
@@ -60,7 +61,8 @@ export function BuyerCasesList({ cases, error, onOpen }: { cases: CaseSummary[] 
   )
 }
 
-export function BuyerCaseThread({ id, onBack, onChanged }: { id: string; onBack: () => void; onChanged: () => void }) {
+/** One case's thread with the reply box. `onBack` absent: drawn inside an order (components/support/order-messages-card.tsx), with no way back to the list. */
+export function BuyerCaseThread({ id, onBack, onChanged, embedded }: { id: string; onBack?: () => void; onChanged: () => void; embedded?: boolean }) {
   const [c, setCase] = React.useState<CaseSummary | null>(null)
   const [messages, setMessages] = React.useState<CaseMessage[]>([])
   const [error, setError] = React.useState<string | null>(null)
@@ -99,15 +101,17 @@ export function BuyerCaseThread({ id, onBack, onChanged }: { id: string; onBack:
 
   return (
     <div className="space-y-3" data-buyer-case={id}>
-      <button type="button" onClick={onBack} className="-ml-2 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#4b5563] hover:bg-white">
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        All buyer cases
-      </button>
+      {onBack ? (
+        <button type="button" onClick={onBack} className="-ml-2 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#4b5563] hover:bg-white">
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          All buyer cases
+        </button>
+      ) : null}
       {error ? <Notice>{error}</Notice> : null}
       {!c ? (
         <div className="min-h-[240px]" aria-busy="true" />
       ) : (
-        <section className={cn(card, "overflow-hidden")}>
+        <section className={cn(embedded ? "" : card, "overflow-hidden")}>
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f1f2f4] px-4 py-4 sm:px-5">
             <div className="min-w-0">
               <h2 className="break-words text-[17px] font-semibold text-[#1a1a2e]">{CASE_REASON_LABELS[c.reason]}</h2>
@@ -127,6 +131,7 @@ export function BuyerCaseThread({ id, onBack, onChanged }: { id: string; onBack:
                   {who(m)} · {dateTime(m.createdAt)}
                 </p>
                 <p className="whitespace-pre-wrap break-words text-[14px] leading-[21px]">{m.body}</p>
+                <CasePhotoStrip photos={m.photos} dark={m.author === "store"} />
               </li>
             ))}
           </ol>

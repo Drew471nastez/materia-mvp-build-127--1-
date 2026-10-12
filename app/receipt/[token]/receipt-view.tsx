@@ -788,7 +788,7 @@ export function ReceiptView({
           </div>
         ) : null}
 
-        {help && receipt.state !== "pending" ? <OrderHelp kind="digital" token={primary.token} storeName={receipt.seller.name} openCase={help.openCase} className="mt-6 print:hidden" /> : null}
+        {help && receipt.state !== "pending" ? <OrderHelp kind="digital" token={primary.token} storeName={receipt.seller.name} openCase={help.openCase} contact={{ email: receipt.seller.supportEmail ?? null, phone: null }} className="mt-6 print:hidden" /> : null}
 
         {/* Who to ask, and what the seller promised about refunds. */}
         <div data-receipt-help="" className="mt-6 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-[13px] leading-relaxed text-[#6b7280]">

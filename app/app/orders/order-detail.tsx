@@ -89,6 +89,7 @@ import {
 import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
 import { BuyerNoteCard, NoteComposer, PhysicalFulfillment, ShippingCard, historyOf, usePhysicalOrder } from "@/components/physical/order-panel"
 import { useReasons } from "@/lib/store/use-reasons"
+import { OrderMessagesCard } from "@/components/support/order-messages-card"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 
 export type OrderAction =
@@ -364,15 +365,18 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
             {physicalOrder ? <ShippingCard order={parcel} onNotice={onNotice} onEditAddress={(address, notifyBuyer) => physical.act({ action: "address", address, notifyBuyer })} /> : null}
             <DetailsCard order={order} digital={digitalLines.length > 0} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
           </div>
-          <Timeline
-            className="lg:col-start-1 lg:row-start-3"
-            order={order}
-            timeZone={timeZone}
-            now={now}
-            revision={revision}
-            physical={parcel ? historyOf(parcel) : null}
-            onNote={parcel ? (text, key) => physical.act({ action: "comment", text, key }) : null}
-          />
+          <div className="grid min-w-0 content-start gap-4 lg:col-start-1 lg:row-start-3">
+            {/* What the buyer wrote with Contact the shop, with the reply box (components/support/order-messages-card.tsx). */}
+            <OrderMessagesCard checkoutId={parcel?.id ?? null} orderId={physicalOrder ? null : (order.lines[0]?.id ?? null)} />
+            <Timeline
+              order={order}
+              timeZone={timeZone}
+              now={now}
+              revision={revision}
+              physical={parcel ? historyOf(parcel) : null}
+              onNote={parcel ? (text, key) => physical.act({ action: "comment", text, key }) : null}
+            />
+          </div>
         </div>
       </div>
 
