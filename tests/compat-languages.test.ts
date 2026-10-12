@@ -13,6 +13,9 @@ import { join } from "node:path"
 import { CompatTheme, wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
 import { answer, withoutShopifyMark, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { localeRoot, localizationObject, routesFor } from "@/lib/storelib-theme/compat/objects"
+import { imageSrc } from "@/lib/storelib-theme/compat/filters"
+import { OUTPUT } from "@/lib/storelib-theme/compat/runtime"
+import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { compatFields } from "@/lib/markets/compat"
 import { linkLanguageScript } from "@/lib/markets/link-script"
 import { localizeSections, sourceHash, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
@@ -165,6 +168,19 @@ async function main() {
   check("AI translates everything in one press, batch after batch", /for \(let round = 0; round < 12; round\+\+\)/.test(read("components/app/settings/translate-sheet.tsx")))
   check("rates are fetched when the owner opens Markets and there are none fresh", /refreshRates\(c\.db\)/.test(read("app/api/store/markets/route.ts")))
 }
+
+console.log("\nOne page view is one page (the country flags that brought Storelib down)\n")
+  {
+    const loc = localizationObject("USD", { locale: "en", defaultLanguage: "en", languages: ["en"], countries: [{ code: "DJ", name: "Djibouti", currency: "USD" }, { code: "GQ", name: "Equatorial Guinea", currency: "USD" }] }) as { available_countries: Record<string, unknown>[] }
+    const flags = loc.available_countries.map((c) => imageSrc(c))
+    check("a country's flag is drawn in the page, never an address on the website", flags.length === 2 && flags.every((f) => f.startsWith("data:image/svg+xml,")) && !flags.some((f) => /^[A-Z]{2}$/.test(f)))
+    check("  a word is never a picture's address (src=\"DJ\" asked the site for /DJ)", imageSrc({ [OUTPUT]: "DJ" }) === "" && imageSrc({ [OUTPUT]: "fr" }) === "" && imageSrc({ [OUTPUT]: "/files/a.png" }) === "/files/a.png" && imageSrc({ [OUTPUT]: "https://x.com/a" }) === "https://x.com/a")
+    check("a page asked for as an image, script or font answers 404 without rendering", pageAskedAsSubresource("image", "/DJ") && pageAskedAsSubresource("script", "/collections/all") && pageAskedAsSubresource("style", "/"))
+    check("  a real file, an API, Next, media and a page opened as a page go through", !pageAskedAsSubresource("image", "/community/x/share.png") && !pageAskedAsSubresource("image", "/api/site-theme/assets/a/b/c") && !pageAskedAsSubresource("image", "/_next/image") && !pageAskedAsSubresource("image", "/media/x") && !pageAskedAsSubresource("document", "/DJ") && !pageAskedAsSubresource(null, "/DJ") && !pageAskedAsSubresource("empty", "/cart"))
+    check("  checked first in the proxy, before any site is looked up", read("proxy.ts").indexOf("pageAskedAsSubresource(request.headers.get") < read("proxy.ts").indexOf("const bareHost = host.split"))
+    const site = read("lib/website-builder/compat-site.ts")
+    check("pages arriving together wait on one read of the theme's files", /const rowsReading = new Map/.test(site) && /liveFiles\(admin, row\.id, rowsKey\)/.test(site) && /finally\(\(\) => rowsReading\.delete\(key\)\)/.test(site))
+  }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)

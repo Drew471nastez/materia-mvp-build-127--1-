@@ -1,4 +1,5 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
+import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { createServerClient } from "@supabase/ssr"
 import { readCurrentUser, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
@@ -1144,6 +1145,18 @@ export async function proxy(request: NextRequest) {
 
   /* A public file at Storelib's own address (lib/storage/media-url.ts): on every host, straight to next.config's rewrite, never a page of a site. */
   if (pathname.startsWith("/media/")) return NextResponse.next()
+  /*
+    A PAGE ASKED FOR AS A PICTURE, A SCRIPT OR A FONT IS NOT RENDERED. A
+    theme that wrote a country's code where its flag goes (src="DJ") had
+    every visitor's browser ask for /DJ, /GQ, /KP... as images: 250 whole
+    website renders per page view, every one reading the database, until
+    the database timed out and Storelib with it. Nothing a page renders can
+    be a picture, so such a request answers 404 at once, cached, without
+    touching a page, whatever the cause next time.
+  */
+  if (pageAskedAsSubresource(request.headers.get("sec-fetch-dest"), pathname)) {
+    return new NextResponse(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600", "X-Storelib-Guard": "subresource" } })
+  }
   /* Apple Pay's domain file (public/.well-known), which Apple fetches from every host a checkout runs on, a creator's own domain too: the file, never a page of a site. */
   if (pathname === "/.well-known/apple-developer-merchantid-domain-association") return NextResponse.next()
 
