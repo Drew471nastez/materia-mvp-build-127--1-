@@ -42,23 +42,9 @@ export const translations = {
     "nav.unlockBenefits": "Unlock more benefits",
 
     // Dashboard
-    "dashboard.welcome": "Welcome back",
-    "dashboard.greeting.morning": "Good morning",
-    "dashboard.greeting.afternoon": "Good afternoon",
-    "dashboard.greeting.evening": "Good evening",
-    "dashboard.greeting.night": "Good night",
-    "dashboard.subtitle": "Here's what's happening with your store",
-    "dashboard.views": "Views",
     "dashboard.visitors": "Visitors",
     "dashboard.pageViews": "page views",
     "dashboard.ordersPerVisitor": "Orders per visitor",
-    "dashboard.orders": "Orders",
-    "dashboard.revenue": "Revenue",
-    "dashboard.conversionRate": "Conversion Rate",
-    "dashboard.allTime": "all time",
-    "dashboard.viewsToOrders": "Views to orders",
-    "dashboard.liveVisitors": "live",
-    "dashboard.noData": "No data",
 
     // Settings
     "settings.title": "Settings",
@@ -165,9 +151,6 @@ export const translations = {
     "settings.defaultCurrency": "Default Currency",
 
     // Settings - Stores
-    "settings.storeCustomization": "Store Customization",
-    "settings.storeCustomizationDesc": "Customize your store appearance and settings.",
-    "settings.openStoreBuilder": "Open Store Builder",
 
     // Common
     "common.cancel": "Cancel",
@@ -192,9 +175,7 @@ export const translations = {
     "common.connected": "Connected",
 
     // Products
-    "products.title": "Products",
     "products.create": "Create Product",
-    "products.noProducts": "No products yet",
     "products.createFirst": "Create your first product to start selling",
 
     // Store Builder
@@ -300,18 +281,14 @@ export const translations = {
     "changelog.noUpdates": "No updates yet",
 
     // Time periods
-    "time.today": "Today",
-    "time.yesterday": "Yesterday",
     "time.thisWeek": "This week",
     "time.lastWeek": "Last week",
-    "time.thisMonth": "This month",
     "time.lastMonth": "Last month",
     "time.last7Days": "Last 7 days",
     "time.last30Days": "Last 30 days",
     "time.last90Days": "Last 90 days",
     "time.allTime": "All time",
     "time.custom": "Custom",
-    "time.selectPeriod": "Select time period",
 
     // Dashboard
     "dashboard.welcome": "Welcome back",
@@ -581,9 +558,6 @@ export const translations = {
     "settings.defaultCurrency": "Moneda predeterminada",
 
     // Settings - Stores
-    "settings.storeCustomization": "Personalización de tienda",
-    "settings.storeCustomizationDesc": "Personaliza la apariencia y configuración de tu tienda.",
-    "settings.openStoreBuilder": "Abrir constructor de tienda",
 
     // Common
     "common.cancel": "Cancelar",
@@ -608,9 +582,7 @@ export const translations = {
     "common.connected": "Conectado",
 
     // Products
-    "products.title": "Productos",
     "products.create": "Crear producto",
-    "products.noProducts": "Sin productos aún",
     "products.createFirst": "Crea tu primer producto para empezar a vender",
 
     // Store Builder
@@ -716,18 +688,14 @@ export const translations = {
     "changelog.noUpdates": "Sin actualizaciones aún",
 
     // Time periods
-    "time.today": "Hoy",
-    "time.yesterday": "Ayer",
     "time.thisWeek": "Esta semana",
     "time.lastWeek": "Semana pasada",
-    "time.thisMonth": "Este mes",
     "time.lastMonth": "Mes pasado",
     "time.last7Days": "Últimos 7 días",
     "time.last30Days": "Últimos 30 días",
     "time.last90Days": "Últimos 90 días",
     "time.allTime": "Todo el tiempo",
     "time.custom": "Personalizado",
-    "time.selectPeriod": "Seleccionar período",
 
     // Dashboard extras
     "dashboard.storeSetup": "Configuración de tienda",
@@ -983,9 +951,6 @@ export const translations = {
     "settings.defaultCurrency": "Devise par défaut",
 
     // Settings - Stores
-    "settings.storeCustomization": "Personnalisation de boutique",
-    "settings.storeCustomizationDesc": "Personnalisez l'apparence et les paramètres de votre boutique.",
-    "settings.openStoreBuilder": "Ouvrir le constructeur de boutique",
 
     // Common
     "common.cancel": "Annuler",
@@ -1010,9 +975,7 @@ export const translations = {
     "common.connected": "Connecté",
 
     // Products
-    "products.title": "Produits",
     "products.create": "Créer un produit",
-    "products.noProducts": "Pas encore de produits",
     "products.createFirst": "Créez votre premier produit pour commencer à vendre",
 
     // Store Builder
@@ -1118,18 +1081,14 @@ export const translations = {
     "changelog.noUpdates": "Pas encore de mises à jour",
 
     // Time periods
-    "time.today": "Aujourd'hui",
-    "time.yesterday": "Hier",
     "time.thisWeek": "Cette semaine",
     "time.lastWeek": "Semaine dernière",
-    "time.thisMonth": "Ce mois",
     "time.lastMonth": "Mois dernier",
     "time.last7Days": "7 derniers jours",
     "time.last30Days": "30 derniers jours",
     "time.last90Days": "90 derniers jours",
     "time.allTime": "Tout le temps",
     "time.custom": "Personnalisé",
-    "time.selectPeriod": "Sélectionner une période",
 
     // Dashboard extras
     "dashboard.storeSetup": "Configuration de la boutique",
@@ -1385,9 +1344,6 @@ export const translations = {
     "settings.defaultCurrency": "Standardwährung",
 
     // Settings - Stores
-    "settings.storeCustomization": "Shop-Anpassung",
-    "settings.storeCustomizationDesc": "Passe das Erscheinungsbild und die Einstellungen deines Shops an.",
-    "settings.openStoreBuilder": "Shop-Builder öffnen",
 
     // Common
     "common.cancel": "Abbrechen",
@@ -1412,9 +1368,7 @@ export const translations = {
     "common.connected": "Verbunden",
 
     // Products
-    "products.title": "Produkte",
     "products.create": "Produkt erstellen",
-    "products.noProducts": "Noch keine Produkte",
     "products.createFirst": "Erstelle dein erstes Produkt, um mit dem Verkauf zu beginnen",
 
     // Store Builder
@@ -1520,18 +1474,14 @@ export const translations = {
     "changelog.noUpdates": "Noch keine Updates",
 
     // Time periods
-    "time.today": "Heute",
-    "time.yesterday": "Gestern",
     "time.thisWeek": "Diese Woche",
     "time.lastWeek": "Letzte Woche",
-    "time.thisMonth": "Dieser Monat",
     "time.lastMonth": "Letzter Monat",
     "time.last7Days": "Letzte 7 Tage",
     "time.last30Days": "Letzte 30 Tage",
     "time.last90Days": "Letzte 90 Tage",
     "time.allTime": "Gesamte Zeit",
     "time.custom": "Benutzerdefiniert",
-    "time.selectPeriod": "Zeitraum auswählen",
 
     // Dashboard extras
     "dashboard.storeSetup": "Shop-Einrichtung",
