@@ -95,7 +95,8 @@ const card = (i: number) => ({
   const p = productObject(card(1))
   const variants = p.variants as Record<string, unknown>[]
   check("prices are in cents, as Shopify's are", p.price === 4000 && variants[1].price === 5500 && p.compare_at_price === 5000)
-  check("options with values, each with an id", ((p.options_with_values as Record<string, unknown>[])[0].values as Record<string, unknown>[]).map((v) => v.id).join() === "0-0,0-1")
+  /* Round 25: numbers, as Shopify's are, sent back by a theme's picker as ?option_values= (lib/storelib-theme/compat/objects.ts optionValueId). */
+  check("options with values, each with an id", ((p.options_with_values as Record<string, unknown>[])[0].values as Record<string, unknown>[]).map((v) => v.id).join() === "1000,1001")
   check("the first available option is selected", (p.selected_or_first_available_variant as Record<string, unknown>).id === "v1s")
   check("option values name a variant (?option_values=0-1 is Large)", variantForOptionValues(card(1), "0-1") === "v1l")
   check("standard_event_data describes the product and its option", JSON.parse(String(compatFilter("standard_event_data")!(p, ["view"], {}, new Ctx({}, {} as never)))).product.selectedVariant.id === "v1s")
@@ -139,7 +140,7 @@ console.log("\nThe page\n")
   check("a static block that is hidden is not drawn", (productPage.html.match(/data-block-id="gone"/g) ?? []).length === 0 && productPage.html.includes('data-block-id="price"'))
   check("the header group is the page row's own", productPage.html.includes('id="shopify-section-cc"') && productPage.html.includes('class="count">0<'))
   check("Shopify's own scripts are out of the layout, and noted", !productPage.html.includes("trekkie") && [...theme.diagnostics].some((d) => d.includes("trekkie")))
-  check("content_for_header writes window.Shopify", productPage.html.includes("data-storelib-shopify"))
+  check("content_for_header writes window.Shopify", productPage.html.includes("data-storelib-head"))
   const hero = drawPage(theme, { ...base, template: "index", path: "/" }, [{ id: "h", type: "hero", settings: { heading: "Linen", padding_top: 12 } }], { scripts: false })
   check("a setting stored by the builder's id (padding_top) reaches the theme's (padding-top)", hero.html.includes("padding-top:12px") && hero.html.includes(">Linen<"))
   const defaults = drawPage(theme, { ...base, template: "index", path: "/" }, [{ id: "h", type: "hero", settings: {} }], { scripts: false })

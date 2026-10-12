@@ -202,7 +202,7 @@ export function lex(src: string, lax = false): Tok[] {
         }
         if (s && !s.startsWith("#")) {
           const mm = s.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*([\s\S]*)$/)
-          if (!mm && !lax) throw new CompatSyntaxError(`"${s.slice(0, 40)}" in {% liquid %} is not a tag`, l)
+          if (!mm && !lax) throw new CompatSyntaxError(`"${s.slice(0, 40)}" is not a tag`, l)
           if (!mm) { /* skipped, as Shopify's lenient parser skips it */ }
           else if (mm[1] === "echo") toks.push({ kind: "output", value: mm[2].trim(), line: l })
           else toks.push({ kind: "tag", name: mm[1], args: mm[2].trim(), line: l })

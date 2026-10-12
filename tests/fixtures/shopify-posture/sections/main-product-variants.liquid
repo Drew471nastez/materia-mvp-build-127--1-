@@ -1,0 +1,115 @@
+{%- comment -%}
+  A product page the way a bought theme draws one for a product with
+  sizes and colours: the gallery, then the title, the price, a picker of
+  buttons under "Size: S" with a size guide, the SKU, the quantity with
+  Add to cart and Buy now, and the stock line. Its script
+  (product-variants.js) reads the product's JSON as Shopify writes it and
+  keeps every part in step with the choice, and with the sticky bar.
+{%- endcomment -%}
+{%- liquid
+  assign current_variant = product.selected_or_first_available_variant
+  assign featured_media = current_variant.featured_media | default: product.featured_media
+-%}
+<script>window.theme = window.theme || {}; window.theme.moneyFormat = {{ shop.money_format | json }};</script>
+<style>
+  .product-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; max-width: 1200px; margin: 0 auto; padding: 32px 20px 120px; }
+  @media (max-width: 749px) { .product-page { grid-template-columns: 1fr; gap: 20px; } }
+  .product-gallery { display: flex; flex-direction: column; gap: 12px; }
+  .product-gallery__item img { width: 100%; height: auto; display: block; border-radius: 8px; }
+  .product-gallery__item:not(.is-active) { display: none; }
+  .product-option { border: 0; padding: 0; margin: 20px 0 0; }
+  .product-option__label { display: flex; gap: 6px; width: 100%; font-size: 15px; margin-bottom: 10px; }
+  .product-option__guide { margin-left: auto; }
+  .product-option__values { display: flex; flex-wrap: wrap; gap: 10px; }
+  .product-option__input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .product-option__button { display: inline-flex; align-items: center; gap: 8px; min-width: 64px; justify-content: center; padding: 12px 16px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: 600; }
+  .product-option__swatch { width: 18px; height: 18px; border-radius: 50%; background-size: cover; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); }
+  .product-option__input.is-unavailable + .product-option__button { background: linear-gradient(to top right, transparent calc(50% - 1px), #bbb, transparent calc(50% + 1px)) #f4f4f4; color: #777; }
+  .product-option__input:checked + .product-option__button { background: #111; color: #fff; border-color: #111; }
+  .product-form__row { display: flex; gap: 16px; margin-top: 24px; }
+  .product-form__buy-now { width: 100%; margin-top: 12px; padding: 16px; border-radius: 999px; border: 1px solid #111; background: #fff; font-size: 17px; }
+  .product-form button[disabled] { opacity: .45; cursor: not-allowed; }
+  .sticky-atc { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #fff; box-shadow: 0 -1px 0 #e5e5e5; }
+  .sticky-atc__title { margin: 0; font-weight: 600; flex: 1; }
+  .sticky-atc__form { display: flex; gap: 8px; }
+  .sticky-atc__qty { width: 56px; }
+</style>
+<product-page class="product-page" data-section="{{ section.id }}" data-url="{{ product.url }}">
+  <div class="product-gallery">
+    {%- for media in product.media -%}
+      <div class="product-gallery__item{% if media.id == featured_media.id %} is-active{% endif %}" data-media-id="{{ media.id }}">
+        {{ media | image_url: width: 900 | image_tag: loading: 'eager' }}
+      </div>
+    {%- endfor -%}
+  </div>
+  <div class="product-details">
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when 'title' -%}
+          <h1 class="product-title" {{ block.shopify_attributes }}>{{ product.title }}</h1>
+        {%- when 'price' -%}
+          <div class="product-price" data-product-price {{ block.shopify_attributes }}>
+            <span class="price" data-price>{{ current_variant.price | money }}</span>
+            <s class="price price--compare" data-compare-price{% unless current_variant.compare_at_price > current_variant.price %} hidden{% endunless %}>{{ current_variant.compare_at_price | money }}</s>
+          </div>
+        {%- when 'variant_picker' -%}
+          {%- unless product.has_only_default_variant -%}
+            <div class="product-form__variants" data-variant-picker {{ block.shopify_attributes }}>
+              {%- for option in product.options_with_values -%}
+                <fieldset class="product-option" data-option-index="{{ forloop.index0 }}">
+                  <legend class="product-option__label">
+                    {{ option.name }}: <span data-selected-value>{{ option.selected_value }}</span>
+                    {%- if forloop.first and block.settings.size_guide != blank -%}<a class="product-option__guide" href="#size-guide">{{ block.settings.size_guide }}</a>{%- endif -%}
+                  </legend>
+                  <div class="product-option__values">
+                    {%- for value in option.values -%}
+                      {%- capture input_id -%}{{ section.id }}-{{ option.position }}-{{ forloop.index0 }}{%- endcapture -%}
+                      <input type="radio" id="{{ input_id }}" name="option-{{ option.position }}" value="{{ value | escape }}" class="product-option__input{% unless value.available %} is-unavailable{% endunless %}" data-option-name="{{ option.name | escape }}"{% if value.selected %} checked{% endif %}>
+                      <label for="{{ input_id }}" class="product-option__button">
+                        {%- if value.swatch.color -%}<span class="product-option__swatch" style="background: {{ value.swatch.color }}"></span>{%- elsif value.swatch.image -%}<span class="product-option__swatch" style="background-image: url({{ value.swatch.image | image_url: width: 60 }})"></span>{%- endif -%}
+                        {{ value }}
+                      </label>
+                    {%- endfor -%}
+                  </div>
+                </fieldset>
+              {%- endfor -%}
+            </div>
+          {%- endunless -%}
+        {%- when 'sku' -%}
+          <p class="product-sku" data-product-sku {{ block.shopify_attributes }}>{% if current_variant.sku != blank %}SKU: {{ current_variant.sku }}{% endif %}</p>
+        {%- when 'buy_buttons' -%}
+          {%- form 'product', product, id: 'product-form', class: 'product-form', data-type: 'add-to-cart-form' -%}
+            <input type="hidden" name="id" value="{{ current_variant.id }}" data-variant-id>
+            <div class="product-form__row">
+              <input class="product-form__qty" type="number" name="quantity" value="1" min="1"{% if current_variant.quantity_rule.max %} max="{{ current_variant.quantity_rule.max }}"{% endif %}>
+              <button type="submit" name="add" class="product-form__add"{% unless current_variant.available %} disabled{% endunless %}>{% if current_variant.available %}Add to Cart{% else %}Sold out{% endif %}</button>
+            </div>
+            <button type="submit" name="checkout" class="product-form__buy-now"{% unless current_variant.available %} disabled{% endunless %}>Buy Now</button>
+          {%- endform -%}
+        {%- when 'stock' -%}
+          <p class="product-inventory" data-product-stock data-low-at="{{ block.settings.low_at }}" {{ block.shopify_attributes }}>
+            {%- if current_variant.available == false -%}
+              Sold out
+            {%- elsif current_variant.inventory_management == 'shopify' and current_variant.inventory_quantity <= block.settings.low_at and current_variant.inventory_policy == 'deny' -%}
+              Only {{ current_variant.inventory_quantity }} left, order today to receive it by October 19
+            {%- else -%}
+              In stock, order today to receive it by October 19
+            {%- endif -%}
+          </p>
+      {%- endcase -%}
+    {%- endfor -%}
+  </div>
+  <script type="application/json" data-product-json>{{ product | json }}</script>
+  <script type="application/json" data-variant-stock>{ {%- for v in product.variants -%}{{ v.id | json }}: { "management": {{ v.inventory_management | json }}, "quantity": {{ v.inventory_quantity | json }}, "policy": {{ v.inventory_policy | json }} }{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%} }</script>
+</product-page>
+<script src="{{ 'product-variants.js' | asset_url }}" defer></script>
+{% schema %}
+{ "name": "Product page", "blocks": [
+  { "type": "title", "name": "Title", "limit": 1, "settings": [] },
+  { "type": "price", "name": "Price", "limit": 1, "settings": [] },
+  { "type": "variant_picker", "name": "Variant picker", "limit": 1, "settings": [ { "type": "text", "id": "size_guide", "label": "Size guide link", "default": "Size guide" } ] },
+  { "type": "sku", "name": "SKU", "limit": 1, "settings": [] },
+  { "type": "buy_buttons", "name": "Buy buttons", "limit": 1, "settings": [] },
+  { "type": "stock", "name": "Stock", "limit": 1, "settings": [ { "type": "range", "id": "low_at", "label": "Low stock from", "min": 1, "max": 20, "step": 1, "default": 5 } ] }
+] }
+{% endschema %}

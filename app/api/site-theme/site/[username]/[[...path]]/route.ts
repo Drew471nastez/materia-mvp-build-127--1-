@@ -27,9 +27,10 @@ import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
 import { formFields } from "@/lib/storelib-theme/compat/form-fields"
 import { timed } from "@/lib/perf/server-timing"
-import { compatTrackScript, compatTrackingTags } from "@/lib/storelib-theme/compat/track-script"
 import { publishedTracking } from "@/lib/store/tracking-server"
-import { trackingTags } from "@/lib/store/tracking"
+import { readTracking } from "@/lib/store/tracking"
+import { gaProductFor } from "@/lib/store/ga-server"
+import { compatPageTags } from "@/lib/store/compat-page-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 
@@ -221,7 +222,10 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null),
       handleAt && found.site.product ? found.site.product(decodeURIComponent(handleAt)).catch(() => null) : Promise.resolve(null),
     ])
-    const tags = compatTrackingTags(trackingTags(stored)) + compatTrackScript({ creatorId: found.site.creatorId, productId: product?.id ?? null, mainDomain: getMainDomain() })
+    /* The store's Google Analytics with the page's product named, its pixels, Storelib's tracker and the visitor's language offer (lib/store/compat-page-tags.ts). */
+    const t = readTracking(stored)
+    const named = product && (t.ga4 || t.google_ads) ? await gaProductFor(found.site.creatorId, null, product.id) : null
+    const tags = compatPageTags({ stored, creatorId: found.site.creatorId, productId: product?.id ?? null, named, i18n: found.site.i18n, mainDomain: getMainDomain() })
     const at = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
     html = `${html.slice(0, at)}${tags}${html.slice(at)}`
   }
