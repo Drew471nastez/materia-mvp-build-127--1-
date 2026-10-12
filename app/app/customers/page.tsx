@@ -9,6 +9,7 @@ import { pageUser } from "@/lib/auth/page-user"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
 import { LOCALE_TAG } from "@/lib/i18n/text"
+import { accountTimeZone } from "@/lib/account/time-zone"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -69,11 +70,14 @@ export default async function CustomersPage() {
     }).format(cents / 100)
   }
 
+  /* The day in the zone chosen in Settings, as the rest of /app shows it; the server's own clock is UTC. */
+  const zone = accountTimeZone(null, user.user_metadata) ?? undefined
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString(locale, {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: zone,
     })
   }
 
