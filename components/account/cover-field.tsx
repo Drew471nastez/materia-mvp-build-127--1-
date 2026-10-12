@@ -23,6 +23,16 @@
  * stop. The crop rides on the stored address (lib/profile/cover.ts), so
  * there is no column to add. The profile is refreshed after each save, so
  * the band behind your photo matches when you go back to it.
+ *
+ * YOUR CREATOR PAGE'S COVER (round J1, the owner: "the covers of users in
+ * their account can also be their cover from the creator page, and also in
+ * the edit profile"). Somebody with a creator page and no cover of their own
+ * here has that page's cover on their profile and in their communities
+ * (lib/profile/page-look.ts), so this field shows it too, where it sits on
+ * their page, and says where it is from. Changing it uploads a cover of their
+ * own, which wins; "Use my creator page cover" clears their own (the same
+ * PATCH as removing it), and the page's is back everywhere. Their page's
+ * cover is never written from here: it belongs to the page builder.
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -64,9 +74,21 @@ function useBandAspect(): number {
 /** How long after the last nudge a crop is saved. A drag reports once, on release, so it barely waits. */
 const CROP_SAVE_MS = 450
 
-export function CoverField({ initial, labelClass, helpClass }: { initial: string | null; labelClass: string; helpClass: string }) {
+export function CoverField({
+  initial,
+  pageCover = null,
+  labelClass,
+  helpClass,
+}: {
+  initial: string | null
+  /** Their creator page's cover as a stored value (address and crop), drawn when they have none of their own. */
+  pageCover?: string | null
+  labelClass: string
+  helpClass: string
+}) {
   const router = useRouter()
   const start = useMemo(() => parseProfileCover(initial), [initial])
+  const page = useMemo(() => parseProfileCover(pageCover), [pageCover])
   const [cover, setCover] = useState<string | null>(start.url)
   const [crop, setCrop] = useState<CoverCrop>(start.crop)
   const [error, setError] = useState<string | null>(null)
@@ -134,13 +156,24 @@ export function CoverField({ initial, labelClass, helpClass }: { initial: string
     [done],
   )
 
+  /* No cover of their own: their creator page's, where they placed it there, to look at and replace (never to move here). */
+  const fromPage = !cover && !!page.url
   const reposition = useMemo(
-    () => ({ value: crop, onChange: changeCrop, aspect, editable: editingCrop, replaceOnTap: false }),
-    [crop, changeCrop, aspect, editingCrop],
+    () =>
+      fromPage
+        ? { value: page.crop, onChange: () => {}, aspect, editable: false, replaceOnTap: false }
+        : { value: crop, onChange: changeCrop, aspect, editable: editingCrop, replaceOnTap: false },
+    [fromPage, page.crop, crop, changeCrop, aspect, editingCrop],
   )
 
   return (
-    <div id="cover" className="scroll-mt-24" data-account-cover-field="" data-cover-crop={isDefaultCrop(crop) ? "default" : `${crop.x},${crop.y},${crop.zoom}`}>
+    <div
+      id="cover"
+      className="scroll-mt-24"
+      data-account-cover-field=""
+      data-account-cover-source={cover ? "own" : fromPage ? "page" : "none"}
+      data-cover-crop={isDefaultCrop(crop) ? "default" : `${crop.x},${crop.y},${crop.zoom}`}
+    >
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <span className={labelClass}>Cover</span>
         {cover ? (
@@ -177,10 +210,10 @@ export function CoverField({ initial, labelClass, helpClass }: { initial: string
       <ImageUpload
         bucket="covers"
         aspectRatio="cover"
-        value={cover || undefined}
+        value={cover || page.url || undefined}
         onChange={(url) => void changePicture(url || null)}
         replaceOnly
-        allowRemove
+        allowRemove={!!cover}
         livePreview
         maxSizeMB={15}
         replaceLabel="Change cover"
@@ -193,9 +226,23 @@ export function CoverField({ initial, labelClass, helpClass }: { initial: string
         </p>
       ) : (
         <span className={helpClass} aria-live="polite">
-          {saved ? "Saved. Your profile shows it like this." : "Shown behind your photo on your profile."}
+          {saved
+            ? "Saved. Your profile shows it like this."
+            : fromPage
+              ? "From your creator page. Upload another to use a different one here."
+              : "Shown behind your photo on your profile."}
         </span>
       )}
+      {cover && page.url ? (
+        <button
+          type="button"
+          onClick={() => void changePicture(null)}
+          className="mt-1.5 block text-[12.5px] font-medium text-[#1a1a2e] underline decoration-[#d1d5db] underline-offset-[3px] transition-colors hover:decoration-[#1a1a2e]"
+          data-account-cover-use-page=""
+        >
+          Use my creator page cover
+        </button>
+      ) : null}
     </div>
   )
 }

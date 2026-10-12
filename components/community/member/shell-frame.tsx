@@ -412,7 +412,9 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const about = shown.kind === "about"
   /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
   const lessonPage = shown.kind === "program"
-  const wideCenter = about || lessonPage || shown.kind === "learn" || shown.kind === "calendar" || shown.kind === "event"
+  /* A member's profile too (round J1, the owner: "no longer tabs in the right side, and larger cards"): it takes the right column's room. */
+  const profilePage = shown.kind === "profile"
+  const wideCenter = about || lessonPage || profilePage || shown.kind === "learn" || shown.kind === "calendar" || shown.kind === "event"
   const noGo = useCallback(() => {}, [])
   const place = useMemo<PlaceState>(() => ({ tab, onGo: noGo }), [tab, noGo])
   const membersHref = entries.find((e) => e.key === "members")?.href ?? null
@@ -650,7 +652,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
         <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
           <div
             data-community-columns="three"
-            data-community-place={about ? "about" : lessonPage ? "lesson" : shown.kind === "learn" ? "learn" : shown.kind === "calendar" ? "events" : shown.kind === "event" ? "event" : undefined}
+            data-community-place={about ? "about" : lessonPage ? "lesson" : profilePage ? "profile" : shown.kind === "learn" ? "learn" : shown.kind === "calendar" ? "events" : shown.kind === "event" ? "event" : undefined}
             className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}

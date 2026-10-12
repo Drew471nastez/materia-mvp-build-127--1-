@@ -69,7 +69,7 @@ import { displayName } from "./directory"
 import { followCounts, isFollowing } from "@/lib/profile/follows"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { parseProfileCover } from "@/lib/profile/cover"
-import { DEFAULT_COVER_CROP, cropFromSettings } from "@/lib/images/cover-crop"
+import { chooseCover, ownCoverValue, pageLookOf } from "@/lib/profile/page-look"
 import { personHref } from "@/lib/profile/person-href"
 import { TIME_ZONE_COOKIE, isTimeZone, readTimeZone } from "@/lib/orders/time-zone"
 import { boardFrom, parseActivityAnswer, standingOf, zoneToday, type LevelStep, type MemberBoard } from "../member-activity"
@@ -125,52 +125,12 @@ export async function resolveProfileRef(db: Db, viewer: Pick<Viewer, "userId">, 
   return one<ProfileRow>(() => db.from("profiles").select(PROFILE_FIELDS).ilike("username", literal(next)).limit(1).maybeSingle())
 }
 
-type Crop = { x: number; y: number; zoom: number }
-
-/** Their cover as stored: only a picture of ours (https), with its crop; nothing for anything else. */
-async function coverOf(db: Db, userId: string): Promise<{ url: string | null; crop: Crop }> {
-  const row = await one<{ cover_url?: string | null }>(() => db.from("profiles").select("cover_url").eq("id", userId).maybeSingle())
-  const cover = parseProfileCover(row?.cover_url ?? null)
-  const url = cover.url && /^https:\/\//.test(cover.url) ? cover.url : null
-  return { url, crop: { x: cover.crop.x, y: cover.crop.y, zoom: cover.crop.zoom } }
-}
-
-/**
- * THEIR STORELIB PAGE, WHEN THEY HAVE ONE (round 25, the owner: "show the member's real cover photo when they uploaded
- * one on Storelib (today it doesn't)", and their description). A creator puts their cover and their words on their page
- * (the page builder's header: the published headerSettings' coverImageUrl with its focal point and zoom, and bio), not on
- * profiles.cover_url, which only a person without a store sets in Settings. So this profile read nothing for them and
- * drew a grey band. The creator page's own order (app/(marketing)/u/[username]): the published header first, then the
- * creators row. Two small reads, the second only for somebody with a store row; never an error on the page.
+/*
+ * THEIR COVER AND THEIR WORDS (round 25, then round J1). Their own cover from Settings first, else their creator page's
+ * (the published header's cover with its crop, then the creators row), else none: lib/profile/page-look.ts, the one read
+ * the account page and Settings make too, so a person shows the same cover everywhere. The words the same way.
  */
-export interface PageLook {
-  hasStorefront: boolean
-  cover: { url: string; crop: Crop } | null
-  bio: string | null
-}
-
-type HeaderLook = { coverImageUrl?: unknown; coverFocalPoint?: { x?: unknown; y?: unknown } | null; coverZoom?: unknown; bio?: unknown }
-
-export async function pageLookOf(db: Db, userId: string): Promise<PageLook> {
-  const creator = await one<{ id: string; onboarding_completed: boolean | null; cover_url?: string | null; bio?: string | null }>(() =>
-    db.from("creators").select("id, onboarding_completed, cover_url, bio").eq("user_id", userId).maybeSingle(),
-  )
-  if (!creator?.id) return { hasStorefront: false, cover: null, bio: null }
-  const config = await one<{ header?: HeaderLook | null }>(() =>
-    db.from("store_builder_configs").select("header:published_config->headerSettings").eq("creator_id", creator.id).eq("page_type", "shop").maybeSingle(),
-  )
-  const header = config?.header && typeof config.header === "object" ? config.header : null
-  const https = (v: unknown) => (typeof v === "string" && /^https:\/\//.test(v.trim()) ? v.trim() : null)
-  const words = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
-  const fromHeader = https(header?.coverImageUrl)
-  const url = fromHeader ?? https(creator.cover_url)
-  const crop = fromHeader ? cropFromSettings(header?.coverFocalPoint ?? null, header?.coverZoom) : DEFAULT_COVER_CROP
-  return {
-    hasStorefront: !!creator.onboarding_completed,
-    cover: url ? { url, crop: { x: crop.x, y: crop.y, zoom: crop.zoom } } : null,
-    bio: words(header?.bio) ?? words(creator.bio),
-  }
-}
+export { pageLookOf, type PageLook } from "@/lib/profile/page-look"
 
 interface MemberFacts {
   community_id: string
@@ -504,7 +464,7 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
 
   const mine = self ? await myCommunities(db, viewer.userId) : null
   const [own, place, counts, following, look, posts, activity, board] = await Promise.all([
-    coverOf(db, person.id),
+    ownCoverValue(db, person.id),
     readProfileLocation(db, person.id),
     followCounts(db, person.id),
     self ? Promise.resolve(false) : isFollowing(db, viewer.userId, person.id),
@@ -515,8 +475,8 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
   ])
   const role = theirs?.role && theirs.role !== "member" ? (theirs.role as ProfilePerson["role"]) : null
   const storefront = look.hasStorefront
-  /* Their own cover (Settings) first, else their page's; the same for the words about them (PageLook above). */
-  const cover = own.url ? own : look.cover ?? { url: null, crop: own.crop }
+  /* Their own cover (Settings) first, else their page's (personCover); the same for the words about them (PageLook). */
+  const cover = parseProfileCover(chooseCover(own, look).value)
   const page = personHref({ username: person.username, hasStorefront: storefront })
   return {
     self,
@@ -526,7 +486,7 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
       name: displayName(person),
       avatarUrl: person.avatar_url,
       coverUrl: cover.url,
-      coverCrop: cover.crop,
+      coverCrop: { x: cover.crop.x, y: cover.crop.y, zoom: cover.crop.zoom },
       bio: (person.bio || "").trim() || look.bio,
       location: locationLine(place),
       role,

@@ -69,6 +69,26 @@ export function ownCoverUrl(value: unknown, userId: string, storageHost: string 
   return `${url.origin}${url.pathname}`
 }
 
+/**
+ * A COVER ADDRESS THAT CAN BE DRAWN ON A PUBLIC PAGE (round J1). A creator page's cover and a profile's are user data
+ * going back years: an https address (Storelib's own /media/ one, a storage one, an image host) is kept exactly as it is;
+ * Storelib's own `/media/...` path, which some pickers saved without its host, is made whole on the main domain, so it is
+ * drawn instead of read as "no cover". Anything else (http, javascript:, a `//host` address, junk) is null.
+ */
+export function publicCoverUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const v = value.trim()
+  if (!v || v.length > 2048) return null
+  if (v.startsWith("/media/") && !v.includes("..")) return `https://${(process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").toLowerCase()}${v}`
+  let url: URL
+  try {
+    url = new URL(v)
+  } catch {
+    return null
+  }
+  return url.protocol === "https:" && !url.username && !url.password ? v : null
+}
+
 /** The storage host this deployment uploads to, from its Supabase URL. */
 export function supabaseStorageHost(env: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL): string | null {
   try {

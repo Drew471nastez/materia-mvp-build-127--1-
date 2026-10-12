@@ -58,12 +58,9 @@ import { PenIcon } from "@solar-icons/react/linear/pen"
 import { TrashBinMinimalisticIcon } from "@solar-icons/react/linear/trash-bin-minimalistic"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { FollowButton, useFollow } from "@/components/profile/follow-button"
-import { DecodedCover } from "@/components/profile/decoded-cover"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { armPageMotion, holdPageMotion, takeArmedMotion } from "@/lib/navigation/page-push"
-import { coverCropStyle } from "@/lib/images/cover-crop"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
-import { coverFileWidth } from "@/lib/images/cover-file"
 import { SoftImg } from "@/components/ui/soft-img"
 import { relativeTime } from "@/lib/communities/format"
 import { openPost } from "@/lib/communities/client/open-post"
@@ -81,6 +78,7 @@ import { api, apiBase } from "./api"
 import type { ConfirmState } from "./dialogs"
 import { ConfirmSheet } from "./report-confirm"
 import { MemberAvatar } from "./member-avatar"
+import { MemberCover } from "./member-cover"
 import { ActivityBoard } from "./activity-board"
 import { LevelBadge } from "./level-badge"
 import { RoleBadge } from "./role-badge"
@@ -130,15 +128,14 @@ function useNow(serverNow: number): number {
 
 /* ── The head ─────────────────────────────────────────────────────────── */
 
-/** The place's column, the widest the band is ever drawn. */
-const COLUMN_PX = 680
-
-/** The cover at this screen's size (lib/images/cover-file.ts); asked for only in the browser, where DecodedCover draws it. */
-function coverFile(url: string): string {
-  if (typeof window === "undefined") return optimizedImageUrl(url, COLUMN_PX)
-  /* optimizedImageUrl doubles what it is given for a 2x screen: half the file width asked for. */
-  return optimizedImageUrl(url, coverFileWidth(window.innerWidth, window.devicePixelRatio || 1, COLUMN_PX) / 2)
-}
+/**
+ * THE PLACE'S COLUMN (round J1, the owner: "no longer tabs in the right side, and larger cards now"). From 1280px the
+ * profile takes the middle and the right columns (shell-frame.tsx, wideCenter), so its cards run the frame's whole
+ * middle, up to 992px, lined up with the left column's cards; it was 680px beside the right column's cards. Below
+ * 1280px it is the middle column, and the whole width on a phone. PROFILE_COLUMN_PX (lib/communities/member-cover.ts)
+ * is the widest it gets, for the cover's `sizes`.
+ */
+const COLUMN_CLASS = "max-w-none"
 
 /** The router's "full" prefetch (the whole page, not only up to its loading screen), as shell-frame.tsx asks. */
 const FULL = "full" as never
@@ -189,7 +186,6 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
   })
   /* The board says when they joined and their level; without one (an older answer) the line under the name still does. */
   const joined = data.board ? null : monthYear(person.joinedAt)
-  const cover = person.coverUrl ? coverFile(person.coverUrl) : null
   /* Their level on their photo (round 25), where the community counts points: the board's standing, else the member row's. */
   const badge = data.board ? data.board.standing?.level ?? null : person.level && person.level > 1 ? person.level : null
   const pageHref = person.pageHref ? fullPageHref(person.pageHref, community.slug, profileRef) : null
@@ -208,25 +204,24 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
   return (
     <header ref={head} className={cn(CARD, "overflow-hidden")} data-member-profile-head="">
       {/*
-        THE BAND'S HEIGHT IS DRAWN FIRST: the picture fills a box that already exists, so nothing under it moves when it
-        comes. Round 18 (item 10): taller, so the photo straddles a band rather than a strip. Round 25, the owner: "a bit
-        taller" again: a picture 184px on a phone and 236px wider up, the plain band 112px and 128px.
+        THE BAND'S SHAPE IS DRAWN FIRST: the picture fills a box that already exists, so nothing under it moves when it
+        comes. Round J1: one shape for everybody (2:1 on a phone, 16:5 wider up, so 179px on a 390px phone and 310px at
+        992px), their cover, else their creator page's (the loader), else a wash of their own photo's colours, never a
+        flat grey band (components/community/member/member-cover.tsx).
       */}
-      <div className={cn("relative w-full overflow-hidden", cover ? "h-[184px] bg-[#eceef1] sm:h-[236px]" : "h-[112px] bg-[#f3f4f6] sm:h-[128px]")} data-member-profile-cover={cover ? "image" : "plain"}>
-        {cover ? <DecodedCover src={cover} style={coverCropStyle(person.coverCrop)} /> : null}
-      </div>
-      <div className="relative px-4 pb-5 sm:px-6">
-        <div className="-mt-[51px] flex items-end justify-between gap-3 sm:-mt-[59px]">
+      <MemberCover url={person.coverUrl} crop={person.coverCrop} name={person.name} avatarUrl={person.avatarUrl} />
+      <div className="relative px-4 pb-5 sm:px-6 lg:px-8 lg:pb-7">
+        <div className="-mt-[51px] flex items-end justify-between gap-3 sm:-mt-[59px] lg:-mt-[67px]">
           {/* Round 18 (item 13): bigger, and a press opens it the way a creator page's photo opens (its own viewer, reused). */}
           <AvatarLightbox src={person.avatarUrl} name={person.name}>
             <span className="relative inline-flex shrink-0 rounded-full bg-white p-[3px] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" data-member-profile-avatar="">
-              <MemberAvatar src={person.avatarUrl} name={person.name} size={112} sizedByClass className="h-[96px] w-[96px] sm:h-[112px] sm:w-[112px]" />
+              <MemberAvatar src={person.avatarUrl} name={person.name} size={112} sizedByClass className="h-[96px] w-[96px] sm:h-[112px] sm:w-[112px] lg:h-[128px] lg:w-[128px]" />
               {badge ? <LevelBadge level={badge} size="lg" data-member-profile-level="" /> : null}
             </span>
           </AvatarLightbox>
         </div>
         <div className="mt-3 min-w-0">
-          <h1 className="flex min-w-0 items-center gap-2 text-[20px] font-bold leading-[1.25] tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px]" data-member-profile-name="">
+          <h1 className="flex min-w-0 items-center gap-2 text-[20px] font-bold leading-[1.25] tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px] lg:text-[26px]" data-member-profile-name="">
             <span className="min-w-0 truncate">{person.name}</span>
             {person.role ? <RoleBadge role={person.role} /> : null}
           </h1>
@@ -572,7 +567,7 @@ export function MemberProfilePlace({ community, viewer, profileRef, data }: Memb
 
   if (!data) {
     return (
-      <section className="mx-auto w-full max-w-[680px] py-2" data-member-profile-place="missing">
+      <section className={cn("mx-auto w-full py-2", COLUMN_CLASS)} data-member-profile-place="missing">
         <div className={cn(CARD, "px-5 py-10 text-center")}>
           <p className="text-[16px] font-semibold text-[#1a1a2e]">Nobody here by that name</p>
           <p className="mt-1.5 text-[14px] text-[#6b7280]">They may have left {community.name}, or changed their handle.</p>
@@ -604,7 +599,7 @@ export function MemberProfilePlace({ community, viewer, profileRef, data }: Memb
   const postsFirst = !!data.board && (data.person.hasStorefront || data.person.role === "owner")
   const board = data.board ? <ActivityBoard board={data.board} name={data.person.name} /> : null
   return (
-    <section className="mx-auto flex w-full max-w-[680px] flex-col gap-4 py-2" data-member-profile-place="person" data-profile-order={postsFirst ? "posts-first" : "board-first"} aria-label={`${data.person.name}'s profile`}>
+    <section className={cn("mx-auto flex w-full flex-col gap-4 py-2 lg:gap-5", COLUMN_CLASS)} data-member-profile-place="person" data-profile-order={postsFirst ? "posts-first" : "board-first"} aria-label={`${data.person.name}'s profile`}>
       <ProfileHead data={data} community={community} profileRef={profileRef} signedIn={signedIn} />
       {postsFirst ? null : board}
       <div data-profile-panel="posts">
