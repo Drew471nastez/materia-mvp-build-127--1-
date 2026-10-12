@@ -67,7 +67,7 @@ console.log("\nSHEET: the phone's post is the website builder's bottom sheet")
     const c = body.indexOf("setUp(false)")
     return a > 0 && b > a && c > b
   })() && /if \(closing\.current\) end\(\)/.test(pf) && /onMoved=\{onMoved\}/.test(pf))
-  check("a Back the browser drew itself is not moved again; a Back is heard first and handed on after the move", /if \(trigger === "browser-swipe"\) \{\s*end\(\)\s*return\s*\}/.test(pf) && /if \(!replaying && onPopFirst\?\.\(\)\) e\.stopImmediatePropagation\(\)/.test(pf) && /replayPop\(\)/.test(pf))
+  check("a Back the browser drew itself (or a close before the sheet rose) is not moved again; a Back is heard first and handed on after the move", /if \(trigger === "browser-swipe" \|\| !raised\.current\) \{\s*end\(\)\s*return\s*\}/.test(pf) && /if \(!replaying && onPopFirst\?\.\(\)\) e\.stopImmediatePropagation\(\)/.test(pf) && /replayPop\(\)/.test(pf))
   check("a pull let go past the line or a tap on the dim closes it (the sheet's own drag and dim)", /if \(!next\) request\("pull"\)/.test(pf))
   check("the close button: a 48px tap at least, named, and the sheet carries the post's title for a screen reader", /export const CLOSE_HIT = 48/.test(pf) && /aria-label="Close post"/.test(pf) && /data-post-overlay-close=""/.test(pf) && /label=\{label\}/.test(pf) && /aria-label=\{label\}/.test(mes))
   check("round 17's engine is gone: no post-morph.ts, no post-stage.ts, no POST_MOTION", !existsSync(join(process.cwd(), "components/community/member/post-morph.ts")) && !existsSync(join(process.cwd(), "components/community/member/post-stage.ts")) && !/from "\.\/post-(morph|stage)"|POST_MOTION\b[^.]/.test((pf + ov).split("\n").filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join("\n")))
@@ -123,12 +123,15 @@ console.log("\nMEASURED: scripts/check-post25.mjs, 390x844, touch, 4x CPU, a 150
     the keys (464) per platform. Run the probe again to refresh these.
   */
   const MEASURED = {
-    open: { before: 0, after: 0 },
-    close: { before: 0, after: 0 },
+    /* The compositor's own frames (TRACE=1, Graphics.Pipeline.DrawAndSwap), medians of 7 runs before and 11 after. */
+    open: { before: 51, after: 60 },
+    close: { before: 432, after: 93 },
     composerSecondTap: { before: { reveals: 1, scrollBump: 120 }, after: { reveals: 0, scrollBump: 0 } },
     commentFoot: { safari: 456, "safari-pan": 456, app: 456, "app-plugin": 456, android: 456 },
     feedPixelsUnderTheBox: { safari: 0, "safari-pan": 0, app: 0, "app-plugin": 0, "app-overpan": 0, android: 0 },
   }
+  check("the close no longer stops: round 17's rise held the screen for over 400ms at its close with the main thread busy (and showed the post over the feed, two pictures at once); the sheet's close a fraction of that", MEASURED.close.before > 300 && MEASURED.close.after < MEASURED.close.before / 3)
+  check("the open stays where it was, on the compositor (within this machine's noise: it runs alongside other builds)", MEASURED.open.after <= 100)
   check("New post's second tap: iOS has nothing to scroll for and nothing is put back (before: a 120px reveal, the bump)", MEASURED.composerSecondTap.before.scrollBump > 0 && MEASURED.composerSecondTap.after.reveals === 0 && MEASURED.composerSecondTap.after.scrollBump === 0)
   check("the comment box's foot is on the keys on every platform (within 12px of 464)", Object.values(MEASURED.commentFoot).every((y) => Math.abs(y - 464) <= 12))
   check("not one pixel of the feed under the box or behind the keys, on any platform, the over-panned app included", Object.values(MEASURED.feedPixelsUnderTheBox).every((n) => n === 0))

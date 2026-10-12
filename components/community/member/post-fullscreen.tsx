@@ -225,6 +225,8 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   const heldPop = useRef(false)
   const ended = useRef(false)
   const closeTimer = useRef(0)
+  /* The sheet has been asked to rise (before that, a close has nothing to move). */
+  const raised = useRef(false)
 
   /* THE TAB BAR, under the sheet while the post is in the page (lib/ui/layers.ts). */
   useLayer("post", true, rootRef)
@@ -249,6 +251,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       if (stop || closing.current) return
       /* Moving: a kept sheet elsewhere waits to build itself until this mark is gone (components/ui/bottom-sheet.tsx). */
       rootRef.current?.setAttribute("data-moving", "")
+      raised.current = true
       setUp(true)
     })()
     /* A page in the background draws no frames: it has still arrived. */
@@ -319,8 +322,8 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     /* HOLD-FEED: the feed exactly where it was, while the sheet still covers it. */
     const back = noted.current === null ? null : feedRestore(noted.current, window.scrollY)
     if (back !== null) window.scrollTo({ top: back, behavior: "instant" as ScrollBehavior })
-    /* A Back the browser already drew as its own swipe: no second move. */
-    if (trigger === "browser-swipe") {
+    /* A Back the browser already drew as its own swipe, or a close before the sheet ever rose: no move. */
+    if (trigger === "browser-swipe" || !raised.current) {
       end()
       return
     }

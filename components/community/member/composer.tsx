@@ -79,6 +79,17 @@
  * and glitching when the title was tapped). Round 10's toolbar dock below is
  * no longer used on a phone; the notes are kept for its history.
  *
+ * ROUND 25 (the owner: "when the keyboard closes and I tap 'Write
+ * something' again, the sheet bumps up weirdly"). The sheet is primed: its
+ * fields are drawn and painted before it rises, the caret goes in when the
+ * sheet says it has landed, and the close ends on the sheet's word too. On
+ * iOS a tap into an empty field is focused the way the first focus is, with
+ * preventScroll (calm-focus.ts): a finger's focus made iOS scroll the page to
+ * the field and the sheet put it back the next frame, the bump. The keyboard
+ * this visit has already shown is made as room in the focus itself
+ * (visible-box.ts sheetKeyboardRoom), so the field is above the keys before
+ * iOS looks.
+ *
  * THE TOOLBAR ON THE KEYBOARD (round 10, replaced in round 17). The visible part followed the
  * viewport at once, with no CSS transition (a transition on its height
  * moved the toolbar a different way from the top, which jumps with a pan,

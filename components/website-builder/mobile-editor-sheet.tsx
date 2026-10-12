@@ -2435,7 +2435,10 @@ export function MobileEditorSheet({
   const waiting = primedWaiting.current
   const renderY = waiting ? settledY : held ? drag.current.currentY : open ? settledY : closedY
 
-  const renderOpacity = dragging
+  /* A primed sheet's dim starts with its first move (in the open effect), never a frame or more ahead of it. */
+  const renderOpacity = waiting
+    ? 0
+    : dragging
     ? closedOffset > 0
       ? Math.max(0, Math.min(1, 1 - renderY / closedOffset))
       : 0
