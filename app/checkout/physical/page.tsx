@@ -53,7 +53,8 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
       /* Only a published website that serves its own checkout; a preview or an old address keeps this page. */
       if (site.hostname !== getMainDomain() && (await servingSiteOrigin(db, shop, site.origin))) {
         const q = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"))
-        if (site.pathname === "/cart" && !q.has("cart")) q.set("cart", "1")
+        /* The cart, in any language of the website (/cart, /fr/cart). */
+        if (/^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?cart$/i.test(site.pathname) && !q.has("cart")) q.set("cart", "1")
         redirect(legacyBasketTarget(site.origin, q, site.host))
       }
     }

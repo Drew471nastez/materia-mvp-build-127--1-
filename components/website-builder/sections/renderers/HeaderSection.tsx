@@ -27,7 +27,7 @@ import { useSiteCart } from "../../site-cart"
 import { useChargeNote, useMoney, useStorefront, useWord } from "../../theme/storefront-context"
 import { CartReturnsNote } from "../../theme/shop-commerce"
 import { lineKey } from "@/lib/website-builder/cart"
-import { drawerCheckout } from "@/lib/website-builder/cart-checkout"
+import { cartPathFor, drawerCheckout } from "@/lib/website-builder/cart-checkout"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { useSiteWishlist } from "../../site-wishlist"
@@ -787,6 +787,8 @@ function CartDrawerInner({
   /* Amounts in the visitor's market's currency, as the product cards show them; checkout charges the store's, and says so. */
   const money = useMoney()
   const chargeNote = useChargeNote()
+  /* Back from checkout lands on the cart in the page's language. */
+  const cartPath = cartPathFor(useStorefront().language)
   /* Check out goes straight to the checkout (lib/website-builder/cart-checkout). */
   const [leaving, setLeaving] = useState(false)
   /* Back from the checkout, the page can come out of the back/forward cache with the spinner still on. */
@@ -800,7 +802,7 @@ function CartDrawerInner({
     if (onEditorNavigate) { e.stopPropagation(); return }
     if (leaving) return
     setLeaving(true)
-    const next = await drawerCheckout(lines, shopId)
+    const next = await drawerCheckout(lines, shopId, cartPath)
     if (next.go === null) { window.location.href = "/cart"; return }
     if (next.free) clear()
     window.location.href = next.go

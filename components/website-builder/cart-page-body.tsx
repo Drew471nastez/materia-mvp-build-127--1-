@@ -33,7 +33,8 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
-import { useChargeNote, useMoney, useWord } from "./theme/storefront-context"
+import { useChargeNote, useMoney, useStorefront, useWord } from "./theme/storefront-context"
+import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 
 export interface CartPalette {
@@ -58,6 +59,8 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   /* Amounts as the product cards show them: the visitor's market's currency, or the store's. */
   const money = useMoney()
   const chargeNote = useChargeNote()
+  /* Back from checkout lands on this cart, in the page's language. */
+  const cartPath = cartPathFor(useStorefront().language)
   /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
   const w = useWord()
   const [busy, setBusy] = useState(false)
@@ -162,7 +165,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
       setBusy(true)
       /* On the website: its own checkout, on this same address (app/checkout/site), which asks for the address and the delivery. A preview on storelib.com keeps the platform's. */
       window.location.href = onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
-        ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", couponCode: applied?.code ?? null, wholeCart: true, note })
+        ? siteCheckoutHref({ items: checkoutItems(lines), back: cartPath, couponCode: applied?.code ?? null, wholeCart: true, note })
         : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
       return
     }
@@ -177,7 +180,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
            order's Source (lib/orders/checkout-origin). */
         body: JSON.stringify({
           items: checkoutItems(lines),
-          returnPath: "/cart",
+          returnPath: cartPath,
           origin: pageOrigin(),
           ...(applied ? { couponCode: applied.code } : {}),
           ...(showDetails ? { buyer: { firstName, lastName, email, agreedToTerms: agreed } } : {}),
