@@ -204,7 +204,7 @@ export function NotificationPreferencesPanel() {
       )}
 
       <p className="mt-3 border-t border-[#f0f1f3] pt-3 text-[12.5px] leading-[1.45] text-[#6b7280]" data-required-why="">
-        {REQUIRED_WHY}
+        {tt(REQUIRED_WHY)}
       </p>
     </section>
   )

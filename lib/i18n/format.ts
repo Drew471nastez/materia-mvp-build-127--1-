@@ -154,6 +154,26 @@ export function weekdayNames(style: "long" | "short" | "narrow" = "short"): stri
   return Array.from({ length: 7 }, (_, d) => f.format(new Date(Date.UTC(2024, 8, 1 + d))))
 }
 
+/**
+ * Day names for a calendar's header row, Sunday first, as short as the
+ * language allows while every day stays distinct: "Su Mo Tu", "lu ma mi",
+ * but "dom seg ter" in Portuguese, where two letters would repeat.
+ */
+export function calendarWeekdays(letters = 2): string[] {
+  const short = weekdayNames("short").map((w) => w.replace(/\.$/, ""))
+  const cut = short.map((w) => w.slice(0, letters))
+  return new Set(cut.map((w) => w.toLowerCase())).size === 7 ? cut : short
+}
+
+/** A country by its ISO code, named in the dashboard's language ("DE" → "Alemania"). */
+export function regionName(code: string, fallback = code): string {
+  try {
+    return new Intl.DisplayNames([appLocale()], { type: "region" }).of(code) || fallback
+  } catch {
+    return fallback
+  }
+}
+
 /** The language's own list: "A, B and C" / "A, B y C" / "A, B i C". */
 export function formatList(items: string[], type: "conjunction" | "disjunction" = "conjunction"): string {
   try {

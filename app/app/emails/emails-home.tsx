@@ -745,7 +745,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                         {/* The website's address is the part that matters: it keeps its
                             width, and the detail after it is what gets cut. */}
                         <span className="flex max-w-[380px] items-baseline gap-1.5">
-                          <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{v?.label ?? NOT_RECORDED}</span>
+                          <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{tt(v?.label ?? NOT_RECORDED)}</span>
                           {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
                         </span>
                       </td>

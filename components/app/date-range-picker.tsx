@@ -65,7 +65,7 @@ import {
   type Ymd,
 } from "@/lib/date-range/range"
 import { tt } from "@/lib/i18n/text"
-import { formatDate, weekdayNames } from "@/lib/i18n/format"
+import { calendarWeekdays, formatDate, weekdayNames } from "@/lib/i18n/format"
 
 /* ── the look ───────────────────────────────────────────────────────────── */
 
@@ -377,8 +377,8 @@ function Month({
   return (
     <div className={cn("min-w-0", compact ? "w-full" : "w-[280px]")}>
       <div className={cn("grid grid-cols-7 pb-1.5 text-center font-medium text-[#8b8f98]", compact ? "text-[12px]" : "text-[11.5px]")} aria-hidden>
-        {weekdayNames(compact ? "narrow" : "short").map((w, i) => (
-          <div key={i}>{compact ? w : w.replace(/\.$/, "").slice(0, 2)}</div>
+        {(compact ? weekdayNames("narrow") : calendarWeekdays()).map((w, i) => (
+          <div key={i}>{w}</div>
         ))}
       </div>
       <div role="grid" aria-label={monthYear(y, m)} className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(6, ${cell}px)` }} onMouseLeave={() => onHover(null)}>

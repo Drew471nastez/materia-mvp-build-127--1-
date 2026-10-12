@@ -228,7 +228,7 @@ const TECH_CALL = /^(cn|clsx|cx|twMerge|classNames|cva|console\.\w+|require|impo
 const TECH_METHOD = /^(get|set|has|delete|append|getAll|includes|startsWith|endsWith|indexOf|split|replace|replaceAll|match|test|search|padStart|padEnd|join|toLowerCase|toUpperCase|localeCompare|lastIndexOf|from|select|eq|neq|in|is|order|or|not|filter|match|ilike|like|gte|lte|gt|lt|contains|rpc|upload|download|remove|createSignedUrl|getPublicUrl|channel|on|subscribe|push|replace|prefetch|refresh|redirect|pushState|replaceState|postMessage|matchMedia|toLocaleString|toLocaleDateString|toLocaleTimeString|format|formatToParts|of|animate|scrollTo|scrollIntoView|focus|createElement|createTextNode|insertAdjacentHTML|setProperty|getPropertyValue|removeProperty|add|toggle|contains|item|key|call|apply|bind|emit|send|track|capture|identify|log|warn|debug|trace|mark|measure|getEntriesByName|observe|unobserve|disconnect|then|catch|finally|resolve|reject|stringify|parse|assign|keys|values|entries|freeze|defineProperty)$/
 
 /** Bindings that are themselves translations, so nothing inside is reported. */
-const TRANSLATED_CALL = /^(tt|t|getT|getServerT|getTranslation|translate|tn|tp)$/
+const TRANSLATED_CALL = /^(tt|msg|t|getT|getServerT|getTranslation|translate|tn|tp)$/
 
 function calleeName(expr) {
   if (ts.isIdentifier(expr)) return expr.text
@@ -668,7 +668,7 @@ export function scanSource(sourceText, fileName = "file.tsx") {
     }
     if (ts.isCallExpression(node) && TRANSLATED_CALL.test(calleeName(node.expression)) && node.arguments[0] && (ts.isStringLiteral(node.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))) {
       const name = calleeName(node.expression)
-      push({ kind: name === "tt" ? "tt" : "key", key: node.arguments[0].text, text: node.arguments[0].text, node, start: node.getStart(sf), end: node.getEnd(), translated: true })
+      push({ kind: name === "tt" || name === "msg" ? "tt" : "key", key: node.arguments[0].text, text: node.arguments[0].text, node, start: node.getStart(sf), end: node.getEnd(), translated: true })
     }
     ts.forEachChild(node, visit)
   }

@@ -38,7 +38,7 @@
 
 import { cleanHost, cleanOrigin, fromLabel, surfaceOfPath, type OrderOrigin } from "@/lib/orders/order-source"
 import { isOnePageHost } from "@/lib/onepage/address"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export const CONTACT_SURFACES = ["website", "profile", "onepage", "product", "checkout", "import", "manual", "api"] as const
 export type ContactSurface = (typeof CONTACT_SURFACES)[number]
@@ -144,7 +144,7 @@ export interface SourceView {
   recorded: boolean
 }
 
-export const NOT_RECORDED = "Not recorded"
+export const NOT_RECORDED = msg("Not recorded")
 
 /** How a contact's source reads in a table cell and in a filter. */
 export function sourceView(detail: unknown, legacy?: unknown): SourceView {

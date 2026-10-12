@@ -6,14 +6,14 @@ import { WaitingArea } from "@/components/ui/activity-spinner"
 import { keepStripeFramesInApp } from "@/lib/payments/stripe-frames-in-app"
 import { appHoldsStripeWindows, isNativeApp } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type EmbeddedPurpose = "stripe_onboarding" | "stripe_management" | "stripe_payouts"
 
-const LOAD_FAILED = "Try again in a moment."
+const LOAD_FAILED = msg("Try again in a moment.")
 
 function shownError(message: string): string {
-  if (!message || /invalid_request|acct_|accs_|capability|requirement|sk_|whsec|stripe/i.test(message)) return LOAD_FAILED
+  if (!message || /invalid_request|acct_|accs_|capability|requirement|sk_|whsec|stripe/i.test(message)) return tt(LOAD_FAILED)
   return message
 }
 
@@ -162,7 +162,7 @@ export function StripeConnectEmbedded({
               return secret
             }
             const next = await open()
-            if (next.publishableKey !== first.publishableKey) throw new Error(LOAD_FAILED)
+            if (next.publishableKey !== first.publishableKey) throw new Error(tt(LOAD_FAILED))
             return next.clientSecret
           },
           appearance: APPEARANCE,
@@ -177,18 +177,18 @@ export function StripeConnectEmbedded({
           onboarding.setOnExit(() => void handlers.current.onExit?.())
           onboarding.setOnStepChange(({ step }) => handlers.current.onStep?.(step))
           onboarding.setOnLoaderStart(() => !gone && setReady(true))
-          onboarding.setOnLoadError(() => !gone && setFailed(LOAD_FAILED))
+          onboarding.setOnLoadError(() => !gone && setFailed(tt(LOAD_FAILED)))
           component = onboarding
         } else if (purpose === "stripe_management") {
           const management = connect.create("account-management")
           management.setCollectionOptions(options)
           management.setOnLoaderStart(() => !gone && setReady(true))
-          management.setOnLoadError(() => !gone && setFailed(LOAD_FAILED))
+          management.setOnLoadError(() => !gone && setFailed(tt(LOAD_FAILED)))
           component = management
         } else {
           const payouts = connect.create("payouts")
           payouts.setOnLoaderStart(() => !gone && setReady(true))
-          payouts.setOnLoadError(() => !gone && setFailed(LOAD_FAILED))
+          payouts.setOnLoadError(() => !gone && setFailed(tt(LOAD_FAILED)))
           component = payouts
         }
         host.current.replaceChildren(component)

@@ -45,9 +45,10 @@ import { addDays, parts, ymdOf, type Ymd } from "@/lib/date-range/range"
 import { dayLabel, from12, isoFromWall, timeLabel, to12, todayIn, viewerZone, wallFromIso } from "@/lib/onepage/schedule"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { calendarWeekdays, formatDate } from "@/lib/i18n/format"
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
-const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+/** "October 2026" in the dashboard's language. */
+const monthYear = (y: number, m: number) => formatDate(Date.UTC(y, m, 15), { month: "long", year: "numeric", timeZone: "UTC" })
 const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
 
 /** Always six weeks, so every month is the same height. */
@@ -100,7 +101,7 @@ export function MonthGrid({
     <div data-month-grid="" className="w-full">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className={cn("font-semibold text-[#1a1a2e]", compact ? "text-[17px]" : "text-[14.5px]")} aria-live="polite">
-          {MONTHS_LONG[view.m]} {view.y}
+          {monthYear(view.y, view.m)}
         </p>
         <div className="flex gap-1.5">
           <button type="button" aria-label={tt("Previous month")} data-month-prev="" onClick={() => go(-1)} className={nav}>
@@ -112,11 +113,11 @@ export function MonthGrid({
         </div>
       </div>
       <div className={cn("grid grid-cols-7 pb-1 text-center font-medium text-[#8b8f98]", compact ? "text-[12.5px]" : "text-[11.5px]")} aria-hidden>
-        {WEEKDAYS.map((w) => (
-          <div key={w}>{w}</div>
+        {calendarWeekdays().map((w, i) => (
+          <div key={i}>{w}</div>
         ))}
       </div>
-      <div ref={gridRef} role="grid" aria-label={`${MONTHS_LONG[view.m]} ${view.y}`} className="grid grid-cols-7 justify-items-center gap-y-0.5" onKeyDown={onKey}>
+      <div ref={gridRef} role="grid" aria-label={monthYear(view.y, view.m)} className="grid grid-cols-7 justify-items-center gap-y-0.5" onKeyDown={onKey}>
         {cells.map((d, i) => {
           /* An empty square keeps its place in the grid, so the 1st sits under its own weekday. */
           if (!d) return <span key={i} aria-hidden className={size} />

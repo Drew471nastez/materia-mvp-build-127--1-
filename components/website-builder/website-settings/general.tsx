@@ -86,7 +86,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
         </Row>
       </Card>
 
-      <Card footer={GOES_LIVE}>
+      <Card footer={tt(GOES_LIVE)}>
         <Row label={tt("Favicon")} hint={tt("The small icon in a browser tab. A square picture, 64 × 64 or larger.")} stack>
           <div className="dark max-w-[220px]">
             <WbImagePicker

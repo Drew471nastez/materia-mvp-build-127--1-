@@ -1,4 +1,4 @@
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  REVIEWS, THE RULES WITH NO DATABASE
@@ -28,7 +28,7 @@ export const MAX_REPLY_CHARS = 1000
 export const MAX_NAME_CHARS = 40
 
 /** What each number of stars means, as the form and the seller's list say it. */
-export const RATING_WORDS = ["", "Poor", "Fair", "Good", "Very good", "Excellent"] as const
+export const RATING_WORDS = ["", msg("Poor"), msg("Fair"), msg("Good"), msg("Very good"), msg("Excellent")] as const
 
 export type ReviewStatus = "published" | "hidden"
 
@@ -92,9 +92,9 @@ export interface ReviewAuthorFields {
 }
 
 /** What a review reads as when nobody ever gave a name. */
-export const UNNAMED_REVIEWER = "Verified buyer"
+export const UNNAMED_REVIEWER = msg("Verified buyer")
 /** The same for a review not tied to a purchase. */
-export const UNNAMED_CUSTOMER = "Customer"
+export const UNNAMED_CUSTOMER = msg("Customer")
 
 /**
  * Who wrote it, as a review card shows it.
@@ -107,7 +107,7 @@ export const UNNAMED_CUSTOMER = "Customer"
 export function reviewerOf(review: ReviewAuthorFields): { name: string; avatarUrl: string | null; avatarName: string; named: boolean } {
   const buyer = Array.isArray(review.buyer) ? review.buyer[0] : review.buyer
   const given = (buyer?.display_name || "").trim() || (review.reviewer_name || "").trim() || (buyer?.username || "").trim()
-  const name = (given || (review.verified === false ? UNNAMED_CUSTOMER : UNNAMED_REVIEWER)).slice(0, 60)
+  const name = (given || tt(review.verified === false ? UNNAMED_CUSTOMER : UNNAMED_REVIEWER)).slice(0, 60)
   return { name, avatarUrl: buyer?.avatar_url || null, avatarName: given ? name : "", named: !!given }
 }
 

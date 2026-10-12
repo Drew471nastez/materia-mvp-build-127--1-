@@ -31,7 +31,7 @@ import { relativeTime } from "@/lib/website-builder/relative-time"
 import { Step, Steps } from "@/components/website-builder/setup-steps"
 import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
 import { buttonClass, primaryButtonClass } from "@/components/website-builder/website-settings/parts"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 interface Link {
   account: string
@@ -140,9 +140,9 @@ function SyncRow({ title, detail, on, busy, onChange }: {
 }
 
 const STEPS = [
-  ["Connect a repository", "Storelib writes this website's whole theme into it: settings, pages, header and footer, sections and blocks, with an AGENTS.md your tool reads first."],
-  ["Ask your agent for a change", "Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section, a page or a settings change."],
-  ["It appears here", "Each push arrives within seconds, as a draft. Publish when you like it."],
+  [msg("Connect a repository"), msg("Storelib writes this website's whole theme into it: settings, pages, header and footer, sections and blocks, with an AGENTS.md your tool reads first.")],
+  [msg("Ask your agent for a change"), msg("Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section, a page or a settings change.")],
+  [msg("It appears here"), msg("Each push arrives within seconds, as a draft. Publish when you like it.")],
 ] as const
 
 /** Where an AI works on the repository, from the web. */
@@ -364,21 +364,21 @@ export function GitHubSyncPanel({
         <p className="text-[14px] text-white/60">{tt("GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.")}</p>
       ) : (
         <Steps>
-          <Step n={1} title={STEPS[0][0]}>
+          <Step n={1} title={tt(STEPS[0][0])}>
             {!link ? (
               <>
-                <p className="mb-3.5 text-[13.5px] leading-relaxed text-white/55">{STEPS[0][1]}</p>
+                <p className="mb-3.5 text-[13.5px] leading-relaxed text-white/55">{tt(STEPS[0][1])}</p>
                 {connectButtons}
               </>
             ) : (
               picker
             )}
           </Step>
-          <Step n={2} title={STEPS[1][0]} muted>
-            <p className="text-[13.5px] leading-relaxed text-white/60">{STEPS[1][1]}</p>
+          <Step n={2} title={tt(STEPS[1][0])} muted>
+            <p className="text-[13.5px] leading-relaxed text-white/60">{tt(STEPS[1][1])}</p>
           </Step>
-          <Step n={3} title={STEPS[2][0]} muted>
-            <p className="text-[13.5px] leading-relaxed text-white/60">{STEPS[2][1]}</p>
+          <Step n={3} title={tt(STEPS[2][0])} muted>
+            <p className="text-[13.5px] leading-relaxed text-white/60">{tt(STEPS[2][1])}</p>
           </Step>
         </Steps>
       )}

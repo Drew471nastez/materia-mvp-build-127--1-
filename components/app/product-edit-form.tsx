@@ -51,7 +51,7 @@ import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 import { getProductShareUrl } from "@/lib/url-helpers"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 interface ProductEditFormProps {
   product: Product & {
@@ -76,7 +76,7 @@ const REFUND_POLICY_OPTIONS = [
   { value: '6_month', label: '6-month money back guarantee' },
 ]
 
-const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
+const DEFAULT_WHATS_INCLUDED = [msg("Instant download access"), msg("All included files"), msg("Lifetime access")]
 
 export function ProductEditForm({ product, assets: initialAssets, creatorId, creatorUsername }: ProductEditFormProps) {
   const router = useRouter()
@@ -96,7 +96,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
   const [status, setStatus] = useState(product.status)
 
   const initialWhatsIncluded =
-    product.whats_included && product.whats_included.length > 0 ? product.whats_included : [...DEFAULT_WHATS_INCLUDED]
+    product.whats_included && product.whats_included.length > 0 ? product.whats_included : DEFAULT_WHATS_INCLUDED.map((line) => tt(line))
   const [whatsIncluded, setWhatsIncluded] = useState<string[]>(initialWhatsIncluded)
   const [newIncludeItem, setNewIncludeItem] = useState("")
   const [showSalesBadge, setShowSalesBadge] = useState(product.show_sales_badge !== false)

@@ -41,6 +41,7 @@ import { integrationById } from "@/lib/integrations/catalog"
 import { PartnerLinks } from "./partner-links"
 import { KEY_HINT, ShippingAppFacts } from "./shipping-app-facts"
 import { tt } from "@/lib/i18n/text"
+import { regionName } from "@/lib/i18n/format"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface IntegrationState {
@@ -447,7 +448,7 @@ function CjChoices({ state, busy, save }: { state: IntegrationState; busy: boole
         <SelectInput value={state.fromCountry ?? "CN"} disabled={busy} onChange={(v) => void save({ fromCountry: v }, tt("Saved."))} data-cj-from="">
           {CJ_FROM.map(([code, label]) => (
             <option key={code} value={code}>
-              {label}
+              {regionName(code, label)}
             </option>
           ))}
         </SelectInput>

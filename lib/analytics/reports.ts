@@ -56,6 +56,7 @@ import {
   type SubscriberRowLike,
 } from "./properties"
 import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
 
@@ -372,9 +373,11 @@ export function sourceName(category: string | null | undefined): string {
 }
 
 export function countryName(code: string, stored?: string | null): string {
-  if (stored && stored.length > 2) return stored
+  const locale = appLocale()
+  /* The stored name is English; another language names the country itself. */
+  if (stored && stored.length > 2 && (locale.startsWith("en") || !/^[A-Z]{2}$/.test(code))) return stored
   try {
-    return new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code
+    return new Intl.DisplayNames([locale], { type: "region" }).of(code) || stored || code
   } catch {
     return code
   }

@@ -23,7 +23,7 @@
  * matches the registry's defaultOn for the types in that category.
  */
 import type { PreferenceCategory } from "./types"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type PreferenceChannel = "email" | "in_app"
 export const PREFERENCE_CHANNELS: readonly PreferenceChannel[] = ["email", "in_app"]
@@ -112,7 +112,7 @@ export const REQUIRED_CATEGORIES: readonly PreferenceCategory[] = CATEGORY_INFO.
 /** The categories an unsubscribe link can be signed for. Never security, account or payouts and payments. */
 export const UNSUBSCRIBABLE: readonly PreferenceCategory[] = ["sales", "product_and_store", "lifecycle", "tips", "marketing"]
 
-export const REQUIRED_WHY = "Security and payment notices are always sent."
+export const REQUIRED_WHY = msg("Security and payment notices are always sent.")
 
 export function infoFor(category: unknown): CategoryInfo | null {
   return CATEGORY_INFO.find((c) => c.category === category) ?? null

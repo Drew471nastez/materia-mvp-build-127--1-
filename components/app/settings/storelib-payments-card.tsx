@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { STATUS_PILL } from "@/lib/payments/stripe/status"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { AmexMark, ApplePayMark, GooglePayMark, MastercardMark, StorelibPaymentsBrand, VisaMark } from "./payment-marks"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 const TONE = {
   green: "bg-[#dcfce7] text-[#166534]",
@@ -63,7 +63,7 @@ function PaymentsCardHeader({
   )
 }
 
-const FEATURES = ["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"]
+const FEATURES = [msg("Cards, Apple Pay, Google Pay and local methods"), msg("Payouts straight to your bank"), msg("Fraud checks on every payment")]
 
 function PaymentsFeatures() {
   return (
@@ -72,7 +72,7 @@ function PaymentsFeatures() {
         {FEATURES.map((line) => (
           <li key={line} className="flex items-start gap-2">
             <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#16a34a]" strokeWidth={2.5} />
-            {line}
+            {tt(line)}
           </li>
         ))}
       </ul>

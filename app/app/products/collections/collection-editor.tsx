@@ -200,7 +200,7 @@ export function CollectionEditor({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] leading-5 text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
                       <span className="block truncate text-[13px] leading-[18px] text-[#6b7280] sm:text-[12px]">
-                        {KIND_LABEL[p.type] ?? tt("Product")}
+                        {KIND_LABEL[p.type] ? tt(KIND_LABEL[p.type]) : tt("Product")}
                         {p.status !== "published" ? tt(" · Draft") : ""}
                       </span>
                     </span>
@@ -317,7 +317,7 @@ export function CollectionEditor({
               <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
                 {SORTS.map(([v, label]) => (
                   <option key={v} value={v}>
-                    {label}
+                    {tt(label)}
                   </option>
                 ))}
               </select>
@@ -439,7 +439,7 @@ function RuleRow({
             </option>
             {PRODUCT_KINDS.filter(([k]) => physical || k !== "physical" || rule.value === k).map(([k, label]) => (
               <option key={k} value={k} className="text-[#1a1a2e]">
-                {label}
+                {tt(label)}
               </option>
             ))}
           </select>
@@ -499,7 +499,7 @@ function Caught({ finished, caught }: { finished: number; caught: CollectionProd
                 <ProductThumb src={p.thumbnail_url} title={p.title} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] leading-5 text-[#1a1a2e] sm:text-[13px]">{p.title}</span>
-                  <span className="block truncate text-[12px] leading-4 text-[#6b7280]">{KIND_LABEL[p.type] ?? tt("Product")}</span>
+                  <span className="block truncate text-[12px] leading-4 text-[#6b7280]">{KIND_LABEL[p.type] ? tt(KIND_LABEL[p.type]) : tt("Product")}</span>
                 </span>
               </li>
             ))}

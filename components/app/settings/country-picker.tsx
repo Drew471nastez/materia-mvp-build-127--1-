@@ -21,7 +21,8 @@
  */
 import * as React from "react"
 import { ChoicePicker } from "@/components/ui/choice-list"
-import { countryChoices, countryLabel, countryOf, countryToSave } from "@/lib/account/country"
+import { countryChoices, countryLabelIn, countryOf, countryToSave } from "@/lib/account/country"
+import { appLocale } from "@/lib/i18n/format"
 import { FLAG_CODES, FLAG_SPRITE } from "@/lib/account/flag-sprite"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -137,7 +138,7 @@ export function CountryPicker({
   fieldClassName?: string
 }) {
   const code = countryOf(value)
-  const shown = countryLabel(value)
+  const shown = countryLabelIn(value, appLocale())
   /* The field on screen is the moment to fetch the flags, not the tap that opens the list. */
   React.useEffect(() => {
     warmSprite()
@@ -147,7 +148,7 @@ export function CountryPicker({
       id={id}
       name="country"
       title={tt("Country")}
-      choices={countryChoices}
+      choices={() => countryChoices(appLocale())}
       value={code}
       onChange={(next) => onChange(countryToSave(next))}
       placeholder={tt("Search countries")}

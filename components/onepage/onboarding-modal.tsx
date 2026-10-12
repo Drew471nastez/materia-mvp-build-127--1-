@@ -24,7 +24,7 @@ import { getOnePageDomain } from "@/lib/onepage/address"
 import { CardMark, CheckMark, ChoiceMark } from "./choice-marks"
 import { WallpaperPattern } from "./wallpaper-layers"
 import { AvatarMark } from "@/components/app/app-avatar"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 type Goal = "general" | "artist" | "digital" | "business"
 
@@ -215,9 +215,9 @@ const TemplateCard = memo(function TemplateCard({
 
 /* What the last step says, in order. All three are drawn, one over the other (see Step 5). */
 const SETUP_WORDS = [
-  ["setting-up", "Setting up your OnePage"],
-  ["just-a-moment", "Almost there"],
-  ["ready", "Your OnePage is ready."],
+  ["setting-up", msg("Setting up your OnePage")],
+  ["just-a-moment", msg("Almost there")],
+  ["ready", msg("Your OnePage is ready.")],
 ] as const
 
 /* The themes are the Design tab's own list, not a copy of it that drifts: the onboarding offers what the tab offers. */
@@ -1625,7 +1625,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             shown ? "opacity-100 duration-[260ms] delay-100" : "opacity-0 duration-[180ms]",
                           )}
                         >
-                          {words}
+                          {tt(words)}
                         </h1>
                       )
                     })}

@@ -28,7 +28,7 @@ import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-
 import { chosenOption, type AskQuestion } from "@/lib/website-builder/ask-activity"
 import { optionAction, readImageUrl, type QuestionAction } from "@/lib/sites/agent/questions"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: () => void }) {
   return (
@@ -60,8 +60,8 @@ export type AskMode = "change" | "code"
 
 /** Code a section first: it is the box's default (theme-chat.tsx), so it sits where the eye starts. */
 export const MODES: readonly (readonly [AskMode, string])[] = [
-  ["code", "Code section"],
-  ["change", "Change page"],
+  ["code", msg("Code section")],
+  ["change", msg("Change page")],
 ] as const
 
 /** Which half the thumb sits under. */
@@ -120,7 +120,7 @@ export function ModeSwitch({
             mode === key ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
           )}
         >
-          {label}
+          {tt(label)}
         </button>
       ))}
     </div>

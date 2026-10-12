@@ -29,7 +29,7 @@ import { RotateCcw, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { IMPORT_TOO_LARGE, importSizeProblem } from "@/lib/website-builder/theme-import"
 import { LIBRARY_FULL_CODE } from "@/lib/website-builder/library-limit"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type IncomingKind = "import" | "add" | "duplicate"
 
@@ -173,16 +173,16 @@ export async function fetchAnswer(url: string, body: unknown, ms: number): Promi
   }
 }
 
-const OFFLINE = "The connection dropped. Try again."
-const STALLED = "The upload stopped moving. Try again."
-const SLOW = "The import took too long. Try again."
+const OFFLINE = msg("The connection dropped. Try again.")
+const STALLED = msg("The upload stopped moving. Try again.")
+const SLOW = msg("The import took too long. Try again.")
 
 /** The answer with a reason a person can read in `data.error`, for the row and the toast. */
-function said(a: Answer, otherwise: string, timeout = SLOW): Answer {
+function said(a: Answer, otherwise: string, timeout: string = tt(SLOW)): Answer {
   if (a.ok) return a
   const error =
     a.failure === "timeout" ? timeout
-    : a.failure === "network" ? OFFLINE
+    : a.failure === "network" ? tt(OFFLINE)
     : a.status === 413 ? IMPORT_TOO_LARGE
     : typeof a.data.error === "string" && a.data.error ? a.data.error
     : otherwise
@@ -220,7 +220,7 @@ export async function importThemeFile(
     const put = await sendWithProgress("PUT", url, file, on, { "Content-Type": file.type || "application/zip", "x-upsert": "true" })
     if (put.ok) return said(await fetchAnswer("/api/website-builder/themes/import", { path }, ANSWER_MS), tt("Could not import that file"))
     /* Storage's own error text is not for people: only the size is said as it is. */
-    if (file.size > FORM_IMPORT_MAX_BYTES) return said({ ...put, data: {} }, tt("Could not upload that file. Try again."), STALLED)
+    if (file.size > FORM_IMPORT_MAX_BYTES) return said({ ...put, data: {} }, tt("Could not upload that file. Try again."), tt(STALLED))
   } else if (file.size > FORM_IMPORT_MAX_BYTES) {
     return place.ok ? said({ ok: false, status: 500, data: {} }, tt("Could not start the upload. Try again.")) : place
   }
@@ -232,7 +232,7 @@ export async function importThemeFile(
   */
   const form = new FormData()
   form.append("file", file)
-  return said(await sendWithProgress("POST", "/api/website-builder/themes/import", form, on), tt("Could not import that file"), STALLED)
+  return said(await sendWithProgress("POST", "/api/website-builder/themes/import", form, on), tt("Could not import that file"), tt(STALLED))
 }
 
 /** Under the 4.5 MB a function accepts as a request body, with room for the form around the file. */

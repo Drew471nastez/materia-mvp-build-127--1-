@@ -76,7 +76,7 @@ import { NOW_STEP_MS, askReport, keptAnswer, questionOf, reportNow } from "@/lib
 import { PhysicalSetupCard } from "@/components/app/home/physical-setup-card"
 import { ReadinessBanner } from "@/components/physical/readiness-banner"
 import { tt } from "@/lib/i18n/text"
-import { appLocale } from "@/lib/i18n/format"
+import { appLocale, weekdayNames } from "@/lib/i18n/format"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -363,15 +363,17 @@ const DashboardFrame = memo(function DashboardFrame({
 })
 
 // ── Sample data shown when the creator has zero real activity ──────────────
-const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+/* Monday to Sunday, as Date#getDay counts them; each label is read when drawn, in the dashboard's language. */
+const SAMPLE_DAYS = [1, 2, 3, 4, 5, 6, 0]
+const dayName = (d: number) => weekdayNames("short")[d]
 const SAMPLE_CHART: Record<string, ChartDataPoint[]> = {
-  views:      SAMPLE_DAYS.map((d, i) => ({ label: d, value: [45, 78, 35, 92, 63, 88, 51][i], secondaryValue: [12, 22, 9, 31, 18, 28, 15][i] })),
-  orders:     SAMPLE_DAYS.map((d, i) => ({ label: d, value: [2, 5, 1, 7, 3, 6, 4][i], refunds: [0, 0, 0, 1, 0, 0, 0][i] })),
-  revenue:    SAMPLE_DAYS.map((d, i) => ({ label: d, value: [12.5, 34, 9, 45, 25, 38, 20][i] })),
-  conversion: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [4.2, 6.1, 2.8, 7.5, 4.8, 6.8, 7.8][i] })),
+  views:      SAMPLE_DAYS.map((d, i) => ({ get label() { return dayName(d) }, value: [45, 78, 35, 92, 63, 88, 51][i], secondaryValue: [12, 22, 9, 31, 18, 28, 15][i] })),
+  orders:     SAMPLE_DAYS.map((d, i) => ({ get label() { return dayName(d) }, value: [2, 5, 1, 7, 3, 6, 4][i], refunds: [0, 0, 0, 1, 0, 0, 0][i] })),
+  revenue:    SAMPLE_DAYS.map((d, i) => ({ get label() { return dayName(d) }, value: [12.5, 34, 9, 45, 25, 38, 20][i] })),
+  conversion: SAMPLE_DAYS.map((d, i) => ({ get label() { return dayName(d) }, value: [4.2, 6.1, 2.8, 7.5, 4.8, 6.8, 7.8][i] })),
 }
 /** The week on the floor while the first line is on its way: the frame, no numbers. */
-const WAITING_CHART: ChartDataPoint[] = SAMPLE_DAYS.map((d) => ({ label: d, value: 0 }))
+const WAITING_CHART: ChartDataPoint[] = SAMPLE_DAYS.map((d) => ({ get label() { return dayName(d) }, value: 0 }))
 const SAMPLE_KPI = {
   periodVisitors: 452, periodPageViews: 1240, prevPeriodVisitors: 380,
   periodOrders: 28, totalOrders: 95, prevPeriodOrders: 22,

@@ -98,6 +98,16 @@ export function tt(source: string, vars?: Vars): string {
   return formatMessage(template, vars ?? {}, activeLocale())
 }
 
+/**
+ * A sentence kept in a constant and translated where it is shown, with
+ * tt(value): msg() only marks it, so the catalogs and scripts/check-i18n.mjs
+ * know it, and returns it unchanged (its literal type too, for `as const`
+ * lists and keys that are compared).
+ */
+export function msg<T extends string>(source: T): T {
+  return source
+}
+
 /** The same, bound to a language and its words: the server's tt (lib/i18n/server). */
 export function makeTt(language: string, words: Record<string, string>): (source: string, vars?: Vars) => string {
   const locale = LOCALE_TAG[language] ?? "en-US"

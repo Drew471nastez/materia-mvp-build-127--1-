@@ -48,7 +48,7 @@ import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-
 import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export type SetupMode = "setup" | "bank" | "details"
@@ -364,13 +364,13 @@ export function PaymentsPanelWaiting({ open, onClose, label = tt("Payments") }: 
  * screens underneath (the country and name make the account, then the few
  * details Stripe wants), shown as one step.
  */
-const STEP_LABELS = ["Personal info", "Verify ID", "Bank account"] as const
+const STEP_LABELS = [msg("Personal info"), msg("Verify ID"), msg("Bank account")] as const
 /*
  * THE ID CHECK IS ONLY A STEP WHEN STRIPE WANTS IT. A seller Stripe does not
  * need an ID from right now never sees it in the steps at all: the stepper is
  * Account, Details until the ID step has loaded and found Stripe is asking.
  */
-const STEP_LABELS_NO_ID = ["Personal info", "Bank account"] as const
+const STEP_LABELS_NO_ID = [msg("Personal info"), msg("Bank account")] as const
 
 function Stepper({ step, done: all, labels = STEP_LABELS }: { step: number; done?: boolean; labels?: readonly string[] }) {
   return (
@@ -394,7 +394,7 @@ function Stepper({ step, done: all, labels = STEP_LABELS }: { step: number; done
               >
                 {done ? <Check className="h-3.5 w-3.5 animate-in zoom-in-50 duration-200" strokeWidth={3} /> : i + 1}
               </span>
-              <span className={cn("text-[13px] transition-colors duration-200", on ? "font-medium text-[#1a1a2e]" : "text-[#6b7280] max-[360px]:hidden")}>{label}</span>
+              <span className={cn("text-[13px] transition-colors duration-200", on ? "font-medium text-[#1a1a2e]" : "text-[#6b7280] max-[360px]:hidden")}>{tt(label)}</span>
             </li>
           </React.Fragment>
         )
@@ -1442,7 +1442,7 @@ interface DetailsForm {
   bank: { kind: "iban" | "routing"; routingLabel?: string; routingPattern?: string; accountLabel?: string; currency: string | null; holderName: string; last4: string | null; currencies?: string[] }
 }
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+const MONTHS = [msg("January"), msg("February"), msg("March"), msg("April"), msg("May"), msg("June"), msg("July"), msg("August"), msg("September"), msg("October"), msg("November"), msg("December")]
 
 
 function useDetailsForm() {
@@ -2008,7 +2008,7 @@ function DetailsStep({
                 <select className={cn(FIELD, "cursor-pointer appearance-none pr-8", !dob.month && "text-[#9ca3af]", tried && !dob.month && FIELD_BAD)} aria-label={tt("Month")} autoComplete="bday-month" value={dob.month} onChange={(e) => setDob({ ...dob, month: e.target.value })}>
                   <option value="">{tt("Month")}</option>
                   {MONTHS.map((m, i) => (
-                    <option key={m} value={String(i + 1)}>{m}</option>
+                    <option key={m} value={String(i + 1)}>{tt(m)}</option>
                   ))}
                 </select>
                 <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
@@ -2340,10 +2340,10 @@ function BankForm({ failed = false, onBack, backLabel = tt("Back"), onDone, onDa
   )
 }
 
-/** "Euro", "US dollar": the currency's name in English, or the code when the browser does not know it. */
+/** "Euro", "US dollar": the currency's name in the dashboard's language, or the code when the browser does not know it. */
 function currencyName(code: string): string {
   try {
-    const name = new Intl.DisplayNames(["en"], { type: "currency" }).of(code)
+    const name = new Intl.DisplayNames([appLocale()], { type: "currency" }).of(code)
     return name ? name.charAt(0).toUpperCase() + name.slice(1) : code
   } catch {
     return code

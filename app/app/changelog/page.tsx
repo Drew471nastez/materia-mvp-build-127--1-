@@ -3,7 +3,7 @@
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 interface ChangelogEntry {
   date: string
@@ -128,7 +128,7 @@ const changelogData: ChangelogEntry[] = [
   },
 ]
 
-const categories = ["All", "Settings", "Analytics", "Dashboard", "Payouts", "Store Builder", "Profile", "Navigation", "Emails", "Products"]
+const categories = ["All", msg("Settings"), msg("Analytics"), msg("Dashboard"), msg("Payouts"), msg("Store Builder"), msg("Profile"), msg("Navigation"), msg("Emails"), msg("Products")]
 
 const getTypeLabel = (type: string) => {
   switch (type) {
@@ -245,7 +245,7 @@ export default function ChangelogPage() {
                       }`}
                       onClick={() => setSelectedCategory(category)}
                     >
-                      {category}
+                      {tt(category)}
                     </span>
                   </label>
                 ))}
@@ -268,7 +268,7 @@ export default function ChangelogPage() {
                     : "text-[#6b7280] border-[#e5e7eb] hover:border-[#d1d5db]"
                 }`}
               >
-                {category}
+                {tt(category)}
               </button>
             ))}
           </div>

@@ -24,7 +24,7 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { DRAFT_LIMIT } from "@/lib/website-builder/library-limit"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type LibraryAction = "import" | "add" | "duplicate"
 
@@ -34,7 +34,7 @@ const VERB: Record<LibraryAction, string> = {
   get duplicate() { return tt("make a copy") },
 }
 
-export const LIBRARY_FULL_TITLE = "Your library is full"
+export const LIBRARY_FULL_TITLE = msg("Your library is full")
 
 /** The one sentence under the title, from the limit rather than written out. */
 export function libraryFullSentence(action: LibraryAction | null): string {
@@ -129,10 +129,10 @@ export function LibraryFullDialog({
       <BottomSheet
         isOpen={open}
         onClose={onClose}
-        label={LIBRARY_FULL_TITLE}
+        label={tt(LIBRARY_FULL_TITLE)}
         header={
           <div className="px-5 pb-4 pt-3">
-            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{LIBRARY_FULL_TITLE}</h2>
+            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{tt(LIBRARY_FULL_TITLE)}</h2>
             <p className="mt-1 text-[14px] leading-[1.45] text-[#6b7280]">{sentence}</p>
           </div>
         }
@@ -161,7 +161,7 @@ export function LibraryFullDialog({
         className="block max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl border-[#e5e7eb] p-0 shadow-[0_20px_48px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[440px]"
       >
         <div className="px-5 pb-4 pt-5">
-          <AlertDialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{LIBRARY_FULL_TITLE}</AlertDialogTitle>
+          <AlertDialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{tt(LIBRARY_FULL_TITLE)}</AlertDialogTitle>
           <AlertDialogDescription className="mt-1 text-[13.5px] leading-[1.5] text-[#6b7280]">{sentence}</AlertDialogDescription>
         </div>
         <EntryList entries={entries} onRemove={onRemove} />

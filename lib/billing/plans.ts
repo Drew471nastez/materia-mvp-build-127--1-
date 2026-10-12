@@ -20,7 +20,7 @@
 import { getFeeDescription } from "./fee-calculator"
 import { siteLimits, type SitePlan } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
 export type PlanId = "free" | "growth" | "pro"
@@ -226,7 +226,7 @@ export function offeredPlan(id: OfferedPlanId): OfferedPlan {
  * the fee is worked out, not something to read under a price: the owner
  * asked for the standard line.
  */
-export const PLAN_FOOTNOTE = "Prices in US dollars. Stripe's payment processing fees apply on every plan."
+export const PLAN_FOOTNOTE = msg("Prices in US dollars. Stripe's payment processing fees apply on every plan.")
 
 /* ─── Compare plans, and the questions under it ───────────────────────── */
 

@@ -25,22 +25,22 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 type Door = "ai" | "template" | "blank" | null
 
 const WEBSITE_TYPES = [
-  "Landing page",
-  "Business website",
-  "Personal brand",
-  "Portfolio",
-  "Digital product",
-  "Community",
+  msg("Landing page"),
+  msg("Business website"),
+  msg("Personal brand"),
+  msg("Portfolio"),
+  msg("Digital product"),
+  msg("Community"),
   "SaaS",
-  "Store",
+  msg("Store"),
 ]
 
-const GOALS = ["Get leads", "Sell a product", "Book calls", "Build an audience", "Run a community", "Showcase work"]
+const GOALS = [msg("Get leads"), msg("Sell a product"), msg("Book calls"), msg("Build an audience"), msg("Run a community"), msg("Showcase work")]
 
 function Chip({
   active,
@@ -164,7 +164,7 @@ export function NewSiteFlow() {
             <div className="flex flex-wrap gap-1.5">
               {WEBSITE_TYPES.map((t) => (
                 <Chip key={t} active={type === t} onClick={() => setType(type === t ? null : t)}>
-                  {t}
+                  {tt(t)}
                 </Chip>
               ))}
             </div>
@@ -175,7 +175,7 @@ export function NewSiteFlow() {
             <div className="flex flex-wrap gap-1.5">
               {GOALS.map((g) => (
                 <Chip key={g} active={goal === g} onClick={() => setGoal(goal === g ? null : g)}>
-                  {g}
+                  {tt(g)}
                 </Chip>
               ))}
             </div>

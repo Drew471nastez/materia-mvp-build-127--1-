@@ -14,7 +14,7 @@ import * as React from "react"
 import { Check, Copy, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { switchKnobDark, switchTrackDark } from "@/components/ui/switch-style"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 /**
  * The subject's name, and its one action beside it. On a phone the action
@@ -210,7 +210,7 @@ export function ErrorNote({ children }: { children: React.ReactNode }) {
 }
 
 /** Settings stored with the draft say so once, under their card. */
-export const GOES_LIVE = "Saved with your draft. Visitors see it after you publish."
+export const GOES_LIVE = msg("Saved with your draft. Visitors see it after you publish.")
 
 /**
  * A search result, drawn the way Google draws one in its dark theme, on the

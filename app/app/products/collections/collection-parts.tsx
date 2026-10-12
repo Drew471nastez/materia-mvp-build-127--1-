@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { readRules, type CollectionRule, type RuleField, type RuleOp, type RuleProduct } from "@/lib/physical/collections"
 import type { CollectionProduct, CollectionView } from "@/lib/physical/collections-server"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
 export type Collection = CollectionView
@@ -23,12 +23,12 @@ export type { CollectionProduct }
 
 /** The kinds a product can be, as a rule on Product type reads them. */
 export const PRODUCT_KINDS = [
-  ["digital", "Digital product"],
-  ["course", "Course"],
-  ["membership", "Membership"],
-  ["community", "Community"],
-  ["service", "Service"],
-  ["physical", "Physical product"],
+  ["digital", msg("Digital product")],
+  ["course", msg("Course")],
+  ["membership", msg("Membership")],
+  ["community", msg("Community")],
+  ["service", msg("Service")],
+  ["physical", msg("Physical product")],
 ] as const
 export const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS)
 
@@ -58,17 +58,17 @@ export function opsFor(field: RuleField): RuleOp[] {
 }
 
 export const SORTS = [
-  ["manual", "Your order"],
-  ["best_selling", "Best selling"],
-  ["newest", "Newest"],
-  ["price_asc", "Price, low to high"],
-  ["price_desc", "Price, high to low"],
-  ["title", "Name, A to Z"],
+  ["manual", msg("Your order")],
+  ["best_selling", msg("Best selling")],
+  ["newest", msg("Newest")],
+  ["price_asc", msg("Price, low to high")],
+  ["price_desc", msg("Price, high to low")],
+  ["title", msg("Name, A to Z")],
 ] as const
 
 /** A rule's value as a person would say it: Course, not course; $30, not 30. */
 export function valueWords(rule: CollectionRule): string {
-  if (rule.field === "type") return KIND_LABEL[rule.value] ?? rule.value
+  if (rule.field === "type") return KIND_LABEL[rule.value] ? tt(KIND_LABEL[rule.value]) : rule.value
   if (rule.field === "price" || rule.field === "compare_at_price") return `$${rule.value}`
   if (rule.field === "weight") return `${rule.value} g`
   return rule.value

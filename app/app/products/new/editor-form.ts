@@ -16,7 +16,7 @@
 
 import { fieldRows, type CustomField } from "@/lib/products/custom-fields"
 import { isPosterName, isVideoUrl } from "@/lib/media/video"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export interface UploadedFile {
   id?: string
@@ -62,7 +62,7 @@ export interface FAQItem {
 }
 
 /** What a new product starts with: 3 defaults, up to 8 in all. */
-export const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
+export const DEFAULT_WHATS_INCLUDED = [msg("Instant download access"), msg("All included files"), msg("Lifetime access")]
 
 /* A product that ships starts with what a buyer of one asks: when it arrives and what if it doesn't fit. */
 export const PHYSICAL_WHATS_INCLUDED: string[] = []
@@ -85,7 +85,7 @@ export const DEFAULT_FAQS: FAQItem[] = [
   So a course starts with its own, and a switch between the two kinds swaps
   them while they are still the untouched defaults (swapDefaults).
 */
-export const COURSE_WHATS_INCLUDED = ["Every lesson, to watch at your own pace", "Your place kept in each lesson", "Lifetime access"]
+export const COURSE_WHATS_INCLUDED = [msg("Every lesson, to watch at your own pace"), msg("Your place kept in each lesson"), msg("Lifetime access")]
 
 export const COURSE_FAQS: FAQItem[] = [
   { id: "default-1", get question() { return tt("How do I watch the course?") }, get answer() { return tt("After checkout the course is in your library. Lessons play in your browser and in the Storelib app, and each one picks up where you left off.") }, isDefault: true },
@@ -93,13 +93,16 @@ export const COURSE_FAQS: FAQItem[] = [
   { id: "default-3", get question() { return tt("How long do I have access?") }, get answer() { return tt("For good. Every lesson stays in your library, including the ones added later.") }, isDefault: true },
 ]
 
+/** The default lines in the dashboard's language: a new product is written in its creator's. */
+const said = (lines: readonly string[]): string[] => lines.map((line) => tt(line))
+
 function sameList<T>(a: T[], b: T[], key: (x: T) => string): boolean {
   return a.length === b.length && a.every((x, i) => key(x) === key(b[i]))
 }
 
 /** The new product's lists for a kind; for a switch of kind, the other kind's defaults become this one's, and anything the creator wrote stays. */
 export function swapDefaults(kind: "digital" | "course", whatsIncluded: string[], faqs: FAQItem[]): { whatsIncluded: string[]; faqs: FAQItem[] } {
-  const [from, fromFaqs, to, toFaqs] = kind === "course" ? [DEFAULT_WHATS_INCLUDED, DEFAULT_FAQS, COURSE_WHATS_INCLUDED, COURSE_FAQS] : [COURSE_WHATS_INCLUDED, COURSE_FAQS, DEFAULT_WHATS_INCLUDED, DEFAULT_FAQS]
+  const [from, fromFaqs, to, toFaqs] = kind === "course" ? [said(DEFAULT_WHATS_INCLUDED), DEFAULT_FAQS, said(COURSE_WHATS_INCLUDED), COURSE_FAQS] : [said(COURSE_WHATS_INCLUDED), COURSE_FAQS, said(DEFAULT_WHATS_INCLUDED), DEFAULT_FAQS]
   const faqKey = (f: FAQItem) => `${f.question}\n${f.answer}`
   return {
     whatsIncluded: sameList(whatsIncluded, from, (x) => x) ? to : whatsIncluded,
@@ -297,7 +300,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       mediaItems: [],
       digitalFiles: [],
       variants: [],
-      whatsIncluded: course ? COURSE_WHATS_INCLUDED : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : DEFAULT_WHATS_INCLUDED,
+      whatsIncluded: course ? said(COURSE_WHATS_INCLUDED) : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : said(DEFAULT_WHATS_INCLUDED),
       faqs: course ? COURSE_FAQS : startAs === "physical" ? PHYSICAL_FAQS : DEFAULT_FAQS,
       customFields: [],
       limitSalesEnabled: false,
@@ -344,7 +347,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       ...(a.scan_status ? { scan_status: a.scan_status } : {}),
     })),
     variants: variantsOf(variants),
-    whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : DEFAULT_WHATS_INCLUDED,
+    whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : said(DEFAULT_WHATS_INCLUDED),
     faqs,
     customFields: fieldRows(product.custom_fields),
     limitSalesEnabled: typeof loaded.sales?.limit === "number",

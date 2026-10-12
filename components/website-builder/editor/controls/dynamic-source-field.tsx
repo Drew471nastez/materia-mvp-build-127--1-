@@ -88,13 +88,13 @@ import {
 import { ChipTextInput, type ChipTextInputHandle } from "./chip-text-input"
 import { useEditorFieldEnv } from "./context"
 import { NOTE } from "./styles"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 /** A field's name above it, as the sidebar has always drawn one. */
 export const FIELD_LABEL = "text-xs font-medium text-muted-foreground mb-1.5 block"
 
 /** What the button is called, to a screen reader. */
-export const INSERT_LABEL = "Insert shop data"
+export const INSERT_LABEL = msg("Insert shop data")
 
 export function DynamicSourceField({
   field,
@@ -250,7 +250,7 @@ export function DynamicSourceField({
     <button
       ref={button}
       type="button"
-      aria-label={INSERT_LABEL}
+      aria-label={tt(INSERT_LABEL)}
       aria-haspopup="listbox"
       aria-expanded={open}
       data-dynamic-action=""

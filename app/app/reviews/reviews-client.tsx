@@ -419,7 +419,7 @@ function ReviewRow({
               </p>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-[#6b7280]">
                 <Stars rating={review.rating} size={14} />
-                <span className="text-[#4b5563] max-sm:hidden">{RATING_WORDS[review.rating] ?? ""}</span>
+                <span className="text-[#4b5563] max-sm:hidden">{RATING_WORDS[review.rating] ? tt(RATING_WORDS[review.rating]) : ""}</span>
                 <span aria-hidden className="max-sm:hidden">·</span>
                 <span>
                   {shortDate(review.created_at)}

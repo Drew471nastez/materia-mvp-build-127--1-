@@ -33,7 +33,7 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
         {tt("Pages")}
       </PageTitle>
 
-      <Card footer={GOES_LIVE}>
+      <Card footer={tt(GOES_LIVE)}>
         {ctx.pages.map((page) => (
           <PageRow
             key={page.key}

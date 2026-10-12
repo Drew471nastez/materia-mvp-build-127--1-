@@ -33,7 +33,7 @@ import { Minus, Plus, RotateCw } from "lucide-react"
 import { ColorChip } from "./color-chip"
 import { useFrameCommit } from "./use-frame-commit"
 import { liveGesture } from "@/lib/website-builder/live-settings"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 export interface GradientStop {
   color: string
@@ -140,7 +140,7 @@ const TURN_BY = 45
  * clockwise. "Down" rather than "180 degrees", because nobody pictures a
  * number and everybody pictures a direction.
  */
-const DIRECTION_NAME = ["Up", "Up right", "Right", "Down right", "Down", "Down left", "Left", "Up left"]
+const DIRECTION_NAME = [msg("Up"), msg("Up right"), msg("Right"), msg("Down right"), msg("Down"), msg("Down left"), msg("Left"), msg("Up left")]
 
 /** How near the track a press has to be, as a share of it, to take a stop. */
 const GRAB_WITHIN = 12
@@ -360,7 +360,7 @@ export function GradientEditor({
       >
         <span className="text-muted-foreground">{tt("Direction")}</span>
         <span className="flex items-center gap-2 font-medium text-foreground">
-          {DIRECTION_NAME[Math.round(g.angle / TURN_BY) % 8]}
+          {tt(DIRECTION_NAME[Math.round(g.angle / TURN_BY) % 8])}
           <RotateCw className="h-3.5 w-3.5 text-muted-foreground" />
         </span>
       </button>

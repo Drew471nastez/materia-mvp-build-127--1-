@@ -33,12 +33,11 @@ import { cn } from "@/lib/utils"
 import { cleanDatetime } from "@/lib/storelib-theme/values"
 import { TEXT_BUTTON } from "./styles"
 import { tt } from "@/lib/i18n/text"
+import { formatDate } from "@/lib/i18n/format"
 
 const pad = (n: number) => String(n).padStart(2, "0")
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 /** "2026-05-01 18:00", as older countdowns were typed, reads as "2026-05-01T18:00". */
 export function normaliseDatetime(value: unknown): string {
@@ -50,8 +49,9 @@ export function normaliseDatetime(value: unknown): string {
 export function datetimeInWords(date: string, time: string): string {
   const [y, m, d] = date.split("-").map(Number)
   if (!y || !m || !d) return ""
-  const day = DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
-  return `${day}, ${d} ${MONTHS[m - 1]} ${y}${time ? ` · ${time}` : ""}`
+  /* In the dashboard's language; UTC on both sides, so no zone moves the day. */
+  const day = formatDate(Date.UTC(y, m - 1, d, 12), { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+  return `${day}${time ? ` · ${time}` : ""}`
 }
 
 /** "in 5 days, 4 hours", "in 40 minutes", "2 days ago": on this device's clock, so roughly. */
@@ -62,11 +62,12 @@ export function datetimeFromNow(date: string, time: string, now: number): string
   const mins = Math.round(Math.abs(diff) / 60_000)
   const hours = Math.floor(mins / 60)
   const days = Math.floor(hours / 24)
-  const plural = (n: number, w: string) => tt("{n} {w}{n, plural, one {} other {s}}", { n, w })
+  const dayWords = (n: number) => tt("{n, plural, one {# day} other {# days}}", { n })
+  const hourWords = (n: number) => tt("{n, plural, one {# hour} other {# hours}}", { n })
   const span =
-    days >= 1 ? (hours % 24 && days < 7 ? `${plural(days, "day")}, ${plural(hours % 24, "hour")}` : plural(days, "day"))
-    : hours >= 1 ? plural(hours, "hour")
-    : mins >= 1 ? plural(mins, "minute")
+    days >= 1 ? (hours % 24 && days < 7 ? `${dayWords(days)}, ${hourWords(hours % 24)}` : dayWords(days))
+    : hours >= 1 ? hourWords(hours)
+    : mins >= 1 ? tt("{n, plural, one {# minute} other {# minutes}}", { n: mins })
     : tt("less than a minute")
   return diff >= 0 ? tt("in {span}", { span }) : tt("{span} ago", { span })
 }

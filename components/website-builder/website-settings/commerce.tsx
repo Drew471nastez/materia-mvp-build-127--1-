@@ -110,7 +110,7 @@ function OnThisWebsite({ ctx }: { ctx: SettingsContext }) {
   useEffect(() => setAmount(c.freeShippingAmount === null ? "" : String(c.freeShippingAmount)), [c.freeShippingAmount])
 
   return (
-    <Card title={tt("On this website")} footer={GOES_LIVE}>
+    <Card title={tt("On this website")} footer={tt(GOES_LIVE)}>
       <Row label={tt("Show how many are left")} hint={tt("Product pages say Only 3 left once stock reaches each product's low stock line.")} inline>
         <Toggle checked={c.showStockLeft} onChange={(on) => ctx.onSettingChange("show_stock_left", on)} label={tt("Show how many are left")} />
       </Row>

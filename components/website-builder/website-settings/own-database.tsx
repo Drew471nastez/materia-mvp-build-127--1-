@@ -100,7 +100,7 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
   const projects = listing?.projects ?? null
 
   return (
-    <Card title={tt("Your own database")} footer={open || projects ? GOES_LIVE : undefined}>
+    <Card title={tt("Your own database")} footer={open || projects ? tt(GOES_LIVE) : undefined}>
       <Row
         label={
           <span className="inline-flex items-center gap-2.5">

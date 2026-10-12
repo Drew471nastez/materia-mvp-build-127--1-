@@ -97,7 +97,7 @@ import { ActionDropdownContent, ActionSheetRows, groupsOf, type ActionMenuItem }
 import { afterLayout } from "@/lib/ui/after-layout"
 import { VIDEO_ACCEPT, durationText } from "@/lib/media/video"
 import { isVideoFile, putObject, uploadVideo, videoRefusal } from "@/lib/files/upload-video"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface LibraryFile {
@@ -133,11 +133,11 @@ export interface PickHint {
 const TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"])
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,image/avif"
 const MAX_BYTES = 5 * 1024 * 1024
-const ALL_SOURCES = ["All", "Library", "Website", "Product photos", "Videos"] as const
+const ALL_SOURCES = [msg("All"), msg("Library"), msg("Website"), msg("Product photos"), msg("Videos")] as const
 type Source = (typeof ALL_SOURCES)[number]
-const SOURCES: readonly Source[] = ["All", "Library", "Website", "Product photos"]
+const SOURCES: readonly Source[] = [msg("All"), msg("Library"), msg("Website"), msg("Product photos")]
 /* A list of videos: where each came from (a product's videos are kept with its photos). */
-const VIDEO_SOURCES: readonly Source[] = ["All", "Library", "Website", "Product photos"]
+const VIDEO_SOURCES: readonly Source[] = [msg("All"), msg("Library"), msg("Website"), msg("Product photos")]
 /* Pictures and videos together: the same, and a pill for the videos alone. */
 const MEDIA_SOURCES: readonly Source[] = ALL_SOURCES
 /* The rows drawn at once: three on a phone at three across, three in the window at four across. */
@@ -884,7 +884,7 @@ function SourcePills({ sources, value, onChange, onWarm }: { sources: readonly S
               value === s && !mark && "bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1)]",
             )}
           >
-            {s}
+            {tt(s)}
           </button>
         ))}
       </div>

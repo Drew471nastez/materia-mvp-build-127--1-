@@ -32,7 +32,7 @@ import { Check, ChevronRight, Copy, Flag } from "lucide-react"
 
 import type { ActivityCode, TimelineRow } from "@/lib/website-builder/ask-activity"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import { tt, msg } from "@/lib/i18n/text"
 
 /* ── the line ──────────────────────────────────────────────────────────── */
 
@@ -373,7 +373,7 @@ export function AnswerMeta({
 }
 
 /** The reasons offered as one tap each. Any of them can be written over. */
-export const REPORT_REASONS = ["Changed the wrong thing", "Did not do what I asked", "Broke the page", "Wrong answer"] as const
+export const REPORT_REASONS = [msg("Changed the wrong thing"), msg("Did not do what I asked"), msg("Broke the page"), msg("Wrong answer")] as const
 
 /** The popover's width on a computer, and the gap between it and the flag. */
 const REPORT_WIDTH = 264
@@ -504,7 +504,7 @@ export function ReportForm({
       <div className="mt-1.5 flex flex-wrap gap-1">
         {REPORT_REASONS.map((chip) => (
           <button
-            key={chip}
+            key={tt(chip)}
             type="button"
             data-ask-report-reason=""
             aria-pressed={reason === chip}
