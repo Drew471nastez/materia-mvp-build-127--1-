@@ -79,6 +79,17 @@ function useNow(active: boolean): number {
   return now
 }
 
+/** A person's photo, or their first letter on a soft ground: a list of grey silhouettes reads as nobody. */
+function Face({ src, name, size = 36 }: { src: string | null | undefined; name: string; size?: number }) {
+  if (src) return <AppAvatar src={src} name={name} size={size} className="shrink-0 ring-1 ring-[#e5e7eb]" />
+  const letter = (name.trim().match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase()
+  return (
+    <span aria-hidden className="grid shrink-0 place-items-center rounded-full bg-[#eef0f3] font-semibold text-[#4b5563]" style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}>
+      {letter}
+    </span>
+  )
+}
+
 type Confirm =
   | { kind: "cancel" | "remove"; member: Member }
   | { kind: "leave"; store: StoreRow }
@@ -225,7 +236,7 @@ export function TeamPanel() {
       {data.acting && (
         <Card>
           <div className="flex items-center gap-3">
-            <AppAvatar src={data.stores.find((s) => s.creatorId === data.acting?.creatorId)?.avatarUrl ?? null} name={data.acting.name} size={36} className="shrink-0 ring-1 ring-[#e5e7eb]" />
+            <Face src={data.stores.find((s) => s.creatorId === data.acting?.creatorId)?.avatarUrl ?? null} name={data.acting.name} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">Working in {data.acting.name}</p>
               <p className="truncate text-[13px] text-[#6b7280]">As {ROLE_LABEL[data.acting.role]}</p>
@@ -241,10 +252,10 @@ export function TeamPanel() {
         <Card title="Team" help="team" description={`People who help run your store. ${used} of ${team.limit} seats used.`}>
           <ul className="-mx-1" data-team-list="">
             <li className="flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2">
-              <AppAvatar src={data.me?.avatarUrl ?? null} name={data.me?.name || data.me?.email || "You"} size={36} className="shrink-0 ring-1 ring-[#e5e7eb]" />
+              <Face src={data.me?.avatarUrl ?? null} name={data.me?.name || data.me?.email || "You"} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{data.me?.name ? `${data.me.name} (you)` : "You"}</p>
-                <p className="truncate text-[13px] text-[#6b7280]">Everything, including payouts, billing and the team</p>
+                <p className="truncate text-[13px] text-[#6b7280]">Everything, payouts and billing too</p>
               </div>
               <Pill tone="gray">Owner</Pill>
             </li>
@@ -254,7 +265,7 @@ export function TeamPanel() {
               const status =
                 m.pending ? "Sending invite" :
                 m.status === "active" ? (m.name ? m.email : `Joined ${ago(m.accepted_at, now)}`.trim()) :
-                isExpired ? `Invite expired, sent ${ago(m.invited_at, now)}` :
+                isExpired ? `Expired, sent ${ago(m.invited_at, now)}` :
                 `Invited ${ago(m.invited_at, now)}`
               const items: ActionMenuItem[] = [
                 ...(m.status === "invited"
@@ -267,7 +278,7 @@ export function TeamPanel() {
               ]
               return (
                 <li key={m.id} className={cn("flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2 transition-opacity", m.pending && "opacity-60")} data-team-member={m.status}>
-                  <AppAvatar src={m.avatar_url ?? null} name={m.name || m.email} size={36} className="shrink-0 ring-1 ring-[#e5e7eb]" />
+                  <Face src={m.avatar_url ?? null} name={m.name || m.email} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{m.name || m.email}</p>
                     <p className={cn("truncate text-[13px]", isExpired ? "text-[#b45309]" : "text-[#6b7280]")}>
@@ -286,8 +297,8 @@ export function TeamPanel() {
                     <span className="hidden w-[72px] text-right text-[13px] text-[#4b5563] sm:inline">{ROLE_LABEL[m.role]}</span>
                   )}
                   {m.status === "invited" && !m.pending ? (
-                    <button type="button" className={cn(BTN_SECONDARY, "hidden h-9 min-w-[92px] px-3 text-[13px] sm:inline-flex")} disabled={busy === m.id || wait > 0} onClick={() => resend(m)} title={wait > 0 ? `You can resend in ${wait} seconds` : undefined}>
-                      {busy === m.id ? "Sending" : wait > 0 ? `${wait}s` : "Resend"}
+                    <button type="button" className={cn(BTN_SECONDARY, "hidden h-9 min-w-[124px] px-3 text-[13px] tabular-nums sm:inline-flex")} disabled={busy === m.id || wait > 0} onClick={() => resend(m)} title={wait > 0 ? `You can resend in ${wait} seconds` : undefined}>
+                      {busy === m.id ? "Sending" : wait > 0 ? `Resend in ${wait}s` : "Resend"}
                     </button>
                   ) : null}
                   {m.pending ? (
@@ -329,7 +340,7 @@ export function TeamPanel() {
                 disabled={full}
                 aria-invalid={showError || undefined}
                 aria-describedby="team-invite-hint"
-                className={cn("flex-1", showError && "border-[#fca5a5] focus:border-[#f87171]")}
+                className={cn("sm:flex-1", showError && "border-[#fca5a5] focus:border-[#f87171]")}
               />
               {GIVABLE.length > 1 ? (
                 <SelectInput value={role} onChange={(v) => setRole(v as MemberRole)} aria-label="Role" disabled={full} className="sm:w-[140px]">
@@ -358,7 +369,7 @@ export function TeamPanel() {
               const here = data.acting?.creatorId === s.creatorId
               return (
                 <li key={s.creatorId} className="flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2" data-team-store="">
-                  <AppAvatar src={s.avatarUrl} name={s.name} size={36} className="shrink-0 ring-1 ring-[#e5e7eb]" />
+                  <Face src={s.avatarUrl} name={s.name} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{s.name}</p>
                     <p className="truncate text-[13px] text-[#6b7280]">{ROLE_LABEL[s.role]}</p>

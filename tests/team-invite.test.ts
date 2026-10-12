@@ -180,7 +180,7 @@ async function main() {
     check("  then sign in (or create the account) as the invited email, back to the invite", /inviteSignInPath\(/.test(sw) && /readInvite\(createAdminClient\(\), token, null\)/.test(sw))
     const btn = read("components/team/join-actions.tsx")
     check("the button signs out in the browser first (the app's device storage), then posts", /createClient\(\)\.auth\.signOut\(\{ scope: "local" \}\)/.test(btn) && /action="\/api\/team\/join\/switch"/.test(btn) && /form\.current\?\.submit\(\)/.test(btn))
-    check("the old cause is gone: no plain link to /login from the invite", !/href="\/login\?next=/.test(read("app/team/join/page.tsx")) && !/Use another account<\/a>/.test(read("app/api/team/join/route.ts")))
+    check("the old cause is gone: no plain link to /login from the invite", !/href="\/login\?next=/.test(read("components/team/join-card.tsx")) && !/Use another account<\/a>/.test(read("app/api/team/join/route.ts")))
   }
 
   console.log("\nThe invite is a page, and the app opens it")
@@ -189,7 +189,8 @@ async function main() {
     check("'team' is a platform word, never a creator's handle", isReservedRootSegment("team") && (WEB_ONLY_SEGMENTS as readonly string[]).includes("team"))
     check("the iOS app opens invite links (apple-app-site-association)", (APP_PATHS as readonly string[]).includes("/team/join") && opensInApp("/team/join") && !opensInApp("/team"))
     const page = read("app/team/join/page.tsx")
-    check("the page has a card for every state", ["invalid", "gone", "store_gone", "accepted", "expired", "own_store", "seats_full", "signed_out", "wrong_account", "ready"].every((k) => page.includes(`case "${k}":`)))
+    const cards = read("components/team/join-card.tsx")
+    check("the page has a card for every state", /<StateCard state=\{read\.state\}/.test(page) && ["invalid", "gone", "store_gone", "accepted", "expired", "own_store", "seats_full", "signed_out", "wrong_account", "ready"].every((k) => cards.includes(`case "${k}":`)))
     check("  and is never indexed", /robots: \{ index: false/.test(page))
   }
 
