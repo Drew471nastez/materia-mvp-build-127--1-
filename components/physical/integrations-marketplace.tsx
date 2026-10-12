@@ -426,6 +426,7 @@ function GelatoChoices({ state, busy, save }: { state: IntegrationState; busy: b
   )
 }
 
+/* The English name is only the fallback for regionName, which names each country in the dashboard's language. i18n-ignore-start */
 const CJ_FROM = [
   ["CN", "China"],
   ["US", "United States"],
@@ -436,6 +437,7 @@ const CJ_FROM = [
   ["ID", "Indonesia"],
   ["BR", "Brazil"],
 ] as const
+/* i18n-ignore-end */
 
 /** CJ: the warehouse country orders ship from, and the shipping method (the cheapest CJ quotes, or one by name). */
 function CjChoices({ state, busy, save }: { state: IntegrationState; busy: boolean; save: Save }) {

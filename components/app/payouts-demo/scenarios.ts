@@ -63,6 +63,7 @@ const PRODUCTS = [
   { id: "p-samples", get title() { return tt("Techno Samples: Warehouse") }, lei: 45 },
 ]
 
+/* People's names stay as they are. i18n-ignore-start */
 const BUYERS: Array<[string, string]> = [
   ["Maria", "Popescu"],
   ["Jonas", "Weber"],
@@ -73,6 +74,7 @@ const BUYERS: Array<[string, string]> = [
   ["Ioana", "Stan"],
   ["Noah", "Fischer"],
 ]
+/* i18n-ignore-end */
 
 export interface DemoOrder {
   id: string

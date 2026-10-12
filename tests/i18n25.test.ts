@@ -20,7 +20,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { execFileSync } from "node:child_process"
-import { formatMessage, humanizeKey, makeTt, LOCALE_TAG, msg } from "../lib/i18n/text"
+import { formatMessage, humanizeKey, makeTt, LOCALE_TAG, msg, setCatalog, tt, ttx } from "../lib/i18n/text"
 import { getTranslation, translations, LANGUAGES } from "../lib/i18n/translations"
 import { instantAt, wallClockIn, zoned } from "../lib/i18n/format"
 
@@ -71,6 +71,12 @@ console.log("\nA missing word reads in English, a missing key as words, never as
   check("a dot key no dictionary has reads as words", humanizeKey("settings.saveChanges") === "Save changes" && humanizeKey("nav.upgrade_to_pro") === "Upgrade to pro")
   check("getTranslation never returns a key", getTranslation("pl", "settings.title") === "Ustawienia" && getTranslation("xx", "settings.title") === "Settings" && !/\./.test(getTranslation("pl", "no.such.key" as never)))
   check("msg() marks a sentence and returns it unchanged", msg("Lifetime access") === "Lifetime access")
+  /* One English word, two meanings: "Left" the side and "Left" someone who went. */
+  setCatalog("de", catalogs.de)
+  check("a word with two meanings is told apart by its context", tt("Left") === "Links" && ttx("person", "Left") === "Ausgetreten", [tt("Left"), ttx("person", "Left")])
+  setCatalog("de", {})
+  check("a context with no words yet reads in English, never the other meaning", ttx("person", "Left") === "Left")
+  setCatalog("en", {})
   const ctx = read("lib/i18n/context.tsx")
   check("the provider fetches the language's words before it draws /app", /void bringWords\(lang\)\.then\(\(\) => \{[\s\S]*?setIsHydrated\(true\)/.test(ctx))
   check("a new choice draws /app again with the new words", /<Fragment key=\{language\}>\{children\}<\/Fragment>/.test(ctx) && /void bringWords\(next\)\.then\(\(\) => setLanguageState\(next\)\)/.test(ctx))
@@ -93,7 +99,8 @@ console.log("\nPlurals, numbers and choices\n")
 
 console.log("\nEvery catalog keeps the sentence's placeholders\n")
 {
-  const names = (s: string) => [...s.matchAll(/\{\s*([A-Za-z_]\w*)\s*(?:[,}])/g)].map((m) => m[1]).sort().filter((v, i, a) => a.indexOf(v) === i).join(",")
+  /* A word inside a plural branch ("one {rate}") is wording, not a value. */
+  const names = (s: string) => [...s.matchAll(/(?<![,}]\s*(?:zero|one|two|few|many|other|=\d+)\s*)\{\s*([A-Za-z_]\w*)\s*(?:[,}])/g)].map((m) => m[1]).sort().filter((v, i, a) => a.indexOf(v) === i).join(",")
   for (const code of LANGS) {
     const bad = Object.entries(catalogs[code]).filter(([en, tr]) => names(en) !== names(tr))
     const empty = Object.entries(catalogs[code]).filter(([, tr]) => !tr || !tr.trim())

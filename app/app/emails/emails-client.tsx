@@ -402,7 +402,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     for (const key of ALL_EMAIL_LISTS) write<CampaignRow[]>(key, (prev) => (prev ?? []).filter((c) => c.id !== id))
     write<SentData | undefined>(keyFor("published"), (prev) => (prev ? { ...prev, campaigns: prev.campaigns.filter((c) => c.id !== id) } : prev))
     refreshCampaignLists()
-    return "Email deleted"
+    return tt("Email deleted")
   }
 
   const onEmailAction = async (id: string, action: EmailAction): Promise<string | null> => {
@@ -426,7 +426,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
         return duplicate(id)
       case "delete": {
         const message = await deleteCampaign(id)
-        if (message === "Email deleted") onBack()
+        if (message === tt("Email deleted")) onBack()
         return message
       }
       case "test":

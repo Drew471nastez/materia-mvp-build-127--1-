@@ -84,7 +84,7 @@ import { Reveal } from "@/components/physical/ui"
 import { currencyMark, formatStoreMoney, markInset } from "@/lib/store/currency"
 import { StoreCurrencyProvider } from "@/lib/store/currency-context"
 import { ReadinessNote } from "@/components/physical/readiness-banner"
-import { tt } from "@/lib/i18n/text"
+import { msg, tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
 /*
@@ -2004,16 +2004,16 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     nothing saved.
   */
   const saveState = saveBusy
-    ? tt("Saving")
+    ? msg("Saving")
     : hasUnsavedChanges
-      ? "Unsaved changes"
+      ? msg("Unsaved changes")
       : !productId
-        ? tt("Not saved yet")
+        ? msg("Not saved yet")
         : savedThisVisit
-          ? tt("Saved")
+          ? msg("Saved")
           : isPublished
-            ? "Live"
-            : "Draft"
+            ? msg("Live")
+            : msg("Draft")
 
   /* Live and paid, with nowhere to take the money yet: the status says so, and where. */
   const sellsForMoney = payWhatYouWant || (Number.parseFloat(price) || 0) > 0
@@ -2044,7 +2044,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const statusBadge = productId ? (
     <StatusBadge tone={isPublished ? "success" : "neutral"}>
       <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isPublished ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
-      {isPublished ? "Live" : "Draft"}
+      {isPublished ? tt("Live") : tt("Draft")}
     </StatusBadge>
   ) : null
 
@@ -3611,7 +3611,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 saveState === "Live" ? "bg-[#22a06b]" : saveState === "Draft" ? "bg-[#e0a100]" : saveState === "Unsaved changes" ? "bg-[#8b5cf6]" : "bg-[#b6bac1]",
               )}
             />
-            <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{saveState}</span>
+            <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{tt(saveState)}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />

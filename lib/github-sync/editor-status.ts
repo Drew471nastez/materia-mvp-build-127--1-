@@ -143,8 +143,6 @@ function checkerWords(path: string, error: string): string | null {
   return t ? t : null
 }
 
-const ONE_OF_OURS = "Storelib's"
-
 function fileCopy(kind: FileProblemKind, line: number | null): { title: string; fix: string; showDetail: boolean } {
   switch (kind) {
     case "invalid":
@@ -154,7 +152,7 @@ function fileCopy(kind: FileProblemKind, line: number | null): { title: string; 
     case "wrong-kind":
       return { title: tt("Not in this theme's format"), fix: tt("Copy the first line and the settings layout from another file in the same folder, then push again."), showDetail: false }
     case "built-in":
-      return { title: line ? tt("Has a mistake on line {line}", { line }) : tt("Changes one of {oneOfOurs} sections in a way it can't use", { oneOfOurs: ONE_OF_OURS }), fix: tt("Fix it on GitHub, or put back {oneOfOurs} version.", { oneOfOurs: ONE_OF_OURS }), showDetail: true }
+      return { title: line ? tt("Has a mistake on line {line}", { line }) : tt("Changes one of Storelib's sections in a way it can't use"), fix: tt("Fix it on GitHub, or put back Storelib's version."), showDetail: true }
     case "theme-settings":
       return { title: tt("Its settings came with the theme and can't change here"), fix: tt("Change the rest of the file, or put back the version your site has."), showDetail: false }
     case "binary":

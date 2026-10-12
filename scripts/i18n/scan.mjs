@@ -148,6 +148,26 @@ export function jsxTextValue(raw) {
 const hasLetter = (s) => /\p{L}/u.test(s)
 
 /**
+ * Values that hold letters but are never words, even with a capital:
+ * font stacks, CSS filters and transitions, SVG keywords, cookie
+ * attributes, inline scripts, query pairs and tag selectors.
+ */
+export function isNeverWords(raw) {
+  const s = raw.trim()
+  if (/,/.test(s) && /(^|,)\s*["']?(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace)["']?\s*$/.test(s)) return true
+  if (/^x(Min|Mid|Max)Y(Min|Mid|Max)( (slice|meet))?$/.test(s)) return true
+  if (/^(brightness|contrast|saturate|grayscale|sepia|hue-rotate|invert|opacity|path)\(/.test(s)) return true
+  /* A transition list: "background-color {ease}, box-shadow {ease}" (x where a value was). */
+  if (/^[a-z]+(-[a-z]+)+ (\{\w+\}|x)(, [a-z]+(-[a-z]+)* (\{\w+\}|x))*$/.test(s)) return true
+  if (/^(layout|paint|style|size|strict|content|inline-size)( (layout|paint|style|size|inline-size))*$/.test(s)) return true
+  if (/^;\s*[A-Z][\w-]*(=|$)/.test(s)) return true
+  if (/^\w+=[\w,-]*$/.test(s)) return true
+  if (/^(table|thead|tbody|tfoot|tr|th|td|div|span|li|ul|ol|button|input|svg|img)( [a-z]+)+$/.test(s)) return true
+  if (/\btry\s*\{|\bcatch\s*\(|\bdocument\.\w+/.test(s)) return true
+  return false
+}
+
+/**
  * A string in code is words when it is shaped like a sentence or a label a
  * person reads, and not a class list, a path, a key, a format or a code.
  */
@@ -155,6 +175,7 @@ export function looksLikeWords(raw) {
   const s = raw.trim()
   if (!s || !hasLetter(s)) return false
   if (s.length > 600) return false
+  if (isNeverWords(s)) return false
   /* Markup, SVG path data, data URLs, CSS selectors. */
   if (/^\s*</.test(s) && />\s*$/.test(s)) return false
   if (/^[MmLlHhVvCcSsQqTtAaZz][\d\s.,MmLlHhVvCcSsQqTtAaZz-]*$/.test(s) && /\d/.test(s)) return false
@@ -230,7 +251,7 @@ const TECH_CALL = /^(cn|clsx|cx|twMerge|classNames|cva|console\.\w+|require|impo
 const TECH_METHOD = /^(get|set|has|delete|append|getAll|includes|startsWith|endsWith|indexOf|split|replace|replaceAll|match|test|search|padStart|padEnd|join|toLowerCase|toUpperCase|localeCompare|lastIndexOf|from|select|eq|neq|in|is|order|or|not|filter|match|ilike|like|gte|lte|gt|lt|contains|rpc|upload|download|remove|createSignedUrl|getPublicUrl|channel|on|subscribe|push|replace|prefetch|refresh|redirect|pushState|replaceState|postMessage|matchMedia|toLocaleString|toLocaleDateString|toLocaleTimeString|format|formatToParts|of|animate|scrollTo|scrollIntoView|focus|createElement|createTextNode|insertAdjacentHTML|setProperty|getPropertyValue|removeProperty|add|toggle|contains|item|key|call|apply|bind|emit|send|track|capture|identify|log|warn|debug|trace|mark|measure|getEntriesByName|observe|unobserve|disconnect|then|catch|finally|resolve|reject|stringify|parse|assign|keys|values|entries|freeze|defineProperty)$/
 
 /** Bindings that are themselves translations, so nothing inside is reported. */
-const TRANSLATED_CALL = /^(tt|msg|t|getT|getServerT|getTranslation|translate|tn|tp)$/
+const TRANSLATED_CALL = /^(tt|ttx|msg|t|getT|getServerT|getTranslation|translate|tn|tp)$/
 
 function calleeName(expr) {
   if (ts.isIdentifier(expr)) return expr.text
@@ -306,7 +327,7 @@ function positionOf(node, sf) {
   if (ts.isPropertyAssignment(parent) && parent.initializer === child) {
     const n = propName(parent.name)
     if (USER_PROP.test(n)) return "prop"
-    if (/^(id|key|value|href|src|type|kind|slug|path|url|icon|className|class|tone|variant|color|tab|section|code|event|name|field|column|status|state|mode|format|unit|currency|locale|timeZone|role|method|route|as|target|rel|ref)$/.test(n)) return null
+    if (/^(id|key|value|href|src|type|kind|slug|path|url|icon|className|class|tone|variant|color|tab|section|code|event|name|field|column|status|state|mode|format|unit|currency|locale|timeZone|role|method|route|as|target|rel|ref|group)$/.test(n)) return null
     return "code"
   }
   if (ts.isCallExpression(parent) || ts.isNewExpression(parent)) {
@@ -570,8 +591,13 @@ export function scanSource(sourceText, fileName = "file.tsx") {
   const lines = sourceText.split("\n")
   const ignoredLines = new Set()
   let fileIgnored = false
+  let inBlock = false
   lines.forEach((l, i) => {
     if (/i18n-ignore-file/.test(l)) fileIgnored = true
+    /* i18n-ignore-start ... i18n-ignore-end: a list of names or fallbacks, not words. */
+    if (/i18n-ignore-start/.test(l)) inBlock = true
+    if (/i18n-ignore-end/.test(l)) inBlock = false
+    if (inBlock) ignoredLines.add(i)
     if (/i18n-ignore-next-line/.test(l)) ignoredLines.add(i + 1)
     if (/i18n-ignore(?!-)/.test(l)) ignoredLines.add(i)
   })
@@ -658,8 +684,10 @@ export function scanSource(sourceText, fileName = "file.tsx") {
         const trimmed = text.trim()
         const words = looksLikeWords(text)
         const strong = pos === "attr" || pos === "jsx-expr" || pos === "call" || pos === "prop"
-        const capitalised = hasLetter(trimmed) && /^[A-Z]/.test(trimmed) && !NEVER_TRANSLATED.has(trimmed) && !/^[A-Z0-9_]+$/.test(trimmed) && !/^[A-Z][a-z]+[A-Z]\w*$/.test(trimmed) && !/^[A-Z][\w-]*\/[\w./-]+$/.test(trimmed)
-        if (strong ? words || capitalised : words) {
+        const capitalised = hasLetter(trimmed) && !isNeverWords(trimmed) && /^[A-Z]/.test(trimmed) && !NEVER_TRANSLATED.has(trimmed) && !/^[A-Z0-9_]+$/.test(trimmed) && !/^[A-Z][a-z]+[A-Z]\w*$/.test(trimmed) && !/^[A-Z][\w-]*\/[\w./-]+$/.test(trimmed)
+        /* new Error("no blob"): a marker for the log or a catch, short and in lower case; what a person reads starts with a capital. */
+        const marker = pos === "error" && /^[a-z][a-z ]*$/.test(trimmed) && trimmed.split(" ").length <= 3
+        if (!marker && (strong ? words || capitalised : words)) {
           push({ kind: pos === "attr?" ? "attr" : pos, text: text.replace(/\s*\n\s*/g, " "), node, start: node.getStart(sf), end: node.getEnd(), translated: false })
         }
       }
@@ -674,7 +702,12 @@ export function scanSource(sourceText, fileName = "file.tsx") {
         }
       }
     }
-    if (ts.isCallExpression(node) && TRANSLATED_CALL.test(calleeName(node.expression)) && node.arguments[0] && (ts.isStringLiteral(node.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))) {
+    /* ttx("person", "Left"): the catalogs' key is "person::Left". */
+    const isText = (a) => a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a))
+    if (ts.isCallExpression(node) && calleeName(node.expression) === "ttx" && isText(node.arguments[0]) && isText(node.arguments[1])) {
+      const key = `${node.arguments[0].text}::${node.arguments[1].text}`
+      push({ kind: "tt", call: "ttx", key, text: key, node, start: node.getStart(sf), end: node.getEnd(), translated: true })
+    } else if (ts.isCallExpression(node) && TRANSLATED_CALL.test(calleeName(node.expression)) && node.arguments[0] && (ts.isStringLiteral(node.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))) {
       const name = calleeName(node.expression)
       push({ kind: name === "tt" || name === "msg" ? "tt" : "key", call: name, key: node.arguments[0].text, text: node.arguments[0].text, node, start: node.getStart(sf), end: node.getEnd(), translated: true })
     }

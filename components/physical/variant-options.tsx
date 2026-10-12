@@ -52,6 +52,7 @@ export interface OptionDraft {
 }
 
 /** The names most products use, offered as the name field is typed; any other name is fine. */
+/* Saved as the option's name, which buyers read and isColorOption() matches, so they stay English here (for V25: option labels on the storefront). i18n-ignore-next-line */
 export const OPTION_NAMES = ["Size", "Color", "Material", "Style", "Pattern", "Scent", "Flavor", "Length", "Fit", "Finish"]
 
 /** The options most products have, with their usual values to keep or remove. */

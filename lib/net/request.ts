@@ -32,6 +32,7 @@
 import { perfFail, perfStep } from "@/lib/perf/mark"
 import { SLOW_REQUEST_MS, type StepRoute } from "@/lib/perf/config"
 import { classify } from "@/lib/perf/routes"
+import { msg } from "@/lib/i18n/text"
 
 function netRoute(): StepRoute | null {
   try {
@@ -81,13 +82,14 @@ export type JsonResult<T> = {
 }
 
 /** What a person reads for each kind, when the server gave no words of its own. */
+/* Marked with msg(): the dashboard shows them through tt(); checkout and other buyer pages read them as they are. */
 export const FAIL_COPY: Record<FailKind, string> = {
-  offline: "You're offline. Check your connection and try again.",
-  timeout: "That took too long. Check your connection and try again.",
-  network: "The connection dropped. Try again.",
-  auth: "Sign in again to do that.",
-  refused: "Something went wrong. Try again.",
-  server: "Something went wrong on our side. Try again in a moment.",
+  offline: msg("You're offline. Check your connection and try again."),
+  timeout: msg("That took too long. Check your connection and try again."),
+  network: msg("The connection dropped. Try again."),
+  auth: msg("Sign in again to do that."),
+  refused: msg("Something went wrong. Try again."),
+  server: msg("Something went wrong on our side. Try again in a moment."),
 }
 
 export function kindOfStatus(status: number): FailKind | undefined {

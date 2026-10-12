@@ -525,7 +525,7 @@ function SubscriberStatus({ s }: { s: SubscriberRow }) {
 
 /** The Status filter's groups: a customer is its own, bounced and spam go with the ones who left. */
 const STATUS_GROUPS: Array<{ value: string; label: string; match: (status: string) => boolean }> = [
-  { value: "subscribed", label: "Subscribed", match: (s) => s === "subscribed" },
+  { value: "subscribed", get label() { return tt("Subscribed") }, match: (s) => s === "subscribed" },
   { value: "customer", get label() { return tt("Customers") }, match: (s) => s === "customer" },
   /* People who wrote through a website's contact form and did not ask for news. */
   { value: "wrote", get label() { return tt("Wrote to you") }, match: (s) => s === "wrote" },

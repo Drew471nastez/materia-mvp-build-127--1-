@@ -99,6 +99,17 @@ export function tt(source: string, vars?: Vars): string {
 }
 
 /**
+ * One English word with two meanings: ttx("person", "Left") is someone who
+ * left, tt("Left") the side. The catalogs hold it as "person::Left"; a
+ * language without it shows the English word, never the other meaning.
+ */
+export function ttx(context: string, source: string, vars?: Vars): string {
+  const template = (active && active !== "en" && catalog[`${context}::${source}`]) || source
+  if (!vars && template.indexOf("{") === -1) return template
+  return formatMessage(template, vars ?? {}, activeLocale())
+}
+
+/**
  * A sentence kept in a constant and translated where it is shown, with
  * tt(value): msg() only marks it, so the catalogs and scripts/check-i18n.mjs
  * know it, and returns it unchanged (its literal type too, for `as const`

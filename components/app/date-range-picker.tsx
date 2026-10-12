@@ -652,7 +652,7 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
             }}
           />
           <DateBox
-            label="End"
+            label={tt("End")}
             compact={compact}
             value={draft.end}
             onCommit={(v) => {

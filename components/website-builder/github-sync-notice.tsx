@@ -257,7 +257,7 @@ export function SyncNotice({
       tone: "info",
       title: tt("{n, plural, one {# file} other {# files}} updated from GitHub", { n }),
       body: live ? tt("Publish to make them live.") : tt("They're saved in your draft."),
-      primary: live ? { label: "Publish", run: onPublish } : null,
+      primary: live ? { label: tt("Publish"), run: onPublish } : null,
       details: r.takenNames.length > 0 || r.notes.length > 0,
     }
   } else if (agentNote && unpublished) {
@@ -266,7 +266,7 @@ export function SyncNotice({
       tone: "info",
       title: tt("{count, plural, one {# change} other {# changes}} from {who}", { count: agentNote.count, who: agentNote.who }),
       body: live ? tt("Publish to make them live.") : tt("They're saved in your draft."),
-      primary: live ? { label: "Publish", run: onPublish } : null,
+      primary: live ? { label: tt("Publish"), run: onPublish } : null,
       details: false,
     }
   } else if (r?.ignored && later(r.ignored.at, r.at) && !seen.includes(`ignored|${r.ignored.at}`)) {
@@ -360,7 +360,7 @@ export function SyncNotice({
             )}
             {s.primary && (
               <button type="button" onClick={s.primary.run} disabled={busy !== null} className={primaryBtn}>
-                {busy && s.primary.label !== "Publish" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : s.primary.label}
+                {busy && s.primary.label !== tt("Publish") ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : s.primary.label}
               </button>
             )}
             <button
@@ -390,9 +390,9 @@ export function SyncNotice({
           <div className="max-h-[min(50vh,420px)] overflow-y-auto overscroll-contain">{list}</div>
           {errorLine}
           {footer}
-          {s.primary?.label === "Publish" && (
+          {s.primary?.label === tt("Publish") && (
             <div className="flex justify-end border-t border-[#eceef1] px-3.5 py-3">
-              <ActionButton label="Publish" onClick={s.primary.run} primary />
+              <ActionButton label={tt("Publish")} onClick={s.primary.run} primary />
             </div>
           )}
         </div>
@@ -420,9 +420,9 @@ export function SyncNotice({
             {list}
             {errorLine}
             {footer}
-            {s.primary?.label === "Publish" && (
+            {s.primary?.label === tt("Publish") && (
               <div className="border-t border-[#eceef1] px-4 py-3">
-                <ActionButton label="Publish" onClick={() => { setOpen(false); s.primary!.run() }} primary wide />
+                <ActionButton label={tt("Publish")} onClick={() => { setOpen(false); s.primary!.run() }} primary wide />
               </div>
             )}
           </div>

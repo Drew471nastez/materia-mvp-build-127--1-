@@ -686,7 +686,7 @@ export function DigitalFiles({
     <div data-file-drop="" data-dragging={dragging ? "" : undefined} {...dragProps} className="relative mt-3">
       {input}
       <ul
-        aria-label="Files"
+        aria-label={tt("Files")}
         data-file-list=""
         className={cn(
           "divide-y divide-[#eef0f2] overflow-hidden rounded-xl border bg-white transition-colors duration-150",

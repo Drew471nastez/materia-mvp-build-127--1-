@@ -190,13 +190,14 @@ export function SaveButton({
   onSave: () => void
 }) {
   const busy = phase !== "idle"
-  const word = !busy && disabled && saved ? "Saved" : tt("Save")
+  const showsSaved = !busy && disabled && Boolean(saved)
+  const word = showsSaved ? tt("Saved") : tt("Save")
   return (
     <button
       type="button"
       data-save-button=""
       data-phase={phase}
-      data-saved={word === "Saved" ? "" : undefined}
+      data-saved={showsSaved ? "" : undefined}
       onClick={() => {
         if (!busy) onSave()
       }}
@@ -212,8 +213,10 @@ export function SaveButton({
         busy && "cursor-default hover:bg-[#8b5cf6] active:bg-[#8b5cf6] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
       )}
     >
-      {/* The word, over an unseen "Saved" that holds the width. */}
-      <span className="grid after:invisible after:col-start-1 after:row-start-1 after:content-['Saved']">
+      {/* The word, over an unseen Save and Saved that hold the width in every language. */}
+      <span className="grid">
+        <span aria-hidden className="invisible col-start-1 row-start-1">{tt("Save")}</span>
+        <span aria-hidden className="invisible col-start-1 row-start-1">{tt("Saved")}</span>
         <span className={cn("col-start-1 row-start-1 text-center", busy && "opacity-0")}>{word}</span>
       </span>
       {phase === "saving" ? (

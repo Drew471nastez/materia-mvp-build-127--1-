@@ -84,6 +84,7 @@ const SAMPLE_LINES: EmailLine[] = [
 ]
 const SAMPLE_ADDRESS = { name: "Maria Popescu", get line1() { return tt("Strada Lipscani 12") }, get line2() { return tt("Ap. 4") }, get city() { return tt("Bucharest") }, postalCode: "030031", country: "RO" }
 const STATUS = "https://storelib.com/checkout/physical/order/preview"
+/* Inside the customer email, which writes in the store's language, not the dashboard's. i18n-ignore-next-line */
 export const SAMPLE_DATE = "10 October 2026"
 
 /**

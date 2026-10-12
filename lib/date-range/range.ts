@@ -272,8 +272,10 @@ export function compareBounds(r: DateRange, c: CompareValue, timeZone: string, n
 
 /* ── words ─────────────────────────────────────────────────────────────── */
 
+/* English fallbacks for a browser without Intl; monthName() asks Intl first. i18n-ignore-start */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+/* i18n-ignore-end */
 
 /** A month's name in the dashboard's language ("Oct", "octubre", "paź"). */
 export function monthName(m: number, long = false): string {

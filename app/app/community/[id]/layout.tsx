@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityHead, creatorCommunityPage } from "@/lib/communities/server/creator"
 import { CommunityShell } from "@/components/community/creator/community-shell"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 
@@ -11,7 +12,9 @@ type Props = { params: Promise<{ id: string }>; children: React.ReactNode }
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const ctx = (await communitiesEnabled()) ? await creatorCommunityPage(id) : null
-  return { title: ctx && ctx !== "no-session" ? ctx.community.name : "Community" }
+  if (ctx && ctx !== "no-session") return { title: ctx.community.name }
+  const { tt } = await getServerTt()
+  return { title: tt("Community") }
 }
 
 /**

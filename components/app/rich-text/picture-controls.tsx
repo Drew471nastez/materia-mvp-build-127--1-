@@ -63,10 +63,10 @@ import { tt } from "@/lib/i18n/text"
 export type PictureAlign = "left" | "center" | "right"
 
 const SIZES: Array<{ label: string; pct: number; name: string }> = [
-  { label: "S", pct: 33, name: "Small, a third of the width" },
-  { label: "M", pct: 50, name: "Medium, half the width" },
-  { label: "L", pct: 75, name: "Large, three quarters of the width" },
-  { label: "Full", pct: 100, name: "Full width" },
+  { label: "S", pct: 33, get name() { return tt("Small, a third of the width") } },
+  { label: "M", pct: 50, get name() { return tt("Medium, half the width") } },
+  { label: "L", pct: 75, get name() { return tt("Large, three quarters of the width") } },
+  { get label() { return tt("Full") }, pct: 100, get name() { return tt("Full width") } },
 ]
 
 const RATIOS: Array<{ label: string; value: string | null; w: number; h: number }> = [
@@ -78,9 +78,9 @@ const RATIOS: Array<{ label: string; value: string | null; w: number; h: number 
 ]
 
 const PLACES: Array<{ value: PictureAlign; name: string; icon: typeof AlignLeft }> = [
-  { value: "left", name: "Left", icon: AlignLeft },
-  { value: "center", name: "Centre", icon: AlignCenter },
-  { value: "right", name: "Right", icon: AlignRight },
+  { value: "left", get name() { return tt("Left") }, icon: AlignLeft },
+  { value: "center", get name() { return tt("Centre") }, icon: AlignCenter },
+  { value: "right", get name() { return tt("Right") }, icon: AlignRight },
 ]
 
 /** One curve for everything here that comes and goes. */

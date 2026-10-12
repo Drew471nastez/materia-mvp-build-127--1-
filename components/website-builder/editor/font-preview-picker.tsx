@@ -27,7 +27,8 @@ import { FieldPopover } from "@/components/website-builder/field-popover"
 import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
 import { tt } from "@/lib/i18n/text"
 
-const SAMPLE = "The quick brown fox"
+/** The line each family is drawn in, in the dashboard language. */
+const sample = () => tt("The quick brown fox")
 
 /** How each offered family reads, for the line beside its name. */
 const KIND: Record<string, string> = {
@@ -58,7 +59,7 @@ function loadPreviews(extra: string[]) {
   previewsLoaded = true
   const families = [...new Set([...OFFERED_FAMILIES, ...extra.filter((f) => OFFERED_FAMILIES.has(f))])]
   if (!families.length) return
-  const letters = [...new Set([...families.join(""), ...SAMPLE, ..."Aa"])].join("")
+  const letters = [...new Set([...families.join(""), ...sample(), ..."The quick brown fox", ..."Aa"])].join("")
   const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@500`).join("&")
   const link = document.createElement("link")
   link.rel = "stylesheet"
@@ -178,7 +179,7 @@ export function FontPreviewPicker({
                     {o.label}
                   </span>
                   <span className="block truncate text-[12.5px] leading-5 text-muted-foreground" style={{ fontFamily: faceOf(o.value) }}>
-                    {o.value ? SAMPLE : o.label}
+                    {o.value ? sample() : o.label}
                   </span>
                 </span>
                 {o.value && KIND[familyOf(o.value)] ? <span className="shrink-0 text-[11px] text-muted-foreground">{KIND[familyOf(o.value)]}</span> : null}

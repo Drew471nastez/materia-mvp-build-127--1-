@@ -353,7 +353,7 @@ const manyAtOnce = () => savePlatform() === "web"
 async function uploadOne(f: File, onProgress: (p: number) => void): Promise<LibraryFile> {
   if (isVideoFile(f)) {
     const v = await uploadVideo(f, "files", onProgress)
-    return { id: `store-builder-images:${v.path}`, bucket: "store-builder-images", path: v.path, name: v.path.split("/").pop() ?? f.name, url: v.url, bytes: v.bytes, type: v.type, createdAt: new Date().toISOString(), source: "Library", poster: v.poster, duration: v.duration }
+    return { id: `store-builder-images:${v.path}`, bucket: "store-builder-images", path: v.path, name: v.path.split("/").pop() ?? f.name, url: v.url, bytes: v.bytes, type: v.type, createdAt: new Date().toISOString(), source: msg("Library"), poster: v.poster, duration: v.duration }
   }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -364,7 +364,7 @@ async function uploadOne(f: File, onProgress: (p: number) => void): Promise<Libr
   await putObject("store-builder-images", path, body, f.type, onProgress)
   confirmUpload("store-builder-images", path)
   const url = mediaUrl(supabase.storage.from("store-builder-images").getPublicUrl(path).data.publicUrl)
-  return { id: `store-builder-images:${path}`, bucket: "store-builder-images", path, name: path.split("/").pop() ?? f.name, url, bytes: f.size, type: f.type, createdAt: new Date().toISOString(), source: "Library" }
+  return { id: `store-builder-images:${path}`, bucket: "store-builder-images", path, name: path.split("/").pop() ?? f.name, url, bytes: f.size, type: f.type, createdAt: new Date().toISOString(), source: msg("Library") }
 }
 
 /** What is refused before it is sent: the bucket would refuse it after. */
@@ -924,7 +924,7 @@ export function FilesLibrary({
 }) {
   const { files, setFiles, error, load } = useLibraryList(kind)
   const [query, setQuery] = React.useState("")
-  const [source, setSource] = React.useState<Source>("All")
+  const [source, setSource] = React.useState<Source>(msg("All"))
   const [open, setOpen] = React.useState<LibraryFile | null>(null)
   const [confirming, setConfirming] = React.useState<LibraryFile | null>(null)
   const [confirmingMany, setConfirmingMany] = React.useState<LibraryFile[] | null>(null)
@@ -1125,7 +1125,7 @@ export function FilesLibrary({
     Every pill's first screen is fetched ahead (`warmPill`): on idle once the list is in, and at once on a hover or a
     touch of its pill, so the tiles a switch shows are already decoded.
   */
-  const [grid, setGrid] = React.useState<{ source: Source; words: string }>({ source: "All", words: "" })
+  const [grid, setGrid] = React.useState<{ source: Source; words: string }>({ source: msg("All"), words: "" })
   const filesNow = React.useRef(files)
   filesNow.current = files
   const swapGrid = React.useCallback(

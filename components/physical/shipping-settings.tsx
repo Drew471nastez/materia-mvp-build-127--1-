@@ -672,9 +672,13 @@ function ZoneForm({
     /* States of one country: "Canada" when all, "Canada, 3 provinces" when some. */
     if (countries.length === 0 && of.length === 1) {
       const total = regionsOf(of[0]).length
-      return regions.length >= total ? countryName(of[0]) : `${countryName(of[0])}, ${regions.length} ${of[0] === "CA" ? "provinces" : "states"}`
+      return regions.length >= total
+        ? countryName(of[0])
+        : of[0] === "CA"
+          ? tt("{country}, {n, plural, one {# province} other {# provinces}}", { country: countryName(of[0]), n: regions.length })
+          : tt("{country}, {n, plural, one {# state} other {# states}}", { country: countryName(of[0]), n: regions.length })
     }
-    return "Zone"
+    return tt("Zone")
   }
   const statesOf = (cc: string) => regionsOf(cc).map((r) => `${cc}-${r.code}`)
   const freeStates = statesFor ? statesOf(statesFor).filter((k) => !otherRegions.includes(k)) : []
@@ -682,7 +686,7 @@ function ZoneForm({
   return (
     <div className="space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3" data-zone-form="">
       <Field label={tt("Zone name")} hint={tt("Only you see this")}>
-        <TextInput value={name} maxLength={80} placeholder={row ? tt("Rest of world") : defaultName() === "Zone" ? tt("Europe") : defaultName()} onChange={(e) => setName(e.target.value)} />
+        <TextInput value={name} maxLength={80} placeholder={row ? tt("Rest of world") : defaultName() === tt("Zone") ? tt("Europe") : defaultName()} onChange={(e) => setName(e.target.value)} />
       </Field>
       {canRestOfWorld || initial?.restOfWorld ? <Toggle label={tt("Rest of world")} description={tt("Every country not in another zone of this profile. Countries where you picked only some states stay out.")} checked={row} onChange={setRow} disabled={!!initial} /> : null}
       {!row ? <CountryPicker value={countries} onChange={(next) => {

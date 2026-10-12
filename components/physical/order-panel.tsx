@@ -1058,7 +1058,7 @@ function TrackingFields({
           <option value="">{tt("Choose a carrier")}</option>
           {CARRIERS.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {c === "Other" ? tt("Other") : c}
             </option>
           ))}
         </SelectInput>
@@ -1190,7 +1190,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
 }
 
 function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShipment; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
-  const known = CARRIERS.includes(shipment.carrier ?? "") ? (shipment.carrier ?? "") : shipment.carrier ? "Other" : ""
+  const known = CARRIERS.includes(shipment.carrier ?? "") ? (shipment.carrier ?? "") : shipment.carrier ? "Other" : "" // i18n-ignore: the carrier's value, shown through tt()
   const [carrier, setCarrier] = React.useState(known)
   const [other, setOther] = React.useState(known === "Other" ? (shipment.carrier ?? "") : "")
   const [tracking, setTracking] = React.useState(shipment.trackingNumber ?? "")

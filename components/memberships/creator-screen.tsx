@@ -768,7 +768,7 @@ export function CreatorMembershipScreenView({ screen: initial, initialTab, isNew
           <ArrowLeft aria-hidden className="h-[18px] w-[18px]" />
         </Link>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <h1 className="truncate text-[20px] font-bold text-[#1a1a2e] sm:text-[24px]">{screen.product.title || "Membership"}</h1>
+          <h1 className="truncate text-[20px] font-bold text-[#1a1a2e] sm:text-[24px]">{screen.product.title || tt("Membership")}</h1>
           <StatusBadge tone={screen.product.status === "published" ? "success" : "neutral"}>{screen.product.status === "published" ? tt("On sale") : tt("Draft")}</StatusBadge>
         </div>
         {pageHref && screen.product.status === "published" ? (
@@ -780,7 +780,7 @@ export function CreatorMembershipScreenView({ screen: initial, initialTab, isNew
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-10", WIDTH, GUTTER)}>
-        <div role="tablist" aria-label="Membership" className="mb-4 mt-1 flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
+        <div role="tablist" aria-label={tt("Membership")} className="mb-4 mt-1 flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
           {tabs.map((t) => (
             <button
               key={t.value}

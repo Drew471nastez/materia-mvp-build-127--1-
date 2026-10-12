@@ -572,6 +572,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
  * (`continue`), this is sent next, quietly, with the conversation as its memory. MAX_CONTINUES parts at most, so a run
  * that keeps finding more to do still ends, and a press on Stop ends it at once.
  */
+/* Sent to the model, never shown. i18n-ignore-next-line */
 export const CONTINUE_PROMPT = "Continue where you stopped: finish the rest of what I asked, without redoing what is already done."
 export const MAX_CONTINUES = 3
 

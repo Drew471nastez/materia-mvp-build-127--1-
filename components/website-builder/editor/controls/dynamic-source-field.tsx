@@ -228,7 +228,7 @@ export function DynamicSourceField({
 
   /* Up and down move through the list, Home and End to its ends. */
   const onListKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return // i18n-ignore: key names
     const options = Array.from(list.current?.querySelectorAll<HTMLButtonElement>("[role='option']") ?? [])
     if (options.length === 0) return
     e.preventDefault()

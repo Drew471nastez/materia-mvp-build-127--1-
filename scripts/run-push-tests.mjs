@@ -584,6 +584,8 @@ const SUITES = [
   "tests/integrations23.test.ts",
   "tests/marketing24.test.ts",
   "tests/partners24.test.ts",
+  /* Round 25 */
+  "tests/i18n25.test.ts",
 ]
 
 /**

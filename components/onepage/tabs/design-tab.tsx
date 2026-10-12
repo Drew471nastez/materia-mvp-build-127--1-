@@ -2535,7 +2535,7 @@ function HeaderSection() {
             theme.background_type === "image" ? tt("an image wallpaper") :
             theme.background_type === "gradient" ? tt("a gradient wallpaper") :
             theme.background_type === "video" ? tt("a video wallpaper") :
-            (theme as any).background_pattern && (theme as any).background_pattern !== "none" ? "a pattern" : null
+            (theme as any).background_pattern && (theme as any).background_pattern !== "none" ? tt("a pattern") : null
           return (
             <>
               <div className="grid grid-cols-2 gap-3">

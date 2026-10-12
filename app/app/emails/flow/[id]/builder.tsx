@@ -1185,11 +1185,11 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
             [tt("Sent"), s.sent.toLocaleString(appLocale())],
             [tt("Opened"), pct(s.opened, s.sent)],
             [tt("Clicked"), pct(s.clicked, s.sent)],
-            ["Failed", s.failed.toLocaleString(appLocale())],
+            [tt("Failed"), s.failed.toLocaleString(appLocale())],
           ].map(([k, v], n) => (
             <div key={k} className={cn("px-2 py-2", n > 0 && "border-l border-[#eef0f2]")}>
               <dt className="text-[11px] font-medium text-[#6b7280]">{k}</dt>
-              <dd className={cn("text-[14px] font-semibold tabular-nums", k === "Failed" && s.failed > 0 ? "text-[#8a1c0f]" : "text-[#1a1a2e]")}>{v}</dd>
+              <dd className={cn("text-[14px] font-semibold tabular-nums", n === 3 && s.failed > 0 ? "text-[#8a1c0f]" : "text-[#1a1a2e]")}>{v}</dd>
             </div>
           ))}
         </dl>

@@ -38,7 +38,7 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_LEVEL, PROGRAM_SUMMARY_MAX, PROGRAM_TITLE_MAX, centsFromTyped, programPrice, typedFromCents, type ProgramMode, type ProgramStatus } from "@/lib/communities/learn"
 import type { BuilderProgram, LearnBuilderData } from "./model"
 import { StatusPill, learnRequest } from "./builder-parts"
-import { tt } from "@/lib/i18n/text"
+import { msg, tt } from "@/lib/i18n/text"
 
 const CARD = "space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:py-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
@@ -187,7 +187,7 @@ export function ProgramEditor({
     }
   }
 
-  const stateWord = dirty ? tt("Unsaved changes") : saved.status === "published" ? "Published" : "Draft"
+  const stateWord = dirty ? msg("Unsaved changes") : saved.status === "published" ? msg("Published") : msg("Draft")
   const errorFor = (field: string) => (error?.field === field ? error.message : null)
   const levelName = (n: number) => data.levels.find((l) => l.level === n)?.name
   const price = centsFromTyped(form.price)
@@ -353,7 +353,7 @@ export function ProgramEditor({
             {tt("Release")}
           </h3>
           <div className={SWITCH_GROUP}>
-            <SwitchRow title="Published" hint={form.status === "published" ? tt("Members see it under Learn.") : tt("Only you and your team see it.")} checked={form.status === "published"} onChange={(v) => set("status", v ? "published" : "draft")} />
+            <SwitchRow title={tt("Published")} hint={form.status === "published" ? tt("Members see it under Learn.") : tt("Only you and your team see it.")} checked={form.status === "published"} onChange={(v) => set("status", v ? "published" : "draft")} />
           </div>
           <FieldError text={errorFor("status")} />
           {form.mode !== "paid" ? (
@@ -383,7 +383,7 @@ export function ProgramEditor({
         <div className="mx-auto flex h-16 max-w-[880px] items-center justify-between gap-3 px-4 sm:px-5">
           <p data-editor-state={stateWord} className="flex min-w-0 items-center gap-2 text-[14px] leading-5">
             <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", stateWord === "Published" ? "bg-[#22a06b]" : stateWord === "Draft" ? "bg-[#e0a100]" : "bg-[#8b5cf6]")} />
-            <span className={cn("truncate", dirty ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{note ?? stateWord}</span>
+            <span className={cn("truncate", dirty ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{note ?? tt(stateWord)}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <LeaveButton mode={dirty ? "cancel" : "back"} asks={dirty} label={tt("Going back to programs")} onLeave={() => void leave()} />

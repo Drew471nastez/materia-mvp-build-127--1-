@@ -40,7 +40,7 @@ import { sourceView } from "@/lib/contacts/contact-source"
 import { cn } from "@/lib/utils"
 import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import type { SubscriberRow } from "./emails-home"
-import { tt } from "@/lib/i18n/text"
+import { tt, ttx } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 interface RunLite {
@@ -190,7 +190,7 @@ function day(iso?: string | null): string {
 export const RUN_STATUS: Record<string, { label: string; tone: "neutral" | "attention" | "critical" | "success" }> = {
   active: { get label() { return tt("In progress") }, tone: "attention" },
   completed: { get label() { return tt("Finished") }, tone: "success" },
-  exited: { get label() { return tt("Left") }, tone: "neutral" },
+  exited: { get label() { return ttx("person", "Left") }, tone: "neutral" },
   cancelled: { get label() { return tt("Stopped") }, tone: "neutral" },
   failed: { get label() { return tt("Failed") }, tone: "critical" },
 }

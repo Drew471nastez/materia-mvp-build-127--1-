@@ -36,7 +36,7 @@ import { joinCosts, needsInvite } from "@/lib/communities/access-model"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
 import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast } from "./parts"
-import { tt } from "@/lib/i18n/text"
+import { tt, ttx } from "@/lib/i18n/text"
 
 const STATUS_LABEL: Record<MemberStatusFilter, string> = {
   get active() { return tt("Active") },
@@ -47,7 +47,7 @@ const STATUS_LABEL: Record<MemberStatusFilter, string> = {
   get banned() { return tt("Banned") },
   get removed() { return tt("Removed") },
   get expired() { return tt("Expired") },
-  get cancelled() { return tt("Left") },
+  get cancelled() { return ttx("person", "Left") },
 }
 
 /** The views that hold people a moderator took out, where each row carries its undo. */
