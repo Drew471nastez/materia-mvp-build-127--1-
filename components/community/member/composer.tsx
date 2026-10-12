@@ -74,7 +74,7 @@
  * darkening at the edges. The keyboard is the sheet's own way, the same as
  * every working bottom sheet's: the sheet stays down to the foot, white, and
  * its content is lifted by the keyboard's room, which in the iOS app is the
- * decision table's number (visible-box.ts appKeyboardRoom, keyboard-plan.ts)
+ * decision table's number (visible-box.ts sheetKeyboardRoom, keyboard-plan.ts)
  * made in the focus itself, before iOS can pan the page (the page jumping up
  * and glitching when the title was tapped). Round 10's toolbar dock below is
  * no longer used on a phone; the notes are kept for its history.
@@ -143,7 +143,8 @@ import type { ComposerSpace, LinkPreview } from "./view-types"
 import { useComposeRequests } from "@/lib/communities/client/compose-intent"
 import { useLayer } from "@/lib/ui/layers"
 import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
-import { appKeyboardRoom } from "./visible-box"
+import { sheetKeyboardRoom } from "./visible-box"
+import { useCalmFocus } from "./calm-focus"
 import { feedRestore } from "./post-motion"
 
 export interface ComposerProps {
@@ -414,6 +415,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const awayRef = useRef(away)
   awayRef.current = away
   const [sheetIn, setSheetIn] = useState(false)
+  const sheetInRef = useRef(false)
+  sheetInRef.current = sheetIn
   /*
     THE SCREEN FIRST, ITS FIELDS ON THE NEXT FRAME (round 15, the owner: "quicker to appear"). The tap drew the whole editor
     (the fields, the mentions, the emoji and GIF tools, the space picker) before the screen could move: one task of 140 to
@@ -460,6 +463,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   /* The fold (the posts' slide, the card's edge, the crossfade), held at its end until the closed card is drawn. */
   const held = useRef<Animation[]>([])
   const leaving = useRef(false)
+  /* The phone's sheet has landed down: what shut() does then (onMoved). */
+  const landedDown = useRef<(() => void) | null>(null)
   /* Cancel or Leave: what was written is cleared once the card has closed, never while it is still on screen. */
   const clearAfter = useRef(false)
   const openRef = useRef(false)
@@ -747,14 +752,17 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     if (phone) {
       /*
         DOWN ON THE WEBSITE BUILDER'S SHEET (round 17): the sheet's own close, over its own time. The field lets go of the
-        caret now, so the keyboard goes down with the sheet; the feed is put back first, under the covering sheet.
+        caret now, so the keyboard goes down with the sheet (which holds its content still while it closes, round 25); the
+        feed is put back first, under the covering sheet. ROUND 25: done when the sheet says it has landed (onMoved), not
+        after a guess at its time; the timer is only for a tab in the background.
       */
       const active = document.activeElement as HTMLElement | null
       if (active && el.contains(active)) active.blur()
       const back = notedScroll.current === null ? null : feedRestore(notedScroll.current, window.scrollY)
       if (back !== null) window.scrollTo({ top: back, behavior: "instant" as ScrollBehavior })
+      landedDown.current = finish
       setSheetUp(false)
-      window.setTimeout(finish, sheetMoveMs() + 40)
+      window.setTimeout(finish, sheetMoveMs() + 400)
       return
     }
     /* The page keeps its scroll as the editor folds (the browser would otherwise move it to follow a post on screen). */
@@ -839,18 +847,24 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     const shell = document.querySelector<HTMLElement>("[data-community-shell]")
     shell?.setAttribute("data-sheet-over", "")
     setFilled(true)
-    setSheetUp(true)
-    const t = window.setTimeout(
-      () => {
-        if (leaving.current) return
-        setSheetIn(true)
-        /* On the frame after, so the fields are drawn before the caret goes in. */
-        requestAnimationFrame(focusFirst)
-      },
-      reducedMotion() ? 0 : sheetMoveMs(),
-    )
+    /*
+      ROUND 25: PREPARED BEFORE IT RISES. The sheet is primed (drawn at its stop, unseen): the fields are laid out and
+      painted in it first (a frame for the sheet to mount them, a task for React, a frame for their paint), and only then is
+      it raised, so the rise has nothing else to draw. The caret goes in once it has landed (onMoved), not after a guess at
+      its time.
+    */
+    let raf = 0
+    let task = 0
+    raf = requestAnimationFrame(() => {
+      task = window.setTimeout(() => {
+        raf = requestAnimationFrame(() => {
+          if (!leaving.current) setSheetUp(true)
+        })
+      }, 0)
+    })
     return () => {
-      window.clearTimeout(t)
+      cancelAnimationFrame(raf)
+      window.clearTimeout(task)
       html.style.overscrollBehavior = prev
       shell?.removeAttribute("data-sheet-over")
     }
@@ -904,8 +918,28 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   /* The field being typed in stays in sight when the visible part changes (keep-in-sight.ts). */
   useKeepFieldInSight(sheet, () => scrollRef.current)
-  /* The keyboard's room in the iOS app, for the sheet to make in the focus itself (keyboard-plan.ts). */
-  const keyboardRoom = useCallback(() => appKeyboardRoom(sheetRef.current), [])
+  /* A tap into an empty field on iOS: focused the way focusFirst does, so iOS does not scroll the page to it (calm-focus.ts). */
+  const sheetScope = useCallback(() => sheetRef.current, [])
+  useCalmFocus(sheet, sheetScope)
+  /* The keyboard's room on iOS, for the sheet to make in the focus itself (visible-box.ts sheetKeyboardRoom). */
+  const keyboardRoom = useCallback(() => sheetKeyboardRoom(sheetRef.current), [])
+  /* The sheet has landed: up, the caret goes in (on the frame after, so nothing is drawn under the keyboard's rise); down, shut() ends. */
+  const onSheetMoved = useCallback(
+    (up: boolean) => {
+      if (up) {
+        /* Its first arrival only: a pull let go short of closing lands up too, and must not bring the keyboard. */
+        if (leaving.current || sheetInRef.current) return
+        sheetInRef.current = true
+        setSheetIn(true)
+        requestAnimationFrame(focusFirst)
+        return
+      }
+      const then = landedDown.current
+      landedDown.current = null
+      then?.()
+    },
+    [focusFirst],
+  )
 
   /* Edit post: the change sent, the check shown, the editor folded, then the post as it now is handed back. */
   const save = async () => {
@@ -1313,6 +1347,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           holdPage="scroll"
           keyboard="sheet"
           keyboardRoom={keyboardRoom}
+          primed
+          onMoved={onSheetMoved}
+          label={editing ? "Edit post" : "New post"}
           className="bg-white [--wb-sheet-skirt:#fff]"
         >
           <div
