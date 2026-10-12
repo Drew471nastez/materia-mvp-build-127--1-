@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { MODEL_LOCATION, ensureDefaultLocation, ensureDefaultProfile, loadSettings, saveSettings } from "@/lib/physical/config-server"
 import { FULFILLMENT_MODELS, type FulfillmentModel } from "@/lib/physical/types"
 import { emit } from "@/lib/notify/outbox"
@@ -25,5 +26,6 @@ export async function POST(request: Request) {
   await ensureDefaultProfile(c.db, c.creatorId)
   /* Selling things that ship has begun: the reminders that follow it up if the store is still not ready in two days (lib/notify/workflows/unfinished.ts). Once per store, whatever is answered after. */
   await emit({ name: "physical_setup.started", key: `physical_setup.started:${c.creatorId}`, userId: c.userId, creatorId: c.creatorId, entityType: "creator", entityId: c.creatorId, payload: { model } }, { db: c.db }).catch(() => undefined)
+  readinessChanged(c)
   return physicalJson({ settings: await loadSettings(c.db, c.creatorId) })
 }

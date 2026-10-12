@@ -307,6 +307,8 @@ export interface NotifyStore {
    * test need not have it; null when it could not be read.
    */
   physicalSetup?(creatorId: string): Promise<{ steps: { id: string; label: string; href: string; done: boolean }[]; blockers: { id: string; label: string; href: string; done: boolean }[] } | null>
+  /** What stops a physical sale now (lib/physical/readiness.ts), for the store-not-ready notices. Optional, like physicalSetup; null when it could not be read. */
+  physicalReadiness?(creatorId: string): Promise<import("@/lib/physical/readiness").PhysicalReadiness | null>
   /** Physical commerce is on for all of Storelib (/admin, lib/platform/physical-commerce). Optional, like physicalSetup. */
   physicalCommerceEnabled?(): Promise<boolean>
   payoutStatus(payoutId: string): Promise<string | null | undefined>
@@ -855,6 +857,16 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         return { steps: physicalSteps(facts), blockers: physicalBlockers(facts) }
       } catch (error) {
         fail("read physical setup", error as PgError)
+        return null
+      }
+    },
+
+    async physicalReadiness(creatorId) {
+      try {
+        const { computePhysicalReadiness } = await import("@/lib/physical/readiness-server")
+        return await computePhysicalReadiness(db, creatorId)
+      } catch (error) {
+        fail("read physical readiness", error as PgError)
         return null
       }
     },

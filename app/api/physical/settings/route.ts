@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadLocations, loadPackages, loadProfiles, loadSettings, loadShippingProducts, loadTaxRates, saveSettings } from "@/lib/physical/config-server"
 import { loadIntegrations } from "@/lib/physical/integrations-server"
 import { recordActivity } from "@/lib/activity/log-server"
@@ -36,5 +37,6 @@ export async function PUT(request: Request) {
   if (saved.ok === false) return physicalJson({ error: saved.error }, 400)
   if (before) await followNewDefault(c.db, c.creatorId, before, await storeFulfilmentFor(c.db, c.creatorId))
   await recordActivity(c.db, c, { action: "settings.shipping" })
+  readinessChanged(c)
   return physicalJson({ settings: await loadSettings(c.db, c.creatorId) })
 }

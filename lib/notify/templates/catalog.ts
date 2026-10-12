@@ -75,6 +75,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   STORE_SETUP_UNFINISHED_2: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "stepsLeft"],
   PHYSICAL_SETUP_UNFINISHED: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "paymentsMissing"],
   PHYSICAL_SETUP_UNFINISHED_2: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "paymentsMissing"],
+  PHYSICAL_STORE_NOT_READY: ["items", "blockingCount", "liveCount", "reason"],
+  PHYSICAL_STORE_NOT_READY_2: ["items", "blockingCount", "liveCount", "reason"],
   PAYMENT_SETUP_REMINDER: [],
   PAYMENT_SETUP_REMINDER_2: [],
   PAYOUT_SETUP_UNFINISHED: ["started", "productTitle"],
@@ -399,6 +401,19 @@ const setupPath = (d: Data): string => {
   const path = d.text("stepPath", 120)
   return /^\/app(\/|\?|$)/.test(path) ? path : PATHS.home
 }
+
+/** Where every readiness gap is listed with its own fix (components/physical/readiness-checklist.tsx). */
+const READINESS_PATH = "/app/settings?tab=shipping"
+
+/** A readiness notice's rows (conditions.ts fills `items`), each with a Storelib app path or Settings' checklist. */
+const readinessRows = (d: Data): { title: string; why: string; path: string }[] =>
+  d
+    .list("items", 6)
+    .map((i) => {
+      const path = i.text("path", 160)
+      return { title: i.text("title", 120), why: i.text("why", 240), path: /^\/app(\/|\?|$)/.test(path) ? path : READINESS_PATH }
+    })
+    .filter((i) => i.title)
 
 const NOT_YOU = {
   title: "If this was not you",
@@ -836,6 +851,54 @@ export const CATALOG: Record<NotificationType, Entry> = {
       action: { label: step || "Open your setup", path },
       note: LAST_REMINDER_NOTE,
       inApp: { title: payments ? "Payments still not set up" : "Shipping setup still open", body: step ? `Next: ${lower(step)}.` : "The last steps are still open.", actionLabel: "Open setup", actionPath: path },
+    }
+  },
+
+  /*
+     Physical products on sale and something stops a checkout or a shipment (conditions.ts physical_store_not_ready,
+     lib/physical/readiness.ts): every blocking gap as a row, the first one's fix as the button, and Settings'
+     checklist, which links each one, under it.
+  */
+  PHYSICAL_STORE_NOT_READY: (d) => {
+    const items = readinessRows(d)
+    const first = items[0]
+    const broke = d.text("reason", 10) === "broke"
+    const one = items.length === 1
+    return {
+      family: "action_required",
+      audience: "creator",
+      subject: broke ? "Buyers can't check out on your store right now" : "Your physical products can't be bought yet",
+      preview: first ? `${first.title}. ${first.why}` : "Something in your shipping setup needs a look.",
+      heading: broke ? "Something stopped your checkout" : "Your products are live, but checkout isn't ready",
+      paragraphs: [
+        broke ? "Your store was taking orders, and something changed so buyers can't check out now." : "You have physical products on sale, but buyers can't check out yet.",
+        one ? "One thing needs fixing:" : `${items.length} things need fixing:`,
+      ],
+      facts: items.map((i) => [i.title, i.why] as [string, string]),
+      action: { label: first ? first.title : "Open shipping settings", path: first ? first.path : READINESS_PATH },
+      notice: items.length > 1 ? { title: "Everything in one place", text: "Settings has the full list, with a fix link for each.", link: { label: "Open the checklist", path: READINESS_PATH } } : null,
+      inApp: { title: broke ? "Buyers can't check out right now" : "Your physical products can't be bought yet", body: first ? (one ? `${first.title}. ${first.why}` : `${first.title}, and ${items.length - 1} more.`) : "Check your shipping setup.", actionLabel: "Fix it", actionPath: first ? first.path : READINESS_PATH },
+    }
+  },
+
+  PHYSICAL_STORE_NOT_READY_2: (d) => {
+    const items = readinessRows(d)
+    const first = items[0]
+    return {
+      family: "action_required",
+      audience: "creator",
+      subject: "Checkout on your store is still blocked",
+      preview: first ? `Still open: ${lower(first.title)}.` : "Your shipping setup still needs a look.",
+      heading: "Buyers still can't check out",
+      paragraphs: [
+        "A few days ago we told you buyers couldn't check out on your store. It still isn't fixed, so anyone trying to buy is turned away.",
+        "Here's what's left:",
+      ],
+      facts: items.map((i) => [i.title, i.why] as [string, string]),
+      action: { label: first ? first.title : "Open shipping settings", path: first ? first.path : READINESS_PATH },
+      notice: items.length > 1 ? { title: "Everything in one place", text: "Settings has the full list, with a fix link for each.", link: { label: "Open the checklist", path: READINESS_PATH } } : null,
+      note: "We won't remind you about this again unless something else changes. You can turn these emails off in your notification settings.",
+      inApp: { title: "Checkout is still blocked", body: first ? `Still open: ${lower(first.title)}.` : "Your shipping setup still needs a look.", actionLabel: "Fix it", actionPath: first ? first.path : READINESS_PATH },
     }
   },
 
