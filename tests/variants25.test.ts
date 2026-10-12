@@ -38,7 +38,10 @@ import { quantityStop, withPageFacts, type PageFacts } from "../lib/storelib-the
 import { pageFactsFor } from "../lib/storelib-theme/compat/product-facts-server"
 import { shopifyGlobalAsset, shopifyGlobalAssetUrl, SHOPIFY_GLOBAL_ASSETS } from "../lib/storelib-theme/compat/shopify-global-assets"
 import { compatFilter } from "../lib/storelib-theme/compat/filters"
-import { buildThemeFileTree } from "../lib/website-builder/theme-file-tree"
+import { buildThemeFileTree, shownPath } from "../lib/website-builder/theme-file-tree"
+import { productIdForPath } from "../lib/store/compat-page-tags"
+import { themeSchemeList } from "../lib/storelib-theme/compat/scheme-list"
+import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
 import { toCard } from "../lib/website-builder/shop-products"
 import { GET as helperScript } from "../app/api/site-theme/helpers/[name]/route"
 import { CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
@@ -321,7 +324,35 @@ async function main() {
     const tree = buildThemeFileTree(["shopify/sections/header.liquid", "shopify/import-report.json"])
     const folder = tree.find((n) => n.path === "shopify")
     check("the code editor shows an imported theme's own files under original/", folder?.name === "original")
+    check("  and every path a creator reads there says original/; the stored path is kept", shownPath("shopify/sections/header.liquid") === "original/sections/header.liquid" && shownPath("shopify/") === "original/" && shownPath("sections/shopify/x.json") === "sections/shopify/x.json" && shownPath("shopifyish/x") === "shopifyish/x")
+    const editor = read("app/website-builder/code/[installId]/page.tsx")
+    check("  the rename and duplicate field shows the folder as original/ and writes the stored one back", /\{shownPath\(dir\)\}/.test(editor) && /onChange\(`\$\{dir\}\$\{asFileName\(e\.target\.value\)\}\$\{ext\}`\)/.test(editor))
+    check("  the breadcrumb and the editor's messages too", /shownPath\(selectedFile\.path\)\.split\("\/"\)/.test(editor) && /You moved off \$\{shownPath\(path\)\}/.test(editor) && /\$\{shownPath\(to\)\} already exists/.test(editor))
+    const files = read("app/api/website-builder/themes/[installId]/files/route.ts")
+    check("  and the files route's refusals", /\$\{shownPath\(from\)\} is not a saved file/.test(files) && /\$\{shownPath\(to\)\} did not compile/.test(files) && /\$\{shownPath\(from\)\} is used by/.test(files))
     check("the import's answer points at original/import-report.json", read("app/api/website-builder/themes/import/route.ts").includes("original/import-report.json") && !read("app/api/website-builder/themes/import/route.ts").includes("code editor, shopify/"))
+    /* 89.png: an imported theme's scheme swatches with an "Aa" the colour of their background. */
+    const schemes = themeSchemeList({ color_schemes: {
+      "scheme-1": { settings: { background: "#FFFFFF", text: "#121212", button: "#121212" } },
+      "scheme-2": { settings: { background: "#F7F7F7", text: "#FFFFFF", foreground_heading: "#1A1A1A", button: "#F7F7F7" } },
+      "scheme-3": { settings: { background: "#FFFFFF", text: "#FAFAFA", button: "#111111" } },
+      "scheme-7": { settings: { background: "#FCFCFC", button: "#FFFFFF" } },
+      "scheme-10": { settings: { background: "#10221A", foreground: "#14261E", primary_button_text: "#FFFFFF", text_color_secondary: "#E8F5E9", button: "#D4F25A" } },
+      "scheme-11": { settings: { background: "#E5E5E5", text: "rgba(18, 18, 18, 0.05)", button: "#111" } },
+      "scheme-12": { settings: { background: "#F2F2EE", foreground: "#111111", primary: "#F2F2EE", primary_button_background: "#2B2B2B" } },
+      "scheme-13": { settings: { background: "#334FB4", text: "#FFFFFF", button: "#FFFFFF" } },
+    } })
+    const readsOn = (fg: string, bg: string) => contrastRatio(parseColor(fg)!, parseColor(bg)!)
+    check("every scheme's swatch draws an Aa that reads on its background", schemes.every((x) => readsOn(x.text, x.background) >= 3), schemes.map((x) => `${x.name} ${x.text} on ${x.background}`).join("; "))
+    check("  the scheme's own text colour when it reads (Dawn's text, a blue scheme's white)", schemes[0].text === "#121212" && schemes[7].text === "#FFFFFF")
+    check("  else another of its colours named for text (the heading's, a second text colour)", schemes[1].text === "#1A1A1A" && schemes[4].text === "#E8F5E9")
+    check("  else near black or white, whichever reads (a pale text, none named, a nearly clear one)", schemes[2].text === "#121212" && schemes[3].text === "#121212" && schemes[5].text === "#121212")
+    check("  and the accent's dot shows apart from the swatch, else it takes the text's colour", schemes[6].accent === "#2B2B2B" && schemes[3].accent === "#121212" && schemes[2].accent === "#111111" && schemes.every((x) => readsOn(x.accent, x.background) >= 1.5))
+    /* The tags' product id comes from the lists already held: the page's full product read runs once. */
+    const listed = { products: [{ id: "p1", settings: { slug: "linen-shirt", title: "Linen shirt" } }], pickable: [{ id: "p2", settings: { slug: "hidden-one", title: "Hidden one" } }] }
+    check("the page's product for its tags is found without reading it again", productIdForPath(listed, "/products/linen-shirt") === "p1" && productIdForPath(listed, "/collections/all/products/linen-shirt/") === "p1" && productIdForPath(listed, "/products/hidden-one") === "p2" && productIdForPath(listed, "/products/p1") === "p1" && productIdForPath(listed, "/products/nope") === null && productIdForPath(listed, "/cart") === null)
+    const siteRoute = read("app/api/site-theme/site/[username]/[[...path]]/route.ts")
+    check("  the live route asks the lists, never site.product, for it", /productIdForPath\(found\.site, sitePath\)/.test(siteRoute) && !/found\.site\.product\(/.test(siteRoute))
     const empty = new JSZip()
     empty.file("sections/x.liquid", "<p>x</p>")
     empty.file("config/settings_schema.json", "[]")
