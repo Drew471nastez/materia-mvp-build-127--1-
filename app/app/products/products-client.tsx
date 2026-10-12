@@ -962,13 +962,13 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     serves published products only) and there is no preview address for
     one, so its View is drawn but off: "Publish to view" on a pointer, and
     in a toast on a phone. In the app the page opens in the phone's browser
-    through openExternal, as the editor's View does. Never the row's press.
+    through openExternal, as the editor's View does, with the whole address
+    when View is the live route on Storelib itself. Never the row's press.
   */
   const openPreview = (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     e.stopPropagation()
     if (isNativeApp()) {
       e.preventDefault()
-      /* The phone's browser needs the whole address; the live route is on Storelib itself. */
       openExternal(url.startsWith("/") ? `${getCanonicalSiteUrl()}${url}` : url)
     }
   }
