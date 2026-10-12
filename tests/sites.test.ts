@@ -15,6 +15,7 @@
  * See docs/storelib-sites.md.
  */
 
+import { untt } from "./i18n-source"
 import { readFileSync, existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
@@ -4758,7 +4759,6 @@ createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMo
 `,
   "src/App.tsx": `import Hero from "./components/Hero"
 import Footer from "./components/Footer"
-import { untt } from "./i18n-source"
 
 export default function App() {
   return (
