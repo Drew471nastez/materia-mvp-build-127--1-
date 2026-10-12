@@ -187,9 +187,17 @@ export async function readReadinessFacts(db: Db, creatorId: string): Promise<Rea
 /** A store contact address or a support address is set. A read that fails says yes: nothing is claimed. */
 async function contactEmailSet(db: Db, creatorId: string): Promise<boolean> {
   const usable = (v: unknown) => typeof v === "string" && v.includes("@")
+  /* A query builder is a thenable with no .catch: each read is awaited in its own try. */
+  const readOne = async (q: PromiseLike<{ data: unknown; error: unknown }>) => {
+    try {
+      return await q
+    } catch {
+      return { data: null, error: true }
+    }
+  }
   const [s, c] = await Promise.all([
-    Promise.resolve(db.from("store_settings").select("contact_email").eq("creator_id", creatorId).maybeSingle()).catch(() => ({ data: null, error: true })),
-    Promise.resolve(db.from("creators").select("support_email").eq("id", creatorId).maybeSingle()).catch(() => ({ data: null, error: true })),
+    readOne(db.from("store_settings").select("contact_email").eq("creator_id", creatorId).maybeSingle()),
+    readOne(db.from("creators").select("support_email").eq("id", creatorId).maybeSingle()),
   ])
   if (usable((s as { data?: { contact_email?: unknown } | null }).data?.contact_email)) return true
   if (usable((c as { data?: { support_email?: unknown } | null }).data?.support_email)) return true
