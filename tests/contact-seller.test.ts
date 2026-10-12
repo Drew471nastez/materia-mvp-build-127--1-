@@ -145,9 +145,18 @@ async function main() {
   const mail = sellerMessageEmail(message)
   check("the subject is one line and names the order", !/[\r\n]/.test(mail.subject) && /^Order #1042: a message from /.test(mail.subject), mail.subject)
   check("the sender's name is one line with no markup", !/[\r\n<>"]/.test(mail.fromName) && / via Storelib$/.test(mail.fromName), mail.fromName)
-  check("the words arrive as text: no script, no tag, no javascript: link", !/<script|<img|<b>|href="javascript/i.test(mail.html) && mail.html.includes("&lt;script&gt;"), mail.html)
-  check("a whole document: lang, charset, a preheader of the message", /<html lang="en">/.test(mail.html) && /<meta charset="utf-8">/.test(mail.html) && /display:none[^>]*>Hi, the zip/.test(mail.html))
-  check("the button is a table cell Outlook paints", /<td align="center" bgcolor="#1a1a2e"[^>]*mso-padding-alt:10px 16px;[^>]*><a href="https:\/\/storelib\.com\/app\/orders\//.test(mail.html), mail.html)
+  /* The one picture is the Storelib mark of the shared layout (lib/emails/layout.ts); nothing the buyer typed becomes a tag. */
+  check(
+    "the words arrive as text: no script, no tag, no javascript: link",
+    !/<script|<b>|href="javascript/i.test(mail.html) && (mail.html.match(/<img\b[^>]*>/g) ?? []).every((t) => t.includes("storelib-logo-email")) && mail.html.includes("&lt;script&gt;"),
+    mail.html,
+  )
+  check("a whole document: lang, charset, a preheader of the message", /<html lang="en"[\s>]/.test(mail.html) && /<meta charset="utf-8">/.test(mail.html) && /display:none[^>]*>Hi, the zip/.test(mail.html))
+  check(
+    "the button is a table cell Outlook paints, and a roundrect for Outlook on Windows",
+    /<td class="e-btn[^"]*" align="center" bgcolor="#1a1a2e"[^>]*>\s*<a class="e-btn-a[^"]*" href="https:\/\/storelib\.com\/app\/orders\//.test(mail.html) && /<v:roundrect[^>]*href="https:\/\/storelib\.com\/app\/orders\//.test(mail.html),
+    mail.html,
+  )
   check("the text part has the message and where a reply goes", mail.text.includes(WORDS) && mail.text.includes(`goes to ${message.buyerEmail}`))
 
   /* ═════════════════════════════════════════════════════════════════════ */
@@ -163,7 +172,7 @@ async function main() {
     /* The name carried a colon and an @ ("Bcc: evil@example.com" typed as a first name): quoted, so no server reads a second address in it. */
     check("from Storelib's own address, with the buyer's name, quoted when it holds a colon or an @", /^"Ghita [^"]* via Storelib" <noreply@storelib\.com>$/.test(f.from?.[0] ?? "") && !/[\r\n]/.test(f.from?.[0] ?? ""), f.from)
     check("the subject as built, one line", f.subject?.[0] === mail.subject)
-    check("an HTML part and a text part", (f.html?.[0] ?? "").startsWith("<!doctype html>") && (f.text?.[0] ?? "").includes(WORDS))
+    check("an HTML part and a text part", /^<!doctype html>/i.test(f.html?.[0] ?? "") && (f.text?.[0] ?? "").includes(WORDS))
     check("no List-Unsubscribe on a message between two people", !Object.keys(f).some((k) => /list-unsubscribe/i.test(k)))
   }
   {

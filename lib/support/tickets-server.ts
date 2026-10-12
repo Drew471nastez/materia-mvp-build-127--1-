@@ -18,6 +18,7 @@ import "server-only"
  */
 import { loggable } from "@/lib/admin/plain-reason"
 import { sendMailgunOnce } from "@/lib/mailgun"
+import { emailDocument, emailKit, emailText, plainOf } from "@/lib/emails/layout"
 import { appUrl } from "@/lib/notify/urls"
 import { escapeHtml } from "@/lib/notify/templates/escape"
 import { SUPPORT_EMAIL } from "@/lib/help/articles"
@@ -189,11 +190,21 @@ async function contactOf(db: Db, userId: string | null): Promise<string | null> 
 const paragraphs = (body: string) =>
   body
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 12px;font-size:15px;line-height:22px;color:#1a1a2e">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+    .map((p) => `<p class="e-text" style="margin:0 0 16px;font-size:16px;line-height:26px;color:#374151">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
     .join("")
 
-function shell(heading: string, inner: string, button?: { href: string; label: string }): string {
-  return `<!doctype html><html><body style="margin:0;background:#f8f9fa;font-family:Inter,Arial,sans-serif"><div style="max-width:560px;margin:0 auto;padding:32px 20px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:28px 24px"><h1 style="margin:0 0 16px;font-size:18px;color:#1a1a2e">${escapeHtml(heading)}</h1>${inner}${button ? `<a href="${escapeHtml(button.href)}" style="display:inline-block;margin-top:8px;background:#1a1a2e;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 18px;border-radius:10px">${escapeHtml(button.label)}</a>` : ""}</div><p style="margin:16px 4px 0;font-size:12px;color:#9ca3af">Storelib support</p></div></body></html>`
+/** A short Storelib support email in the shared layout (lib/emails/layout.ts), with its plain text twin. */
+function shell(heading: string, inner: string, button?: { href: string; label: string }): { html: string; text: string } {
+  const k = emailKit({ kind: "storelib" })
+  const html = emailDocument({
+    sender: { kind: "storelib" },
+    subject: heading,
+    preview: plainOf(inner).replace(/\s+/g, " ").trim().slice(0, 140),
+    rows: [k.heading(heading), k.raw(inner, 8), button ? k.button(button.label, button.href) : ""],
+    footer: { reason: "Storelib support" },
+  })
+  const text = emailText([heading, plainOf(inner.replace(/<\/p>/g, "</p>\n\n")).trim(), button ? `${button.label}:\n${button.href}` : null], ["Storelib support"])
+  return { html, text }
 }
 
 async function tellStorelib(db: Db, kind: "new" | "reply", ticket: TicketRow, body: string): Promise<void> {
@@ -204,8 +215,8 @@ async function tellStorelib(db: Db, kind: "new" | "reply", ticket: TicketRow, bo
     const e = { kind, ticket, body, replyTo }
     const store = (creator?.display_name as string | undefined) || "A store"
     const subject = e.kind === "new" ? `[Support] ${store}: ${e.ticket.subject}` : `[Support] ${store} replied: ${e.ticket.subject}`
-    const facts = `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">${escapeHtml(TOPIC_LABELS[e.ticket.topic])}${e.ticket.order_ref ? ` · Order #${escapeHtml(e.ticket.order_ref)}` : ""}</p>`
-    await sendMailgunOnce({ to, subject, html: shell(e.ticket.subject, facts + paragraphs(e.body), { href: appUrl(`/admin/resolution?ticket=${e.ticket.id}`), label: "Open in Resolution center" }), ...(e.replyTo ? { replyTo: e.replyTo } : {}), tags: ["support-ticket"] })
+    const facts = `<p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">${escapeHtml(TOPIC_LABELS[e.ticket.topic])}${e.ticket.order_ref ? ` · Order #${escapeHtml(e.ticket.order_ref)}` : ""}</p>`
+    await sendMailgunOnce({ to, subject, ...shell(e.ticket.subject, facts + paragraphs(e.body), { href: appUrl(`/admin/resolution?ticket=${e.ticket.id}`), label: "Open in Resolution center" }), ...(e.replyTo ? { replyTo: e.replyTo } : {}), tags: ["support-ticket"] })
   } catch (err) {
     console.error(`[support] inbox email not sent: ${loggable(err)}`)
   }
@@ -215,8 +226,8 @@ async function tellStore(db: Db, ticket: TicketRow, body: string): Promise<void>
   try {
     const to = await contactOf(db, ticket.opened_by)
     if (!to) return
-    const intro = `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">Storelib replied to your request.</p>`
-    await sendMailgunOnce({ to, subject: `Re: ${ticket.subject}`, html: shell(ticket.subject, intro + paragraphs(body), { href: appUrl(`/app/support?ticket=${ticket.id}`), label: "Reply" }), tags: ["support-reply"] })
+    const intro = `<p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">Storelib replied to your request.</p>`
+    await sendMailgunOnce({ to, subject: `Re: ${ticket.subject}`, ...shell(ticket.subject, intro + paragraphs(body), { href: appUrl(`/app/support?ticket=${ticket.id}`), label: "Reply" }), tags: ["support-reply"] })
   } catch (err) {
     console.error(`[support] store email not sent: ${loggable(err)}`)
   }

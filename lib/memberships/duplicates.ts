@@ -32,6 +32,7 @@
  * Paying for it is the only way to reach this, and it is refunded, so it is
  * not a way to ask about an address either: the answer goes to the address.
  */
+import { platformEmail } from "@/lib/emails/layout"
 import type Stripe from "stripe"
 import { grantsAccess, fieldsFromSubscription } from "./state"
 import { MEMBERSHIP_COLUMNS, siteUrl, type Db, type MembershipRow } from "./server"
@@ -146,7 +147,19 @@ export function duplicateEmail(row: Pick<MembershipRow, "title">, manageUrl: str
   const title = (row.title || "this membership").slice(0, 120)
   const subject = `You're already a member of ${title}`
   const text = `You're already a member of ${title}, so we cancelled the new membership you just started and refunded its payment in full. Nothing else changes: your membership carries on as before.\n\nManage your membership: ${manageUrl}\n\nThe refund shows on your statement in 5 to 10 days.`
-  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;font-size:15px;line-height:1.55;color:#1a1a2e;max-width:520px"><p style="margin:0 0 12px">You're already a member of <strong>${escape(title)}</strong>, so we cancelled the new membership you just started and refunded its payment in full. Nothing else changes: your membership carries on as before.</p><p style="margin:0 0 16px"><a href="${escape(manageUrl)}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:10px 16px;border-radius:9px;font-weight:600">Manage your membership</a></p><p style="margin:0;color:#6b7280;font-size:13px">The refund shows on your statement in 5 to 10 days.</p></div>`
+  const { html } = platformEmail({
+    subject,
+    heading: "You're already a member",
+    paragraphs: [
+      {
+        html: `You're already a member of <strong>${escape(title)}</strong>, so we cancelled the new membership you just started and refunded its payment in full. Nothing else changes: your membership carries on as before.`,
+        text: `You're already a member of ${title}, so we cancelled the new membership you just started and refunded its payment in full.`,
+      },
+    ],
+    action: { label: "Manage your membership", url: manageUrl },
+    fallback: false,
+    note: "The refund shows on your statement in 5 to 10 days.",
+  })
   return { subject, html, text }
 }
 

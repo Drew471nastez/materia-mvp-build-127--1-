@@ -7,17 +7,17 @@
  * width (390) and a desktop reading pane's (640), in light and in dark, and
  * measures:
  *
- *   - nothing is wider than the screen, and the card is 600px at most;
+ *   - nothing is wider than the screen, and the column is 560px at most
+ *     (the shared layout, lib/emails/layout.ts);
  *   - every picture loads (no broken image), says its size, and is drawn at
- *     it: product thumbnails 64 by 64, the creator's photo 40 round;
+ *     it: product thumbnails 56 by 56, the creator's photo 36 round;
  *   - a product with no thumbnail has its letter tile instead;
  *   - the creator is shown by ONE picture, in the receipt and in the
  *     automated email that used to carry a logo and a different photo;
  *   - the Download button is at least 44px tall, its words read on it
  *     (4.5:1) and it is seen on the card (1.6:1) in both schemes, and on a
  *     phone it spans the card;
- *   - on a phone the price sits under the product's name, one column; wider,
- *     it sits in its own column on the right.
+ *   - every amount stays on its line, at the right, at every width.
  *
  * Screenshots go to SHOTS_DIR, to be looked at.
  *
@@ -139,8 +139,9 @@ try {
             return { w: Math.round(r.width), h: Math.round(r.height) }
           }
           const visible = (el) => !!el && getComputedStyle(el).display !== "none" && el.getBoundingClientRect().height > 0
-          const card = document.querySelector(isReceipt ? ".rc-card" : ".sl-card")
-          const cardBg = getComputedStyle(card).backgroundColor
+          /* The receipt is drawn in the shared layout (lib/emails/layout.ts): a white page and a 560px column, no card. */
+          const card = document.querySelector(isReceipt ? "table.e-body" : ".sl-card")
+          const cardBg = getComputedStyle(isReceipt ? document.querySelector("table.e-bg") : card).backgroundColor
           const pics = [...document.images].filter((i) => !(i.width === 1 && i.height === 1))
           const res = {
             overflow: document.documentElement.scrollWidth - window.innerWidth,
@@ -152,43 +153,38 @@ try {
             res.creatorPictures = pics.length
             return res
           }
-          const cell = document.querySelector(".rc-btn")
-          const a = document.querySelector(".rc-btn-a")
-          const pad = document.querySelector(".rc-pad")
-          const padStyle = getComputedStyle(pad)
+          const cell = document.querySelector("td.e-btn")
+          const a = document.querySelector("a.e-btn-a")
           res.button = box(a)
           res.buttonText = ratio(getComputedStyle(a).color, getComputedStyle(cell).backgroundColor)
           res.buttonOnCard = ratio(getComputedStyle(cell).backgroundColor, cardBg)
-          res.contentWidth = Math.round(pad.getBoundingClientRect().width - parseFloat(padStyle.paddingLeft) - parseFloat(padStyle.paddingRight))
-          res.thumbs = [...document.querySelectorAll(".rc-thumb")].map((i) => ({ ...box(i), fit: getComputedStyle(i).objectFit, radius: getComputedStyle(i).borderTopLeftRadius, shadow: getComputedStyle(i).boxShadow !== "none" }))
-          res.tiles = [...document.querySelectorAll("td.rc-tile")].map((t) => ({ ...box(t), letter: t.textContent.trim() }))
-          const avatar = document.querySelector(".rc-avatar")
+          res.contentWidth = box(card).w
+          res.thumbs = [...document.querySelectorAll(".e-thumb")].map((i) => ({ ...box(i), fit: getComputedStyle(i).objectFit, radius: getComputedStyle(i).borderTopLeftRadius }))
+          res.tiles = [...document.querySelectorAll("td.e-tile, td.e-tile-accent")].map((t) => ({ ...box(t), letter: t.textContent.trim() }))
+          const avatar = document.querySelector(".e-avatar")
           res.avatar = avatar ? { ...box(avatar), radius: getComputedStyle(avatar).borderTopLeftRadius } : null
-          res.priceRight = [...document.querySelectorAll(".rc-amount")].map(visible)
-          res.priceUnder = [...document.querySelectorAll(".rc-amount-under")].map(visible)
-          res.creatorPictures = pics.filter((i) => !i.classList.contains("rc-thumb")).length
+          /* Each amount stays on its line at the right, at every width. */
+          res.priceRight = [...document.querySelectorAll("td[align=right]")].filter((td) => /\$|Free/.test(td.textContent)).map((td) => visible(td) && td.getBoundingClientRect().right >= card.getBoundingClientRect().right - 1)
+          res.creatorPictures = pics.filter((i) => !i.classList.contains("e-thumb")).length
           return res
         }, receipt)
         const tag = `${width} ${scheme}`
         expect(m.overflow <= 0, `${tag}: nothing wider than the screen`, m.overflow)
-        expect(m.cardWidth <= 600 && (width > 632 || m.cardWidth >= width - 32), `${tag}: the card is the screen less its margin, 600 at most`, m.cardWidth)
+        if (receipt) expect(m.cardWidth <= 560 && (width > 608 || m.cardWidth >= width - 48), `${tag}: the column is the screen less its margin, 560 at most`, m.cardWidth)
+        else expect(m.cardWidth <= 600 && (width > 632 || m.cardWidth >= width - 32), `${tag}: the card is the screen less its margin, 600 at most`, m.cardWidth)
         expect(m.brokenImages.length === 0, `${tag}: every picture loaded`, m.brokenImages)
         expect(m.creatorPictures <= 1, `${tag}: one picture of the creator at most`, m.creatorPictures)
         if (file === "automation-luca") expect(m.creatorPictures === 1, `${tag}: the report's email draws exactly one`, m.creatorPictures)
         if (receipt) {
-          expect(m.thumbs.every((t) => t.w === 66 && t.h === 66 && t.fit === "cover" && t.radius === "10px" && t.shadow), `${tag}: thumbnails 64 by 64 inside a 1px border, covered, 10px radius, a shadow`, m.thumbs)
-          expect(m.tiles.every((t) => (t.w === 40 && t.h === 40) || (t.w === 66 && t.h === 66)) && m.tiles.every((t) => t.letter.length === 1), `${tag}: a letter tile where there is no picture`, m.tiles)
-          if (file !== "receipt-bare") expect(m.avatar && m.avatar.w === 40 && m.avatar.h === 40 && m.avatar.radius === "20px", `${tag}: the creator's photo, 40 round`, m.avatar)
+          expect(m.thumbs.every((t) => t.w === 58 && t.h === 58 && t.fit === "cover" && t.radius === "10px"), `${tag}: thumbnails 56 by 56 inside a 1px border, covered, 10px radius`, m.thumbs)
+          expect(m.tiles.every((t) => (t.w === 36 && t.h === 36) || (t.w === 56 && t.h === 56)) && m.tiles.every((t) => t.letter.length === 1), `${tag}: a letter tile where there is no picture`, m.tiles)
+          if (file !== "receipt-bare") expect(m.avatar && m.avatar.w === 36 && m.avatar.h === 36 && m.avatar.radius === "18px", `${tag}: the creator's photo, 36 round`, m.avatar)
           else expect(m.avatar === null && m.creatorPictures === 0, `${tag}: no picture, the initial instead`, m.tiles)
           expect(m.button.h >= 44, `${tag}: the button is a comfortable tap`, m.button)
           expect(m.buttonText >= 4.5, `${tag}: the button's words read on it (4.5:1)`, m.buttonText)
           expect(m.buttonOnCard >= 1.6, `${tag}: the button is seen on the card (1.6:1)`, m.buttonOnCard)
-          if (width < 480) {
-            expect(Math.abs(m.button.w - m.contentWidth) <= 1, `${tag}: on a phone the button spans the card`, [m.button.w, m.contentWidth])
-            expect(m.priceUnder.every(Boolean) && !m.priceRight.some(Boolean), `${tag}: one column, the price under the name`, [m.priceUnder, m.priceRight])
-          } else {
-            expect(m.priceRight.every(Boolean) && !m.priceUnder.some(Boolean), `${tag}: the price in its own column`, [m.priceUnder, m.priceRight])
-          }
+          if (width < 480) expect(Math.abs(m.button.w - m.contentWidth) <= 1, `${tag}: on a phone the button spans the column`, [m.button.w, m.contentWidth])
+          expect(m.priceRight.length > 0 && m.priceRight.every(Boolean), `${tag}: every amount on its own line at the right`, m.priceRight)
         }
         await p.screenshot({ path: join(shots, `${file}-${width}-${scheme}.png`), fullPage: true })
         await p.close()

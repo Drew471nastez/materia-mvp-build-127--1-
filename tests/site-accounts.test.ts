@@ -682,7 +682,7 @@ async function main() {
     check("a store name cannot put markup in the email", !mail.html.includes("<b>Lind</b>") && mail.text.includes("10 minutes") && mail.html.includes("maralind.com"))
     check("no link to follow: a code to type, on the website that asked", !/href=/i.test(mail.html))
     const logo = codeEmail({ store: "Maralind", code: "042917", host: "maralind.com", minutes: 10, logoUrl: "https://cdn.test/logo.png" })
-    check("the store's logo on top, with the store's name as its words", /<img src="https:\/\/cdn\.test\/logo\.png" alt="Maralind"/.test(logo.html))
+    check("the store's logo on top, with the store's name as its words", /<img[^>]*src="https:\/\/cdn\.test\/logo\.png" alt="Maralind"/.test(logo.html))
     for (const bad of ["javascript:alert(1)", "http://cdn.test/logo.png", 'https://cdn.test/a.png" onerror="x', "data:image/png;base64,AAAA"]) {
       check(`  not a logo the email shows: ${bad.slice(0, 30)}`, !/<img/.test(codeEmail({ store: "M", code: "1", host: "m.com", minutes: 10, logoUrl: bad }).html))
     }

@@ -13,7 +13,7 @@
  *   physical    only listed while physical commerce is on
  *   sentWhen    the moment it goes, in the store's words
  */
-import { buyerReceiptEmailHtml, type ReceiptEmailModel } from "@/lib/receipts/email"
+import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
 import { checkoutReminderEmail, orderCancelledEmail, orderConfirmationEmail, orderUpdatedEmail, paymentFailedEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, type EmailBrand, type EmailLine } from "@/lib/physical/email-templates"
 import { itemsText, resolveCopy, type EmailCopy } from "./customer-custom"
 
@@ -91,12 +91,12 @@ export const SAMPLE_DATE = "10 October 2026"
  */
 export function previewCustomerEmail(
   id: string,
-  shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null },
+  shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null; accent?: string | null },
   /** The store's own words (saved, or still being typed in the editor): drawn exactly as the sender draws them. */
   words?: EmailCopy | null,
-): { subject: string; html: string } | null {
+): { subject: string; html: string; text: string } | null {
   const shopName = shop.name || "Your store"
-  const brand: EmailBrand = { logoUrl: shop.logoUrl ?? null, email: shop.supportEmail ?? null, phone: shop.phone ?? null, websiteUrl: shop.storeUrl ?? null, helpUrl: `${STATUS}#get-help` }
+  const brand: EmailBrand = { logoUrl: shop.logoUrl ?? null, email: shop.supportEmail ?? null, phone: shop.phone ?? null, websiteUrl: shop.storeUrl ?? null, helpUrl: `${STATUS}#get-help`, accent: shop.accent ?? null }
   const currency = (shop.currency || "USD").toUpperCase()
   const pickup = { name: "Studio", address: ["Strada Lipscani 12", "Bucharest"], ready: "Usually ready in 24 hours", instructions: "Ring the bell at the side door.", hours: "Mon to Fri, 10:00 to 18:00" }
   const orderDate = SAMPLE_DATE
@@ -120,11 +120,11 @@ export function previewCustomerEmail(
         heading: copy?.heading ?? null,
         introHtml: copy?.introHtml || null,
       }
-      return { subject: copy?.subject ?? "Your receipt for The bread baking course", html: buyerReceiptEmailHtml(model) }
+      return { subject: copy?.subject ?? "Your receipt for The bread baking course", html: buyerReceiptEmailHtml(model), text: buyerReceiptEmailText(model) }
     }
     case "checkout_reminder": {
       const m = checkoutReminderEmail({ shopName, buyerFirstName: "Maria", lines: SAMPLE_LINES, checkoutUrl: STATUS, unsubscribeUrl: "https://storelib.com/unsubscribe/preview", brand, copy })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "order_confirmation": {
       const m = orderConfirmationEmail({
@@ -145,15 +145,15 @@ export function previewCustomerEmail(
         copy,
         orderDate,
       })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "order_updated": {
       const m = orderUpdatedEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", change: "address", address: SAMPLE_ADDRESS, lines: SAMPLE_LINES, statusUrl: STATUS, brand, copy, orderDate })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "payment_failed": {
       const m = paymentFailedEmail({ shopName, buyerFirstName: "Maria", lines: SAMPLE_LINES, checkoutUrl: STATUS, brand, copy })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "shipping_confirmation":
     case "tracking_changed":
@@ -162,12 +162,12 @@ export function previewCustomerEmail(
     case "delivery_issue": {
       const kind = id === "shipping_confirmation" ? "shipped" : id === "tracking_changed" ? "tracking" : id === "delivery_issue" ? "issue" : id
       const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy, orderDate, problem: kind === "issue" ? "Address not found" : null })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "ready_for_pickup":
     case "picked_up": {
       const m = pickupEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, kind: id === "ready_for_pickup" ? "ready" : "picked_up", pickup, statusUrl: STATUS, brand, copy, orderDate })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "return_requested":
     case "return_approved":
@@ -189,15 +189,15 @@ export function previewCustomerEmail(
         copy,
         orderDate,
       })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "order_cancelled": {
       const m = orderCancelledEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", reason: "The apron in Sage sold out.", refundedCents: 9300, totalCents: 9300, currency, lines: SAMPLE_LINES, statusUrl: STATUS, brand, copy, orderDate })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     case "refund": {
       const m = refundEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", amountCents: 3200, refundedCents: 3200, totalCents: 9300, currency, paymentLabel: "Visa ending 4242", statusUrl: STATUS, brand, copy, orderDate })
-      return { subject: m.subject, html: m.html }
+      return { subject: m.subject, html: m.html, text: m.text }
     }
     default:
       return null

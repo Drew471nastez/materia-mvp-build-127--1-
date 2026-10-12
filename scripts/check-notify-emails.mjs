@@ -150,10 +150,11 @@ for (const file of FILES) {
           const r = el.getBoundingClientRect()
           return { w: Math.round(r.width), h: Math.round(r.height) }
         }
-        const card = document.querySelector(".sn-card")
-        const pad = document.querySelector(".sn-pad")
-        const padStyle = getComputedStyle(pad)
-        const cell = document.querySelector(".sn-btn")
+        /* The shared layout (lib/emails/layout.ts): a white page, the content a column of 560px at most, no card. */
+        const card = document.querySelector("table.e-body")
+        const page = document.querySelector("table.e-bg")
+        const para = document.querySelector("p.e-text")
+        const cell = document.querySelector("td.e-btn")
         const a = cell ? cell.querySelector("a") : null
         const pics = [...document.images].filter((i) => !(i.width === 1 && i.height === 1))
         const stars = [...document.querySelectorAll('a[aria-label$="star"], a[aria-label$="stars"]')]
@@ -162,21 +163,21 @@ for (const file of FILES) {
         return {
           overflow: document.documentElement.scrollWidth - window.innerWidth,
           cardWidth: box(card).w,
-          contentWidth: Math.round(pad.getBoundingClientRect().width - parseFloat(padStyle.paddingLeft) - parseFloat(padStyle.paddingRight)),
+          contentWidth: box(card).w,
           brokenImages: pics.filter((i) => !i.complete || i.naturalWidth === 0).map((i) => i.src.slice(0, 90)),
           thumb: (() => {
-            const t = document.querySelector(".sn-pic")
+            const t = document.querySelector(".e-thumb")
             return t ? { ...box(t), fit: getComputedStyle(t).objectFit } : null
           })(),
           tile: (() => {
-            const t = document.querySelector(".sn-tile")
+            const t = document.querySelector(".e-tile")
             return t ? { ...box(t), letter: t.textContent.trim() } : null
           })(),
           button: a ? box(a) : null,
           buttonText: a ? ratio(getComputedStyle(a).color, getComputedStyle(cell).backgroundColor) : null,
-          buttonOnCard: cell ? ratio(getComputedStyle(cell).backgroundColor, getComputedStyle(card).backgroundColor) : null,
+          buttonOnCard: cell ? ratio(getComputedStyle(cell).backgroundColor, getComputedStyle(page).backgroundColor) : null,
           stars: stars.map(box),
-          bodyText: ratio(getComputedStyle(pad).color, getComputedStyle(card).backgroundColor),
+          bodyText: ratio(getComputedStyle(para).color, getComputedStyle(page).backgroundColor),
           purple: purple.filter((c) => {
             const v = (c.match(/\d+/g) || []).slice(0, 3).map(Number)
             return v.length === 3 && v[2] > v[1] + 40 && v[0] > v[1] + 20 && v[2] > 80
@@ -185,7 +186,7 @@ for (const file of FILES) {
       })
       const tag = `${width} ${scheme}`
       expect(m.overflow <= 0, `${tag}: nothing wider than the screen`, m.overflow)
-      expect(m.cardWidth <= 600 && m.cardWidth >= Math.min(600, width - 32), `${tag}: the card is the screen less its margin, 600 at most`, m.cardWidth)
+      expect(m.cardWidth <= 560 && m.cardWidth >= Math.min(560, width - 48), `${tag}: the column is the screen less its margin, 560 at most`, m.cardWidth)
       expect(m.brokenImages.length === 0, `${tag}: every picture loaded`, m.brokenImages)
       expect(m.button && m.button.h >= 44, `${tag}: the button is a comfortable tap`, m.button)
       expect(m.buttonText >= 4.5, `${tag}: the button's words read on it (4.5:1)`, m.buttonText)
@@ -195,8 +196,8 @@ for (const file of FILES) {
       if (width < 480) expect(Math.abs(m.button.w - m.contentWidth) <= 1, `${tag}: on a phone the button spans the card`, [m.button.w, m.contentWidth])
       if (review) {
         expect(m.stars.length === 5 && m.stars.every((s) => s.w >= 40 && s.h >= 40), `${tag}: five stars, each a comfortable tap`, m.stars)
-        if (file === "review-request-bare") expect(m.thumb === null && m.tile && m.tile.w >= 64 && m.tile.letter.length === 1, `${tag}: no picture, the letter tile instead`, m.tile)
-        else expect(m.thumb && m.thumb.w === 66 && m.thumb.h === 66 && m.thumb.fit === "cover", `${tag}: the product shot 64 square inside its border, covered`, m.thumb)
+        if (file === "review-request-bare") expect(m.thumb === null && m.tile && m.tile.w >= 48 && m.tile.letter.length === 1, `${tag}: no picture, the letter tile instead`, m.tile)
+        else expect(m.thumb && m.thumb.w === 48 && m.thumb.h === 48 && m.thumb.fit === "cover", `${tag}: the product shot 48 square, covered`, m.thumb)
       }
       await p.screenshot({ path: join(shots, `${file}-${width}-${scheme}.png`), fullPage: true })
       await p.close()

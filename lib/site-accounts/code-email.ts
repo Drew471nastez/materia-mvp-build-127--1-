@@ -5,8 +5,11 @@
  * the shop they were on; the same words whether the address has an account
  * there or not, so the email never says which.
  *
+ * Drawn in the one layout every Storelib email shares (lib/emails/layout.ts).
+ *
  * Pure, so tests/site-accounts.test.ts reads exactly what is sent.
  */
+import { emailDocument, emailKit, type EmailSender } from "@/lib/emails/layout"
 
 export interface CodeEmail {
   subject: string
@@ -14,10 +17,6 @@ export interface CodeEmail {
   text: string
   /** The display name the email is sent from. */
   fromName: string
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
 }
 
 /** A store name fit for a From header and a subject line: one line, no angle brackets, at most 80 characters. */
@@ -48,29 +47,19 @@ export function codeEmail(input: { store: string; code: string; host: string; mi
     `It works once, for ${input.minutes} minutes, on ${site}.`,
     "If you did not ask for it, you can ignore this email.",
   ].join("\n")
-  const html = `<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>${escapeHtml(subject)}</title></head>
-<body style="margin:0;padding:0;background:#f8f9fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f8f9fa;">
-    <tr><td align="center" style="padding:32px 16px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:440px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
-        <tr><td style="padding:28px 28px 8px;">
-          ${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(store)}" height="40" style="display:block;height:40px;width:auto;max-width:200px;margin:0 0 12px;border:0;outline:none;">` : ""}
-          <p style="margin:0 0 16px;font-size:15px;font-weight:600;">${escapeHtml(store)}</p>
-          <p style="margin:0;font-size:15px;line-height:1.5;color:#374151;">Your code to sign in:</p>
-        </td></tr>
-        <tr><td style="padding:8px 28px 4px;">
-          <p style="margin:0;font-size:32px;line-height:1.2;font-weight:700;letter-spacing:6px;font-family:'SF Mono',Menlo,Consolas,monospace;">${escapeHtml(code)}</p>
-        </td></tr>
-        <tr><td style="padding:12px 28px 28px;">
-          <p style="margin:0 0 6px;font-size:14px;line-height:1.5;color:#6b7280;">It works once, for ${input.minutes} minutes, on ${escapeHtml(site)}.</p>
-          <p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">If you did not ask for it, you can ignore this email.</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`
+  const sender: EmailSender = { kind: "store", name: store, pictureUrl: logo, picture: "logo" }
+  const k = emailKit(sender)
+  const html = emailDocument({
+    sender,
+    subject,
+    preview: `Your code to sign in to ${store}. It works once, for ${input.minutes} minutes.`,
+    rows: [
+      k.heading("Your sign in code"),
+      k.text(`Use this code to sign in to ${store}.`),
+      k.code(code, `It works once, for ${input.minutes} minutes, on ${site}.`),
+      k.small("If you did not ask for it, you can ignore this email."),
+    ],
+    footer: { reason: `You asked for this on ${site}.` },
+  })
   return { subject, html, text, fromName: store }
 }
