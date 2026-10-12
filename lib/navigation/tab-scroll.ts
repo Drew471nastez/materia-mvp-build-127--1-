@@ -159,7 +159,16 @@ export function scrollPageToTop(opts?: { smooth?: boolean; frames?: number }): (
     document.documentElement.scrollTop = 0
     document.body.scrollTop = 0
   }
-  pin()
+  /*
+    THE FIRST WRITE WAITS FOR THE FRAME (round 25). Called from a layout effect, as the arriving page is committed, a write
+    here made the browser lay the whole new page out on the spot, mid commit (130ms of the library's arrival at 4x CPU,
+    traced), and lay it out again for the frame. In the next animation frame the write comes before that frame's own
+    style, layout and paint, so the first frame painted is still at the top, and the page is laid out once.
+  */
+  let first = requestAnimationFrame(() => {
+    first = 0
+    pin()
+  })
   /*
     HELD BY LISTENING, NOT BY POLLING (round 25, the owner: "switching Home and Profile: snappier, smooth"). The hold used to
     write the scroll on every frame for 12 to 14 frames, and each write made the browser finish the arriving page's style
@@ -180,6 +189,7 @@ export function scrollPageToTop(opts?: { smooth?: boolean; frames?: number }): (
   }, Math.round(max * 16.7))
   return () => {
     cancelled = true
+    if (first) cancelAnimationFrame(first)
     window.clearTimeout(end)
     window.removeEventListener("scroll", onScroll)
     clear()

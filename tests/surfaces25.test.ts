@@ -202,6 +202,7 @@ async function main() {
     const scroll = code("lib/navigation/tab-scroll.ts")
     const top = scroll.slice(scroll.indexOf("export function scrollPageToTop"), scroll.indexOf("export function accountPinnedScroll"))
     check("the top is held by listening for a scroll, not by writing it on every frame", /window\.addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(top) && /if \(window\.scrollY > 0\) pin\(\)/.test(top) && !/requestAnimationFrame\(tick\)/.test(top))
+    check("  and its first write waits for the next frame, never inside the commit that brings the page", /let first = requestAnimationFrame\(\(\) => \{\s*first = 0\s*pin\(\)/.test(top) && !/\n  pin\(\)\n/.test(top))
     const chrome = code("components/profile/profile-chrome-var.tsx")
     check("the bar's height: read two frames after the arrival, written only when it changed", /frame = requestAnimationFrame\(apply\)/.test(chrome) && /if \(v === written/.test(chrome) && !/\[120, 500, 1500\]/.test(chrome))
     const tabs = code("components/library/library-tabs.tsx")
