@@ -91,6 +91,7 @@ const ARTICLES: Article[] = [
   {
     section: "Getting started",
     slug: "zero-to-100",
+    updated: "2026-10-12",
     title: "Zero to 100: start selling physical products on Storelib",
     summary: "Everything from an empty account to your first parcel in the post, in order. Nine steps, about an hour in all.",
     keywords: ["start", "getting started", "first sale", "setup", "checklist", "beginner", "guide", "how to sell", "launch", "merch", "physical", "online store", "ecommerce"],
@@ -226,6 +227,7 @@ const ARTICLES: Article[] = [
   {
     section: "Getting started",
     slug: "playbook",
+    updated: "2026-10-12",
     title: "The physical products playbook: from setup to the customer's door",
     summary: "What happens when someone orders from your website, what each setting does, what to connect, and how the parcel reaches their door. In plain words.",
     keywords: ["playbook", "how it works", "what happens when someone orders", "order to door", "fulfil", "fulfilment", "fulfillment", "setup checklist", "dropshipping", "print on demand", "3pl", "warehouse", "shipstation", "shippo", "easypost", "printful", "printify", "gelato", "cj dropshipping", "tracking", "test order", "start", "overview"],
@@ -746,6 +748,7 @@ const ARTICLES: Article[] = [
   {
     section: "Getting started",
     slug: "how-physical-products-work",
+    updated: "2026-10-12",
     title: "How selling physical products works",
     summary: "The whole journey of one order, from the buyer pressing Pay to the parcel arriving, and the words you'll see on the way.",
     keywords: ["physical", "shipping", "merch", "t-shirt", "print", "post", "parcel", "stock", "overview", "start", "ecommerce", "how it works"],
@@ -787,6 +790,7 @@ const ARTICLES: Article[] = [
   {
     section: "Getting started",
     slug: "physical-products-questions",
+    updated: "2026-10-12",
     title: "Physical products: common questions",
     summary: "Quick answers when a buyer can't check out, stock looks wrong, a partner missed an order or a buyer lost their order email.",
     keywords: ["faq", "problem", "not working", "can't checkout", "shipping unavailable", "stock wrong", "help", "questions"],
@@ -1464,6 +1468,7 @@ const ARTICLES: Article[] = [
   {
     section: "Shipping and delivery",
     slug: "fulfillment-methods",
+    updated: "2026-10-12",
     title: "Who ships it: fulfilment types",
     summary: "Ship it yourself, or use a fulfillment center, a supplier or print on demand: one answer for the store, and any product can have its own.",
     keywords: ["fulfillment", "fulfilment", "fulfilment type", "3pl", "warehouse", "dropshipping", "dropship", "supplier", "print on demand", "pod", "printful", "printify", "gelato"],
@@ -1744,6 +1749,7 @@ const ARTICLES: Article[] = [
   {
     section: "Orders and tracking",
     slug: "ship-your-orders",
+    updated: "2026-10-12",
     title: "Ship your orders: from Unfulfilled to Delivered",
     summary: "What each order status means, how to fulfill items with tracking, send part of an order and print a packing slip.",
     keywords: ["fulfil", "fulfill", "fulfill items", "ship order", "tracking", "tracking number", "carrier", "mark as shipped", "delivered", "processing", "in progress", "packing slip", "partial", "split"],
@@ -1808,6 +1814,7 @@ const ARTICLES: Article[] = [
   {
     section: "Orders and tracking",
     slug: "tracking-and-order-status",
+    updated: "2026-10-12",
     title: "Tracking and the buyer's order page",
     summary: "How tracking links are made, how parcels are followed for you, how a partner adds tracking, and the order page where buyers follow their parcel.",
     keywords: ["tracking", "track package", "tracking link", "tracking number", "carrier", "order status", "order page", "where is my order", "track your order", "usps", "ups", "fedex", "dhl", "royal mail", "partner tracking"],
@@ -1906,6 +1913,7 @@ const ARTICLES: Article[] = [
   {
     section: "Returns and refunds",
     slug: "returns-physical",
+    updated: "2026-10-12",
     title: "Returns for physical orders",
     summary: "Set your return window and reasons, then approve a return, take the items back into stock and refund, step by step.",
     keywords: ["return", "returns", "exchange", "send back", "restock", "damaged", "return window", "return reasons", "accept returns"],
@@ -1989,6 +1997,7 @@ const ARTICLES: Article[] = [
   {
     section: "Customer emails",
     slug: "physical-order-emails",
+    updated: "2026-10-12",
     title: "Customer emails: what your buyers get, and when",
     summary: "Order confirmation, shipping, delivery, pickup, refunds, returns and the checkout reminder: when each goes and how to change its words.",
     keywords: ["email", "emails", "customer emails", "notification", "order confirmation", "shipping confirmation", "tracking email", "receipt", "edit email", "email template"],
@@ -2164,6 +2173,7 @@ const ARTICLES: Article[] = [
   {
     section: "Website and integrations",
     slug: "integrations",
+    updated: "2026-10-12",
     title: "Integrations: analytics, pixels and fulfilment partners",
     summary: "Add Google Analytics, Meta, TikTok and other pixels to your website, send orders to Printful, Printify or your own system, and see what's next.",
     keywords: ["integrations", "integration", "google analytics", "ga4", "meta pixel", "facebook pixel", "tiktok pixel", "pinterest", "google ads", "tag manager", "clarity", "klaviyo", "omnisend", "webhook", "csv", "printful", "printify", "shipstation", "apps"],
@@ -2231,6 +2241,7 @@ const ARTICLES: Article[] = [
   {
     section: "Website and integrations",
     slug: "printful-and-printify",
+    updated: "2026-10-12",
     title: "Printful and Printify: send orders and get tracking back",
     summary: "Connect Printful or Printify with a token, match your SKUs, choose drafts or straight to production, and let tracking reach your buyers.",
     keywords: ["printful", "printify", "print on demand", "pod", "token", "api token", "sku", "draft", "production", "tracking", "t-shirt", "merch", "coming soon"],
@@ -2280,6 +2291,7 @@ const ARTICLES: Article[] = [
   {
     section: "Website and integrations",
     slug: "gelato-and-cj-dropshipping",
+    updated: "2026-10-12",
     title: "Gelato and CJ Dropshipping: match products, send orders",
     summary: "Connect Gelato or CJ Dropshipping with an API key, match each variant to theirs, choose drafts or paid orders, and get tracking and stock back.",
     keywords: ["gelato", "cj", "cj dropshipping", "cjdropshipping", "dropshipping", "dropship", "print on demand", "api key", "match", "product uid", "print file", "vid", "stock sync", "tracking"],
@@ -2370,6 +2382,7 @@ const ARTICLES: Article[] = [
   {
     section: "Payouts, fees and policies",
     slug: "physical-fees-and-plans",
+    updated: "2026-10-12",
     title: "Plans and fees for physical sales",
     summary: "What a physical sale costs you on each plan, what's included, and what needs Pro.",
     keywords: ["plan", "pro", "free plan", "fee", "fees", "price", "cost", "billing", "subscription", "upgrade"],
