@@ -318,7 +318,8 @@ export async function priceCheckout(
       quantity: item.quantity,
       unitCents: unit,
       discountCents: 0,
-      requiresShipping: v.requires_shipping ?? p.requires_shipping ?? true,
+      /* A THING THAT SHIPS IS NEVER PAID FOR WITHOUT WHERE TO. Whatever the row says (a row written while the column defaulted to false sold with no address): a physical line is shipped or picked up, and a hand over in person is local pickup. */
+      requiresShipping: true,
       taxable: v.taxable ?? p.taxable ?? true,
       weightGrams: Math.max(0, Number(v.weight_grams ?? p.weight_grams ?? 0)),
       locationId,

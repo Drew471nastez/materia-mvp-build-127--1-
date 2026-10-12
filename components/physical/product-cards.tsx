@@ -597,9 +597,9 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const generalName = ctx.profiles.find((p) => p.isDefault)?.name ?? tt("General")
   const advancedSet = [
     !multi && single?.sku.trim() ? tt("SKU {value}", { value: single.sku.trim() }) : "",
-    !multi && single?.cost.trim() ? "cost" : "",
+    !multi && single?.cost.trim() ? tt("cost") : "",
     requiresShipping && (dims.l || dims.w || dims.h) ? tt("package size") : "",
-    requiresShipping && (origin || hsCode) ? "customs" : "",
+    requiresShipping && (origin || hsCode) ? tt("customs") : "",
     !taxable ? tt("no tax") : "",
     vendor.trim() ? vendor.trim() : "",
     tags.length ? tt("{n, plural, one {# tag} other {# tags}}", { n: tags.length }) : "",
@@ -686,9 +686,9 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       </Card>
 
       {/* ── Shipping ─────────────────────────────────────────────────── */}
-      <Card id="physical-shipping" title={tt("Shipping")} description={requiresShipping ? tt("Used to work out delivery at checkout.") : tt("Not shipped: handed over in person, or nothing to send.")}>
+      {/* No "not shipped" switch: a physical product is always shipped or picked up, so checkout always asks where it goes (lib/physical/checkout-pricing-server). Handing it over in person is local pickup. */}
+      <Card id="physical-shipping" title={tt("Shipping")} description={tt("Used to work out delivery at checkout. To hand it over in person, turn on local pickup in Settings › Shipping.")}>
         <div className="space-y-4">
-          <Toggle label={tt("This product is shipped")} description={tt("Off for things you hand over yourself.")} checked={requiresShipping} onChange={changed(setRequiresShipping)} />
           {requiresShipping ? (
             <div className={cn("grid gap-3", nonDefaultProfiles.length ? "sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.3fr)]" : "grid-cols-[minmax(0,1fr)_110px] sm:max-w-[420px]")}>
               <Field label={tt("Weight")} hint={tt("With its packaging")}>

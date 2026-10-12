@@ -70,10 +70,15 @@ console.log("\nCREATE\n")
   check("Duplicate of a physical product ships too", /\.\.\.\(product\.type === "physical" \? \{ requires_shipping: true \} : \{\}\)/.test(list))
 }
 
-console.log("\nBUYER\n")
+console.log("\nNEVER WITHOUT AN ADDRESS\n")
 {
-  const page = code("app/checkout/site/site-checkout.tsx")
-  check("a physical product not shipped says so where the address would be", /!ships && physical \?/.test(page) && /data-handed-over=""/.test(page) && /Not shipped\. \{brand\.name\} arranges the handover with you\./.test(page))
+  /* The owner: "prevent this from ever happening again". Not a column's value: a physical line always ships or is picked up. */
+  const pricing = code("lib/physical/checkout-pricing-server.ts")
+  check("a physical line is priced as shipped, whatever its row says", /type: "physical",[\s\S]{0,200}requiresShipping: true,/.test(pricing) && !/requiresShipping: v\.requires_shipping/.test(pricing))
+  const catalog = code("lib/physical/catalog-server.ts")
+  check("  every save writes it back to true, and the editor reads true", /requires_shipping: true,/.test(catalog) && !/body\.requiresShipping/.test(catalog) && !/requiresShipping: p\.requires_shipping/.test(catalog))
+  check("  the editor has no switch to turn it off; pickup is how to hand over", !/This product is shipped/.test(code("components/physical/product-cards.tsx")) && /turn on local pickup in Settings › Shipping/.test(code("components/physical/product-cards.tsx")))
+  check("  the storefront always quotes its delivery", !/requires_shipping === false/.test(code("lib/physical/storefront-facts.ts")) && !/requires_shipping === false/.test(code("app/api/physical/storefront/product/route.ts")))
 }
 
 console.log("\nVIEW\n")
