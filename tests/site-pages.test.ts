@@ -102,7 +102,7 @@ function main() {
     check("and no draft came with them", !/draft_sections/.test(shape))
     check("what came out of the database is still cleaned on the way in", /sanitizeSections\(published, ownSchemas\)/.test(build) && /const ownSchemas = schemaLookupFrom\(sources\)/.test(build))
 
-    check("the lookup takes the page being asked for", /* Changed on purpose (round AB): the website in another language. */ /export async function publishedSiteByName\(name: string, pageKey = "home", locale: string \| null = null\)/.test(cache))
+    check("the lookup takes the page being asked for", /* Changed on purpose (round AC): the market (currency) rides beside the language. */ /export async function publishedSiteByName\(name: string, pageKey = "home", locale: string \| null = null, market: string \| null = null\)/.test(cache))
     /* `stored` rather than `sections` since the chrome repair runs between the
        two: what the site stored, then what is actually drawn. The question
        here is unchanged — a key the site has not published is missing. */
@@ -211,7 +211,7 @@ function main() {
     check("and that address now has a route on the site", /export default async function SiteProductPage/.test(productRoute))
     check(
       "which draws it with the creator's theme, not a bare page",
-      /* Changed on purpose (round AB): the website in another language. */ /renderProduct\(slug, \{ creatorId: creator\.creatorId, locale \}\)/.test(productRoute),
+      /* Changed on purpose (round AC): the market (currency) rides beside the language. */ /renderProduct\(slug, \{ creatorId: creator\.creatorId, locale, market \}\)/.test(productRoute),
     )
     check(
       "a product belonging to somebody else is not at this creator's address",
@@ -511,7 +511,7 @@ function main() {
     )
     check(
       "and a public request still gets the published version",
-      /* Changed on purpose (round AB): the website in another language. */ /export async function renderProduct\(\s*slug: string,\s*(?:\/\*\*[^*]*\*\/\s*)?owner\?: \{ creatorId: string; locale\?: string \| null \},/.test(renderer) &&
+      /* Changed on purpose (round AC): the market (currency) rides beside the language. */ /export async function renderProduct\(\s*slug: string,\s*(?:\/\*\*[^*]*\*\/\s*)?owner\?: \{ creatorId: string; locale\?: string \| null; market\?: string \| null \},/.test(renderer) &&
         /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")),
     )
   }
