@@ -26,6 +26,8 @@ import { CANCEL_DECLINED, CANCEL_REQUESTED, buyerCancelState, cleanCancelReason,
 import { normaliseTrackingNumber } from "./carriers"
 import { trackingAvailable, trackingNumberChanged } from "./tracking/accounts-server"
 import { cleanNote } from "./notes"
+import { lineProperties } from "./cart-link"
+import { cartAttributes } from "@/lib/checkout/site-checkout"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
@@ -51,6 +53,8 @@ export interface OrderLine {
   fulfilled: number
   returned: number
   receiptToken: string | null
+  /** The buyer's words for this line from an imported theme's product form (`properties[Engraving]`), or null. */
+  properties?: Record<string, string> | null
 }
 
 export interface Shipment {
@@ -66,6 +70,10 @@ export interface Shipment {
   deliveredAt: string | null
   createdAt: string
   items: { orderId: string; quantity: number }[]
+  /** Tracked and never marked delivered 60 days after shipping (SQL part 164; ./unconfirmed-delivery-server.ts). */
+  unconfirmedAt?: string | null
+  /** The carrier's estimated delivery (fulfillments.estimated_delivery_at, courier tracking part 160): a never delivered parcel's return window counts from it when it comes first (./status returnWindow). */
+  estimatedDeliveryAt?: string | null
   events: { status: string; message: string | null; occurredAt: string }[]
   /** The carrier's own scans, newest first (lib/physical/tracking): kept apart from the shipment's status changes above. */
   checkpoints?: { at: string; status: string; message: string; location: string | null }[]
@@ -125,6 +133,8 @@ export interface PhysicalOrder {
   processingAt: string | null
   deliveredAt: string | null
   buyerNote: string | null
+  /** An imported theme's cart attributes (SQL part 164): a gift message, a delivery date. Empty when none. */
+  cartAttributes: Record<string, string>
   merchantNote: string | null
   receiptToken: string
   paidAt: string | null
@@ -192,6 +202,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       fulfilled: fulfilledOf.get(o.id) ?? 0,
       returned: returnedOf.get(o.id) ?? 0,
       receiptToken: o.receipt_token ?? null,
+      properties: lineProperties(s.properties) ?? null,
     }
   })
   const refunded = lines.reduce((n, l) => n + l.refundedCents, 0)
@@ -256,6 +267,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     processingAt: co.processing_at ?? null,
     deliveredAt: co.delivered_at ?? null,
     buyerNote: co.buyer_note,
+    cartAttributes: cartAttributes(co.cart_attributes) ?? {},
     merchantNote: co.merchant_note,
     receiptToken: co.receipt_token,
     paidAt: co.paid_at,
@@ -289,6 +301,8 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
               error: typeof f.tracking_error === "string" ? f.tracking_error : null,
             }
           : undefined,
+      unconfirmedAt: f.delivery_unconfirmed_at ?? null,
+      estimatedDeliveryAt: f.estimated_delivery_at ?? null,
     })),
     returns: ((returns ?? []) as Record<string, any>[]).map((r) => ({
       id: r.id,

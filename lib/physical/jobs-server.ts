@@ -41,6 +41,7 @@ import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { physicalCheckoutHref } from "./cart-link"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/notify/seller-commerce"
+import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { EMAIL_REPLY_TO } from "@/lib/mail"
 import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
 import { runStockSyncJob } from "@/lib/integrations/fulfilment/links-server"
@@ -746,7 +747,9 @@ async function sendSellerEmail(db: Db, p: Record<string, any>): Promise<void> {
     kind,
     {
       orderId: firstOrder?.id ?? null,
-      orderNumber: orderNumber(co.id),
+      /* The Orders page's number for the seller, the buyer's reference beside it (lib/orders/order-number-server.ts). */
+      orderNumber: (await sellerOrderNumber(db, co.creator_id, { checkoutId: co.id })) ?? orderNumber(co.id),
+      buyerReference: orderNumber(co.id),
       buyerName: co.buyer_name,
       buyerEmail: co.buyer_email,
       lines,

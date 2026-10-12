@@ -65,6 +65,8 @@ export interface PhysicalLine {
   returned: number
   amountCents: number
   refundedCents: number
+  /** The buyer's words for this line from an imported theme's product form (an engraving). */
+  properties?: Record<string, string> | null
 }
 export interface PhysicalShipment {
   id: string
@@ -77,6 +79,8 @@ export interface PhysicalShipment {
   createdAt: string
   locationId: string | null
   items: { orderId: string; quantity: number }[]
+  /** Tracked and never marked delivered 60 days after shipping (lib/physical/unconfirmed-delivery-server.ts). */
+  unconfirmedAt?: string | null
   /** The carrier's scans and state when Storelib follows the parcel (lib/physical/tracking); mode off when tracking is not set up yet. */
   checkpoints?: { at: string; status: string; message: string; location: string | null }[]
   tracking?: { mode: "auto" | "paused" | "off"; status: string | null; estimatedDelivery: string | null; checkedAt: string | null; providerName: string | null; error: string | null }
@@ -111,6 +115,8 @@ export interface PhysicalOrder {
   pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady; hours?: string | null } | null
   processingAt: string | null
   buyerNote: string | null
+  /** An imported theme's cart attributes: a gift message, a delivery date (SQL part 164). */
+  cartAttributes?: Record<string, string>
   merchantNote: string | null
   cancelledAt: string | null
   lines: PhysicalLine[]
@@ -352,6 +358,8 @@ export function PhysicalFulfillment({
           <StatusBadge tone="neutral">Cancelled</StatusBadge>
         ) : problem ? (
           <StatusBadge tone="critical">Delivery problem</StatusBadge>
+        ) : s.unconfirmedAt && !delivered ? (
+          <StatusBadge tone="attention">Delivery not confirmed</StatusBadge>
         ) : delivered ? (
           <StatusBadge tone="success">{pickup ? "Picked up" : "Delivered"}</StatusBadge>
         ) : (
@@ -424,6 +432,11 @@ export function PhysicalFulfillment({
             {problem ? (
               <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
                 The carrier reported a problem delivering this package. The buyer sees it and gets the Delivery problem email. Contact them or the carrier, then mark it in transit or delivered when it moves.
+              </p>
+            ) : null}
+            {s.unconfirmedAt && !delivered && !problem && !cancelled ? (
+              <p className="mx-4 mt-2 rounded-lg bg-[#fffaeb] px-3 py-2 text-[12.5px] leading-[18px] text-[#93370d]" data-delivery-unconfirmed="">
+                Shipped 60 days ago and never marked delivered. Check with the carrier or the buyer, then mark it delivered or report a delivery problem.
               </p>
             ) : null}
             {pickup && !cancelled && order.pickup ? <p className="px-4 pt-2 text-[13px] text-[#4b5563]">At {order.pickup.name}</p> : null}
@@ -850,16 +863,51 @@ function AddressEditor({
   )
 }
 
-/** What the buyer wrote at checkout, and the shop's older single note. Only when there is one. */
+/**
+ * What the buyer wrote at checkout, what the shop's cart asked them (an
+ * imported theme's cart attributes and each line's properties), and the
+ * shop's older single note. Only when there is one.
+ */
 export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | null; className?: string }) {
-  if (!order || (!order.buyerNote && !order.merchantNote)) return null
+  const attributes = Object.entries(order?.cartAttributes ?? {})
+  const lineProps = (order?.lines ?? []).filter((l) => l.properties && Object.keys(l.properties).length)
+  if (!order || (!order.buyerNote && !order.merchantNote && !attributes.length && !lineProps.length)) return null
   return (
-    <section className={cn(card, "px-4 py-3.5", className)}>
+    <section className={cn(card, "px-4 py-3.5", className)} data-order-notes="">
       <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Notes</h2>
       {order.buyerNote ? (
         <>
           <p className="mt-2 text-[12px] font-medium text-[#6b7280]">From the buyer</p>
           <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] text-[#303036]">{order.buyerNote}</p>
+        </>
+      ) : null}
+      {attributes.length ? (
+        <>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">From the cart</p>
+          <dl className="mt-0.5 space-y-0.5 text-[13px]" data-order-attributes="">
+            {attributes.map(([k, v]) => (
+              <div key={k} className="flex flex-wrap gap-x-1.5">
+                <dt className="text-[#6b7280]">{k}:</dt>
+                <dd className="min-w-0 whitespace-pre-wrap break-words text-[#303036]">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      ) : null}
+      {lineProps.length ? (
+        <>
+          <p className="mt-2 text-[12px] font-medium text-[#6b7280]">On the items</p>
+          <ul className="mt-0.5 space-y-1 text-[13px]" data-order-line-properties="">
+            {lineProps.map((l) => (
+              <li key={l.orderId} className="break-words text-[#303036]">
+                <span className="font-medium">{l.title}</span>
+                {l.variantName ? `, ${l.variantName}` : ""}:{" "}
+                {Object.entries(l.properties ?? {})
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join(" · ")}
+              </li>
+            ))}
+          </ul>
         </>
       ) : null}
       {order.merchantNote ? (

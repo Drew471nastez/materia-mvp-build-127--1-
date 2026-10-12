@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
+import { sellerNumberAndRef } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendSellerMessageEmail } from "@/lib/email"
 import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { LIMITS, addressSubject, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { CONTACT_MAX_CHARS, cleanMessage } from "@/lib/receipts/contact"
-import { orderNumberOf } from "@/lib/receipts/rules"
 import { isUuid } from "@/lib/courses/access"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
 import { productAccess } from "@/lib/courses/server"
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       message: {
         buyerName: (p.first_name || p.display_name || "").trim() || null,
         buyerEmail,
-        orderNumber: orderId ? orderNumberOf(orderId) : "Course",
+        ...(orderId ? await sellerNumberAndRef(admin, product.creator_id, orderId) : { orderNumber: "Course" }),
         items: [lesson ? `${product.title || "Course"}, ${lesson}` : product.title || "Course"],
         message,
         orderLink: orderId ? `${baseUrl}/app/orders/${orderId}` : `${baseUrl}/app/products/${product.id}`,

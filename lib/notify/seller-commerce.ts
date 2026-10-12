@@ -222,6 +222,8 @@ export interface SellerCommerceInput {
   /** The order's first row, for its page in the app (/app/orders?order=). */
   orderId?: string | null
   orderNumber?: string | null
+  /** The buyer's reference for the same order (#85737C57, what their emails and order page say), when the number above is the Orders page's (lib/orders/order-number-server.ts). */
+  buyerReference?: string | null
   buyerName?: string | null
   buyerEmail?: string | null
   lines?: { title: string; variantName?: string | null; quantity?: number | null }[]
@@ -263,7 +265,9 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
     const url = actionUrl(ctx.baseUrl, path)
     return url ? { label, url } : null
   }
-  const reply = m.buyerEmail ? mailtoUrl(m.buyerEmail, number.length > 1 ? `Your order ${number}` : "Your order") : null
+  /* The buyer is written to with the number they know: their reference. */
+  const theirs = str(m.buyerReference, 24).replace(/^#?/, "#")
+  const reply = m.buyerEmail ? mailtoUrl(m.buyerEmail, theirs.length > 1 ? `Your order ${theirs}` : number.length > 1 ? `Your order ${number}` : "Your order") : null
   const count = (m.lines ?? []).reduce((n, l) => n + Math.max(1, Math.round(Number(l.quantity) || 1)), 0)
   let family: TemplateFamily = "action_required"
   let subject = ""
@@ -336,6 +340,8 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
       break
     }
   }
+  /* What the buyer quotes when they write: their reference, beside the seller's number. */
+  if (theirs.length > 1 && theirs !== number && kind !== "low_stock") facts = [...facts, { label: "Buyer's reference", value: theirs.slice(1) }]
   const input: LayoutInput = {
     family,
     subject: cleanText(subject, 90),

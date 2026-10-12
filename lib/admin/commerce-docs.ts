@@ -444,7 +444,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       {
         id: "window",
         name: "Accept returns and the return window",
-        does: "Off: the order page has no return button. On: buyers can ask within the window, counted from delivery, or from shipping when there is no tracking.",
+        does: "Off: the order page has no return button. On: buyers can ask within the window, counted from delivery, or from shipping when there is no tracking. A tracked parcel never marked delivered counts from when it should have arrived: the carrier's estimated delivery, or shipped plus the rate's longest promise (10 days when it gave none) plus 14 days, whichever is first; the buyer's page says the last day. 60 days after shipping such a parcel (one courier tracking did not see delivered, returned or moving in the last 14 days) is closed as Delivery not confirmed: a badge on the shipment, a timeline entry and one seller email.",
         stored: "commerce_settings.returns_enabled, return_window_days",
         buyers: [{ label: "Return items on the order page; the returns note beside Check out on the website when turned on" }],
         creators: [SETTINGS("returns", "Returns and refunds › Returns")],
@@ -619,7 +619,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       "Every order, digital and physical, is on the Orders page. A physical order is laid out the way Shopify lays one out: what is left to ship, each shipment with its tracking, the address and delivery the buyer paid for, the buyer's note and a timeline.",
     where: { label: "Orders", href: "/app/orders" },
     help: ["ship-your-orders", "cancel-a-physical-order", "physical-payouts"],
-    code: ["components/physical/order-panel.tsx", "app/app/orders/order-detail.tsx", "lib/physical/status.ts", "lib/physical/checkout-server.ts", "lib/physical/buyer-cancel.ts", "app/api/physical/orders", "app/api/physical/order-status/[token]/cancel/route.ts"],
+    code: ["components/physical/order-panel.tsx", "app/app/orders/order-detail.tsx", "lib/physical/status.ts", "lib/physical/checkout-server.ts", "lib/physical/buyer-cancel.ts", "app/api/physical/orders", "app/api/physical/order-status/[token]/cancel/route.ts", "lib/support/cases-server.ts", "components/support/order-help.tsx", "lib/orders/order-number-server.ts"],
     facts: ["orderStatuses"],
     topics: [
       {
@@ -652,10 +652,26 @@ export const COMMERCE_DOCS: DocSection[] = [
       },
       {
         id: "help",
-        name: "Buyer help requests",
-        does: "From their order page a buyer can ask for help (not arrived, damaged, wrong item and more). The creator answers in Support; the buyer follows the case at its private link.",
-        stored: "order_cases, order_case_messages",
-        creators: [{ label: "Support", href: "/app/support" }],
+        name: "Contact the shop, and Storelib when the shop is silent",
+        does: "The buyer's order page and receipt have Need help with this order?: Contact the shop (a question, change the address, cancel, not arrived, damaged, missing, wrong item, return, refund, something else; a few words; up to four photos, checked like every upload, location stripped, kept in a private bucket), Cancel order and Return items when they are open, and the shop's email and phone. The message is a conversation on the order: the seller is emailed and answers on the order (Messages from the buyer) or in Support; each answer is emailed to the buyer with a link back. Replies to the emails are not threaded (Storelib has no inbound email), so the emails say to answer from the conversation. When the topic is about the goods or a refund and the shop has not answered for three days, the buyer can Ask Storelib for help: it lands in Resolution center, Storelib's inbox is emailed and the seller is told. Limited per address, per email and per case; a hidden field and a link count keep scripts out.",
+        stored: "order_cases (reason), order_case_messages (photos, part 164), storage bucket order-case-photos",
+        buyers: [{ label: "Need help with this order? on the order page and the receipt; the conversation at /order-help/<case>?k=<key>" }],
+        creators: [{ label: "Orders › an order › Messages from the buyer", href: "/app/orders" }, { label: "Support › From buyers", href: "/app/support" }, { label: "Resolution center (Storelib)", href: "/admin/resolution" }],
+        check: [
+          "On a paid test order open the order page from its email, press Contact the shop, pick It arrived damaged, add a photo, send.",
+          "The seller's email names the order by its Orders number with the buyer's reference beside it; the order shows Messages from the buyer with the photo.",
+          "Reply from the order: the buyer's email has the reply and a link back to the conversation.",
+          "Ask Storelib for help shows only on a goods or refund topic after three days without an answer from the shop.",
+        ],
+      },
+      {
+        id: "order-numbers",
+        name: "Order numbers: one for the seller, one for the buyer",
+        does: "The seller names an order by the Orders page's number (#1001 for the store's first order and up, counted the way the Orders page counts: oldest first, a basket once). Every email, page, activity entry and export a seller reads uses it: the sale email, Cancel request, Return requested, Delivery problem, Delivery not confirmed, Payment failed, a buyer's message (Contact the shop, Contact seller on a receipt, a course or membership message), Support and the CSV export. The buyer names it by its reference, the first eight characters of its id (#85737C57): their confirmation, order page, receipt, every buyer email and the packing slip say only that, and it never changes. Where the seller reads something the buyer wrote, the buyer's reference is beside the number (Buyer's reference 85737C57), so what the buyer quotes can be matched; the CSV has it as its last column. Partner emails and the order webhook keep the reference, the number a parcel carries.",
+        stored: "Not stored: counted from orders (lib/orders/order-number-server.ts); the reference is the order's id",
+        buyers: [{ label: "Order #85737C57 on every buyer page and email" }],
+        creators: [{ label: "Order #1003 on the Orders page and in every seller email", href: "/app/orders" }],
+        check: ["Ask to cancel a paid test order as the buyer: the seller's Cancel request email says Cancel request for order #10xx and lists Buyer's reference, and the buyer's page still shows Order #XXXXXXXX."],
       },
     ],
   },

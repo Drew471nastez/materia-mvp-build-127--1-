@@ -28,6 +28,8 @@ export interface SellerMessage {
   /** Where the seller's reply goes. Shown to the seller, never to anyone else. */
   buyerEmail: string
   orderNumber: string
+  /** The buyer's reference for the same order, when `orderNumber` is the Orders page's (lib/orders/order-number-server.ts). */
+  buyerReference?: string | null
   /** What was bought, one title per line of the order. */
   items: string[]
   message: string
@@ -72,7 +74,7 @@ export function sellerMessageEmail(m: SellerMessage): { subject: string; fromNam
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;"><tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e7ec;border-radius:16px;">
 <tr><td style="padding:28px 28px 8px;">
-<p style="margin:0;font-size:13px;color:#6b7280;">Order ${escape(m.orderNumber)} · ${escape(what)}</p>
+<p style="margin:0;font-size:13px;color:#6b7280;">Order ${escape(m.orderNumber)}${m.buyerReference ? ` (buyer's reference ${escape(m.buyerReference)})` : ""} · ${escape(what)}</p>
 <h1 style="margin:6px 0 0;font-size:20px;line-height:1.3;font-weight:700;color:#1a1a2e;">${escape(who)} wrote to you</h1>
 </td></tr>
 <tr><td style="padding:16px 28px 0;">

@@ -111,7 +111,10 @@ export interface CaseSummary {
   status: CaseStatus
   escalated: boolean
   escalatedBy: "buyer" | "store" | null
+  /** The buyer's reference (#85737C57 without the #): what the buyer's pages and emails say. */
   orderRef: string | null
+  /** The Orders page's number ("#1003"), on what the store reads (lib/orders/order-number-server.ts). */
+  sellerNumber?: string | null
   kind: "physical" | "digital"
   buyerEmail: string
   buyerName: string | null

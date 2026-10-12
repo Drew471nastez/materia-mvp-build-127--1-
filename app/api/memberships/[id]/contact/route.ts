@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sellerNumberAndRef } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendSellerMessageEmail } from "@/lib/email"
 import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
@@ -59,7 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     message: {
       buyerName: (row.buyer_name || "").trim().split(/\s+/)[0] || null,
       buyerEmail: viewer.email || row.buyer_email,
-      orderNumber: orderNumberOf(orderId ?? row.id),
+      ...(orderId ? await sellerNumberAndRef(admin, row.creator_id, orderId) : { orderNumber: orderNumberOf(row.id) }),
       items: [`${row.title || "Membership"} (membership)`],
       message,
       orderLink: siteUrl(row.product_id ? `/app/memberships/${row.product_id}?tab=members` : "/app/memberships"),

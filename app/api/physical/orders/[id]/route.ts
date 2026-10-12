@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
 import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, loadOrder, markProcessing, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
@@ -124,6 +125,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return physicalJson({ error: "Unknown action." }, 400)
   }
   if (result.ok === false) return physicalJson({ error: result.error }, result.status ?? 400)
-  await recordActivity(c.db, c, { action: ORDER_ACTIVITY[String(body.action)], subjectType: "order", subjectId: id, subjectLabel: `#${orderNumberOf(id)}` })
+  await recordActivity(c.db, c, { action: ORDER_ACTIVITY[String(body.action)], subjectType: "order", subjectId: id, subjectLabel: (await sellerOrderNumber(c.db, c.creatorId, { orderId: id, checkoutId: id })) ?? `#${orderNumberOf(id)}` })
   return physicalJson({ order: result.order })
 }

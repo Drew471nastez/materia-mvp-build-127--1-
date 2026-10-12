@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { checkoutOfOrderRow } from "@/lib/physical/orders-server"
 import { rateLimit } from "@/lib/api/rate-limit"
@@ -75,14 +76,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (body.action === "buy") {
     const out = await buyLabel(c.db, c.creatorId, checkoutId, { provider: body.provider, shipmentId: body.shipmentId, rateId: body.rateId, locationId: locationOf(body.locationId), items: itemsOf(body.items), notifyBuyer: body.notifyBuyer !== false, packageName: typeof body.packageName === "string" ? body.packageName : null }, realLabelDeps)
     if (out.ok === false) return physicalJson({ error: out.error, label: out.label ?? null }, out.status ?? 400)
-    await recordActivity(c.db, c, { action: "order.fulfilled", subjectType: "order", subjectId: checkoutId, subjectLabel: `#${orderNumberOf(checkoutId)}` })
+    await recordActivity(c.db, c, { action: "order.fulfilled", subjectType: "order", subjectId: checkoutId, subjectLabel: (await sellerOrderNumber(c.db, c.creatorId, { checkoutId })) ?? `#${orderNumberOf(checkoutId)}` })
     return physicalJson({ order: out.order, label: out.label })
   }
   if (body.action === "void") {
     if (!isUuid(body.labelId)) return physicalJson({ error: "Not found." }, 404)
     const out = await voidLabel(c.db, c.creatorId, body.labelId, realLabelDeps)
     if (out.ok === false) return physicalJson({ error: out.error }, out.status ?? 400)
-    await recordActivity(c.db, c, { action: "order.shipment", subjectType: "order", subjectId: checkoutId, subjectLabel: `#${orderNumberOf(checkoutId)}` })
+    await recordActivity(c.db, c, { action: "order.shipment", subjectType: "order", subjectId: checkoutId, subjectLabel: (await sellerOrderNumber(c.db, c.creatorId, { checkoutId })) ?? `#${orderNumberOf(checkoutId)}` })
     return physicalJson({ order: out.order, label: out.label })
   }
   return physicalJson({ error: "Unknown action." }, 400)

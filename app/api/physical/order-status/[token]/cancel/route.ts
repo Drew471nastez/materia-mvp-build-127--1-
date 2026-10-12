@@ -1,4 +1,5 @@
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
+import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
@@ -33,6 +34,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const config = await loadCheckoutConfig(db, co.creator_id)
   const result = await requestBuyerCancel(db, token, { reason: body.reason, enabled: config.buyerCancel })
   if (result.ok === false) return physicalJson({ error: result.error }, result.status ?? 400)
-  await recordActivity(db, { creatorId: result.order.creatorId }, { action: "order.cancel_requested", actor: "buyer", subjectType: "order", subjectId: result.order.id, subjectLabel: `#${orderNumberOf(result.order.id)}` })
+  await recordActivity(db, { creatorId: result.order.creatorId }, { action: "order.cancel_requested", actor: "buyer", subjectType: "order", subjectId: result.order.id, subjectLabel: (await sellerOrderNumber(db, result.order.creatorId, { checkoutId: result.order.id })) ?? `#${orderNumberOf(result.order.id)}` })
   return physicalJson({ ok: true })
 }

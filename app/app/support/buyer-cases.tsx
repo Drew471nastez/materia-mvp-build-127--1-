@@ -44,7 +44,7 @@ export function BuyerCasesList({ cases, error, onOpen }: { cases: CaseSummary[] 
               <span className="min-w-0 flex-1">
                 <span className={cn("block truncate text-[14px] text-[#1a1a2e]", c.unread ? "font-semibold" : "font-medium")}>
                   {CASE_REASON_LABELS[c.reason]}
-                  {c.orderRef ? ` · #${c.orderRef}` : ""}
+                  {c.sellerNumber ? ` · ${c.sellerNumber}` : c.orderRef ? ` · #${c.orderRef}` : ""}
                 </span>
                 <span className="block truncate text-[12.5px] text-[#6b7280]">
                   {c.buyerName || c.buyerEmail} · {dateTime(c.lastMessageAt)}
@@ -116,7 +116,7 @@ export function BuyerCaseThread({ id, onBack, onChanged, embedded }: { id: strin
             <div className="min-w-0">
               <h2 className="break-words text-[17px] font-semibold text-[#1a1a2e]">{CASE_REASON_LABELS[c.reason]}</h2>
               <p className="mt-0.5 text-[13px] text-[#6b7280] [overflow-wrap:anywhere]">
-                {c.orderRef ? `Order #${c.orderRef} · ` : ""}
+                {c.sellerNumber ? `Order ${c.sellerNumber}${c.orderRef ? ` (buyer's reference ${c.orderRef})` : ""} · ` : c.orderRef ? `Order #${c.orderRef} · ` : ""}
                 {c.buyerName ? `${c.buyerName}, ` : ""}
                 {c.buyerEmail} · Opened {dateTime(c.createdAt)}
               </p>

@@ -153,6 +153,11 @@ async function main() {
       store_settings: [{ creator_id: CREATOR, store_name: "Bread Studio", phone: "+40 712 345 678", contact_email: "shop@bread.test" }],
       order_cases: [],
       order_case_messages: [],
+      /* An earlier order of the store's, then this one: the Orders page calls this one #1002. */
+      orders: [
+        { id: "0e000000-0000-4000-8000-000000000001", creator_id: CREATOR, stripe_session_id: "cs_old", checkout_id: null, created_at: "2026-09-01T10:00:00Z" },
+        { id: "0e000000-0000-4000-8000-000000000002", creator_id: CREATOR, stripe_session_id: "pi_this", checkout_id: CO, created_at: "2026-10-01T10:00:00Z" },
+      ],
     })
     const st = fakeStorage()
     const base = db.from.bind(db)
@@ -185,6 +190,8 @@ async function main() {
     const msg = db.tables.order_case_messages[0]
     check("the first message keeps its photo's path, never an address", Array.isArray(msg?.photos) && msg.photos.length === 1 && !/https?:/.test(JSON.stringify(msg.photos)))
     check("the seller is emailed, told there is a photo, with the button to answer", mails.some((m) => m.to === "shop@bread.test" && /A buyer needs help/.test(m.subject) && /1 photo/.test(m.html) && /Answer the buyer/.test(m.html)), mails.map((m) => m.subject))
+    check("  naming the order by the Orders page's number, the buyer's reference beside it", mails.some((m) => m.to === "shop@bread.test" && /order #1002$/.test(m.subject) && /Buyer&#39;s reference 11111111|Buyer's reference 11111111/.test(m.html)), mails.map((m) => m.subject))
+    check("  while the buyer's email keeps the buyer's reference only", mails.filter((m) => m.to === "ana@example.com").every((m) => !/#1002/.test(m.subject + m.html) && /11111111/.test(m.html)))
     check("the buyer is emailed the link back to the conversation", mails.some((m) => m.to === "ana@example.com" && /order-help\//.test(m.html)))
     const id = opened.ok ? opened.id : ""
     const k = new URL(opened.ok ? opened.link : "https://x").searchParams.get("k") ?? ""
@@ -206,6 +213,7 @@ async function main() {
     const reply = await server.storeAct(db, CREATOR, id, { kind: "reply", body: "Sorry! A new jar goes out today." }, "https://storelib.test")
     check("the store answers from the order; the buyer gets it by email with the link back", reply.ok && mails.some((m) => m.to === "ana@example.com" && /replied/.test(m.subject) && /order-help\//.test(m.html)))
     const forOrder = await server.listCasesForStore(db, CREATOR, { checkoutId: CO })
+    check("Support and the order page show the Orders page's number on the case", forOrder.ok && forOrder.cases[0]?.sellerNumber === "#1002")
     check("the order page lists this order's cases only", forOrder.ok && forOrder.cases.length === 1 && (await server.listCasesForStore(db, CREATOR, { checkoutId: "33333333-3333-4333-8333-333333333333" })).ok)
     const again = await server.buyerAct(db, id, k, { kind: "reply", body: "Thank you!" }, "https://storelib.test")
     const twice = await server.buyerAct(db, id, k, { kind: "reply", body: "Thank you!" }, "https://storelib.test")
@@ -352,6 +360,32 @@ async function main() {
     check("  a parcel shipped 5 days ago is left alone", !db.tables.fulfillments[1].delivery_unconfirmed_at)
     check("the seller's email says what to do", sellerEmailFor(UNCONFIRMED_EVENT, "system") && sellerKindForEvent(UNCONFIRMED_EVENT) === "delivery_unconfirmed" && /never marked delivered/.test(sellerCommerceEmail("delivery_unconfirmed", { orderNumber: "#AB12", carrier: "DPD", trackingNumber: "1Z9" }, { baseUrl: "https://storelib.test" }).html))
     check("the seller's order shows Delivery not confirmed, and the physical cron runs the pass", /Delivery not confirmed/.test(read("components/physical/order-panel.tsx")) && /closeUnconfirmedDeliveries\(db\)/.test(read("app/api/cron/physical/route.ts")))
+  }
+
+  section("One order number for the seller, one for the buyer")
+  {
+    const { numbersOf } = await import("../lib/orders/order-number-server")
+    const n = numbersOf([
+      { id: "b", stripe_session_id: "s2", created_at: "2026-10-02T00:00:00Z", checkout_id: "co2" },
+      { id: "a", stripe_session_id: "s1", created_at: "2026-10-01T00:00:00Z", checkout_id: "co1" },
+      { id: "a2", stripe_session_id: "s1", created_at: "2026-10-01T00:00:01Z", checkout_id: "co1" },
+      { id: "c", stripe_session_id: null, created_at: "2026-10-03T00:00:00Z" },
+    ])
+    check("counted as the Orders page counts: oldest first, a basket once, from #1001", n.byCheckout.get("co1") === 1001 && n.byOrder.get("a2") === 1001 && n.byCheckout.get("co2") === 1002 && n.byOrder.get("c") === 1003)
+    const mail = sellerCommerceEmail("cancel_requested", { orderNumber: "#1003", buyerReference: "#85737C57", buyerEmail: "ana@example.com" }, { baseUrl: "https://storelib.test" })
+    check("a seller email: the Orders number in the subject, the buyer's reference beside it, the reply to the buyer in their reference", /order #1003/.test(mail.subject) && /85737C57/.test(mail.html) && /Your%20order%20%2385737C57|Your order #85737C57/.test(mail.html), mail.subject)
+    check("the order emails, activity, messages and export all ask for the seller's number", /sellerOrderNumber\(db, co\.creator_id, \{ checkoutId: co\.id \}\)/.test(read("lib/physical/jobs-server.ts")) && /sellerNumberAndRef/.test(read("app/api/receipt/contact/route.ts")) && /sellerNumberAndRef/.test(read("app/api/courses/contact/route.ts")) && /sellerNumberAndRef/.test(read("app/api/memberships/[id]/contact/route.ts")) && /sellerOrderNumber/.test(read("app/api/physical/order-status/[token]/cancel/route.ts")) && /sellerOrderNumbers/.test(read("app/api/physical/orders/export/route.ts")))
+    check("the buyer's own pages and emails keep the reference", /Order \{orderNumber\(order\.id\)\}/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /const number = orderNumber\(co\.id\)/.test(read("lib/physical/jobs-server.ts")))
+    check("the scheme is in the admin guide", /id: "order-numbers"/.test(read("lib/admin/commerce-docs.ts")))
+  }
+
+  section("With courier tracking (part 160)")
+  {
+    check("the carrier's estimated delivery reaches the return window", /estimatedDeliveryAt: f\.estimated_delivery_at \?\? null/.test(read("lib/physical/orders-server.ts")))
+    const base = { status: "in_transit", tracking_number: "1Z", shipped_at: at(70), delivered_at: null }
+    check("a parcel tracking says was delivered or sent back is never closed here", !isUnconfirmed({ ...base, tracking_status: "delivered" }, now) && !isUnconfirmed({ ...base, tracking_status: "returned" }, now))
+    check("  nor one the carrier scanned in the last 14 days", !isUnconfirmed({ ...base, tracking_status: "in_transit", tracking_last_event_at: at(3) }, now) && isUnconfirmed({ ...base, tracking_status: "in_transit", tracking_last_event_at: at(30) }, now))
+    check("  and the pass never writes tracking's own columns", !/tracking_stopped_at|tracking_next_check_at/.test(read("lib/physical/unconfirmed-delivery-server.ts").replace(/\/\*[\s\S]*?\*\//g, "")))
   }
 
   section("SQL part 164")
