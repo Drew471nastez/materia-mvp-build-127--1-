@@ -10,7 +10,7 @@
  *   tt("Receipt emailed {date}", { date })
  *   tt("{count, plural, one {# order} other {# orders}}", { count })
  *
- * The catalogs (lib/i18n/catalog/<code>.ts) map each English sentence to the
+ * The catalogs (lib/i18n/catalog/<code>.json) map each English sentence to the
  * language's own. Only the chosen language is fetched: LanguageProvider
  * loads it before it draws /app (lib/i18n/context.tsx), so the first frame
  * is already in the right language. scripts/check-i18n.mjs keeps every
@@ -74,18 +74,18 @@ export function setCatalog(language: string, words: Record<string, string>): voi
 export async function loadCatalog(language: string): Promise<Record<string, string>> {
   switch (language) {
     case "es":
-      return (await import("./catalog/es")).default
+      return (await import("./catalog/es.json")).default as Record<string, string>
     case "fr":
-      return (await import("./catalog/fr")).default
+      return (await import("./catalog/fr.json")).default as Record<string, string>
     case "de":
-      return (await import("./catalog/de")).default
+      return (await import("./catalog/de.json")).default as Record<string, string>
     case "pt-BR":
     case "pt":
-      return (await import("./catalog/pt-BR")).default
+      return (await import("./catalog/pt-BR.json")).default as Record<string, string>
     case "it":
-      return (await import("./catalog/it")).default
+      return (await import("./catalog/it.json")).default as Record<string, string>
     case "pl":
-      return (await import("./catalog/pl")).default
+      return (await import("./catalog/pl.json")).default as Record<string, string>
     default:
       return {}
   }
