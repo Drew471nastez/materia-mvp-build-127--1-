@@ -17,7 +17,9 @@
  *   Connected         Printful, Printify, Gelato or CJ with a key it
  *                     accepted: orders for its location go there and
  *                     tracking comes back (Gelato and CJ with each variant
- *                     matched to theirs, ./partner-links.tsx)
+ *                     matched to theirs, ./partner-links.tsx); Shippo or
+ *                     EasyPost: labels on the order page; ShipStation:
+ *                     orders there, tracking back
  *   Coming soon       a service Storelib does not connect to yet: no
  *                     Connect button, and a key saved before can be removed
  *   Problem           the last attempt failed, with what was wrong
@@ -37,6 +39,7 @@ import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, CARD, Field, MUTED, Notice, Pil
 import { Mark } from "@/components/app/settings/integration-mark"
 import { integrationById } from "@/lib/integrations/catalog"
 import { PartnerLinks } from "./partner-links"
+import { KEY_HINT, ShippingAppFacts } from "./shipping-app-facts"
 
 export interface IntegrationState {
   provider: string
@@ -57,6 +60,8 @@ export interface IntegrationState {
   logistic?: string | null
   fromCountry?: string | null
   webhookAddress?: string | null
+  labelsBought?: number
+  ordersSent?: number
 }
 
 /** Gelato and CJ: each variant is matched to the partner's own product in Storelib, not by a shared SKU. */
@@ -100,7 +105,7 @@ export function statusOf(provider: ProviderInfo, state: IntegrationState | null)
   if (!state || state.status === "disconnected") return { tone: "gray", label: "Not connected" }
   /* A Printful or Printify key saved before they took orders (kept as needs_setup): it has no shop or location yet. */
   if (provider.availability === "connect" && state.status === "needs_setup") return { tone: "amber", label: "Connect again" }
-  if (state.status === "connected") return { tone: "green", label: "Connected" }
+  if (state.status === "connected") return { tone: "green", label: state.mode === "test" ? "Connected · Test" : "Connected" }
   if (state.status === "error") return { tone: "red", label: "Problem" }
   if (state.verifiedAt) return { tone: "blue", label: state.mode === "test" ? "Key verified · Test" : "Key verified" }
   return { tone: "amber", label: "Key saved" }
@@ -157,6 +162,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
   const [url, setUrl] = React.useState(state?.url ?? "")
   const [secret, setSecret] = React.useState("")
   const [key, setKey] = React.useState("")
+  const [apiSecret, setApiSecret] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [done, setDone] = React.useState<string | null>(null)
@@ -165,7 +171,10 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
   const status = statusOf(provider, state)
   const saved = !!state && state.status !== "disconnected"
   /* Printful and Printify: orders go there and tracking comes back (lib/integrations/fulfilment). */
-  const sendsOrders = provider.availability === "connect"
+  const sendsOrders = provider.availability === "connect" && provider.category !== "shipping"
+  /* Shippo, EasyPost, ShipStation: labels on the order page, or orders out and tracking back (lib/integrations/shipping). */
+  const shippingApp = provider.availability === "connect" && provider.category === "shipping"
+  const keyed = shippingApp || sendsOrders
 
   const sendTest = async () => {
     setBusy(true)
@@ -187,6 +196,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
     onSaved(r.data.integrations)
     setSecret("")
     setKey("")
+    setApiSecret("")
     setDone(said)
     /* Only the seller's choice keeps the fields open; a key saved or a disconnect closes them. */
     if (body.autoConfirm === undefined && body.shipmentMethod === undefined && body.logistic === undefined && body.fromCountry === undefined) setOpen(false)
@@ -211,6 +221,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
         <p className="mt-2 text-[13px] text-[#b54708] sm:pl-[58px]" data-integration-reconnect="">Your key was saved before {provider.name} took orders. Connect again with it to {MATCHED_BY_LINK.has(provider.id) ? "start" : `choose your ${provider.id === "printful" ? "store" : "shop"} and start`} sending orders.</p>
       ) : null}
       {sendsOrders && state?.status === "connected" ? <ConnectedFacts provider={provider} state={state} /> : null}
+      {shippingApp && state?.status === "connected" ? <ShippingAppFacts provider={provider} state={state} /> : null}
       {sendsOrders && state?.status === "connected" ? (
         <div className="mt-3 sm:pl-[58px]">
           <Toggle
@@ -283,6 +294,8 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
               hint={
                 state?.keyHint
                   ? `Saved, ends in ${state.keyHint}. Leave empty to keep it.`
+                  : KEY_HINT[provider.id]
+                    ? KEY_HINT[provider.id]
                   : KEY_FIELD[provider.id]
                     ? KEY_FIELD[provider.id].hint
                     : provider.verifies
@@ -291,6 +304,11 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
               }
             >
               <TextInput type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} data-integration-key="" />
+            </Field>
+          ) : null}
+          {provider.fields.includes("api_secret") ? (
+            <Field label={`${provider.name} API secret`} hint={state?.keyHint ? "Type both again to replace them." : "Shown next to the key in ShipStation. Stored encrypted with it."}>
+              <TextInput type="password" autoComplete="off" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} data-integration-secret="" />
             </Field>
           ) : null}
           {error ? <Notice>{error}</Notice> : null}
@@ -304,11 +322,11 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
             <button
               type="button"
               className={BTN_PRIMARY}
-              disabled={busy || (sendsOrders && !key.trim() && state?.status !== "needs_setup")}
-              onClick={() => void save({ url, webhookSecret: secret, apiKey: key }, sendsOrders ? `Connected to ${provider.name}.` : "Saved.")}
+              disabled={busy || (sendsOrders && !key.trim() && state?.status !== "needs_setup") || (shippingApp && (!key.trim() || (provider.fields.includes("api_secret") && !apiSecret.trim())))}
+              onClick={() => void save({ url, webhookSecret: secret, apiKey: key, ...(provider.fields.includes("api_secret") ? { apiSecret } : {}) }, keyed ? `Connected to ${provider.name}.` : "Saved.")}
               data-integration-save=""
             >
-              {busy ? (provider.verifies && (key || state?.status === "needs_setup") ? `Checking with ${provider.name}` : "Saving") : sendsOrders ? (state?.status === "connected" ? "Replace key" : "Connect") : "Save"}
+              {busy ? (provider.verifies && (key || state?.status === "needs_setup") ? `Checking with ${provider.name}` : "Saving") : keyed ? (state?.status === "connected" ? "Replace key" : "Connect") : "Save"}
             </button>
           </div>
         </div>

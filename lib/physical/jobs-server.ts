@@ -46,8 +46,11 @@ import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/int
 import { runStockSyncJob } from "@/lib/integrations/fulfilment/links-server"
 import { realStockDeps } from "@/lib/integrations/fulfilment/stock-deps-server"
 import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-server"
+import { pushToShipStation, syncShipStation } from "@/lib/integrations/shipping/shipstation-server"
+import { realShipStationDeps } from "@/lib/integrations/shipping/shipping-deps-server"
 
-export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
+/* shipstation_push and shipstation_sync: orders out to ShipStation and its shipments back (lib/integrations/shipping, SQL part 163 lets the kinds in). */
+export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email" | "shipstation_push" | "shipstation_sync"
 
 export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<void> {
   const { data, error } = await db
@@ -329,7 +332,7 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
           checkoutId: job.payload.checkoutId,
           creatorId: job.creator_id,
           kind: "job.failed",
-          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : job.kind === "forward_fulfillment" ? "The order could not be sent to your print partner. Send it to them yourself." : job.kind === "tracking_sync" ? "Tracking could not be read from your print partner. Check the order there." : "The order could not be sent to your webhook.",
+          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : job.kind === "forward_fulfillment" ? "The order could not be sent to your print partner. Send it to them yourself." : job.kind === "tracking_sync" ? "Tracking could not be read from your print partner. Check the order there." : job.kind === "shipstation_push" ? "ShipStation could not be updated with this order. Check it there, or ship it from Storelib." : job.kind === "shipstation_sync" ? "Shipments could not be read from ShipStation. Check the order there." : "The order could not be sent to your webhook.",
           detail: { error: message },
           key: `job_dead:${job.id}`,
         })
@@ -356,6 +359,10 @@ async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any>
     case "inventory_sync":
       /* CJ Dropshipping's stock, every six hours for the products that ask for it (lib/integrations/fulfilment/links-server.ts). */
       return runStockSyncJob(db, job.payload, realStockDeps)
+    case "shipstation_push":
+      return pushToShipStation(db, job.payload, realShipStationDeps)
+    case "shipstation_sync":
+      return syncShipStation(db, job.payload, realShipStationDeps)
     default:
       throw new Error("This kind of job is not available yet.")
   }

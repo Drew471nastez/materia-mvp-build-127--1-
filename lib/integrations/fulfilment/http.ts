@@ -37,7 +37,8 @@ export const PROVIDER_TIMEOUT_MS = 12_000
 export function providerMessage(body: unknown): string | null {
   if (!body || typeof body !== "object") return typeof body === "string" && body.trim() ? body.trim().slice(0, 200) : null
   const b = body as Record<string, any>
-  const candidates = [b.error?.message, typeof b.error === "string" ? b.error : null, b.message, b.errors?.reason, typeof b.result === "string" ? b.result : null]
+  /* ShipStation (lib/integrations/shipping) answers { Message, ExceptionMessage }; EasyPost { error: { message } }; Shippo { detail }. */
+  const candidates = [b.error?.message, typeof b.error === "string" ? b.error : null, b.message, b.errors?.reason, typeof b.result === "string" ? b.result : null, b.ExceptionMessage, b.Message, b.detail]
   for (const c of candidates) if (typeof c === "string" && c.trim()) return c.trim().slice(0, 200)
   return null
 }

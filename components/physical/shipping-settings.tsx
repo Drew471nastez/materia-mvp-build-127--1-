@@ -139,8 +139,8 @@ const RATE_KIND_LABEL: Record<RateKind, string> = {
   carrier: "Carrier calculated",
 }
 
-/** What the seller picks from; quantity and carrier stay readable on older rates. */
-const RATE_KINDS_OFFERED: RateKind[] = ["flat", "free", "price", "weight", "item_weight"]
+/** What the seller picks from; quantity stays readable on older rates. Carrier calculated: live rates from Shippo or EasyPost (lib/integrations/shipping/checkout-rates-server.ts). */
+const RATE_KINDS_OFFERED: RateKind[] = ["flat", "free", "price", "weight", "item_weight", "carrier"]
 
 const RATE_KIND_LINE: Record<RateKind, string> = {
   flat: "One price for the whole order.",
@@ -149,7 +149,7 @@ const RATE_KIND_LINE: Record<RateKind, string> = {
   weight: "Heavier orders pay more. Set the steps by total weight.",
   item_weight: "Each item is priced by its own weight, then added up.",
   quantity: "By how many items are in the order.",
-  carrier: "Priced live by a carrier.",
+  carrier: "Live rates from your Shippo or EasyPost account for the buyer's address. Left out when they don't answer in time.",
 }
 
 function weightText(grams: number, system: UnitSystem): string {
@@ -181,6 +181,7 @@ function rateCondition(r: ShippingRate, system: UnitSystem): string {
   else if (r.kind === "price") parts.push(range((n) => money(n)))
   else if (r.kind === "quantity") parts.push(range((n) => `${n} ${n === 1 ? "item" : "items"}`))
   if (r.kind === "free" && r.minValue) parts.push(`on orders over ${money(r.minValue)}`)
+  if (r.kind === "carrier") parts.push([r.carrier === "easypost" ? "EasyPost" : r.carrier === "shippo" ? "Shippo" : null, r.serviceCode || "cheapest service"].filter(Boolean).join(", "))
   if (r.freeOverCents) parts.push(`free over ${money(r.freeOverCents)}`)
   const est = deliveryEstimate(r)
   if (est) parts.push(est)
@@ -888,7 +889,9 @@ interface TierDraft {
 
 function RateForm({ initial, system, first = false, onCancel, onSave }: { initial?: ShippingRate; system: UnitSystem; first?: boolean; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
   const unit = weightUnitFor(system)
-  const legacy = initial?.kind === "quantity" || initial?.kind === "carrier"
+  const legacy = initial?.kind === "quantity"
+  const [carrierApp, setCarrierApp] = React.useState(initial?.carrier === "easypost" ? "easypost" : "shippo")
+  const [service, setService] = React.useState(initial?.serviceCode ?? "")
   const [kind, setKind] = React.useState<RateKind>(initial?.kind ?? "flat")
   /* A zone's first rate is Standard; a second one is usually the faster one. */
   const [name, setName] = React.useState(initial?.name ?? (first ? "Standard" : "Express"))
@@ -911,7 +914,7 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
   const [busy, setBusy] = React.useState(false)
   const tiered = kind === "price" || kind === "weight" || kind === "item_weight"
   /* "Free over" is offered where it adds something: a flat price, or weight steps. Price steps do it with a $0 step. */
-  const canFreeOver = kind === "flat" || kind === "weight" || kind === "item_weight"
+  const canFreeOver = kind === "flat" || kind === "weight" || kind === "item_weight" || kind === "carrier"
   const toValue = (k: RateKind, t: string): number | null => {
     if (!t.trim()) return null
     if (k === "price") return centsOf(t)
@@ -989,6 +992,23 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
               }}
               aria-invalid={priceMissing || undefined}
             />
+          </Field>
+          <Field label="Free over" hint="Optional: free once the order reaches this">
+            <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
+          </Field>
+        </div>
+      ) : null}
+
+      {kind === "carrier" ? (
+        <div className="grid gap-3 sm:grid-cols-2" data-rate-carrier="">
+          <Field label="Rates from" hint="Connected in Settings › Integrations. Until it is, this rate isn't offered.">
+            <SelectInput value={carrierApp} onChange={setCarrierApp}>
+              <option value="shippo">Shippo</option>
+              <option value="easypost">EasyPost</option>
+            </SelectInput>
+          </Field>
+          <Field label="Service" hint="Optional, like usps_priority (Shippo) or Priority (EasyPost). Empty: the cheapest.">
+            <TextInput value={service} maxLength={60} onChange={(e) => setService(e.target.value)} placeholder="Cheapest" />
           </Field>
           <Field label="Free over" hint="Optional: free once the order reaches this">
             <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
@@ -1099,7 +1119,8 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
             const problem = await onSave({
               kind,
               name,
-              priceCents: kind === "free" ? 0 : tiered ? (tierBody[0]?.priceCents ?? 0) : centsOf(price),
+              priceCents: kind === "free" || kind === "carrier" ? 0 : tiered ? (tierBody[0]?.priceCents ?? 0) : centsOf(price),
+              ...(kind === "carrier" ? { carrier: carrierApp, serviceCode: service.trim() || null } : {}),
               tiers: tierBody,
               minValue: kind === "free" ? centsOf(min) : kind === "quantity" ? toValue(kind, min) : null,
               maxValue: tiered || kind === "quantity" ? toValue(kind, max) : null,

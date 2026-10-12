@@ -490,7 +490,7 @@ export const COMMERCE_DOCS: DocSection[] = [
     id: "integrations",
     title: "Integrations",
     intro:
-      "Services a store connects. Analytics and ad pixels load on every page of the store's website with the ID the creator saved, and a paid order is reported to the ad and analytics ones once. Printful, Printify, Gelato and CJ Dropshipping take each paid order for their location and send tracking back; CJ can also keep a product's stock in step. The list below says which ones are working today and which are Coming soon.",
+      "Services a store connects. Analytics and ad pixels load on every page of the store's website with the ID the creator saved, and a paid order is reported to the ad and analytics ones once. Printful, Printify, Gelato and CJ Dropshipping take each paid order for their location and send tracking back; CJ can also keep a product's stock in step. Shippo and EasyPost buy labels from the order page and price Carrier calculated rates at checkout; ShipStation takes the orders the seller ships and sends tracking back. The list below says which ones are working today and which are Coming soon.",
     where: SETTINGS("integrations", "Integrations"),
     help: ["integrations", "printful-and-printify", "gelato-and-cj-dropshipping"],
     code: ["components/app/settings/integrations-directory.tsx", "components/physical/integrations-marketplace.tsx", "lib/integrations/catalog.ts", "lib/store/tracking.ts", "lib/physical/providers.ts", "lib/integrations/fulfilment/forward-server.ts", "lib/integrations/fulfilment/gelato.ts", "lib/integrations/fulfilment/cj.ts", "lib/integrations/fulfilment/links-server.ts", "lib/physical/secrets.ts", "app/api/integrations/webhooks", "app/api/cron/physical/route.ts", "app/admin/integrations"],
@@ -530,6 +530,18 @@ export const COMMERCE_DOCS: DocSection[] = [
           "Turn on Keep stock in step with CJ: the row shows CJ's stock and the variant's stock history has a Synced from provider line.",
           "Connect Gelato, match a variant to a product UID and a print file, buy it: the draft is in Gelato's dashboard. Paste the card's address in Gelato › Developer › Webhooks; the card's Tracking line changes once Gelato sends its first update.",
           "Without part 162, matching says it turns on after SQL part 162 runs, and orders for unmatched items are marked to send by hand.",
+        ],
+      },
+      {
+        id: "shipping-apps",
+        name: "Shippo, EasyPost and ShipStation",
+        does: "Connected with the creator's key (ShipStation: key and secret), checked with the provider before it is kept. Shippo and EasyPost: Orders › an order › Fulfill items › Buy a label quotes every rate for the package, weight and the location's address, reads the chosen rate back from the provider, buys it, and ships the items with its carrier and tracking number (the buyer's shipping email follows); a label not used yet can be voided. The label's cost is kept on the order as the seller's cost (shipping_labels). A zone rate of the kind Carrier calculated asks their live rates at checkout, never waiting long and never guessing a price. ShipStation: each paid order the seller ships themselves is pushed there by a shipstation_push job (sent again when it is cancelled or its address changes); ShipStation's SHIP_NOTIFY, or a shipstation_sync job, is read back from ShipStation and ships the items with the tracking number.",
+        stored: "commerce_integrations (secret_ciphertext, config), shipping_labels (SQL part 163), commerce_jobs (shipstation_push, shipstation_sync)",
+        creators: [SETTINGS("integrations", "Integrations › Shippo, EasyPost or ShipStation"), SETTINGS("shipping", "Shipping and delivery")],
+        check: [
+          "Connect Shippo with a test key (shippo_test_): the card says Connected and that it is a test key. Open a paid order, Fulfill items, Buy a label: rates appear; buy one, and the order shows the carrier and tracking number and a sample label PDF.",
+          "Connect ShipStation with a key and secret, buy something you ship yourself: the order appears in ShipStation. Ship it there: the tracking comes back to the order.",
+          "Add a Carrier calculated rate to a zone and open the checkout with an address in it: the live rate is offered next to the zone's others.",
         ],
       },
       {

@@ -36,6 +36,8 @@ import { applyOffers, suggestionsFor, type AppliedOffer, type Offer } from "@/li
 import { loadOffers } from "@/lib/offers/offers-server"
 import { orderLimits, overLimit } from "./order-limit"
 import type { Address, DeliveryOption, Location, PricedLine } from "./types"
+import { liveCarrierQuotes } from "@/lib/integrations/shipping/checkout-rates-server"
+import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 
 export const MAX_CHECKOUT_LINES = 50
 export const MAX_LINE_QUANTITY = 999
@@ -427,6 +429,14 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
       quote = { ok: true, required: true, options: [] }
     } else {
       const [profiles, packageGrams] = await Promise.all([loadProfiles(db, priced.creatorId), defaultPackageGrams(db, priced.creatorId)])
+      /* Carrier calculated rates: priced live by Shippo or EasyPost, in a few seconds or left out (lib/integrations/shipping/checkout-rates-server.ts). */
+      const carrierQuotes = await liveCarrierQuotes(db, {
+        creatorId: priced.creatorId,
+        profiles,
+        destination: { country: address.country, region: address.region ?? null, postalCode: address.postalCode ?? null },
+        grams: priced.lines.filter((l) => l.requiresShipping).reduce((n, l) => n + Math.max(0, l.weightGrams) * l.quantity, 0),
+        currency: platformChargeCurrency(),
+      }).catch(() => undefined)
       quote = quoteDelivery(
         profiles,
         priced.lines.map((l) => ({
@@ -437,7 +447,7 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
           requiresShipping: l.requiresShipping,
         })),
         { country: address.country, region: address.region ?? null },
-        undefined,
+        carrierQuotes,
         { packageGrams },
       )
       const shipsCents = priced.lines.filter((l) => l.requiresShipping).reduce((n, l) => n + Math.max(0, l.unitCents * l.quantity - l.discountCents), 0)
