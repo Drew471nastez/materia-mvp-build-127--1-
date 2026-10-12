@@ -168,7 +168,7 @@ section("Every host answers its own robots.txt and sitemap")
   const siteMap = code("app/(site)/w/[username]/sitemap.xml/route.ts")
   check("an unknown site's robots.txt allows everything, never a refusal a failed lookup could cache for a day",
     /"User-agent: \*\\nAllow: \/\\n"/.test(siteRobots) && !/Disallow: \/\\n/.test(siteRobots))
-  check("the site routes exist and read the site's one list", /siteSeo\(username\)/.test(siteRobots) && /robotsTxt\(seo\.origin, seo\.indexable\)/.test(siteRobots) && /sitemapXml\(seo\.entries\)/.test(siteMap))
+  check("the site routes exist and read the site's one list", /siteSeo\(username\)/.test(siteRobots) && /robotsTxt\(seo\.origin, seo\.indexable\)/.test(siteRobots) && /* Changed on purpose (round AB): every language of the website. */ /: seo\.entries/.test(siteMap) && /sitemapXml\(entries\)/.test(siteMap))
   check("IndexNow announces the same addresses the site's sitemap lists", /const seo = await siteSeo\(handle\)/.test(code("lib/seo/sitemaps.ts")))
   const aiSite = code("app/(sites)/site/[slug]/[[...path]]/route.ts")
   check("an AI site without its own robots.txt or sitemap is given both", /requested === "robots\.txt" \|\| requested === "sitemap\.xml"/.test(aiSite) && /urlsetXml\(\[/.test(aiSite))
