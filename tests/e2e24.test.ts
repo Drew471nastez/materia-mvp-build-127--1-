@@ -786,6 +786,52 @@ async function round24(j: Journey, c: Ctx) {
   await closeUnconfirmedDeliveries(createAdminClient())
   check("a parcel tracking saw move two days ago is left alone", !pf2.delivery_unconfirmed_at, { at: pf2.delivery_unconfirmed_at })
 
+  section("35. Klaviyo and Omnisend: a consented buyer subscribed, a buyer who did not ask only a customer")
+  const KKEY = "pk_journey0123456789abcdef0123456789"
+  const OKEY = "omni-journey-key-0123456789"
+  P.on("a.klaviyo.com", (x) => {
+    const ok = x.headers.get("authorization") === `Klaviyo-API-Key ${KKEY}`
+    if (!ok) return new Response(JSON.stringify({ errors: [{ detail: "Incorrect authentication credentials." }] }), { status: 401, headers: { "content-type": "application/json" } })
+    const j2 = (b: unknown, st = 200) => new Response(b === undefined ? "" : JSON.stringify(b), { status: st, headers: { "content-type": "application/json" } })
+    if (x.path === "/api/accounts") return j2({ data: [{ type: "account", id: "PUBJ", attributes: { contact_information: { organization_name: "Ana Ceramics" } } }] })
+    if (x.path === "/api/lists") return j2({ data: [{ type: "list", id: "LISTJ", attributes: { name: "Newsletter" } }], links: { next: null } })
+    if (x.method === "POST" && ["/api/profile-subscription-bulk-create-jobs", "/api/profile-subscription-bulk-delete-jobs", "/api/profile-bulk-import-jobs", "/api/events"].includes(x.path)) return j2(undefined, 202)
+    if (x.path === "/api/profiles") return j2({ data: [], links: { next: null } })
+    return null
+  })
+  P.on("api.omnisend.com", (x) => {
+    const j2 = (b: unknown, st = 200) => new Response(JSON.stringify(b), { status: st, headers: { "content-type": "application/json" } })
+    if (x.headers.get("authorization") !== `Omnisend-API-Key ${OKEY}`) return j2({ title: "Unauthorized", status: 401 }, 401)
+    if (x.path === "/api/brands/current") return j2({ brandID: "bj", name: "Ana Omni", currency: "USD" })
+    if (x.method === "POST" && ["/api/contacts", "/api/batches", "/api/events"].includes(x.path)) return j2(x.path === "/api/batches" ? { batchID: "b1", totalCount: x.body?.items?.length ?? 0 } : {}, x.path === "/api/events" ? 202 : 200)
+    if (x.method === "GET" && x.path === "/api/contacts") return j2({ contacts: [], paging: { hasMore: false, cursors: { after: null } } })
+    return null
+  })
+  const kc = await j.call("POST /api/store/integrations/marketing", { as: seller, body: { provider: "klaviyo", step: "connect", apiKey: KKEY, listId: "LISTJ", backfill: false } })
+  const oc = await j.call("POST /api/store/integrations/marketing", { as: seller, body: { provider: "omnisend", step: "connect", apiKey: OKEY, backfill: false } })
+  const kRow = j.rows("commerce_integrations").find((x) => x.provider === "klaviyo")
+  check("Klaviyo and Omnisend connect with keys the providers accept; the key is sealed, only the last four shown", kc.status === 200 && oc.status === 200 && kRow?.status === "connected" && !JSON.stringify(kRow).includes(KKEY) && !JSON.stringify(kc.json).includes(KKEY), { kc: kc.json, oc: oc.json })
+  const yes = await buy(j, c, { email: "yes-news@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], optIn: true, name: "Yara News" })
+  const no = await buy(j, c, { email: "no-news@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], name: "Noel Quiet" })
+  for (const job of j.rows("commerce_jobs").filter((x) => x.kind === "marketing_sync")) job.run_after = new Date(Date.now() - 1000).toISOString()
+  await j.cron()
+  await j.cron()
+  const kcalls = P.to("a.klaviyo.com")
+  const bodyOf = (path: string) => JSON.stringify(kcalls.filter((x) => x.path === path).map((x) => x.body))
+  const subs = bodyOf("/api/profile-subscription-bulk-create-jobs")
+  const imports = bodyOf("/api/profile-bulk-import-jobs")
+  const events = kcalls.filter((x) => x.path === "/api/events").map((x) => x.body)
+  const evFor = (email: string, metric: RegExp) => events.filter((e) => JSON.stringify(e).includes(email) && metric.test(JSON.stringify(e))).length
+  console.log("  klaviyo:", JSON.stringify(kcalls.map((x) => `${x.method} ${x.path}`)), JSON.stringify(j.rows("commerce_jobs").filter((x) => x.kind === "marketing_sync").map((x) => [x.status, x.last_error, x.payload?.op, x.payload?.event])).slice(0, 1500))
+  check("Klaviyo: the buyer who ticked the box is subscribed to the list, with marketing consent", subs.includes("yes-news@example.com") && subs.includes("SUBSCRIBED") && subs.includes("LISTJ"), { subs: subs.slice(0, 600) })
+  check("Klaviyo: the buyer who did not tick it is never subscribed, only a customer profile", !subs.includes("no-news@example.com") && (imports.includes("no-news@example.com") || evFor("no-news@example.com", /Placed Order/) === 1), { subs: subs.slice(0, 300), imports: imports.slice(0, 400) })
+  check("Klaviyo: one Placed Order event per order; Started Checkout only for the buyer who said yes", evFor("yes-news@example.com", /Placed Order/) === 1 && evFor("no-news@example.com", /Placed Order/) === 1 && evFor("no-news@example.com", /Started Checkout/) === 0, { yes: evFor("yes-news@example.com", /Placed Order/), no: evFor("no-news@example.com", /Placed Order/), startedNo: evFor("no-news@example.com", /Started Checkout/), events: events.map((e) => JSON.stringify(e).slice(0, 160)) })
+  const ocalls = P.to("api.omnisend.com")
+  const omni = JSON.stringify(ocalls.filter((x) => x.method === "POST").map((x) => x.body))
+  check("Omnisend: the consented buyer a subscribed contact, the other no subscription; placed order events for both", /yes-news@example\.com[^}]*subscribed|subscribed[^}]*yes-news@example\.com/.test(omni) && !/no-news@example\.com[^}]*"subscribed"/.test(omni) && ocalls.filter((x) => x.path === "/api/events").length >= 2, { calls: ocalls.map((x) => `${x.method} ${x.path}`), omni: omni.slice(0, 900) })
+  void yes
+  void no
+
   section("32. One order number for the seller, the reference for the buyer")
   const sellerMail = j.net.mails.filter((m) => m.to.some((x) => /anaceramics|maker@/.test(x)))
   const aboutOrders = sellerMail.filter((m) => /order/i.test(m.subject) && !/your first sale/i.test(m.subject))
