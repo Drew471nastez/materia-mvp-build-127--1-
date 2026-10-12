@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, Package, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { isVideoUrl, videoPosterUrl } from "@/lib/media/video"
 
 export type MediaLayout = "stacked" | "stacked_2col" | "slideshow" | "carousel"
 
@@ -176,7 +177,20 @@ export function ProductMedia({
             style={{ background: surface, borderRadius: radius, ...(aspect ? { aspectRatio: aspect } : {}) }}
             aria-label={`${pos + 1} of ${images.length}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {isVideoUrl(src) ? (
+              /* A video uploaded to the product, in its place among the photos: its first frame until it is played (lib/media/video.ts). */
+              <video
+                src={src}
+                poster={videoPosterUrl(src) ?? undefined}
+                controls
+                playsInline
+                preload="metadata"
+                className={cn("block w-full bg-black", aspect ? "h-full object-cover" : "h-auto object-contain")}
+                data-media-video=""
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={src}
               alt={pos === 0 ? title : `${title}, picture ${pos + 1}`}
@@ -191,6 +205,7 @@ export function ProductMedia({
               draggable={false}
               onClick={open ? (e) => { e.stopPropagation(); setLightbox(i) } : undefined}
             />
+            )}
           </div>
         ))}
       </div>
@@ -227,7 +242,21 @@ export function ProductMedia({
             >
               {/* The button's only content, so its name: the product and which picture. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              {isVideoUrl(src) ? (
+                <span className="relative block h-full w-full">
+                  {videoPosterUrl(src) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={videoPosterUrl(src) as string} alt={`${title} video ${pos + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                  ) : (
+                    <video src={`${src}#t=0.1`} muted playsInline preload="metadata" aria-label={`${title} video ${pos + 1}`} className="h-full w-full object-cover" />
+                  )}
+                  <span aria-hidden className="absolute inset-0 grid place-items-center bg-black/25 text-white">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  </span>
+                </span>
+              ) : (
+                <img src={src} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              )}
             </button>
           ))}
         </div>

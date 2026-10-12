@@ -24,6 +24,7 @@ import { plainText } from "@/lib/storelib-theme/values"
 import { sanitizeRichText } from "./sanitize"
 import { formatPrice, type ProductCard } from "./shop-products"
 import type { SchemaField, SectionInstance, SectionSchema, ThemeSettingsValues } from "./types"
+import { imagesOnly } from "@/lib/media/video"
 
 /* ── menus ──────────────────────────────────────────────────────────────── */
 
@@ -237,7 +238,7 @@ export interface ProductRowLike {
  */
 export function productFacts(row: ProductRowLike | null | undefined): NonNullable<StorefrontData["product"]> | null {
   if (!row) return null
-  const images = [row.thumbnail_url, ...(row.gallery_urls ?? [])].filter((u): u is string => typeof u === "string" && /^(https?:\/\/|\/(?![/\\]))/.test(u))
+  const images = imagesOnly([row.thumbnail_url, ...(row.gallery_urls ?? [])]).filter((u): u is string => typeof u === "string" && /^(https?:\/\/|\/(?![/\\]))/.test(u))
   const unique = [...new Set(images)]
   const html = sanitizeRichText(row.description ?? "")
   const price = formatPrice(row.price_cents)

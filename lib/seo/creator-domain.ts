@@ -45,6 +45,7 @@ import { getLinksShareUrl, getProductShareUrl, getStoreShareUrl } from "@/lib/ur
 import { isBanned } from "./bans"
 import { CUSTOM_DOMAIN_DISALLOW, creatorIndexable, lastmodOf, newestOf, productIndexable, robotsTxt, type SitemapEntry } from "./indexing"
 import { SitemapReadFailed, readRange } from "./sitemaps"
+import { imagesOnly } from "@/lib/media/video"
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -95,7 +96,7 @@ export function creatorDomainEntries(input: {
     entries.push({
       url: getProductShareUrl(input.handle, p.slug as string, input.host),
       lastModified: lastmodOf(p.updated_at),
-      images: [p.thumbnail_url, ...(p.gallery_urls ?? [])],
+      images: imagesOnly([p.thumbnail_url, ...(p.gallery_urls ?? [])]),
     })
   }
   return entries

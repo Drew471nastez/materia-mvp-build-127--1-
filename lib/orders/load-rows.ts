@@ -2,6 +2,7 @@ import "server-only"
 
 import type { OrderRow } from "./order-view"
 import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
+import { imagesOnly } from "@/lib/media/video"
 
 /**
  * EVERY ORDER A CREATOR HAS, AS THE ORDERS PAGE READS THEM
@@ -127,7 +128,7 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
     id: p.id as string,
     title: (p.title as string) || "Untitled product",
     type: (p.type as string) || null,
-    thumbnail_url: (p.thumbnail_url as string) || p.gallery_urls?.[0] || p.gallery_images?.[0] || null,
+    thumbnail_url: (p.thumbnail_url as string) || imagesOnly(p.gallery_urls ?? [])[0] || p.gallery_images?.[0] || null,
   }))
 
   const byId = new Map(products.map((p) => [p.id, p]))

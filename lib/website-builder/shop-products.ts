@@ -60,6 +60,7 @@ import { uniqueImages } from "@/lib/products/product-page-model"
 import { listedOn } from "@/lib/store/channels"
 import { offChannel } from "@/lib/store/channel-filter"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
+import { imagesOnly, isPosterName, isVideoUrl } from "@/lib/media/video"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
@@ -222,7 +223,19 @@ function wasPrice(now: number, was: number | null | undefined): string {
  */
 function pictures(row: ProductRow): string[] {
   /* Storelib's own address for each, never the storage host's (lib/storage/media-url.ts). */
-  return uniqueImages([row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])].map((u) => mediaUrl(u)), MAX_IMAGES)
+  return uniqueImages(imagesOnly([row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])]).map((u) => mediaUrl(u)), MAX_IMAGES)
+}
+
+/**
+ * The photos and videos in their order, for a product page's gallery (an
+ * imported theme's product.media, lib/storelib-theme/compat/objects.ts), only
+ * when there is a video among them: a video's first frame (the thumbnail when
+ * the video is first) is left out, since the video itself is there.
+ */
+function mediaWithVideos(row: ProductRow): string[] | null {
+  const gallery = Array.isArray(row.gallery_urls) ? (row.gallery_urls as unknown[]) : []
+  if (!gallery.some((u) => typeof u === "string" && isVideoUrl(u))) return null
+  return uniqueImages([row.thumbnail_url, ...gallery].filter((u) => typeof u === "string" && !isPosterName(u)).map((u) => mediaUrl(u as string)), MAX_IMAGES)
 }
 
 /** One option, as a section reads it. */
@@ -273,6 +286,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
       pay_what_you_want: row.pay_what_you_want === true,
       image: mediaUrl(row.thumbnail_url) ?? images[0] ?? "",
       images,
+      ...(mediaWithVideos(row) ? { media: mediaWithVideos(row) } : {}),
       url: row.slug ? `/products/${row.slug}` : "",
       slug: row.slug ?? "",
       kind: row.type ?? "",

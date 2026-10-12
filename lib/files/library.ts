@@ -16,6 +16,7 @@ import "server-only"
  * Storelib's /media/ ones (lib/storage/media-url), never the storage host.
  */
 import { mediaUrl } from "@/lib/storage/media-url"
+import { isPosterName, posterPathFor, videoDuration } from "@/lib/media/video"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = any
@@ -36,6 +37,10 @@ export interface LibraryFile {
   createdAt: string | null
   /** Where it came from: "Website", "Product photos", "Library". */
   source: string
+  /** A video's first frame, stored beside it at upload (lib/files/upload-video.ts), or null. */
+  poster?: string | null
+  /** A video's length in seconds, from its stored name, or null. */
+  duration?: number | null
 }
 
 type Entry = { name: string; id: string | null; created_at?: string | null; metadata?: { size?: number; mimetype?: string } | null }
@@ -72,11 +77,13 @@ function drawable(e: Entry): boolean {
 }
 
 const IMAGE = /\.(jpe?g|png|gif|webp|avif)$/i
+/* The folder a product's videos go into (lib/files/upload-video.ts): listed with the product photos. */
+const PRODUCTS_FOLDER = "products"
 /* What the builder's video field uploads (components/website-builder/editor/controls/video-picker-control.tsx). */
 const VIDEO = /\.(mp4|webm|mov|m4v)$/i
 
-/** Pictures, or the videos a video setting can play. */
-export type LibraryKind = "image" | "video"
+/** Pictures, the videos a video setting can play, or both (Files itself, a product's photos and videos). */
+export type LibraryKind = "image" | "video" | "media"
 
 function toFile(admin: Admin, bucket: LibraryBucket, path: string, e: Entry, source: string): LibraryFile {
   const { data } = admin.storage.from(bucket).getPublicUrl(path)
@@ -95,23 +102,43 @@ function toFile(admin: Admin, bucket: LibraryBucket, path: string, e: Entry, sou
   }
 }
 
-/** Every picture the store has (or every video, with `kind`), newest first. */
+/** Every picture the store has (or every video, or both, with `kind`), newest first. */
 export async function listLibrary(admin: Admin, owner: { userId: string; creatorId: string }, kind: LibraryKind = "image"): Promise<LibraryFile[]> {
   const out: LibraryFile[] = []
-  const wanted = kind === "video" ? VIDEO : IMAGE
+  const images = kind !== "video"
+  const videos = kind !== "image"
   const builderFolders = (await list(admin, "store-builder-images", owner.userId)).filter(isFolder)
   const builder = await Promise.all(builderFolders.slice(0, 40).map(async (f) => ({ folder: f.name, entries: await list(admin, "store-builder-images", `${owner.userId}/${f.name}`) })))
   for (const { folder, entries } of builder) {
-    for (const e of entries) if (!isFolder(e) && wanted.test(e.name) && drawable(e)) out.push(toFile(admin, "store-builder-images", `${owner.userId}/${folder}/${e.name}`, e, folder === LIBRARY_FOLDER ? "Library" : "Website"))
+    const source = folder === LIBRARY_FOLDER ? "Library" : folder === PRODUCTS_FOLDER ? "Product photos" : "Website"
+    /* A video's first frame is part of the video, not a picture of its own. */
+    const posters = new Set(entries.filter((e) => isPosterName(e.name) && drawable(e)).map((e) => e.name))
+    for (const e of entries) {
+      if (isFolder(e) || !drawable(e) || isPosterName(e.name)) continue
+      const path = `${owner.userId}/${folder}/${e.name}`
+      if (images && IMAGE.test(e.name)) out.push(toFile(admin, "store-builder-images", path, e, source))
+      else if (videos && VIDEO.test(e.name)) {
+        const file = toFile(admin, "store-builder-images", path, e, source)
+        const posterName = posterPathFor(e.name)
+        file.poster = posters.has(posterName) ? toFile(admin, "store-builder-images", posterPathFor(path), { ...e, name: posterName }, source).url : null
+        file.duration = videoDuration(e.name)
+        out.push(file)
+      }
+    }
   }
   /* Product photos are pictures only: the product-images bucket holds no video. */
-  if (kind === "video") return out.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")).slice(0, MAX_LIBRARY_FILES)
+  if (!images) return out.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")).slice(0, MAX_LIBRARY_FILES)
   const productFolders = (await list(admin, "product-images", owner.creatorId)).filter(isFolder)
   const products = await Promise.all(productFolders.slice(0, 120).map(async (f) => ({ folder: f.name, entries: await list(admin, "product-images", `${owner.creatorId}/${f.name}`) })))
   for (const { folder, entries } of products) {
     for (const e of entries) if (!isFolder(e) && IMAGE.test(e.name) && drawable(e)) out.push(toFile(admin, "product-images", `${owner.creatorId}/${folder}/${e.name}`, e, "Product photos"))
   }
   return out.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")).slice(0, MAX_LIBRARY_FILES)
+}
+
+/** A video's first frame goes with it (lib/files/upload-video.ts stores it beside the video). */
+function withPoster(bucket: unknown, path: string): string[] {
+  return bucket === "store-builder-images" && VIDEO.test(path) ? [path, posterPathFor(path)] : [path]
 }
 
 /** Whether a file is the caller's own: its path starts with their folder in that bucket. */
@@ -124,7 +151,7 @@ export function ownsFile(owner: { userId: string; creatorId: string }, bucket: u
 
 export async function deleteLibraryFile(admin: Admin, owner: { userId: string; creatorId: string }, bucket: unknown, path: unknown): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
   if (!ownsFile(owner, bucket, path)) return { ok: false, error: "That file was not found.", status: 404 }
-  const { error } = await admin.storage.from(bucket as LibraryBucket).remove([path])
+  const { error } = await admin.storage.from(bucket as LibraryBucket).remove(withPoster(bucket, path))
   if (error) return { ok: false, error: "The file could not be deleted.", status: 500 }
   return { ok: true }
 }
@@ -146,14 +173,14 @@ export async function deleteLibraryFiles(admin: Admin, owner: { userId: string; 
     const path = (item as { path?: unknown } | null)?.path
     if (!ownsFile(owner, bucket, path)) return { ok: false, error: "That file was not found.", status: 404 }
     const paths = byBucket.get(bucket as LibraryBucket) ?? []
-    if (!paths.includes(path)) paths.push(path)
+    for (const p of withPoster(bucket, path)) if (!paths.includes(p)) paths.push(p)
     byBucket.set(bucket as LibraryBucket, paths)
   }
   let removed = 0
   for (const [bucket, paths] of byBucket) {
     const { error } = await admin.storage.from(bucket).remove(paths)
     if (error) return { ok: false, error: "The files could not be deleted.", status: 500 }
-    removed += paths.length
+    removed += paths.filter((p) => !isPosterName(p)).length
   }
   return { ok: true, removed }
 }

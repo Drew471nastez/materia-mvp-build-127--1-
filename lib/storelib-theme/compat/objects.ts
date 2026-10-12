@@ -18,6 +18,7 @@ import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
+import { isVideoUrl, videoDuration, videoMime, videoPosterUrl } from "@/lib/media/video"
 
 type O = Record<string, unknown>
 
@@ -59,9 +60,38 @@ export function imageObject(src: string, alt = "", extra: O = {}): O | null {
   return img
 }
 
-/** Every picture of a product, as `product.media`. */
+/**
+ * A video uploaded to the product, as Shopify's video media: `media_type`
+ * "video", its file in `sources` (what `video_tag`, `media_tag` and a theme's
+ * own <video> read), its first frame as `preview_image` (or the product's
+ * first photo when it has none stored, so a theme's thumbnail is never empty).
+ */
+function videoMedia(src: string, alt: string, position: number, fallbackPreview: string): O {
+  const poster = videoPosterUrl(src) ?? fallbackPreview
+  const preview = poster ? imageObject(poster, alt, { position, id: 2000 + position }) : null
+  const seconds = videoDuration(src)
+  const mime = videoMime(src)
+  return {
+    [OUTPUT]: src,
+    id: 1000 + position - 1,
+    media_type: "video",
+    position,
+    alt,
+    src,
+    preview_image: preview,
+    aspect_ratio: new LFloat(1.778),
+    duration: seconds === null ? null : seconds * 1000,
+    sources: [{ url: src, mime_type: mime, format: mime.split("/")[1] === "quicktime" ? "mov" : mime.split("/")[1], width: 1280, height: 720 }],
+    presentation: { focal_point: { x: 50, y: 50, [OUTPUT]: "50.0% 50.0%" } },
+    attached_to_variant: false,
+    variants: [],
+  }
+}
+
+/** Every picture (and uploaded video) of a product, as `product.media`. */
 function mediaList(images: string[], alt: string): O[] {
-  return images.filter(Boolean).map((src, i) => imageObject(src, alt, { position: i + 1, id: 1000 + i }) as O)
+  const firstPhoto = images.find((u) => u && !isVideoUrl(u)) ?? ""
+  return images.filter(Boolean).map((src, i) => (isVideoUrl(src) ? videoMedia(src, alt, i + 1, firstPhoto) : (imageObject(src, alt, { position: i + 1, id: 1000 + i }) as O)))
 }
 
 // ── Products ─────────────────────────────────────────────────────────────────
@@ -97,7 +127,9 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   const title = String(s.title ?? "")
   const handle = String(s.slug ?? "") || handleize(title)
   const images = Array.isArray(s.images) && s.images.length ? (s.images as string[]) : s.image ? [String(s.image)] : []
-  const media = mediaList(images, title)
+  /* `media`: photos and videos in order, when the product has a video (lib/website-builder/shop-products.ts); `images` stays pictures only. */
+  const media = mediaList(Array.isArray(s.media) && s.media.length ? (s.media as string[]) : images, title)
+  const pictures = media.filter((m) => m.media_type === "image")
   const price = priceCents(s.price)
   const compare = priceCents(s.compare_price)
   const optionsIn = Array.isArray(s.options) ? (s.options as { name: string; values: string[] }[]) : []
@@ -131,9 +163,9 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
       requires_shipping: String(s.kind ?? "") === "physical",
       taxable: true,
       url: `${String(s.url ?? `/products/${handle}`)}?variant=${encodeURIComponent(String(v.id ?? card.id))}`,
-      featured_image: media[0] ?? null,
+      featured_image: pictures[0] ?? null,
       featured_media: media[0] ?? null,
-      image: media[0] ?? null,
+      image: pictures[0] ?? null,
       selected: false,
       matched: true,
       /* The most one order may take: what is left, held to Limit sales (lib/website-builder/compat-site.ts compatStock). A theme's quantity picker stops there. */
@@ -198,9 +230,9 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     compare_at_price_min: compare > price ? compare : null,
     compare_at_price_max: compare > price ? compare : null,
     compare_at_price_varies: false,
-    featured_image: media[0] ?? null,
+    featured_image: pictures[0] ?? null,
     featured_media: media[0] ?? null,
-    images: media,
+    images: pictures,
     media,
     first_available_variant: variants.find((v) => v.available) ?? variants[0],
     selected_variant: extra.selectedVariantId ? selected ?? null : null,
