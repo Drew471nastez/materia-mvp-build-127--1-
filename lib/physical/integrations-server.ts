@@ -12,6 +12,7 @@ import { PROVIDERS, providerInfo, type ProviderId } from "./providers"
 import { verifyProviderKey } from "./provider-verify"
 import { openSecret, sealSecret, secretHint } from "./secrets"
 import { afterConnect, beforeDisconnect, connectFields, connectorFor } from "@/lib/integrations/fulfilment/forward-server"
+import { beforeShippingDisconnect, isShippingApp, saveShippingApp } from "@/lib/integrations/shipping/connect-server"
 
 export interface IntegrationView {
   provider: ProviderId
@@ -33,6 +34,9 @@ export interface IntegrationView {
   webhookNote: string | null
   /** The location whose products are sent there. */
   location: { id: string; name: string } | null
+  /** Shippo and EasyPost: labels bought from Storelib; ShipStation: orders sent there. */
+  labelsBought?: number
+  ordersSent?: number
 }
 
 export async function loadIntegrations(db: Db, creatorId: string): Promise<IntegrationView[]> {
@@ -58,6 +62,8 @@ export async function loadIntegrations(db: Db, creatorId: string): Promise<Integ
       webhooks: r?.config?.webhooks === "on" || r?.config?.webhooks === "off" ? r.config.webhooks : null,
       webhookNote: typeof r?.config?.webhook_note === "string" ? r.config.webhook_note : null,
       location: r?.id ? (locOf.get(r.id) ?? null) : null,
+      labelsBought: typeof r?.config?.labels_bought === "number" ? r.config.labels_bought : 0,
+      ordersSent: typeof r?.config?.orders_sent === "number" ? r.config.orders_sent : 0,
     }
   })
 }
@@ -68,12 +74,15 @@ export async function saveIntegration(db: Db, creatorId: string, provider: strin
   if (body.disconnect === true) {
     /* Printful and Printify stop sending updates first; the location keeps its products and says it is not connected. */
     await beforeDisconnect(db, creatorId, info.id).catch(() => undefined)
+    await beforeShippingDisconnect(db, creatorId, info.id).catch(() => undefined)
     await db.from("commerce_integrations").delete().eq("creator_id", creatorId).eq("provider", info.id)
     return { ok: true }
   }
   /* Coming soon: nothing to connect to yet, so no key is taken (one saved before can still be removed above). */
   if (info.availability === "needs_setup") return { ok: false, error: `${info.name} isn't connected to Storelib yet. Press Tell me when it's ready on its page.` }
   if (info.availability === "connect" && connectorFor(info.id)) return saveConnector(db, creatorId, info.id, info.category, body)
+  /* Shippo, EasyPost, ShipStation: checked with the provider, connected only when it accepts (lib/integrations/shipping/connect-server.ts). */
+  if (info.availability === "connect" && isShippingApp(info.id)) return saveShippingApp(db, creatorId, info.id, body)
   const row: Record<string, unknown> = { creator_id: creatorId, provider: info.id, category: info.category, updated_at: new Date().toISOString(), last_error: null }
   if (info.fields.includes("url")) {
     const url = typeof body.url === "string" ? body.url.trim() : ""

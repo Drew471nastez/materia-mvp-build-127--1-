@@ -10,8 +10,10 @@
  *   commerce   fulfilment, shipping, print on demand and suppliers
  *              (lib/physical/providers.ts); while physical commerce is on.
  *              Printful and Printify take orders and send tracking back
- *              (lib/integrations/fulfilment); the rest of the shipping and
- *              dropshipping services are Coming soon, never a Connect button
+ *              (lib/integrations/fulfilment); Shippo and EasyPost sell
+ *              labels on the order page and ShipStation takes orders and
+ *              sends tracking back (lib/integrations/shipping); the rest are
+ *              Coming soon, never a Connect button
  *   app        made by Storelib and run inside it, with a page of its own
  *              settings: Storelib Reviews (lib/reviews/app-settings.ts)
  *   listed     a service merchants ask for that Storelib does not connect
@@ -162,9 +164,9 @@ const PROVIDER_SUMMARY: Partial<Record<ProviderId, string>> = {
   printify: "Print on demand from a network of print partners.",
   gelato: "Print on demand, printed close to your buyer.",
   cj_dropshipping: "A supplier's catalogue, shipped straight to your buyer.",
-  shipstation: "Labels and live carrier rates for every order.",
-  shippo: "Discounted labels and live rates from many carriers.",
-  easypost: "Labels and tracking from one shipping API.",
+  shipstation: "Your orders in ShipStation to label, tracking back to your buyer.",
+  shippo: "Buy and print labels from the order page.",
+  easypost: "Buy and print labels from the order page.",
 }
 
 const PROVIDER_CATEGORY: Record<ProviderInfo["category"], IntegrationCategory> = {
@@ -221,6 +223,36 @@ const CONNECT_ABOUT: Partial<Record<ProviderId, string[]>> = {
   ],
 }
 
+/** Shippo, EasyPost and ShipStation (lib/integrations/shipping): what each does once connected. */
+const LABEL_ABOUT = (name: string) => [
+  `Connect your ${name} account with its API key. In an order, Fulfill items has Buy a label: choose the package (from Settings › Shipping › Packages, the default one first), and ${name} shows its live rates for the order's address and the address of the location it ships from. The address is checked first and anything ${name} finds wrong with it is shown before you buy.`,
+  "Pick a rate and buy: the label opens as a PDF to print, the items are marked shipped with the carrier and tracking number, and your buyer gets the shipping email with the tracking link. The label's cost is kept on the order as your cost; the buyer is not charged for it.",
+  `A label you haven't used can be voided from the order: ${name} refunds it once the carrier agrees, and the items go back to unfulfilled. A test key buys free sample labels, so you can try it first.`,
+]
+Object.assign(CONNECT_ABOUT, {
+  shippo: LABEL_ABOUT("Shippo"),
+  easypost: LABEL_ABOUT("EasyPost"),
+  shipstation: [
+    "Connect ShipStation with the API key and API secret from ShipStation › Settings › Account › API Settings. Storelib becomes one of your stores there.",
+    "Each paid order with items you ship yourself is sent to ShipStation with the items, their SKUs and weights, the delivery your buyer chose and their address. Cancel the order, or change its address, and ShipStation is updated too. Items a print partner or supplier sends are left out.",
+    "Print the label in ShipStation as you always do. ShipStation tells Storelib when it ships, and the carrier and tracking number come back to the order: the items are marked shipped and your buyer gets the shipping email with the tracking link.",
+  ],
+} satisfies Partial<Record<ProviderId, string[]>>)
+
+const CONNECT_DATA: Partial<Record<ProviderId, (name: string) => string[]>> = {
+  shippo: (name) => [
+    `When you ask for rates or buy a label, ${name} receives the parcel's size and weight, your location's address, and the buyer's name, delivery address, phone and email, as the carrier needs them. Nothing is sent until you press Get rates.`,
+    `Back from ${name}: the rates, the label PDF, the carrier and the tracking number, kept on the order with the label's cost.`,
+    `Your ${name} key is checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
+  ],
+  shipstation: (name) => [
+    `Each paid order you ship goes to ${name} with its number, the items (name, SKU, quantity, price, weight), the totals, the delivery chosen, the buyer's note, and the buyer's name, address, phone and email. Cancellations and address changes follow.`,
+    `Back from ${name}: each shipment's carrier and tracking number. ${name} only says that something shipped; Storelib then reads the shipment from ${name} with your key before anything changes on the order.`,
+    `Your ${name} key and secret are checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only their last four characters.`,
+  ],
+}
+CONNECT_DATA.easypost = CONNECT_DATA.shippo
+
 function fromProvider(p: ProviderInfo): Integration {
   const builtIn = p.availability === "live"
   const connects = p.availability === "connect"
@@ -239,11 +271,13 @@ function fromProvider(p: ProviderInfo): Integration {
       { label: "Works with", value: "Physical products" },
       { label: "Status", value: builtIn ? "Works today" : connects ? "Works once connected" : "Coming soon" },
       /* Coming soon takes nothing, so it doesn't say what you would add. */
-      ...(builtIn || connects ? [{ label: "You add", value: p.fields.length === 0 ? "Nothing" : p.id === "printful" ? "A private token" : p.id === "printify" ? "A personal access token" : p.fields.map((f) => ({ api_key: "An API key", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") }] : []),
+      ...(builtIn || connects ? [{ label: "You add", value: p.fields.length === 0 ? "Nothing" : p.id === "printful" ? "A private token" : p.id === "printify" ? "A personal access token" : p.fields.map((f) => ({ api_key: "An API key", api_secret: "An API secret", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") }] : []),
       { label: "Price", value: builtIn ? "Free" : `Free on Storelib; ${p.name}'s own pricing applies` },
     ],
     data: builtIn
       ? ["Nothing leaves Storelib except what this integration is for: the order's items and the delivery address, to whoever ships it."]
+      : connects && CONNECT_DATA[p.id]
+        ? CONNECT_DATA[p.id]!(p.name)
       : connects
         ? [
             `Each order sent to ${p.name} carries the items by SKU and quantity, the order number, and the buyer's name, delivery address, email and phone, so it can be shipped. Nothing about your other orders or products is sent.`,

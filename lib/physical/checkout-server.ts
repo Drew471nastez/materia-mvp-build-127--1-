@@ -59,7 +59,8 @@ import { readAddress } from "./address"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import { isPickupOptionId } from "./pickup"
 import { addOrderEvent } from "./events-server"
-import { queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
+import { enqueueJob, queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
+import { queueShipStation } from "@/lib/integrations/shipping/shipstation-server"
 import type { Address, PricedLine } from "./types"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { statementParams } from "@/lib/payments/platform-descriptor"
@@ -991,6 +992,8 @@ async function onceForOrder(
   await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId }))
   await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
   await step("forwarding", () => queueForwarding(db, co.id, co.creator_id))
+  /* ShipStation connected: the items the seller ships go there to be labelled (lib/integrations/shipping/shipstation-server.ts). */
+  await step("shipstation", () => queueShipStation(db, co.id, co.creator_id, "paid", { enqueue: (d, j) => enqueueJob(d, j) }))
   await step("low stock", () => queueLowStockAlerts(db, co.creator_id, s.lines.map((l) => l.variant_id).filter((v): v is string => !!v)))
   await step("notify", () =>
     raiseSaleEvents(db, {
