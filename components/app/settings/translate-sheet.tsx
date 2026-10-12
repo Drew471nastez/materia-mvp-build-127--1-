@@ -67,7 +67,7 @@ const plain = (html: string) => html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(
  * `published` and `onPublish`: the language's own switch in the footer, so
  * translating and putting it live happen in one place (round AE).
  */
-export function TranslateSheet({ locale, defaultLanguage, published = false, onPublish, onClose }: { locale: string | null; defaultLanguage: string; published?: boolean; onPublish?: (v: boolean) => void; onClose: () => void }) {
+export function TranslateSheet({ locale, defaultLanguage, waiting = false, published = false, onPublish, onClose }: { locale: string | null; defaultLanguage: string; waiting?: boolean; published?: boolean; onPublish?: (v: boolean) => void; onClose: () => void }) {
   const [data, setData] = React.useState<Loaded | null>(null)
   const [edits, setEdits] = React.useState<Record<string, string>>({})
   const [approve, setApprove] = React.useState<Set<string>>(new Set())
@@ -78,10 +78,13 @@ export function TranslateSheet({ locale, defaultLanguage, published = false, onP
 
   const load = React.useCallback(async (code: string) => {
     const r = await api<Loaded>(`/api/store/translations?locale=${encodeURIComponent(code)}`, { method: "GET" })
-    if (r.ok) setData(r.data)
-    else setError(r.error)
+    if (!r.ok) return setError(r.error)
+    /* The server answers with no language when it does not have this one: say so, rather than "no text". */
+    if (!r.data.locale) return setError(`${languageName(code, "en")} isn't saved on your website yet. Close this and try again.`)
+    setData(r.data)
   }, [])
 
+  /* A language just added is read once its save has landed (`waiting`, Settings › Markets and languages). */
   React.useEffect(() => {
     if (!locale) return
     setData(null)
@@ -90,8 +93,8 @@ export function TranslateSheet({ locale, defaultLanguage, published = false, onP
     setError(null)
     setNote(null)
     setFilter("todo")
-    void load(locale)
-  }, [locale, load])
+    if (!waiting) void load(locale)
+  }, [locale, waiting, load])
 
   const items = React.useMemo(() => data?.groups.flatMap((g) => g.items) ?? [], [data])
   const byKey = React.useMemo(() => new Map(items.map((i) => [i.key, i])), [items])

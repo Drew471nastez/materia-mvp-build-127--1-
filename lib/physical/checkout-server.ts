@@ -48,7 +48,7 @@ import { recordCouponUse } from "@/lib/checkout/coupons"
 import { paymentFacts, recordSale } from "@/lib/checkout/fulfil-payment"
 import { recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { storeChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordOrderAttribution, type Attribution } from "@/lib/attribution/server"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
@@ -219,13 +219,15 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const { data: creator } = await db
     .from("creators")
-    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
+    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor, payout_currency")
     .eq("id", priced.creatorId)
     .maybeSingle()
   if (!creator) return { ok: false, status: 404, error: "Shop not found." }
+  /* The store's own currency, the one its prices are written in and its website shows (lib/payments/fees/currency-rules storeChargeCurrency). */
+  const chargeCurrency = storeChargeCurrency(creator.payout_currency)
 
   const free = totals.totalCents === 0
-  if (!free && totals.totalCents < MIN_CHARGE_CENTS) return { ok: false, status: 400, error: "The smallest card payment is $0.50." }
+  if (!free && totals.totalCents < MIN_CHARGE_CENTS) return { ok: false, status: 400, error: `The smallest card payment is ${money(MIN_CHARGE_CENTS, chargeCurrency)}.` }
   /* Storelib's one readiness rule (lib/payments/stripe/readiness); the buyer is told nothing about the seller's verification. */
   if (!free && (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string)))) {
     return { ok: false, status: 409, error: BUYER_UNAVAILABLE }
@@ -262,7 +264,6 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     return { ok: false, status: 409, error: "Refresh the page and try again." }
   }
 
-  const chargeCurrency = platformChargeCurrency()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>> | null = null
   if (!free) {
     try {
@@ -404,7 +405,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
         unit_amount: part.unitCents,
         product_data: {
           name: (l.variantName ? `${l.title} (${l.variantName})` : l.title).slice(0, 250),
-          ...(l.discountCents > 0 ? { description: `$${(l.discountCents / 100).toFixed(2)} off${priced.coupon ? ` with ${priced.coupon.code}` : priced.offers.length ? `, ${priced.offers.map((o) => o.title).join(", ")}`.slice(0, 200) : ""}` } : {}),
+          ...(l.discountCents > 0 ? { description: `${money(l.discountCents, chargeCurrency)} off${priced.coupon ? ` with ${priced.coupon.code}` : priced.offers.length ? `, ${priced.offers.map((o) => o.title).join(", ")}`.slice(0, 200) : ""}` } : {}),
           ...(l.imageUrl && /^https:\/\//.test(l.imageUrl) ? { images: [l.imageUrl] } : {}),
         },
       },
@@ -1036,6 +1037,7 @@ async function onceForOrder(
     cardBrand: null,
     cardLast4: null,
     device: { country: co.shipping_address?.country ?? null, countryCode: co.shipping_address?.country ?? null, deviceType: null, os: null, browser: null },
+    currency: co.currency ?? null,
     origin: s.origin,
     attribution: co.attribution ?? null,
   }

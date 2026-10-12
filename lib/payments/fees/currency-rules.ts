@@ -32,6 +32,11 @@ export const CURRENCY_FEE_RULES: Record<string, CurrencyFeeRule> = {
   AUD: { currency: "AUD", microThresholdMinor: 600, fixedFeeMinor: 38 },
   /** Zero-decimal — thresholds in whole yen */
   JPY: { currency: "JPY", microThresholdMinor: 600, fixedFeeMinor: 40 },
+  /** The rest of the store currencies Settings offers (app/api/settings/payments), at the same ~$4.00 / ~$0.25. */
+  CHF: { currency: "CHF", microThresholdMinor: 352, fixedFeeMinor: 22 },
+  SEK: { currency: "SEK", microThresholdMinor: 4200, fixedFeeMinor: 260 },
+  NOK: { currency: "NOK", microThresholdMinor: 4320, fixedFeeMinor: 270 },
+  NZD: { currency: "NZD", microThresholdMinor: 672, fixedFeeMinor: 42 },
 }
 
 export class UnsupportedFeeCurrencyError extends Error {
@@ -64,6 +69,24 @@ export function normalizeChargeCurrency(currency: string): string {
 export function platformChargeCurrency(): string {
   const fromEnv = (process.env.NEXT_PUBLIC_PLATFORM_CURRENCY || "ron").toLowerCase()
   return fromEnv === "usd" ? "usd" : "ron"
+}
+
+/**
+ * WHAT A STORE'S OWN CHECKOUT CHARGES IN: the store's currency
+ * (creators.payout_currency, lib/store/currency), the one its products are
+ * priced in and its website shows. A store priced in euros was shown €25 on
+ * its website and then charged 25 in the platform's currency at checkout.
+ * Stripe takes a destination charge in any of these and settles it to the
+ * seller's own currency. A store currency with no fee rule above falls back
+ * to the platform's, as every checkout did before. Lowercase, as Stripe
+ * wants it.
+ *
+ * The store's own checkouts only (its website's basket and its physical
+ * checkout). Creator pages and communities stay in the platform's currency.
+ */
+export function storeChargeCurrency(storeCurrency: unknown): string {
+  const code = typeof storeCurrency === "string" ? storeCurrency.trim().toUpperCase() : ""
+  return /^[A-Z]{3}$/.test(code) && CURRENCY_FEE_RULES[code] ? code.toLowerCase() : platformChargeCurrency()
 }
 
 export function platformChargeCurrencyUpper(): string {

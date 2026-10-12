@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { marketOfCountry, siteLanguages } from "@/lib/markets/live"
 import { chargeNote } from "@/lib/markets/money"
-import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
+import { storeChargeCurrencyFor } from "@/lib/payments/fees/store-currency"
 import { cookies, headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { after } from "next/server"
@@ -104,7 +104,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   /*
     PRICES SEEN IN ANOTHER CURRENCY (Markets and languages): a visitor whose
     country is in a market that shows its own currency saw estimates; the
-    card is charged in the platform's currency, and checkout says so under
+    card is charged in the store's own currency, and checkout says so under
     the total.
   */
   const visitorCountry = (() => {
@@ -112,11 +112,13 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     if (chosen === "home") return null
     return (chosen && /^[A-Za-z]{2}$/.test(chosen) ? chosen : h.get("x-vercel-ip-country")) ?? null
   })()
+  /* The store's own currency: what its prices are written in, and what the card is charged in. */
+  const currencyRead = storeChargeCurrencyFor(admin, site.creatorId)
   const noteRead = siteLanguages(site.creatorId)
     .then((langs) => marketOfCountry(langs, visitorCountry))
-    .then((m) => (m ? chargeNote(m.currency, platformChargeCurrencyUpper()) : null))
+    .then(async (m) => (m ? chargeNote(m.currency, (await currencyRead).toUpperCase()) : null))
     .catch(() => null)
-  const [brand, config, buyer, ready, answer, currencyNote] = await Promise.all([
+  const [brand, config, buyer, ready, answer, currencyNote, currency] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     checkoutBrandOf(site.creatorId),
     loadCheckoutConfig(admin, site.creatorId),
@@ -124,6 +126,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     checkoutReadyForCreator(site.creatorId).catch(() => false),
     quoteRead,
     noteRead,
+    currencyRead,
   ])
   const shopUrl = `${site.origin}/`
   /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
@@ -156,6 +159,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
       currencyNote={currencyNote}
+      currency={currency}
     />
   )
 }

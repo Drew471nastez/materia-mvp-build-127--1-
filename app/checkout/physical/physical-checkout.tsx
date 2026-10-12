@@ -92,9 +92,6 @@ const FLOAT_SELECT = `${INPUT} h-[52px] appearance-none pr-10 pt-[17px] data-[em
 const FLOAT_SELECT_LABEL =
   "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,transform] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
 
-/* The charged currency, as every checkout shows it (../parts/ui money, PLATFORM_CURRENCY). */
-const money = sharedMoney
-
 function guessCountry(): string {
   try {
     const region = new Intl.Locale(navigator.language).maximize().region
@@ -112,6 +109,7 @@ export function PhysicalCheckout({
   config = DEFAULT_CHECKOUT,
   buyer = { signedIn: true, confirmed: true },
   backTo = null,
+  currency = CHECKOUT_CURRENCY,
 }: {
   shopId: string | null
   shopName: string
@@ -124,7 +122,11 @@ export function PhysicalCheckout({
   /** The store's Settings › Checkout (lib/store/checkout-config): which fields are asked for, and whether an account comes first. */
   config?: CheckoutConfig
   buyer?: { signedIn: boolean; confirmed: boolean }
+  /** What the card is charged in: the store's own currency (lib/payments/fees/currency-rules storeChargeCurrency). */
+  currency?: string
 }) {
+  /* Every price here in the currency the card is charged in. */
+  const money = (cents: number) => sharedMoney(cents, currency)
   const needsSignIn = config.requireAccount && !buyer.signedIn
   const needsConfirm = config.requireConfirmedEmail && buyer.signedIn && !buyer.confirmed
   const [first, setFirst] = React.useState("")
@@ -493,7 +495,7 @@ export function PhysicalCheckout({
             <dt className="text-[16px] font-semibold text-[#1a1a2e]">Total</dt>
             <dd className="text-[20px] font-bold tabular-nums text-[#1a1a2e]">
               {/* The code before the amount, as Shopify writes it ("USD $51.84"); a currency written by its code already ("RON 51.84") is not named twice. */}
-              {money(t.totalCents).includes(CHECKOUT_CURRENCY.toUpperCase()) ? null : <span className="mr-1.5 text-[12px] font-medium text-[#6b7280]">{CHECKOUT_CURRENCY.toUpperCase()}</span>}
+              {money(t.totalCents).includes(currency.toUpperCase()) ? null : <span className="mr-1.5 text-[12px] font-medium text-[#6b7280]">{currency.toUpperCase()}</span>}
               {money(t.totalCents)}
             </dd>
           </div>

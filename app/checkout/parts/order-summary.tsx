@@ -19,7 +19,7 @@ import * as React from "react"
 import Image from "next/image"
 import { ChevronDown, Package, Tag, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Reveal, Spinner, TextInput, money } from "./ui"
+import { Reveal, Spinner, TextInput, money, money as sharedMoney } from "./ui"
 import { countryName } from "@/lib/checkout/countries"
 
 export interface SummaryVariant {
@@ -424,6 +424,7 @@ export function Totals({
   isPwyw,
   promo,
   tax,
+  currency,
 }: {
   part: "top" | "bottom"
   subtotal: number
@@ -435,7 +436,10 @@ export function Totals({
   promo?: React.ReactNode
   /** Settings › Taxes: the tax for the buyer's country, which they can change here. */
   tax?: TaxLine
+  /** What the card is charged in, when it is not the platform's (a store's own checkout). */
+  currency?: string
 }) {
+  const money = (cents: number) => sharedMoney(cents, currency)
   if (part === "top") {
     return (
       <dl data-totals="top" className="text-[14px]">

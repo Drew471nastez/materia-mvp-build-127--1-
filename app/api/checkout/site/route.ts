@@ -24,7 +24,7 @@ import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/co
 import { statementParams } from "@/lib/payments/platform-descriptor"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { storeChargeCurrencyFor } from "@/lib/payments/fees/store-currency"
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin, type OrderOrigin } from "@/lib/orders/order-source"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
@@ -343,7 +343,8 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   if (tax.taxCents > 0) tax.lineTaxCents.forEach((t, i) => (priced.lines[i].item.taxCents = t))
   const chargeCents = priced.totalCents + (tax.included ? 0 : tax.taxCents)
 
-  const chargeCurrency = platformChargeCurrency()
+  /* The store's own currency, the one its website shows (lib/payments/fees/currency-rules storeChargeCurrency). */
+  const chargeCurrency = await storeChargeCurrencyFor(admin, site.creatorId)
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(priced.totalCents, site.creatorId, admin, chargeCurrency)

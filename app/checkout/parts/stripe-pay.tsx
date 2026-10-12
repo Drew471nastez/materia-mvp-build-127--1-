@@ -126,6 +126,8 @@ export interface IntentResult {
 
 export interface StripePayProps {
   amountCents: number
+  /** The PaymentIntent's currency when it is not the platform's (a store's own checkout charges in the store's). */
+  currency?: string
   /** "subscription" for a membership: the form is drawn for a recurring payment, and a trial's card is saved rather than charged. */
   mode?: "payment" | "subscription"
   creatorName: string
@@ -179,14 +181,14 @@ export function StripePay(props: StripePayProps) {
     () => ({
       mode: props.mode ?? "payment",
       amount: props.amountCents,
-      /* The PaymentIntent's own currency (platformChargeCurrency): Stripe refuses a confirm whose form was drawn for another. */
-      currency: CHECKOUT_CURRENCY,
+      /* The PaymentIntent's own currency (platformChargeCurrency, or the store's for its own checkout): Stripe refuses a confirm whose form was drawn for another. */
+      currency: (props.currency || CHECKOUT_CURRENCY).toLowerCase(),
       paymentMethodTypes: methods,
       appearance,
       fonts: FONTS,
       loader: "auto",
     }),
-    [props.mode, props.amountCents, methods, appearance],
+    [props.mode, props.amountCents, props.currency, methods, appearance],
   )
   const fallBack = React.useCallback(() => {
     setSetIndex((i) => (i < METHOD_SETS.length - 1 ? i + 1 : i))

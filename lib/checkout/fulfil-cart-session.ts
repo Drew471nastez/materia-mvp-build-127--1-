@@ -131,6 +131,7 @@ export async function fulfilCartSession(
     cardBrand: facts?.cardBrand ?? null,
     cardLast4: facts?.cardLast4 ?? null,
     device,
+    currency: session.currency ?? pi?.currency ?? null,
     origin: orderOriginFrom(metadata),
     /* What the cart route checked and put on the session (lib/attribution). */
     attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
@@ -242,6 +243,7 @@ export async function fulfilCartPayment(
     cardBrand: facts?.cardBrand ?? null,
     cardLast4: facts?.cardLast4 ?? null,
     device,
+    currency: pi.currency ?? null,
     origin: orderOriginFrom(metadata),
     attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
     feeAudit: { planUsed: metadata.plan_used || null, pricingTier: metadata.pricing_tier || null, feeRuleVersion: metadata.fee_rule_version || null },

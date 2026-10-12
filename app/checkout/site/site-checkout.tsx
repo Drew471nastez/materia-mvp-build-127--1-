@@ -51,7 +51,7 @@ import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import type { SiteQuote } from "@/lib/checkout/site-quote-server"
-import { CheckRow, ErrorBanner, Field, PayButton, PayDock, PoweredByStripe, Reveal, SectionTitle, TextInput, inputClass, money, FIELD_SHADOW } from "../parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PayDock, PoweredByStripe, Reveal, SectionTitle, TextInput, inputClass, money as sharedMoney, FIELD_SHADOW } from "../parts/ui"
 import { DiscountForm, Totals } from "../parts/order-summary"
 import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
@@ -90,6 +90,8 @@ export interface SiteCheckoutProps {
   accountUrl?: string
   /** The visitor browsed in a market's currency (Markets and languages): what the card is charged in, said under the total. */
   currencyNote?: string | null
+  /** What the card is charged in: the store's own currency (lib/payments/fees/currency-rules storeChargeCurrency). */
+  currency?: string
 }
 
 const PAID_SCREEN_MS = 1100
@@ -164,7 +166,10 @@ export function SiteCheckout({
   needsSignIn,
   accountUrl = "/account",
   currencyNote = null,
+  currency,
 }: SiteCheckoutProps) {
+  /* Every price on this page is in the store's currency, the one the card is charged in. */
+  const money = (cents: number) => sharedMoney(cents, currency)
   /* ── The cart ────────────────────────────────────────────────────── */
   const [items, setItems] = React.useState<LinkItem[] | null>(linkItems.length ? linkItems : null)
   const [wholeCart, setWholeCart] = React.useState(linkWhole)
@@ -957,6 +962,7 @@ export function SiteCheckout({
       </ul>
       <div className="border-t border-black/[0.07] pt-5">
         <Totals
+          currency={currency}
           part="top"
           subtotal={t?.itemsSubtotalCents ?? 0}
           discountCents={discountCents}
@@ -1010,7 +1016,7 @@ export function SiteCheckout({
           </dl>
         ) : null}
         <div className="mt-5">
-          <Totals part="bottom" subtotal={t?.itemsSubtotalCents ?? 0} discountCents={discountCents} total={total} />
+          <Totals currency={currency} part="bottom" subtotal={t?.itemsSubtotalCents ?? 0} discountCents={discountCents} total={total} />
           {currencyNote ? <p className="mt-2 text-[13px] leading-5 text-[#6b7280]" data-currency-note="">{currencyNote}</p> : null}
           {t && t.taxCents > 0 && t.taxIncluded ? <p className="mt-2 text-[13px] text-[#6b7280]">Includes {money(t.taxCents)} {(t.taxLabel || "tax").replace(/^Tax\b/, "tax")}</p> : null}
         </div>
@@ -1061,6 +1067,7 @@ export function SiteCheckout({
   } else {
     payment = (
       <StripePay
+        currency={currency}
         amountCents={Math.max(total, 50)}
         creatorName={brand.name}
         email={email}

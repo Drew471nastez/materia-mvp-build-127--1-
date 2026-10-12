@@ -76,6 +76,8 @@ export interface FulfilContext {
   tax?: { included: boolean; country: string | null; label?: string | null } | null
   /** Who held the basket's copies under a product's sales limit when the payment started (lib/checkout/sales-limit). */
   saleHolder?: string | null
+  /** What the payment was actually charged in, as Stripe says (lowercase). USD when unknown, as every line was before. */
+  currency?: string | null
 }
 
 export interface FulfilledLine {
@@ -115,7 +117,7 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
       plan_used: ctx.feeAudit?.planUsed ?? null,
       pricing_tier: ctx.feeAudit?.pricingTier ?? null,
       fee_rule_version: ctx.feeAudit?.feeRuleVersion ?? null,
-      currency: "usd",
+      currency: (ctx.currency || "usd").toLowerCase(),
       provider: ctx.provider ?? "stripe",
       status: "completed",
       stripe_session_id: ctx.sessionId,
