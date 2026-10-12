@@ -28,7 +28,8 @@ import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
 import { defaultLocalization, validateLocalization, type Localization } from "./model"
 import { normalizeLocale } from "./locales"
-import { MAX_TRANSLATION_LENGTH, isTranslationKey, sourceHash, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, seoTranslatables, sourceHash, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -225,6 +226,21 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
       if (items.length) groups.push({ id: `page:${r.page_key}`, title: pageName(r.page_key), items })
     }
     if (chrome.length) groups.unshift({ id: "chrome", title: "Header and footer", items: chrome })
+
+    /* The store's menus (the header's and footer's links), and the website's search engine text. */
+    const [menus, settingsRead] = await Promise.all([
+      storeMenusOrNull(db, creatorId).catch(() => null),
+      db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", chosen.id).maybeSingle().then(
+        (r: { data: unknown }) => r,
+        () => ({ data: null }),
+      ),
+    ])
+    const row = settingsRead?.data as { settings?: Record<string, unknown> | null; draft_settings?: Record<string, unknown> | null } | null
+    const theme = (chosen.status === "published" ? row?.settings : (row?.draft_settings ?? row?.settings)) ?? null
+    const menuItems = menuTranslatables((menus ?? (theme?.menus as never)) ?? null)
+    if (menuItems.length) groups.splice(groups[0]?.id === "chrome" ? 1 : 0, 0, { id: "menus", title: "Menus", items: menuItems })
+    const seoItems = seoTranslatables(theme)
+    if (seoItems.length) groups.push({ id: "seo", title: "Search engines", items: seoItems })
   }
 
   const { data: products } = await db.from("products").select("id, title, description, seo_title, seo_description").eq("creator_id", creatorId).eq("status", "published").order("created_at", { ascending: false }).limit(200)

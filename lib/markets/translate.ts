@@ -170,3 +170,100 @@ export function translationMap(rows: readonly TranslationRow[]): TranslationMap 
   for (const r of rows) if (isTranslationKey(r.key)) m.set(r.key, r)
   return m
 }
+
+/* ── Menus and search engine text ──────────────────────────────────────── */
+
+/** A menu as the theme holds it (lib/storelib-theme/values Menu): links with titles, nested. */
+interface MenuLike {
+  title: string
+  links: { title: string; url: string; links?: MenuLike["links"] }[]
+}
+
+export const menuKey = (handle: string, path: string) => `menu:${handle}:${path}`
+
+/**
+ * Every link title of the store's menus, keyed by menu and position
+ * ("menu:main-menu:0.2"). Menus keep no ids, so a position is the key; a
+ * translation is only laid over while the title it was written for is
+ * still the one there (localizeMenus), so a reordered menu shows its
+ * originals, never a word meant for another link.
+ */
+export function menuTranslatables(menus: Record<string, MenuLike> | null | undefined): Translatable[] {
+  const out: Translatable[] = []
+  for (const [handle, menu] of Object.entries(menus ?? {})) {
+    const walk = (links: MenuLike["links"] | undefined, at: string) =>
+      (links ?? []).forEach((l, i) => {
+        const path = at ? `${at}.${i}` : String(i)
+        if (typeof l.title === "string" && l.title.trim()) out.push({ key: menuKey(handle, path), source: l.title, label: "Link", where: menu.title || handle, multiline: false })
+        walk(l.links, path)
+      })
+    walk(menu.links, "")
+  }
+  return out
+}
+
+/** The menus in a language: a link's title replaced only where its translation was written for the title it has now. */
+export function localizeMenus<T extends Record<string, MenuLike>>(menus: T, map: TranslationMap | null | undefined, opts: { approvedOnly?: boolean } = {}): T {
+  if (!map || map.size === 0) return menus
+  const inLinks = (handle: string, links: MenuLike["links"] | undefined, at: string): MenuLike["links"] | undefined =>
+    links?.map((l, i) => {
+      const path = at ? `${at}.${i}` : String(i)
+      const row = map.get(menuKey(handle, path))
+      const fits = row && row.sourceHash === sourceHash(l.title)
+      const title = fits ? (valueFor(map, menuKey(handle, path), opts) ?? l.title) : l.title
+      const inner = inLinks(handle, l.links, path)
+      return title === l.title && inner === l.links ? l : { ...l, title, ...(inner ? { links: inner } : {}) }
+    })
+  const out: Record<string, MenuLike> = {}
+  for (const [handle, menu] of Object.entries(menus)) out[handle] = { ...menu, links: inLinks(handle, menu.links, "") ?? menu.links }
+  return out as T
+}
+
+/** The website's search engine text: its own title and description, and each page's (Website settings › SEO, Pages). */
+export function seoTranslatables(theme: Record<string, unknown> | null | undefined): Translatable[] {
+  const out: Translatable[] = []
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : null)
+  const title = str(theme?.seo_title)
+  const description = str(theme?.seo_description)
+  if (title) out.push({ key: "page:home:seo_title", source: title, label: "Title", where: "Website", multiline: false })
+  if (description) out.push({ key: "page:home:seo_description", source: description, label: "Description", where: "Website", multiline: true })
+  const pages = theme?.page_seo
+  if (pages && typeof pages === "object") {
+    for (const [key, raw] of Object.entries(pages as Record<string, unknown>)) {
+      if (!raw || typeof raw !== "object" || !/^[^:\s]+$/.test(key)) continue
+      const r = raw as Record<string, unknown>
+      const name = key.charAt(0).toUpperCase() + key.slice(1).replace(/[-_]/g, " ")
+      if (str(r.title)) out.push({ key: `page:${key}:seo_title`, source: r.title as string, label: "Title", where: name, multiline: false })
+      if (str(r.description)) out.push({ key: `page:${key}:seo_description`, source: r.description as string, label: "Description", where: name, multiline: true })
+    }
+  }
+  return out
+}
+
+/** The theme's settings in a language: its menus, and its and its pages' search engine text. */
+export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: TranslationMap | null | undefined, opts: { approvedOnly?: boolean } = {}): T {
+  if (!map || map.size === 0) return theme
+  const next: Record<string, unknown> = { ...theme }
+  if (theme.menus && typeof theme.menus === "object") next.menus = localizeMenus(theme.menus as Record<string, MenuLike>, map, opts)
+  const t = valueFor(map, "page:home:seo_title", opts)
+  const d = valueFor(map, "page:home:seo_description", opts)
+  if (t && typeof theme.seo_title === "string") next.seo_title = t
+  if (d && typeof theme.seo_description === "string") next.seo_description = d
+  if (theme.page_seo && typeof theme.page_seo === "object") {
+    const pages: Record<string, unknown> = {}
+    for (const [key, raw] of Object.entries(theme.page_seo as Record<string, unknown>)) {
+      if (!raw || typeof raw !== "object") {
+        pages[key] = raw
+        continue
+      }
+      const r = { ...(raw as Record<string, unknown>) }
+      const pt = valueFor(map, `page:${key}:seo_title`, opts)
+      const pd = valueFor(map, `page:${key}:seo_description`, opts)
+      if (pt && typeof r.title === "string") r.title = pt
+      if (pd && typeof r.description === "string") r.description = pd
+      pages[key] = r
+    }
+    next.page_seo = pages
+  }
+  return next as T
+}
