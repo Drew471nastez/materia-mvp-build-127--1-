@@ -520,7 +520,7 @@ async function runSync(db: Db, row: Row, key: string, deps: MarketingDeps): Prom
   if (!more && row.config?.backfill === true && !row.config?.backfill_done_at) patch.backfill_done_at = new Date(now).toISOString()
   await saveConfig(db, row, patch, { last_sync_at: new Date(now).toISOString(), last_error: null })
   /* More than one run's worth (a backfill, a big import): the next batch straight after. */
-  if (more) await queueSync(db, row.creator_id, row.provider, now, `more${Math.floor(now / 1000)}`, now + 2000)
+  if (more) await queueSync(db, row.creator_id, row.provider, now, `more${Math.floor(now / 1000)}`)
 }
 
 async function pullUnsubscribes(db: Db, row: Row, key: string, now: number): Promise<{ more: boolean }> {
@@ -528,14 +528,16 @@ async function pullUnsubscribes(db: Db, row: Row, key: string, now: number): Pro
   let people: PulledAddress[] = []
   let more = false
   if (row.provider === "klaviyo") {
-    const g = await klaviyoPull(key, row.creator_id, p.since ?? EPOCH, null)
+    /* The first look reads the whole account's unsubscribes, so it reads more a run. */
+    const pages = p.initial_done ? 5 : 20
+    const g = await klaviyoPull(key, row.creator_id, p.since ?? EPOCH, null, pages)
     people.push(...g.people)
     if (g.latest) p.since = g.latest
     else if (!g.more && !p.since) p.since = new Date(now - 60_000).toISOString()
     more = more || g.more
     const listId = typeof row.config?.list_id === "string" ? row.config.list_id : null
     if (listId) {
-      const l = await klaviyoPull(key, row.creator_id, p.list_since ?? EPOCH, listId)
+      const l = await klaviyoPull(key, row.creator_id, p.list_since ?? EPOCH, listId, pages)
       people.push(...l.people)
       if (l.latest) p.list_since = l.latest
       else if (!l.more && !p.list_since) p.list_since = new Date(now - 60_000).toISOString()
@@ -543,7 +545,7 @@ async function pullUnsubscribes(db: Db, row: Row, key: string, now: number): Pro
     }
     if (!more) p.initial_done = true
   } else {
-    const o = await omnisendPull(key, row.creator_id, { since: p.initial_done ? p.since : null, after: p.after })
+    const o = await omnisendPull(key, row.creator_id, { since: p.initial_done ? p.since : null, after: p.after }, p.initial_done ? 4 : 10)
     people = o.people
     if (!p.initial_done) {
       p.after = o.after

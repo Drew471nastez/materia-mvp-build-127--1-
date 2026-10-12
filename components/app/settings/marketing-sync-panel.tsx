@@ -173,7 +173,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
       ["Customers", c.customers],
       ["Order events", c.events],
       ["Unsubscribed", c.unsubscribed],
-      ["Unsubscribes read back", c.pulled],
+      [`Left in ${name}`, c.pulled],
     ]
     return (
       <div className="space-y-4" data-marketing-sync={provider} data-marketing-connected="">
@@ -188,7 +188,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
           </p>
         </div>
         {state.lastError ? <Notice tone="amber">{state.lastError}</Notice> : null}
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-y border-[#f1f2f4] py-3 sm:grid-cols-5" data-marketing-counts="">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-y border-[#f1f2f4] py-3 sm:grid-cols-3" data-marketing-counts="">
           {stats.map(([label, value]) => (
             <div key={label} className="min-w-0">
               <dt className="truncate text-[12.5px] text-[#6b7280]">{label}</dt>
@@ -219,7 +219,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
                 <p className="text-[13.5px] text-[#374151]">
                   Subscribers join <span className="font-semibold text-[#1a1a2e]">{state.listName ?? state.listId ?? "your list"}</span>
                 </p>
-                <button type="button" className={BTN_SECONDARY} disabled={!!busy} onClick={() => void loadLists()}>
+                <button type="button" className={cn(BTN_SECONDARY, "shrink-0 whitespace-nowrap")} disabled={!!busy} onClick={() => void loadLists()}>
                   {busy === "list" ? "Loading" : "Change list"}
                 </button>
               </div>
