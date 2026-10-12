@@ -42,7 +42,7 @@ function hide(items: ReadinessItem[]) {
   }
 }
 
-function BlockingCard({ items, title, line, className }: { items: ReadinessItem[]; title: string; line: string; className?: string }) {
+export function BlockingCard({ items, title, line, className }: { items: ReadinessItem[]; title: string; line: string; className?: string }) {
   const one = items.length === 1 ? items[0] : null
   return (
     <section role="status" data-physical-readiness="blocking" className={`rounded-2xl border border-[#fedf89] bg-[#fffcf5] ${className ?? ""}`}>
@@ -77,12 +77,16 @@ function BlockingCard({ items, title, line, className }: { items: ReadinessItem[
   )
 }
 
-function RecommendedLine({ items, onHide, className }: { items: ReadinessItem[]; onHide?: () => void; className?: string }) {
+export function RecommendedLine({ items, onHide, className }: { items: ReadinessItem[]; onHide?: () => void; className?: string }) {
   const first = items[0]
   return (
     <section data-physical-readiness="recommended" className={`flex items-center gap-3 rounded-2xl border border-[#e5e7eb]/60 bg-white py-2.5 pl-4 pr-1.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:pl-5 ${className ?? ""}`}>
       <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[#d1d5db]" />
-      <p className="min-w-0 flex-1 truncate text-[13px] leading-5 text-[#6b7280]">
+      {/* A phone has room for the count, not the sentence: the first item's name was cut to a word. */}
+      <p className="min-w-0 flex-1 truncate text-[13px] leading-5 text-[#6b7280] sm:hidden">
+        <span className="font-medium text-[#1a1a2e]">{items.length === 1 ? first.title : `${items.length} things worth doing`}</span>
+      </p>
+      <p className="hidden min-w-0 flex-1 truncate text-[13px] leading-5 text-[#6b7280] sm:block">
         <span className="font-medium text-[#1a1a2e]">Worth doing for shipping:</span> {first.title.charAt(0).toLowerCase() + first.title.slice(1)}
         {items.length > 1 ? `, and ${items.length - 1} more` : ""}
       </p>

@@ -255,7 +255,7 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
       id: "stock",
       level: "recommended",
       title: soldOut.length === 1 ? `${soldOut[0].title} is out of stock` : `${soldOut.length} live products are out of stock`,
-      why: "Buyers see them as sold out. Add stock, or let them keep selling when they run out.",
+      why: soldOut.length === 1 ? "Buyers see it as sold out. Add stock, or let it keep selling when it runs out." : "Buyers see them as sold out. Add stock, or let them keep selling when they run out.",
       href: INVENTORY,
       fix: "Add stock",
       products: soldOut.map((p) => p.title),

@@ -10,7 +10,7 @@
  * question and Home's setup card cover the start.
  */
 import { Check } from "lucide-react"
-import { blockingItems, recommendedItems } from "@/lib/physical/readiness"
+import { blockingItems, recommendedItems, type PhysicalReadiness } from "@/lib/physical/readiness"
 import { CARD, CARD_PAD, CARD_TITLE, MUTED } from "./ui"
 import { ReadinessLink, useReadiness } from "./readiness-client"
 import { cn } from "@/lib/utils"
@@ -18,6 +18,11 @@ import { cn } from "@/lib/utils"
 export function ReadinessChecklist({ version }: { version: string }) {
   const r = useReadiness(version, { freshOnOpen: true })
   if (!r || r.physical === 0) return null
+  return <ChecklistView r={r} />
+}
+
+/** The list itself, for one answer. */
+export function ChecklistView({ r }: { r: PhysicalReadiness }) {
   const blocking = blockingItems(r)
   const recommended = recommendedItems(r)
   const selling = r.live > 0
