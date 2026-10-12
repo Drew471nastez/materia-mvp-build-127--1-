@@ -15,6 +15,10 @@
  *   marker) for this very page. A typed address or a link starts at the top
  *   and hides nothing.
  *
+ *   The place is the one kept for this history entry, or for this address
+ *   with its query (lib/explore/use-explore-scroll explorePlaceKeys): the
+ *   same keys, in the same order.
+ *
  *   Every hold has an end of its own (EXPLORE_BOOT_HOLD_MAX_MS), so a page
  *   whose script is slow to arrive, or a page under /explore that never runs
  *   the restore at all (/explore/search), cannot stay hidden; and the search
@@ -23,4 +27,4 @@
 /* Written into the script below as a number (the script is read and parsed on its own), so the two must agree: tests/explore-polish. */
 export const EXPLORE_BOOT_HOLD_MAX_MS = 1500
 
-export const EXPLORE_SCROLL_BOOT_SCRIPT = `(function(){try{var K="explore-scroll-restore-pending",S="explore-scroll-position",H="explore-scroll-restoring",d=document.documentElement;function ex(){var p=location.pathname;return p==="/explore"||(p.indexOf("/explore/")===0&&p!=="/explore/search")}function back(){try{var n=performance.getEntriesByType("navigation")[0];return !!n&&(n.type==="reload"||n.type==="back_forward")}catch(e){return false}}if(ex()&&back()){try{if(sessionStorage.getItem(K)==="1"){var m=JSON.parse(sessionStorage.getItem(S)||"{}"),y=m&&m[location.pathname];if(y>0){d.classList.add(H);window.scrollTo(0,y);setTimeout(function(){d.classList.remove(H)},1500)}}}catch(e){}}window.addEventListener("pageshow",function(e){if(!e.persisted)return;document.documentElement.classList.remove(H);try{sessionStorage.removeItem(K)}catch(x){}})}catch(e){}})();`
+export const EXPLORE_SCROLL_BOOT_SCRIPT = `(function(){try{var K="explore-scroll-restore-pending",S="explore-scroll-position",H="explore-scroll-restoring",d=document.documentElement;function ex(){var p=location.pathname;return p==="/explore"||(p.indexOf("/explore/")===0&&p!=="/explore/search")}function back(){try{var n=performance.getEntriesByType("navigation")[0];return !!n&&(n.type==="reload"||n.type==="back_forward")}catch(e){return false}}if(ex()&&back()){try{if(sessionStorage.getItem(K)==="1"){var m=JSON.parse(sessionStorage.getItem(S)||"{}")||{},k=null;try{k=window.navigation&&window.navigation.currentEntry&&window.navigation.currentEntry.key}catch(x){}var y=(k&&m["#"+k])||m[location.pathname+(location.search||"")];if(y>0){d.classList.add(H);window.scrollTo(0,y);setTimeout(function(){d.classList.remove(H)},1500)}}}catch(e){}}window.addEventListener("pageshow",function(e){if(!e.persisted)return;document.documentElement.classList.remove(H);try{sessionStorage.removeItem(K)}catch(x){}})}catch(e){}})();`
