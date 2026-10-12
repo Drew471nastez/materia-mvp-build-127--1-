@@ -125,7 +125,13 @@ export function withFaqTab<T extends Block>(blocks: readonly T[] | undefined, fa
     })
   const once = fill(blocks)
   if (filled) return once as T[]
-  /* Else one more of the theme's rows, after its last. */
+  /* Else one more of the theme's rows, after its last; named apart from a store-wide FAQ row the theme already has. */
+  let hasFaqRow = false
+  const look = (list: readonly Block[]) => list.forEach((b) => {
+    if (isTab(b) && FAQ_HEADING.test(String((b.settings ?? {})[headingKey(b)]))) hasFaqRow = true
+    if (b.blocks?.length) look(b.blocks)
+  })
+  look(blocks)
   let added = false
   const add = (list: readonly Block[]): Block[] => {
     const nested = list.map((b) => (b.blocks?.length && !added ? { ...b, blocks: add(b.blocks) } : b))
@@ -140,7 +146,7 @@ export function withFaqTab<T extends Block>(blocks: readonly T[] | undefined, fa
     const row: Block = {
       id: "storelib-product-faq",
       type: like.type,
-      settings: { ...s, [headingKey(like)]: "FAQ", [bodyKey(like)]: faqTabHtml(faqs), ...("page" in s ? { page: "" } : {}), ...("icon" in s ? { icon: "question_mark" } : {}), ...("open" in s ? { open: false } : {}) },
+      settings: { ...s, [headingKey(like)]: hasFaqRow ? "Product questions" : "FAQ", [bodyKey(like)]: faqTabHtml(faqs), ...("page" in s ? { page: "" } : {}), ...("icon" in s ? { icon: "question_mark" } : {}), ...("open" in s ? { open: false } : {}) },
     }
     added = true
     return [...nested.slice(0, last + 1), row, ...nested.slice(last + 1)]

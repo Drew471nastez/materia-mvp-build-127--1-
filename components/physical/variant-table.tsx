@@ -36,12 +36,11 @@ import { combinationKey, variantName } from "@/lib/physical/variants"
 import { marginPercent } from "@/lib/physical/totals"
 import { barcodeProblem, barcodeTyped, compareAtProblem, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { formatStoreMoney } from "@/lib/store/currency"
-import { THUMB_QUALITY, thumbable } from "@/lib/files/thumb"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import type { Location, ProductOption } from "@/lib/physical/types"
 import type { WeightUnit } from "@/lib/physical/units"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, DecimalInput, FIELD_COMPACT, Field, Modal, MoneyInput, NumberInput, Reveal, SelectInput, TextInput, Toggle, centsOf } from "./ui"
-import { groupByFirst, priceRange, type VariantRow } from "./variant-rows"
+import { groupByFirst, priceRange, variantThumbSrc, type VariantRow } from "./variant-rows"
 
 /** One line per variant at every width: photo, name, price, quantity, more. */
 const GRID = "grid grid-cols-[34px_minmax(0,1fr)_84px_60px_28px] items-center gap-x-2 md:grid-cols-[40px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.7fr)_32px] md:gap-x-3"
@@ -194,18 +193,6 @@ export function VariantTable(props: VariantTableProps) {
       <BulkEdit {...props} open={bulk} onClose={() => setBulk(false)} />
     </div>
   )
-}
-
-/**
- * A resized copy for a variant's square, never the camera original: a 3000px
- * photo decoded on the main thread to fill 40px was a large part of the
- * stutter. 128px wide is the smallest size Next's optimizer serves that is
- * still sharp at 3x (lib/files/thumb.ts); the Files picker asks for the same
- * width, so a photo seen there is already in the cache here.
- */
-export function variantThumbSrc(url: string): string {
-  if (!thumbable(url)) return url
-  return `/_next/image?url=${encodeURIComponent(url)}&w=128&q=${THUMB_QUALITY}`
 }
 
 /**

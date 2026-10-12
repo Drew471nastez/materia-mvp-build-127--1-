@@ -48,12 +48,12 @@ import { MAX_ORDER_LIMIT, readOrderLimit } from "@/lib/physical/order-limit"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, FIELD, Field, Modal, MoneyInput, Notice, NumberInput, Reveal, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf } from "./ui"
 import { barcodeTyped, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { OptionsEditor, optionId, type OptionDraft } from "./variant-options"
-import { VariantTable, variantThumbSrc } from "./variant-table"
+import { VariantTable } from "./variant-table"
 /* Redrawn only when the options or their callbacks change, not on every keystroke in a variant row. */
 const MemoOptionsEditor = React.memo(OptionsEditor)
 import { FilesLibraryChooser } from "@/components/files/files-library"
 import { fileThumb } from "@/lib/files/thumb"
-import { emptyRow, remapRows, renameValueInRows, rowsForCombinations, type VariantRow } from "./variant-rows"
+import { emptyRow, photoScopes, remapRows, renameValueInRows, rowsForCombinations, variantThumbSrc, type VariantRow } from "./variant-rows"
 
 export interface PhysicalEditorHandle {
   /** A sentence for what must be fixed before saving, or null. */
@@ -1118,25 +1118,6 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
       )}
     </div>
   )
-}
-
-/** The variants a photo can go on: just the one chosen, or every variant sharing one of its values ("Every Sand"). */
-export function photoScopes(keys: string[], name: string, rows: Row[], options: ProductOption[]): { label: string; keys: string[] }[] {
-  const own = { label: keys.length === 1 ? `Only ${name}` : `Every ${name}`, keys }
-  if (keys.length !== 1 || options.length < 2) return [own]
-  const row = rows.find((r) => combinationKey(r.options) === keys[0])
-  if (!row) return [own]
-  const more = options
-    .map((o, pos) => {
-      const value = row.options[pos]
-      if (!value) return null
-      const matching = rows.filter((r) => (r.options[pos] ?? "").toLowerCase() === value.toLowerCase()).map((r) => combinationKey(r.options))
-      return matching.length > 1 ? { label: `Every ${value}`, keys: matching } : null
-    })
-    .filter((x): x is { label: string; keys: string[] } => !!x)
-    /* The last option first: a colour is usually the last, and a colour is what a photo shows. */
-    .reverse()
-  return [own, ...more]
 }
 
 /**
