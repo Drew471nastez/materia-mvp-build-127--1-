@@ -304,7 +304,7 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
   /* A short line keeps its place in the order, with its picture, so it is lowered or removed right there. */
   const shortImages = new Map<string, string | null>()
   if (pc.stockIssues.length) {
-    const { data } = await db.from("products").select("id, thumbnail_url").in("id", [...new Set(pc.stockIssues.map((s) => s.productId))])
+    const { data } = await db.from("products").select("id, thumbnail_url").in("id", [...new Set(pc.stockIssues.map((s) => s.productId))]).eq("status", "published")
     for (const r of (data ?? []) as { id: string; thumbnail_url: string | null }[]) shortImages.set(r.id, r.thumbnail_url)
   }
   const titleOf = (productId: string) => pc.lines.find((l) => l.productId === productId)?.title ?? pc.stockIssues.find((s) => s.productId === productId)?.title ?? "This product"
