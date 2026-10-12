@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { splitSiteName } from "@/lib/markets/site-name"
 import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -30,17 +31,20 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { username } = await params
-  const base = await siteMetadata(username, undefined, "account")
+  const { username: segment } = await params
+  const base = await siteMetadata(splitSiteName(segment).name, undefined, "account")
   return { ...base, alternates: undefined, robots: { index: false, follow: false } }
 }
 
 export default async function SiteAccountPage({ params, searchParams }: PageProps) {
-  const { username } = await params
+  /* /fr/account: the same page, in French (lib/markets/site-name). */
+  const { username: segment } = await params
+  const { name: username, locale, market } = splitSiteName(segment)
+  const root = locale ? `/${locale.toLowerCase()}` : ""
   const sp = await searchParams.catch(() => ({}) as Awaited<PageProps["searchParams"]>)
   const { visitor, customer, creatorId } = await siteVisitor(username)
   if (!creatorId) notFound()
-  if (!visitor || !customer) redirect("/account/login")
+  if (!visitor || !customer) redirect(`${root}/account/login`)
 
   const db = createAdminClient()
   const [account, list] = await Promise.all([siteCustomer(db, customer, `https://${getMainDomain()}`), listSiteWishlist(db, visitor)])
@@ -51,5 +55,6 @@ export default async function SiteAccountPage({ params, searchParams }: PageProp
     wishlist: wishlistObject(cards, true),
     notice: sp.profile === "saved" ? "Saved." : sp.profile === "error" ? "That name could not be saved. Try again." : sp.deleted === "no" ? "Your account could not be deleted. Try again." : null,
     edit: sp.edit === "name" ? "name" : null,
+    lang: { locale, market },
   })
 }

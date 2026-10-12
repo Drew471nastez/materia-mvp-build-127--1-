@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { splitSiteName } from "@/lib/markets/site-name"
 import { cookies } from "next/headers"
 import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -30,13 +31,15 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { username } = await params
-  const base = await siteMetadata(username, undefined, "wishlist")
+  const { username: segment } = await params
+  const base = await siteMetadata(splitSiteName(segment).name, undefined, "wishlist")
   return { ...base, alternates: undefined, robots: { index: false, follow: false } }
 }
 
 export default async function SiteWishlistPage({ params }: PageProps) {
-  const { username } = await params
+  /* /fr/wishlist: the same page, in French (lib/markets/site-name). */
+  const { username: segment } = await params
+  const { name: username, locale, market } = splitSiteName(segment)
   const { visitor, creatorId } = await siteVisitor(username)
   if (!creatorId) notFound()
 
@@ -59,5 +62,6 @@ export default async function SiteWishlistPage({ params }: PageProps) {
 
   return renderAccountPage(username, "wishlist", {
     wishlist: wishlistObject(cards, signedIn),
+    lang: { locale, market },
   })
 }

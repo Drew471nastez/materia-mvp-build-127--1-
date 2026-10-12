@@ -229,9 +229,9 @@ check("pages are built ahead (static) and revalidate", /export const revalidate 
 /* ── 6. The Help Center's pages ───────────────────────────────────────── */
 console.log("\n6. The Help Center's pages")
 check("no \"What happens if\" highlight on the Help Center home", !/What happens if/.test(home) && !/data-help-questions-link/.test(home))
-check("  one plain line says the main thing instead", /data-help-questions-line/.test(home) && /A problem with an order\?/.test(home))
+check("  order problems are a topic card of their own", /* Changed on purpose (round AE): the Linktree-like home. */ /href="\/help\/questions" slug="questions" title="Order problems"/.test(home))
 check("the questions page is named plainly", /Order problems, answered/.test(read("app/help/questions/page.tsx")) && !/What happens if\.\.\./.test(read("app/help/questions/page.tsx")))
-check("the home leads with search, then popular articles, then topics", home.indexOf("<HelpSearch") < home.indexOf("Popular articles") && home.indexOf("Popular articles") < home.indexOf("Browse by topic"))
+check("the home leads with search, then the topics as cards, then popular articles", /* Changed on purpose (round AE). */ home.indexOf("<HelpHero home") < home.indexOf("<TopicCard") && home.indexOf("<TopicCard") < home.indexOf("Popular articles"))
 check("every popular article exists", POPULAR_HELP.every((p) => { const [c, s] = p.split("/"); return !!helpArticle(c, s) }))
 check("an article page has its contents, beside it and folded on a phone", /<OnThisPage items=\{toc\} variant="side" \/>/.test(page) && /<OnThisPage items=\{toc\} variant="inline" \/>/.test(page))
 check("  previous and next, related articles, and the date it was checked", /data-help-prevnext/.test(page) && /data-help-related/.test(page) && /Updated <time dateTime/.test(page))
@@ -269,6 +269,16 @@ check("every app link into the guide lands (no old slugs)", (() => {
 })())
 check("the article path helper", helpArticlePath({ category: "physical-products", slug: "shipping-zones" }) === "/help/physical-products/shipping-zones")
 
+
+/* Round AE: the Help Center redone, like Linktree's, in Storelib's colours. */
+{
+  const hero = read("components/help/help-hero.tsx")
+  const article = read("app/help/[category]/[article]/page.tsx")
+  check("one band on every page: Help Center, the mark, a search on ink", /bg-\[#1a1a2e\]/.test(hero) && /tone="dark"/.test(hero) && ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/search/page.tsx", "app/help/questions/page.tsx"].every((f) => /<HelpHero/.test(read(f))))
+  check("each topic has its own mark on a lavender tile", /export function TopicIcon/.test(hero) && /bg-\[#f1ecff\]/.test(hero))
+  check("an article's side column is the contents only, never a box that scrolls or clips", !/overflow-y-auto/.test(article) && !/-mx-2\.5/.test(article) && /<div className="sticky top-24">\s*<OnThisPage items=\{toc\} variant="side" \/>/.test(article))
+  check("  the rest of its group under the article instead", /data-help-more=""/.test(article))
+}
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
