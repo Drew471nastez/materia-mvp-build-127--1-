@@ -21,6 +21,17 @@ export function TeamBar({ store, role, ownStore = true, children }: { store: str
   const [leaving, setLeaving] = React.useState(false)
   const area = areaOfPath(pathname)
   const allowed = area === null || memberCan(role, area)
+  /* Just joined from an invite (app/api/team/join adds ?joined=1): said once in the bar, then the address is tidied. */
+  const [joined, setJoined] = React.useState(false)
+  React.useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("joined") !== "1") return
+    setJoined(true)
+    url.searchParams.delete("joined")
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
+    const t = window.setTimeout(() => setJoined(false), 6000)
+    return () => window.clearTimeout(t)
+  }, [])
   const back = async () => {
     setLeaving(true)
     await fetch("/api/team/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store: null }) }).catch(() => null)
@@ -29,13 +40,13 @@ export function TeamBar({ store, role, ownStore = true, children }: { store: str
   return (
     <>
       <div role="status" className="flex items-center justify-center gap-3 bg-[#1a1a2e] px-4 py-2 text-[13px] leading-5 text-white">
-        <span className="truncate">
-          Working in <strong className="font-semibold">{store}</strong> as {ROLE_LABEL[role]}
+        <span className="min-w-0 truncate">
+          {joined ? <>You joined <strong className="font-semibold">{store}</strong>. Welcome to the team.</> : <>Working in <strong className="font-semibold">{store}</strong> as {ROLE_LABEL[role]}</>}
         </span>
         {/* Someone with no store of their own has no account dashboard to go back to. */}
         {ownStore ? (
           <button type="button" onClick={back} disabled={leaving} className="shrink-0 rounded-lg bg-white/10 px-2.5 py-1 font-medium hover:bg-white/20 disabled:opacity-60">
-            {leaving ? "Going back" : "Back to my account"}
+            {leaving ? "Going back" : <><span className="sm:hidden">My account</span><span className="hidden sm:inline">Back to my account</span></>}
           </button>
         ) : null}
       </div>

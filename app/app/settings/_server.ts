@@ -10,6 +10,7 @@ import { connectedBioPlatforms } from "@/components/app/share/share-data"
 import { businessGroup } from "@/lib/businesses/server"
 import { groupIds } from "@/lib/businesses/rules"
 import { providerFor } from "@/lib/payments/service"
+import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "domains"
 
@@ -60,7 +61,18 @@ export async function loadSettingsData() {
     businessGroup(user.id).catch(() => null),
   ])
 
-  if (!creator) redirect("/onboarding")
+  /*
+    A TEAM MEMBER WITH NO STORE OF THEIR OWN still has Settings: the Team
+    section, to see the stores they are on and to leave one. Onboarding
+    would ask them to make a store they did not come here for.
+  */
+  if (!creator) {
+    const [acting, stores] = await Promise.all([teamStoreForRequest(user.id).catch(() => null), teamStoresForRequest(user.id)])
+    if (acting || stores.length > 0) return { memberOnly: true as const }
+    redirect("/onboarding")
+  }
+  /* Working in another store as a team member: Settings is about them (their account), not the store they work in. */
+  const teamActing = !!(await teamStoreForRequest(user.id).catch(() => null))
 
   const [{ data: publishedSite }, websiteHandle, { data: pageSocials }] = await Promise.all([
     /**
@@ -139,6 +151,8 @@ export async function loadSettingsData() {
   }
 
   return {
+    memberOnly: false as const,
+    teamActing,
     profile: personalizedProfile,
     creator,
     /* The account's time zone (lib/account/time-zone): the column, else the one kept on the account. */

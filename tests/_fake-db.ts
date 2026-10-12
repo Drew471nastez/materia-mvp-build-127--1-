@@ -187,9 +187,12 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
         return { data: state.single ? hit.map((r) => ({ ...r }))[0] ?? null : hit, error: null }
       }
       if (state.op === "delete") {
+        const gone = rows.filter(matches).map((r) => ({ ...r }))
         const keep = rows.filter((r) => !matches(r))
         const removed = rows.length - keep.length
         rows.splice(0, rows.length, ...keep)
+        /* `.delete().select()` answers the rows it removed, as PostgREST does. */
+        if (state.returning) return { data: state.single ? gone[0] ?? null : gone, error: null, count: removed }
         return { data: null, error: null, count: removed }
       }
 

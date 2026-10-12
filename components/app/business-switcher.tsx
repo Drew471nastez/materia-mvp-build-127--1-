@@ -9,6 +9,7 @@ import { iconDepth } from "@/components/ui/depth-button"
 import { canAddBusiness, LIMIT_REACHED } from "@/lib/businesses/rules"
 import { createBusiness, openAgain, SWITCH_FAILED, SwitchFailed, SwitchStalled, switchBusiness, type SwitchSteps } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
+import { ROLE_LABEL, roleHome, type MemberRole } from "@/lib/team/roles"
 
 /**
  * ===========================================================================
@@ -118,13 +119,32 @@ export interface BusinessRow {
   role: "owner" | "member"
 }
 
+/**
+ * A store this login works in as a team member (lib/team), listed under its
+ * own businesses. Opening one keeps the login and names the store for the
+ * dashboard (POST /api/team/act); the server checks the membership again on
+ * every request. `current` while the dashboard is that store's.
+ */
+export interface TeamStoreRow {
+  creatorId: string
+  name: string
+  avatarUrl: string | null
+  role: MemberRole
+  current: boolean
+}
+
+const NO_TEAM_STORES: TeamStoreRow[] = []
+
 export function BusinessSwitcher({
   businesses,
+  teamStores = NO_TEAM_STORES,
   variant,
   currentAvatar,
   open = true,
 }: {
   businesses: BusinessRow[]
+  /** The stores this login is on as a team member (app/app/layout.tsx). */
+  teamStores?: TeamStoreRow[]
   variant: "dropdown" | "sheet"
   /** Closes the menu before a page change. Both actions reload the app, so nothing calls it now. */
   onNavigate?: () => void
@@ -180,9 +200,12 @@ export function BusinessSwitcher({
     const size = sheet ? STILL_AVATAR.phone : STILL_AVATAR.desktop
     for (const b of businesses) if (!b.current) preloadAvatar(b.avatarUrl, size)
   }, [expanded, businesses, sheet])
-  if (businesses.length === 0) return null
-  const current = businesses.find((b) => b.current) ?? businesses[0]
-  const others = businesses.filter((b) => b !== current)
+  if (businesses.length === 0 && teamStores.length === 0) return null
+  /* Working in a team store: it heads the menu, and the login's own business is in the list to go back to. */
+  const actingIn = teamStores.find((t) => t.current) ?? null
+  const current = businesses.find((b) => b.current) ?? businesses[0] ?? null
+  const others = actingIn ? businesses : businesses.filter((b) => b !== current)
+  const otherTeams = teamStores.filter((t) => !t.current)
   /* Room for another business on this login, whichever of its businesses this is (lib/businesses/rules MAX_BUSINESSES). */
   const canAdd = canAddBusiness(businesses.length)
 
@@ -200,7 +223,27 @@ export function BusinessSwitcher({
     screen.current?.stall(again)
   }
 
+  /* A team store, or back from one to the login's own account: the same login, so no switch screen, just the store's dashboard. */
+  const openTeam = async (store: string | null, key: string, home: string) => {
+    if (busy) return
+    setError(null)
+    setRetry(null)
+    setBusy(key)
+    try {
+      const res = await fetch("/api/team/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store }) })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(body.error || SWITCH_FAILED)
+      }
+      window.location.assign(home)
+    } catch (e) {
+      setBusy(null)
+      setError(e instanceof Error && e.message ? e.message : SWITCH_FAILED)
+    }
+  }
+
   const openBusiness = async (b: BusinessRow) => {
+    if (actingIn && b.current) return openTeam(null, b.userId, "/app")
     if (b.current || busy) return
     setError(null)
     setRetry(null)
@@ -274,6 +317,12 @@ export function BusinessSwitcher({
       </span>
     </span>
   )
+  const teamNameAndRole = (t: TeamStoreRow) => (
+    <span className="min-w-0 flex-1">
+      <span className={cn("block truncate font-medium text-neutral-900", sheet ? "text-[15px]" : "text-[13px]")}>{t.name}</span>
+      <span className={cn("block truncate text-neutral-500", sheet ? "text-[13px]" : "text-[11.5px]")}>{ROLE_LABEL[t.role]} · Team</span>
+    </span>
+  )
   /* The last line of the list, in the photo's column so its words line up with the names above. */
   const lastLine = cn(
     "flex w-full items-center font-medium",
@@ -296,13 +345,22 @@ export function BusinessSwitcher({
           expanded && (sheet ? "bg-neutral-100/70" : "bg-neutral-50"),
         )}
       >
-        <AppAvatar
-          src={currentAvatar !== undefined ? currentAvatar || null : current.avatarUrl}
-          name={current.name}
-          size={avatarSize}
-          className="shrink-0 ring-1 ring-neutral-200"
-        />
-        {nameAndHandle(current)}
+        {actingIn ? (
+          <>
+            <AppAvatar src={actingIn.avatarUrl} name={actingIn.name} size={avatarSize} className="shrink-0 ring-1 ring-neutral-200" />
+            {teamNameAndRole(actingIn)}
+          </>
+        ) : current ? (
+          <>
+            <AppAvatar
+              src={currentAvatar !== undefined ? currentAvatar || null : current.avatarUrl}
+              name={current.name}
+              size={avatarSize}
+              className="shrink-0 ring-1 ring-neutral-200"
+            />
+            {nameAndHandle(current)}
+          </>
+        ) : null}
         {/*
           The "+": a picture of a button inside the row's button (a button in
           a button is not allowed), so a press on it is a press on the row.
@@ -345,8 +403,22 @@ export function BusinessSwitcher({
               data-business-row="other"
               className={cn(rowClass, "cursor-pointer")}
             >
-              <AppAvatar src={b.avatarUrl} name={b.name} size={avatarSize} className="shrink-0 ring-1 ring-neutral-200" />
+              <AppAvatar src={b.current && currentAvatar !== undefined ? currentAvatar || null : b.avatarUrl} name={b.name} size={avatarSize} className="shrink-0 ring-1 ring-neutral-200" />
               {nameAndHandle(b)}
+            </button>
+          ))}
+          {otherTeams.map((t) => (
+            <button
+              key={t.creatorId}
+              type="button"
+              onClick={() => openTeam(t.creatorId, t.creatorId, roleHome(t.role))}
+              disabled={!!busy}
+              aria-busy={busy === t.creatorId || undefined}
+              data-business-row="team"
+              className={cn(rowClass, "cursor-pointer")}
+            >
+              <AppAvatar src={t.avatarUrl} name={t.name} size={avatarSize} className="shrink-0 ring-1 ring-neutral-200" />
+              {teamNameAndRole(t)}
             </button>
           ))}
           {/* Always here, whatever the count: with three already a press says so below instead of making one. */}
