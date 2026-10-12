@@ -76,6 +76,8 @@ export interface PhysicalShipment {
   createdAt: string
   locationId: string | null
   items: { orderId: string; quantity: number }[]
+  /** Tracked and never marked delivered 60 days after shipping (lib/physical/unconfirmed-delivery-server.ts). */
+  unconfirmedAt?: string | null
 }
 interface ReturnRec {
   id: string
@@ -343,6 +345,8 @@ export function PhysicalFulfillment({
           <StatusBadge tone="neutral">Cancelled</StatusBadge>
         ) : problem ? (
           <StatusBadge tone="critical">Delivery problem</StatusBadge>
+        ) : s.unconfirmedAt && !delivered ? (
+          <StatusBadge tone="attention">Delivery not confirmed</StatusBadge>
         ) : delivered ? (
           <StatusBadge tone="success">{pickup ? "Picked up" : "Delivered"}</StatusBadge>
         ) : (
@@ -380,6 +384,11 @@ export function PhysicalFulfillment({
             {problem ? (
               <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
                 The carrier reported a problem delivering this package. The buyer sees it and gets the Delivery problem email. Contact them or the carrier, then mark it in transit or delivered when it moves.
+              </p>
+            ) : null}
+            {s.unconfirmedAt && !delivered && !problem && !cancelled ? (
+              <p className="mx-4 mt-2 rounded-lg bg-[#fffaeb] px-3 py-2 text-[12.5px] leading-[18px] text-[#93370d]" data-delivery-unconfirmed="">
+                Shipped 60 days ago and never marked delivered. Check with the carrier or the buyer, then mark it delivered or report a delivery problem.
               </p>
             ) : null}
             {pickup && !cancelled && order.pickup ? <p className="px-4 pt-2 text-[13px] text-[#4b5563]">At {order.pickup.name}</p> : null}

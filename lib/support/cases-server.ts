@@ -101,6 +101,7 @@ async function readThread(db: Db, caseId: string, withNotes: boolean): Promise<{
 
 /** One message on a case, with its photos when the database keeps them (part 164); without, the words still go and the photos are given back. */
 async function insertMessage(db: Db, row: { case_id: string; author: CaseAuthor; body: string; internal?: boolean }, photos: CasePhotoRef[] = []): Promise<{ error: { code?: string } | null; photosDropped: boolean }> {
+  row = { ...row, internal: row.internal === true }
   if (photos.length) {
     const { error } = await db.from("order_case_messages").insert({ ...row, photos })
     if (!error) return { error: null, photosDropped: false }
@@ -163,9 +164,9 @@ export async function openCase(db: Db, order: FoundOrder, input: { reason: CaseR
     /* The same order's open case: this message joins it, under its topic when it is a new one. */
     const words = open.reason === input.reason ? input.message : `${CASE_REASON_LABELS[input.reason]}:\n${input.message}`
     const kept = await keepCasePhotos(db, open.id, input.photos ?? [])
-    if (!kept.ok) return { ok: false, error: kept.error, status: 400 }
+    if (kept.ok === false) return { ok: false, error: kept.error, status: 400 }
     const r = await addMessage(db, open as CaseRow, "buyer", words, { origin, photos: kept.refs })
-    if (!r.ok) return r
+    if (r.ok === false) return r
     return { ok: true, id: open.id, link: caseLink(origin, open.id, orderCaseSecret(open.id)), existing: true, photosNotKept: kept.notKept || r.photosDropped }
   }
   /* The id is made here so the link's secret can be derived from it before the row is written. */
@@ -181,7 +182,7 @@ export async function openCase(db: Db, order: FoundOrder, input: { reason: CaseR
   }
   if (error || !c) return failed("open", error, "Your message could not be sent. Try again in a moment.")
   const kept = await keepCasePhotos(db, c.id, input.photos ?? [])
-  if (!kept.ok) {
+  if (kept.ok === false) {
     await db.from("order_cases").delete().eq("id", c.id)
     return { ok: false, error: kept.error, status: 400 }
   }
@@ -219,9 +220,9 @@ async function caseForBuyer(db: Db, id: string, secret: string): Promise<{ ok: t
 
 export async function getCaseForBuyer(db: Db, id: string, secret: string, now: number = Date.now()): Promise<{ ok: true; case: CaseSummary; messages: CaseMessage[]; store: StoreIdentity; escalation: { can: boolean; from: string | null } } | Failure> {
   const found = await caseForBuyer(db, id, secret)
-  if (!found.ok) return found
+  if (found.ok === false) return found
   const thread = await readThread(db, id, false)
-  if (!thread.ok) return failed("buyer thread", thread.error, "This case could not be read.")
+  if (thread.ok === false) return failed("buyer thread", thread.error, "This case could not be read.")
   if (found.row.buyer_unread) await db.from("order_cases").update({ buyer_unread: false }).eq("id", id)
   const c = summary(found.row, false)
   return { ok: true, case: c, messages: thread.messages, store: await storeIdentity(db, found.row.creator_id), escalation: buyerEscalation(c, thread.messages, now) }
@@ -229,19 +230,20 @@ export async function getCaseForBuyer(db: Db, id: string, secret: string, now: n
 
 export async function buyerAct(db: Db, id: string, secret: string, action: { kind: "reply"; body: string; photos?: IncomingPhoto[] } | { kind: "escalate"; body: string | null } | { kind: "resolve" }, origin: string, now: number = Date.now()): Promise<{ ok: true; photosNotKept?: boolean } | Failure> {
   const found = await caseForBuyer(db, id, secret)
-  if (!found.ok) return found
+  if (found.ok === false) return found
   if (action.kind === "escalate") {
     /* Asking Storelib in, as a buyer: once the store has left a problem about money or goods unanswered for three days (lib/support/cases.ts buyerEscalation). */
     const thread = await readThread(db, id, false)
-    if (!thread.ok) return failed("escalate read", thread.error, "That could not be sent.")
+    if (thread.ok === false) return failed("escalate read", thread.error, "That could not be sent.")
     const rule = buyerEscalation(summary(found.row, false), thread.messages, now)
     if (!found.row.escalated && !rule.can) return { ok: false, error: rule.from ? `You can ask Storelib for help from ${new Date(rule.from).toUTCString().slice(0, 16)} if the store hasn't answered by then.` : "Storelib steps in on problems with what you received or a refund, once the store hasn't answered for three days.", status: 409 }
   }
   if (action.kind === "reply" && action.photos?.length) {
     const kept = await keepCasePhotos(db, id, action.photos)
-    if (!kept.ok) return { ok: false, error: kept.error, status: 400 }
+    if (kept.ok === false) return { ok: false, error: kept.error, status: 400 }
     const r = await addMessage(db, found.row, "buyer", action.body, { origin, photos: kept.refs })
-    return r.ok ? { ok: true, photosNotKept: kept.notKept || r.photosDropped } : r
+    if (r.ok === false) return r
+    return { ok: true, photosNotKept: kept.notKept || r.photosDropped }
   }
   return act(db, found.row, "buyer", action, origin)
 }
@@ -263,7 +265,7 @@ export async function getCaseForStore(db: Db, creatorId: string, id: string): Pr
   if (error) return failed("store read", error, "That case could not be read.")
   if (!data) return { ok: false, error: "Not found.", status: 404 }
   const thread = await readThread(db, id, false)
-  if (!thread.ok) return failed("store thread", thread.error, "That case could not be read.")
+  if (thread.ok === false) return failed("store thread", thread.error, "That case could not be read.")
   if ((data as CaseRow).store_unread) await db.from("order_cases").update({ store_unread: false }).eq("id", id).eq("creator_id", creatorId)
   return { ok: true, case: summary(data as CaseRow, false), messages: thread.messages }
 }
@@ -308,7 +310,7 @@ export async function adminGetCase(db: Db, id: string): Promise<{ ok: true; case
   if (error) return failed("admin get", error, "That case could not be read.")
   if (!data) return { ok: false, error: "Not found.", status: 404 }
   const thread = await readThread(db, id, true)
-  if (!thread.ok) return failed("admin thread", thread.error, "That case could not be read.")
+  if (thread.ok === false) return failed("admin thread", thread.error, "That case could not be read.")
   return { ok: true, case: adminCase(data as Joined), messages: thread.messages, store: await storeIdentity(db, (data as CaseRow).creator_id) }
 }
 
@@ -345,9 +347,12 @@ export async function adminCaseUpdate(db: Db, id: string, input: { status?: unkn
 /* ─────────────────────────────── moving a case ─────────────────────────── */
 
 async function addMessage(db: Db, row: CaseRow, author: "buyer" | "store", body: string, opts: { origin: string; photos?: CasePhotoRef[] }): Promise<{ ok: true; photosDropped: boolean } | Failure> {
-  /* The same words twice inside ten minutes (a double press, a script): kept once. */
-  const { data: last } = await db.from("order_case_messages").select("author, body, created_at").eq("case_id", row.id).order("id", { ascending: false }).limit(1).maybeSingle()
-  if (last && last.author === author && last.body === body && !opts.photos?.length && Date.now() - Date.parse(last.created_at) < 10 * 60_000) return { ok: true, photosDropped: false }
+  /* The same words from the same side inside ten minutes (a double press, a script): kept once. */
+  if (!opts.photos?.length) {
+    const since = new Date(Date.now() - 10 * 60_000).toISOString()
+    const { data: same } = await db.from("order_case_messages").select("id").eq("case_id", row.id).eq("author", author).eq("body", body).gte("created_at", since).limit(1)
+    if (Array.isArray(same) && same.length) return { ok: true, photosDropped: false }
+  }
   const { error, photosDropped } = await insertMessage(db, { case_id: row.id, author, body }, opts.photos ?? [])
   if (error) return failed("message", error, "Your message could not be sent.")
   const now = new Date().toISOString()
@@ -365,7 +370,8 @@ async function act(db: Db, row: CaseRow, who: "buyer" | "store", action: { kind:
   const now = new Date().toISOString()
   if (action.kind === "reply") {
     const r = await addMessage(db, row, who, action.body, { origin })
-    return r.ok ? { ok: true } : r
+    if (r.ok === false) return r
+    return { ok: true }
   }
   if (action.kind === "resolve") {
     const { error } = await db.from("order_cases").update({ status: "resolved", resolved_at: now, resolved_by: who, updated_at: now }).eq("id", row.id)

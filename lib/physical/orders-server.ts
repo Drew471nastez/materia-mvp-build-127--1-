@@ -69,6 +69,8 @@ export interface Shipment {
   deliveredAt: string | null
   createdAt: string
   items: { orderId: string; quantity: number }[]
+  /** Tracked and never marked delivered 60 days after shipping (SQL part 164; ./unconfirmed-delivery-server.ts). */
+  unconfirmedAt?: string | null
   events: { status: string; message: string | null; occurredAt: string }[]
 }
 
@@ -267,6 +269,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       createdAt: f.created_at,
       items: itemsByF.get(f.id) ?? [],
       events: eventsByF.get(f.id) ?? [],
+      unconfirmedAt: f.delivery_unconfirmed_at ?? null,
     })),
     returns: ((returns ?? []) as Record<string, any>[]).map((r) => ({
       id: r.id,

@@ -84,16 +84,14 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
 
   /* Nothing in the link: an imported theme keeps its cart in a cookie on this host. */
   const jar = await cookies()
-  let cartNote = params.note
-  let attributes = params.attributes
   if (items.length === 0) {
     const theme = readCartCookie(jar.get(CART_COOKIE)?.value)
     if (theme.cart.length) {
       /* With each line's properties, and the cart's note and attributes, as the link would have carried them. */
       items = theme.cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props && Object.keys(e.props).length ? { properties: e.props } : {}) }))
       wholeCart = true
-      cartNote = cartNote ?? (theme.note.trim() || null)
-      attributes = attributes ?? (Object.keys(theme.attributes).length ? theme.attributes : null)
+      params.note = params.note ?? (theme.note.trim() || null)
+      params.attributes = params.attributes ?? (Object.keys(theme.attributes).length ? theme.attributes : null)
     }
   }
 
@@ -129,8 +127,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       items={items}
       wholeCart={wholeCart}
       couponCode={params.couponCode}
-      initialNote={cartNote}
-      cartAttributes={attributes}
+      initialNote={params.note}
+      cartAttributes={params.attributes}
       initialQuote={answer?.ok ? answer.quote : null}
       initialError={answer && answer.ok === false ? answer.error : null}
       config={config}
