@@ -101,7 +101,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
         emptyDetail={query ? `Nothing matched "${query}".` : "Type what you are looking for."}
       />
       {/* A page of the website like any other: one view, with its own path. */}

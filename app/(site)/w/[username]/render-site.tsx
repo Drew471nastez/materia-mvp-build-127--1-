@@ -255,7 +255,7 @@ export async function renderSite(
     made one, the generated one when they have not, and either way with the
     store's own details handed to its sections: ./render-account.tsx.
   */
-  if (pageKey === "contact") return await renderAccountPage(username, "contact")
+  if (pageKey === "contact") return await renderAccountPage(username, "contact", { lang: { locale, market } })
 
   const found = await publishedSiteByName(username, pageKey, locale, market)
   /* A renamed creator's site, at the new name for good (308), and at the same page of it rather than its front page. */
@@ -275,7 +275,7 @@ export async function renderSite(
   const { site } = found
   const template = templateForPage(pageKey)
   /* The website and whose it is, once, on the front page. */
-  const [structured, language] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale, market)])
+  const [structured, language, localizer] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale, market), siteLocalizer(site.creatorId, locale, market).catch(() => null)])
   return (
     <StorelibSourcesProvider prerendered={site.prerendered} page={{ template }}>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
@@ -283,7 +283,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language, words: localizer?.words, display: localizer?.display }}
         emptyDetail="Check back soon!"
       />
       {/* Every page of the published site is one view in Analytics, with its

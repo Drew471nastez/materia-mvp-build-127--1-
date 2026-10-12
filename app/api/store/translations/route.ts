@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic"
  *      website (lib/markets/server siteTexts), each with its value in that
  *      language and where it stands: missing, outdated (the original changed
  *      since), draft or done
+ * GET  ?values=1&locale=fr   the approved values only, by key (the builder's preview)
  * PUT  { locale, items: [{ key, value, source, approved, rich }] }   saved;
  *      an empty value takes the translation away
  *
@@ -34,8 +35,23 @@ export async function GET(request: Request) {
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
   const { ready, loc, languages } = await storeLanguages(c)
-  const asked = normalizeLocale(new URL(request.url).searchParams.get("locale"))
+  const url = new URL(request.url)
+  const asked = normalizeLocale(url.searchParams.get("locale"))
   const locale = asked && asked !== loc.defaultLanguage && languages.includes(asked) ? asked : null
+  /*
+    ?values=1, THE BUILDER'S PREVIEW IN ANOTHER LANGUAGE: the approved
+    translations only, by key, as the live site lays them over (lib/markets
+    live.ts). A language that is not published yet can be previewed too.
+  */
+  if (url.searchParams.get("values") === "1") {
+    const published = loc.languages.filter((l) => l.published).map((l) => l.code)
+    if (!locale) return physicalJson({ locale: null, defaultLanguage: loc.defaultLanguage, languages, published, values: {} })
+    const saved = await translationsOf(c.db, c.creatorId, locale)
+    /* With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus). */
+    const values: Record<string, { v: string; h: string }> = {}
+    for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash }
+    return physicalJson({ locale, defaultLanguage: loc.defaultLanguage, languages, published, values })
+  }
   if (!locale) return physicalJson({ ready, locale: null, defaultLanguage: loc.defaultLanguage, languages, groups: [] })
   const [groups, saved] = await Promise.all([siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])
   const map = translationMap(saved.rows)

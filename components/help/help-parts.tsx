@@ -49,21 +49,21 @@ export function RichText({ text }: { text: string }) {
 
 export function Breadcrumbs({ items }: { items: { label: string; href?: string }[] }) {
   return (
-    <nav aria-label="Breadcrumb" className="text-[13px] text-[#6b7280]">
+    <nav aria-label="Breadcrumb" className="text-[14px] text-[#4b5563]">
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {items.map((item, i) => (
-          <li key={item.label} className="flex items-center gap-x-2">
+          <li key={item.label} className="flex min-w-0 items-center gap-x-2">
             {i > 0 && (
-              <span aria-hidden className="text-[#d1d5db]">
-                /
-              </span>
+              <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-[#9ca3af]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 4 4 4-4 4" />
+              </svg>
             )}
             {item.href ? (
               <Link href={item.href} className="hover:text-[#1a1a2e] hover:underline hover:underline-offset-2">
                 {item.label}
               </Link>
             ) : (
-              <span aria-current="page" className="text-[#1a1a2e]">
+              <span aria-current="page" className="truncate text-[#6b7280]">
                 {item.label}
               </span>
             )}
@@ -244,10 +244,10 @@ function HelpTable({ head, rows, className }: { head: string[]; rows: string[][]
 export function OnThisPage({ items, variant }: { items: { id: string; text: string }[]; variant: "side" | "inline" }) {
   if (items.length < 2) return null
   const list = (
-    <ol className="space-y-0.5 border-l border-[#e5e7eb]" data-help-toc="">
+    <ol className="relative space-y-0.5 before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-[#e5e7eb]" data-help-toc="">
       {items.map((t) => (
         <li key={t.id}>
-          <a href={`#${t.id}`} className="-ml-px block border-l border-transparent py-1.5 pl-4 text-[14px] leading-snug text-[#6b7280] transition-colors hover:border-[#9ca3af] hover:text-[#1a1a2e] aria-[current=true]:border-[#1a1a2e] aria-[current=true]:font-medium aria-[current=true]:text-[#1a1a2e]">
+          <a href={`#${t.id}`} className="relative block py-1.5 pl-4 text-[14px] leading-snug text-[#6b7280] transition-colors before:absolute before:inset-y-1 before:left-0 before:w-[2px] before:rounded-full before:bg-transparent before:transition-colors hover:text-[#1a1a2e] aria-[current=true]:font-medium aria-[current=true]:text-[#1a1a2e] aria-[current=true]:before:bg-[#1a1a2e]">
             {t.text}
           </a>
         </li>
@@ -263,7 +263,7 @@ export function OnThisPage({ items, variant }: { items: { id: string; text: stri
     )
   }
   return (
-    <details className="group rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] lg:hidden" data-help-toc-inline="">
+    <details className="group rounded-2xl border border-[#e5e7eb]/80 bg-white lg:hidden" data-help-toc-inline="">
       <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-4 text-[14px] font-medium text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
         On this page
         <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4 text-[#6b7280] transition-[rotate] group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">

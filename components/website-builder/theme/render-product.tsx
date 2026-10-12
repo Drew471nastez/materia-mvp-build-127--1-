@@ -426,7 +426,7 @@ export async function renderProduct(
         theme={themeSettings}
         sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id, language: previewToken ? undefined : await languageChoice(product.creator_id, owner?.locale, owner?.market) }}
+        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id, language: previewToken ? undefined : await languageChoice(product.creator_id, owner?.locale, owner?.market), words: localizer?.words, display: previewToken ? undefined : localizer?.display }}
         className="min-h-screen"
       />
       {previewToken ? null : <TrackView type="product" creatorId={product.creator_id} productId={product.id} />}

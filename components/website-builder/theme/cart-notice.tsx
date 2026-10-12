@@ -15,12 +15,15 @@ import { X } from "lucide-react"
 
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { useSiteCart } from "../site-cart"
+import { useMoney, useWord } from "./storefront-context"
 
 /** Long enough to read two lines and reach View cart; it closes itself after that. */
 const NOTICE_MS = 6000
 
 export function CartNotice() {
   const { notice, dismissNotice, live } = useSiteCart()
+  const w = useWord()
+  const money = useMoney()
 
   useEffect(() => {
     if (!notice) return
@@ -31,7 +34,7 @@ export function CartNotice() {
   }, [notice, dismissNotice])
 
   if (!notice) return null
-  const price = formatPrice(notice.priceCents)
+  const price = notice.priceCents > 0 ? money(notice.priceCents) : formatPrice(notice.priceCents)
   return (
     <div
       role="status"
@@ -52,12 +55,12 @@ export function CartNotice() {
         <img src={notice.thumbnailUrl} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-md object-cover" />
       ) : null}
       <div className="min-w-0 flex-1">
-        <p className="m-0 text-[13px] opacity-70">Added to cart</p>
+        <p className="m-0 text-[13px] opacity-70">{w("added_to_cart")}</p>
         <p className="m-0 mt-0.5 text-[15px] font-semibold truncate">{notice.title}{notice.variantName ? `, ${notice.variantName}` : ""}</p>
         {price ? <p className="m-0 mt-0.5 text-[14px] tabular-nums opacity-80">{price}</p> : null}
         {live ? (
           <a href="/cart" className="mt-3 inline-flex h-10 items-center rounded-[var(--theme-button-radius,8px)] px-4 text-[14px] font-semibold no-underline" style={{ background: "var(--theme-primary, #1a1a2e)", color: "#ffffff" }}>
-            View cart
+            {w("view_cart")}
           </a>
         ) : null}
       </div>
