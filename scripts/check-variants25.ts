@@ -24,6 +24,10 @@
  * ?variant=, the selected label, the price, the buy button, which values
  * read as unavailable, the sticky bar, and the cart after Add to cart.
  *
+ * CANVAS=1 does the same in the builder's canvas: the page in a sandboxed
+ * frame, every request of its scripts answered by the builder
+ * (lib/storelib-theme/compat/canvas-cart.ts), as compat-canvas.tsx does.
+ *
  * PICKER=dropdown draws the theme's main picker as dropdowns. OUT= the
  * folder for screenshots (default /tmp/variants25). Exits 1 on any failure.
  */
@@ -31,7 +35,7 @@ import { createServer } from "node:http"
 import { mkdirSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { basename, join, relative } from "node:path"
 import JSZip from "jszip"
-import puppeteer, { type Page } from "puppeteer-core"
+import puppeteer, { type Frame, type Page } from "puppeteer-core"
 import sharp from "sharp"
 import { convertShopifyTheme } from "../lib/storelib-theme/shopify/convert"
 import { shopifyGlobalAsset } from "../lib/storelib-theme/compat/shopify-global-assets"
@@ -39,6 +43,8 @@ import { formFields } from "../lib/storelib-theme/compat/form-fields"
 import { themeOfInstall, type StoredSection } from "../lib/storelib-theme/compat/page"
 import { compileScss } from "../lib/storelib-theme/compat/scss"
 import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
+import { CANVAS_BRIDGE, CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
+import { answerInCanvas, canvasPages, type CanvasCart } from "../lib/storelib-theme/compat/canvas-cart"
 
 const OUT = process.env.OUT ?? "/tmp/variants25"
 mkdirSync(OUT, { recursive: true })
@@ -170,7 +176,7 @@ async function serve(path: string) {
     for (const s of pages.product ?? []) {
       const walk = (blocks: unknown) => {
         for (const b of (Array.isArray(blocks) ? blocks : Object.values((blocks ?? {}) as object)) as { type?: string; settings?: Record<string, unknown>; blocks?: unknown }[]) {
-          if (/variant[_-]picker/.test(b.type ?? "")) b.settings = { ...(b.settings ?? {}), picker_type: "dropdown", variant_style: "dropdown" }
+          if (/variant[_-]picker/.test(b.type ?? "")) b.settings = { ...(b.settings ?? {}), picker_type: "dropdown", variant_style: "dropdowns" }
           if (b.blocks) walk(b.blocks)
         }
       }
@@ -179,18 +185,41 @@ async function serve(path: string) {
   }
   const products = PRODUCTS.map(cardOf)
   const site: SiteData = { creatorId: "c", theme, pages, products, collections: [], menus: {}, shop: { name: "Solara", currency: "USD", moneyFormat: "${{amount}}" }, host: "127.0.0.1" }
+  let canvasCart: CanvasCart = { cart: [], note: "" }
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
+    /* The builder's canvas, as compat-canvas.tsx draws it: the page in a sandboxed frame, what its scripts ask answered by the parent. */
+    if (url.pathname === "/__canvas") {
+      const path = url.searchParams.get("path") ?? "/"
+      const drawn = await answer({ ...site, designMode: true, extraBodyEnd: `<script>window.__slSite="https://solara.example";${CANVAS_BRIDGE}</script>` }, { method: "GET", path: path.split("?")[0], query: new URLSearchParams(path.split("?")[1] ?? ""), body: null, cart: canvasCart.cart })
+      const doc = String(drawn.body).replace(/<head\b[^>]*>/i, (m) => `${m}<script>window.__slPath=${JSON.stringify(path.split("?")[0])};window.__slSeed={};</script>${CANVAS_HEAD}`)
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+      res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1||m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path.split("?")[0])}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
+      return
+    }
+    if (url.pathname === "/__canvas-answer") {
+      const sent: Buffer[] = []
+      for await (const c of req) sent.push(c as Buffer)
+      const { m, path } = JSON.parse(Buffer.concat(sent).toString("utf8"))
+      /* As compat-canvas.tsx answers: the page's product, with its facts, for a section drawn again on a choice. */
+      const handle = String(path).split("/").pop()
+      const r = await answerInCanvas({ ...site, designMode: true, pages: canvasPages(theme, "product", (pages.product ?? []) as never), product: async (h) => products.find((p) => p.settings.slug === h || p.settings.slug === handle && h === handle) ?? null }, canvasCart, { method: m.method, url: m.url, body: m.body, ajax: m.ajax === true }, path)
+      canvasCart = r.state
+      const { type: contentType, ...rest } = r.answer
+      res.writeHead(200, { "Content-Type": "application/json" })
+      res.end(JSON.stringify({ contentType, ...rest }))
+      return
+    }
     if ((url.pathname.startsWith("/api/site-theme/shopify/") || url.pathname.startsWith("/api/site-theme/helpers/"))) {
       const js = shopifyGlobalAsset(decodeURIComponent(url.pathname.split("/").pop() ?? ""))
-      res.writeHead(js ? 200 : 404, { "content-type": "application/javascript" })
+      res.writeHead(js ? 200 : 404, { "content-type": "application/javascript", "Access-Control-Allow-Origin": "*" })
       return res.end(js ?? "")
     }
     if (url.pathname.startsWith("/api/site-theme/assets/")) {
       const name = decodeURIComponent(url.pathname.split("/").pop() ?? "")
       const a = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }), { scss: compileScss })
       if (!a) { res.writeHead(404); res.end(); return }
-      res.writeHead(200, { "Content-Type": a.type })
+      res.writeHead(200, { "Content-Type": a.type, "Access-Control-Allow-Origin": "*" })
       res.end(a.body)
       return
     }
@@ -244,7 +273,7 @@ interface Read {
   errors: string[]
 }
 
-async function read(page: Page, p: P): Promise<Read> {
+async function read(page: Page | Frame, p: P): Promise<Read> {
   return page.evaluate((optionNames: string[], values: string[][]) => {
     const main = document.querySelector("main, #MainContent") ?? document.body
     const isShown = (el: Element) => { const r = (el as HTMLElement).getBoundingClientRect(); return r.width > 0 && r.height > 0 }
@@ -313,7 +342,7 @@ async function read(page: Page, p: P): Promise<Read> {
 }
 
 /** Choose one value in the main picker as a visitor does: its label pressed, or the select changed. */
-async function choose(page: Page, p: P, pos: number, value: string): Promise<string> {
+async function choose(page: Page | Frame, p: P, pos: number, value: string): Promise<string> {
   return page.evaluate((name: string, values: string[], value: string) => {
     const main = document.querySelector("main, #MainContent") ?? document.body
     const root = main.querySelector("variant-selects, variant-picker, variant-radios, [data-variant-picker], .product-form__variants") ?? main
@@ -386,7 +415,7 @@ function compareRead(where: string, p: P, chosen: string[], got: Read, opts: { s
 
 async function run(path: string) {
   const { server, base, name } = await serve(path)
-  console.log(`\n${name}${process.env.PICKER ? ` (${process.env.PICKER})` : ""}`)
+  console.log(`\n${name}${process.env.PICKER ? ` (${process.env.PICKER})` : ""}${process.env.CANVAS === "1" ? " in the canvas" : ""}`)
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox", "--hide-scrollbars"], protocolTimeout: 300_000 })
   const COLOURS: Record<string, string> = { p0: "#e8e0d0", p1: "#b9b2a6", p2: "#d9d4c7", p3: "#1d1d1d", p4: "#d8c39c", p5: "#3d6e8f" }
   const PNG: Record<string, Buffer> = {}
@@ -402,14 +431,22 @@ async function run(path: string) {
       }
       await page.setRequestInterception(true)
       const consoleLines: string[] = []
-      page.on("console", (m) => { if (/shopify|liquid/i.test(m.text())) consoleLines.push(m.text().slice(0, 160)) })
+      page.on("console", (m) => {
+        if (/shopify|liquid/i.test(m.text())) consoleLines.push(m.text().slice(0, 160))
+        if (process.env.DEBUG && (m.type() === "error" || m.type() === "warn")) console.log("    console:", m.text().slice(0, 300))
+      })
+      page.on("pageerror", (e) => { if (process.env.DEBUG) console.log("    pageerror:", String(e).slice(0, 300)) })
       const inFlight = new Set<string>()
       page.on("requestfinished", (r) => inFlight.delete(r.url()))
       page.on("requestfailed", (r) => inFlight.delete(r.url()))
       /* A page that never finishes loading is a failure with what it waited for, not a crash. */
+      const canvas = process.env.CANVAS === "1"
+      /* The document the theme draws: the page itself, or the canvas's frame. */
+      const doc = (): Page | Frame => (canvas ? page.frames().find((f) => f !== page.mainFrame()) ?? page.mainFrame() : page)
       const open = async (path: string) => {
         try {
-          await page.goto(`${base}${path}`, { waitUntil: "load", timeout: 45_000 })
+          await page.goto(canvas ? `${base}/__canvas?path=${encodeURIComponent(path)}` : `${base}${path}`, { waitUntil: "load", timeout: 45_000 })
+          if (canvas) await doc().waitForSelector("main, #MainContent", { timeout: 20_000 }).catch(() => {})
           return true
         } catch (e) {
           check(`${label} ${path}: the page finishes loading`, false, `${String(e).slice(0, 80)}; waiting for ${[...inFlight].slice(0, 4).join(" ")}`)
@@ -437,23 +474,27 @@ async function run(path: string) {
         if (!(await open(`/products/${p.handle}`))) return
         await settle(page)
         const first = p.variants.find((v) => v.available)!
-        let got = await read(page, p)
+        let got = await read(doc(), p)
         compareRead(`${label} ${p.handle} on arrival`, p, first.options, got, { strictUrl: false })
-        const html = await page.content()
-        check(`${label} ${p.handle}: no Shopify or Liquid named in the page a buyer sees`, !/<!--[^>]*\b(shopify|liquid)\b[^>]*-->|<meta[^>]+generator[^>]+(shopify|liquid)/i.test(html) && !/\b(Shopify|Liquid)\b/.test(await page.evaluate(() => document.body.innerText)), "")
+        const html = await doc().content()
+        check(`${label} ${p.handle}: no Shopify or Liquid named in the page a buyer sees`, !/<!--[^>]*\b(shopify|liquid)\b[^>]*-->|<meta[^>]+generator[^>]+(shopify|liquid)/i.test(html) && !/\b(Shopify|Liquid)\b/.test(await doc().evaluate(() => document.body.innerText)), "")
         /* Every value of every option, in order, as a visitor goes through them. */
         let chosen = [...first.options]
         for (const [pos, o] of p.options.entries()) {
           for (const value of o.values) {
-            const how = await choose(page, p, pos, value)
-            if (!how) { check(`${label} ${p.handle}: ${o.name} ${value} can be chosen`, false, "no input"); continue }
+            const how = await choose(doc(), p, pos, value)
+            if (!how) {
+              const at = await doc().evaluate(() => { const m = document.querySelector("main, #MainContent") ?? document.body; return (m.querySelector("variant-selects, variant-picker, variant-radios, [data-variant-picker], .product-form__variants")?.innerHTML ?? "no picker").slice(0, 1500) })
+              check(`${label} ${p.handle}: ${o.name} ${value} can be chosen`, false, `no input; ${at.replace(/\s+/g, " ").slice(0, 400)}`)
+              continue
+            }
             await settle(page)
             /* The address changes only when the choice does, as on Shopify. */
             const moved = chosen[pos] !== value
             chosen = [...chosen]
             chosen[pos] = value
-            got = await read(page, p)
-            compareRead(`${label} ${p.handle} ${how} ${o.name}=${value}`, p, chosen, got, { strictUrl: moved })
+            got = await read(doc(), p)
+            compareRead(`${label} ${p.handle} ${how} ${o.name}=${value}`, p, chosen, got, { strictUrl: moved && !canvas })
           }
         }
         await page.screenshot({ path: `${OUT}/${name}-${label}-${p.handle}.png` })
@@ -461,34 +502,35 @@ async function run(path: string) {
         for (const v of p.variants) {
           if (!(await open(`/products/${p.handle}?variant=${v.id}`))) continue
           await settle(page)
-          compareRead(`${label} ${p.handle} ?variant=${v.options.join("/")}`, p, v.options, await read(page, p), { strictUrl: false })
+          compareRead(`${label} ${p.handle} ?variant=${v.options.join("/")}`, p, v.options, await read(doc(), p), { strictUrl: false })
         }
         /* The sticky bar's own select, where the theme draws one: each variant chosen there moves the main picker too. */
-        const hasStickySelect = await page.evaluate(() => !!document.querySelector("sticky-add-to-cart select, .sticky-add-to-cart select, [data-sticky-atc] select, .sticky-atc select"))
+        const hasStickySelect = await doc().evaluate(() => !!document.querySelector("sticky-add-to-cart select, .sticky-add-to-cart select, [data-sticky-atc] select, .sticky-atc select"))
         if (hasStickySelect) {
           for (const v of p.variants.filter((x) => x.available)) {
-            await page.evaluate((id: string) => {
+            await doc().evaluate((id: string) => {
               const s = document.querySelector<HTMLSelectElement>("sticky-add-to-cart select, .sticky-add-to-cart select, [data-sticky-atc] select, .sticky-atc select")!
               s.value = id
               s.dispatchEvent(new Event("change", { bubbles: true }))
             }, v.id)
             await settle(page)
-            compareRead(`${label} ${p.handle} sticky select ${v.options.join("/")}`, p, v.options, await read(page, p), { strictUrl: true })
+            compareRead(`${label} ${p.handle} sticky select ${v.options.join("/")}`, p, v.options, await read(doc(), p), { strictUrl: !canvas })
           }
         }
         /* Add to cart puts the variant chosen in the cart. */
         const want = p.variants.filter((v) => v.available).slice(-1)[0]
         if (!(await open(`/products/${p.handle}`))) return
-        await page.evaluate(() => fetch("/cart/clear.js", { method: "POST" }))
-        for (const [pos, value] of want.options.entries()) { await choose(page, p, pos, value); await settle(page) }
-        await page.evaluate(() => {
+        await doc().evaluate(() => fetch("/cart/clear.js", { method: "POST" }))
+        for (const [pos, value] of want.options.entries()) { await choose(doc(), p, pos, value); await settle(page) }
+        await doc().evaluate(() => {
           const main = document.querySelector("main, #MainContent") ?? document.body
           const b = main.querySelector<HTMLButtonElement>("form[action$='/cart/add'] button[name='add'], form[action$='/cart/add'] button[type='submit'], product-form-component button[ref='addToCartButton'], [ref='addToCartButton']")
           b?.click()
         })
         await new Promise((r) => setTimeout(r, 1500))
         await settle(page)
-        const cart = await page.evaluate(async () => (await fetch("/cart.js")).json())
+        const cart = await doc().evaluate(async () => (await fetch("/cart.js")).json())
+        /* In the canvas, Add to cart fills the builder's cart, read through the frame's own /cart.js. */
         check(`${label} ${p.handle}: Add to cart puts ${want.options.join(" / ")} in the cart`, (cart.items ?? []).some((i: { variant_id?: string }) => i.variant_id === want.id), JSON.stringify((cart.items ?? []).map((i: { variant_id: string; variant_title: string }) => i.variant_title)))
         check(`${label} ${p.handle}: nothing in the console names Shopify or Liquid`, consoleLines.length === 0, consoleLines[0] ?? "")
       }
