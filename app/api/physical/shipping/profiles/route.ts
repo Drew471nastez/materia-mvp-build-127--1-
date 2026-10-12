@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { ensureDefaultProfile, loadProfiles, text } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -22,5 +23,6 @@ export async function POST(request: Request) {
   await ensureDefaultProfile(c.db, c.creatorId)
   const { error } = await c.db.from("shipping_profiles").insert({ creator_id: c.creatorId, name, is_default: false })
   if (error) return physicalJson({ error: "The profile could not be saved." }, 500)
+  readinessChanged(c)
   return physicalJson({ profiles: await loadProfiles(c.db, c.creatorId) })
 }

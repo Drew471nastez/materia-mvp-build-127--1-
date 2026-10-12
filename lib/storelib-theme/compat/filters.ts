@@ -813,7 +813,10 @@ function videoTag(v: unknown, kw: Record<string, unknown>): string {
   const flags = ["autoplay", "loop", "muted", "controls", "playsinline"].filter((k) => kw[k] === true).join(" ")
   const poster = imageSrc(o.preview_image)
   const extra = Object.entries(kw).filter(([k, val]) => !["autoplay", "loop", "muted", "controls", "playsinline", "image_size"].includes(k) && val !== null && val !== undefined && val !== false && /^[a-z][a-z0-9_-]*$/i.test(k) && !/^on/i.test(k)).map(([k, val]) => (val === true ? k.replace(/_/g, "-") : `${k.replace(/_/g, "-")}="${attr(val)}"`)).join(" ")
-  return `<video ${flags}${poster ? ` poster="${attr(poster)}"` : ""}${extra ? ` ${extra}` : ""} preload="metadata"><source src="${attr(src)}" type="video/mp4"></video>`
+  /* Each source with its own type: a WebM or a MOV announced as MP4 is skipped by a browser that cannot play MP4 of that kind. */
+  const list = sources.length ? sources.map((x) => x as Record<string, unknown>).filter((x) => str(x.url)) : [{ url: src, mime_type: "video/mp4" }]
+  const tags = list.map((x) => `<source src="${attr(x.url)}" type="${attr(str(x.mime_type) || "video/mp4")}">`).join("")
+  return `<video ${flags}${poster ? ` poster="${attr(poster)}"` : ""}${extra ? ` ${extra}` : ""} preload="metadata">${tags}</video>`
 }
 
 function externalVideoUrl(v: unknown): string {

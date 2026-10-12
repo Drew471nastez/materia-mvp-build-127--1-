@@ -12,6 +12,7 @@ import { ArrowRight, Check, Package } from "lucide-react"
 import { AppLink } from "@/components/app/app-link"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import type { PhysicalStep } from "@/lib/home/physical-setup"
+import { useReadiness } from "@/components/physical/readiness-client"
 
 export function PhysicalSetupCard() {
   const physical = usePhysicalCommerceEnabled()
@@ -36,7 +37,9 @@ export function PhysicalSetupCard() {
     }
   }, [physical])
 
-  if (!physical || !steps || (steps.every((s) => s.done) && blockers.length === 0)) return null
+  /* Once something physical is on sale, the readiness banner at the top of Home says what is left, so this steps aside: one cause, one card. */
+  const readiness = useReadiness()
+  if (!physical || !steps || (steps.every((s) => s.done) && blockers.length === 0) || (readiness?.live ?? 0) > 0) return null
   const done = steps.filter((s) => s.done).length
   const ordered = [...blockers, ...steps.filter((s) => !s.done), ...steps.filter((s) => s.done)]
   const next = ordered[0]

@@ -943,13 +943,15 @@ export function productJson(p: O): O {
   const variants = ((p.variants as O[]) ?? []).map((v) => ({
     id: v.id, title: v.title, option1: v.option1, option2: v.option2, option3: v.option3, options: v.options,
     price: v.price, compare_at_price: v.compare_at_price, available: v.available, sku: v.sku, requires_shipping: v.requires_shipping,
-    featured_image: v.featured_image ? { src: (v.featured_image as O).src } : null, name: v.name, public_title: v.title === "Default Title" ? null : v.title,
+    featured_image: v.featured_image ? { id: (v.featured_image as O).id, src: (v.featured_image as O).src, position: (v.featured_image as O).position } : null, name: v.name, public_title: v.title === "Default Title" ? null : v.title,
+    /* The variant's photo among the product's media, by id: what a theme's gallery script switches to. */
+    featured_media: v.featured_media ? { id: (v.featured_media as O).id, media_type: "image", src: (v.featured_media as O).src, position: (v.featured_media as O).position, preview_image: { src: (v.featured_media as O).src } } : null,
   }))
   const images = ((p.images as O[]) ?? []).map((i) => i.src)
   return {
     id: p.id, title: p.title, handle: p.handle, description: p.description, url: p.url, vendor: p.vendor, type: p.type, tags: p.tags,
     price: p.price, price_min: p.price_min, price_max: p.price_max, price_varies: p.price_varies, compare_at_price: p.compare_at_price,
-    available: p.available, variants, images, featured_image: images[0] ?? null, media: ((p.media as O[]) ?? []).map((m) => ({ id: m.id, media_type: "image", src: m.src, alt: m.alt, position: m.position, preview_image: { src: m.src } })),
+    available: p.available, variants, images, featured_image: images[0] ?? null, media: ((p.media as O[]) ?? []).map((m) => (m.media_type === "video" ? { id: m.id, media_type: "video", alt: m.alt, position: m.position, duration: m.duration, sources: m.sources, preview_image: { src: (m.preview_image as O | null)?.src ?? null } } : { id: m.id, media_type: "image", src: m.src, alt: m.alt, position: m.position, preview_image: { src: m.src } })),
     options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),
   }
 }
@@ -957,10 +959,10 @@ export function productJson(p: O): O {
 /** A product as Shopify's /products.json lists it: prices as "40.00", pictures as objects. */
 export function productFeedJson(p: O): O {
   const dollars = (c: unknown) => (typeof c === "number" ? (c / 100).toFixed(2) : null)
-  const images = ((p.images as O[]) ?? []).map((i, n) => ({ id: i.id, position: n + 1, src: i.src, width: i.width, height: i.height, alt: i.alt ?? null, variant_ids: [] }))
+  const images = ((p.images as O[]) ?? []).map((i, n) => ({ id: i.id, position: n + 1, src: i.src, width: i.width, height: i.height, alt: i.alt ?? null, variant_ids: Array.isArray(i.variant_ids) ? i.variant_ids : [] }))
   return {
     id: p.id, title: p.title, handle: p.handle, body_html: p.description, vendor: p.vendor, product_type: p.type, tags: p.tags, published_at: p.published_at,
-    variants: ((p.variants as O[]) ?? []).map((v, n) => ({ id: v.id, title: v.title, option1: v.option1, option2: v.option2, option3: v.option3, sku: v.sku, requires_shipping: v.requires_shipping, taxable: true, featured_image: v.featured_image ? { src: (v.featured_image as O).src } : null, available: v.available, price: dollars(v.price), compare_at_price: dollars(v.compare_at_price), position: n + 1, product_id: p.id })),
+    variants: ((p.variants as O[]) ?? []).map((v, n) => ({ id: v.id, title: v.title, option1: v.option1, option2: v.option2, option3: v.option3, sku: v.sku, requires_shipping: v.requires_shipping, taxable: true, featured_image: v.featured_image ? { id: (v.featured_image as O).id, src: (v.featured_image as O).src } : null, available: v.available, price: dollars(v.price), compare_at_price: dollars(v.compare_at_price), position: n + 1, product_id: p.id })),
     images,
     image: images[0] ?? null,
     options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),

@@ -42,8 +42,9 @@ import { cn } from "@/lib/utils"
 import { parseYouTubeUrl, type MediaItem } from "./editor-form"
 import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hold-to-drag"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
+import { durationText, videoDuration, videoPosterUrl } from "@/lib/media/video"
 
-const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" ? "video" : "photo")
+const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" || item?.type === "video" ? "video" : "photo")
 
 /*
   THE TILES ARE THUMBNAILS, NOT THE PHOTOS. Two to a row, 16:9, so about
@@ -164,8 +165,11 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
   const square = shape === "square"
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   const kind = kindOf(item)
-  const src = item.type === "youtube" ? `https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg` : item.url
-  const srcSet = optimizedSrcSet(src, TILE_FILES, PORTRAIT_QUALITY)
+  /* A video file: its stored first frame when it has one, else the video's own first frame (a <video> below). */
+  const poster = item.type === "video" ? videoPosterUrl(item.url) : null
+  const src = item.type === "youtube" ? `https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg` : item.type === "video" ? (poster ?? "") : item.url
+  const srcSet = src ? optimizedSrcSet(src, TILE_FILES, PORTRAIT_QUALITY) : ""
+  const length = item.type === "video" ? durationText(videoDuration(item.url)) : ""
 
   return (
     <div
@@ -191,7 +195,10 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
             : "border-gray-200 hover:border-gray-300",
         )}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- the srcset is chosen here (TILE_FILES), see there */}
+        {item.type === "video" && !poster ? (
+          <video src={`${item.url}#t=0.1`} muted playsInline preload="metadata" tabIndex={-1} aria-hidden className="h-full w-full object-cover" />
+        ) : (
+        /* eslint-disable-next-line @next/next/no-img-element -- the srcset is chosen here (TILE_FILES), see there */
         <img
           src={srcSet ? optimizedImageUrl(src, TILE_BOX, PORTRAIT_QUALITY) : src}
           srcSet={srcSet || undefined}
@@ -201,9 +208,16 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
           height={360}
           loading={index < TILES_EAGER ? undefined : "lazy"}
           decoding="async"
-          className={cn("h-full w-full", square && item.type !== "youtube" ? "object-contain" : "object-cover")}
+          className={cn("h-full w-full", square && item.type === "image" ? "object-contain" : "object-cover")}
           draggable={false}
         />
+        )}
+        {item.type === "video" && (
+          <span aria-hidden data-media-video="" className="pointer-events-none absolute bottom-1 right-1 inline-flex h-5 items-center gap-1 rounded-md bg-black/60 px-1.5 text-[10px] font-medium tabular-nums text-white sm:bottom-1.5 sm:right-1.5 sm:text-[11px]">
+            <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+            {length || "Video"}
+          </span>
+        )}
         {item.type === "youtube" && (
           <div aria-hidden className="absolute inset-0 flex items-center justify-center bg-black/30">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 sm:h-10 sm:w-10">
@@ -273,19 +287,20 @@ function PendingTile({ pending, shape = "wide", cover = false }: { pending: Pend
     /* The first photo of a product lands as the cover, two by two: it is drawn that size while it uploads, so nothing jumps when it lands. */
     <div data-media-pending="" className={cn("relative animate-in fade-in zoom-in-[0.97] duration-300 ease-out motion-reduce:animate-none", shape === "square" && cover && "col-span-2 row-span-2")}>
       <div className={cn("relative overflow-hidden rounded-lg border border-gray-200 select-none", shape === "square" ? "aspect-square bg-[#f8f9fa]" : "aspect-video bg-[#f3f4f6]")}>
-        <img
+        {/* A video on its way up has no picture yet: the grey tile and its progress. */}
+        {pending.preview ? <img
           src={pending.preview}
           alt=""
           draggable={false}
           className="h-full w-full object-cover transition-[filter,transform] duration-500 ease-out motion-reduce:transition-none"
           style={{ filter: `blur(${(1 - p) * 10}px) saturate(${0.6 + p * 0.4}) brightness(${0.92 + p * 0.08})`, transform: `scale(${1.04 - p * 0.04})` }}
-        />
+        /> : null}
         <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <span className="absolute inset-y-0 -left-1/2 w-1/2 animate-[media-sheen_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent motion-reduce:hidden" />
         </span>
         <span
           role="progressbar"
-          aria-label="Uploading photo"
+          aria-label={pending.preview ? "Uploading photo" : "Uploading video"}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(pending.progress)}

@@ -196,7 +196,7 @@ async function main() {
     const route = code("app/api/checkout/site/route.ts")
     const explore = code("app/api/checkout/access-link/route.ts")
     check("both routes answer the same words whatever the email, and send after answering", /after\(\(\) => sendAccessLinks\(/.test(route) && /return json\(\{ ok: true, message: ACCESS_SENT \}\)/.test(route) && /after\(async \(\) => \{/.test(explore) && /return json\(\{ ok: true, message: ACCESS_SENT \}\)/.test(explore))
-    check("  only from the checkout's own page: same origin on a website, JSON only on Explore", /case "access":\n\s+case "forget": \{[\s\S]{0,200}sameOriginWrite\(request,/.test(route) && /startsWith\("application\/json"\)\) return json\(\{ error: "Bad request" \}, 415\)/.test(explore))
+    check("  only from the checkout's own page: same origin on a website, JSON only on Explore", /case "access":\n\s+case "forget":\n\s+case "cart": \{[\s\S]{0,200}sameOriginWrite\(request,/.test(route) && /startsWith\("application\/json"\)\) return json\(\{ error: "Bad request" \}, 415\)/.test(explore))
     check("  rate limited per caller and per email first", /const limited = await accessLinkLimited\(request, email\)\n\s+if \(limited\) return limited/.test(route) && /const limited = await accessLinkLimited\(request, email\)\n\s+if \(limited\) return limited/.test(explore))
     check("  and the words never confirm a purchase", /^If you bought it with this email/.test(ACCESS_SENT))
     const lib = code("lib/checkout/access-link.ts")

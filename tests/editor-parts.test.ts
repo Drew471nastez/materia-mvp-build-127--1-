@@ -134,7 +134,7 @@ check("every category the editor offered is still offered", (read("lib/products/
 const media = code("app/app/products/new/media-grid.tsx")
 console.log("\nThe media tiles are thumbnails, not the photos")
 check("each tile asks the optimizer for the file it needs, with an honest sizes and its box declared",
-  /const TILE_FILES = \[256, 384, 640, 750\]/.test(media) && /const srcSet = optimizedSrcSet\(src, TILE_FILES, PORTRAIT_QUALITY\)/.test(media)
+  /const TILE_FILES = \[256, 384, 640, 750\]/.test(media) && /const srcSet = (src \? )?optimizedSrcSet\(src, TILE_FILES, PORTRAIT_QUALITY\)/.test(media)
     && /src=\{srcSet \? optimizedImageUrl\(src, TILE_BOX, PORTRAIT_QUALITY\) : src\}/.test(media)
     && /sizes=\{TILE_SIZES\}/.test(media) && /width=\{640\}/.test(media) && /height=\{360\}/.test(media) && /decoding="async"/.test(media))
 check("the tiles past the first two wait until they are scrolled near", /loading=\{index < TILES_EAGER \? undefined : "lazy"\}/.test(media) && /const TILES_EAGER = 2/.test(media))

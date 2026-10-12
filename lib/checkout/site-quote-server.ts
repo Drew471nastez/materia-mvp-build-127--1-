@@ -51,6 +51,18 @@ export interface SiteQuoteLine {
   unitCents: number
   discountCents: number
   requiresShipping: boolean
+  /** The most this line may be changed to on the checkout: its stock where it ships from, held to the product's per order limit. 1 for a download. */
+  maxQuantity: number
+}
+
+/** A line the stock can't meet as asked: shown in the order with how many are left, to lower or remove there. */
+export interface SiteShortLine {
+  productId: string
+  variantId: string | null
+  title: string
+  imageUrl: string | null
+  quantity: number
+  available: number
 }
 
 export interface SiteOwnedLine {
@@ -73,10 +85,18 @@ export interface SiteQuote {
   couponError: string | null
   /** `needsRegion`: the shop ships by state or province here, and none is chosen yet (lib/physical/rates). */
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean; needsRegion?: boolean }
-  pickups: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
+  pickups: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null; hours?: string | null }[]
   /** `taxLabel`: the tax line's words, "VAT 19%" (lib/tax/rules taxLabel). */
   totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string }
   offers?: { title: string; savedCents: number }[]
+  /** Something in it is a physical product (Settings › Checkout's "physical orders" fields), whether or not it ships. */
+  physical?: boolean
+  /** The countries the shop ships this cart to (Settings › Shipping), or null for anywhere. Only when something ships. */
+  shipsTo?: string[] | null
+  /** The stock-short lines, with what was asked and what is left. */
+  short?: SiteShortLine[]
+  /** Lines the server lowered to the product's per order limit: the page takes these quantities. */
+  adjusted?: { productId: string; variantId: string | null; quantity: number; title: string; limit: number }[]
 }
 
 export type SiteQuoteAnswer = { ok: true; quote: SiteQuote } | { ok: false; status: number; error: string }
@@ -167,6 +187,7 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
         unitCents: l.item.priceCents,
         discountCents: l.item.discountCents,
         requiresShipping: false,
+        maxQuantity: l.product.type === "digital" ? 1 : l.item.quantity,
       })),
       dropped: droppedBesidesOwned(priced.dropped, priced.owned).filter((d) => !/^[0-9a-f-]{36}$/i.test(d)),
       owned: ownedOf(priced.owned),
@@ -199,15 +220,51 @@ function emptyQuote(creatorId: string): SiteQuote {
   }
 }
 
+/**
+ * LIMIT SALES, BEFORE PRICING (lib/physical/order-limit). A cart over a
+ * product's "up to N per order" is brought down to it, the last lines of
+ * that product first, and the change is named so the page shows it and
+ * keeps the lowered cart. Paying prices it again and refuses anything over.
+ */
+export function clampToLimits<T extends { productId: string; variantId: string | null; quantity: number }>(items: T[], limits: Map<string, number>): { items: T[]; adjusted: { productId: string; variantId: string | null; quantity: number; limit: number }[] } {
+  const total = new Map<string, number>()
+  for (const i of items) total.set(i.productId, (total.get(i.productId) ?? 0) + i.quantity)
+  const adjusted: { productId: string; variantId: string | null; quantity: number; limit: number }[] = []
+  let out = items
+  for (const [productId, qty] of total) {
+    const limit = limits.get(productId)
+    if (limit === undefined || qty <= limit) continue
+    let over = qty - limit
+    const next = [...out]
+    for (let n = next.length - 1; n >= 0 && over > 0; n--) {
+      if (next[n].productId !== productId) continue
+      const take = Math.min(over, next[n].quantity)
+      over -= take
+      const quantity = next[n].quantity - take
+      adjusted.push({ productId, variantId: next[n].variantId, quantity, limit })
+      next[n] = { ...next[n], quantity }
+    }
+    out = next.filter((i) => i.quantity > 0)
+  }
+  return { items: out, adjusted }
+}
+
 /** A cart that ships, priced by the physical checkout with the address and the delivery. */
-async function shippedQuote(db: Db, creatorId: string, body: Body, owner: SiteOwner | null): Promise<SiteQuoteAnswer> {
-  const [{ priceCheckout, quoteCheckout, readItems }, { deliveryEstimate }, { PICKUP_READY_LABEL }, { COUNTRY_CODES }] = await Promise.all([
+export async function shippedQuote(db: Db, creatorId: string, body: Body, owner: SiteOwner | null): Promise<SiteQuoteAnswer> {
+  const [{ priceCheckout, quoteCheckout, readItems, MAX_LINE_QUANTITY }, { deliveryEstimate }, { PICKUP_READY_LABEL }, { COUNTRY_CODES }, { orderLimits }, { loadProfiles }, { shipsToCountries }] = await Promise.all([
     import("@/lib/physical/checkout-pricing-server"),
     import("@/lib/physical/rates"),
     import("@/lib/physical/pickup"),
     import("./countries"),
+    import("@/lib/physical/order-limit"),
+    import("@/lib/physical/config-server"),
+    import("./site-checkout"),
   ])
-  const items = readItems(body.items)
+  const asked = readItems(body.items)
+  /* Over a product's per order limit: lowered to it here and named, never refused for the whole page (the stepper stops there too). */
+  const limits = await orderLimits(db, [...new Set(asked.map((i) => i.productId))])
+  const clamped = clampToLimits(asked, limits)
+  const items = clamped.items
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : null
   let couponError: string | null = null
   const ownerEmail = owner?.email ?? null
@@ -218,11 +275,39 @@ async function shippedQuote(db: Db, creatorId: string, body: Body, owner: SiteOw
   }
   if (priced.ok === false) return { ok: false, status: priced.status, error: priced.error }
   if (priced.creatorId !== creatorId) return { ok: false, status: 400, error: "A cart can only hold one shop's products" }
+  const pc = priced
   const country = typeof body.country === "string" && COUNTRY_CODES.has(body.country.toUpperCase()) ? body.country.toUpperCase() : null
   const region = typeof body.region === "string" ? body.region.slice(0, 120) : null
   /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
   const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
-  const q = await quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId)
+  const [q, profiles] = await Promise.all([
+    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId),
+    priced.requiresShipping ? loadProfiles(db, creatorId).catch(() => []) : Promise.resolve([]),
+  ])
+  /* How far each line may go: the most any location that fulfils holds of it (unless it sells past zero or isn't counted), held to the per order limit shared by its options. */
+  const fulfilling = pc.locations.filter((l) => l.active && l.fulfillsOrders).map((l) => l.id)
+  const maxOf = (l: (typeof pc.lines)[number]): number => {
+    if (l.type !== "physical") return 1
+    const stock = l.trackInventory && l.inventoryPolicy === "deny" && l.variantId ? Math.max(0, ...fulfilling.map((loc) => pc.available(l.variantId!, loc))) : MAX_LINE_QUANTITY
+    const limit = limits.get(l.productId)
+    const others = pc.lines.filter((o) => o !== l && o.productId === l.productId).reduce((n, o) => n + o.quantity, 0)
+    const room = limit === undefined ? MAX_LINE_QUANTITY : Math.max(0, limit - others)
+    return Math.max(l.quantity, Math.min(MAX_LINE_QUANTITY, stock, room))
+  }
+  const shipsTo = pc.requiresShipping
+    ? shipsToCountries(
+        profiles,
+        pc.lines.filter((l) => l.requiresShipping).map((l) => l.shippingProfileId),
+        pc.locations.filter((l) => l.active && l.fulfillsOrders && l.localDelivery).map((l) => l.country ?? ""),
+      )
+    : null
+  /* A short line keeps its place in the order, with its picture, so it is lowered or removed right there. */
+  const shortImages = new Map<string, string | null>()
+  if (pc.stockIssues.length) {
+    const { data } = await db.from("products").select("id, thumbnail_url").in("id", [...new Set(pc.stockIssues.map((s) => s.productId))]).eq("status", "published")
+    for (const r of (data ?? []) as { id: string; thumbnail_url: string | null }[]) shortImages.set(r.id, r.thumbnail_url)
+  }
+  const titleOf = (productId: string) => pc.lines.find((l) => l.productId === productId)?.title ?? pc.stockIssues.find((s) => s.productId === productId)?.title ?? "This product"
   return {
     ok: true,
     quote: {
@@ -239,6 +324,7 @@ async function shippedQuote(db: Db, creatorId: string, body: Body, owner: SiteOw
         unitCents: l.unitCents,
         discountCents: l.discountCents,
         requiresShipping: l.requiresShipping,
+        maxQuantity: maxOf(l),
       })),
       dropped: droppedBesidesOwned(priced.dropped, priced.owned),
       owned: ownedOf(priced.owned),
@@ -249,7 +335,7 @@ async function shippedQuote(db: Db, creatorId: string, body: Body, owner: SiteOw
       delivery: q.quote.ok
         ? {
             ok: true,
-            options: q.quote.required ? q.quote.options.map((o) => ({ id: o.id, name: o.name, priceCents: o.priceCents, estimate: deliveryEstimate(o) })) : [],
+            options: q.quote.required ? q.quote.options.map((o) => ({ id: o.id, name: o.name, priceCents: o.priceCents, estimate: o.kind === "local" ? (o.local?.note ?? "") : deliveryEstimate(o) })) : [],
             selectedId: q.option?.id ?? null,
             needsCountry: priced.requiresShipping && !country,
           }
@@ -260,9 +346,21 @@ async function shippedQuote(db: Db, creatorId: string, body: Body, owner: SiteOw
         address: o.pickup?.address ?? [],
         instructions: o.pickup?.instructions ?? null,
         ready: o.pickup ? PICKUP_READY_LABEL[o.pickup.ready] : null,
+        hours: o.pickup?.hours ?? null,
       })),
       totals: q.totals,
       offers: priced.offers.map((o) => ({ title: o.title, savedCents: o.savedCents })),
+      physical: priced.lines.some((l) => l.type === "physical") || priced.stockIssues.length > 0,
+      shipsTo,
+      short: priced.stockIssues.map((s) => ({
+        productId: s.productId,
+        variantId: s.variantId,
+        title: s.title,
+        imageUrl: shortImages.get(s.productId) ?? null,
+        quantity: items.find((i) => i.productId === s.productId && (i.variantId === s.variantId || i.variantId === null))?.quantity ?? 1,
+        available: s.available,
+      })),
+      adjusted: clamped.adjusted.map((a) => ({ ...a, title: titleOf(a.productId) })),
     },
   }
 }

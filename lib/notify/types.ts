@@ -40,6 +40,8 @@ export const DOMAIN_EVENTS = [
   "payment_setup.weekly_check",
   /* "How do you fulfil your physical orders?" answered (app/api/physical/onboarding): selling things that ship has begun. */
   "physical_setup.started",
+  /* A store with physical products on sale went from fine to a blocking gap (lib/physical/readiness-server.ts noteReadiness): keyed by the store and the episode. */
+  "physical_readiness.not_ready",
   "payout_method.added",
   "payout_method.problem",
   "payout_method.changed",
@@ -144,6 +146,9 @@ export const NOTIFICATION_TYPES = [
   /* Physical selling begun and not ready to take an order: the same steps Home's physical card shows (lib/home/physical-setup.ts). */
   "PHYSICAL_SETUP_UNFINISHED",
   "PHYSICAL_SETUP_UNFINISHED_2",
+  /* Physical products on sale and something stops a buyer checking out or an order shipping (lib/physical/readiness.ts): the notice, and one reminder a few days on. */
+  "PHYSICAL_STORE_NOT_READY",
+  "PHYSICAL_STORE_NOT_READY_2",
   "PAYMENT_SETUP_REMINDER",
   "PAYMENT_SETUP_REMINDER_2",
   /* Started and left unfinished, rather than never started (lib/notify/workflows/unfinished.ts). */
@@ -268,6 +273,8 @@ export type ConditionName =
   /** Getting started has a step left that has a page to finish it on (lib/home/progress.ts). */
   | "store_setup_unfinished"
   | "physical_setup_unfinished"
+  /** Physical products on sale with a blocking gap other than payments (lib/physical/readiness.ts needsNotice). */
+  | "physical_store_not_ready"
   /** Stripe is still asking this account for details (creators.stripe_requirements, written by the webhook). */
   | "verification_still_needed"
   | "payout_still_failed"

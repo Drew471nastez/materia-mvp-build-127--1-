@@ -26,6 +26,7 @@
  */
 import { decodeItems, encodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import type { CheckoutConfig, FieldRule } from "@/lib/store/checkout-config"
+import type { ShippingProfile } from "@/lib/physical/types"
 
 export const SITE_CHECKOUT_PATH = "/checkout"
 export const SITE_THANKS_PATH = "/checkout/thanks"
@@ -238,7 +239,8 @@ export function siteSignInHref(checkoutPath: string): string {
  *   email      always
  *   name       one Full name, or First and Last apart
  *   company    physical orders only: off, optional or required
- *   phone      physical orders only (and a pickup): off, optional or required
+ *   phone      physical orders only (a pickup, and a thing handed over in
+ *              person too): off, optional or required
  *   address 2  physical orders only: off, optional or required
  *   news box   when the store shows it, under the email, never ticked
  */
@@ -251,13 +253,14 @@ export interface FieldPlan {
   newsBox: boolean
 }
 
-export function fieldPlan(config: CheckoutConfig, order: { ships: boolean; pickup?: boolean }): FieldPlan {
+export function fieldPlan(config: CheckoutConfig, order: { ships: boolean; pickup?: boolean; physical?: boolean }): FieldPlan {
   const ships = order.ships
   const pickup = ships && !!order.pickup
   return {
     splitName: config.nameFields === "first_and_last",
     company: ships && !pickup ? config.company : "off",
-    phone: ships ? config.phone : "off",
+    /* "Physical orders": a thing handed over in person (nothing to ship) is still one, and the shop may need to call. */
+    phone: ships || order.physical ? config.phone : "off",
     address2: ships && !pickup ? config.address2 : "off",
     address: ships && !pickup,
     newsBox: config.marketingOptIn,
@@ -377,4 +380,86 @@ export function onWebsiteHost(hostname: string, mainDomain: string, pathname = "
   const main = mainDomain.toLowerCase().split(":")[0]
   if (!h || h === main || h === `www.${main}` || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")) return false
   return true
+}
+
+/* ===========================================================================
+ *  CHANGING THE ORDER ON THE CHECKOUT ITSELF
+ * ===========================================================================
+ * Each line of the summary has - / + and Remove, as a shop's checkout does.
+ * The page only changes the ids and quantities it sends; the server prices
+ * the result again (stock, the per order limit, shipping, tax, the code) and
+ * its quote says how far each line may go (`maxQuantity`). Pure, so the
+ * page, the route and the tests agree on what a change does.
+ */
+
+/** The most one line of a checkout may hold (lib/physical/checkout-pricing-server MAX_LINE_QUANTITY). */
+export const LINE_QUANTITY_MAX = 999
+
+/** Is this cart item the line the server priced? A line with no option sent is the product's only option, which the server names. */
+export function sameLine(item: Pick<LinkItem, "productId" | "variantId">, line: { productId: string; variantId: string | null }): boolean {
+  return item.productId === line.productId && ((item.variantId ?? null) === (line.variantId ?? null) || item.variantId === null)
+}
+
+/** The cart with one line set to `quantity`: 0 (or less) removes it, the rest held to 1..max. Items the line doesn't match are kept as they are. */
+export function setLineQuantity(items: LinkItem[], line: { productId: string; variantId: string | null }, quantity: number, max = LINE_QUANTITY_MAX): LinkItem[] {
+  const q = Math.floor(Number(quantity))
+  const at = items.findIndex((i) => sameLine(i, line))
+  if (at < 0) return items
+  if (!Number.isFinite(q) || q <= 0) return items.filter((i) => !sameLine(i, line))
+  const capped = Math.max(1, Math.min(q, Math.max(1, Math.min(LINE_QUANTITY_MAX, max))))
+  /* The same line sent twice (a theme's cart keeps one per set of properties) becomes one, as the server counts it. */
+  return items.flatMap((i, n) => (!sameLine(i, line) ? [i] : n === at ? [{ ...i, quantity: capped }] : []))
+}
+
+/** The cart in the order the server returned quantities for: `adjusted` (a line over its per order limit) replaces what was asked. */
+export function applyAdjusted(items: LinkItem[], adjusted: { productId: string; variantId: string | null; quantity: number }[] | undefined): LinkItem[] {
+  if (!adjusted || adjusted.length === 0) return items
+  let next = items
+  for (const a of adjusted) next = setLineQuantity(next, a, a.quantity)
+  return next
+}
+
+/** An imported theme's cart cookie lines, changed to match the checkout: removed lines leave it, a changed quantity is its first entry's. Nothing is ever added. */
+export function themeCartAfter<E extends { p: string; v: string | null; q: number }>(entries: E[], items: Pick<LinkItem, "productId" | "variantId" | "quantity">[]): E[] {
+  const seen = new Set<string>()
+  const out: E[] = []
+  for (const e of entries) {
+    const item = items.find((i) => i.productId === e.p && ((i.variantId ?? null) === (e.v ?? null) || i.variantId === null || e.v === null))
+    if (!item) continue
+    const key = `${e.p}::${e.v ?? ""}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ ...e, q: Math.max(1, Math.min(LINE_QUANTITY_MAX, Math.floor(item.quantity) || 1)) })
+  }
+  return out
+}
+
+/**
+ * The countries a cart of these shipping profiles can go to, from Settings ›
+ * Shipping: every zone with a rate turned on, a zone of states counting for
+ * its country (the state is then asked), and the countries a location
+ * delivers to locally. Each profile in the cart has to reach the country,
+ * so it is what they share. Null: anywhere (a Rest of world zone with a
+ * rate). The server still prices the address; this only lists the choices.
+ */
+export function shipsToCountries(profiles: ShippingProfile[], profileIds: (string | null)[], localCountries: string[] = []): string[] | null {
+  const fallback = profiles.find((p) => p.isDefault) ?? profiles[0] ?? null
+  const used = [...new Set(profileIds.map((id) => profiles.find((p) => p.id === id) ?? fallback).filter((p): p is ShippingProfile => !!p))]
+  const local = [...new Set(localCountries.map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)))]
+  let shared = null as Set<string> | null
+  let anyProfile = false
+  for (const p of used) {
+    anyProfile = true
+    const live = p.zones.filter((z) => z.rates.some((r) => r.active))
+    if (live.some((z) => z.restOfWorld)) continue
+    const mine = new Set<string>()
+    for (const z of live) {
+      for (const c of z.countries) mine.add(c.toUpperCase())
+      for (const r of z.regions ?? []) mine.add(r.split("-")[0].toUpperCase())
+    }
+    const before: Set<string> | null = shared
+    shared = before === null ? mine : new Set([...before].filter((c) => mine.has(c)))
+  }
+  if (anyProfile && shared === null) return null
+  return [...new Set([...(shared ?? []), ...local])].sort()
 }

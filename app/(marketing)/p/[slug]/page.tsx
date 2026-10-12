@@ -76,6 +76,7 @@ import { shownCustomFields } from "@/lib/products/custom-fields"
 
 import { productPageTone } from "@/lib/store-builder/product-page-tone"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+import { imagesOnly } from "@/lib/media/video"
 
 /*
   WHAT'S INCLUDED, ONE PLAIN MARK A LINE. It used to pick a picture for each
@@ -170,7 +171,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
   // Determine the social preview image: first gallery image → thumbnail
   const galleryUrls = product.gallery_urls as string[] | null
-  const socialImage = galleryUrls?.[0] || product.thumbnail_url || undefined
+  const socialImage = imagesOnly(galleryUrls ?? [])[0] || product.thumbnail_url || undefined
 
   /*
     THE PRODUCT'S OWN SEARCH RESULT, when its creator wrote one. The editor
@@ -1026,6 +1027,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             mobileDotsMode={mobileGalleryDots}
             desktopDotsMode={desktopGalleryDots}
             shape={product.type === "physical" ? "square" : "wide"}
+            followVariantsOf={product.type === "physical" ? product.id : undefined}
           />
         ) : (
           <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
@@ -1656,8 +1658,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
        the thing that draws a search result. */
     description: plainSummary(product.description, 5000) || undefined,
     sku: product.id,
-    image: product.gallery_urls?.length
-      ? product.gallery_urls
+    image: imagesOnly(product.gallery_urls ?? []).length
+      ? imagesOnly(product.gallery_urls ?? [])
       : product.thumbnail_url
         ? [product.thumbnail_url]
         : undefined,
@@ -1847,7 +1849,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               /* The picture the page leads with, not the raw thumbnail
                  column: gallery_urls wins when there is one, and YouTube
                  poster URLs are already filtered out of it. */
-              thumbnail_url: galleryImages[0] || product.thumbnail_url || null,
+              thumbnail_url: imagesOnly(galleryImages)[0] || product.thumbnail_url || null,
               price_cents: product.price_cents,
               compare_at_cents: product.compare_at_cents,
               type: product.type,
@@ -2019,7 +2021,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             id: product.id,
             slug: product.slug,
             title: product.title,
-            thumbnail_url: galleryImages[0] || product.thumbnail_url || null,
+            thumbnail_url: imagesOnly(galleryImages)[0] || product.thumbnail_url || null,
             price_cents: product.price_cents,
             compare_at_cents: product.compare_at_cents,
             type: product.type,

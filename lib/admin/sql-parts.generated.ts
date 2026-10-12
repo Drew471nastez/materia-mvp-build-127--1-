@@ -128,9 +128,11 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "153", file: "153_store_business_and_tax_names.sql", sha256: "5d22c6d35ab107846df5d617b477ea419082cdac4c83fcdd0fb7d5a24d7abcb4" },
   { part: "154", file: "154_local_delivery_and_pickup_hours.sql", sha256: "3d3eceb865c91ddbab84277fe420c41a9ba8a2c87b2a1389dddd0ef6204f8fc2" },
   { part: "160", file: "160_courier_tracking.sql", sha256: "f08bc042674e33a9447a2173ad8d7ab099863c209b16ff05f8d66721e07ad4e2" },
-  { part: "161", file: "161_marketing_sync.sql", sha256: "26216965ff281ff80206377c69109afdc43aa5dd8c040f791a05bfe149e3c380" },
-  { part: "162", file: "162_partner_variant_links.sql", sha256: "66112769cbeba7a1f5656a8223d4b161f87b3d101ca9808ed3db7428c416e205" },
+  { part: "161", file: "161_physical_products_ship_by_default.sql", sha256: "2473fb0a27083ca1d23173f7562c2547efa01f70279b20da742a1e042641fe2e" },
+  { part: "162", file: "162_physical_readiness_state.sql", sha256: "1289f783a1b9a5dea336a917e51864469fe87d9987ecf8718b23ab4520e647cd" },
   { part: "163", file: "163_shipping_labels_and_shipstation.sql", sha256: "6f9ebfd4c2ce1edbf996aae5eec4959afb25af0de7db86d0f0a318349605d7fc" },
   { part: "164", file: "164_buyer_contact_and_cart_attributes.sql", sha256: "63b61f7aec70533a994c268b7e42e8a1947e4bc9a995cadbeb7f4b12620272cf" },
   { part: "165", file: "165_columns_production_has.sql", sha256: "44bbe4e6fbc321a6df1fe59acc3e0000ebba6b91c0316804e1fe386fb0121ef8" },
+  { part: "166", file: "166_marketing_sync.sql", sha256: "26216965ff281ff80206377c69109afdc43aa5dd8c040f791a05bfe149e3c380" },
+  { part: "167", file: "167_partner_variant_links.sql", sha256: "66112769cbeba7a1f5656a8223d4b161f87b3d101ca9808ed3db7428c416e205" },
 ]

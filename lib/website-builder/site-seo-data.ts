@@ -23,6 +23,7 @@ import {
 } from "./site-seo"
 import type { ThemeSettingsValues } from "./types"
 import { hiddenPages } from "./page-seo"
+import { imagesOnly } from "@/lib/media/video"
 
 /**
  * The creator page's domain, at the host it is served at, or null. The
@@ -189,7 +190,7 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
     const products = await listedProducts(site.creatorId)
     if (products.length > 0 && !site.pages.products) entries.push({ loc: pageUrl(origin, "products") })
     for (const p of products) {
-      const pictures = [p.thumbnail_url, ...(p.gallery_urls ?? [])].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+      const pictures = imagesOnly([p.thumbnail_url, ...(p.gallery_urls ?? [])]).filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
       entries.push({
         loc: productUrl(origin, p.slug),
         ...(p.updated_at ? { lastmod: new Date(p.updated_at).toISOString() } : {}),

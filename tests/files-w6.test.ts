@@ -118,7 +118,8 @@ async function main() {
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("an image gallery setting takes several, up to its max", /onAddMany=\{urls => onChange\(\[\.\.\.list, \.\.\.urls\]\.slice\(0, cap\)\)\}/.test(editor) && /max=\{Math\.max\(0, cap - list\.length\)\}/.test(editor))
   const product = read("app/app/products/new/product-editor.tsx")
-  check("a product's photos can come from your files, several at once, up to the photo limit", /<FilesLibraryChooser[\s\S]{0,120}multiple[\s\S]{0,40}max=\{Math\.max\(0, MAX_PHOTOS - existingImages - pendingMedia\.length\)\}/.test(product) && /onPickMany=\{addFromFiles\}/.test(product))
+  /* Round H3: photos and videos, each up to its own limit (addFromFiles holds each kind to its room). */
+  check("a product's photos and videos can come from your files, several at once, up to the limits", /<FilesLibraryChooser[\s\S]{0,120}multiple[\s\S]{0,40}kind="media"[\s\S]{0,40}max=\{Math\.max\(0, MAX_PHOTOS - existingImages - pendingMedia\.length\) \+ Math\.max\(0, MAX_VIDEO_FILES/.test(product) && /onPickMany=\{addFromFiles\}/.test(product))
 
   console.log("\nDeleting several")
   const removed: string[][] = []

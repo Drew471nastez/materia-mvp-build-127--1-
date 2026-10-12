@@ -33,7 +33,7 @@ import "server-only"
  * every quarter hour per connected store (/api/cron/physical). Each job is
  * keyed, retried with backoff when the provider is busy or down, and paced
  * under its rate limits (./http.ts). Each thing sent is written down in
- * marketing_sync_items (SQL part 161) before the job ends, so a retried job
+ * marketing_sync_items (SQL part 166) before the job ends, so a retried job
  * or a second run never sends it twice; that table is also the card's
  * counts. Disconnecting deletes the key, the record and every job not yet
  * run.
@@ -150,7 +150,7 @@ export interface MarketingView {
   lastError: string | null
   counts: { subscribed: number; unsubscribed: number; customers: number; events: number; pulled: number }
   scopes: string[]
-  /** Part 161 has not run: nothing can be kept yet. */
+  /** Part 166 has not run: nothing can be kept yet. */
   ready: boolean
 }
 
@@ -290,7 +290,7 @@ export async function saveMarketing(
     { creator_id: creatorId, provider, category: "marketing", status: "connected", account_label: account ? account.slice(0, 120) : null, secret_ciphertext: sealSecret(typed), config, last_sync_at: at, last_error: null, updated_at: at },
     { onConflict: "creator_id,provider" },
   )
-  if (error) return { ok: false, error: error.code === "23514" ? `${name} needs its database update first (SQL part 161).` : "The integration could not be saved.", status: error.code === "23514" ? 503 : 500 }
+  if (error) return { ok: false, error: error.code === "23514" ? `${name} needs its database update first (SQL part 166).` : "The integration could not be saved.", status: error.code === "23514" ? 503 : 500 }
   const queued = await queueSync(db, creatorId, provider, now, `${Date.parse(at)}`)
   return { ok: true, account, lists, queued }
 }

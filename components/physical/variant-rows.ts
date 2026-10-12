@@ -17,7 +17,8 @@
  * Pure, so tests/product-editor-physical.test.ts holds it without a browser.
  */
 import { combinationKey, type Combination } from "@/lib/physical/variants"
-import type { FulfillmentMethod } from "@/lib/physical/types"
+import type { FulfillmentMethod, ProductOption } from "@/lib/physical/types"
+import { THUMB_QUALITY, thumbable } from "@/lib/files/thumb"
 
 export interface VariantRow {
   id: string | null
@@ -126,4 +127,35 @@ export function priceRange(rows: VariantRow[], base: string, format: (cents: num
   const lo = Math.min(...cents)
   const hi = Math.max(...cents)
   return lo === hi ? format(lo) : `${format(lo)} to ${format(hi)}`
+}
+
+/**
+ * A resized copy for a variant's square, never the camera original: a 3000px
+ * photo decoded on the main thread to fill 40px was a large part of the
+ * stutter. 128px wide is the smallest size Next's optimizer serves that is
+ * still sharp at 3x (lib/files/thumb.ts); the Files picker asks for the same
+ * width, so a photo seen there is already in the cache here.
+ */
+export function variantThumbSrc(url: string): string {
+  if (!thumbable(url)) return url
+  return `/_next/image?url=${encodeURIComponent(url)}&w=128&q=${THUMB_QUALITY}`
+}
+
+/** The variants a photo can go on: just the one chosen, or every variant sharing one of its values ("Every Sand"). */
+export function photoScopes(keys: string[], name: string, rows: VariantRow[], options: ProductOption[]): { label: string; keys: string[] }[] {
+  const own = { label: keys.length === 1 ? `Only ${name}` : `Every ${name}`, keys }
+  if (keys.length !== 1 || options.length < 2) return [own]
+  const row = rows.find((r) => combinationKey(r.options) === keys[0])
+  if (!row) return [own]
+  const more = options
+    .map((o, pos) => {
+      const value = row.options[pos]
+      if (!value) return null
+      const matching = rows.filter((r) => (r.options[pos] ?? "").toLowerCase() === value.toLowerCase()).map((r) => combinationKey(r.options))
+      return matching.length > 1 ? { label: `Every ${value}`, keys: matching } : null
+    })
+    .filter((x): x is { label: string; keys: string[] } => !!x)
+    /* The last option first: a colour is usually the last, and a colour is what a photo shows. */
+    .reverse()
+  return [own, ...more]
 }

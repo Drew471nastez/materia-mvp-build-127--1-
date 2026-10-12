@@ -601,19 +601,19 @@ async function main() {
     check("the cron schedules the syncs", /scheduleMarketingSyncs\(db\)/.test(read("app/api/cron/physical/route.ts")))
     const route = read("app/api/store/integrations/marketing/route.ts")
     check("the settings route: the owner's store only, rate limited, paused from /admin refuses a connect", /shopCaller\(\)/.test(route) && /rateLimit\(/.test(route) && /cachedCatalogOverrides/.test(route))
-    const sql = read("supabase/sql/run-now/161_marketing_sync.sql")
+    const sql = read("supabase/sql/run-now/166_marketing_sync.sql")
     const lines = sql.trim().split("\n")
     check("SQL 161: one statement per line, the DO blocks on one line each, notify last", lines.length === 10 && lines.slice(1).every((l) => l.trim().endsWith(";")) && lines[lines.length - 1] === "notify pgrst, 'reload schema';" && lines.filter((l) => l.startsWith("DO $do$")).length === 3)
     check("  rebuilds the three checks from what they already allow, so other parts keep their values", lines.filter((l) => l.includes("pg_get_constraintdef")).length === 3 && sql.includes("'marketing_sync'") && sql.includes("'klaviyo', 'omnisend'") && sql.includes("'marketing'"))
     check("  a check that is already a pattern (part 163's jobs check) is left as it is, never turned back into a list", lines.filter((l) => l.includes("LIKE '%~%') THEN RAISE NOTICE")).length === 3)
     check("  the check after counts the pattern as done", read("supabase/sql/run-now/99_check_after.sql").includes("like '%marketing_sync%' or pg_get_constraintdef(oid) like '%~%'"))
     check("  marketing_sync_items: unique per store, provider and item, server only", /UNIQUE \(creator_id, provider, item_key\)/.test(sql) && /REVOKE ALL ON public\.marketing_sync_items FROM anon, authenticated/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql))
-    check("  the migration copy, the README row and the check after", existsSync(join(process.cwd(), "supabase/migrations/20270112_marketing_sync.sql")) && read("supabase/sql/run-now/README.md").includes("`161_marketing_sync.sql`") && read("supabase/sql/run-now/99_check_after.sql").includes("as p161_marketing_sync"))
+    check("  the migration copy, the README row and the check after", existsSync(join(process.cwd(), "supabase/migrations/20270112_marketing_sync.sql")) && read("supabase/sql/run-now/README.md").includes("`166_marketing_sync.sql`") && read("supabase/sql/run-now/99_check_after.sql").includes("as p166_marketing_sync"))
     const kl = INTEGRATIONS.find((i) => i.id === "klaviyo")!
     const om = INTEGRATIONS.find((i) => i.id === "omnisend")!
     check("Klaviyo's and Omnisend's pages no longer say their subscribers and orders are not sent", ![...kl.about, ...om.about].some((p) => /Not connected yet/.test(p)) && kl.about.some((p) => /Placed Order/.test(p)) && om.about.some((p) => /placed order/i.test(p)))
     check("  their data ownership says exactly what flows in and out", kl.data.some((d) => /said yes/.test(d) && /only they are subscribed/.test(d)) && kl.data.some((d) => /unsubscribe/i.test(d)) && om.data.some((d) => /last four/.test(d)))
-    const files = ["lib/integrations/marketing/http.ts", "lib/integrations/marketing/orders.ts", "lib/integrations/marketing/consent.ts", "lib/integrations/marketing/klaviyo.ts", "lib/integrations/marketing/omnisend.ts", "lib/integrations/marketing/sync-server.ts", "components/app/settings/marketing-sync-panel.tsx", "app/api/store/integrations/marketing/route.ts", "supabase/sql/run-now/161_marketing_sync.sql"]
+    const files = ["lib/integrations/marketing/http.ts", "lib/integrations/marketing/orders.ts", "lib/integrations/marketing/consent.ts", "lib/integrations/marketing/klaviyo.ts", "lib/integrations/marketing/omnisend.ts", "lib/integrations/marketing/sync-server.ts", "components/app/settings/marketing-sync-panel.tsx", "app/api/store/integrations/marketing/route.ts", "supabase/sql/run-now/166_marketing_sync.sql"]
     const banned = /—|\bunlock|\belevate|\bseamless|\bpowerful|\beffortless|\bsupercharge|\btransform/i
     const hits = files.filter((f) => existsSync(join(process.cwd(), f)) && banned.test(read(f).replace(/transformations?|transform\(|transform:|translate3d|transform-/g, "")))
     check("no em dash and none of the banned words in the new files", hits.length === 0, hits)

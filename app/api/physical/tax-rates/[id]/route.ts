@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadTaxRates } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -11,5 +12,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
   await c.db.from("commerce_tax_rates").delete().eq("id", id).eq("creator_id", c.creatorId)
+  readinessChanged(c)
   return physicalJson({ taxRates: await loadTaxRates(c.db, c.creatorId) })
 }

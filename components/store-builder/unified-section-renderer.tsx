@@ -72,6 +72,7 @@ import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
+import { imagesOnly } from "@/lib/media/video"
 
 // Shared product type for consistency
 export interface ProductData {
@@ -3524,7 +3525,7 @@ export function UnifiedProductPage({
   const buttonText = product?.call_to_action || (productPrice === 0 ? "Get for Free" : "I want this!")
 
   const galleryImages = product?.gallery_urls?.length
-    ? ([product.thumbnail_url, ...product.gallery_urls].filter(Boolean) as string[])
+    ? (imagesOnly([product.thumbnail_url, ...product.gallery_urls]).filter(Boolean) as string[])
     : product?.thumbnail_url
       ? [product.thumbnail_url]
       : []

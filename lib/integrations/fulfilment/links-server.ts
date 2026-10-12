@@ -35,7 +35,7 @@ export const isLinkedProvider = (p: string): p is LinkedProvider => (LINKED_PROV
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MISSING = new Set(["42P01", "PGRST205", "42703"])
-export const LINKS_NEED_SQL = "Matching products turns on after SQL part 162 runs."
+export const LINKS_NEED_SQL = "Matching products turns on after SQL part 167 runs."
 
 export interface LinkRow {
   variantId: string

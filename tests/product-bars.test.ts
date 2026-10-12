@@ -148,7 +148,7 @@ function main() {
   console.log("\n  the desktop buy bar shows the thing")
 
   check("the bar can be given a picture", /thumbnail_url\?: string \| null/.test(buyBar))
-  check("the page passes the one it leads with", /thumbnail_url: galleryImages\[0\] \|\| product\.thumbnail_url \|\| null/.test(productPage))
+  check("the page passes the one it leads with", /thumbnail_url: (imagesOnly\()?galleryImages\)?\[0\] \|\| product\.thumbnail_url \|\| null/.test(productPage))
   check("and the editor's preview passes the same field", /thumbnail_url: selectedProduct\.thumbnail_url/.test(read("components/store-builder/preview-canvas.tsx")))
   check("a square with rounded corners", /h-11 w-11 shrink-0 overflow-hidden rounded-\[10px\]/.test(buyBar))
   check("through Next's optimizer, not Supabase's", /optimizedImageUrl\(src, 44, 75\)/.test(buyBar))

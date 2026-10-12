@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadPhysicalProduct, savePhysicalProduct } from "@/lib/physical/catalog-server"
 import { loadLocations, loadProfiles, loadSettings } from "@/lib/physical/config-server"
 
@@ -31,5 +32,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const saved = await savePhysicalProduct(c.db, c.creatorId, id, body)
   if (saved.ok === false) return physicalJson({ error: saved.error }, saved.status ?? 400)
+  readinessChanged(c)
   return physicalJson({ product: saved.data })
 }

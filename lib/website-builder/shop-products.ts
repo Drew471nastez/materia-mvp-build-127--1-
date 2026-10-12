@@ -60,6 +60,7 @@ import { uniqueImages } from "@/lib/products/product-page-model"
 import { listedOn } from "@/lib/store/channels"
 import { offChannel } from "@/lib/store/channel-filter"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
+import { imagesOnly, isPosterName, isVideoUrl } from "@/lib/media/video"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
@@ -79,6 +80,8 @@ export interface ProductVariantCard {
   available: boolean
   /** Storelib checkout for this option. "" when it cannot be bought. */
   checkout_url: string
+  /** This option's own photo (the product editor's variant photo), or absent. An imported theme's `variant.featured_media`. */
+  image?: string
 }
 
 export interface ProductCard {
@@ -187,6 +190,7 @@ export interface VariantRow {
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
   position?: number | null
+  image_url?: string | null
 }
 
 /**
@@ -222,7 +226,19 @@ function wasPrice(now: number, was: number | null | undefined): string {
  */
 function pictures(row: ProductRow): string[] {
   /* Storelib's own address for each, never the storage host's (lib/storage/media-url.ts). */
-  return uniqueImages([row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])].map((u) => mediaUrl(u)), MAX_IMAGES)
+  return uniqueImages(imagesOnly([row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])]).map((u) => mediaUrl(u)), MAX_IMAGES)
+}
+
+/**
+ * The photos and videos in their order, for a product page's gallery (an
+ * imported theme's product.media, lib/storelib-theme/compat/objects.ts), only
+ * when there is a video among them: a video's first frame (the thumbnail when
+ * the video is first) is left out, since the video itself is there.
+ */
+function mediaWithVideos(row: ProductRow): string[] | null {
+  const gallery = Array.isArray(row.gallery_urls) ? (row.gallery_urls as unknown[]) : []
+  if (!gallery.some((u) => typeof u === "string" && isVideoUrl(u))) return null
+  return uniqueImages([row.thumbnail_url, ...gallery].filter((u) => typeof u === "string" && !isPosterName(u)).map((u) => mediaUrl(u as string)), MAX_IMAGES)
 }
 
 /** One option, as a section reads it. */
@@ -236,6 +252,7 @@ export function toVariant(productId: string, v: VariantRow, available: boolean):
     free: cents <= 0 && !v.pay_what_you_want,
     available,
     checkout_url: available ? checkoutUrl(productId, v.id) : "",
+    ...(typeof v.image_url === "string" && /^https:\/\//.test(v.image_url.trim()) ? { image: mediaUrl(v.image_url.trim()) } : {}),
   }
 }
 
@@ -273,6 +290,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
       pay_what_you_want: row.pay_what_you_want === true,
       image: mediaUrl(row.thumbnail_url) ?? images[0] ?? "",
       images,
+      ...(mediaWithVideos(row) ? { media: mediaWithVideos(row) } : {}),
       url: row.slug ? `/products/${row.slug}` : "",
       slug: row.slug ?? "",
       kind: row.type ?? "",
@@ -374,6 +392,8 @@ const PRODUCT_COLUMNS_WITH_CATEGORY = "id, title, slug, price_cents, compare_at_
 const PRODUCT_COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id"
 const PRODUCT_COLUMNS = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents"
 const PRODUCT_COLUMNS_MINIMAL = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status"
+/* With each option's photo first; a database without the column answers with an error and the next set is asked for. */
+const VARIANT_COLUMNS_WITH_IMAGE = "id, product_id, name, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, position, image_url"
 const VARIANT_COLUMNS = "id, product_id, name, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, position"
 const VARIANT_COLUMNS_MINIMAL = "id, product_id, name, price_cents, position"
 
@@ -383,7 +403,7 @@ const VARIANT_COLUMNS_MINIMAL = "id, product_id, name, price_cents, position"
  */
 export async function productVariants(db: Db, productIds: string[]): Promise<VariantRow[]> {
   if (productIds.length === 0) return []
-  for (const cols of [VARIANT_COLUMNS, VARIANT_COLUMNS_MINIMAL]) {
+  for (const cols of [VARIANT_COLUMNS_WITH_IMAGE, VARIANT_COLUMNS, VARIANT_COLUMNS_MINIMAL]) {
     try {
       const q = db.from("product_variants").select(cols)
       if (typeof q.in !== "function") return []

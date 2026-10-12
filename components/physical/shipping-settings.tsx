@@ -37,6 +37,7 @@ import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
 import { addressFormat, postalLooksRight } from "@/lib/address/format"
 import { dimensionUnitFor, formatSize, fromGrams, fromMm, smallWeightUnitFor, toGrams, toMm, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
+import { ReadinessChecklist } from "./readiness-checklist"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money, peekGet } from "./ui"
 
 interface Settings {
@@ -200,6 +201,11 @@ function stopEnter(e: React.KeyboardEvent) {
 
 export type ShippingPart = "delivery" | "locations" | "returns"
 
+/** What the readiness checklist depends on here, as one string: when it changes, the checklist reads the store again. */
+function readinessVersion(d: Data): string {
+  return JSON.stringify([d.settings, d.profiles, d.locations, d.packages?.length ?? 0, d.taxRates?.length ?? 0, d.shippingProducts?.map((p) => p.profileId)])
+}
+
 export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart }) {
   /* Drawn at once from what Settings fetched while the person was on another tab (prefetchGet). */
   const [data, setData] = React.useState<Data | null>(() => peekGet<Data>("/api/physical/settings"))
@@ -226,6 +232,9 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
     <div className="space-y-4 sm:space-y-6" onKeyDown={stopEnter} data-shipping-settings={part}>
       {/* The first question, wherever the first visit lands: everything after it reads its answer. */}
       {!data.settings.onboardedAt ? <Onboarding onDone={load} /> : null}
+
+      {/* What still stops a sale, read again whenever anything here changes (components/physical/readiness-checklist). */}
+      {data.settings.onboardedAt && part !== "returns" ? <ReadinessChecklist version={readinessVersion(data)} /> : null}
 
       {part === "delivery" ? (
         <>

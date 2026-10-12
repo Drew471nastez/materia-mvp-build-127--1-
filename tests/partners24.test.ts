@@ -588,22 +588,22 @@ async function main() {
     const integrationsText = JSON.stringify(helpArticle("physical-products", "integrations")?.body ?? [])
     check("  and the integrations article no longer calls them Coming soon", !/Gelato, CJ Dropshipping", "Coming soon/.test(integrationsText) && /match each variant to a CJ variant/.test(integrationsText))
     const docs = read("lib/admin/commerce-docs.ts")
-    check("the admin guide documents Gelato and CJ with how to check them", /id: "gelato-cj"/.test(docs) && /fulfilment_variant_links \(SQL part 162\)/.test(docs) && /gelato-and-cj-dropshipping/.test(docs))
+    check("the admin guide documents Gelato and CJ with how to check them", /id: "gelato-cj"/.test(docs) && /fulfilment_variant_links \(SQL part 167\)/.test(docs) && /gelato-and-cj-dropshipping/.test(docs))
   }
 
-  console.log("\nSQL part 162\n")
+  console.log("\nSQL part 167\n")
   {
-    const sql = read("supabase/sql/run-now/162_partner_variant_links.sql")
+    const sql = read("supabase/sql/run-now/167_partner_variant_links.sql")
     const lines = sql.trim().split("\n")
     check("one statement per line, a DO block on one line, notify last", lines.length === 3 && lines[0].startsWith("/*") && /^DO \$do\$ BEGIN .* END \$do\$;$/.test(lines[1]) && lines[2] === "notify pgrst, 'reload schema';")
     check("idempotent, server only, its checks", /CREATE TABLE IF NOT EXISTS public\.fulfilment_variant_links/.test(sql) && /CREATE INDEX IF NOT EXISTS/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql) && /REVOKE ALL ON public\.fulfilment_variant_links FROM PUBLIC, anon, authenticated/.test(sql) && /UNIQUE \(creator_id, provider, variant_id\)/.test(sql) && /file_url LIKE 'https:\/\/%'/.test(sql))
     check("the migration copy is the same text", existsSync(join(process.cwd(), "supabase/migrations/20270112_partner_variant_links.sql")) && read("supabase/migrations/20270112_partner_variant_links.sql") === sql)
-    check("the README lists it with its size, and the check after has its column", read("supabase/sql/run-now/README.md").includes(`| \`162_partner_variant_links.sql\` |`) && read("supabase/sql/run-now/README.md").includes(`| 3 | ${sql.length.toLocaleString("en-US")} |`) && /as p162_partner_variant_links;?/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("the README lists it with its size, and the check after has its column", read("supabase/sql/run-now/README.md").includes(`| \`167_partner_variant_links.sql\` |`) && read("supabase/sql/run-now/README.md").includes(`| 3 | ${sql.length.toLocaleString("en-US")} |`) && /as p167_partner_variant_links;?/.test(read("supabase/sql/run-now/99_check_after.sql")))
   }
 
   console.log("\nCopy rules and no real address\n")
   {
-    const files = ["lib/integrations/fulfilment/gelato.ts", "lib/integrations/fulfilment/cj.ts", "lib/integrations/fulfilment/links-server.ts", "lib/integrations/fulfilment/stock-deps-server.ts", "components/physical/partner-links.tsx", "app/api/physical/integrations/[provider]/links/route.ts", "app/api/physical/integrations/[provider]/search/route.ts", "app/api/physical/integrations/[provider]/shipment-methods/route.ts", "supabase/sql/run-now/162_partner_variant_links.sql"]
+    const files = ["lib/integrations/fulfilment/gelato.ts", "lib/integrations/fulfilment/cj.ts", "lib/integrations/fulfilment/links-server.ts", "lib/integrations/fulfilment/stock-deps-server.ts", "components/physical/partner-links.tsx", "app/api/physical/integrations/[provider]/links/route.ts", "app/api/physical/integrations/[provider]/search/route.ts", "app/api/physical/integrations/[provider]/shipment-methods/route.ts", "supabase/sql/run-now/167_partner_variant_links.sql"]
     for (const f of files) {
       const t = read(f)
       check(`${f}: no em dash, none of the banned words`, !t.includes("—") && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(t))

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { assignProfileProducts, loadProfiles, loadShippingProducts, text } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -25,6 +26,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (moved.ok === false) return physicalJson({ error: moved.error }, 500)
   }
   const [profiles, shippingProducts] = await Promise.all([loadProfiles(c.db, c.creatorId), loadShippingProducts(c.db, c.creatorId)])
+  readinessChanged(c)
   return physicalJson({ profiles, shippingProducts })
 }
 
@@ -39,5 +41,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (p.is_default) return physicalJson({ error: "The general profile can't be deleted." }, 400)
   await c.db.from("shipping_profiles").delete().eq("id", id).eq("creator_id", c.creatorId)
   const [profiles, shippingProducts] = await Promise.all([loadProfiles(c.db, c.creatorId), loadShippingProducts(c.db, c.creatorId)])
+  readinessChanged(c)
   return physicalJson({ profiles, shippingProducts })
 }

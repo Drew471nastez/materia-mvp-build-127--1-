@@ -135,7 +135,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
   }
 
   if (all && state && !state.ready) {
-    return <Notice tone="amber">Sending to {name} needs its database update (SQL part 161). Until it runs, only the onsite script above works.</Notice>
+    return <Notice tone="amber">Sending to {name} needs its database update (SQL part 166). Until it runs, only the onsite script above works.</Notice>
   }
 
   const flows = FLOWS[provider]
