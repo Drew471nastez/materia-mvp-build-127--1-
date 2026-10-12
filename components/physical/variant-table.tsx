@@ -212,7 +212,8 @@ export function variantThumbSrc(url: string): string {
  * The square at the start of a row. Empty: a dashed square with a plus.
  * Set: the photo, faded in once decoded so it never paints half drawn, in a
  * box of fixed size so nothing beside it moves. With a mouse, a small x in
- * its corner takes the photo off; on a phone the picker has Remove photo.
+ * its corner takes the photo off (and with the keyboard); on a phone the
+ * picker has Remove photo, and the row's details have Remove.
  * While an upload runs it shows the local preview, a little dimmed, with a
  * spinner: the photo is the row's the moment it is chosen.
  */
@@ -254,7 +255,7 @@ const Thumb = React.memo(function Thumb({ url, pendingUrl, label, onPick, onRemo
           onClick={onRemove}
           aria-label={`Remove the photo for ${label}`}
           data-variant-thumb-remove=""
-          className="absolute -right-1.5 -top-1.5 hidden h-[18px] w-[18px] place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:text-[#1a1a2e] [@media(hover:hover)]:group-focus-within/thumb:grid [@media(hover:hover)]:group-hover/thumb:grid"
+          className="absolute -right-1.5 -top-1.5 hidden h-[18px] w-[18px] place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:text-[#1a1a2e] group-hover/thumb:grid group-has-[:focus-visible]/thumb:grid"
         >
           <X className="h-2.5 w-2.5" />
         </button>
@@ -353,7 +354,7 @@ const VariantLine = React.memo(function VariantLine({ row, label, nested, enteri
               <Thumb url={row.imageUrl} pendingUrl={pendingUrl} label={name} onPick={pick} size="h-14 w-14" />
               <div className="min-w-0">
                 <p className="text-[12.5px] font-medium text-[#4b5563]">Photo</p>
-                <p className="truncate text-[12px] leading-4 text-[#9ca3af]">{pendingUrl ? "Uploading" : row.imageUrl ? "Shown when a buyer picks this variant" : "None yet: buyers see the product's first photo"}</p>
+                <p className="truncate text-[12px] leading-4 text-[#9ca3af]">{pendingUrl ? "Uploading" : row.imageUrl ? "Shown when it's picked" : "None: the product's photo shows"}</p>
                 <div className="mt-1 flex items-center gap-3 text-[12.5px] font-medium">
                   <button type="button" onClick={pick} className="text-[#1a1a2e] underline-offset-2 hover:underline">
                     {row.imageUrl ? "Change" : "Add photo"}
