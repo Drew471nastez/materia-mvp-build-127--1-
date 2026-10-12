@@ -240,12 +240,21 @@ export async function POST(request: Request) {
       }
 
       await sendRefundEmails({
-        buyerEmail: order.customer_email || order.buyer_email,
+        /*
+          An order that ships (a line of a physical checkout) has its own refund
+          email, in the store's look and with the order's number, queued when
+          the order page catches up with this refund (lib/physical/orders-server
+          noteRefund, keyed by the refunded total so the webhook adds none).
+          This generic one said "a full refund", a line's id for the order
+          number and "download links revoked" for a mug.
+        */
+        buyerEmail: order.checkout_id ? undefined : order.customer_email || order.buyer_email,
         sellerEmail: user.email,
         sellerContactEmail,
         productTitle: product.title,
         refundAmount: refundAmountCents,
-        currency: creator.default_currency || "USD",
+        /* The order's own currency (what the buyer paid in), as Stripe refunded it. */
+        currency: (refund.currency || order.currency || creator.default_currency || "USD").toUpperCase(),
         orderId,
         reason: reason || "Requested by seller",
         storeName,
