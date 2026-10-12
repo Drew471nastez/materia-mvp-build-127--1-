@@ -1,3 +1,5 @@
+import { humanizeKey } from "./text"
+
 // Supported languages
 export const LANGUAGES = [
   { code: "en", name: "English (US)" },
@@ -1651,5 +1653,5 @@ export const translations = {
 export function getTranslation(lang: string, key: TranslationKey): string {
   const langCode = lang as keyof typeof translations
   const langTranslations = translations[langCode] || translations.en
-  return langTranslations[key] || translations.en[key] || key
+  return (langTranslations as Record<string, string>)[key] || translations.en[key] || humanizeKey(key)
 }
