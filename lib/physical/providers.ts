@@ -9,8 +9,8 @@
  *                 email to a supplier with every order, a signed webhook to
  *                 the merchant's own system, a CSV export.
  *   connect       works once the seller connects it with their key:
- *                 Printful and Printify take each paid order for their
- *                 location and send tracking back
+ *                 Printful, Printify, Gelato and CJ Dropshipping take each
+ *                 paid order for their location and send tracking back
  *                 (lib/integrations/fulfilment/forward-server.ts).
  *   needs_setup   not built yet: shown as Coming soon with Tell me when
  *                 it's ready, never with a Connect button. A key saved
@@ -59,8 +59,8 @@ export const PROVIDERS: ProviderInfo[] = [
   { id: "csv", name: "CSV export", category: "fulfillment", availability: "live", description: "Download unfulfilled orders as a CSV for a warehouse or a spreadsheet.", fields: [] },
   { id: "printful", name: "Printful", category: "print_on_demand", availability: "connect", description: "Each paid order for your Printful location is sent to your Printful store by SKU, and its tracking comes back to your buyer.", fields: ["api_key"], docsUrl: "https://developers.printful.com/docs/", verifies: true },
   { id: "printify", name: "Printify", category: "print_on_demand", availability: "connect", description: "Each paid order for your Printify location is sent to your Printify shop by SKU, and its tracking comes back to your buyer.", fields: ["api_key"], docsUrl: "https://developers.printify.com/", verifies: true },
-  { id: "gelato", name: "Gelato", category: "print_on_demand", availability: "needs_setup", description: "Print on demand, printed close to your buyer. Not connected to Storelib yet.", fields: ["api_key"], docsUrl: "https://dashboard.gelato.com/docs/", verifies: true },
-  { id: "cj_dropshipping", name: "CJ Dropshipping", category: "dropshipping", availability: "needs_setup", description: "Dropshipping from CJ's catalogue. Not connected to Storelib yet.", fields: ["api_key"], docsUrl: "https://developers.cjdropshipping.com/" },
+  { id: "gelato", name: "Gelato", category: "print_on_demand", availability: "connect", description: "Each paid order for your Gelato location is sent to Gelato with the product and print file you matched, printed near your buyer, and its tracking comes back.", fields: ["api_key"], docsUrl: "https://dashboard.gelato.com/docs/", verifies: true },
+  { id: "cj_dropshipping", name: "CJ Dropshipping", category: "dropshipping", availability: "connect", description: "Each paid order for your CJ location is sent to CJ with the CJ variants you matched, its tracking comes back, and CJ's stock can keep yours in step.", fields: ["api_key"], docsUrl: "https://developers.cjdropshipping.com/", verifies: true },
   { id: "shipstation", name: "ShipStation", category: "shipping", availability: "needs_setup", description: "Labels and live carrier rates. Not connected to Storelib yet.", fields: ["api_key"], docsUrl: "https://www.shipstation.com/docs/api/" },
   { id: "shippo", name: "Shippo", category: "shipping", availability: "needs_setup", description: "Labels and live carrier rates. Not connected to Storelib yet.", fields: ["api_key"], docsUrl: "https://docs.goshippo.com/", verifies: true },
   { id: "easypost", name: "EasyPost", category: "shipping", availability: "needs_setup", description: "Labels and live carrier rates. Not connected to Storelib yet.", fields: ["api_key"], docsUrl: "https://docs.easypost.com/", verifies: true },

@@ -14,8 +14,10 @@
  *   Ready             works today with nothing to connect (ship it
  *                     yourself, CSV, a supplier's email on the location)
  *   Connected         a live integration with its address and secret saved
- *   Connected         Printful or Printify with a key it accepted: orders
- *                     for its location go there and tracking comes back
+ *   Connected         Printful, Printify, Gelato or CJ with a key it
+ *                     accepted: orders for its location go there and
+ *                     tracking comes back (Gelato and CJ with each variant
+ *                     matched to theirs, ./partner-links.tsx)
  *   Coming soon       a service Storelib does not connect to yet: no
  *                     Connect button, and a key saved before can be removed
  *   Problem           the last attempt failed, with what was wrong
@@ -31,9 +33,10 @@ import * as React from "react"
 import { ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CATEGORY_LABEL, PROVIDERS, type ProviderCategory, type ProviderInfo } from "@/lib/physical/providers"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, CARD, Field, MUTED, Notice, Pill, TextInput, Toggle, api } from "./ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, CARD, Field, MUTED, Notice, Pill, SelectInput, TextInput, Toggle, api } from "./ui"
 import { Mark } from "@/components/app/settings/integration-mark"
 import { integrationById } from "@/lib/integrations/catalog"
+import { PartnerLinks } from "./partner-links"
 
 export interface IntegrationState {
   provider: string
@@ -50,6 +53,21 @@ export interface IntegrationState {
   webhooks?: "on" | "off" | null
   webhookNote?: string | null
   location?: { id: string; name: string } | null
+  shipmentMethod?: string | null
+  logistic?: string | null
+  fromCountry?: string | null
+  webhookAddress?: string | null
+}
+
+/** Gelato and CJ: each variant is matched to the partner's own product in Storelib, not by a shared SKU. */
+const MATCHED_BY_LINK = new Set(["gelato", "cj_dropshipping"])
+
+/** The key's name and where to find it, in each provider's own words. */
+const KEY_FIELD: Record<string, { label: string; hint: string }> = {
+  printful: { label: "Printful private token", hint: "Printful › Developer portal › Your tokens. Give it the orders, sync products and webhooks scopes. Checked with Printful, then stored encrypted on Storelib's server." },
+  printify: { label: "Printify personal access token", hint: "Printify › My account › Connections › API tokens, with orders, products, shops and webhooks access. Checked with Printify, then stored encrypted on Storelib's server." },
+  gelato: { label: "Gelato API key", hint: "Gelato › Developer › API keys. Checked with Gelato, then stored encrypted on Storelib's server." },
+  cj_dropshipping: { label: "CJ API key", hint: "CJ › My CJ › Authorization › API, the API key (it looks like CJ1234567@api@…). Exchanged with CJ for a token, then stored encrypted on Storelib's server." },
 }
 
 /** The order a shop thinks in: getting it there first, then who makes and sends it. */
@@ -171,7 +189,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
     setKey("")
     setDone(said)
     /* Only the seller's choice keeps the fields open; a key saved or a disconnect closes them. */
-    if (body.autoConfirm === undefined) setOpen(false)
+    if (body.autoConfirm === undefined && body.shipmentMethod === undefined && body.logistic === undefined && body.fromCountry === undefined) setOpen(false)
   }
 
   return (
@@ -190,7 +208,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
       </div>
 
       {sendsOrders && state?.status === "needs_setup" ? (
-        <p className="mt-2 text-[13px] text-[#b54708] sm:pl-[58px]" data-integration-reconnect="">Your key was saved before {provider.name} took orders. Connect again with it to choose your {provider.id === "printful" ? "store" : "shop"} and start sending orders.</p>
+        <p className="mt-2 text-[13px] text-[#b54708] sm:pl-[58px]" data-integration-reconnect="">Your key was saved before {provider.name} took orders. Connect again with it to {MATCHED_BY_LINK.has(provider.id) ? "start" : `choose your ${provider.id === "printful" ? "store" : "shop"} and start`} sending orders.</p>
       ) : null}
       {sendsOrders && state?.status === "connected" ? <ConnectedFacts provider={provider} state={state} /> : null}
       {sendsOrders && state?.status === "connected" ? (
@@ -198,13 +216,20 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
           <Toggle
             id={`auto-confirm-${provider.id}`}
             label="Send orders straight to production"
-            description={`Off, each order waits in ${provider.name} as a draft until you approve it there, and ${provider.name} charges you only then. On, it is made and charged as soon as it is paid.`}
+            description={
+              provider.id === "cj_dropshipping"
+                ? "Off, each order is made in CJ unpaid, and waits until you pay it there. On, it is confirmed and paid from your CJ balance as soon as your buyer pays."
+                : `Off, each order waits in ${provider.name} as a draft until you approve it there, and ${provider.name} charges you only then. On, it is made and charged as soon as it is paid.`
+            }
             checked={state?.autoConfirm === true}
             onChange={(on) => void save({ autoConfirm: on }, on ? "Orders now go straight to production." : "Orders now wait for your approval.")}
             disabled={busy}
           />
         </div>
       ) : null}
+      {sendsOrders && state?.status === "connected" && provider.id === "gelato" ? <GelatoChoices state={state} busy={busy} save={save} /> : null}
+      {sendsOrders && state?.status === "connected" && provider.id === "cj_dropshipping" ? <CjChoices state={state} busy={busy} save={save} /> : null}
+      {sendsOrders && state?.status === "connected" && MATCHED_BY_LINK.has(provider.id) ? <MatchProducts provider={provider} state={state} /> : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 sm:pl-[58px]">
         {provider.id === "csv" ? (
@@ -254,15 +279,13 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
           ) : null}
           {provider.fields.includes("api_key") ? (
             <Field
-              label={provider.id === "printful" ? "Printful private token" : provider.id === "printify" ? "Printify personal access token" : `${provider.name} API key`}
+              label={KEY_FIELD[provider.id]?.label ?? `${provider.name} API key`}
               hint={
                 state?.keyHint
                   ? `Saved, ends in ${state.keyHint}. Leave empty to keep it.`
-                  : provider.id === "printful"
-                    ? "Printful › Developer portal › Your tokens. Give it the orders, sync products and webhooks scopes. Checked with Printful, then stored encrypted on Storelib's server."
-                    : provider.id === "printify"
-                      ? "Printify › My account › Connections › API tokens, with orders, products, shops and webhooks access. Checked with Printify, then stored encrypted on Storelib's server."
-                      : provider.verifies
+                  : KEY_FIELD[provider.id]
+                    ? KEY_FIELD[provider.id].hint
+                    : provider.verifies
                         ? `Checked with ${provider.name} when you save, then stored encrypted and never shown again.`
                         : "Stored encrypted and never shown again."
               }
@@ -294,11 +317,12 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
   )
 }
 
-/** Printful and Printify, connected: where orders come from, how tracking gets back, when it last talked to Storelib. */
+/** Printful, Printify, Gelato and CJ, connected: where orders come from, how tracking gets back, when it last talked to Storelib. */
 function ConnectedFacts({ provider, state }: { provider: ProviderInfo; state: IntegrationState }) {
+  const cj = provider.id === "cj_dropshipping"
   const rows: { label: string; value: string }[] = [
     { label: "Orders from", value: state.location ? `Products at the ${state.location.name} location` : "No location yet. Reconnect to make one." },
-    { label: "Orders arrive as", value: state.autoConfirm ? "Sent to production" : `Drafts to approve in ${provider.name}` },
+    { label: "Orders arrive as", value: cj ? (state.autoConfirm ? "Paid from your CJ balance" : "Unpaid, to pay in CJ") : state.autoConfirm ? "Sent to production" : `Drafts to approve in ${provider.name}` },
     { label: "Tracking", value: state.webhooks === "on" ? `${provider.name} tells Storelib as each parcel ships` : `Checked with ${provider.name} every few hours` },
     { label: "Last talked to", value: state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Not yet" },
   ]
@@ -313,9 +337,127 @@ function ConnectedFacts({ provider, state }: { provider: ProviderInfo; state: In
         ))}
       </dl>
       {state.webhooks === "off" && state.webhookNote ? <p className="mt-2 text-[12.5px] leading-[18px] text-[#6b7280]">{state.webhookNote}</p> : null}
+      {provider.id === "gelato" && state.webhookAddress && state.webhooks !== "on" ? <CopyAddress address={state.webhookAddress} /> : null}
       <p className="mt-2 text-[12.5px] leading-[18px] text-[#6b7280]">
-        To send a product here: in the product, choose Print on demand and the {state.location?.name ?? provider.name} location, and give each variant the same SKU it has in {provider.name}.
+        {MATCHED_BY_LINK.has(provider.id)
+          ? `To send a product here: in the product, choose ${cj ? "Dropshipping" : "Print on demand"} and the ${state.location?.name ?? provider.name} location, then match each variant to ${provider.name}'s below.`
+          : `To send a product here: in the product, choose Print on demand and the ${state.location?.name ?? provider.name} location, and give each variant the same SKU it has in ${provider.name}.`}
       </p>
+    </div>
+  )
+}
+
+/** Gelato's webhook address, to paste in Gelato › Developer › Webhooks. Shown to the owner only, until the first delivery arrives. */
+function CopyAddress({ address }: { address: string }) {
+  const [copied, setCopied] = React.useState(false)
+  return (
+    <div className="mt-2 rounded-xl border border-[#eceef1] px-3 py-2.5" data-gelato-webhook-address="">
+      <p className="text-[12.5px] text-[#6b7280]">In Gelato, Developer › Webhooks, add this address for order status and tracking code updates:</p>
+      <div className="mt-1.5 flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-md bg-[#f8f9fa] px-2 py-1.5 text-[12px] text-[#1a1a2e]">{address}</code>
+        <button
+          type="button"
+          className={cn(BTN_SECONDARY, "h-8 shrink-0 px-3 text-[13px]")}
+          onClick={() => {
+            void navigator.clipboard?.writeText(address).then(() => setCopied(true), () => setCopied(false))
+          }}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+type Save = (body: Record<string, unknown>, said: string) => Promise<void>
+
+/** Gelato: the shipment method orders go by, from Gelato's own list for the store's main country. */
+function GelatoChoices({ state, busy, save }: { state: IntegrationState; busy: boolean; save: Save }) {
+  const [methods, setMethods] = React.useState<{ uid: string; name: string; hasTracking: boolean }[] | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  const current = state.shipmentMethod ?? "normal"
+  React.useEffect(() => {
+    let live = true
+    void api<{ methods: { uid: string; name: string; hasTracking: boolean }[] }>("/api/physical/integrations/gelato/shipment-methods").then((r) => {
+      if (!live) return
+      if (r.ok) setMethods(r.data.methods)
+      else setError(r.error)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  const options = [{ uid: "normal", name: "Standard (Gelato chooses)", hasTracking: true }, { uid: "express", name: "Express (Gelato chooses)", hasTracking: true }, ...(methods ?? []).filter((m) => m.uid !== "normal" && m.uid !== "express")]
+  if (!options.some((o) => o.uid === current)) options.push({ uid: current, name: current, hasTracking: true })
+  return (
+    <div className="mt-3 sm:pl-[58px]" data-gelato-choices="">
+      <Field label="Shipment method" hint={error ? error : "Every Gelato order goes by this. A method without tracking can't send tracking back to your buyer."}>
+        <SelectInput value={current} disabled={busy} onChange={(v) => void save({ shipmentMethod: v }, "Shipment method saved.")} data-gelato-method="">
+          {options.map((o) => (
+            <option key={o.uid} value={o.uid}>
+              {o.name}
+              {o.hasTracking ? "" : " (no tracking)"}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+    </div>
+  )
+}
+
+const CJ_FROM = [
+  ["CN", "China"],
+  ["US", "United States"],
+  ["DE", "Germany"],
+  ["GB", "United Kingdom"],
+  ["FR", "France"],
+  ["TH", "Thailand"],
+  ["ID", "Indonesia"],
+  ["BR", "Brazil"],
+] as const
+
+/** CJ: the warehouse country orders ship from, and the shipping method (the cheapest CJ quotes, or one by name). */
+function CjChoices({ state, busy, save }: { state: IntegrationState; busy: boolean; save: Save }) {
+  const named = state.logistic && state.logistic !== "cheapest" ? state.logistic : ""
+  const [logistic, setLogistic] = React.useState(named)
+  React.useEffect(() => setLogistic(named), [named])
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2 sm:pl-[58px]" data-cj-choices="">
+      <Field label="Ships from" hint="The CJ warehouse country orders leave from. Stock in step with CJ counts this country's warehouses.">
+        <SelectInput value={state.fromCountry ?? "CN"} disabled={busy} onChange={(v) => void save({ fromCountry: v }, "Saved.")} data-cj-from="">
+          {CJ_FROM.map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+      <Field label="Shipping method" hint="Empty: the cheapest CJ quotes for each order. Or a CJ method by name, like CJPacket Ordinary.">
+        <TextInput
+          value={logistic}
+          placeholder="Cheapest"
+          disabled={busy}
+          onChange={(e) => setLogistic(e.target.value)}
+          onBlur={() => {
+            const next = logistic.trim() || "cheapest"
+            if (next !== (state.logistic ?? "cheapest")) void save({ logistic: next }, "Saved.")
+          }}
+          data-cj-logistic=""
+        />
+      </Field>
+    </div>
+  )
+}
+
+/** Gelato and CJ: the seller's products, each matched to the partner's, opened in place. */
+function MatchProducts({ provider, state }: { provider: ProviderInfo; state: IntegrationState }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <div className="mt-3 sm:pl-[58px]" data-match-products={provider.id}>
+      <button type="button" className={BTN_SECONDARY} onClick={() => setOpen((v) => !v)} aria-expanded={open} data-match-products-open="">
+        {open ? "Close products" : `Match products to ${provider.id === "cj_dropshipping" ? "CJ" : provider.name}`}
+      </button>
+      {open ? <PartnerLinks provider={provider.id as "gelato" | "cj_dropshipping"} name={provider.name} locationName={state.location?.name ?? null} /> : null}
     </div>
   )
 }

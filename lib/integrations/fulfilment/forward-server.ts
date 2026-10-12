@@ -2,18 +2,20 @@ import "server-only"
 
 /**
  * ===========================================================================
- *  ORDERS TO PRINTFUL AND PRINTIFY, TRACKING BACK TO THE BUYER
+ *  ORDERS TO PRINTFUL, PRINTIFY, GELATO AND CJ, TRACKING BACK TO THE BUYER
  * ===========================================================================
- * Connecting Printful or Printify in Settings > Integrations makes a
- * location of the same name (print on demand, forwarding to that
- * integration). A product set to Print on demand at that location is sent
- * there when it sells:
+ * Connecting Printful, Printify, Gelato or CJ Dropshipping in Settings >
+ * Integrations makes a location of the same name (print on demand, or
+ * dropshipping for CJ, forwarding to that integration). A product sold from
+ * that location is sent there when it sells:
  *
  *   paid        queueForwarding (lib/physical/jobs-server.ts) queues a
  *               forward_fulfillment job for the location
  *   the job     forwardToProvider: the items still to ship from that
- *               location, by SKU, with the delivery address, to the
- *               provider (./printify.ts, ./printful.ts). Kept there as a
+ *               location, with the delivery address, to the provider
+ *               (./printify.ts, ./printful.ts by SKU; ./gelato.ts, ./cj.ts
+ *               by the partner variant the seller matched it to,
+ *               ./links-server.ts, never a guess). Kept there as a
  *               draft for the seller to approve, or sent to production when
  *               they chose that. Written on the order's timeline either way.
  *               A provider that is busy or down: the job is tried again
@@ -40,12 +42,15 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { ProviderError, externalIdOf, checkoutIdOf } from "./http"
 import { printful } from "./printful"
 import { printify } from "./printify"
-import type { ConnectorCredential, FulfilmentConnector, ProviderOrderInput, ProviderOrderState } from "./types"
+import { gelato } from "./gelato"
+import { cjDropshipping } from "./cj"
+import { linksForVariants, syncCjStock, type StockDeps } from "./links-server"
+import type { ConnectorCredential, FulfilmentConnector, ProviderOrderInput, ProviderOrderState, VariantLink } from "./types"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
-export const CONNECTORS: Record<string, FulfilmentConnector> = { printify, printful }
+export const CONNECTORS: Record<string, FulfilmentConnector> = { printify, printful, gelato, cj_dropshipping: cjDropshipping }
 
 export function connectorFor(provider: string | null | undefined): FulfilmentConnector | null {
   return provider && Object.prototype.hasOwnProperty.call(CONNECTORS, provider) ? CONNECTORS[provider] : null
@@ -58,6 +63,8 @@ export function connectorFor(provider: string | null | undefined): FulfilmentCon
 */
 export interface ForwardOrderLine {
   orderId: string
+  /** The Storelib variant, which Gelato and CJ items are matched by (./links-server.ts). */
+  variantId?: string | null
   title: string
   variantName: string | null
   sku: string | null
@@ -92,6 +99,8 @@ export interface ForwardDeps {
   partnerShipped: (db: Db, input: ShipInput) => Promise<{ ok: boolean; kind?: string }>
   addOrderEvent: (db: Db, e: { checkoutId: string; creatorId: string | null; kind: string; message: string; detail?: Record<string, unknown> | null; key?: string | null }) => Promise<void>
   now: () => number
+  /** CJ's stock, moved when its STOCK webhook names variants (./links-server.ts). Absent: the six hourly round catches up. */
+  stock?: StockDeps
 }
 
 /* ── the webhook address: a token only Storelib can make ──────────────── */
@@ -146,10 +155,25 @@ interface IntegrationRow {
 
 const ROW = "id, creator_id, provider, status, config, secret_ciphertext, webhook_secret_ciphertext"
 
-function credentialOf(row: IntegrationRow): ConnectorCredential | null {
+/** The seller's key and config; given the database, a config change made while calling (CJ's refreshed token) is kept on the row. */
+function credentialOf(row: IntegrationRow, db?: Db): ConnectorCredential | null {
   const key = openSecret(row.secret_ciphertext)
-  return key ? { key, config: row.config ?? {} } : null
+  if (!key) return null
+  const config = { ...(row.config ?? {}) }
+  return {
+    key,
+    config,
+    persist: db
+      ? async (patch) => {
+          Object.assign(config, patch)
+          await db.from("commerce_integrations").update({ config, updated_at: new Date().toISOString() }).eq("id", row.id)
+        }
+      : undefined,
+  }
 }
+
+/** The seller's own choices on an integration, kept when its key is replaced. */
+const KEPT_CHOICES = ["shipment_method", "currency", "logistic", "from_country"]
 
 /**
  * A key typed in Settings > Integrations, put to the provider: which shop
@@ -171,7 +195,12 @@ export async function connectFields(
       fields: {
         secret_ciphertext: sealSecret(key),
         account_label: made.account ? made.account.slice(0, 120) : null,
-        config: { ...made.config, auto_confirm: typeof choices.autoConfirm === "boolean" ? choices.autoConfirm : previous?.auto_confirm === true, verified_at: now },
+        config: {
+          ...made.config,
+          ...Object.fromEntries(KEPT_CHOICES.filter((k) => previous?.[k] !== undefined).map((k) => [k, previous?.[k]])),
+          auto_confirm: typeof choices.autoConfirm === "boolean" ? choices.autoConfirm : previous?.auto_confirm === true,
+          verified_at: now,
+        },
         status: "connected",
         last_sync_at: now,
         last_error: null,
@@ -194,8 +223,8 @@ export async function afterConnect(db: Db, creatorId: string, provider: string):
   if (!c) return
   const { data: row } = await db.from("commerce_integrations").select(ROW).eq("creator_id", creatorId).eq("provider", provider).maybeSingle()
   if (!row) return
-  const cred = credentialOf(row as IntegrationRow)
-  const config = { ...((row as IntegrationRow).config ?? {}) }
+  const cred = credentialOf(row as IntegrationRow, db)
+  const config = cred?.config ?? { ...((row as IntegrationRow).config ?? {}) }
   if (cred) {
     const secret = randomBytes(20).toString("hex")
     try {
@@ -224,10 +253,12 @@ export async function ensureProviderLocation(db: Db, creatorId: string, provider
     await db.from("inventory_locations").update({ forwarding: "provider", integration_id: integrationId, updated_at: new Date().toISOString() }).eq("id", named.id).eq("creator_id", creatorId)
     return named.id
   }
+  /* CJ is a dropshipping supplier whose stock can be kept in step (./links-server.ts), so its location holds stock; a printer's never does. */
+  const kind = c.locationKind ?? "print_on_demand"
   for (const name of [c.name, `${c.name} orders`]) {
     const { data, error } = await db
       .from("inventory_locations")
-      .insert({ creator_id: creatorId, name, kind: "print_on_demand", forwarding: "provider", integration_id: integrationId, holds_inventory: false, fulfills_orders: true })
+      .insert({ creator_id: creatorId, name, kind, forwarding: "provider", integration_id: integrationId, holds_inventory: kind === "dropshipper", fulfills_orders: true })
       .select("id")
       .maybeSingle()
     if (data?.id) return data.id
@@ -241,7 +272,7 @@ export async function beforeDisconnect(db: Db, creatorId: string, provider: stri
   const c = connectorFor(provider)
   if (!c) return
   const { data: row } = await db.from("commerce_integrations").select(ROW).eq("creator_id", creatorId).eq("provider", provider).maybeSingle()
-  const cred = row ? credentialOf(row as IntegrationRow) : null
+  const cred = row ? credentialOf(row as IntegrationRow, db) : null
   if (!cred) return
   await c.removeWebhooks(cred, webhookUrl(provider, creatorId)).catch(() => undefined)
 }
@@ -256,12 +287,22 @@ async function integrationById(db: Db, creatorId: string, integrationId: string)
   return (data as IntegrationRow | null) ?? null
 }
 
-/** The items still to ship from one location, as the provider takes them. */
-export function providerOrderFor(order: ForwardOrder, locationId: string, autoConfirm: boolean): ProviderOrderInput | { error: string } {
+/**
+ * The items still to ship from one location, as the provider takes them. With links (Gelato, CJ), an item goes by the
+ * partner variant the seller matched it to, or by its SKU where the partner confirms it; one with neither is refused here.
+ */
+export function providerOrderFor(order: ForwardOrder, locationId: string, autoConfirm: boolean, links?: Map<string, VariantLink> | null): ProviderOrderInput | { error: string } {
   const open = order.lines.filter((l) => l.requiresShipping && l.locationId === locationId && l.quantity - l.fulfilled > 0)
   if (open.length === 0) return { error: "" }
-  const noSku = open.filter((l) => !l.sku || !String(l.sku).trim())
-  if (noSku.length > 0) return { error: `${noSku.map((l) => l.title).join(", ")} ${noSku.length === 1 ? "has" : "have"} no SKU, so the provider can't tell which of its products ${noSku.length === 1 ? "it is" : "they are"}. Give ${noSku.length === 1 ? "it" : "them"} the provider's SKU, then send this order yourself.` }
+  const linkOf = (l: ForwardOrderLine) => (links && l.variantId ? (links.get(l.variantId) ?? null) : null)
+  const noSku = open.filter((l) => (!l.sku || !String(l.sku).trim()) && !linkOf(l))
+  if (noSku.length > 0) {
+    return {
+      error: links
+        ? `${noSku.map((l) => l.title).join(", ")} ${noSku.length === 1 ? "is" : "are"} not matched to the partner's products and ${noSku.length === 1 ? "has" : "have"} no SKU. Match ${noSku.length === 1 ? "it" : "them"} in Settings > Integrations, then send this order yourself.`
+        : `${noSku.map((l) => l.title).join(", ")} ${noSku.length === 1 ? "has" : "have"} no SKU, so the provider can't tell which of its products ${noSku.length === 1 ? "it is" : "they are"}. Give ${noSku.length === 1 ? "it" : "them"} the provider's SKU, then send this order yourself.`,
+    }
+  }
   const a = order.address as Record<string, any> | null
   if (!a?.line1 || !a?.city || !a?.country) return { error: "The order has no complete delivery address." }
   const country = String(a.country).toUpperCase()
@@ -280,7 +321,7 @@ export function providerOrderFor(order: ForwardOrder, locationId: string, autoCo
       phone: a.phone ? String(a.phone) : order.buyerPhone,
       email: order.buyerEmail,
     },
-    lines: open.map((l) => ({ sku: String(l.sku).trim(), quantity: l.quantity - l.fulfilled, title: l.variantName ? `${l.title} (${l.variantName})` : l.title, lineId: externalIdOf(l.orderId) })),
+    lines: open.map((l) => ({ sku: String(l.sku ?? "").trim(), quantity: l.quantity - l.fulfilled, title: l.variantName ? `${l.title} (${l.variantName})` : l.title, lineId: externalIdOf(l.orderId), variantId: l.variantId ?? null, link: linkOf(l) })),
     autoConfirm,
   }
 }
@@ -294,14 +335,15 @@ export async function forwardToProvider(db: Db, payload: Record<string, any>, de
   const c = connectorFor(integration?.provider)
   const manual = (message: string, why: string) => deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message, key: `provider_manual:${checkoutId}:${locationId}:${why}`.slice(0, 200) })
   if (!integration || !c || integration.status !== "connected") return manual("The print partner for this order is not connected any more. Send this order to them yourself.", "gone")
-  const cred = credentialOf(integration)
+  const cred = credentialOf(integration, db)
   if (!cred) return manual(`${c.name}'s key could not be read. Connect ${c.name} again in Settings > Integrations, then send this order yourself.`, "key")
 
   const { data: done } = await db.from("commerce_order_events").select("id").eq("idempotency_key", forwardedKey(checkoutId, locationId)).maybeSingle()
   if (done) return
   const order = await deps.loadOrder(db, { creatorId, checkoutId })
   if (!order || order.cancelledAt || (order.status !== "paid" && order.status !== "partially_refunded")) return
-  const input = providerOrderFor(order, locationId, cred.config.auto_confirm === true)
+  const links = c.matching === "link" ? await linksForVariants(db, creatorId, c.id, order.lines.filter((l) => l.locationId === locationId).map((l) => l.variantId ?? "")) : null
+  const input = providerOrderFor(order, locationId, cred.config.auto_confirm === true, links)
   if ("error" in input) return input.error ? manual(`${c.name}: ${input.error}`, "input") : undefined
 
   try {
@@ -310,7 +352,7 @@ export async function forwardToProvider(db: Db, payload: Record<string, any>, de
       checkoutId,
       creatorId,
       kind: "fulfillment.forwarded",
-      message: sent.stage === "draft" ? `Order sent to ${c.name}. Approve it there to have it made.` : `Order sent to ${c.name} for production.`,
+      message: sent.note ? `Order sent to ${c.name}. ${sent.note}` : sent.stage === "draft" ? `Order sent to ${c.name}. ${c.id === "cj_dropshipping" ? "Pay it in CJ to have it shipped." : "Approve it there to have it made."}` : `Order sent to ${c.name} for production.`,
       detail: { provider: c.id, provider_order_id: sent.providerOrderId, location_id: locationId, stage: sent.stage },
       key: forwardedKey(checkoutId, locationId),
     })
@@ -393,7 +435,7 @@ export async function syncProviderTracking(db: Db, payload: Record<string, any>,
   const creatorId = String(payload.creatorId ?? "")
   const integration = await integrationById(db, creatorId, String(payload.integrationId ?? ""))
   const c = connectorFor(integration?.provider)
-  const cred = integration ? credentialOf(integration) : null
+  const cred = integration ? credentialOf(integration, db) : null
   /* Disconnected since: nothing to read with, and the order's timeline already says it was sent there. */
   if (!integration || !c || !cred) return
   const state = await c.fetchOrder(cred, String(payload.providerOrderId ?? ""))
@@ -417,7 +459,7 @@ export async function handleProviderWebhook(
   if (!c) return { status: 404, body: { error: "Not found." } }
   const { data } = await db.from("commerce_integrations").select(ROW).eq("creator_id", input.creatorId).eq("provider", c.id).maybeSingle()
   const row = data as IntegrationRow | null
-  const cred = row ? credentialOf(row) : null
+  const cred = row ? credentialOf(row, db) : null
   if (!row || !cred || row.status !== "connected") return { status: 410, body: { error: "Not connected." } }
   if (c.id === "printify") {
     const secret = openSecret(row.webhook_secret_ciphertext)
@@ -429,7 +471,18 @@ export async function handleProviderWebhook(
   } catch {
     return { status: 400, body: { error: "The body is not JSON." } }
   }
-  const providerOrderId = c.id === "printify" ? (body?.resource?.type === "order" ? body?.resource?.id : null) : body?.data?.order?.id
+  /* Gelato's webhooks are pasted in by the seller: the first one that arrives says they work, and the card stops saying it checks on a timer. */
+  if (c.id === "gelato" && cred.config.webhooks !== "on") await cred.persist?.({ webhooks: "on", webhook_note: null })
+  /* CJ's stock message names variants (its params keyed by vid); their stock is read from CJ again, never taken from the body. */
+  if (c.id === "cj_dropshipping" && String(body?.type ?? "").toUpperCase() === "STOCK") {
+    const vids = body?.params && typeof body.params === "object" ? Object.keys(body.params).filter((v) => /^[A-Za-z0-9-]{4,64}$/.test(v)) : []
+    if (vids.length && deps.stock) {
+      const r = await syncCjStock(db, input.creatorId, deps.stock, { vids }).catch(() => null)
+      if (r && r.ok === false) return { status: 200, body: { ok: true, ignored: true } }
+    }
+    return { status: 200, body: { ok: true, stock: vids.length } }
+  }
+  const providerOrderId = providerOrderIdOf(c.id, body)
   if (providerOrderId == null || String(providerOrderId) === "") return { status: 200, body: { ok: true, ignored: true } }
   let state: ProviderOrderState
   try {
@@ -439,7 +492,19 @@ export async function handleProviderWebhook(
     if (e instanceof ProviderError && !e.retry) return { status: 200, body: { ok: true, ignored: true } }
     return { status: 503, body: { error: "Try again." } }
   }
-  const checkoutId = checkoutIdOf(state.externalId)
+  let checkoutId = checkoutIdOf(state.externalId)
+  /*
+    CJ's order detail may leave out the order number Storelib gave it. Then the message's own number is used, but only
+    when this order's timeline already says it was sent to CJ as this very CJ order.
+  */
+  if (!checkoutId && c.id === "cj_dropshipping") {
+    const claimed = checkoutIdOf(body?.params?.orderNumber ?? body?.params?.orderNum)
+    if (claimed) {
+      const { data: sent } = await db.from("commerce_order_events").select("id, detail").eq("checkout_id", claimed).eq("kind", "fulfillment.forwarded").limit(10)
+      const rows = (sent ?? []) as { detail?: Record<string, unknown> | null }[]
+      if (rows.some((r) => String(r.detail?.provider_order_id ?? "") === state.providerOrderId)) checkoutId = claimed
+    }
+  }
   if (!checkoutId) return { status: 200, body: { ok: true, ignored: true } }
   const { data: co } = await db.from("commerce_checkouts").select("id, creator_id").eq("id", checkoutId).eq("creator_id", input.creatorId).maybeSingle()
   if (!co) return { status: 200, body: { ok: true, ignored: true } }
@@ -451,4 +516,26 @@ export async function handleProviderWebhook(
   const out = await applyProviderState(db, { creatorId: input.creatorId, checkoutId, locationId, provider: c.id, name: c.name }, state, deps)
   await db.from("commerce_integrations").update({ last_sync_at: new Date(deps.now()).toISOString() }).eq("id", row.id)
   return { status: 200, body: { ok: true, shipped: out.shipped } }
+}
+
+/** Which provider order a webhook names. Only that: what happened is read from the provider. */
+export function providerOrderIdOf(provider: string, body: any): string | null {
+  const pick = (v: unknown) => (v == null || String(v).trim() === "" ? null : String(v).trim())
+  switch (provider) {
+    case "printify":
+      return body?.resource?.type === "order" ? pick(body?.resource?.id) : null
+    case "printful":
+      return pick(body?.data?.order?.id)
+    case "gelato":
+      /* order_status_updated, order_item_status_updated, order_item_tracking_code_updated: each carries orderId. */
+      return pick(body?.orderId)
+    case "cj_dropshipping": {
+      const type = String(body?.type ?? "").toUpperCase()
+      if (type === "ORDER") return pick(body?.params?.cjOrderId ?? body?.params?.orderId)
+      if (type === "LOGISTIC" || type === "LOGISTICS") return pick(body?.params?.orderId ?? body?.params?.cjOrderId)
+      return null
+    }
+    default:
+      return null
+  }
 }

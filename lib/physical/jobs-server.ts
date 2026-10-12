@@ -43,6 +43,8 @@ import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/notify/seller-commerce"
 import { EMAIL_REPLY_TO } from "@/lib/mail"
 import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
+import { runStockSyncJob } from "@/lib/integrations/fulfilment/links-server"
+import { realStockDeps } from "@/lib/integrations/fulfilment/stock-deps-server"
 import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-server"
 
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
@@ -177,7 +179,7 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
   }
 }
 
-/** A location's integration that Storelib sends orders to: Printful or Printify, connected. */
+/** A location's integration that Storelib sends orders to: Printful, Printify, Gelato or CJ Dropshipping, connected. */
 async function providerTakesOrders(db: Db, creatorId: string, integrationId: string): Promise<boolean> {
   const { data } = await db.from("commerce_integrations").select("provider, status").eq("id", integrationId).eq("creator_id", creatorId).maybeSingle()
   return !!data && data.status === "connected" && !!connectorFor(data.provider)
@@ -351,6 +353,9 @@ async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any>
       return forwardToProvider(db, job.payload, realForwardDeps)
     case "tracking_sync":
       return syncProviderTracking(db, job.payload, realForwardDeps)
+    case "inventory_sync":
+      /* CJ Dropshipping's stock, every six hours for the products that ask for it (lib/integrations/fulfilment/links-server.ts). */
+      return runStockSyncJob(db, job.payload, realStockDeps)
     default:
       throw new Error("This kind of job is not available yet.")
   }

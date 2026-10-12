@@ -2,7 +2,7 @@
  * ===========================================================================
  *  ONE WAY TO ASK A FULFILMENT PROVIDER ANYTHING
  * ===========================================================================
- * Every call Storelib makes to Printful or Printify goes through `call`:
+ * Every call Storelib makes to Printful, Printify, Gelato or CJ goes through `call`:
  * a timeout, JSON both ways, and an answer that says which kind of failure
  * it was, because that decides what happens next:
  *
@@ -45,7 +45,7 @@ export function providerMessage(body: unknown): string | null {
 export async function call<T = unknown>(
   name: string,
   url: string,
-  init: { method?: "GET" | "POST" | "PUT" | "DELETE"; headers: Record<string, string>; body?: unknown },
+  init: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: unknown },
 ): Promise<T> {
   let res: Response
   try {
