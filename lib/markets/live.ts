@@ -27,7 +27,7 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import { localizationTag, marketsMissing, cachedTranslations } from "./server"
 import { languageName, localizedPath, normalizeLocale } from "./locales"
-import { localizeRecord, localizeSections, translationMap, type TranslationMap } from "./translate"
+import { localizeRecord, localizeSections, localizeTheme, translationMap, type TranslationMap } from "./translate"
 
 export interface SiteLanguages {
   defaultLanguage: string
@@ -67,6 +67,8 @@ export interface Localizer {
   sections(list: SectionInstance[], sources: Record<string, string> | undefined): SectionInstance[]
   product<T extends { id?: unknown } & Record<string, unknown>>(p: T): T
   cards<T extends ProductCard>(list: T[]): T[]
+  /** The theme's settings: its menus, and its and its pages' search engine text. */
+  theme<T extends Record<string, unknown>>(settings: T): T
 }
 
 /**
@@ -99,6 +101,9 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
     product(p) {
       if (map.size === 0 || typeof p.id !== "string") return p
       return localizeRecord(p, `product:${p.id}`, PRODUCT_FIELDS.filter((f) => typeof p[f] === "string") as never, map, opts)
+    },
+    theme(settings) {
+      return localizeTheme(settings, map, opts)
     },
     cards(list) {
       if (map.size === 0) return list
