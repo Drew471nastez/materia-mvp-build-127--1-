@@ -500,8 +500,11 @@ async function settings(browser: Browser, base: string) {
     const ua = await s.page.evaluate(() => document.body.innerText)
     const putEarly = await s.page.evaluate(() => (window as unknown as { __calls: string[] }).__calls.filter((c) => c.startsWith("PUT")).length)
     check(`${vp.label}: a UA- ID is named as switched off, not saved`, /Universal Analytics/.test(ua) && putEarly === 0, ua.slice(0, 200))
-    await s.page.$eval("#tracker-ga4", (el) => ((el as HTMLInputElement).value = ""))
-    await s.page.click("#tracker-ga4", { clickCount: 3 })
+    /* Clear the field the way a person does (select all, delete), so React's own value is emptied too. */
+    await s.page.focus("#tracker-ga4")
+    await s.page.keyboard.down("Control")
+    await s.page.keyboard.press("KeyA")
+    await s.page.keyboard.up("Control")
     await s.page.keyboard.press("Backspace")
     await s.page.type("#tracker-ga4", `<script async src="https://www.googletagmanager.com/gtag/js?id=${GA}"></script>`)
     await press(s.page, vp, "[data-ga-save]")

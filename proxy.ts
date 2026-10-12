@@ -1976,7 +1976,7 @@ export async function proxy(request: NextRequest) {
       if (started) return started
       const own = await visitorLanguageStart(request, username, pathname)
       if (own && "redirect" in own) return own.redirect
-      if (own) domainSuggest = own.suggest
+      if (own && "suggest" in own) domainSuggest = own.suggest
       const inLanguage = await inSiteLanguage(username, pathname, request)
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
       rewritePath = inLanguage?.kind === "page" ? inLanguage.path : `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
