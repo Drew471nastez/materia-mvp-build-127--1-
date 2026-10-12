@@ -1,6 +1,4 @@
-import { storelibEmailLogoUrl } from "@/lib/brand/logo"
-import { emailButton } from "@/lib/mail-document"
-
+import { platformEmail } from "@/lib/emails/layout"
 /**
  * ===========================================================================
  *  THE PASSWORD RESET EMAIL, FOR A STORELIB ACCOUNT
@@ -20,63 +18,16 @@ import { emailButton } from "@/lib/mail-document"
  * Pure: tests/physical-w7.test.ts reads exactly what is sent.
  */
 
-const escapeHtml = (value: string) =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
-
 export function resetPasswordEmail(input: { resetUrl: string; minutes?: number }): { subject: string; html: string; text: string } {
   const minutes = input.minutes ?? 60
-  const url = input.resetUrl
   const when = minutes % 60 === 0 ? `${minutes / 60} hour${minutes === 60 ? "" : "s"}` : `${minutes} minutes`
-  const subject = "Reset your Storelib password"
-  const logoUrl = escapeHtml(storelibEmailLogoUrl())
-  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
-  const html = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f8f9fa;">
-  <tr>
-    <td align="center" style="padding:32px 16px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px;background-color:#ffffff;border:1px solid #e6e8eb;border-radius:16px;">
-        <tr>
-          <td align="center" style="padding:28px 32px 4px;font-family:${font};">
-            <img src="${logoUrl}" width="40" height="40" alt="Storelib" style="display:block;width:40px;height:40px;border:0;border-radius:7px;" />
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:12px 32px 8px;font-family:${font};">
-            <h1 style="margin:0 0 10px;font-size:22px;font-weight:700;letter-spacing:-0.03em;line-height:1.25;color:#1a1a2e;">Reset your password</h1>
-            <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#4b5563;">Someone asked to reset the password for your Storelib account. Press the button to choose a new one.</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 32px 8px;font-family:${font};">
-            ${emailButton({ href: url, label: "Choose a new password", fill: "#1a1a2e", padding: "12px 22px", radius: 10, text: "font-size:15px;font-weight:600;" })}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:16px 32px 0;font-family:${font};">
-            <p style="margin:0 0 6px;font-size:13px;line-height:1.55;color:#6b7280;">Or paste this link into your browser:</p>
-            <p style="margin:0;font-size:12px;line-height:1.5;color:#4b5563;word-break:break-all;">${escapeHtml(url)}</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:16px 32px 28px;font-family:${font};">
-            <p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">The link works once, for ${when}. If you didn't ask for this, ignore this email. Your password stays the same.</p>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>`
-  const text = [
-    "Reset your password",
-    "",
-    "Someone asked to reset the password for your Storelib account. Open this link to choose a new one:",
-    "",
-    url,
-    "",
-    `The link works once, for ${when}. If you didn't ask for this, ignore this email. Your password stays the same.`,
-    "",
-    "Storelib",
-  ].join("\n")
-  return { subject, html, text }
+  return platformEmail({
+    subject: "Reset your Storelib password",
+    heading: "Reset your password",
+    paragraphs: ["Someone asked to reset the password for your Storelib account. Press the button to choose a new one."],
+    action: { label: "Choose a new password", url: input.resetUrl },
+    note: `The link works once, for ${when}. If you didn't ask for this, ignore this email. Your password stays the same.`,
+  })
 }
 
 /**
@@ -87,25 +38,12 @@ export function resetPasswordEmail(input: { resetUrl: string; minutes?: number }
  */
 export function googleSignInEmail(input: { loginUrl: string; provider?: "Google" | "Apple" }): { subject: string; html: string; text: string } {
   const provider = input.provider ?? "Google"
-  const subject = `You sign in to Storelib with ${provider}`
-  const logoUrl = escapeHtml(storelibEmailLogoUrl())
-  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
-  const lead = `Someone asked to reset the password for your Storelib account. Your account has no password: you sign in with ${provider}. Press the button and choose Continue with ${provider}.`
-  const html = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f8f9fa;">
-  <tr>
-    <td align="center" style="padding:32px 16px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px;background-color:#ffffff;border:1px solid #e6e8eb;border-radius:16px;">
-        <tr><td align="center" style="padding:28px 32px 4px;font-family:${font};"><img src="${logoUrl}" width="40" height="40" alt="Storelib" style="display:block;width:40px;height:40px;border:0;border-radius:7px;" /></td></tr>
-        <tr><td style="padding:12px 32px 8px;font-family:${font};">
-          <h1 style="margin:0 0 10px;font-size:22px;font-weight:700;letter-spacing:-0.03em;line-height:1.25;color:#1a1a2e;">Sign in with ${escapeHtml(provider)}</h1>
-          <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#4b5563;">${escapeHtml(lead)}</p>
-        </td></tr>
-        <tr><td style="padding:0 32px 8px;font-family:${font};">${emailButton({ href: input.loginUrl, label: "Go to sign in", fill: "#1a1a2e", padding: "12px 22px", radius: 10, text: "font-size:15px;font-weight:600;" })}</td></tr>
-        <tr><td style="padding:16px 32px 28px;font-family:${font};"><p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">Want a password as well? Sign in, then add one in Settings. If you didn't ask for this, ignore this email.</p></td></tr>
-      </table>
-    </td>
-  </tr>
-</table>`
-  const text = [`Sign in with ${provider}`, "", lead, "", input.loginUrl, "", "Want a password as well? Sign in, then add one in Settings. If you didn't ask for this, ignore this email.", "", "Storelib"].join("\n")
-  return { subject, html, text }
+  return platformEmail({
+    subject: `You sign in to Storelib with ${provider}`,
+    heading: `Sign in with ${provider}`,
+    paragraphs: [`Someone asked to reset the password for your Storelib account. Your account has no password: you sign in with ${provider}. Press the button and choose Continue with ${provider}.`],
+    action: { label: "Go to sign in", url: input.loginUrl },
+    fallback: false,
+    note: "Want a password as well? Sign in, then add one in Settings. If you didn't ask for this, ignore this email.",
+  })
 }

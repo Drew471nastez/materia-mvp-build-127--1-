@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { readCopy } from "@/lib/emails/customer-custom"
@@ -46,10 +47,11 @@ export async function POST(request: Request) {
   if (!to) return physicalJson({ error: "Your account has no email address to send the test to." }, 400)
 
   const db = c.db
-  const [identity, store, { data: creator }, saved] = await Promise.all([
+  const [identity, store, { data: creator }, look, saved] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
+    loadBrand(db, c.creatorId).catch(() => null),
     loadCustomerEmailCopy(db, c.creatorId),
   ])
   /* The words being typed, when the editor sent them and they are valid; else what is saved. */
@@ -65,6 +67,7 @@ export async function POST(request: Request) {
       logoUrl: store?.logoUrl ?? null,
       phone: store?.phone ?? null,
       currency: (creator?.payout_currency as string | null) || "USD",
+      accent: look?.accent ?? null,
     },
     words,
   )

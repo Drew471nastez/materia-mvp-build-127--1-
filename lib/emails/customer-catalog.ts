@@ -91,12 +91,12 @@ export const SAMPLE_DATE = "10 October 2026"
  */
 export function previewCustomerEmail(
   id: string,
-  shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null },
+  shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null; accent?: string | null },
   /** The store's own words (saved, or still being typed in the editor): drawn exactly as the sender draws them. */
   words?: EmailCopy | null,
 ): { subject: string; html: string } | null {
   const shopName = shop.name || "Your store"
-  const brand: EmailBrand = { logoUrl: shop.logoUrl ?? null, email: shop.supportEmail ?? null, phone: shop.phone ?? null, websiteUrl: shop.storeUrl ?? null, helpUrl: `${STATUS}#get-help` }
+  const brand: EmailBrand = { logoUrl: shop.logoUrl ?? null, email: shop.supportEmail ?? null, phone: shop.phone ?? null, websiteUrl: shop.storeUrl ?? null, helpUrl: `${STATUS}#get-help`, accent: shop.accent ?? null }
   const currency = (shop.currency || "USD").toUpperCase()
   const pickup = { name: "Studio", address: ["Strada Lipscani 12", "Bucharest"], ready: "Usually ready in 24 hours", instructions: "Ring the bell at the side door.", hours: "Mon to Fri, 10:00 to 18:00" }
   const orderDate = SAMPLE_DATE

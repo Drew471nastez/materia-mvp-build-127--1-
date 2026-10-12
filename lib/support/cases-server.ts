@@ -23,6 +23,7 @@ import { createHash } from "node:crypto"
 import { orderCaseSecret } from "@/lib/checkout/cart-tokens"
 import { loggable } from "@/lib/admin/plain-reason"
 import { sendMailgunOnce } from "@/lib/mailgun"
+import { emailDocument, emailKit, emailText, plainOf, type EmailSender } from "@/lib/emails/layout"
 import { appUrl } from "@/lib/notify/urls"
 import { escapeHtml } from "@/lib/notify/templates/escape"
 import { SUPPORT_EMAIL } from "@/lib/help/articles"
@@ -432,13 +433,22 @@ const buyerRefFact = (row: CaseRow, store: StoreCtx | null) => (store?.sellerNum
 const paragraphs = (body: string) =>
   body
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 12px;font-size:15px;line-height:22px;color:#1a1a2e">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+    .map((p) => `<p class="e-text" style="margin:0 0 16px;font-size:16px;line-height:26px;color:#374151">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
     .join("")
 
-/** A short email in the store's name: its logo, the words, one button, and how to reach the store. */
-function shell(store: StoreIdentity | null, heading: string, inner: string, button?: { href: string; label: string }, footer?: string): string {
-  const logo = store?.logoUrl ? `<img src="${escapeHtml(store.logoUrl)}" alt="${escapeHtml(store.name)}" height="40" style="display:block;max-height:40px;max-width:180px;margin:0 0 20px;border-radius:8px">` : store ? `<p style="margin:0 0 20px;font-size:16px;font-weight:700;color:#1a1a2e">${escapeHtml(store.name)}</p>` : ""
-  return `<!doctype html><html><body style="margin:0;background:#f8f9fa;font-family:Inter,Arial,sans-serif"><div style="max-width:560px;margin:0 auto;padding:32px 20px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:28px 24px">${logo}<h1 style="margin:0 0 16px;font-size:19px;line-height:26px;color:#1a1a2e">${escapeHtml(heading)}</h1>${inner}${button ? `<a href="${escapeHtml(button.href)}" style="display:inline-block;margin-top:8px;background:#1a1a2e;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 20px;border-radius:10px">${escapeHtml(button.label)}</a>` : ""}</div>${footer ? `<p style="margin:16px 4px 0;font-size:12px;line-height:18px;color:#9ca3af">${footer}</p>` : ""}</div></body></html>`
+/** A short email: the shared layout (lib/emails/layout.ts), as the store when there is one, else as Storelib. */
+function shell(store: StoreIdentity | null, heading: string, inner: string, button?: { href: string; label: string }, footer?: string): { html: string; text: string } {
+  const sender: EmailSender = store ? { kind: "store", name: store.name, pictureUrl: store.logoUrl, picture: "mark", url: store.websiteUrl } : { kind: "storelib" }
+  const k = emailKit(sender)
+  const html = emailDocument({
+    sender,
+    subject: heading,
+    preview: plainOf(inner).replace(/\s+/g, " ").trim().slice(0, 140),
+    rows: [k.heading(heading), k.raw(inner, 8), button ? k.button(button.label, button.href) : ""],
+    footer: { lines: footer ? [footer] : [] },
+  })
+  const text = emailText([heading, plainOf(inner.replace(/<\/p>/g, "</p>\n\n")).trim(), button ? `${button.label}:\n${button.href}` : null], footer ? [plainOf(footer)] : [])
+  return { html, text }
 }
 
 const reachStore = (store: StoreIdentity | null) =>
@@ -447,8 +457,8 @@ const reachStore = (store: StoreIdentity | null) =>
 async function emailBuyerOpened(row: CaseRow, store: StoreIdentity | null, link: string): Promise<void> {
   try {
     const name = store?.name ?? "the store"
-    const inner = `<p style="margin:0 0 12px;font-size:15px;line-height:22px;color:#1a1a2e">We sent your message about order #${escapeHtml(row.order_ref ?? "")} to ${escapeHtml(name)}. Their reply comes to this address, and you can follow the case and write back with the button below.</p><p style="margin:0 0 12px;font-size:13px;color:#6b7280">${escapeHtml(CASE_REASON_LABELS[row.reason])}</p><p style="margin:0 0 12px;font-size:14px;line-height:21px;color:#4b5563">If it isn't sorted out, you can ask Storelib to step in from the same page.</p>`
-    await sendMailgunOnce({ to: row.buyer_email, subject: `We sent your message to ${name}`, html: shell(store, "Your message is with the store", inner, { href: link, label: "See your case" }, reachStore(store)), ...(store?.email ? { replyTo: store.email } : {}), tags: ["order-case", "order-case-opened"] })
+    const inner = `<p class="e-text" style="margin:0 0 16px;font-size:16px;line-height:26px;color:#374151">We sent your message about order #${escapeHtml(row.order_ref ?? "")} to ${escapeHtml(name)}. Their reply comes to this address, and you can follow the case and write back with the button below.</p><p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">${escapeHtml(CASE_REASON_LABELS[row.reason])}</p><p class="e-muted" style="margin:0 0 12px;font-size:14px;line-height:21px;color:#6b7280">If it isn't sorted out, you can ask Storelib to step in from the same page.</p>`
+    await sendMailgunOnce({ to: row.buyer_email, subject: `We sent your message to ${name}`, ...shell(store, "Your message is with the store", inner, { href: link, label: "See your case" }, reachStore(store)), ...(store?.email ? { replyTo: store.email } : {}), tags: ["order-case", "order-case-opened"] })
   } catch (e) {
     console.error(`[cases] buyer email not sent: ${loggable(e)}`)
   }
@@ -457,9 +467,9 @@ async function emailBuyerOpened(row: CaseRow, store: StoreIdentity | null, link:
 async function emailBuyerReply(row: CaseRow, store: StoreIdentity | null, from: "store" | "storelib", body: string, origin: string, status: CaseStatus): Promise<void> {
   try {
     const who = from === "storelib" ? "Storelib" : store?.name ?? "The store"
-    const intro = `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">${escapeHtml(who)} wrote about order #${escapeHtml(row.order_ref ?? "")}.</p>`
+    const intro = `<p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">${escapeHtml(who)} wrote about order #${escapeHtml(row.order_ref ?? "")}.</p>`
     const link = caseLink(origin, row.id, orderCaseSecret(row.id))
-    await sendMailgunOnce({ to: row.buyer_email, subject: `${who} replied about order #${row.order_ref ?? ""}`, html: shell(store, `${who} replied`, intro + paragraphs(body), { href: link, label: status === "resolved" ? "See your case" : "Reply" }, reachStore(store)), ...(from === "store" && store?.email ? { replyTo: store.email } : {}), tags: ["order-case", "order-case-reply"] })
+    await sendMailgunOnce({ to: row.buyer_email, subject: `${who} replied about order #${row.order_ref ?? ""}`, ...shell(store, `${who} replied`, intro + paragraphs(body), { href: link, label: status === "resolved" ? "See your case" : "Reply" }, reachStore(store)), ...(from === "store" && store?.email ? { replyTo: store.email } : {}), tags: ["order-case", "order-case-reply"] })
   } catch (e) {
     console.error(`[cases] buyer reply email not sent: ${loggable(e)}`)
   }
@@ -472,9 +482,9 @@ async function emailStoreNewMessage(row: CaseRow, store: StoreCtx | null, body: 
     const name = sellerOrderName(row, store)
     /* Its own subject when the buyer asks Storelib in, so it never reads as a second copy of their last message. */
     const subject = asked ? `${asked} ${name}` : first ? `A buyer needs help with ${name}` : from === "storelib" ? `Storelib wrote about ${name}` : `The buyer replied about ${name}`
-    const facts = `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">${escapeHtml(CASE_REASON_LABELS[row.reason])} · ${escapeHtml(row.buyer_name || row.buyer_email)}${buyerRefFact(row, store)}</p>`
-    const withPhotos = photos > 0 ? `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">${photos === 1 ? "1 photo" : `${photos} photos`} with this message. Open the case to see ${photos === 1 ? "it" : "them"}.</p>` : ""
-    await sendMailgunOnce({ to, subject, html: shell(null, subject, facts + paragraphs(body) + withPhotos, { href: appUrl(`/app/support?case=${row.id}`), label: first ? "Answer the buyer" : "Open the case" }, "Answer from the case within three days. A reply to this email reaches the buyer but is not kept on the case, and a problem with what the buyer received or a refund left unanswered for three days can be taken to Storelib."), replyTo: from === "buyer" ? row.buyer_email : undefined, tags: ["order-case", "order-case-store"] })
+    const facts = `<p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">${escapeHtml(CASE_REASON_LABELS[row.reason])} · ${escapeHtml(row.buyer_name || row.buyer_email)}${buyerRefFact(row, store)}</p>`
+    const withPhotos = photos > 0 ? `<p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">${photos === 1 ? "1 photo" : `${photos} photos`} with this message. Open the case to see ${photos === 1 ? "it" : "them"}.</p>` : ""
+    await sendMailgunOnce({ to, subject, ...shell(null, subject, facts + paragraphs(body) + withPhotos, { href: appUrl(`/app/support?case=${row.id}`), label: first ? "Answer the buyer" : "Open the case" }, "Answer from the case within three days. A reply to this email reaches the buyer but is not kept on the case, and a problem with what the buyer received or a refund left unanswered for three days can be taken to Storelib."), replyTo: from === "buyer" ? row.buyer_email : undefined, tags: ["order-case", "order-case-store"] })
   } catch (e) {
     console.error(`[cases] store email not sent: ${loggable(e)}`)
   }
@@ -484,8 +494,8 @@ async function emailStorelib(row: CaseRow, store: StoreCtx | null, from: "buyer"
   try {
     const to = process.env.SUPPORT_INBOX?.trim() || SUPPORT_EMAIL
     const subject = justEscalated ? `[Case] ${from === "buyer" ? "A buyer" : store?.name ?? "A store"} asked Storelib to step in: ${sellerOrderName(row, store)}` : `[Case] New message on ${sellerOrderName(row, store)}`
-    const facts = `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">${escapeHtml(store?.name ?? "")} · ${escapeHtml(CASE_REASON_LABELS[row.reason])} · ${escapeHtml(row.buyer_email)}${buyerRefFact(row, store)}</p>`
-    await sendMailgunOnce({ to, subject, html: shell(null, subject, facts + paragraphs(body), { href: appUrl(`/admin/resolution?case=${row.id}`), label: "Open in Resolution center" }), tags: ["order-case", "order-case-storelib"] })
+    const facts = `<p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">${escapeHtml(store?.name ?? "")} · ${escapeHtml(CASE_REASON_LABELS[row.reason])} · ${escapeHtml(row.buyer_email)}${buyerRefFact(row, store)}</p>`
+    await sendMailgunOnce({ to, subject, ...shell(null, subject, facts + paragraphs(body), { href: appUrl(`/admin/resolution?case=${row.id}`), label: "Open in Resolution center" }), tags: ["order-case", "order-case-storelib"] })
   } catch (e) {
     console.error(`[cases] inbox email not sent: ${loggable(e)}`)
   }

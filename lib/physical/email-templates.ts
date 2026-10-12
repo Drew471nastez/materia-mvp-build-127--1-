@@ -125,7 +125,7 @@ function brandFooter(shopName: string, brand: EmailBrand | undefined, footer: st
   if (brand?.websiteUrl && /^https:\/\//.test(brand.websiteUrl)) reach.push(a(brand.websiteUrl, esc(brand.websiteUrl.replace(/^https:\/\//, "").replace(/\/$/, ""))))
   const first = footer ?? `Questions about this order? Reply to this email and it goes to ${esc(shopName)}.`
   const help = brand?.helpUrl ? `<br>Something wrong with your order? ${a(brand.helpUrl, "Get help with this order")}.` : ""
-  return `${first}${reach.length ? `<br>${reach.join("&nbsp;&nbsp;&middot;&nbsp;&nbsp;")}` : ""}${help}`
+  return `${first}${reach.length ? `<br>${reach.join(" &nbsp;&middot;&nbsp; ")}` : ""}${help}`
 }
 
 /**

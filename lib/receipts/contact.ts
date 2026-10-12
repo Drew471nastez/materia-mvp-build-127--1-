@@ -17,7 +17,7 @@
  * This file is only the words and the markup (and the shared button, a pure
  * helper), so the test suite can check it as it is.
  */
-import { emailButton } from "@/lib/mail-document"
+import { identity, platformEmail } from "@/lib/emails/layout"
 
 /** How long a message may be. A question, not a document. */
 export const CONTACT_MAX_CHARS = 2000
@@ -69,26 +69,21 @@ export function sellerMessageEmail(m: SellerMessage): { subject: string; fromNam
 
   /* The line an inbox shows after the subject: the first words of the message, not "Order 1042 ·". */
   const preview = headerSafe(m.message).slice(0, 110)
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>${escape(subject)}</title></head><body style="margin:0;background:#f5f6f8;font-family:Inter,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
-<div style="display:none;font-size:1px;color:#f5f6f8;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escape(preview)}${"&#8199;&#65279;&#847; ".repeat(30)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;"><tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e7ec;border-radius:16px;">
-<tr><td style="padding:28px 28px 8px;">
-<p style="margin:0;font-size:13px;color:#6b7280;">Order ${escape(m.orderNumber)}${m.buyerReference ? ` (buyer's reference ${escape(m.buyerReference)})` : ""} · ${escape(what)}</p>
-<h1 style="margin:6px 0 0;font-size:20px;line-height:1.3;font-weight:700;color:#1a1a2e;">${escape(who)} wrote to you</h1>
-</td></tr>
-<tr><td style="padding:16px 28px 0;">
-<div style="border-left:3px solid #d5d9e0;padding:4px 0 4px 14px;font-size:15px;line-height:1.6;color:#1a1a2e;white-space:pre-wrap;word-break:break-word;">${escape(m.message)}</div>
-</td></tr>
-<tr><td style="padding:20px 28px 0;font-size:14px;line-height:1.55;color:#4b5563;">
-Reply to this email and it goes to ${escape(m.buyerEmail)}.
-</td></tr>
-<tr><td style="padding:20px 28px 28px;">
-${emailButton({ href: escape(m.orderLink), label: "Open the order", fill: "#1a1a2e", padding: "10px 16px", radius: 10, text: "font-size:14px;font-weight:600;" })}
-</td></tr>
-</table>
-<p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">Sent from the receipt page on Storelib.</p>
-</td></tr></table></body></html>`
+  const mail = platformEmail({
+    subject,
+    preview,
+    label: `Order ${m.orderNumber}${m.buyerReference ? ` (buyer's reference ${m.buyerReference})` : ""} · ${what}`,
+    heading: `${who} wrote to you`,
+    paragraphs: [],
+    quote: { text: m.message },
+    /* Who a reply reaches, as text: the address stays plain, never a blue link. */
+    closing: [{ html: `Reply to this email and it goes to ${identity(m.buyerEmail)}.`, text: `Reply to this email and it goes to ${m.buyerEmail}.` }],
+    action: { label: "Open the order", url: m.orderLink },
+    fallback: false,
+    note: null,
+    reason: "Sent from the receipt page on Storelib.",
+  })
+  const html = mail.html
 
   const text = [
     `${who} wrote to you about order ${m.orderNumber} (${what}):`,

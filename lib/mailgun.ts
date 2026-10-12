@@ -136,6 +136,8 @@ function htmlToPlainText(html: string): string {
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    /* The hidden preview line (lib/emails/layout.ts preheader) is for the inbox list, not the text part. */
+    .replace(/<div[^>]*display:none[^>]*>[\s\S]*?<\/div>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
     .replace(/<\/div>/gi, "\n")
@@ -150,6 +152,9 @@ function htmlToPlainText(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&middot;/g, "·")
+    .replace(/&#\d+;/g, "")
+    .replace(/[ \t]+\n/g, "\n")
     .replace(/\n\s*\n\s*\n/g, "\n\n")
     .trim()
 }

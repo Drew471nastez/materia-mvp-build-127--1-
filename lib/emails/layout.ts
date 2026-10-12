@@ -550,7 +550,7 @@ a[x-apple-data-detectors],.e-body a[href^="tel"],.e-body a[href^="sms"]{color:in
 .e-btn-wrap{width:100%!important;}
 .e-btn-a{display:block!important;}
 .e-btn-row{width:100%!important;}
-.e-col{display:block!important;width:100%!important;}
+.e-col{display:block!important;width:100%!important;box-sizing:border-box!important;padding-right:0!important;}
 .e-btn-side{padding:12px 0 0 0!important;}
 .e-step p{font-size:11px!important;}
 }
@@ -631,7 +631,7 @@ function footerHtml(sender: EmailSender, f: EmailFooter | undefined): string {
   const links = (f?.links ?? []).filter((l) => l.url)
   if (links.length) {
     parts.push(
-      line(links.map((l) => `<a href="${esc(l.url)}" target="_blank" style="color:${K.muted};text-decoration:underline;">${esc(l.label)}</a>`).join(`&nbsp;&nbsp;&middot;&nbsp;&nbsp;`)),
+      line(links.map((l) => `<a href="${esc(l.url)}" target="_blank" style="color:${K.muted};text-decoration:underline;">${esc(l.label)}</a>`).join(` &nbsp;&middot;&nbsp; `)),
     )
   }
   if (f?.legal) parts.push(line(esc(f.legal), 12))
@@ -722,6 +722,8 @@ export interface PlatformEmailInput {
   paragraphs: (string | { html: string; text: string })[]
   code?: { value: string; caption?: string | null } | null
   facts?: EmailFact[] | null
+  /** Paragraphs after the quote, code, facts and notice, just before the button. */
+  closing?: (string | { html: string; text: string })[]
   /** Somebody's own message, quoted. */
   quote?: { text: string; by?: string | null } | null
   action?: EmailLink | null
@@ -754,6 +756,7 @@ export function platformEmail(input: PlatformEmailInput): { subject: string; htm
     input.code ? k.code(input.code.value, input.code.caption) : "",
     input.facts?.length ? k.facts(input.facts) : "",
     input.notice ? k.notice(input.notice) : "",
+    ...(input.closing ?? []).map(paraHtml),
     input.action ? k.button(input.action.label, input.action.url) : "",
     input.secondary ? k.link(input.secondary.label, input.secondary.url) : "",
     showFallback && input.action ? k.fallback(input.action.url) : "",
@@ -775,6 +778,7 @@ export function platformEmail(input: PlatformEmailInput): { subject: string; htm
       input.code ? [input.code.value, input.code.caption].filter(Boolean).join("\n") : null,
       input.facts?.length ? input.facts.map((f) => `${f.label}: ${f.value}`).join("\n") : null,
       input.notice ? [input.notice.title, input.notice.text, input.notice.link ? `${input.notice.link.label}: ${input.notice.link.url}` : null].filter(Boolean).join("\n") : null,
+      ...(input.closing ?? []).map(paraText),
       input.action ? `${input.action.label}:\n${input.action.url}` : null,
       input.secondary ? `${input.secondary.label}: ${input.secondary.url.replace(/^mailto:/, "")}` : null,
       input.note,
