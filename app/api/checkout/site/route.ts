@@ -62,6 +62,10 @@ export const dynamic = "force-dynamic"
  *             same answer whatever the email (lib/checkout/access-link)
  *   forget    the cart was all the signed in customer's already: those lines
  *             leave an imported theme's cart cookie
+ *   cart      a quantity changed or a line removed on the checkout: an
+ *             imported theme's cart cookie follows, so the site's cart shows
+ *             the same order (a built site's cart is in the browser, and the
+ *             page changes it there)
  *
  * ALREADY YOURS. A customer signed in to the website proved their email with
  * a code, so what it already owns is left out of every price here (quote,
@@ -115,10 +119,11 @@ async function handlePOST(request: Request) {
       return free(request, admin, site, body)
     /* Both act for the visitor (an email sent, a cart cookie changed): only from this website's own page. */
     case "access":
-    case "forget": {
+    case "forget":
+    case "cart": {
       const { sameOriginWrite } = await import("@/lib/site-accounts/respond")
       if (!sameOriginWrite(request, (request.headers.get("host") || "").trim().toLowerCase())) return json({ error: "Open the checkout from the shop's website." }, 403)
-      return body.action === "access" ? access(request, admin, site, body) : forget(request, admin, site)
+      return body.action === "access" ? access(request, admin, site, body) : body.action === "cart" ? themeCart(request, site, body) : forget(request, admin, site)
     }
     case "abandon": {
       const { abandonCheckout } = await import("@/lib/physical/checkout-server")
@@ -187,6 +192,27 @@ async function forget(request: Request, admin: Admin, site: SiteOfCheckout) {
   )
 }
 
+/**
+ * The checkout changed the order (- / +, Remove): an imported theme's cart
+ * cookie on this host takes the same quantities, and loses the removed
+ * lines. Only lines already in it are changed; nothing is added, and the
+ * prices stay the server's at every step.
+ */
+async function themeCart(request: Request, site: SiteOfCheckout, body: Body) {
+  const { readCartCookie, writeCartCookie } = await import("@/lib/storelib-theme/compat/site")
+  const { themeCartAfter } = await import("@/lib/checkout/site-checkout")
+  const { readItems } = await import("@/lib/physical/checkout-pricing-server")
+  const cookie = (request.headers.get("cookie") ?? "").match(new RegExp(`(?:^|;\\s*)${THEME_CART_COOKIE}=([^;]*)`))?.[1]
+  const theme = readCartCookie(cookie)
+  if (theme.cart.length === 0) return json({ ok: true, changed: false })
+  const kept = themeCartAfter(theme.cart, Array.isArray(body.items) ? readItems(body.items) : [])
+  const secure = site.origin.startsWith("https:") ? "; Secure" : ""
+  return NextResponse.json(
+    { ok: true, changed: true },
+    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
+  )
+}
+
 /* ── Who, and what they typed ─────────────────────────────────────────── */
 
 interface Contact {
@@ -214,9 +240,17 @@ async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, b
   const email = (gate.lockedEmail ?? clean(body.email, 254)).toLowerCase()
   const first = clean(body.firstName, 60)
   const last = clean(body.lastName, 60)
-  const plan = fieldPlan(config, order)
+  /*
+    `ships` here is "something physical is in it". The address's own fields
+    (company, apartment, and the phone for a delivery) are checked with the
+    address, by the held checkout, only when an address is needed
+    (lib/physical/checkout-server startCheckout, readAddress with the same
+    settings): a physical product handed over in person has none to ask for.
+    The phone is a physical order's, asked here whatever way it arrives.
+  */
+  const plan = fieldPlan(config, { ships: false, physical: order.ships })
   const address = (body.address && typeof body.address === "object" ? body.address : {}) as Record<string, unknown>
-  const missing = missingField(plan, { email, first, last, company: clean(address.company, 120), phone: clean(order.pickup ? body.phone : address.phone, 40), line2: clean(address.line2, 200) })
+  const missing = missingField(plan, { email, first, last, phone: clean(body.phone, 40) || clean(address.phone, 40) })
   /* A wallet brings its own name and email; the card form's are checked here. */
   if (missing === "email") return json({ error: "Enter a valid email address.", field: "email" }, 400)
   if (missing === "name" || missing === "last") return json({ error: missing === "last" ? "Enter your first and last name." : "Enter your name.", field: "name" }, 400)

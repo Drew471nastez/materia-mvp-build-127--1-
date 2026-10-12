@@ -36,17 +36,17 @@
  */
 
 import * as React from "react"
-import { ChevronDown, MapPin, Package, ShoppingBag, Truck } from "lucide-react"
+import { ChevronDown, MapPin, Minus, Package, Plus, ShoppingBag, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
-import { fieldPlan, missingField, siteSignInHref } from "@/lib/checkout/site-checkout"
+import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, siteSignInHref } from "@/lib/checkout/site-checkout"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { postalKey } from "@/lib/physical/local-delivery"
 import { regionsOf } from "@/lib/physical/regions"
 import { addressFormat } from "@/lib/address/format"
-import { cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
-import type { LinkItem } from "@/lib/physical/cart-link"
+import { cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
+import { encodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
@@ -181,6 +181,51 @@ export function SiteCheckout({
     }
   }, [linkItems, shopId])
 
+  /*
+    CHANGING THE ORDER HERE (- / +, Remove). The page only changes ids and
+    quantities; the quote below prices them again (stock, the per order
+    limit, shipping, tax, the code). The address bar, this browser's cart (a
+    built site) and an imported theme's cart cookie follow, so Back to the
+    site shows the same cart. A Buy it now is not the cart and leaves it be.
+  */
+  const [limitNote, setLimitNote] = React.useState<string | null>(null)
+  const commitItems = (next: LinkItem[]) => {
+    setItems(next)
+    try {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has("items")) {
+        if (next.length) url.searchParams.set("items", encodeItems(next))
+        else url.searchParams.delete("items")
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+      }
+    } catch {
+      /* the address keeps the old cart; the page has the new one */
+    }
+    if (!wholeCart) return
+    try {
+      const key = cartStorageKey(shopId)
+      const raw = window.localStorage.getItem(key)
+      if (raw) {
+        const kept: CartLine[] = []
+        for (const l of parseCart(raw)) {
+          const match = next.find((i) => sameLine(i, l) || sameLine({ productId: l.productId, variantId: l.variantId }, i))
+          if (match && !kept.some((k) => k.productId === l.productId && (k.variantId ?? null) === (l.variantId ?? null))) kept.push({ ...l, quantity: match.quantity })
+        }
+        window.localStorage.setItem(key, serializeCart(kept))
+      }
+    } catch {
+      /* storage refused: the site's cart keeps what it had */
+    }
+    void call({ action: "cart", items: next }).catch(() => undefined)
+  }
+  /* The first frame's quote (priced on the server) may have lowered a line to its limit too. */
+  React.useEffect(() => {
+    if (!initialQuote?.adjusted?.length || !linkItems.length) return
+    setLimitNote(initialQuote.adjusted.map((a) => `${a.title}: up to ${a.limit} per order.`).join(" "))
+    commitItems(applyAdjusted(linkItems, initialQuote.adjusted))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /* ── Who ─────────────────────────────────────────────────────────── */
   const [email, setEmail] = React.useState(lockedEmail ?? buyer?.email ?? "")
   const splitName = config.nameFields === "first_and_last"
@@ -212,8 +257,19 @@ export function SiteCheckout({
   const [optionId, setOptionId] = React.useState<string | null>(null)
   const [note, setNote] = React.useState(initialNote ?? "")
   React.useEffect(() => setAddress((a) => (a.country ? a : { ...a, country: guessCountry() })), [])
+  /* Settings › Shipping: the countries this cart can go to. A shop that ships to one country starts there. */
+  const shipsTo = quote?.shipsTo ?? null
+  const shipsToKey = shipsTo ? shipsTo.join(",") : ""
+  React.useEffect(() => {
+    if (!shipsTo || shipsTo.length !== 1) return
+    setAddress((a) => (a.country === shipsTo[0] ? a : { ...a, country: shipsTo[0], region: "" }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipsToKey])
   const ships = !!quote?.requiresShipping
-  const plan = fieldPlan(config, { ships, pickup: mode === "pickup" })
+  /* A physical product handed over in person ships nothing, and is still a physical order: the phone is asked as Settings › Checkout says. */
+  const physical = !!quote?.physical || ships
+  const plan = fieldPlan(config, { ships, pickup: mode === "pickup", physical })
+  const notServed = ships && !!address.country && !!shipsTo && shipsTo.length > 0 && !shipsTo.includes(address.country)
   /* The shop ships by state here (lib/physical/rates needsRegion): the state field says so until one is chosen. */
   const regionAsked = ships && !!quote?.delivery.needsRegion && !address.region.trim()
 
@@ -251,6 +307,11 @@ export function SiteCheckout({
         const got = res.data as SiteQuote
         setQuoteError(null)
         setQuote(got)
+        /* Over a product's per order limit: the server lowered it; the cart here (and the site's) takes the same number. */
+        if (got.adjusted?.length) {
+          setLimitNote(got.adjusted.map((a) => `${a.title}: up to ${a.limit} per order.`).join(" "))
+          commitItems(applyAdjusted(items, got.adjusted))
+        }
         if (got.couponError) {
           setCodeError(got.couponError)
           setAppliedCode(null)
@@ -444,9 +505,9 @@ export function SiteCheckout({
       if (box) bringIntoView(box)
       return "Sign in to check out."
     }
-    if (!quote || quote.lines.length === 0) return quoteError || "Your cart is empty."
+    if (!quote || (quote.lines.length === 0 && !(quote.short ?? []).length)) return quoteError || "Your cart is empty."
     if (quoting) return "Your order is being updated. Try again in a moment."
-    if (quote.stockIssues.length) return "Some items don't have enough stock. Change the quantity to continue."
+    if (quote.stockIssues.length) return "Some items don't have enough stock. Lower the quantity or remove them to continue."
     if (kind !== "free" && total > 0 && total < 50) return "The smallest card payment is $0.50."
     if (kind !== "express" || ships) {
       const m = missingField(plan, { email, first: firstName, last: lastName, company: address.company, phone: address.phone, line2: address.line2 })
@@ -600,17 +661,6 @@ export function SiteCheckout({
     </p>
   ) : null
 
-  /* Under the email: the news box, the account, then the name (an order that ships asks the name with its address). */
-  const contactExtra = (
-    <div className="space-y-3">
-      {newsBox}
-      {account}
-      {/* A guest who bought a download before gets the link by email, never a yes or no on screen (./owned.tsx). */}
-      {!buyer && !lockedEmail && !needsSignIn && hasDownloads ? <AccessLink email={email} send={sendAccess} /> : null}
-      {ships ? null : nameFields}
-    </div>
-  )
-
   const addressField = (key: keyof Address, label: string, props: React.InputHTMLAttributes<HTMLInputElement> & { id: string }) => (
     <Field id={props.id} label={label} error={errorOf(props.id.replace("checkout-", "")) ?? (key === "region" && regionAsked ? "Enter it to see delivery options." : null)}>
       <TextInput
@@ -623,6 +673,19 @@ export function SiteCheckout({
         }}
       />
     </Field>
+  )
+
+  /* Under the email: the news box, the account, then the name (an order that ships asks the name with its address). */
+  const contactExtra = (
+    <div className="space-y-3">
+      {newsBox}
+      {account}
+      {/* A guest who bought a download before gets the link by email, never a yes or no on screen (./owned.tsx). */}
+      {!buyer && !lockedEmail && !needsSignIn && hasDownloads ? <AccessLink email={email} send={sendAccess} /> : null}
+      {ships ? null : nameFields}
+      {/* A physical product handed over in person: no address, and still the phone Settings › Checkout asks for. */}
+      {!ships && physical && plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? "Phone" : "Phone (optional)", { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+    </div>
   )
 
   const select = (id: string, label: string, value: string, options: { code: string; name: string }[], onChange: (v: string) => void, autoComplete: string) => (
@@ -644,6 +707,13 @@ export function SiteCheckout({
   const choiceRow = (selected: boolean) => cn("flex cursor-pointer items-start gap-3 border-b border-[#e1e3e7] px-3.5 py-3 last:border-b-0 transition-colors", selected ? "bg-[#f7f7f8]" : "bg-white hover:bg-[#fafafb]")
   const fmt = addressFormat(address.country)
   const regions = regionsOf(address.country)
+  /* Only the countries the shop ships this cart to (Settings › Shipping), and the one chosen, so "We don't ship there" is said rather than hidden. */
+  const countryChoices = React.useMemo(() => {
+    const all = COUNTRIES.map((c) => ({ code: c.code, name: c.name }))
+    if (!shipsTo || shipsTo.length === 0) return all
+    return all.filter((c) => shipsTo.includes(c.code) || c.code === address.country)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipsToKey, address.country])
 
   const delivery = ships && quote ? (
     <div className="space-y-8">
@@ -690,6 +760,7 @@ export function SiteCheckout({
                     <span className="block text-[14px] font-medium text-[#1a1a2e]">{p.name}</span>
                     <span className="block text-[13px] leading-[19px] text-[#6b7280]">{p.address.join(", ")}</span>
                     {p.ready ? <span className="mt-0.5 block text-[13px] text-[#166534]">{p.ready}</span> : null}
+                    {p.hours ? <span className="mt-0.5 block whitespace-pre-line text-[13px] leading-[19px] text-[#6b7280]" data-pickup-hours="">{p.hours}</span> : null}
                     {optionId === p.id && p.instructions ? <span className="mt-1.5 block whitespace-pre-line text-[13px] leading-[19px] text-[#4b5563]">{p.instructions}</span> : null}
                   </span>
                   <span className="text-[14px] font-medium text-[#1a1a2e]">Free</span>
@@ -701,7 +772,7 @@ export function SiteCheckout({
           </div>
         ) : (
           <div className="space-y-3">
-            {select("checkout-country", "Country/region", address.country, COUNTRIES.map((c) => ({ code: c.code, name: c.name })), (v) => setAddress((a) => ({ ...a, country: v, region: "" })), "country")}
+            {select("checkout-country", "Country/region", address.country, countryChoices, (v) => setAddress((a) => ({ ...a, country: v, region: "" })), "country")}
             {nameFields}
             {plan.company !== "off" ? addressField("company", plan.company === "required" ? "Company" : "Company (optional)", { id: "checkout-company", autoComplete: "organization" }) : null}
             {addressField("line1", "Address", { id: "checkout-line1", autoComplete: "address-line1" })}
@@ -731,9 +802,9 @@ export function SiteCheckout({
             </p>
           ) : !quote.delivery.ok || quote.delivery.options.length === 0 ? (
             <div className="rounded-[8px] border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]" data-no-shipping="">
-              <p className="font-medium">Shipping isn&apos;t available to {address.country ? countryName(address.country) : "this address"}.</p>
+              <p className="font-medium">{notServed ? `We don't ship to ${countryName(address.country)}.` : `Shipping isn't available to ${address.country ? countryName(address.country) : "this address"}.`}</p>
               {/* The server names what can't come and why (lib/physical/rates unshippableMessage). */}
-              <p className="mt-0.5 text-[13.5px]">{!quote.delivery.ok && quote.delivery.error ? quote.delivery.error : (quote.pickups?.length ?? 0) > 0 ? "You can choose Pick up instead." : "Try another address, or contact the shop."}</p>
+              <p className="mt-0.5 text-[13.5px]">{notServed ? ((quote.pickups?.length ?? 0) > 0 ? "Choose a country we ship to, or pick it up instead." : "Choose a country we ship to.") : !quote.delivery.ok && quote.delivery.error ? quote.delivery.error : (quote.pickups?.length ?? 0) > 0 ? "You can choose Pick up instead." : "Try another address, or contact the shop."}</p>
             </div>
           ) : (
             <div className="overflow-hidden rounded-[8px] border border-[#e1e3e7]" style={{ boxShadow: FIELD_SHADOW }}>
@@ -802,6 +873,14 @@ export function SiteCheckout({
   const payLabel = `Pay ${money(total)}`
 
   /* ── The order ───────────────────────────────────────────────────── */
+  /* Once paying has started (or is done), the order stays as it is. */
+  const editable = !busy && !paid && !settled && !arriving
+  const changeLine = (line: { productId: string; variantId: string | null }, quantity: number) => {
+    if (!items || !editable) return
+    setLimitNote(null)
+    setError(null)
+    commitItems(setLineQuantity(items, line, quantity))
+  }
   const discountCents = t?.discountCents ?? 0
   const shippingPaid = t ? t.shippingCents - t.shippingDiscountCents : 0
   const details = quote ? (
@@ -809,24 +888,47 @@ export function SiteCheckout({
       <ul className="space-y-4" data-lines="">
         {quote.lines.map((l) => (
           <li key={`${l.productId}:${l.variantId ?? ""}`} data-line-item="" className="flex items-start gap-3.5">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-              {l.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={l.imageUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="flex h-full items-center justify-center">
-                  <Package className="h-5 w-5 text-[#c4c7cd]" strokeWidth={1.5} />
-                </span>
-              )}
-            </div>
+            <LineImage url={l.imageUrl} />
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
               {l.variantName ? <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{l.variantName}</p> : null}
-              <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Qty {l.quantity}</p>
+              {editable ? (
+                <LineControls
+                  title={l.variantName ? `${l.title}, ${l.variantName}` : l.title}
+                  quantity={l.quantity}
+                  max={l.maxQuantity ?? l.quantity}
+                  stepper={l.type === "physical"}
+                  busy={quoting}
+                  onChange={(q) => changeLine(l, q)}
+                />
+              ) : (
+                <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Qty {l.quantity}</p>
+              )}
             </div>
             <div className="shrink-0 text-right">
               <p className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{money(l.unitCents * l.quantity - l.discountCents)}</p>
               {l.discountCents > 0 ? <p className="text-[12px] tabular-nums text-[#9ca3af] line-through">{money(l.unitCents * l.quantity)}</p> : null}
+            </div>
+          </li>
+        ))}
+        {/* Short of stock: kept in the order with what is left, to lower or remove here rather than back on the site. */}
+        {(quote.short ?? []).map((l) => (
+          <li key={`short:${l.productId}:${l.variantId ?? ""}`} data-line-item="" data-line-short="" className="flex items-start gap-3.5">
+            <LineImage url={l.imageUrl} muted />
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
+              <p className="mt-0.5 text-[13px] text-[#b91c1c]">{l.available > 0 ? `Only ${l.available} left` : "Sold out"}</p>
+              {editable ? (
+                <LineControls
+                  title={l.title}
+                  quantity={l.quantity}
+                  max={l.available}
+                  stepper={l.available > 0}
+                  busy={quoting}
+                  onChange={(q) => changeLine(l, Math.min(q, l.available))}
+                  fix={l.available > 0 ? () => changeLine(l, l.available) : undefined}
+                />
+              ) : null}
             </div>
           </li>
         ))}
@@ -1018,10 +1120,15 @@ export function SiteCheckout({
                   Left out of this order: {dropped.slice(0, 4).join(", ")}. {dropped.length === 1 ? "It isn't" : "They aren't"} on sale right now.
                 </p>
               ) : null}
+              {limitNote ? (
+                <p role="status" data-limit-note="" className="mb-5 rounded-[8px] border border-[#fde68a] bg-[#fffbeb] px-3.5 py-2.5 text-[13.5px] text-[#92400e]">
+                  {limitNote} We lowered the quantity.
+                </p>
+              ) : null}
               {quote?.stockIssues.length ? (
                 <div className="mb-5 rounded-[8px] border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[13.5px] text-[#991b1b]">
                   {quote.stockIssues.map((s) => (
-                    <p key={`${s.productId}:${s.variantId}`}>{s.available > 0 ? `${s.title}: only ${s.available} left.` : `${s.title} is sold out.`} Go back to the cart to change it.</p>
+                    <p key={`${s.productId}:${s.variantId}`}>{s.available > 0 ? `${s.title}: only ${s.available} left. Lower the quantity to continue.` : `${s.title} is sold out. Remove it to continue.`}</p>
                   ))}
                 </div>
               ) : null}
@@ -1056,6 +1163,60 @@ export function SiteProblem({ brand, backTo, shopUrl, title, message }: { brand:
           </a>
         ) : null}
       </main>
+    </div>
+  )
+}
+
+function LineImage({ url, muted = false }: { url: string | null; muted?: boolean }) {
+  return (
+    <div className={cn("relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]", muted && "opacity-60")}>
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span className="flex h-full items-center justify-center">
+          <Package className="h-5 w-5 text-[#c4c7cd]" strokeWidth={1.5} />
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * - / + and Remove under a line, the way a shop's own checkout has them. +
+ * stops at what the server says the line may hold (stock, the per order
+ * limit); a download is one, so it only has Remove. Every change is priced
+ * again by the server.
+ */
+function LineControls({ title, quantity, max, stepper, busy, onChange, fix }: { title: string; quantity: number; max: number; stepper: boolean; busy: boolean; onChange: (quantity: number) => void; fix?: () => void }) {
+  const atMax = quantity >= max
+  const btn = "grid h-8 w-8 place-items-center text-[#4b5563] transition-colors hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:text-[#c4c7cd] [-webkit-tap-highlight-color:transparent]"
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5" data-line-controls="">
+      {stepper ? (
+        <div className="inline-flex h-8 items-center rounded-[8px] border border-[#e1e3e7] bg-white" style={{ boxShadow: FIELD_SHADOW }}>
+          <button type="button" aria-label={`One fewer ${title}`} data-qty-minus="" disabled={quantity <= 1} onClick={() => onChange(quantity - 1)} className={btn}>
+            <Minus className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <span aria-live="polite" aria-label={`Quantity ${quantity}`} data-qty="" className={cn("min-w-7 text-center text-[13.5px] font-medium tabular-nums text-[#1a1a2e]", busy && "opacity-60")}>
+            {quantity}
+          </span>
+          <button type="button" aria-label={`One more ${title}`} data-qty-plus="" disabled={atMax} onClick={() => onChange(quantity + 1)} className={btn}>
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
+      ) : quantity > 1 ? (
+        <span className="text-[12.5px] text-[#6b7280]">Qty {quantity}</span>
+      ) : null}
+      {fix && quantity > max ? (
+        <button type="button" onClick={fix} className="text-[13px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 hover:decoration-[#1a1a2e]">
+          Change to {max}
+        </button>
+      ) : null}
+      <button type="button" data-line-remove="" aria-label={`Remove ${title}`} onClick={() => onChange(0)} className="text-[13px] text-[#6b7280] underline decoration-[#d9dce1] underline-offset-2 hover:text-[#1a1a2e] hover:decoration-[#1a1a2e]">
+        Remove
+      </button>
+      {stepper && atMax && max > 1 && quantity === max ? <span className="text-[12.5px] text-[#9ca3af]">Max {max}</span> : null}
     </div>
   )
 }
