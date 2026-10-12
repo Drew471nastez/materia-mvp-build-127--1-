@@ -323,7 +323,7 @@ async function main() {
   console.log("\nThe website's carts and buttons go to their own checkout")
   {
     const theme = code("lib/storelib-theme/compat/site.ts")
-    check("an imported theme's checkout hands its lines to /checkout on its own host", /redirect\(siteCheckoutHref\(\{ items, back: "\/cart", wholeCart: whole(, note)? \}\)\)/.test(theme) && !/basketCheckoutHref\(/.test(theme))
+    check("an imported theme's checkout hands its lines to /checkout on its own host", /redirect\(siteCheckoutHref\(\{ items, back: "\/cart", wholeCart: whole(, note)?(, attributes)? \}\)\)/.test(theme) && !/basketCheckoutHref\(/.test(theme))
     const proxy = code("proxy.ts")
     check("the proxy serves it on a subdomain and on a connected website domain", (proxy.match(/siteCheckoutFor\(request, /g) ?? []).length === 2 && /pathname === "\/checkout" && \(request\.nextUrl\.searchParams\.has\("items"\)/.test(proxy))
     check("Apple Pay's domain file is the file on every host", /pathname === "\/\.well-known\/apple-developer-merchantid-domain-association"\) return NextResponse\.next\(\)/.test(proxy))
@@ -364,7 +364,7 @@ async function main() {
     const cron = code("app/api/cron/physical/route.ts")
     check("  every ten minutes, physical commerce on or off", cron.indexOf("cancelStaleSitePayments(db)") > 0 && cron.indexOf("cancelStaleSitePayments(db)") < cron.indexOf("isPhysicalCommerceEnabled()"))
     check("  a held checkout past its hold is never paid into again, and the page makes a new one after 25 minutes", /new Date\(existing\.expires_at\)\.getTime\(\) > Date\.now\(\)/.test(code("lib/physical/checkout-server.ts")) && /INTENT_REUSE_MS = 25 \* 60_000/.test(code("app/checkout/site/site-checkout.tsx")))
-    check("  a changed name, phone, note or news box is a new held checkout, never stale details", /body\.firstName, body\.lastName, body\.phone, body\.buyerNote, body\.emailOptIn\]\)/.test(code("app/checkout/site/site-checkout.tsx")))
+    check("  a changed name, phone, note or news box is a new held checkout, never stale details", /body\.firstName, body\.lastName, body\.phone, body\.buyerNote, (body\.cartAttributes, )?body\.emailOptIn\]\)/.test(code("app/checkout/site/site-checkout.tsx")))
     check("the confirm call is rate limited like the other payment calls", /async function confirm[\s\S]{0,600}rateLimit\(\{ bucket: "payment", subjects: \[addressSubject\(request\)\]/.test(route))
 
     const proxy = code("proxy.ts")
