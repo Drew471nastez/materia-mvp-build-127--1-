@@ -81,7 +81,7 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, Copy, Download, ExternalLink, Eye, Film, ImageIcon, ImagePlus, MoreHorizontal, Search, Trash2, X } from "lucide-react"
+import { Check, Copy, Download, ExternalLink, Eye, Film, ImageIcon, ImagePlus, MoreHorizontal, Play, Search, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -95,6 +95,8 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ActionDropdownContent, ActionSheetRows, groupsOf, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { afterLayout } from "@/lib/ui/after-layout"
+import { VIDEO_ACCEPT, durationText } from "@/lib/media/video"
+import { isVideoFile, putObject, uploadVideo, videoRefusal } from "@/lib/files/upload-video"
 
 export interface LibraryFile {
   id: string
@@ -106,10 +108,17 @@ export interface LibraryFile {
   type: string | null
   createdAt: string | null
   source: string
+  /** A video's first frame, stored beside it at upload, or null (lib/files/library.ts). */
+  poster?: string | null
+  /** A video's length in seconds, or null. */
+  duration?: number | null
 }
 
-/** Pictures, or the videos a video setting can play (lib/files/library.ts). */
-export type LibraryKind = "image" | "video"
+/**
+ * Pictures, the videos a video setting can play, or both: Files itself and a
+ * product's photos and videos (lib/files/library.ts).
+ */
+export type LibraryKind = "image" | "video" | "media"
 
 /** What a pick hands over beside the address: something already on screen to show while the stored copy loads. */
 export interface PickHint {
@@ -121,20 +130,18 @@ export interface PickHint {
 
 const TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"])
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,image/avif"
-/* What the store-builder-images bucket takes as video (the builder's video field, controls/video-picker-control.tsx). */
-const VIDEO_TYPES: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "video/x-m4v": "m4v" }
 const MAX_BYTES = 5 * 1024 * 1024
-const MAX_VIDEO_BYTES = 200 * 1024 * 1024
-const SOURCES = ["All", "Library", "Website", "Product photos"] as const
-type Source = (typeof SOURCES)[number]
-/* Product photos are pictures only, so a video list has no such pill. */
-const VIDEO_SOURCES: readonly Source[] = ["All", "Library", "Website"]
+const ALL_SOURCES = ["All", "Library", "Website", "Product photos", "Videos"] as const
+type Source = (typeof ALL_SOURCES)[number]
+const SOURCES: readonly Source[] = ["All", "Library", "Website", "Product photos"]
+/* A list of videos: where each came from (a product's videos are kept with its photos). */
+const VIDEO_SOURCES: readonly Source[] = ["All", "Library", "Website", "Product photos"]
+/* Pictures and videos together: the same, and a pill for the videos alone. */
+const MEDIA_SOURCES: readonly Source[] = ALL_SOURCES
 /* The rows drawn at once: three on a phone at three across, three in the window at four across. */
 const EAGER = 12
-/* The grid out (opacity, on the compositor) and in again (round 21: the grid itself, no copy of it). */
-const SWAP_OUT_MS = 90
-const SWAP_IN_MS = 160
-const SWAP_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/* A pill's first screen and a little more, fetched ahead (on idle, and on a hover of its pill) so a switch shows pictures, never grey squares filling in. */
+const WARM = 24
 /* Above a sheet that is itself above the page (the chooser), for what opens from inside it. */
 const OVER_SHEET_Z = 210
 const PHONE = "(max-width: 639px)"
@@ -160,9 +167,9 @@ function dateText(iso: string | null): string {
 /** How long a kept list is used as it is before a prefetch asks again. */
 const FRESH_MS = 60_000
 type ListResult = { files?: LibraryFile[]; error?: string }
-const kept: Record<LibraryKind, LibraryFile[] | null> = { image: null, video: null }
-const keptAt: Record<LibraryKind, number> = { image: 0, video: 0 }
-const inFlight: Record<LibraryKind, Promise<ListResult> | null> = { image: null, video: null }
+const kept: Record<LibraryKind, LibraryFile[] | null> = { image: null, video: null, media: null }
+const keptAt: Record<LibraryKind, number> = { image: 0, video: 0, media: 0 }
+const inFlight: Record<LibraryKind, Promise<ListResult> | null> = { image: null, video: null, media: null }
 /* Every library on screen hears a list arrive, whoever asked for it (a prefetch, an upload). */
 const listeners = new Set<(kind: LibraryKind, r: ListResult) => void>()
 
@@ -170,7 +177,7 @@ function fetchList(kind: LibraryKind): Promise<ListResult> {
   const asking = inFlight[kind]
   if (asking) return asking
   const next = (async (): Promise<ListResult> => {
-    const r = await api<{ files: LibraryFile[] }>(kind === "video" ? "/api/files?kind=video" : "/api/files")
+    const r = await api<{ files: LibraryFile[] }>(kind === "image" ? "/api/files" : `/api/files?kind=${kind}`)
     if ("error" in r) return { error: r.error }
     kept[kind] = r.data.files
     keptAt[kind] = Date.now()
@@ -191,8 +198,8 @@ function fetchList(kind: LibraryKind): Promise<ListResult> {
 function warm(files: LibraryFile[]) {
   if (typeof Image === "undefined") return
   for (const f of files.slice(0, EAGER)) {
-    if (f.type?.startsWith("video/")) continue
-    const t = fileThumb(f.url)
+    if (isVideo(f) && !f.poster) continue
+    const t = fileThumb(isVideo(f) ? (f.poster as string) : f.url)
     const img = new Image()
     img.decoding = "async"
     if (t.srcSet && t.sizes) {
@@ -333,48 +340,26 @@ const manyAtOnce = () => savePlatform() === "web"
 
 /* ── Uploads, each with how far it is ──────────────────────────────────── */
 
-function putWithProgress(endpoint: string, token: string, key: string, body: Blob, type: string, onProgress: (p: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const x = new XMLHttpRequest()
-    x.open("POST", endpoint)
-    x.setRequestHeader("Authorization", `Bearer ${token}`)
-    x.setRequestHeader("apikey", key)
-    x.setRequestHeader("x-upsert", "false")
-    x.setRequestHeader("cache-control", "max-age=31536000")
-    x.setRequestHeader("Content-Type", type)
-    x.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(e.loaded / e.total)
-    }
-    x.onload = () => (x.status >= 200 && x.status < 300 ? resolve() : reject(new Error(`upload ${x.status}`)))
-    x.onerror = () => reject(new Error("upload failed"))
-    x.send(body)
-  })
-}
-
 /**
  * One file into the owner's library folder. Straight to storage with the
  * signed-in session, by XMLHttpRequest so its tile can say how far it is;
  * through the storage client when there is no session to hand. A picture
- * goes without its location and camera details; a video as it is.
+ * goes without its location and camera details; a video as it is, with its
+ * first frame and its length read in the browser and stored beside it
+ * (lib/files/upload-video.ts), so its tile has a picture and a length.
  */
 async function uploadOne(f: File, onProgress: (p: number) => void): Promise<LibraryFile> {
+  if (isVideoFile(f)) {
+    const v = await uploadVideo(f, "files", onProgress)
+    return { id: `store-builder-images:${v.path}`, bucket: "store-builder-images", path: v.path, name: v.path.split("/").pop() ?? f.name, url: v.url, bytes: v.bytes, type: v.type, createdAt: new Date().toISOString(), source: "Library", poster: v.poster, duration: v.duration }
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("signed out")
-  const video = VIDEO_TYPES[f.type]
-  const ext = video ?? (f.type.split("/")[1] || "jpg").replace("jpeg", "jpg")
+  const ext = (f.type.split("/")[1] || "jpg").replace("jpeg", "jpg")
   const path = `${user.id}/files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-  const body: Blob = video ? f : await withoutMetadata(f)
-  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "")
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-  const session = base && key ? (await supabase.auth.getSession()).data.session : null
-  if (session?.access_token && base && key && typeof XMLHttpRequest !== "undefined") {
-    await putWithProgress(`${base}/storage/v1/object/store-builder-images/${path.split("/").map(encodeURIComponent).join("/")}`, session.access_token, key, body, f.type, onProgress)
-  } else {
-    const { error: upErr } = await supabase.storage.from("store-builder-images").upload(path, body, { cacheControl: "31536000", contentType: f.type, upsert: false })
-    if (upErr) throw upErr
-  }
-  onProgress(1)
+  const body: Blob = await withoutMetadata(f)
+  await putObject("store-builder-images", path, body, f.type, onProgress)
   confirmUpload("store-builder-images", path)
   const url = mediaUrl(supabase.storage.from("store-builder-images").getPublicUrl(path).data.publicUrl)
   return { id: `store-builder-images:${path}`, bucket: "store-builder-images", path, name: path.split("/").pop() ?? f.name, url, bytes: f.size, type: f.type, createdAt: new Date().toISOString(), source: "Library" }
@@ -382,12 +367,8 @@ async function uploadOne(f: File, onProgress: (p: number) => void): Promise<Libr
 
 /** What is refused before it is sent: the bucket would refuse it after. */
 function refusal(f: File, kind: LibraryKind): string | null {
-  if (kind === "video") {
-    if (!VIDEO_TYPES[f.type]) return `${f.name}: only MP4, WebM and MOV videos.`
-    if (f.size > MAX_VIDEO_BYTES) return `${f.name} is over 200 MB.`
-    return null
-  }
-  if (!TYPES.has(f.type)) return `${f.name}: only JPG, PNG, GIF, WebP and AVIF pictures.`
+  if (kind === "video" || (kind === "media" && isVideoFile(f))) return videoRefusal(f)
+  if (!TYPES.has(f.type)) return kind === "media" ? `${f.name}: only JPG, PNG, GIF, WebP and AVIF pictures, or MP4, WebM and MOV videos.` : `${f.name}: only JPG, PNG, GIF, WebP and AVIF pictures.`
   if (f.size > MAX_BYTES) return `${f.name} is over 5 MB.`
   return null
 }
@@ -412,12 +393,23 @@ const localPreview = new Map<string, string>()
  */
 /** Whether a file belongs in the grid for a pill and the words searched. */
 function inGrid(f: LibraryFile, g: { source: Source; words: string }): boolean {
-  return (g.source === "All" || f.source === g.source) && (!g.words || f.name.toLowerCase().includes(g.words))
+  const from = g.source === "All" || (g.source === "Videos" ? isVideo(f) : f.source === g.source)
+  return from && (!g.words || f.name.toLowerCase().includes(g.words))
 }
 
 /** A tile put away or shown, as the Tile draws it (data-off, out of reach while away). */
 function putAway(li: HTMLLIElement, off: boolean) {
   if (li.hasAttribute("data-off") === off) return
+  /*
+    A picture that arrived while its tile was put away was never styled there
+    (content-visibility hidden), so shown now it would start its 200ms fade
+    from nothing: a tile that blinks on a switch although its picture was
+    ready. It is shown as it is.
+  */
+  if (!off) {
+    li.querySelectorAll<HTMLElement>("[data-loaded]:not([data-instant])").forEach((el) => (el.dataset.instant = ""))
+    li.querySelectorAll<HTMLImageElement>("img[data-file-img]:not([data-loaded])").forEach(revealIfReady)
+  }
   li.toggleAttribute("data-off", off)
   li.inert = off
   if (off) li.setAttribute("aria-hidden", "true")
@@ -461,9 +453,30 @@ function fitSmall(img: HTMLImageElement) {
   exact.src = src
 }
 
+/** Whether a picture's tile is not being drawn now: put away in another pill, or off screen. */
+function notDrawn(img: HTMLImageElement): boolean {
+  if (img.closest("li[data-off]")) return true
+  const check = (img as HTMLImageElement & { checkVisibility?: (o: { contentVisibilityAuto?: boolean }) => boolean }).checkVisibility
+  return typeof check === "function" && !check.call(img, { contentVisibilityAuto: true })
+}
+
 /** Shown once decoded: straight onto the element, so nothing renders for it. */
 function reveal(img: HTMLImageElement) {
   if (img.dataset.loaded !== undefined) return
+  /*
+    A tile that is not drawn (in a pill that is not showing, or off screen,
+    skipped by content-visibility) has its decode() wait until it is drawn,
+    which is the switch itself, so the picture faded in after it. Marked
+    ready now, with no fade to sit through when it shows; the decode is still
+    asked for, so the browser has it when it does.
+  */
+  if (notDrawn(img)) {
+    fitSmall(img)
+    img.dataset.instant = ""
+    img.dataset.loaded = ""
+    img.decode?.().catch(() => {})
+    return
+  }
   const show = () => {
     fitSmall(img)
     img.dataset.loaded = ""
@@ -547,39 +560,97 @@ function frameIfReady(v: HTMLVideoElement | null) {
 }
 
 /**
- * A video tile: its first frame (`#t=0.1`, which also makes Safari draw one
- * with only the metadata asked for), over a clean tile with a film mark that
- * stays if there is no frame to draw.
+ * A video tile. Its first frame as a picture when one was stored beside it at
+ * upload (the same resized copy and fade as a photo's tile); otherwise the
+ * video's own first frame (`#t=0.1`, which also makes Safari draw one with
+ * only the metadata asked for), whose metadata also gives the length. Under
+ * either, a clean tile with a film mark that stays if there is nothing to draw.
  */
-function VideoFrame({ url }: { url: string }) {
+function VideoFrame({ file, index, hidden, onGone }: { file: LibraryFile; index: number; hidden: boolean; onGone: () => void }) {
+  const [seconds, setSeconds] = React.useState<number | null>(file.duration ?? null)
+  const poster = React.useMemo(() => (file.poster ? fileThumb(file.poster) : null), [file.poster])
+  const length = durationText(seconds)
   return (
     <>
       <Film className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
-      <video
-        ref={frameIfReady}
-        src={`${url}#t=0.1`}
-        muted
-        playsInline
-        preload="metadata"
-        tabIndex={-1}
-        aria-hidden
-        onLoadedData={(e) => {
-          e.currentTarget.dataset.loaded = ""
-        }}
-        onError={(e) => {
-          e.currentTarget.dataset.failed = ""
-        }}
-        className={cn("peer", VIDEO_FADE)}
-      />
-      {/* The film badge marks a frame as a video; the clean tile already says so. */}
-      <span className="pointer-events-none absolute bottom-1.5 left-1.5 peer-data-[failed]:hidden grid h-6 w-6 place-items-center rounded-md bg-black/55 text-white">
-        <Film className="h-3.5 w-3.5" aria-hidden />
+      {poster ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          ref={revealIfReady}
+          src={poster.src}
+          srcSet={poster.srcSet}
+          sizes={poster.sizes}
+          alt=""
+          draggable={false}
+          loading={index < EAGER ? "eager" : "lazy"}
+          fetchPriority={hidden ? "low" : "auto"}
+          decoding="async"
+          onLoad={(e) => reveal(e.currentTarget)}
+          onError={(e) => fallBack(e.currentTarget, file.poster as string)}
+          className={cn("peer", IMG_FADE, "object-cover")}
+          data-file-img=""
+          data-file-poster=""
+        />
+      ) : (
+        <video
+          ref={frameIfReady}
+          src={`${file.url}#t=0.1`}
+          muted
+          playsInline
+          preload="metadata"
+          tabIndex={-1}
+          aria-hidden
+          onLoadedMetadata={(e) => {
+            const d = e.currentTarget.duration
+            if (Number.isFinite(d)) setSeconds(d)
+          }}
+          onLoadedData={(e) => {
+            e.currentTarget.dataset.loaded = ""
+          }}
+          onError={(e) => {
+            e.currentTarget.dataset.failed = ""
+            void objectGone(file.url).then((yes) => yes && onGone())
+          }}
+          className={cn("peer", VIDEO_FADE)}
+        />
+      )}
+      {/* What says it is a video: a small play mark and its length, in the corner a phone's thumb is not over. */}
+      <span className="pointer-events-none absolute bottom-1.5 right-1.5 inline-flex h-5 items-center gap-1 rounded-md bg-black/55 px-1.5 text-[11px] font-medium leading-none tabular-nums text-white" data-file-video="">
+        <Play className="h-2.5 w-2.5 fill-current" strokeWidth={0} aria-hidden />
+        {length ? <span data-file-duration="">{length}</span> : <span className="sr-only">Video</span>}
       </span>
     </>
   )
 }
 
 /* ── A tile ─────────────────────────────────────────────────────────────── */
+
+/*
+  WHAT A TILE SHOWS, AND WHERE (round H).
+
+  The picture, edge to edge on a light grey, and nothing over it until it is
+  asked for. The owner's screenshot had a 32px near black disc with a check
+  on one corner and a 32px white disc with three dots on the other, both over
+  the photo: the controls were bigger than what they controlled.
+
+    SELECTED   the picture draws in a little (a 0.92 scale, on the
+               compositor) inside a 2px violet ring on a pale violet ground,
+               and a 22px violet check with a white edge sits on its corner,
+               the way Google Photos and Apple Photos mark a pick. Both for a
+               pick in a list and for the picture a field already uses.
+    SEVERAL    an empty white ring where the check will go: on hover with a
+               mouse, always on a touch screen, where there is no hover.
+    THE DOTS   24px, translucent dark, white dots, with a 40px target. With
+               a mouse only on hover, on focus, or while its menu is open; on
+               a touch screen always, quieter. A faint shade along the top of
+               the picture keeps the ring and the dots readable on a white
+               photo, only while they show.
+    FOCUS      a 2px violet ring outside the tile, from the keyboard only.
+
+  The same tile is the Files page's (Select) and the chooser's, on a computer
+  and in the phone sheet.
+*/
+const DOTS_TOUCH = "[@media(hover:none)]:bg-black/30"
 
 const Tile = React.memo(function Tile({
   file,
@@ -611,6 +682,7 @@ const Tile = React.memo(function Tile({
   const thumb = React.useMemo(() => fileThumb(file.url), [file.url])
   const video = isVideo(file)
   const local = localPreview.get(file.url)
+  const on = selecting ? ticked : chosen
   const label = selecting ? `${ticked ? "Unselect" : "Select"} ${file.name}` : mode === "pick" ? `Use ${file.name}` : `Open ${file.name}`
   return (
     /* Off screen a tile is skipped by the browser's layout and paint (content-visibility): a pill that shows sixty tiles lays out only the screenful (round 21). */
@@ -618,75 +690,90 @@ const Tile = React.memo(function Tile({
       className="group/tile relative [contain-intrinsic-size:auto_112px] [content-visibility:auto] data-[off]:pointer-events-none data-[off]:absolute data-[off]:left-0 data-[off]:top-0 data-[off]:w-0 data-[off]:[content-visibility:hidden]"
       data-file-tile={file.id}
       data-off={hidden ? "" : undefined}
+      data-selected={on ? "" : undefined}
       aria-hidden={hidden || undefined}
       inert={hidden}
     >
       <button
         type="button"
         onClick={() => onPress(file)}
-        className={cn(
-          "relative block w-full overflow-hidden rounded-xl border bg-white text-left transition-[border-color,box-shadow] duration-150 hover:border-[#d1d5db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent]",
-          chosen || ticked ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#eceef1]",
-        )}
+        className="relative block w-full rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2 focus-visible:ring-offset-white [-webkit-tap-highlight-color:transparent]"
         data-file={file.id}
         aria-label={label}
         aria-pressed={selecting ? ticked : undefined}
       >
-        <span className="relative block aspect-square w-full bg-[#f3f4f6]" data-file-box="">
-          {video ? (
-            <VideoFrame url={file.url} />
-          ) : (
-            <>
-              {/* Just uploaded: the file from memory, under the resized copy until that has faded in. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {local ? <img src={local} alt="" aria-hidden draggable={false} className="absolute inset-0 h-full w-full object-contain" /> : null}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                ref={revealIfReady}
-                src={thumb.src}
-                srcSet={thumb.srcSet}
-                sizes={thumb.sizes}
-                alt=""
-                draggable={false}
-                loading={index < EAGER ? "eager" : "lazy"}
-                /* A tile in another pill is fetched ahead, behind the ones on screen. */
-                fetchPriority={hidden ? "low" : "auto"}
-                decoding="async"
-                onLoad={(e) => reveal(e.currentTarget)}
-                onError={(e) => fallBack(e.currentTarget, file.url, () => onGone(file))}
-                className={cn("peer", IMG_FADE)}
-                data-file-img=""
-              />
-              {/* Only once the picture has failed: a clean tile with its type, never the broken picture. */}
-              <Placeholder file={file} className="hidden peer-data-[failed]:flex" />
-            </>
-          )}
-        </span>
-        {selecting ? (
-          /*
-            One small round check on a picked tile, the same as a single pick's
-            below, and nothing on the others: a square box on every picture read
-            as a form, not a gallery. With a mouse an unpicked tile shows a faint
-            ring where the check will go, so it is clear a press picks it.
-          */
+        <span className="relative block">
+          {/* The ring and the pale ground the picture draws in on; a hairline when not selected. */}
           <span
             aria-hidden
-            data-file-tick={ticked ? "on" : "off"}
+            data-file-ring={on ? "on" : "off"}
             className={cn(
-              "absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full transition-[opacity,scale,background-color] duration-150 ease-out motion-reduce:transition-none",
-              ticked
-                ? "scale-100 bg-[#1a1a2e] text-white opacity-100 shadow-[0_1px_2px_rgba(17,24,39,0.2)]"
-                : "scale-90 bg-white/70 text-transparent opacity-0 shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.95),0_1px_3px_rgba(17,24,39,0.25)] [@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:opacity-100",
+              "pointer-events-none absolute inset-0 rounded-xl transition-[background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
+              on ? "bg-[#f3efff] shadow-[inset_0_0_0_2px_#8b5cf6]" : "bg-transparent shadow-[inset_0_0_0_0_#8b5cf6]",
             )}
+          />
+          <span
+            className={cn(
+              "relative block aspect-square w-full overflow-hidden bg-[#f3f4f6] transition-[scale,border-radius] duration-150 ease-out motion-reduce:transition-none",
+              "after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)]",
+              on ? "scale-[0.92] rounded-lg" : "scale-100 rounded-xl",
+            )}
+            data-file-box=""
           >
-            <Check className="h-3 w-3" strokeWidth={3} />
+            {video ? (
+              <VideoFrame file={file} index={index} hidden={hidden} onGone={() => onGone(file)} />
+            ) : (
+              <>
+                {/* Just uploaded: the file from memory, under the resized copy until that has faded in. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {local ? <img src={local} alt="" aria-hidden draggable={false} className="absolute inset-0 h-full w-full object-contain" /> : null}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  ref={revealIfReady}
+                  src={thumb.src}
+                  srcSet={thumb.srcSet}
+                  sizes={thumb.sizes}
+                  alt=""
+                  draggable={false}
+                  loading={index < EAGER ? "eager" : "lazy"}
+                  /* A tile in another pill is fetched ahead, behind the ones on screen. */
+                  fetchPriority={hidden ? "low" : "auto"}
+                  decoding="async"
+                  onLoad={(e) => reveal(e.currentTarget)}
+                  onError={(e) => fallBack(e.currentTarget, file.url, () => onGone(file))}
+                  className={cn("peer", IMG_FADE)}
+                  data-file-img=""
+                />
+                {/* Only once the picture has failed: a clean tile with its type, never the broken picture. */}
+                <Placeholder file={file} className="hidden peer-data-[failed]:flex" />
+              </>
+            )}
+            {/* A faint shade along the top, only while the ring or the dots show, so they read on a white photo. */}
+            <span
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0 h-12 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.22),rgba(0,0,0,0))] opacity-0 transition-opacity duration-150",
+                "[@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:opacity-100 group-has-[:focus-visible]/tile:opacity-100",
+                menuOpen && "opacity-100",
+              )}
+            />
           </span>
-        ) : chosen ? (
-          <span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white">
-            <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
-          </span>
-        ) : null}
-        {mode === "manage" ? <span className="block truncate border-t border-[#eceef1] bg-white px-2 py-1.5 text-[12px] text-[#4b5563]">{file.name}</span> : null}
+          {selecting || chosen ? (
+            <span
+              aria-hidden
+              data-file-tick={on ? "on" : "off"}
+              className={cn(
+                "pointer-events-none absolute left-2 top-2 grid h-[22px] w-[22px] place-items-center rounded-full transition-[opacity,scale,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
+                on
+                  ? "scale-100 bg-[#8b5cf6] text-white opacity-100 shadow-[0_0_0_1.5px_#fff,0_1px_3px_rgba(17,24,39,0.3)]"
+                  : "scale-90 bg-black/10 text-transparent opacity-0 shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.95),0_1px_2px_rgba(17,24,39,0.3)] [@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:scale-100 [@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:opacity-100 [@media(hover:none)]:scale-100 [@media(hover:none)]:opacity-100",
+              )}
+            >
+              <Check className="h-3 w-3" strokeWidth={3.25} />
+            </span>
+          ) : null}
+        </span>
+        {mode === "manage" ? <span className="block truncate px-0.5 pt-1.5 text-[12px] leading-4 text-[#4b5563]">{file.name}</span> : null}
       </button>
       <button
         type="button"
@@ -696,12 +783,15 @@ const Tile = React.memo(function Tile({
         data-file-menu=""
         onClick={(e) => onMenu(file, e.currentTarget)}
         className={cn(
-          "absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#374151] shadow-[0_1px_3px_rgba(17,24,39,0.16)] outline-none transition-opacity duration-150 hover:bg-white hover:text-[#1a1a2e] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent] sm:h-7 sm:w-7",
+          "absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-black/40 text-white outline-none transition-[opacity,background-color] duration-150 hover:bg-black/60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
+          /* A 40px target around the 24px mark. */
+          "before:absolute before:-inset-2 before:content-['']",
+          DOTS_TOUCH,
           /* Always there on a touch screen; with a mouse once the pointer is on the tile, or while its menu is open. */
-          menuOpen ? "opacity-100" : "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100",
+          menuOpen ? "bg-black/60 opacity-100" : "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/tile:opacity-100 group-has-[:focus-visible]/tile:opacity-100",
         )}
       >
-        <MoreHorizontal className="h-4 w-4" aria-hidden />
+        <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
       </button>
     </li>
   )
@@ -744,7 +834,7 @@ export type PickMany = Array<{ url: string; hint?: PickHint }>
  * measured the chosen pill draws its own white, so the first frame is
  * already right.
  */
-function SourcePills({ sources, value, onChange }: { sources: readonly Source[]; value: Source; onChange: (s: Source) => void }) {
+function SourcePills({ sources, value, onChange, onWarm }: { sources: readonly Source[]; value: Source; onChange: (s: Source) => void; onWarm?: (s: Source) => void }) {
   const row = React.useRef<HTMLDivElement>(null)
   const [mark, setMark] = React.useState<{ x: number; w: number } | null>(null)
   const measure = React.useCallback(() => {
@@ -776,6 +866,10 @@ function SourcePills({ sources, value, onChange }: { sources: readonly Source[];
             aria-selected={value === s}
             data-files-pill={s}
             onClick={() => onChange(s)}
+            /* About to be pressed: its first screen is asked for now. */
+            onPointerEnter={() => onWarm?.(s)}
+            onTouchStart={() => onWarm?.(s)}
+            onFocus={() => onWarm?.(s)}
             className={cn(
               "relative z-[1] inline-flex h-8 shrink-0 items-center rounded-lg px-3.5 text-[13.5px] font-medium transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
               value === s ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
@@ -865,6 +959,7 @@ export function FilesLibrary({
 
   /* What the tile on screen already decoded, for the field to show while the stored copy loads. */
   const hintFor = React.useCallback((f: LibraryFile): PickHint | undefined => {
+    if (isVideo(f)) return undefined
     const img = gridWrapRef.current?.querySelector<HTMLImageElement>(`[data-file-tile="${CSS.escape(f.id)}"] img[data-file-img]`)
     if (img && img.dataset.loaded !== undefined && img.dataset.failed === undefined && img.currentSrc) return { thumb: img.currentSrc }
     return undefined
@@ -922,7 +1017,7 @@ export function FilesLibrary({
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return toast.error("Sign in again to upload.")
-    const rows: Pending[] = good.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, preview: kind === "image" ? URL.createObjectURL(f) : null, progress: 0 }))
+    const rows: Pending[] = good.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, preview: isVideoFile(f) ? null : URL.createObjectURL(f), progress: 0 }))
     setPending((p) => [...rows, ...p])
     const results = await Promise.all(
       good.map(async (f, i) => {
@@ -1011,54 +1106,59 @@ export function FilesLibrary({
   /* ── The swap ── */
 
   /*
-    ROUND 21: THE GRID ITSELF FADES, NOTHING IS COPIED. Round 19 copied every tile on screen into a layer over the grid
-    (a copy of each tile, a box read per tile) in the press itself, then drew the new grid under the copy: 100 to 180ms of main thread
-    on a pill at 4x CPU, more under load (scripts/check-files-picker.mjs, "longest task"). Now the press changes only the pill
-    and starts the grid's own fade out, an opacity animation the compositor runs. Once it is out of sight the tiles that
-    belong are shown and the rest put away, written straight onto them (a tile put away keeps its drawing:
-    content-visibility hidden, so showing it again restyles almost nothing), and the grid fades back in on the next frame.
-    React hears of it after, in a transition, and finds the tiles already as it would draw them. A second press or a word
-    typed while it is out only changes what it will show. Reduced motion: the grid changes at once.
+    ROUND H: NOTHING FADES ON A SWITCH. Round 21 faded the whole grid out (90ms) and back in (160ms) on every pill and
+    every word typed: every picture on screen went to white and came back, which is the flash the owner saw between
+    All, Library, Website and Product photos (scratchpad probe: 12 of 12 tiles on screen blank for two or three frames
+    of every switch, desktop and phone). Now the press shows the tiles that belong and puts the rest away in the same
+    frame, written straight onto them (a tile put away keeps its drawing and its decoded picture: content-visibility
+    hidden), and React hears of it after, in a transition, and finds the tiles already as it would draw them. A tile in
+    both pills never changes at all; only a tile whose picture has not arrived yet fades in, on its own.
+
+    Every pill's first screen is fetched ahead (`warmPill`): on idle once the list is in, and at once on a hover or a
+    touch of its pill, so the tiles a switch shows are already decoded.
   */
   const [grid, setGrid] = React.useState<{ source: Source; words: string }>({ source: "All", words: "" })
   const filesNow = React.useRef(files)
   filesNow.current = files
-  const swapRef = React.useRef<{ out: Animation | null; to: { source: Source; words: string } | null }>({ out: null, to: null })
   const swapGrid = React.useCallback(
     (to: { source: Source; words: string }) => {
-      const swap = swapRef.current
       const el = gridWrapRef.current?.querySelector<HTMLElement>(":scope > [data-files-grid]")
-      if (!el || el.hidden || typeof el.animate !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        swappedRef.current = true
-        setGrid(to)
+      if (el && !el.hidden) {
+        const keep = new Set((filesNow.current ?? []).filter((f) => inGrid(f, to)).map((f) => f.id))
+        for (const li of Array.from(el.querySelectorAll<HTMLLIElement>(":scope > li[data-file-tile]"))) putAway(li, !keep.has(li.dataset.fileTile ?? ""))
+        if (fill && scrollRef.current && scrollRef.current.scrollTop !== 0) scrollRef.current.scrollTop = 0
+        React.startTransition(() => setGrid(to))
         return
       }
-      swap.to = to
-      if (swap.out) return
-      const out = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_OUT_MS, easing: "ease-in", fill: "forwards" })
-      swap.out = out
-      const go = () => {
-        if (swap.out !== out) return
-        swap.out = null
-        const next = swap.to
-        swap.to = null
-        if (!next) return out.cancel()
-        const keep = new Set((filesNow.current ?? []).filter((f) => inGrid(f, next)).map((f) => f.id))
-        for (const li of Array.from(el.querySelectorAll<HTMLLIElement>(":scope > li[data-file-tile]"))) putAway(li, !keep.has(li.dataset.fileTile ?? ""))
-        if (fill && scrollRef.current) {
-          const scroller = scrollRef.current
-          afterLayout(() => {
-            if (scroller.scrollTop !== 0) scroller.scrollTop = 0
-          }, scroller)
-        }
-        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_IN_MS, easing: SWAP_EASE })
-        out.cancel()
-        React.startTransition(() => setGrid(next))
-      }
-      out.finished.then(go, go)
+      swappedRef.current = true
+      setGrid(to)
     },
     [fill],
   )
+
+  /** A pill's first screen, asked for now rather than when it is shown: `loading` eager on the tiles it will show first. */
+  const warmPill = React.useCallback((s: Source) => {
+    const wrap = gridWrapRef.current
+    if (!wrap) return
+    const first = (filesNow.current ?? []).filter((f) => inGrid(f, { source: s, words: "" })).slice(0, WARM)
+    for (const f of first) {
+      const img = wrap.querySelector<HTMLImageElement>(`[data-file-tile="${CSS.escape(f.id)}"] img[data-file-img]`)
+      if (img && img.loading !== "eager") img.loading = "eager"
+    }
+  }, [])
+  /* Once the list is drawn and the browser is idle, every pill's first screen, so no switch waits on the network. */
+  const pillsFor = kind === "video" ? VIDEO_SOURCES : kind === "media" ? MEDIA_SOURCES : SOURCES
+  React.useEffect(() => {
+    if (!files?.length) return
+    const run = () => pillsFor.forEach(warmPill)
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(run, { timeout: 1500 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(run, 400)
+    return () => window.clearTimeout(t)
+  }, [files, pillsFor, warmPill])
 
   const words = query.toLowerCase().trim()
   const shown = React.useMemo(() => (files ?? []).filter((f) => inGrid(f, grid)), [files, grid])
@@ -1164,12 +1264,12 @@ export function FilesLibrary({
   const desktopMenu = menu && !menu.phone ? menu : null
 
   const gridCols = mode === "pick" ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-5"
-  const sources = kind === "video" ? VIDEO_SOURCES : SOURCES
+  const sources = kind === "video" ? VIDEO_SOURCES : kind === "media" ? MEDIA_SOURCES : SOURCES
   /* The bar's words stay as they were while it slides away, rather than reading "Add 0". */
   const lastCount = React.useRef(0)
   if (ticked.length) lastCount.current = ticked.length
   const count = ticked.length || lastCount.current
-  const nouns = kind === "video" ? ["video", "videos"] : ["picture", "pictures"]
+  const nouns = kind === "video" ? ["video", "videos"] : kind === "media" ? ["file", "files"] : ["picture", "pictures"]
 
   return (
     <div
@@ -1211,7 +1311,7 @@ export function FilesLibrary({
           <input
             ref={input}
             type="file"
-            accept={kind === "video" ? Object.keys(VIDEO_TYPES).join(",") : IMAGE_ACCEPT}
+            accept={kind === "video" ? VIDEO_ACCEPT : kind === "media" ? `${IMAGE_ACCEPT},${VIDEO_ACCEPT}` : IMAGE_ACCEPT}
             multiple
             className="hidden"
             onChange={(e) => {
@@ -1221,14 +1321,14 @@ export function FilesLibrary({
             }}
           />
         </div>
-        <SourcePills sources={sources} value={source} onChange={chooseSource} />
+        <SourcePills sources={sources} value={source} onChange={chooseSource} onWarm={warmPill} />
         {error && files === null ? <Notice>{error}</Notice> : null}
       </div>
 
       <div ref={viewRef} className={cn("relative", fill && "flex min-h-0 flex-1 flex-col overflow-hidden")}>
         <div
           ref={scrollRef}
-          className={cn(fill && "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-0.5 sm:px-5 sm:pb-5", fill && selecting && "pb-[calc(88px+env(safe-area-inset-bottom))] sm:pb-24")}
+          className={cn(fill && "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-1.5 sm:px-5 sm:pb-5", fill && selecting && "pb-[calc(88px+env(safe-area-inset-bottom))] sm:pb-24")}
           data-files-scroll={fill ? "" : undefined}
         >
           <div ref={gridWrapRef} className={cn("relative rounded-2xl transition-[box-shadow]", dragOver && "shadow-[0_0_0_2px_#1a1a2e]")}>
@@ -1244,7 +1344,7 @@ export function FilesLibrary({
                   <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e3e5e8] px-4 py-10 text-center" data-files-empty="">
                     <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? "No files yet" : "Nothing matches"}</p>
                     <p className="mt-1 text-[13px] text-[#6b7280]">
-                      {files.length === 0 ? (kind === "video" ? "Upload a video here, or drop one in." : "Upload pictures here, or drop them in, and use them anywhere on your website.") : "Try another word or filter."}
+                      {files.length === 0 ? (kind === "video" ? "Upload a video here, or drop one in." : kind === "media" ? "Upload pictures and videos here, or drop them in, and use them anywhere on your website and products." : "Upload pictures here, or drop them in, and use them anywhere on your website.") : "Try another word or filter."}
                     </p>
                   </div>
                 ) : null}
@@ -1307,7 +1407,7 @@ export function FilesLibrary({
       {!fill && selecting ? (
         <div className="sticky bottom-[calc(var(--app-nav-top,0px)+10px)] z-[3] md:bottom-4" data-files-bulk-bar="">
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5e7eb] bg-white p-2 pl-4 shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]">
-            <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">{ticked.length ? `${ticked.length} selected` : "Tap pictures to select them"}</span>
+            <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">{ticked.length ? `${ticked.length} selected` : kind === "image" ? "Tap pictures to select them" : "Tap files to select them"}</span>
             {shown.length > 0 ? (
               <button type="button" className="h-9 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" onClick={() => setTicked(ticked.length === shown.length ? [] : shown.map((f) => f.id))}>
                 {ticked.length === shown.length ? "Clear" : "Select all"}
@@ -1469,7 +1569,7 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
           <div className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 sm:grid-cols-[minmax(0,1fr)_220px] sm:px-5 sm:py-5">
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-[#eceef1] bg-[#f3f4f6]">
               {isVideo(f) ? (
-                <video key={f.id} src={f.url} controls muted playsInline preload="metadata" className="absolute inset-0 h-full w-full bg-black object-contain" />
+                <video key={f.id} src={f.url} poster={f.poster ?? undefined} controls muted playsInline preload="metadata" className="absolute inset-0 h-full w-full bg-black object-contain" />
               ) : (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img

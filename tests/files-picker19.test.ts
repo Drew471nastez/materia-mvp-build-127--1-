@@ -43,7 +43,7 @@ check("the thumbnail helper uses no metered storage transform", !/render\/image/
 console.log("\nA tile: decoded off the main thread, lazy after the first rows, fixed square, fade once decoded")
 check("decoding is async", /decoding="async"/.test(lib))
 check("eager only for the first rows, lazy after", /loading=\{index < EAGER \? "eager" : "lazy"\}/.test(lib) && /const EAGER = 12/.test(lib))
-check("a fixed square box with a quiet grey in it", /aspect-square w-full bg-\[#f3f4f6\]/.test(lib))
+check("a fixed square box with a quiet grey in it", /aspect-square w-full overflow-hidden bg-\[#f3f4f6\]/.test(lib))
 check("shown once decoded, written onto the element, not through React state", /img\.decode\(\)\.then\(show, show\)/.test(lib) && /img\.dataset\.loaded = ""/.test(lib))
 check("a picture the browser already has is there at once, no fade", /data-\[instant\]:transition-none/.test(lib) && /img\.complete && img\.naturalWidth > 0/.test(lib))
 check("the fade is opacity only, 200ms", /opacity-0 transition-opacity duration-200/.test(lib))
@@ -69,15 +69,22 @@ check("Delete is the existing owner only endpoint", /api\("\/api\/files", \{ met
 check("Download saves through the shared helper (a blob in a browser, the system browser in the app)", /saveFile\(\{/.test(lib) && /savedMessage\(outcome, noun\(f\)\)/.test(lib) && /isVideo\(f\) \? "Video" : "Picture"/.test(lib))
 check("a dropdown held against moving dots closes on a scroll", /addEventListener\("scroll", close/.test(lib))
 
-console.log("\nA switch: cached, no empty frame, a short cross fade")
+console.log("\nA switch: cached, no empty frame, nothing fades")
 /* Kept per kind (pictures, videos), so the video chooser has its own list. */
-check("the list is kept for the session and shown at once", /const kept: Record<LibraryKind, LibraryFile\[\] \| null> = \{ image: null, video: null \}/.test(lib) && /useState<LibraryFile\[\] \| null>\(\(\) => kept\[kind\]\)/.test(lib))
+check("the list is kept for the session and shown at once", /const kept: Record<LibraryKind, LibraryFile\[\] \| null> = \{ image: null, video: null, media: null \}/.test(lib) && /useState<LibraryFile\[\] \| null>\(\(\) => kept\[kind\]\)/.test(lib))
 check("a pill only hides tiles, it never rebuilds them", /hidden=\{at === undefined\}/.test(lib) && /files\.map\(\(f\) =>/.test(lib))
-/* Round 21 replaced the copy layer with the grid's own fade (tests/polish21.test.ts holds the details). */
-check("the grid fades out and in, opacity only, nothing copied", /\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(lib) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(lib) && !/cloneNode/.test(lib) && !/translate|scale\(/.test(lib.slice(lib.indexOf("const swapGrid"), lib.indexOf("const chooseSource"))))
+/*
+  Round 21 replaced the copy layer with the grid's own fade. Round H took the fade away: the grid going to white and
+  back was the flash the owner saw between pills (every tile on screen blank for two or three frames a switch). Now the
+  tiles that belong show and the rest are put away in the press itself, and nothing is animated or copied.
+*/
+const swap = lib.slice(lib.indexOf("const swapGrid"), lib.indexOf("const chooseSource"))
+check("a switch shows and puts away tiles in the same frame: no grid fade, nothing copied", !/\.animate\(/.test(swap) && !/opacity: 0/.test(swap) && /putAway\(li, !keep\.has/.test(swap) && !/cloneNode/.test(lib))
+check("  a picture that arrived while its tile was away is shown without a fade", /function notDrawn\(img: HTMLImageElement\)/.test(lib) && /contentVisibilityAuto: true/.test(lib) && /\[data-loaded\]:not\(\[data-instant\]\)/.test(lib))
+check("  every pill's first screen is fetched ahead, on idle and on a hover of its pill", /const warmPill = React\.useCallback/.test(lib) && /requestIdleCallback\(run/.test(lib) && /onPointerEnter=\{\(\) => onWarm\?\.\(s\)\}/.test(lib))
 /* Round W6: the pills are Storelib's segmented control (Support, Analytics), one white mark sliding under the chosen one rather than a black fill blinking from pill to pill. */
 check("the pills' mark slides over 200ms, on the compositor, every pill the same height", /data-files-pill-mark=""/.test(lib) && /transition-\[translate,width\] duration-200/.test(lib) && /translate: `\$\{mark\.x\}px 0`/.test(lib) && /inline-flex h-8 shrink-0 items-center rounded-lg/.test(lib))
-check("reduced motion: no fade", /prefers-reduced-motion: reduce/.test(lib))
+check("reduced motion: nothing on a switch moves anyway", !/\.animate\(/.test(swap))
 
 console.log("\nCopy")
 /* Spelled in pieces, so this file does not carry the words it looks for. */
