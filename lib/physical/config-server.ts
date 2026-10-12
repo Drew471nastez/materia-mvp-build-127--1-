@@ -162,6 +162,7 @@ export function rateFromRow(r: Record<string, any>): ShippingRate {
     maxDays: r.max_days ?? null,
     active: r.active !== false,
     position: Number(r.position ?? 0),
+    ...(r.kind === "carrier" ? { carrier: r.carrier ?? null, serviceCode: r.service_code ?? null } : {}),
   }
 }
 
