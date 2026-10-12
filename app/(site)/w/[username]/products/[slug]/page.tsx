@@ -79,7 +79,7 @@ export default async function SiteProductPage({ params }: PageProps) {
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
       {page}
       {/* The store's analytics and ad pixels (Settings › Integrations). */}
-      <StoreTracking creatorId={creator.creatorId} />
+      <StoreTracking creatorId={creator.creatorId} productSlug={slug} />
     </>
   )
 }

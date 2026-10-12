@@ -19,6 +19,8 @@
  * page says so rather than promise a purchase event it can't send.
  */
 
+import { GA_PAGE_JS, gaConsentJs, gaSeenJs, readGaInput, scriptJson, type GaItem } from "./ga"
+
 export type TrackerId = "ga4" | "gtm" | "google_ads" | "meta_pixel" | "tiktok_pixel" | "pinterest_tag" | "clarity" | "klaviyo" | "omnisend"
 
 export interface TrackerInfo {
@@ -149,7 +151,13 @@ export function tidyId(id: TrackerId, typed: unknown): string | null | "bad" {
   const letters = TRACKERS[id].letters ?? "upper"
   const v = letters === "exact" ? bare : letters === "lower" ? bare.toLowerCase() : bare.toUpperCase()
   if (!v) return null
-  return TRACKERS[id].pattern.test(v) ? v : "bad"
+  if (TRACKERS[id].pattern.test(v)) return v
+  /* Google Analytics: the ID inside the snippet or the tag's address Google shows (lib/store/ga.ts readGaInput). Never code: only the G- ID found is kept. */
+  if (id === "ga4") {
+    const found = readGaInput(typed)
+    return found.ok ? found.id : "bad"
+  }
+  return "bad"
 }
 
 /** What is stored, read back: only IDs of the right shape survive. */
@@ -168,15 +176,25 @@ export function readTracking(stored: unknown): Tracking {
  * it. `src` is loaded as a script; `inline` runs once. Nothing here comes
  * from the store but the IDs, and each is checked again here.
  */
-export function trackingTags(stored: unknown): { key: string; src?: string; inline?: string }[] {
+export function trackingTags(stored: unknown, opts: { creatorId?: string | null; asks?: boolean } = {}): { key: string; src?: string; inline?: string }[] {
   const t = readTracking(stored)
   const tags: { key: string; src?: string; inline?: string }[] = []
   const gtagIds = [t.ga4, t.google_ads].filter(Boolean) as string[]
   if (gtagIds.length) {
     tags.push({ key: "gtag-src", src: `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gtagIds[0])}` })
+    /*
+      Never in a frame (the editor's canvas, the Website page's preview: the
+      owner looking at their own page is not a visit). Consent mode before
+      anything else (lib/store/ga.ts gaConsentJs): never
+      "denied" for every visitor, which is what keeps Google saying data
+      collection isn't active. Then each ID's config, which sends the first
+      page view; __slGaPage for the later pages of a page that changes
+      without a full load; and, for Analytics, the line that tells Storelib
+      Google took a hit (Settings shows "Receiving data").
+    */
     tags.push({
       key: "gtag",
-      inline: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());${gtagIds.map((id) => `gtag('config',${JSON.stringify(id)});`).join("")}`,
+      inline: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}(function(){try{if(window.self!==window.top)return}catch(e){return}${gaConsentJs(opts.asks !== false)}gtag('js',new Date());${gtagIds.map((id) => `gtag('config',${JSON.stringify(id)});`).join("")}${t.ga4 && opts.creatorId ? gaSeenJs([t.ga4], opts.creatorId) : ""}})();${GA_PAGE_JS}`,
     })
   }
   if (t.gtm) {
@@ -232,7 +250,7 @@ export const TRACKER_HOSTS = [...new Set(TRACKER_ORDER.flatMap((id) => TRACKERS[
  * number, value and currency go: no name, no email, no address. Once told,
  * `paid` is taken off the address, so a reload is a later visit.
  */
-export function purchaseTags(stored: unknown, order: { id: string; valueCents: number; currency: string; quantity: number }): { key: string; inline: string }[] {
+export function purchaseTags(stored: unknown, order: { id: string; valueCents: number; currency: string; quantity: number; items?: GaItem[] }): { key: string; inline: string }[] {
   const t = readTracking(stored)
   if (!/^[A-Za-z0-9-]{1,64}$/.test(order.id) || !/^[A-Z]{3}$/.test(order.currency.toUpperCase())) return []
   const value = Math.max(0, Math.round(order.valueCents)) / 100
@@ -240,7 +258,9 @@ export function purchaseTags(stored: unknown, order: { id: string; valueCents: n
   const id = JSON.stringify(order.id)
   const qty = Math.max(1, Math.floor(order.quantity) || 1)
   const out: string[] = []
-  if (t.ga4 || t.google_ads) out.push(`if(window.gtag)gtag('event','purchase',{transaction_id:${id},value:${value},currency:${currency}});`)
+  /* With the products, when the page knows them, so GA's ecommerce reports name what sold (lib/store/ga.ts gaItem). */
+  const items = order.items?.length ? `,items:${scriptJson(order.items.slice(0, 50))}` : ""
+  if (t.ga4 || t.google_ads) out.push(`if(window.gtag)gtag('event','purchase',{transaction_id:${id},value:${value},currency:${currency}${items}});`)
   if (t.gtm) out.push(`window.dataLayer=window.dataLayer||[];dataLayer.push({event:'purchase',transaction_id:${id},event_id:${id},ecommerce:{transaction_id:${id},value:${value},currency:${currency}}});`)
   if (t.meta_pixel) out.push(`if(window.fbq)fbq('track','Purchase',{value:${value},currency:${currency}},{eventID:${id}});`)
   if (t.tiktok_pixel) out.push(`if(window.ttq)ttq.track('CompletePayment',{value:${value},currency:${currency},content_type:'product'},{event_id:${id}});`)
@@ -251,5 +271,7 @@ export function purchaseTags(stored: unknown, order: { id: string; valueCents: n
      page does not tell the pixels again; the order's id goes with each as its event id, for the
      services that drop a repeat (Meta eventID, TikTok event_id, Tag Manager transaction_id). */
   const unpaid = `try{var u=new URL(location.href);if(u.searchParams.has('paid')){u.searchParams.delete('paid');history.replaceState(history.state,'',u.pathname+u.search+u.hash);}}catch(e){}`
-  return [{ key: "purchase", inline: `(function(){var go=function(){try{${out.join("")}}catch(e){}${unpaid}};if(document.readyState==='complete')setTimeout(go,0);else window.addEventListener('load',function(){setTimeout(go,0)});})();` }]
+  /* Once per order in this browser too: a thank you page opened again tells nobody twice (sl_tx, lib/consent STORED). */
+  const once = `try{var k='sl_tx:'+${id};if(localStorage.getItem(k))return;localStorage.setItem(k,'1')}catch(e){}`
+  return [{ key: "purchase", inline: `(function(){var go=function(){${unpaid}${once}try{${out.join("")}}catch(e){}};if(document.readyState==='complete')setTimeout(go,0);else window.addEventListener('load',function(){setTimeout(go,0)});})();` }]
 }
