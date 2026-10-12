@@ -211,7 +211,8 @@ async function main() {
     const results = code("components/explore/explore-communities-results.tsx")
     check("communities read with Show more are kept for the way back", /export function keepMoreCommunities/.test(cache) && /keepMoreCommunities\(query, \{ items: \[\.\.\.shown\.items/.test(results))
     check("and an older answer is not swapped for a first page under the visitor", /if \(!hit\.stale \|\| hasMoreThanFirstPage\(hit\)\) return/.test(results))
-    check("Explore comes in with round 11's one settle fade, not a second fade of this round's on top", /html\.explore-scroll-settling:not\(\.explore-scroll-restoring\) \.explore-ground \{\s*animation: explore-return/.test(read("app/globals.css")) && !/html:not\(\.explore-scroll-restoring\) \.explore-ground/.test(read("app/globals.css")))
+    /* Round 25: that one fade now belongs to the reveal after a hold (html.explore-scroll-revealing); a return put back before its first frame has none (tests/explore25). */
+    check("Explore comes in with round 11's one settle fade, not a second fade of this round's on top", /html\.explore-scroll-revealing:not\(\.explore-scroll-restoring\) \.explore-ground \{\s*animation: explore-return/.test(read("app/globals.css")) && !/html:not\(\.explore-scroll-restoring\) \.explore-ground/.test(read("app/globals.css")))
     check("the checkout still leaves through history, never into a loop", /canReturnInApp\(\)/.test(code("app/checkout/checkout-client.tsx")) && /backThen\(\(\) => \(path \? router\.replace\(path\)/.test(code("app/checkout/checkout-client.tsx")))
   }
 
