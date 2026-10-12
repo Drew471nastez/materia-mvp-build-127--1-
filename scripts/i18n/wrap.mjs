@@ -74,14 +74,6 @@ function isServerFile(rel, text) {
 
 const q = (s) => JSON.stringify(s)
 
-function varsText(values, sourceText, sf) {
-  if (!values?.length) return ""
-  const parts = values.map(([name, expr]) => {
-    const code = sourceText.slice(expr.getStart(sf), expr.getEnd())
-    return code === name ? name : `${name}: ${code}`
-  })
-  return `, { ${parts.join(", ")} }`
-}
 
 for (const rel of files) {
   const path = `${root}/${rel}`
@@ -111,35 +103,68 @@ for (const rel of files) {
     }
     return true
   })
-  /* Outermost first: a finding inside another's range is carried by it. */
+  /*
+   * Outermost first. A finding inside another's range is carried by it: the
+   * outer one's values are written from the source with the inner ones
+   * already in tt(), so "Order cancelled. ${error || "The refund did not go
+   * through."}" translates both sentences.
+   */
   todo.sort((a, b) => a.start - b.start || b.end - a.end)
-  const kept = []
-  for (const f of todo) {
-    if (kept.length && f.start < kept[kept.length - 1].end) continue
-    kept.push(f)
+  const within = (inner, outer) => inner !== outer && inner.start >= outer.start && inner.end <= outer.end
+  const top = todo.filter((f) => !todo.some((o) => within(f, o)))
+  const childrenIn = (lo, hi) => {
+    const inside = todo.filter((f) => f.start >= lo && f.end <= hi)
+    return inside.filter((f) => !inside.some((o) => within(f, o)))
+  }
+  const codeWith = (lo, hi) => {
+    let code = text.slice(lo, hi)
+    for (const c of childrenIn(lo, hi).sort((a, b) => b.start - a.start)) {
+      code = code.slice(0, c.start - lo) + render(c, true) + code.slice(c.end - lo)
+      wrapped++
+    }
+    return code
+  }
+  const vars = (values) => {
+    if (!values?.length) return ""
+    const parts = values.map(([name, expr]) => {
+      const code = codeWith(expr.getStart(sf), expr.getEnd())
+      return code === name ? name : `${name}: ${code}`
+    })
+    return `, { ${parts.join(", ")} }`
+  }
+  function render(f, nested = false) {
+    if (f.kind === "text") return `{tt(${q(f.text)}${vars(f.values)})}`
+    const call = f.template ? `tt(${q(f.text)}${vars(f.values)})` : `tt(${q(f.node.text)})`
+    const inAttr = f.node.parent && ts.isJsxAttribute(f.node.parent)
+    return inAttr && !nested ? `{${call}}` : call
   }
   const edits = [] // { start, end, text }
   const getters = new Map() // property node → list of inner edits
-  for (const f of kept) {
-    let replacement
+  for (const f of top) {
     if (f.kind === "text") {
       const first = f.nodes[0]
       const last = f.nodes[f.nodes.length - 1]
       let start = first.getStart(sf)
       let end = last.getEnd()
-      if (ts.isJsxText(first)) start = first.getStart(sf) + (first.text.length - first.text.replace(/^\s+/, "").length)
-      if (ts.isJsxText(last)) end = last.getEnd() - (last.text.length - last.text.replace(/\s+$/, "").length)
-      replacement = `{tt(${q(f.text)}${varsText(f.values, text, sf)})}`
-      edits.push({ start, end, text: replacement })
+      if (ts.isJsxText(first)) {
+        const raw = first.text
+        let skip = raw.length - raw.replace(/^\s+/, "").length
+        if (f.lead && raw.slice(skip).startsWith(f.lead)) skip += f.lead.length
+        start = first.pos + skip
+      }
+      if (ts.isJsxText(last)) {
+        const raw = last.text
+        let skip = raw.length - raw.replace(/\s+$/, "").length
+        if (f.trail && raw.slice(0, raw.length - skip).endsWith(f.trail)) skip += f.trail.length
+        end = last.getEnd() - skip
+      }
+      edits.push({ start, end, text: render(f) })
       wrapped++
       continue
     }
-    const node = f.node
-    const call = f.template ? `tt(${q(f.text)}${varsText(f.values, text, sf)})` : `tt(${q(node.text)})`
-    const inAttr = node.parent && ts.isJsxAttribute(node.parent)
-    replacement = inAttr ? `{${call}}` : call
-    if (atModuleLevel(node)) {
-      const prop = moduleProperty(node)
+    const replacement = render(f)
+    if (atModuleLevel(f.node)) {
+      const prop = moduleProperty(f.node)
       if (!prop || !ts.isObjectLiteralExpression(prop.parent) || ts.isComputedPropertyName(prop.name)) {
         manual.push(`${rel}:${f.line}\tmodule-level\t${f.text}`)
         continue

@@ -155,6 +155,11 @@ export function looksLikeWords(raw) {
   const s = raw.trim()
   if (!s || !hasLetter(s)) return false
   if (s.length > 600) return false
+  /* Markup, SVG path data, data URLs, CSS selectors. */
+  if (/^\s*</.test(s) && />\s*$/.test(s)) return false
+  if (/^[MmLlHhVvCcSsQqTtAaZz][\d\s.,MmLlHhVvCcSsQqTtAaZz-]*$/.test(s) && /\d/.test(s)) return false
+  if (/data:image|xmlns|%3C|%22/.test(s)) return false
+  if (/^[\w\-#.:[\]=*"'>~+ ,()]+$/.test(s) && /\[[\w-]+(=[^\]]*)?\]|^\w+\[|:(hover|focus|not|has|is)\(/.test(s)) return false
   /* Code in a string: a shader, a script, a selector. */
   if (/;\s*\S/.test(s) && /\b(void|vec[234]|uniform|attribute|varying|function|return|const|var|let)\b|=>|\{\s*$/.test(s)) return false
   if (/^(Authorization|Content-Type|Accept|Cache-Control|Bearer|Basic)\b/.test(s)) return false
@@ -401,6 +406,20 @@ export function placeholderName(expr, used) {
   return name
 }
 
+/** A message with each {placeholder} (plurals too, braces balanced) said as "x". */
+export function flattenMessage(message) {
+  let out = ""
+  let depth = 0
+  for (const c of message) {
+    if (c === "{") {
+      if (depth === 0) out += "x"
+      depth++
+    } else if (c === "}") depth = Math.max(0, depth - 1)
+    else if (depth === 0) out += c
+  }
+  return out
+}
+
 function unwrapExpr(e) {
   while (e && (ts.isParenthesizedExpression(e) || ts.isNonNullExpression(e) || ts.isAsExpression(e))) e = e.expression
   return e
@@ -512,6 +531,14 @@ export function isInlineValue(expr) {
   if (ts.isIdentifier(e)) return !/^[A-Z]/.test(e.text) && !/(icon|Icon|node|Node|element|Element|children|content|Content|slot|Slot|jsx|badge|Badge|chip|button|Button|menu|Menu|link|Link|mark|Mark)$/.test(e.text)
   if (ts.isPropertyAccessExpression(e)) return !/(icon|Icon|node|Node|element|Element|children|content|Content|jsx|Badge|badge|chip|button|link|Link|mark)$/.test(e.name.text)
   if (ts.isNumericLiteral(e)) return true
+  /* index + 1, total - done */
+  if (ts.isBinaryExpression(e) && [ts.SyntaxKind.PlusToken, ts.SyntaxKind.MinusToken, ts.SyntaxKind.AsteriskToken, ts.SyntaxKind.SlashToken].includes(e.operatorToken.kind)) {
+    const side = (x) => {
+      const u = unwrapExpr(x)
+      return ts.isNumericLiteral(u) || ts.isIdentifier(u) || ts.isPropertyAccessExpression(u)
+    }
+    return side(e.left) && side(e.right) && (ts.isNumericLiteral(unwrapExpr(e.left)) || ts.isNumericLiteral(unwrapExpr(e.right)) || e.operatorToken.kind !== ts.SyntaxKind.PlusToken)
+  }
   if (ts.isCallExpression(e)) {
     const n = calleeName(e.expression).split(".").pop() || ""
     return /^(format\w*|\w*Date\w*|\w*Time\w*|\w*Money\w*|\w*Price\w*|\w*Count\w*|\w*Number\w*|\w*Amount\w*|\w*Label|\w*Name|\w*Text|String|toLocaleString|toLocaleDateString|toLocaleTimeString|toFixed|toString|join|trim|plural\w*|percent\w*|money|price|ago|relative\w*|when|since|until)$/i.test(n) && !/^(render|use)/.test(n)
@@ -568,9 +595,26 @@ export function scanSource(sourceText, fileName = "file.tsx") {
         let message = state.message
         const values = state.values
         message = message.replace(/[ \t]+/g, " ")
+        /* A separator at either end stays outside: " · Refunded" is "·" and "Refunded". */
+        let lead = ""
+        let trail = ""
+        if (ts.isJsxText(run[0])) {
+          const m = message.match(/^[·•|—–]\s*/)
+          if (m) {
+            lead = m[0]
+            message = message.slice(lead.length)
+          }
+        }
+        if (ts.isJsxText(run[run.length - 1])) {
+          const m = message.match(/\s*[·•|—–]$/)
+          if (m) {
+            trail = m[0]
+            message = message.slice(0, -trail.length)
+          }
+        }
         const translatable = looksLikeTextRun(message)
         for (const k of run) seenText.add(k)
-        if (translatable) push({ kind: "text", text: message, node: run[0], nodes: [...run], values, start: run[0].getStart(sf), end: run[run.length - 1].getEnd(), translated: false })
+        if (translatable) push({ kind: "text", text: message, lead, trail, node: run[0], nodes: [...run], values, start: run[0].getStart(sf), end: run[run.length - 1].getEnd(), translated: false })
       }
       run = []
     }
@@ -613,7 +657,7 @@ export function scanSource(sourceText, fileName = "file.tsx") {
       if (pos) {
         const { message, values } = templateMessage(node)
         const bare = message.replace(/\{\w+\}/g, " ").trim()
-        if (looksLikeWords(bare.length > 1 ? message.replace(/\{\w+\}/g, "x") : "") && /\p{L}{2,}/u.test(bare) && !/^[\s\W]*$/.test(bare) && !/[[\]]|^\/|https?:|^[\w-]+=|\.(png|jpe?g|webp|svg|css|js)\b|[{};]$/.test(message) && !/^(\{\w+\}[\s\-_/:.,]*)+$/.test(message)) {
+        if (looksLikeWords(bare.length > 1 ? flattenMessage(message) : "") && /\p{L}{2,}/u.test(bare) && !/^[\s\W]*$/.test(bare) && !/[[\]]|^\/|https?:|^[\w-]+=|\.(png|jpe?g|webp|svg|css|js)\b|[{};]$/.test(flattenMessage(message)) && !/^(\{\w+\}[\s\-_/:.,]*)+$/.test(message)) {
           if (pos !== "error") push({ kind: pos === "attr?" ? "attr" : pos, text: message, values, node, start: node.getStart(sf), end: node.getEnd(), translated: false, template: true })
         }
       }
