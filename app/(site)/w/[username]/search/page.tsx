@@ -13,6 +13,7 @@ import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { pageNumberOf } from "@/lib/website-builder/tab-title"
 
 /**
  * ===========================================================================
@@ -39,9 +40,12 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { username } = await params
-  const base = await siteMetadata(username, undefined, "products")
+  const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
+  const q = Array.isArray(asked.q) ? asked.q[0] : asked.q
+  /* "Search: <words> | <store>" (lib/website-builder/tab-title.ts). */
+  const base = await siteMetadata(username, undefined, "search", null, { page: { kind: "search", query: q ?? "" }, pageNumber: pageNumberOf(asked.page) })
   /* Search results are not a page to index, and so name no canonical. */
   return { ...base, alternates: undefined, robots: { index: false, follow: true } }
 }

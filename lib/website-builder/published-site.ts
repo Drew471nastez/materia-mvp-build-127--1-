@@ -75,6 +75,7 @@ import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { StorefrontData } from "@/lib/storelib-theme/types"
+import { siteStoreName, siteTabTitle } from "./tab-title"
 
 /** The product a product page is about, as a section reads it. */
 type StorefrontProduct = StorefrontData["product"]
@@ -584,10 +585,10 @@ export async function publishedNotFoundPage(name: string): Promise<NotFoundPage 
   const title = pageTitleFromKey(NOT_FOUND_PAGE_KEY)
   const { sections, data } = await dressPage(site, linked, products, productCount, template, title)
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, { shop: { name: site.profile?.storeName || site.displayName } })
-  const brand = typeof site.themeSettings.brand_name === "string" ? site.themeSettings.brand_name.trim() : ""
   return {
     template,
-    title: `${title} | ${brand || site.displayName}`,
+    /* "Page not found | <store>", as every page of the site names itself (./tab-title.ts). */
+    title: siteTabTitle({ page: { kind: "not-found" }, storeName: siteStoreName({ brandName: site.themeSettings.brand_name, storeName: site.profile?.storeName, displayName: site.displayName }) }),
     theme: site.themeSettings,
     sections,
     prerendered,

@@ -6,6 +6,9 @@ import { Reveal } from "@/components/ui/reveal"
 import { cn } from "@/lib/utils"
 import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, typedPageSeo, withPageSeo } from "@/lib/website-builder/page-seo"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
+import { storeNameFor } from "./seo"
+import { siteTabTitle } from "@/lib/website-builder/tab-title"
+import { pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, buttonClass, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext, SitePage } from "./types"
 
@@ -22,9 +25,13 @@ const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
  */
 export function PageSettings({ ctx }: { ctx: SettingsContext }) {
   const [open, setOpen] = useState<string | null>(null)
-  const handle = ctx.websiteUrlDisplay.split(".")[0] || "Storelib"
-  const brand = str(ctx.settings.brand_name) || handle
+  /* The live page's own rule for its tab (lib/website-builder/tab-title.ts), so the placeholder is what the tab says. */
+  const brand = storeNameFor(ctx)
   const siteDescription = str(ctx.settings.seo_description) || `Visit ${brand}'s website on Storelib`
+  const titleOf = (key: string) =>
+    key === "home"
+      ? siteTabTitle({ page: { kind: "home" }, storeName: brand, siteTitle: str(ctx.settings.seo_title) })
+      : siteTabTitle({ page: key === "404" ? { kind: "not-found" } : { kind: "page", name: pageTitleFromKey(key) }, storeName: brand })
 
   return (
     <>
@@ -40,7 +47,7 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
             page={page}
             open={open === page.key}
             onOpen={() => setOpen((o) => (o === page.key ? null : page.key))}
-            defaults={{ title: `${page.name} | ${brand}`, description: siteDescription }}
+            defaults={{ title: titleOf(page.key), description: siteDescription }}
           />
         ))}
       </Card>

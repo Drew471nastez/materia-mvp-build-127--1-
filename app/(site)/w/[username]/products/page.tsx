@@ -13,6 +13,7 @@ import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { pageNumberOf } from "@/lib/website-builder/tab-title"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -31,10 +32,11 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { username } = await params
-  // "Products | brand", through the same metadata rules as every other page.
-  return siteMetadata(username, undefined, "products")
+  const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
+  // "Shop | brand", through the same metadata rules as every other page; "Shop | Page 2 | brand" past the first.
+  return siteMetadata(username, undefined, "products", null, { pageNumber: pageNumberOf(asked.page) })
 }
 
 /**

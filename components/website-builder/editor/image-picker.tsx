@@ -35,7 +35,7 @@
  * editor does, the way SliderNumberControl already does for the frame probe.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { ChevronDown, FolderOpen, ImageIcon, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
@@ -72,6 +72,7 @@ export function WbImagePicker({
   onAddMany,
   max,
   library = true,
+  aside,
 }: {
   value: string | undefined
   onChange: (url: string | null) => void
@@ -93,10 +94,14 @@ export function WbImagePicker({
   /**
    * "row" is the section setting's picker: a thumbnail and its two actions on
    * one line, about 64px, rather than a 16:9 box the width of the sidebar.
-   * "box" stays for Website settings' logo and favicon, where the picture is
-   * the whole point of the panel.
+   * "box" stays for Website settings' logo, where the picture is the whole
+   * point of the panel. "icon" is Website settings' favicon: a small square
+   * tile with Upload, or Replace and Remove, beside it, the whole row a
+   * place to drop a picture.
    */
-  layout?: "box" | "row"
+  layout?: "box" | "row" | "icon"
+  /** Drawn at the end of the "icon" row, inside its drop area: the browser tab the favicon sits in. */
+  aside?: ReactNode
   bucket?: "product-images" | "avatars" | "covers" | "store-builder-images"
   folder?: string
 }) {
@@ -442,6 +447,105 @@ export function WbImagePicker({
    * local copy painted at once, the cross fade, the sweep while a stored
    * picture loads) is the same component underneath, unchanged.
    */
+  /*
+   * ═════════════════════════════════════════════════════════════════════
+   *  THE FAVICON, AS SMALL AS A FAVICON
+   * ═════════════════════════════════════════════════════════════════════
+   * Website settings' favicon was the logo's big dashed box, about 260px
+   * tall for a picture a browser draws at 16 (round I, the owner: "make the
+   * favicon picker smaller ... not that big"). Now it is a 48px tile on a
+   * checkerboard, so a transparent icon reads as one, with its actions as
+   * words beside it and the browser tab it sits in after them. The whole
+   * row takes a dropped picture. The upload, its checks, the local copy
+   * painted at once and the fade are the same as every other layout's.
+   */
+  if (layout === "icon") {
+    const shown = url || preview
+    const textButton = "inline-flex h-8 items-center rounded-md px-1.5 text-[13px] font-medium transition-colors disabled:opacity-40 max-sm:h-10 max-sm:px-2"
+    return (
+      <div data-wb-image-picker={shown ? "filled" : "empty"} data-wb-image-layout="icon">
+        <div
+          role="group"
+          aria-label={shown ? "Favicon" : "Add favicon"}
+          className={cn(
+            "-m-1.5 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl p-1.5 transition-colors",
+            dragOver && "bg-black/[0.04] ring-1 ring-black/15 dark:bg-white/[0.05] dark:ring-white/20",
+          )}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false) }}
+          onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const file = e.dataTransfer.files[0]; if (file) void handleFile(file) }}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={pick}
+              disabled={uploading}
+              aria-label={shown ? "Replace favicon" : "Upload favicon"}
+              data-wb-image-box=""
+              className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[10px] border border-black/[0.08] bg-white transition-colors hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:border-white/[0.12] dark:bg-[#232323] dark:hover:border-white/25 dark:focus-visible:ring-white/30"
+              style={{ backgroundImage: "conic-gradient(rgba(128,128,128,.14) 25%, transparent 0 50%, rgba(128,128,128,.14) 0 75%, transparent 0)", backgroundSize: "8px 8px" }}
+            >
+              {broken ? (
+                <span data-wb-image-layer="missing" className="absolute inset-0 flex items-center justify-center text-muted-foreground/60" aria-hidden>
+                  <ImageIcon className="h-4 w-4" />
+                </span>
+              ) : !shown ? (
+                <span className="absolute inset-0 flex items-center justify-center text-black/35 dark:text-white/35" aria-hidden>
+                  <ImageIcon className="h-[18px] w-[18px]" />
+                </span>
+              ) : !faded && (
+                preview
+                  ? <img src={preview} alt="" data-wb-image-layer="local" className="absolute inset-0 h-full w-full object-contain p-2" />
+                  : <span data-wb-image-layer="waiting" className="wb-image-skeleton absolute inset-0" aria-hidden />
+              )}
+              {url && !broken && (
+                <img
+                  key={`${url}#${tries}`}
+                  src={storedSrc ?? url}
+                  alt=""
+                  data-wb-image-layer="stored"
+                  ref={el => { if (el?.complete && el.naturalWidth > 0) setReadyUrl(url) }}
+                  onLoad={() => setReadyUrl(url)}
+                  onError={storedFailed}
+                  className={cn("wb-image-fade absolute inset-0 h-full w-full object-contain p-2", ready ? "opacity-100" : "opacity-0")}
+                />
+              )}
+              {uploading && (
+                <span className="absolute inset-0 z-10 flex items-center justify-center bg-white/55 dark:bg-black/45">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-foreground/70 border-t-transparent dark:border-white/80 dark:border-t-transparent" />
+                </span>
+              )}
+            </button>
+            <div className="min-w-0">
+              <div className="-ml-1.5 flex items-center">
+                <button type="button" disabled={uploading} onClick={pick} className={cn(textButton, "text-foreground hover:bg-black/[0.05] dark:text-white/90 dark:hover:bg-white/[0.07]")} data-wb-image-upload="">
+                  {uploading ? "Uploading" : shown ? "Replace" : "Upload"}
+                </button>
+                {shown && !uploading && (
+                  <button
+                    type="button"
+                    onClick={() => { showFile(null); onChange(null) }}
+                    className={cn(textButton, "text-muted-foreground hover:bg-black/[0.05] hover:text-foreground dark:text-white/50 dark:hover:bg-white/[0.07] dark:hover:text-white/85")}
+                    data-wb-image-remove=""
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {broken ? (
+                <p className="text-[12px] leading-snug text-amber-600 dark:text-amber-300/80">This picture could not be loaded</p>
+              ) : !shown ? (
+                <p className="text-[12px] leading-snug text-muted-foreground max-md:hidden dark:text-white/40">or drop one here</p>
+              ) : null}
+            </div>
+          </div>
+          {aside}
+        </div>
+        {fileInput}
+      </div>
+    )
+  }
+
   if (layout === "row") {
     /*
       THE PICTURE, NOT ITS NAME (round 22, the owner: "I don't want them to display the url, only the photos"). A file

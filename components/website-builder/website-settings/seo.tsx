@@ -2,22 +2,34 @@
 
 import { useState } from "react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
-import { Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass } from "./parts"
+import { BrowserTabPreview, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass } from "./parts"
+import { siteStoreName, siteTabTitle } from "@/lib/website-builder/tab-title"
+import { siteIconUrl } from "@/lib/website-builder/site-icon"
+import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import type { SettingsContext } from "./types"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
 
+/** The store's name as the live site says it: its brand name, else Store details', else the person's (lib/website-builder/tab-title.ts). */
+export function storeNameFor(ctx: SettingsContext): string {
+  const handle = ctx.websiteUrlDisplay.split(".")[0] || ""
+  return siteStoreName({ brandName: ctx.settings.brand_name, storeName: ctx.storeName, displayName: ctx.displayName, handle })
+}
+
 /**
- * The same fallbacks the published site uses (app/(site)/w/[username]/
- * render-site.tsx, siteMetadata), so the preview is what a search result
- * will actually say rather than what the fields happen to hold.
+ * The same rule the published site uses (lib/website-builder/tab-title.ts,
+ * read by app/(site)/w/[username]/render-site.tsx and an imported theme's
+ * live page), so the preview is what the tab and a search result will
+ * actually say rather than what the fields happen to hold.
  */
 function previewOf(ctx: SettingsContext) {
-  const handle = ctx.websiteUrlDisplay.split(".")[0] || "Storelib"
-  const brand = str(ctx.settings.brand_name).trim() || handle
+  const store = storeNameFor(ctx)
   return {
-    title: str(ctx.settings.seo_title).trim() || `${handle} | Storelib`,
-    description: str(ctx.settings.seo_description).trim() || `Visit ${brand}'s website on Storelib`,
+    store,
+    title: siteTabTitle({ page: { kind: "home" }, storeName: store, siteTitle: str(ctx.settings.seo_title) }),
+    /* What another page's tab reads like, said under the field. */
+    example: siteTabTitle({ page: { kind: "page", name: "About" }, storeName: store }),
+    description: str(ctx.settings.seo_description).trim() || `Visit ${store}'s website on Storelib`,
   }
 }
 
@@ -41,22 +53,27 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
 
       {/* What a search result looks like, drawn from the same fallbacks the
           live page uses, in a search page's own dark colours. */}
-      <div className="mt-5 md:mt-6">
+      <div className="mt-5 flex flex-col gap-3 md:mt-6">
+        {/* The home page's browser tab, exactly as it will read. */}
+        <BrowserTabPreview icon={faviconOf(ctx.settings as Record<string, unknown>) || siteIconUrl(ctx.settings as Record<string, unknown>, ctx.header ? [ctx.header] : []) || undefined} title={preview.title} />
         <SearchResultPreview address={ctx.websiteUrlDisplay || "yourname.storelib.com"} title={preview.title} description={preview.description} />
       </div>
 
       <Card footer={GOES_LIVE}>
-        <Row label="Site title" hint="The first line of a search result and the browser tab on your home page." stack htmlFor="wb-seo-title">
+        <Row label="Site title" hint="Your home page's browser tab and search result. Leave it empty to use your store name." stack htmlFor="wb-seo-title">
           <div className="flex flex-col gap-1.5">
             <input
               id="wb-seo-title"
               value={title}
               maxLength={120}
-              placeholder={preview.title}
+              placeholder={preview.store}
               onChange={(e) => ctx.onSettingChange("seo_title", e.target.value)}
               className={inputClass + " md:w-full"}
             />
-            <Counter value={title} max={60} />
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="min-w-0 truncate text-[12.5px] text-white/45" data-tab-example="">Other pages read like &ldquo;{preview.example}&rdquo;</p>
+              <Counter value={title} max={60} />
+            </div>
           </div>
         </Row>
         <Row label="Meta description" hint="The line under the title. One or two sentences about what you sell." stack htmlFor="wb-seo-description">

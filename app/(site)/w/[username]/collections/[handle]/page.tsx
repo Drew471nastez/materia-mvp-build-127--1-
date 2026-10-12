@@ -16,6 +16,7 @@ import { siteMetadata } from "../../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { pageNumberOf } from "@/lib/website-builder/tab-title"
 
 export const dynamic = "force-dynamic"
 
@@ -26,9 +27,18 @@ interface PageProps {
 
 const HANDLE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { username } = await params
-  return siteMetadata(username, undefined, "collections")
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const { username: segment, handle: rawHandle } = await params
+  const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
+  /*
+    THE COLLECTION'S OWN NAME. Every collection said "Collections | <store>":
+    the tab of Summer and of Sale alike. The same cached read the page makes.
+  */
+  const handle = decodeURIComponent(rawHandle).toLowerCase()
+  const found = HANDLE.test(handle) ? await publishedShopByName(splitSiteName(segment).name).catch(() => null) : null
+  const inIt = found?.kind === "site" ? await collectionMembers(found.site.creatorId, handle).catch(() => null) : null
+  const name = inIt?.collection.title?.trim()
+  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page) } : undefined)
 }
 
 /**

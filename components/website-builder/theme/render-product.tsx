@@ -41,6 +41,7 @@ import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/s
 import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
 import { publishedProductTheme } from "@/lib/website-builder/product-page-theme"
 import { imagesOnly } from "@/lib/media/video"
+import { siteTabTitle } from "@/lib/website-builder/tab-title"
 
 /**
  * How this product is priced, read on its own so the product read above
@@ -178,13 +179,15 @@ export async function productMetadata(
     if (handle) canonical = getProductShareUrl(handle, product.slug)
     index = productIndexable(product, handle || null)
   }
+  /* On a website, the tab every page of it uses: its SEO title exactly, else "<product> | <store>" (lib/website-builder/tab-title.ts). */
+  const tab = site ? siteTabTitle({ page: { kind: "product", name }, storeName: site.brand, ownTitle }) : null
   return {
-    title: site ? { absolute: ownTitle || `${name} | ${site.brand}` } : ownTitle || name,
+    title: tab ? { absolute: tab } : ownTitle || name,
     description,
     ...(canonical ? { alternates: { canonical } } : {}),
     ...(index ? {} : { robots: { index: false, follow: false } }),
     openGraph: {
-      title: ownTitle || name,
+      title: tab ?? (ownTitle || name),
       description,
       ...(canonical ? { url: canonical } : {}),
       ...(site ? { siteName: site.brand } : {}),
@@ -194,7 +197,7 @@ export async function productMetadata(
     },
     twitter: {
       card: ogImage ? "summary_large_image" : "summary",
-      title: ownTitle || name,
+      title: tab ?? (ownTitle || name),
       description,
       ...(ogImage ? { images: [ogImage] } : {}),
     },

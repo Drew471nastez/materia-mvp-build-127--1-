@@ -77,6 +77,8 @@ export function ProjectSettings({
   onRenamed,
   websiteUrl,
   websiteUrlDisplay,
+  storeName,
+  displayName,
   live,
   publishedAt,
   onRestored,
@@ -105,6 +107,9 @@ export function ProjectSettings({
   onRenamed: (name: string) => void
   websiteUrl: string
   websiteUrlDisplay: string
+  /** Store details' store name and the person's name: the store's name in the tab when the website gives none. */
+  storeName?: string
+  displayName?: string
   live: boolean
   publishedAt: string | null
   /** A backup has been written into the draft; the editor must reload it. */
@@ -246,6 +251,8 @@ export function ProjectSettings({
     name,
     websiteUrl,
     websiteUrlDisplay,
+    storeName,
+    displayName,
     live,
     publishedAt,
     settings,
