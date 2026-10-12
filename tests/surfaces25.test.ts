@@ -189,6 +189,38 @@ async function main() {
     check("shown after decode(), with a short fade, and never faded twice in one tab", /img\.decode\(\)\.then\(show, show\)/.test(soft) && /SEEN\.has\(file\) \? "seen" : "wait"/.test(soft) && /img\.complete && img\.naturalWidth > 0/.test(soft) && SOFT_IN_MS >= 120 && SOFT_IN_MS <= 220)
   }
 
+  console.log("\nThe tab bar's third icon")
+  {
+    const bar = code("components/nav/buyer-tab-bar.tsx")
+    const ms = Number(/export const SWAP_MS = (\d+)/.exec(bar)?.[1])
+    check("a bar that mounts draws its page's glyph on its first frame: no replay of the last bar's after the page landed", !/lastThird/.test(bar) && !/requestAnimationFrame\(\(\) => setShown/.test(bar) && /const here = key === shownKey/.test(bar))
+    check("within one bar: one footprint, opacity only, about five frames, eased so the slot never empties", ms > 0 && ms <= 120 && /transition: `opacity \$\{SWAP_MS\}ms \$\{here \? SWAP_IN : SWAP_OUT\}`/.test(bar) && !/scale: here/.test(bar), { ms })
+  }
+
+  console.log("\nArrivals that do not force the page's layout")
+  {
+    const scroll = code("lib/navigation/tab-scroll.ts")
+    const top = scroll.slice(scroll.indexOf("export function scrollPageToTop"), scroll.indexOf("export function accountPinnedScroll"))
+    check("the top is held by listening for a scroll, not by writing it on every frame", /window\.addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(top) && /if \(window\.scrollY > 0\) pin\(\)/.test(top) && !/requestAnimationFrame\(tick\)/.test(top))
+    const chrome = code("components/profile/profile-chrome-var.tsx")
+    check("the bar's height: read two frames after the arrival, written only when it changed", /frame = requestAnimationFrame\(apply\)/.test(chrome) && /if \(v === written/.test(chrome) && !/\[120, 500, 1500\]/.test(chrome))
+    const tabs = code("components/library/library-tabs.tsx")
+    check("the library's pill row measures itself in its ResizeObserver, not in the commit", /new ResizeObserver\(\(\) => \{\s*measure\(\)/.test(tabs) && !/useLayoutEffect\(\(\) => \{\s*if \(!shows\) return\s*measure\(\)/.test(tabs))
+    const ui = code("components/library/library-ui.ts")
+    check("one date formatter for a list, not one per row", /SHORT_DATE \?\?= new Intl\.DateTimeFormat/.test(ui) && !/toLocaleDateString/.test(ui))
+  }
+
+  console.log("\nThe library")
+  {
+    const fade = code("components/account/account-nav-fade.tsx")
+    const css = read("app/globals.css")
+    check("arriving at the library lands from most of the way there, never a blank first frame", /onLibrary \? "library-land" : LANDING_CLASS/.test(fade) && /@keyframes library-land \{\s*from \{ opacity: 0\.55; \}/.test(css) && /\.library-land \{\s*animation: none;/.test(css))
+    for (const f of ["components/library/product-row.tsx", "components/library/library-memberships.tsx", "components/library/library-product.tsx", "components/library/library-receipts.tsx", "components/library/library-reviews.tsx", "components/wishlist/wishlist-content.tsx", "components/courses/courses-index.tsx", "components/account/account-posts.tsx", "components/profile/profile-activity.tsx", "components/community/events/events-page.tsx", "components/community/events/event-detail.tsx"]) {
+      const c = code(f)
+      check(`${f}: its pictures arrive through SoftImg, no bare <img>`, /<SoftImg/.test(c) && !/<img\b/.test(c))
+    }
+  }
+
   console.log("\nWords")
   {
     const files = [
@@ -198,6 +230,9 @@ async function main() {
       "components/community/member/level-badge.tsx",
       "components/ui/soft-img.tsx",
       "lib/images/cover-file.ts",
+      "lib/navigation/tab-scroll.ts",
+      "components/profile/profile-chrome-var.tsx",
+      "components/library/library-tabs.tsx",
       "scripts/check-surfaces25.mjs",
       "scripts/render-surfaces25.tsx",
       "tests/surfaces25.test.ts",

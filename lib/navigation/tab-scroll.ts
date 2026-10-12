@@ -160,19 +160,28 @@ export function scrollPageToTop(opts?: { smooth?: boolean; frames?: number }): (
     document.body.scrollTop = 0
   }
   pin()
-  let n = 0
+  /*
+    HELD BY LISTENING, NOT BY POLLING (round 25, the owner: "switching Home and Profile: snappier, smooth"). The hold used to
+    write the scroll on every frame for 12 to 14 frames, and each write made the browser finish the arriving page's style
+    and layout on the spot, in the middle of its arrival: traced at 4x CPU on Profile, 28, 11 and 13ms of forced style per
+    frame on top of the page's own. Something that moves the page off the top (the router's own scroll, a layout putting
+    a mid page scroll back) sends a scroll event, which comes in the same frame a poll would have, before it is painted;
+    the page is put back only then. The hold lasts as long as the frames did.
+  */
   const max = Math.max(1, opts?.frames ?? 12)
-  let id = 0
-  const tick = () => {
-    if (cancelled) return clear()
-    pin()
-    if (++n >= max) return clear()
-    id = requestAnimationFrame(tick)
+  const onScroll = () => {
+    if (cancelled) return
+    if (window.scrollY > 0) pin()
   }
-  id = requestAnimationFrame(tick)
+  window.addEventListener("scroll", onScroll, { passive: true })
+  const end = window.setTimeout(() => {
+    window.removeEventListener("scroll", onScroll)
+    clear()
+  }, Math.round(max * 16.7))
   return () => {
     cancelled = true
-    cancelAnimationFrame(id)
+    window.clearTimeout(end)
+    window.removeEventListener("scroll", onScroll)
     clear()
   }
 }

@@ -24,6 +24,7 @@
  * already bought reads Going, the same mark a free event's answer gets, and
  * a full paid event reads Sold out.
  */
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Check, ChevronLeft, ChevronRight, Clock3, Lock, MapPin, PlayCircle, Video } from "lucide-react"
@@ -264,8 +265,9 @@ function EventRow({ event, zone, past }: { event: EventCardView; zone: string | 
         </span>
 
         {event.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={event.coverUrl} alt="" className="hidden h-[72px] w-[112px] shrink-0 rounded-lg object-cover sm:block" loading="lazy" />
+          <span className="relative hidden h-[72px] w-[112px] shrink-0 overflow-hidden rounded-lg bg-[#f1f2f4] sm:block">
+            <SoftImg src={event.coverUrl} width={112} className="absolute inset-0 h-full w-full object-cover" />
+          </span>
         ) : null}
       </Link>
     </li>
