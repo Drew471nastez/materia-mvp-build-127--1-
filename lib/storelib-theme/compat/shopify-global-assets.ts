@@ -319,9 +319,23 @@ const ASSETS: Record<string, string> = {
   "customer_area.js": CUSTOMER_AREA,
 }
 
-/** A helper script by the name a theme asks for it by, or null. */
+/**
+ * The names they are served under: a visitor reading the page's source sees
+ * Storelib's addresses, never a platform's name (`shopify_common.js` is
+ * served as `common.js`).
+ */
+const SERVED: Record<string, string> = {
+  "option_selection.js": "option-selection.js",
+  "api.jquery.js": "cart-api.js",
+  "shopify_common.js": "common.js",
+  "customer_area.js": "customer-area.js",
+}
+const BY_SERVED = Object.fromEntries(Object.entries(SERVED).map(([k, v]) => [v, k]))
+
+/** A helper script by the name a theme asks for it by, or by the name it is served under; null for anything else. */
 export function shopifyGlobalAsset(name: string): string | null {
-  return ASSETS[String(name).replace(/^\/+/, "").split("?")[0]] ?? null
+  const key = String(name).replace(/^\/+/, "").split("?")[0]
+  return ASSETS[key] ?? ASSETS[BY_SERVED[key] ?? ""] ?? null
 }
 
 /**
@@ -331,8 +345,11 @@ export function shopifyGlobalAsset(name: string): string | null {
  */
 export function shopifyGlobalAssetUrl(name: string): string | null {
   const key = String(name).replace(/^\/+/, "").split("?")[0]
-  return ASSETS[key] ? `/api/site-theme/shopify/${encodeURIComponent(key)}` : null
+  return ASSETS[key] ? `/api/site-theme/helpers/${encodeURIComponent(SERVED[key] ?? key)}` : null
 }
 
 /** The names, for tests and diagnostics. */
 export const SHOPIFY_GLOBAL_ASSETS = Object.keys(ASSETS)
+
+/** The names they are served under (app/api/site-theme/helpers). */
+export const SERVED_GLOBAL_ASSETS = Object.values(SERVED)
