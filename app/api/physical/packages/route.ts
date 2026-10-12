@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadPackages, readPackage } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -16,5 +17,6 @@ export async function POST(request: Request) {
   if (existing.length >= 30) return physicalJson({ error: "A shop can have up to 30 packages." }, 400)
   const { error } = await c.db.from("shipping_packages").insert({ ...read.row, creator_id: c.creatorId, is_default: existing.length === 0 })
   if (error) return physicalJson({ error: "The package could not be saved." }, 500)
+  readinessChanged(c)
   return physicalJson({ packages: await loadPackages(c.db, c.creatorId) })
 }

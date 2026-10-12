@@ -20,6 +20,7 @@ import { domains } from "./workflows/domains"
 import { onboarding } from "./workflows/onboarding"
 import { payments } from "./workflows/payments"
 import { payouts } from "./workflows/payouts"
+import { physical } from "./workflows/physical"
 import { products } from "./workflows/products"
 import { sales } from "./workflows/sales"
 import { security } from "./workflows/security"
@@ -28,7 +29,7 @@ import { unfinished } from "./workflows/unfinished"
 
 export type { CancelRequest, WorkflowContext }
 
-export const WORKFLOW_LIST: readonly Workflow[] = [onboarding, unfinished, products, payments, payouts, sales, customer, memberships, communities, subscriptions, domains, security]
+export const WORKFLOW_LIST: readonly Workflow[] = [onboarding, unfinished, products, physical, payments, payouts, sales, customer, memberships, communities, subscriptions, domains, security]
 
 export interface HandleResult {
   jobs: PlannedJob[]

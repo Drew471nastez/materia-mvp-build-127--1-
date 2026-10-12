@@ -67,6 +67,7 @@ import {
   websiteIndexable,
   type SitemapEntry,
 } from "./indexing"
+import { imagesOnly } from "@/lib/media/video"
 
 export const BASE = "https://storelib.com"
 /**
@@ -386,7 +387,7 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
       url: getProductShareUrl(username || "", row.slug),
       lastModified: lastmodOf(row.updated_at),
       /* Its pictures, so Google Images finds a product by what it looks like. */
-      images: [row.thumbnail_url, ...(row.gallery_urls ?? [])],
+      images: imagesOnly([row.thumbnail_url, ...(row.gallery_urls ?? [])]),
     })
   }
   return entries

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadPackages, readPackage } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -22,6 +23,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (read.ok === false) return physicalJson({ error: read.error }, 400)
   const { error } = await c.db.from("shipping_packages").update(read.row).eq("id", id).eq("creator_id", c.creatorId)
   if (error) return physicalJson({ error: "The package could not be saved." }, 500)
+  readinessChanged(c)
   return physicalJson({ packages: await loadPackages(c.db, c.creatorId) })
 }
 
@@ -44,5 +46,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     await makeDefaultPackage(c.db, c.creatorId, left[0].id)
     return physicalJson({ packages: await loadPackages(c.db, c.creatorId) })
   }
+  readinessChanged(c)
   return physicalJson({ packages: left })
 }

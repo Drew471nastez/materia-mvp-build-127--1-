@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadTaxRates, text } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -20,5 +21,6 @@ export async function POST(request: Request) {
   if (rows.some((r) => r.country === country && (r.region ?? "").toLowerCase() === (region ?? "").toLowerCase())) return physicalJson({ error: "There is already a rate for that place." }, 400)
   const { error } = await c.db.from("commerce_tax_rates").insert({ creator_id: c.creatorId, country, region, name: text(body?.name, 60) ?? "Tax", rate_bps: Math.round(percent * 100) })
   if (error) return physicalJson({ error: "The rate could not be saved." }, 500)
+  readinessChanged(c)
   return physicalJson({ taxRates: await loadTaxRates(c.db, c.creatorId) })
 }

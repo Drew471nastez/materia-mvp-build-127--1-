@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadProfiles, profileZones, readZonePlaces, text, zoneClash } from "@/lib/physical/config-server"
 
 export const runtime = "nodejs"
@@ -26,6 +27,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   const { error } = await c.db.from("shipping_zones").update(patch).eq("id", id).eq("creator_id", c.creatorId)
   if (error) return physicalJson({ error: "The zone could not be saved." }, 500)
+  readinessChanged(c)
   return physicalJson({ profiles: await loadProfiles(c.db, c.creatorId) })
 }
 
@@ -35,5 +37,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
   await c.db.from("shipping_zones").delete().eq("id", id).eq("creator_id", c.creatorId)
+  readinessChanged(c)
   return physicalJson({ profiles: await loadProfiles(c.db, c.creatorId) })
 }

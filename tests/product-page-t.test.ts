@@ -310,7 +310,11 @@ async function main() {
     check("with ids that do not change between draws", JSON.stringify(withProductBlocks(old).blocks!.map((b) => b.id)) === JSON.stringify(drawn.blocks!.map((b) => b.id)))
     check("keeps every stored setting", drawn.settings === old.settings)
     check("a section made since, with every block deleted, stays empty", !isLegacyProductSection({ type: "product", settings: { image_width: "55%" }, blocks: [] }))
-    check("a section with blocks is left alone", withProductBlocks({ ...old, blocks: [{ id: "x", type: "title", settings: {} }] }).blocks!.length === 1)
+    /* Changed on purpose (round H): a section with blocks keeps them, and one saved before the Product questions block gets that block once, under its description (lib/website-builder/product-page.ts withProductFaq). */
+    const withBlocks = withProductBlocks({ ...old, blocks: [{ id: "x", type: "title", settings: {} }] })
+    check("a section with blocks keeps its own, plus the product's questions once", withBlocks.blocks!.length === 2 && withBlocks.blocks![0].id === "x" && withBlocks.blocks![1].type === "product_faq" && withBlocks.settings.product_faq_seeded === true)
+    check("  and a creator who deletes that block keeps it deleted", withProductBlocks({ ...withBlocks, blocks: [withBlocks.blocks![0]] }).blocks!.length === 1)
+    check("  and the old switches' blocks carry the questions too", types.includes("product_faq") && types.indexOf("product_faq") === types.indexOf("description") + 1)
     check("the old fake review line is gone", !/128 reviews/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && legacyProductBlocks({}).every((b) => b.type !== "reviews"))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("the builder shows the same blocks in the sidebar when the page opens", /loaded = loaded\.map\(\(s\) => withProductBlocks\(s\)\)/.test(editor))

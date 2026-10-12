@@ -31,7 +31,7 @@
  */
 
 import * as React from "react"
-import { ChevronDown, Plus, Upload, X } from "lucide-react"
+import { ChevronDown, FolderOpen, Plus, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { combinationKey, combinations, normaliseOptions, variantName, type Combination } from "@/lib/physical/variants"
@@ -49,7 +49,11 @@ import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, FIELD, Field
 import { barcodeTyped, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { OptionsEditor, optionId, type OptionDraft } from "./variant-options"
 import { VariantTable } from "./variant-table"
-import { emptyRow, remapRows, renameValueInRows, rowsForCombinations, type VariantRow } from "./variant-rows"
+/* Redrawn only when the options or their callbacks change, not on every keystroke in a variant row. */
+const MemoOptionsEditor = React.memo(OptionsEditor)
+import { FilesLibraryChooser } from "@/components/files/files-library"
+import { fileThumb } from "@/lib/files/thumb"
+import { emptyRow, photoScopes, remapRows, renameValueInRows, rowsForCombinations, variantThumbSrc, type VariantRow } from "./variant-rows"
 
 export interface PhysicalEditorHandle {
   /** A sentence for what must be fixed before saving, or null. */
@@ -247,6 +251,11 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const stash = React.useRef(new Map<string, Row>())
   const [stockAt, setStockAt] = React.useState("")
   const [imageFor, setImageFor] = React.useState<{ keys: string[]; name: string } | null>(null)
+  /* "Choose from your files", for the variants the picker was opened for (and the scope chosen in it). */
+  const [filesFor, setFilesFor] = React.useState<{ keys: string[]; current: string | null } | null>(null)
+  /* Photos still uploading, by row key: the local preview each row shows meanwhile. */
+  const [pending, setPending] = React.useState<Record<string, string>>({})
+  const [photoError, setPhotoError] = React.useState<string | null>(null)
 
   const store = React.useMemo(() => storeFulfilment(ctx.settings.fulfillmentModel, ctx.settings.defaultLocationId, ctx.locations), [ctx])
 
@@ -349,41 +358,85 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const fulfilmentNow = ownFulfilment ? { method, locationId: shipsFrom || null } : store
   const printedAt = madeToOrder(fulfilmentNow.method, ctx.locations.find((l) => l.id === fulfilmentNow.locationId)) ? (ctx.locations.find((l) => l.id === fulfilmentNow.locationId) ?? null) : null
   const counted = trackInventory && !printedAt
-  const setRow = (key: string, patch: Partial<Row>) => {
+  /* Made once (onDirty is the editor's own useCallback), so the memoised variant rows (./variant-table.tsx) redraw only for their own changes. */
+  const setRow = React.useCallback((key: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (combinationKey(r.options) === key ? { ...r, ...patch } : r)))
     onDirty()
-  }
-  const patchRows = (keys: string[], patch: (r: Row) => Partial<Row>) => {
+  }, [onDirty])
+  const patchRows = React.useCallback((keys: string[], patch: (r: Row) => Partial<Row>) => {
     const want = new Set(keys)
     setRows((prev) => prev.map((r) => (want.has(combinationKey(r.options)) ? { ...r, ...patch(r) } : r)))
     onDirty()
+  }, [onDirty])
+  const pickImage = React.useCallback((keys: string[], name: string) => {
+    setPhotoError(null)
+    setImageFor({ keys, name })
+  }, [])
+  /*
+    A PHOTO UPLOADED FOR A VARIANT IS ITS PHOTO AT ONCE. The picker closes as
+    the file is chosen and the rows show a local preview of it while it
+    uploads (`pending`), then the uploaded address. Nothing is saved with a
+    local address: the rows keep their old photo until the upload answers,
+    and a failed upload puts them back and says so above the table.
+  */
+  const uploadFor = (keys: string[], file: File) => {
+    if (!uploadImage) return
+    const preview = URL.createObjectURL(file)
+    setPending((p) => ({ ...p, ...Object.fromEntries(keys.map((k) => [k, preview])) }))
+    setPhotoError(null)
+    uploadImage(file)
+      .then((url) => {
+        /* Warm the small copy the rows will ask for, so the swap from the preview is not a blank square. */
+        const warm = new Image()
+        warm.src = variantThumbSrc(url)
+        const swap = () => {
+          patchRows(keys, () => ({ imageUrl: url }))
+          setPending((p) => Object.fromEntries(Object.entries(p).filter(([k]) => !keys.includes(k))))
+          setTimeout(() => URL.revokeObjectURL(preview), 2000)
+        }
+        warm.decode().then(swap, swap)
+      })
+      .catch((err) => {
+        setPending((p) => Object.fromEntries(Object.entries(p).filter(([k]) => !keys.includes(k))))
+        URL.revokeObjectURL(preview)
+        setPhotoError(err instanceof Error && err.message ? err.message : "That photo could not be uploaded. Try again.")
+      })
   }
 
   /* Options, with the rows kept in step when a value is renamed or an option moves or goes. */
-  const setOptionsDirty = (update: (prev: OptionDraft[]) => OptionDraft[]) => {
+  /*
+    The options editor's callbacks keep their identity across draws (they read
+    the latest options through `optionsNow`, and only run on a tap), so the
+    memoised editor is not redrawn by a keystroke in a variant's price: that
+    redraw (its drag and drop included) was over half of each key's cost.
+  */
+  const optionsNow = React.useRef({ options, normalised })
+  optionsNow.current = { options, normalised }
+  const setOptionsDirty = React.useCallback((update: (prev: OptionDraft[]) => OptionDraft[]) => {
     setOptions(update)
     onDirty()
-  }
-  const renameValue = (i: number, from: string, to: string) => {
+  }, [onDirty])
+  const renameValue = React.useCallback((i: number, from: string, to: string) => {
+    const { options, normalised } = optionsNow.current
     const position = normalised.findIndex((n) => clean(n.name) === clean(options[i]?.name ?? ""))
     setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, values: o.values.map((v) => (v === from ? to : v)) } : o)))
     if (position >= 0) setRows((prev) => renameValueInRows(prev, position, from, to))
     onDirty()
-  }
-  const reshape = (next: OptionDraft[]) => {
-    const before = normalised.map((o) => o.name)
+  }, [onDirty])
+  const reshape = React.useCallback((next: OptionDraft[]) => {
+    const before = optionsNow.current.normalised.map((o) => o.name)
     const after = normaliseOptions(next.map((o) => ({ name: o.name, values: o.values }))).map((o) => o.name)
     setOptions(next)
     setRows((prev) => remapRows(prev, before, after))
     onDirty()
-  }
-  const moveOption = (from: number, to: number) => {
-    const next = [...options]
+  }, [onDirty])
+  const moveOption = React.useCallback((from: number, to: number) => {
+    const next = [...optionsNow.current.options]
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)
     reshape(next)
-  }
-  const removeOption = (i: number) => reshape(options.filter((_, j) => j !== i))
+  }, [reshape])
+  const removeOption = React.useCallback((i: number) => reshape(optionsNow.current.options.filter((_, j) => j !== i)), [reshape])
 
   /*
     A unit changed: what is typed is converted, so 1.5 kg becomes 1500 g and
@@ -535,6 +588,8 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const lowDefault = ctx.settings.lowStockDefault
   const imageRows = imageFor ? rows.filter((r) => imageFor.keys.includes(combinationKey(r.options))) : []
   const imageNow = imageRows.length && imageRows.every((r) => r.imageUrl === imageRows[0].imageUrl) ? imageRows[0].imageUrl : null
+  /* One variant's photo can go on every variant that shares one of its values: a colour's photo for every size. */
+  const imageScopes = imageFor ? photoScopes(imageFor.keys, imageFor.name, rows, normalised) : []
   const storeLine = fulfilmentSummary(store, ctx.locations)
   const ownLine = fulfilmentSummary({ method, locationId: method === "self" ? null : shipsFrom || null }, ctx.locations) + (method === "self" && shipsFrom ? `, from ${ctx.locations.find((l) => l.id === shipsFrom)?.name ?? "one place"}` : "")
   const nonDefaultProfiles = ctx.profiles.filter((p) => !p.isDefault)
@@ -609,7 +664,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
 
       {/* ── Variants ─────────────────────────────────────────────────── */}
       <Card id="physical-variants" title="Variants" description={multi ? "Every combination of your options is a variant with its own price, stock and photo." : "Sizes, colors or anything else it comes in. Each one gets its own price, stock and photo."}>
-        <OptionsEditor options={options} setOptions={setOptionsDirty} renameValue={renameValue} moveOption={moveOption} removeOption={removeOption} />
+        <MemoOptionsEditor options={options} setOptions={setOptionsDirty} renameValue={renameValue} moveOption={moveOption} removeOption={removeOption} />
         {multi ? (
           <VariantTable
             rows={rows}
@@ -622,9 +677,11 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
             weightUnit={weightUnit}
             setRow={setRow}
             patchRows={patchRows}
-            pickImage={(keys, name) => setImageFor({ keys, name })}
+            pickImage={pickImage}
+            pending={pending}
           />
         ) : null}
+        {multi && photoError ? <Notice className="mt-3">{photoError}</Notice> : null}
       </Card>
 
       {/* ── Shipping ─────────────────────────────────────────────────── */}
@@ -834,11 +891,28 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
         name={imageFor?.name ?? ""}
         value={imageNow}
         images={images}
-        uploadImage={uploadImage}
+        scopes={imageScopes}
+        canUpload={!!uploadImage}
         onClose={() => setImageFor(null)}
-        onPick={(url) => {
-          if (imageFor) patchRows(imageFor.keys, () => ({ imageUrl: url }))
+        onPick={(url, keys) => {
+          patchRows(keys, () => ({ imageUrl: url }))
           setImageFor(null)
+        }}
+        onUpload={(file, keys) => {
+          setImageFor(null)
+          uploadFor(keys, file)
+        }}
+        onBrowse={(keys) => {
+          setImageFor(null)
+          setFilesFor({ keys, current: imageNow })
+        }}
+      />
+      <FilesLibraryChooser
+        open={!!filesFor}
+        onClose={() => setFilesFor(null)}
+        selectedUrl={filesFor?.current ?? null}
+        onPick={(url) => {
+          if (filesFor) patchRows(filesFor.keys, () => ({ imageUrl: url }))
         }}
       />
     </div>
@@ -1046,27 +1120,56 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
   )
 }
 
+/**
+ * A variant's photo, chosen in one tap. The product's own photos first, as
+ * small copies (lib/files/thumb.ts) at a fixed square so nothing moves as
+ * they arrive; then Upload, and Your files ("Choose from your files", the
+ * app's one picker). With two options or more, a row of choices says which
+ * variants get it: only this one, or every variant with its colour or size.
+ * Choosing closes the picker and the row has the photo at once; an upload
+ * shows its preview in the row while it runs (CardsInner.uploadFor).
+ */
 function VariantImagePicker({
   open,
   name,
   value,
   images,
-  uploadImage,
+  scopes,
+  canUpload,
   onClose,
   onPick,
+  onUpload,
+  onBrowse,
 }: {
   open: boolean
   name: string
   value: string | null
   images: string[]
-  uploadImage?: (file: File) => Promise<string>
+  scopes: { label: string; keys: string[] }[]
+  canUpload: boolean
   onClose: () => void
-  onPick: (url: string | null) => void
+  onPick: (url: string | null, keys: string[]) => void
+  onUpload: (file: File, keys: string[]) => void
+  onBrowse: (keys: string[]) => void
 }) {
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
   const input = React.useRef<HTMLInputElement>(null)
-  const photos = [...new Set(images.filter((u) => /^https:\/\//.test(u)))]
+  const [scope, setScope] = React.useState(0)
+  const photos = React.useMemo(() => [...new Set(images.filter((u) => /^https:\/\//.test(u)))], [images])
+  /* Each opening starts on "only this one". */
+  const [wasOpen, setWasOpen] = React.useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setScope(0)
+  }
+  /* The small copy each row draws, fetched while the picker is open: a photo chosen shows in its row at once. */
+  React.useEffect(() => {
+    if (!open) return
+    for (const url of photos) {
+      const img = new Image()
+      img.src = variantThumbSrc(url)
+    }
+  }, [open, photos])
+  const keys = (scopes[scope] ?? scopes[0])?.keys ?? []
   return (
     <Modal
       open={open}
@@ -1075,7 +1178,7 @@ function VariantImagePicker({
       footer={
         <div className="flex w-full items-center justify-between gap-2">
           {value ? (
-            <button type="button" className={BTN_GHOST} onClick={() => onPick(null)}>
+            <button type="button" className={BTN_GHOST} onClick={() => onPick(null, keys)} data-variant-photo-remove="">
               Remove photo
             </button>
           ) : (
@@ -1087,55 +1190,82 @@ function VariantImagePicker({
         </div>
       }
     >
-      <p className="mb-3 text-[13.5px] text-[#6b7280]">Shown when a buyer picks this variant.</p>
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-        {photos.map((url) => (
+      {scopes.length > 1 ? (
+        <div className="mb-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Which variants get the photo" data-variant-photo-scope="">
+          {scopes.map((s, i) => (
+            <button
+              key={s.label}
+              type="button"
+              role="radio"
+              aria-checked={scope === i}
+              onClick={() => setScope(i)}
+              className={cn(
+                "h-8 rounded-full border px-3 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#9ca3af]/50",
+                scope === i ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#4b5563] hover:border-[#9ca3af]",
+              )}
+            >
+              {s.label}
+              {s.keys.length > 1 ? <span className={cn("ml-1 tabular-nums", scope === i ? "text-white/70" : "text-[#9ca3af]")}>{s.keys.length}</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="mb-3 text-[13.5px] text-[#6b7280]">Shown when a buyer picks this variant.</p>
+      )}
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-5" data-variant-photo-grid="">
+        {photos.map((url) => {
+          const t = fileThumb(url)
+          return (
+            <button
+              key={url}
+              type="button"
+              onClick={() => onPick(url, keys)}
+              aria-pressed={value === url}
+              aria-label={value === url ? "This photo, chosen" : "Use this photo"}
+              data-variant-photo-choice=""
+              className={cn("aspect-square overflow-hidden rounded-lg border bg-[#f3f4f6] outline-none focus-visible:ring-2 focus-visible:ring-[#9ca3af]/50", value === url ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:border-[#9ca3af]")}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={t.src} srcSet={t.srcSet} sizes="(max-width: 639px) 25vw, 128px" alt="" decoding="async" draggable={false} onLoad={(e) => e.currentTarget.setAttribute("data-loaded", "")} className="h-full w-full object-cover opacity-0 transition-opacity duration-150 data-[loaded]:opacity-100" />
+            </button>
+          )
+        })}
+        {canUpload ? (
           <button
-            key={url}
             type="button"
-            onClick={() => onPick(url)}
-            aria-pressed={value === url}
-            className={cn("aspect-square overflow-hidden rounded-lg border bg-[#fafafa]", value === url ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:border-[#9ca3af]")}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt="" className="h-full w-full object-cover" />
-          </button>
-        ))}
-        {uploadImage ? (
-          <button
-            type="button"
-            disabled={busy}
             onClick={() => input.current?.click()}
-            className="grid aspect-square place-items-center rounded-lg border border-dashed border-[#d1d5db] text-[#6b7280] hover:border-[#9ca3af] hover:text-[#1a1a2e] disabled:opacity-60"
+            className="grid aspect-square place-items-center rounded-lg border border-dashed border-[#d1d5db] text-[#6b7280] hover:border-[#9ca3af] hover:text-[#1a1a2e]"
             aria-label="Upload a photo"
           >
             <span className="flex flex-col items-center gap-1 text-[12px]">
               <Upload className="h-4 w-4" />
-              {busy ? "Uploading" : "Upload"}
+              Upload
             </span>
           </button>
         ) : null}
+        <button
+          type="button"
+          onClick={() => onBrowse(keys)}
+          className="grid aspect-square place-items-center rounded-lg border border-dashed border-[#d1d5db] text-[#6b7280] hover:border-[#9ca3af] hover:text-[#1a1a2e]"
+          aria-label="Choose from your files"
+          data-variant-photo-files=""
+        >
+          <span className="flex flex-col items-center gap-1 text-center text-[12px] leading-[14px]">
+            <FolderOpen className="h-4 w-4" />
+            Your files
+          </span>
+        </button>
       </div>
-      {photos.length === 0 && !uploadImage ? <p className="text-[13.5px] text-[#6b7280]">Add photos to the product first, then pick one here.</p> : null}
-      {error ? <Notice className="mt-3">{error}</Notice> : null}
+      {photos.length === 0 ? <p className="mt-3 text-[13px] text-[#6b7280]">Photos you add to the product show here first.</p> : null}
       <input
         ref={input}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
-        onChange={async (e) => {
+        onChange={(e) => {
           const file = e.target.files?.[0]
           e.target.value = ""
-          if (!file || !uploadImage) return
-          setBusy(true)
-          setError(null)
-          try {
-            onPick(await uploadImage(file))
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "That photo could not be uploaded.")
-          } finally {
-            setBusy(false)
-          }
+          if (file) onUpload(file, keys)
         }}
       />
     </Modal>

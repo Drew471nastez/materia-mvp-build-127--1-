@@ -30,6 +30,7 @@ import { STORELIB_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/bra
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { archiveProduct, isArchivedProduct as isArchived, restoreProduct } from "@/lib/products/archive"
 import { pressMark } from "@/lib/press-mark"
+import { ReadinessBanner } from "@/components/physical/readiness-banner"
 
 interface Product {
   id: string
@@ -1099,6 +1100,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       {/* The bar stays put; the list under it is what a pull moves (components/ui/pull-to-refresh). */}
       <PullToRefresh onRefresh={refreshList}>
       <div className={cn("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
+        {/* Physical products on sale that buyers can't check out with yet, and why (components/physical/readiness-banner). */}
+        <ReadinessBanner surface="products" className="mt-1 md:mt-2 lg:mt-[9px]" />
         <section
           ref={sectionRef}
           aria-label="Products"

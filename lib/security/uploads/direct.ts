@@ -34,6 +34,7 @@ import { logSecurityEvent, logUploadVerdict } from "./audit"
 import { isContainedPath } from "./filename"
 import { MAX_UPLOAD_BYTES, type UploadContext } from "./policy"
 import { inspectStoredObject } from "./stored"
+import { MAX_VIDEO_BYTES } from "@/lib/media/video"
 
 export interface DirectUploadBucket {
   /** What files here are allowed to be. */
@@ -72,6 +73,24 @@ export const PUBLIC_DIRECT_UPLOADS: Readonly<Record<string, DirectUploadBucket>>
 
 export type DirectUploadBucketName = keyof typeof PUBLIC_DIRECT_UPLOADS
 
+/**
+ * store-builder-images also holds the videos a page, the Files library or a
+ * product's gallery plays (lib/files/upload-video.ts), each named .mp4,
+ * .webm, .mov or .m4v. Checked as the picture bucket, a real video there was
+ * "not a picture" and removed. A file with a video's name is checked as a
+ * video (real video bytes only, up to MAX_VIDEO_BYTES); every other name
+ * there is still checked as a picture. So the name and the bytes have to
+ * agree either way: a program called clip.mp4 is not a video, and a video
+ * called photo.jpg is not a picture.
+ */
+const VIDEO_NAME = /\.(mp4|webm|mov|m4v)$/i
+export function directRulesFor(bucket: string, path: string): DirectUploadBucket | null {
+  const rules = PUBLIC_DIRECT_UPLOADS[bucket]
+  if (!rules) return null
+  if (bucket === "store-builder-images" && VIDEO_NAME.test(path)) return { context: "video", maxBytes: MAX_VIDEO_BYTES, note: "website builder, library and product videos" }
+  return rules
+}
+
 /** Whether this is a bucket a browser writes into directly. */
 export function isDirectUploadBucket(name: unknown): name is string {
   return typeof name === "string" && Object.hasOwn(PUBLIC_DIRECT_UPLOADS, name)
@@ -105,7 +124,7 @@ export async function checkDirectUpload(
   where: { bucket: string; path: string },
   who: { userId?: string | null; creatorId?: string | null } = {},
 ): Promise<DirectCheckResult> {
-  const rules = PUBLIC_DIRECT_UPLOADS[where.bucket]
+  const rules = directRulesFor(where.bucket, where.path)
   if (!rules) return { ok: true, code: "not_a_direct_bucket", bytes: 0 }
   try {
     const size = await storedSize(admin, where.bucket, where.path)

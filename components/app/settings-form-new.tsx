@@ -971,6 +971,17 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     })
   }
 
+  /* A link inside a section to another section (components/physical/readiness-client ReadinessLink): the same switch a press on its tab makes, unsaved changes asked about first. */
+  const tabSwitch = useRef<(tab: string) => void>(() => undefined)
+  tabSwitch.current = (tab: string) => {
+    if (allowed(tab)) handleTabChange(tab)
+  }
+  useEffect(() => {
+    const go = (e: Event) => tabSwitch.current(String((e as CustomEvent<unknown>).detail ?? ""))
+    window.addEventListener("storelib:settings-tab", go)
+    return () => window.removeEventListener("storelib:settings-tab", go)
+  }, [])
+
   const scrollPending = useRef(false)
   /** Lets go of the section's held height once a glide to the top is over (see the layout effect below). */
   const glideHold = useRef<null | (() => void)>(null)

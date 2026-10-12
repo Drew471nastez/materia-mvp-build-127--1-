@@ -6,6 +6,7 @@
  */
 import { plainSummary } from "@/lib/html-entities"
 import { storelibLogoUrl } from "@/lib/brand/logo"
+import { isVideoUrl } from "@/lib/media/video"
 
 export function checkoutOrigin(input: { host?: string | null; forwardedHost?: string | null; proto?: string | null }): string {
   const raw = (input.forwardedHost || input.host || "storelib.com").split(",")[0].trim().toLowerCase()
@@ -45,6 +46,8 @@ export function checkoutCoverUrl(input: { thumbnailUrl?: string | null; galleryU
   for (const item of candidates) {
     if (typeof item !== "string") continue
     const url = item.trim()
+    /* A video in the gallery is not a picture to share (lib/media/video.ts). */
+    if (isVideoUrl(url)) continue
     if (url.startsWith("https://") || url.startsWith("http://")) return url
   }
   return null

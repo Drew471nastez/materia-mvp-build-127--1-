@@ -112,7 +112,7 @@ section("A page's pictures are listed with it, so Google Images can find them")
   check("the helper is the same rule", JSON.stringify(sitemapImages(["https://a.com/1.png", "https://a.com/1.png", "https://a.com/doc.pdf"])) === JSON.stringify(["https://a.com/1.png"]))
   const maps = code("lib/seo/sitemaps.ts")
   check("a product lists its thumbnail and gallery",
-    /\.select\("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner\(user_id\)"\)/.test(maps) && /images: \[row\.thumbnail_url, \.\.\.\(row\.gallery_urls \?\? \[\]\)\]/.test(maps))
+    /\.select\("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner\(user_id\)"\)/.test(maps) && /images: (imagesOnly\()?\[row\.thumbnail_url, \.\.\.\(row\.gallery_urls \?\? \[\]\)\]\)?/.test(maps))
   check("a creator page lists its avatar and cover", /images: \[seller\?\.avatar_url, c\.cover_url\]/.test(maps) && /\.select\("id, username, avatar_url"\)/.test(maps))
   check("and a website's own sitemap uses the same escaping", /import \{ SITE_DISALLOW, xmlEscape \} from "@\/lib\/seo\/indexing"/.test(code("lib/website-builder/site-seo.ts")) && !/function xmlEscape/.test(code("lib/website-builder/site-seo.ts")))
 }

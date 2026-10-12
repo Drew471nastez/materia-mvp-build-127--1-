@@ -34,6 +34,7 @@ import type { MarketPrice } from "@/lib/markets/pricing"
 import type { FxRates } from "@/lib/markets/money"
 import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
+import { imagesOnly, isPosterName } from "@/lib/media/video"
 
 /* ── The product, as the section receives it ─────────────────────────────── */
 
@@ -149,7 +150,8 @@ export function uniqueImages(urls: readonly unknown[], max = 24): string[] {
  */
 export function productImages(p: Pick<ProductSectionData, "thumbnail_url" | "gallery_urls" | "images" | "variants">): string[] {
   const base = p.images && p.images.length ? p.images : [p.thumbnail_url, ...(Array.isArray(p.gallery_urls) ? p.gallery_urls : [])]
-  return uniqueImages([...base, ...(p.variants ?? []).map((v) => v.image_url)])
+  /* A video's stored first frame is its thumbnail, not a photo of its own: the video itself is in the list (lib/media/video.ts). */
+  return uniqueImages([...base, ...(p.variants ?? []).map((v) => v.image_url)]).filter((u) => !isPosterName(u))
 }
 
 /** Where a variant's picture is in the list, or -1 when it has none of its own. */
@@ -404,7 +406,7 @@ export function cartLineFor(
     title: p.title,
     variantName: variant ? variant.name : null,
     priceCents: custom ?? facts.priceCents,
-    thumbnailUrl: variant?.image_url || p.thumbnail_url || productImages(p)[0] || null,
+    thumbnailUrl: variant?.image_url || p.thumbnail_url || imagesOnly(productImages(p))[0] || null,
     slug: p.slug,
     digital,
     ...(p.type === "physical" ? { physical: true } : {}),

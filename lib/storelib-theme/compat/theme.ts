@@ -63,6 +63,10 @@ import { fixInlineStyles, fixThemeCss } from "./css-fixes"
 import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
 import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, isReviewsAppBlock } from "./storelib-reviews"
+import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
+
+/** The product objects whose questions a page has drawn already, so they are drawn once (./product-faq.ts). */
+const FAQ_SHOWN = new WeakSet<object>()
 import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
@@ -757,6 +761,13 @@ export class CompatTheme {
     /* A product section's blocks are drawn in its Details column, never under the product (lib/website-builder/product-details-rule.ts). */
     const homed = blocksIntoDetails(instance.type, instance.blocks, this.blockTakes, this.staticsOf(path!))
     if (homed) instance = { ...instance, blocks: homed }
+    /* The product's own questions, in an empty FAQ tab of the theme's, or under the description (./product-faq.ts). */
+    const faqs = group === undefined && !FAQ_SHOWN.has(ctx.globals.product as object) ? this.pageFaqs(ctx) : []
+    const tabbed = faqs.length ? withFaqTab(instance.blocks, faqs) : null
+    if (tabbed) {
+      instance = { ...instance, blocks: tabbed }
+      FAQ_SHOWN.add(ctx.globals.product as object)
+    }
     ;(ctx.registers.drawnIds as Set<string> | undefined)?.add(instance.id)
     const schema = this.schemaOf("sections", instance.type)
     const res = ctx.registers.res as Resources
@@ -783,10 +794,28 @@ export class CompatTheme {
     }
     errors.push(...said.slice(from, from + 5))
     child.out.chars = charsBefore
+    if (faqs.length && !FAQ_SHOWN.has(ctx.globals.product as object)) {
+      const placed = withFaqUnderDescription(html, String((ctx.globals.product as O).description ?? ""), faqs)
+      if (placed !== null) {
+        html = placed
+        FAQ_SHOWN.add(ctx.globals.product as object)
+      }
+    }
     html = `${sectionCss(instance.id, instance.settings?.[SECTION_CSS_KEY])}${html}`
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
     return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(/-group$/.test(group) ? group : `${group}-group`)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
+  }
+
+  private readsFaqs: boolean | null = null
+  /** On a product page, the product's questions this theme leaves to Storelib to draw: none when its own code reads them. */
+  private pageFaqs(ctx: Ctx): Faq[] {
+    const product = ctx.globals.product
+    if (!product || typeof product !== "object" || (ctx.globals.request as O | undefined)?.page_type !== "product") return []
+    const faqs = faqsOf(product)
+    if (!faqs.length) return []
+    if (this.readsFaqs === null) this.readsFaqs = themeReadsFaqs(Object.values(this.files))
+    return this.readsFaqs ? [] : faqs
   }
 
   private sectionObject(instance: CompatSectionInstance, schema: O, res: Resources, index: number, group: string | undefined, dyn: DynamicResolver): O {

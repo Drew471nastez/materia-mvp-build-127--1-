@@ -68,14 +68,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ shop, catalog }, { headers: { "Cache-Control": "private, no-store" } })
     }
 
-    // List all published products
-    const { data: products, error } = await supabase
+    // List all published products, with their own questions for the canvas's `product.faqs` (lib/products/product-faqs.ts); without them on a database that lacks the column.
+    const list = (cols: string) => supabase
       .from("products")
-      .select("id, title, slug, thumbnail_url, price_cents, compare_at_cents, description, whats_included, gallery_urls, status, type")
+      .select(cols)
       .eq("creator_id", creator.id)
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(limit)
+    const LIST_COLUMNS = "id, title, slug, thumbnail_url, price_cents, compare_at_cents, description, whats_included, gallery_urls, status, type"
+    let { data: products, error } = await list(`${LIST_COLUMNS}, faqs`)
+    if (error) ({ data: products, error } = await list(LIST_COLUMNS))
 
     if (error) {
       return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 })

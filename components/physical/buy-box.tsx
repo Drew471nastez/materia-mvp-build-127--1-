@@ -25,6 +25,7 @@ import { addLine, cartStorageKey, parseCart, serializeCart } from "@/lib/website
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { BundleOffers } from "@/components/offers/bundle-offers"
 import type { CartLine } from "@/lib/website-builder/cart"
+import { announceVariantPhoto, galleryFollowsVariants } from "@/lib/physical/variant-photo"
 
 interface Variant {
   id: string
@@ -84,6 +85,21 @@ export function PhysicalBuyBox({
   const [chosen, setChosen] = React.useState<(string | null)[]>([null, null, null])
   const [qty, setQty] = React.useState(1)
   const [added, setAdded] = React.useState(false)
+  /*
+    The chosen variant's photo goes to the page's gallery once the buyer
+    picks (lib/physical/variant-photo.ts); not on load, so the page opens on
+    the product's own first photo. With no gallery listening, the photo is
+    drawn small above the price instead.
+  */
+  const picked = React.useRef(false)
+  const [galleryFollows, setGalleryFollows] = React.useState(false)
+  const chosenImage = data?.variants.find((v) => data.options.every((_, i) => (v.options[i] ?? null) === (chosen[i] ?? null)))?.imageUrl ?? null
+  React.useEffect(() => {
+    if (data) setGalleryFollows(galleryFollowsVariants(data.product.id))
+  }, [data])
+  React.useEffect(() => {
+    if (data && chosenImage && picked.current) announceVariantPhoto(data.product.id, chosenImage)
+  }, [data, chosenImage])
 
   React.useEffect(() => {
     if (!enabled) return
@@ -177,7 +193,7 @@ export function PhysicalBuyBox({
 
   return (
     <div className="space-y-4" data-physical-buy-box="">
-      {variant?.imageUrl && data.variants.length > 1 ? (
+      {variant?.imageUrl && data.variants.length > 1 && !galleryFollows ? (
         /* The chosen variant's own photo, so the buyer sees the color they picked. */
         // eslint-disable-next-line @next/next/no-img-element
         <img src={variant.imageUrl} alt={variant.name} className="h-20 w-20 rounded-xl border object-cover" style={{ borderColor: "rgba(0,0,0,0.1)" }} data-variant-photo="" />
@@ -208,7 +224,10 @@ export function PhysicalBuyBox({
                   key={value}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setChosen((c) => c.map((x, j) => (j === i ? value : x)))}
+                  onClick={() => {
+                    picked.current = true
+                    setChosen((c) => c.map((x, j) => (j === i ? value : x)))
+                  }}
                   className={cn("min-h-10 rounded-lg border px-3.5 text-[14px] font-medium transition-colors", !open && "line-through opacity-50")}
                   style={on ? { borderColor: ink, color: ink, boxShadow: `inset 0 0 0 1px ${ink}` } : { borderColor: "rgba(0,0,0,0.14)", color: ink }}
                 >

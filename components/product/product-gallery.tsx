@@ -10,6 +10,10 @@ import { ProductMediaViewer } from "@/components/product/product-media-viewer"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
 import { MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass } from "./media-swiper"
+import { isVideoUrl, videoPosterUrl } from "@/lib/media/video"
+import { onVariantPhoto } from "@/lib/physical/variant-photo"
+import { imageKey } from "@/lib/products/product-page-model"
+import { mediaUrl } from "@/lib/storage/media-url"
 
 interface MediaItem {
   url: string
@@ -43,6 +47,8 @@ interface ProductGalleryProps {
   backgroundColor?: string
   /** `square` for a physical product: its photos as they were taken, whole, in a square frame. */
   shape?: "wide" | "square"
+  /** A physical product's id: the buy box's chosen variant moves the gallery to its photo (lib/physical/variant-photo.ts). */
+  followVariantsOf?: string
 }
 
 export function ProductGallery({
@@ -59,8 +65,11 @@ export function ProductGallery({
   selectionColor,
   backgroundColor,
   shape = "wide",
+  followVariantsOf,
 }: ProductGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
+  /* A chosen variant's photo the gallery did not have, added at its end. */
+  const [variantExtra, setVariantExtra] = useState<string[]>([])
   /**
    * Which pictures have actually arrived. A slide is painted transparent
    * until its own image has decoded and then fades, so the first frame of a
@@ -135,8 +144,9 @@ export function ProductGallery({
       type: "youtube" as const,
       // No thumbnailUrl for YouTube - pure embed only
     })),
-    ...images.map(url => ({ url, type: "image" as const })),
-    ...(videoUrl ? [{ url: videoUrl, type: "video" as const }] : []),
+    /* A video file uploaded to the product sits among its photos, in its own place (lib/media/video.ts); a variant's own photo the gallery lacked comes after them. */
+    ...[...images, ...variantExtra].map(url => (isVideoUrl(url) ? { url, type: "video" as const, thumbnailUrl: videoPosterUrl(url) ?? undefined } : { url, type: "image" as const })),
+    ...(videoUrl ? [{ url: videoUrl, type: "video" as const, thumbnailUrl: videoPosterUrl(videoUrl) ?? undefined }] : []),
   ]
 
   // Video controls
@@ -185,7 +195,15 @@ export function ProductGallery({
   }, [])
 
   // Pause video when switching away from video slide
+  const lastVideoRef = useRef<HTMLVideoElement | null>(null)
   useEffect(() => {
+    /* From one video to another: the one left stops, and the new one starts paused. */
+    const last = lastVideoRef.current
+    if (last && last !== videoRef.current) {
+      last.pause()
+      setIsVideoPlaying(false)
+    }
+    lastVideoRef.current = videoRef.current
     const currentMedia = mediaItems[currentIndex]
     if (currentMedia?.type !== "video" && videoRef.current) {
       videoRef.current.pause()
@@ -258,6 +276,30 @@ export function ProductGallery({
   useEffect(() => {
     carousel.slideToIndex(currentIndex, swiperRef.current?.activeIndex ?? currentIndex)
   }, [currentIndex, carousel, swiperRef])
+
+  /* The buyer picked a variant with its own photo: show it, as a Shopify theme's gallery does. */
+  const latestMedia = useRef(mediaItems)
+  latestMedia.current = mediaItems
+  useEffect(() => {
+    if (!followVariantsOf) return
+    return onVariantPhoto(followVariantsOf, (url) => {
+      const items = latestMedia.current
+      /* One picture under its storage address or Storelib's own (lib/storage/media-url.ts) is the same picture. */
+      const same = (a: string) => imageKey(mediaUrl(a)) === imageKey(mediaUrl(url))
+      const at = items.findIndex((m) => m.type === "image" && same(m.url))
+      if (at >= 0) {
+        setCurrentIndex(at)
+        return
+      }
+      const end = items.filter((m) => m.type !== "video").length
+      setVariantExtra((x) => (x.some(same) ? x : [...x, url]))
+      /* The new slide is laid out by the carousel once it is drawn, then shown. */
+      requestAnimationFrame(() => {
+        swiperRef.current?.update()
+        setCurrentIndex(end)
+      })
+    })
+  }, [followVariantsOf, swiperRef])
 
   const onSwiper = useCallback((swiper: SwiperClass) => {
     swiperRef.current = swiper
@@ -479,6 +521,8 @@ export function ProductGallery({
                 <video
                   ref={currentIndex === index ? videoRef : undefined}
                   src={media.url}
+                  poster={media.thumbnailUrl}
+                  preload="metadata"
                   className="w-full h-full object-contain"
                   loop
                   muted={isVideoMuted}
@@ -729,9 +773,11 @@ export function ProductGallery({
                 {media.type === "video" && (
                   <div className="relative w-full h-full bg-gray-900">
                     <video
-                      src={media.url}
+                      src={`${media.url}#t=0.1`}
+                      poster={media.thumbnailUrl}
                       className="w-full h-full object-cover"
                       muted
+                      playsInline
                       preload="metadata"
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">

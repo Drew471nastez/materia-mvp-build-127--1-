@@ -616,6 +616,10 @@ export interface StorefrontData {
     includes?: string[]
     /** The product's custom fields by name, plain words. */
     fields?: Record<string, string>
+    /** The product's own questions, plain words: `{% for faq in product.faqs %}`. */
+    faqs?: { question: string; answer: string }[]
+    /** The same questions as rich text (escaped words in <p> and <strong>), for the Product FAQ source. */
+    faqs_html?: string
   } | null
   /** The collection the page is about, on a collection page only. */
   collection?: StorefrontCollection | null

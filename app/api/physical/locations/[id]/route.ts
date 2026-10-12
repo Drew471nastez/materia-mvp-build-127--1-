@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadSettings, locationsWithPartners, readLocation, saveLocationExtra } from "@/lib/physical/config-server"
 import { recordActivity } from "@/lib/activity/log-server"
 
@@ -22,6 +23,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   await recordActivity(c.db, c, { action: "location.updated", subjectType: "location", subjectId: id, subjectLabel: String(data.name ?? "") })
   /* With its print partner (Connected to Printful), so the row keeps saying it after a save. */
   const [location] = await locationsWithPartners(c.db, c.creatorId, [extra.row ?? data])
+  readinessChanged(c)
   return physicalJson({ location, ...(extra.notice ? { message: extra.notice } : {}) })
 }
 
@@ -44,5 +46,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { data: gone, error } = await c.db.from("inventory_locations").delete().eq("id", id).eq("creator_id", c.creatorId).select("name").maybeSingle()
   if (error) return physicalJson({ error: "The location could not be deleted." }, 500)
   await recordActivity(c.db, c, { action: "location.removed", subjectType: "location", subjectId: id, subjectLabel: (gone as { name?: string } | null)?.name ?? null })
+  readinessChanged(c)
   return physicalJson({ deleted: true })
 }

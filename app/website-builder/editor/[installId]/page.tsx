@@ -3,6 +3,7 @@
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
+import { PhysicalReadinessNotice } from "@/components/website-builder/editor/physical-readiness-notice"
 import { SyncNotice, useSyncStatus, type AgentNote, type SyncConflict } from "@/components/website-builder/github-sync-notice"
 import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
 import { isGitHubName } from "@/lib/agent-access/connection-mark"
@@ -3362,7 +3363,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // ── New: Sidebar mode, page browser, product/collection pages ──
   const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
   const [pageBrowserOpen, setPageBrowserOpen] = useState(false)
-  const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
+  const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[]; faqs?: unknown }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
   /** The id of the product the product page is showing: an imported theme's canvas draws exactly this one, not the shop's first. */
@@ -4113,6 +4114,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           description: p.description || "",
           whats_included: p.whats_included ?? [],
           gallery_urls: p.gallery_urls ?? [],
+          faqs: p.faqs ?? null,
         })))
       }
     } catch {}
@@ -7748,7 +7750,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (currentPage !== "product") return null
     const p = (selectedProductId ? products.find((x) => x.id === selectedProductId) : undefined) ?? products.find((x) => x.title === selectedProductPage) ?? products[0]
     return p
-      ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included })
+      ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included, faqs: p.faqs })
       : null
   }, [currentPage, products, selectedProductPage, selectedProductId])
   const canvasDynamic = useMemo(
@@ -9169,6 +9171,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           onUseTheirs={() => void takeGitHubVersion()}
           onAgentNoteSeen={() => setAgentNote(null)}
         />
+        {/* A site selling physical products buyers can't check out with yet (components/website-builder/editor/physical-readiness-notice). */}
+        <PhysicalReadinessNotice />
       </div>
       {saveProblem ? (
         <div className="pointer-events-none fixed left-0 right-0 z-[99] flex justify-center" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)", zIndex: 101 }}>

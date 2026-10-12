@@ -16,6 +16,7 @@
  */
 import { homeProgress, type ProgressItem } from "@/lib/home/progress"
 import { reviewRequestBlock } from "@/lib/reviews/request-rules"
+import { blockingItems, needsNotice } from "@/lib/physical/readiness"
 import type { NotifyStore, ProductFact } from "./store"
 import type { ConditionName } from "./types"
 
@@ -106,6 +107,7 @@ export const CONDITION_NAMES: readonly ConditionName[] = [
   "payment_setup_action_required",
   "store_setup_unfinished",
   "physical_setup_unfinished",
+  "physical_store_not_ready",
   "verification_still_needed",
   "payout_still_failed",
   "dispute_still_open",
@@ -195,6 +197,26 @@ export async function checkCondition(store: NotifyStore, name: ConditionName, jo
         facts.stepsDone = s.steps.filter((x) => x.done).length
         facts.stepsTotal = s.steps.length
         facts.paymentsMissing = s.blockers.length > 0
+      }
+      return true
+    }
+    case "physical_store_not_ready": {
+      /*
+        The one answer every screen reads (lib/physical/readiness.ts), read now:
+        something on sale and a gap other than payments (payments has its own
+        notices). The email lists every blocking gap, payments included, each
+        with the page that fixes it.
+      */
+      if (!creatorId || !store.physicalReadiness) return false
+      if (store.physicalCommerceEnabled && !(await store.physicalCommerceEnabled())) return false
+      const r = await store.physicalReadiness(creatorId)
+      if (!r) return null
+      if (!needsNotice(r)) return false
+      if (facts) {
+        const items = blockingItems(r)
+        facts.items = items.slice(0, 6).map((i) => ({ title: i.title.slice(0, 120), why: i.why.slice(0, 240), path: i.href }))
+        facts.blockingCount = items.length
+        facts.liveCount = r.live
       }
       return true
     }
