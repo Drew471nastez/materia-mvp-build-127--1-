@@ -941,7 +941,6 @@ export function MobileEditorSheet({
     vv?.addEventListener("scroll", update)
     return () => {
       if (frame) cancelAnimationFrame(frame)
-      window.clearTimeout(closingRead.current)
       window.removeEventListener("resize", update)
       vv?.removeEventListener("resize", update)
       if (kbvv && kbvv !== vv) {
@@ -949,6 +948,7 @@ export function MobileEditorSheet({
         kbvv.removeEventListener("scroll", update)
       }
       vv?.removeEventListener("scroll", update)
+      window.clearTimeout(closingRead.current)
     }
   }, [])
 

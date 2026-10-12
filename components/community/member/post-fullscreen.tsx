@@ -478,7 +478,8 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     window.addEventListener("resize", soon)
     document.addEventListener("focusin", soon, true)
     document.addEventListener("focusout", soon, true)
-    const t = window.setInterval(soon, 500)
+    /* Only while it is on: the long press that turns it on later is followed by a focus, which redraws it. */
+    const t = kbDebugOn() ? window.setInterval(soon, 500) : 0
     return () => {
       cancelAnimationFrame(frame)
       window.clearInterval(t)
