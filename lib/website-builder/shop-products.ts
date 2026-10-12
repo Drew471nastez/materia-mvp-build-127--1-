@@ -82,6 +82,8 @@ export interface ProductVariantCard {
   checkout_url: string
   /** This option's own photo (the product editor's variant photo), or absent. An imported theme's `variant.featured_media`. */
   image?: string
+  /** Its value for each option (Size, Colour), as the product editor set them; absent on an older database. An imported theme's `variant.options`. */
+  options?: (string | null)[]
 }
 
 export interface ProductCard {
@@ -191,6 +193,12 @@ export interface VariantRow {
   pwyw_min_price_cents?: number | null
   position?: number | null
   image_url?: string | null
+  /** Its value for each option, as the product editor set them (SQL part 78). */
+  option1?: string | null
+  option2?: string | null
+  option3?: string | null
+  /** False once the editor switched it off; an archived one is named "Archived …". Neither is offered. */
+  active?: boolean | null
 }
 
 /**
@@ -253,7 +261,13 @@ export function toVariant(productId: string, v: VariantRow, available: boolean):
     available,
     checkout_url: available ? checkoutUrl(productId, v.id) : "",
     ...(typeof v.image_url === "string" && /^https:\/\//.test(v.image_url.trim()) ? { image: mediaUrl(v.image_url.trim()) } : {}),
+    ...([v.option1, v.option2, v.option3].some((x) => typeof x === "string" && x.trim() !== "") ? { options: [v.option1 ?? null, v.option2 ?? null, v.option3 ?? null] } : {}),
   }
+}
+
+/** A variant that is on sale: not switched off, not one the editor archived (lib/physical/storefront-stock.ts liveVariant). */
+function onSale(v: VariantRow): boolean {
+  return v.active !== false && !/^Archived /.test(v.name ?? "")
 }
 
 /**
@@ -274,7 +288,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
   const images = pictures(row)
   const available = !soldOut(row)
   const options = variants
-    .filter((v) => v.product_id === row.id)
+    .filter((v) => v.product_id === row.id && onSale(v))
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || askingCents(a) - askingCents(b))
     .map((v) => toVariant(row.id, v, available))
   return {
@@ -392,7 +406,8 @@ const PRODUCT_COLUMNS_WITH_CATEGORY = "id, title, slug, price_cents, compare_at_
 const PRODUCT_COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id"
 const PRODUCT_COLUMNS = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents"
 const PRODUCT_COLUMNS_MINIMAL = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status"
-/* With each option's photo first; a database without the column answers with an error and the next set is asked for. */
+/* With each option's values and whether it is on sale, then its photo; a database without a column answers with an error and the next set is asked for. */
+const VARIANT_COLUMNS_WITH_OPTIONS = "id, product_id, name, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, position, image_url, option1, option2, option3, active"
 const VARIANT_COLUMNS_WITH_IMAGE = "id, product_id, name, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, position, image_url"
 const VARIANT_COLUMNS = "id, product_id, name, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, position"
 const VARIANT_COLUMNS_MINIMAL = "id, product_id, name, price_cents, position"
@@ -403,7 +418,7 @@ const VARIANT_COLUMNS_MINIMAL = "id, product_id, name, price_cents, position"
  */
 export async function productVariants(db: Db, productIds: string[]): Promise<VariantRow[]> {
   if (productIds.length === 0) return []
-  for (const cols of [VARIANT_COLUMNS_WITH_IMAGE, VARIANT_COLUMNS, VARIANT_COLUMNS_MINIMAL]) {
+  for (const cols of [VARIANT_COLUMNS_WITH_OPTIONS, VARIANT_COLUMNS_WITH_IMAGE, VARIANT_COLUMNS, VARIANT_COLUMNS_MINIMAL]) {
     try {
       const q = db.from("product_variants").select(cols)
       if (typeof q.in !== "function") return []
