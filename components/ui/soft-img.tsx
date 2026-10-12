@@ -77,7 +77,8 @@ export function SoftImg({
   referrerPolicy?: React.HTMLAttributeReferrerPolicy
 } & Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet" | "sizes" | "width" | "loading" | "decoding" | "style">) {
   const file = optimizedImageUrl(src, width)
-  const srcSet = optimizedSrcSet(src, routeWidths(width))
+  /* Already a file of the route's, inline or a local preview: offered as it is (the route never wraps itself). */
+  const srcSet = /^(data:|blob:|\/_next\/image)/.test(src) ? "" : optimizedSrcSet(src, routeWidths(width))
   const [state, setState] = useState<"seen" | "wait" | "in">(() => (SEEN.has(file) ? "seen" : "wait"))
   const ref = useRef<HTMLImageElement | null>(null)
 
@@ -125,6 +126,10 @@ export function SoftImg({
       referrerPolicy={referrerPolicy}
       onLoad={arrived}
       onError={() => setState("seen")}
+      /* The fade done, its transition goes, so a caller's own (a hover's scale) is the element's again. */
+      onTransitionEnd={(e) => {
+        if (e.propertyName === "opacity") setState((s) => (s === "in" ? "seen" : s))
+      }}
       data-soft-img={state}
       className={className}
       style={{

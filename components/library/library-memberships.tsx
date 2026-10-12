@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { SoftImg } from "@/components/ui/soft-img"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { StatusLabel, TONE_TEXT } from "@/components/memberships/status-line"
 import { libraryMembershipPath } from "@/lib/library/paths"
@@ -34,8 +35,7 @@ function Thumb({ card }: { card: MembershipCard }) {
   return (
     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04] sm:h-[72px] sm:w-[72px]">
       {card.cover ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={card.cover} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
+        <SoftImg src={card.cover} width={72} sizes="(min-width: 640px) 72px, 64px" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center">
           <AppAvatar src={card.creator.avatarUrl} name={card.creator.name} alt="" size={40} markWhileLoading />

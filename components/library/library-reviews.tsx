@@ -1,5 +1,6 @@
 "use client"
 
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react"
@@ -57,8 +58,7 @@ const QUIET =
 function Thumb({ src, size = 48 }: { src: string | null; size?: number }) {
   return (
     <div className="relative shrink-0 overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04]" style={{ width: size, height: size }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {src ? <img src={src} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" /> : null}
+      {src ? <SoftImg src={src} width={size} className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" /> : null}
     </div>
   )
 }

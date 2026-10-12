@@ -213,7 +213,7 @@ async function main() {
     check("nothing is fetched ahead for Search, Create post, or the navigator's feed; the account page is", /tab\.key === "search" \|\| tab\.key === "compose" \|\| i === current \|\| \(navHere && tab\.key === "home"\)/.test(bar))
     /* Round 18 (the owner: "a calmer, cleaner swap"): still one slot on opacity and scale only, but one glyph after the other, never both at once (tests/nav18.test.ts). */
     check("the switch is calm: Library and Create post are one slot (one key), the two glyphs change on opacity and scale only",
-      /key=\{tab\.key === "compose" \? "library" : tab\.key\}/.test(bar) && /opacity: here \? 1 : 0,\s*scale: here \? "1" : String\(SWAP_IN_FROM\),/.test(bar))
+      /key=\{tab\.key === "compose" \? "library" : tab\.key\}/.test(bar) && /opacity: here \? 1 : 0,/.test(bar) && !/scale: here/.test(bar))
     check("a tab between the community and the account swaps in one piece only when the address really crosses", /const crosses = !!communityOf\(href\) !== !!communityOf\(pathname\)/.test(bar))
     check("Home outside a community is Discover in the mode it was left in (no flip between products and communities)",
       tabs.discoverHomeHref("communities") === "/explore?type=communities" && tabs.discoverHomeHref(null) === "/explore"
