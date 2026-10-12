@@ -374,6 +374,7 @@ export function PhysicalCheckout({
     if (!address.line1.trim()) return "line1"
     if (config.address2 === "required" && !address.line2.trim()) return "line2"
     if (!address.city.trim()) return "city"
+    if (addressFormat(address.country).region?.required && !address.region.trim()) return "region"
     if (config.phone === "required" && !address.phone.trim()) return "phone"
     if (postalCodeRequired(address.country) && !address.postalCode.trim()) return "postalCode"
     if (!optionId) return "delivery"

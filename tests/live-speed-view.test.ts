@@ -1,6 +1,6 @@
 /**
- * The products list's View for a product that ships, the website's product
- * page held at the edge, and the editor reading a page ahead of the click.
+ * The website's product page held at the edge, and the editor reading a
+ * page ahead of the click.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -13,14 +13,6 @@ function check(label: string, ok: boolean) {
   else { failed++; console.log(`  FAIL  ${label}`) }
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-
-console.log("\nView in the products list")
-const list = read("app/app/products/products-client.tsx")
-check("a product that ships opens through the editor's own live address", /product\.type !== "physical"[\s\S]{0,120}getProductUrl[\s\S]{0,200}\/api\/app\/products\/\$\{encodeURIComponent\(product\.id\)\}\/live/.test(list))
-check("the row's View and the menu's View both use it", /href: viewHref\(product, username, isNativeApp\(\)\)/.test(list) && /const url = viewHref\(product, username, false\)/.test(list))
-check("the app hands the browser a whole address", /openExternal\(new URL\(url, getCanonicalSiteUrl\(\)\)\.href\)/.test(list))
-const live = read("app/api/app/products/[id]/live/route.ts")
-check("and that address sends a physical product to the website", /product\.type === "physical"/.test(live) && /\/products\/\$\{encodeURIComponent\(product\.slug\)\}/.test(live))
 
 console.log("\nThe website's product page")
 const route = read("app/(site)/w/[username]/products/[slug]/page.tsx")

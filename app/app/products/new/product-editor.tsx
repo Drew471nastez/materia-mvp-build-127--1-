@@ -983,9 +983,15 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
           if (unarchiveError) console.warn("Could not clear the archived flag:", unarchiveError.message)
         }
       } else {
+        /*
+          A NEW THING THAT SHIPS SAYS SO ITSELF. The shipping card writes it
+          on its own save, but that save is skipped while physical commerce
+          is off in /admin, and the column defaulted to false until part
+          161: such a product sold with no address at checkout.
+        */
         const { data: product, error: createError } = await supabase
           .from("products")
-          .insert(productData)
+          .insert(productType === "physical" ? { ...productData, requires_shipping: true } : productData)
           .select()
           .single()
 

@@ -586,6 +586,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         description: product.description || null,
         includes_community: product.includes_community || false,
         archived: false,
+        /* A copy of a thing that ships ships too, never the column's default (part 161). */
+        ...(product.type === "physical" ? { requires_shipping: true } : {}),
       }
 
       const { data, error } = await supabase
@@ -960,13 +962,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     serves published products only) and there is no preview address for
     one, so its View is drawn but off: "Publish to view" on a pointer, and
     in a toast on a phone. In the app the page opens in the phone's browser
-    through openExternal, as the editor's View does. Never the row's press.
+    through openExternal, as the editor's View does, with the whole address
+    when View is the live route on Storelib itself. Never the row's press.
   */
   const openPreview = (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     e.stopPropagation()
     if (isNativeApp()) {
       e.preventDefault()
-      openExternal(new URL(url, getCanonicalSiteUrl()).href)
+      openExternal(url.startsWith("/") ? `${getCanonicalSiteUrl()}${url}` : url)
     }
   }
   const previewOff = (e: ReactMouseEvent<HTMLButtonElement>) => {
@@ -1433,25 +1436,11 @@ interface RowLabels {
   duplicate: string
 }
 
-/**
- * Where View opens. A product that ships is seen where it is bought: the
- * store's published website, through app/api/app/products/[id]/live, the
- * address the editor's View uses, which falls back to the product's page
- * when there is no website. Anything else opens on its page. The native
- * shell needs the whole address, since the browser it hands it to is not
- * on storelib.com.
- */
-function viewHref(product: Product, username: string, native: boolean): string {
-  if (product.type !== "physical" || !product.id) return getProductUrl(username, product.slug)
-  const path = `/api/app/products/${encodeURIComponent(product.id)}/live`
-  return native ? `${getCanonicalSiteUrl()}${path}` : path
-}
-
 /** A row's menu, made once per product: View, Share, Archive or Restore, Duplicate, and Delete last. */
 function useRowActions(product: Product, username: string, labels: RowLabels, api: RowApiRef) {
   return useMemo(
     () => [
-      { label: labels.view, href: viewHref(product, username, isNativeApp()), target: "_blank" as const },
+      { label: labels.view, href: viewUrl(product, username), target: "_blank" as const },
       { label: labels.share, onClick: () => api.current?.share(product) },
       { label: isArchived(product) ? labels.restore : labels.archive, onClick: () => api.current?.archive(product), separatorBefore: true },
       { label: labels.duplicate, onClick: () => api.current?.duplicate(product) },
@@ -1462,6 +1451,16 @@ function useRowActions(product: Product, username: string, labels: RowLabels, ap
 }
 
 /**
+ * Where View opens. A product that ships is bought on the store's published
+ * website, so it opens there (app/api/app/products/[id]/live picks the
+ * domain, else the storelib.com address), as the editor's View on your
+ * store does; every other product opens on the creator page.
+ */
+function viewUrl(product: Product, username: string): string {
+  return product.type === "physical" ? `/api/app/products/${encodeURIComponent(product.id)}/live` : getProductUrl(username, product.slug)
+}
+
+/**
  * A row's View, in the table only: a link to the product's page in a new
  * tab, or, for a product that has no public page, the same word drawn off,
  * with why on a pointer. A phone row has only the more button, whose menu
@@ -1469,7 +1468,7 @@ function useRowActions(product: Product, username: string, labels: RowLabels, ap
  */
 function Preview({ product, username, look, api }: { product: Product; username: string; look: string; api: RowApiRef }) {
   const on = productStatus(product) === "live"
-  const url = viewHref(product, username, false)
+  const url = viewUrl(product, username)
   const button = on ? (
     <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`View ${product.title}`} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
       View
