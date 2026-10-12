@@ -8,6 +8,7 @@ import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
   const [draft, setDraft] = useState(ctx.name)
@@ -30,12 +31,12 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
         body: JSON.stringify({ name: draft.trim() }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || "Could not save the name")
+      if (!res.ok) throw new Error(json?.error || tt("Could not save the name"))
       ctx.onRenamed(json?.install?.name ?? draft.trim())
       setSaved(true)
       window.setTimeout(() => setSaved(false), 1600)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save the name")
+      setError(e instanceof Error ? e.message : tt("Could not save the name"))
     } finally {
       setSaving(false)
     }
@@ -47,10 +48,10 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle>General</PageTitle>
+      <PageTitle>{tt("General")}</PageTitle>
 
       <Card>
-        <Row label="Website name" hint="Only you see it, in the builder and your library." htmlFor="wb-website-name">
+        <Row label={tt("Website name")} hint={tt("Only you see it, in the builder and your library.")} htmlFor="wb-website-name">
           <div className="flex items-center gap-2">
             <input
               id="wb-website-name"
@@ -64,29 +65,29 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
             />
             <button type="button" onClick={() => void save()} disabled={!dirty || saving} className={cn(buttonClass, "md:h-10")}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
-              {saving ? "Saving" : saved ? "Saved" : "Save"}
+              {saving ? tt("Saving") : saved ? tt("Saved") : tt("Save")}
             </button>
           </div>
         </Row>
         <Row
-          label="Address"
+          label={tt("Address")}
           hint={
             <>
               <button type="button" onClick={() => ctx.go("domains")} className={textLinkClass}>
-                Change address
+                {tt("Change address")}
               </button>
             </>
           }
         >
           <AddressValue url={ctx.websiteUrl} display={ctx.websiteUrlDisplay} />
         </Row>
-        <Row label="Status" hint={<button type="button" onClick={() => ctx.go("publishing")} className={textLinkClass}>Publishing</button>} inline>
-          {ctx.live ? <Badge tone="live">Live</Badge> : <Badge tone="neutral">Draft</Badge>}
+        <Row label={tt("Status")} hint={<button type="button" onClick={() => ctx.go("publishing")} className={textLinkClass}>{tt("Publishing")}</button>} inline>
+          {ctx.live ? <Badge tone="live">{tt("Live")}</Badge> : <Badge tone="neutral">{tt("Draft")}</Badge>}
         </Row>
       </Card>
 
       <Card footer={GOES_LIVE}>
-        <Row label="Favicon" hint="The small icon in a browser tab. A square picture, 64 × 64 or larger." stack>
+        <Row label={tt("Favicon")} hint={tt("The small icon in a browser tab. A square picture, 64 × 64 or larger.")} stack>
           <div className="dark max-w-[220px]">
             <WbImagePicker
               value={favicon}
@@ -108,15 +109,15 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
       */}
       <Card>
         <Row
-          label="Languages"
+          label={tt("Languages")}
           hint={
             <a href="/app/settings?tab=markets" className={textLinkClass}>
-              Manage in Markets and languages
+              {tt("Manage in Markets and languages")}
             </a>
           }
           inline
         >
-          <span className="text-[13px] text-white/70">{language ? (SITE_LANGUAGES.find((l) => l.code === language)?.label ?? language) : "Set for your store"}</span>
+          <span className="text-[13px] text-white/70">{language ? (SITE_LANGUAGES.find((l) => l.code === language)?.label ?? language) : tt("Set for your store")}</span>
         </Row>
       </Card>
       {error && <ErrorNote>{error}</ErrorNote>}

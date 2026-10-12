@@ -42,6 +42,7 @@ import { ChevronDown, Copy, Eye, EyeOff, GripVertical, Lock, Trash2 } from "luci
 
 import { cn } from "@/lib/utils"
 import { useReorder } from "./controls/use-reorder"
+import { tt } from "@/lib/i18n/text"
 
 export interface ListBlock {
   id: string
@@ -145,13 +146,13 @@ export function SectionBlockList<B extends ListBlock>({
         >
           <div className="flex h-10 max-sm:h-12 items-center gap-1 pr-1 max-sm:pr-1.5">
             {still ? (
-              <span className="flex h-full w-8 max-sm:w-10 shrink-0 items-center justify-center text-neutral-300" aria-hidden="true" title="Placed by the section">
+              <span className="flex h-full w-8 max-sm:w-10 shrink-0 items-center justify-center text-neutral-300" aria-hidden="true" title={tt("Placed by the section")}>
                 <Lock className="h-3.5 w-3.5" strokeWidth={1.75} />
               </span>
             ) : (
               <button
                 type="button"
-                aria-label={`Drag to reorder ${name}`}
+                aria-label={tt("Drag to reorder {name}", { name })}
                 className="flex h-full w-8 max-sm:w-10 shrink-0 cursor-grab items-center justify-center rounded-l-lg text-neutral-400 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 active:cursor-grabbing"
                 data-block-grip=""
                 {...gripProps(i)}
@@ -172,7 +173,7 @@ export function SectionBlockList<B extends ListBlock>({
             {onToggleHidden && (
               <button
                 type="button"
-                aria-label={block.hidden ? `Show ${name}` : `Hide ${name}`}
+                aria-label={block.hidden ? tt("Show {name}", { name }) : tt("Hide {name}", { name })}
                 aria-pressed={!!block.hidden}
                 data-block-hide=""
                 className={cn(ROW_ACTION, block.hidden && "text-neutral-800")}
@@ -183,17 +184,17 @@ export function SectionBlockList<B extends ListBlock>({
             )}
             {!still && (
               <>
-                <button type="button" aria-label={`Duplicate ${name}`} data-block-duplicate="" className={ROW_ACTION} onClick={() => onDuplicate(key)}>
+                <button type="button" aria-label={tt("Duplicate {name}", { name })} data-block-duplicate="" className={ROW_ACTION} onClick={() => onDuplicate(key)}>
                   <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </button>
-                <button type="button" aria-label={`Delete ${name}`} data-block-remove="" className={ROW_ACTION} onClick={() => onRemove(key)}>
+                <button type="button" aria-label={tt("Delete {name}", { name })} data-block-remove="" className={ROW_ACTION} onClick={() => onRemove(key)}>
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </button>
               </>
             )}
             <button
               type="button"
-              aria-label={expanded ? `Close ${name}` : `Open ${name}`}
+              aria-label={expanded ? tt("Close {name}", { name }) : tt("Open {name}", { name })}
               aria-expanded={expanded}
               tabIndex={-1}
               className="flex h-full w-7 max-sm:w-9 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"

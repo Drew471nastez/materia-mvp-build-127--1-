@@ -56,6 +56,7 @@ import { ownFileNotice, saveOwnFile, type OwnFileOutcome } from "@/lib/platform/
 import type { UploadedFile } from "./editor-form"
 import { secondaryDepth } from "./editor-buttons"
 import { CHECKING_LABEL, REFUSED_FILE, useUploadChecking } from "@/lib/storage/upload-state"
+import { tt } from "@/lib/i18n/text"
 
 /** How long a finished upload keeps its check before it is an ordinary file row. */
 export const SETTLE_MS = 1400
@@ -109,16 +110,16 @@ function formatSent(sent: number, total: number): string {
   const b = formatBytes(total)
   const unitA = a.split(" ")[1]
   const unitB = b.split(" ")[1]
-  return unitA === unitB ? `${a.split(" ")[0]} of ${b}` : `${a} of ${b}`
+  return unitA === unitB ? tt("{value} of {b}", { value: a.split(" ")[0], b }) : tt("{a} of {b}", { a, b })
 }
 
 function formatLeft(seconds: number): string {
-  if (seconds < 10) return "a few sec left"
-  if (seconds < 60) return `${Math.round(seconds / 5) * 5} sec left`
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min left`
+  if (seconds < 10) return tt("a few sec left")
+  if (seconds < 60) return tt("{value} sec left", { value: Math.round(seconds / 5) * 5 })
+  if (seconds < 3600) return tt("{value} min left", { value: Math.round(seconds / 60) })
   const h = Math.floor(seconds / 3600)
   const m = Math.round((seconds % 3600) / 60)
-  return m ? `${h} h ${m} min left` : `${h} h left`
+  return m ? tt("{h} h {m} min left", { h, m }) : tt("{h} h left", { h })
 }
 
 /** Server sentences a creator may read as they are: the calm ones (lib/security/uploads/policy.ts, limits, quota). */
@@ -129,15 +130,15 @@ function sayable(message: string | undefined): message is string {
 
 /** What went wrong, in words a creator can act on, and whether trying again could help. */
 export function plainError(err: UploadError): { text: string; refused: boolean } {
-  if (err.code === "NETWORK_ERROR") return { text: "Connection lost", refused: false }
+  if (err.code === "NETWORK_ERROR") return { text: tt("Connection lost"), refused: false }
   const status = err.httpStatus ?? 0
   const refused = status === 400 || status === 413 || status === 415
-  if (status === 413) return { text: sayable(err.message) ? err.message : "This file is too large. The limit is 10 GB.", refused: true }
-  if (status === 415) return { text: sayable(err.message) ? err.message : "This file type isn't supported.", refused: true }
-  if (status === 401) return { text: "Sign in again, then try once more.", refused: false }
+  if (status === 413) return { text: sayable(err.message) ? err.message : tt("This file is too large. The limit is 10 GB."), refused: true }
+  if (status === 415) return { text: sayable(err.message) ? err.message : tt("This file type isn't supported."), refused: true }
+  if (status === 401) return { text: tt("Sign in again, then try once more."), refused: false }
   /* A refusal the server explained (not accepted, over a limit, the plan's file count) says so itself. */
   if (status >= 400 && status < 500 && sayable(err.message)) return { text: err.message, refused }
-  return { text: "Upload failed. Try again.", refused: false }
+  return { text: tt("Upload failed. Try again."), refused: false }
 }
 
 /** The short name of a file's kind, drawn in its glyph. */
@@ -396,7 +397,7 @@ function FileRow({
       setSaving(null)
       onSaved(outcome, name)
     } catch (err) {
-      setSaving({ state: "error", message: err instanceof Error && err.message ? err.message : "Download failed. Try again." })
+      setSaving({ state: "error", message: err instanceof Error && err.message ? err.message : tt("Download failed. Try again.") })
       savingTimer.current = setTimeout(() => setSaving(null), 6000)
     }
   }
@@ -436,7 +437,7 @@ function FileRow({
 
   const refusedFile = !!file && isRefusedFile(file)
   let meta: React.ReactNode
-  if (saving?.state === "preparing") meta = <span data-file-download="preparing">Preparing download</span>
+  if (saving?.state === "preparing") meta = <span data-file-download="preparing">{tt("Preparing download")}</span>
   else if (saving?.state === "error") meta = <span data-file-download="error" role="alert" className="text-[#b42318]">{saving.message}</span>
   else if (refusedFile) meta = <span data-file-refused="" className="text-[#b42318]">{REFUSED_FILE}</span>
   else if (file) meta = formatBytes(file.file_size)
@@ -464,7 +465,7 @@ function FileRow({
         {editing && file ? (
           <input
             autoFocus
-            aria-label="File name"
+            aria-label={tt("File name")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -487,7 +488,7 @@ function FileRow({
           <>
             <span
               role="progressbar"
-              aria-label={`Uploading ${name}`}
+              aria-label={tt("Uploading {name}", { name })}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={upload.progress}
@@ -498,15 +499,15 @@ function FileRow({
             </span>
             <ResponsiveActionMenu
               title={name}
-              trigger={<RowMenuButton label={`Actions for ${name}`} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
+              trigger={<RowMenuButton label={tt("Actions for {name}", { name })} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
               items={[
-                { label: "Download", onClick: () => void download() },
-                { label: "Cancel upload", variant: "destructive", separatorBefore: true, onClick: () => onCancel(upload.key) },
+                { label: tt("Download"), onClick: () => void download() },
+                { label: tt("Cancel upload"), variant: "destructive", separatorBefore: true, onClick: () => onCancel(upload.key) },
               ]}
             />
           </>
         ) : upload && status === "error" && upload.refused ? (
-          <button type="button" aria-label={`Remove ${name}`} onClick={() => onCancel(upload.key)} className={ICON_BUTTON}>
+          <button type="button" aria-label={tt("Remove {name}", { name })} onClick={() => onCancel(upload.key)} className={ICON_BUTTON}>
             <X className="h-4 w-4" />
           </button>
         ) : upload && status === "error" ? (
@@ -518,25 +519,25 @@ function FileRow({
               className="inline-flex h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-[#1a1a2e] outline-none hover:bg-[#f1f2f4] active:bg-[#e9eaed] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] sm:h-8 sm:text-[13px]"
             >
               <RotateCw className="h-3.5 w-3.5" />
-              Retry
+              {tt("Retry")}
             </button>
             <ResponsiveActionMenu
               title={name}
-              trigger={<RowMenuButton label={`Actions for ${name}`} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
+              trigger={<RowMenuButton label={tt("Actions for {name}", { name })} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
               items={[
-                { label: "Download", onClick: () => void download() },
-                { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => onCancel(upload.key) },
+                { label: tt("Download"), onClick: () => void download() },
+                { label: tt("Remove"), variant: "destructive", separatorBefore: true, onClick: () => onCancel(upload.key) },
               ]}
             />
           </>
         ) : file ? (
           <ResponsiveActionMenu
             title={file.file_name}
-            trigger={<RowMenuButton label={`Actions for ${file.file_name}`} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
+            trigger={<RowMenuButton label={tt("Actions for {file_name}", { file_name: file.file_name })} className={cn(ICON_BUTTON, "text-[#9ca3af]")} />}
             items={[
-              { label: "Download", onClick: () => void download() },
-              { label: "Rename", onClick: () => { setDraft(file.file_name); setEditing(true) } },
-              { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => onDelete(file) },
+              { label: tt("Download"), onClick: () => void download() },
+              { label: tt("Rename"), onClick: () => { setDraft(file.file_name); setEditing(true) } },
+              { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => onDelete(file) },
             ]}
           />
         ) : null}
@@ -588,7 +589,7 @@ export function DigitalFiles({
     for (const u of uploads.uploads) {
       if (u.status === "complete" && !heard.current.has(u.key)) {
         heard.current.add(u.key)
-        setAnnounce(`${u.file.name} uploaded`)
+        setAnnounce(tt("{name} uploaded", { name: u.file.name }))
       }
     }
   }, [uploads.uploads])
@@ -608,7 +609,7 @@ export function DigitalFiles({
       if (message) {
         setAnnounce(`${name}: ${message}`)
         onNotice?.(message)
-      } else if (outcome === "downloaded") setAnnounce(`${name} downloaded`)
+      } else if (outcome === "downloaded") setAnnounce(tt("{name} downloaded", { name }))
     },
     [onNotice],
   )
@@ -671,12 +672,12 @@ export function DigitalFiles({
         {input}
         {/* A phone has nothing to drag: it gets the button alone. */}
         <p className="text-[14px] leading-5 text-[#6b7280] max-sm:hidden">
-          {dragging ? "Drop to upload" : "Drop files here"}
+          {dragging ? tt("Drop to upload") : tt("Drop files here")}
         </p>
         <button type="button" onClick={choose} className={cn(secondaryDepth, "h-11 rounded-[10px] px-4 text-[15px] sm:h-9 sm:rounded-lg sm:text-[14px]", dragging && "invisible")}>
-          Choose files
+          {tt("Choose files")}
         </button>
-        <p className="text-[12.5px] leading-4 text-[#9ca3af]">Up to 10 GB each</p>
+        <p className="text-[12.5px] leading-4 text-[#9ca3af]">{tt("Up to 10 GB each")}</p>
       </div>
     )
   }
@@ -706,7 +707,7 @@ export function DigitalFiles({
         ))}
         <li>
           {full ? (
-            <p className="flex min-h-[52px] items-center px-3 text-[13px] text-[#6b7280]">{max} files is the most a product can have</p>
+            <p className="flex min-h-[52px] items-center px-3 text-[13px] text-[#6b7280]">{tt("{max} files is the most a product can have", { max })}</p>
           ) : (
             <button
               type="button"
@@ -717,8 +718,8 @@ export function DigitalFiles({
               <span aria-hidden className="flex h-10 w-9 shrink-0 items-center justify-center rounded-[7px] border border-dashed border-[#c9ccd3] text-[#6b7280]">
                 <Plus className="h-4 w-4" />
               </span>
-              <span className="text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">Add files</span>
-              <span className="ml-auto hidden pr-1 text-[13px] text-[#9ca3af] sm:block">or drop them here</span>
+              <span className="text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">{tt("Add files")}</span>
+              <span className="ml-auto hidden pr-1 text-[13px] text-[#9ca3af] sm:block">{tt("or drop them here")}</span>
             </button>
           )}
         </li>
@@ -731,7 +732,7 @@ export function DigitalFiles({
           dragging ? "opacity-100" : "opacity-0",
         )}
       >
-        Drop to upload
+        {tt("Drop to upload")}
       </div>
       <p className="sr-only" aria-live="polite">{announce}</p>
     </div>

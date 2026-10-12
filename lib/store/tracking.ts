@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  ANALYTICS AND AD PIXELS ON A STORE'S WEBSITE
@@ -40,84 +41,84 @@ export const TRACKERS: Record<TrackerId, TrackerInfo> = {
   ga4: {
     id: "ga4",
     name: "Google Analytics",
-    label: "Measurement ID",
+    get label() { return tt("Measurement ID") },
     example: "G-1A2B3C4D5E",
     pattern: /^G-[A-Z0-9]{4,16}$/,
-    where: "Google Analytics › Admin › Data streams › your web stream.",
+    get where() { return tt("Google Analytics › Admin › Data streams › your web stream.") },
     hosts: ["https://www.googletagmanager.com", "https://*.google-analytics.com", "https://*.analytics.google.com"],
   },
   gtm: {
     id: "gtm",
     name: "Google Tag Manager",
-    label: "Container ID",
+    get label() { return tt("Container ID") },
     example: "GTM-ABC1234",
     pattern: /^GTM-[A-Z0-9]{4,12}$/,
-    where: "Tag Manager, at the top of your workspace, next to the container's name.",
+    get where() { return tt("Tag Manager, at the top of your workspace, next to the container's name.") },
     hosts: ["https://www.googletagmanager.com"],
   },
   google_ads: {
     id: "google_ads",
     name: "Google Ads",
-    label: "Conversion ID",
+    get label() { return tt("Conversion ID") },
     example: "AW-123456789",
     pattern: /^AW-[0-9]{6,12}$/,
-    where: "Google Ads › Goals › Conversions › Google tag.",
+    get where() { return tt("Google Ads › Goals › Conversions › Google tag.") },
     hosts: ["https://www.googletagmanager.com", "https://googleads.g.doubleclick.net", "https://www.google.com"],
   },
   meta_pixel: {
     id: "meta_pixel",
     name: "Meta Pixel",
-    label: "Pixel ID",
+    get label() { return tt("Pixel ID") },
     example: "1234567890123456",
     pattern: /^[0-9]{10,20}$/,
-    where: "Meta Events Manager › Data sources › your pixel.",
+    get where() { return tt("Meta Events Manager › Data sources › your pixel.") },
     hosts: ["https://connect.facebook.net", "https://www.facebook.com"],
   },
   tiktok_pixel: {
     id: "tiktok_pixel",
     name: "TikTok Pixel",
-    label: "Pixel ID",
+    get label() { return tt("Pixel ID") },
     example: "C4A1B2C3D4E5F6G7H8I9",
     pattern: /^[A-Z0-9]{12,30}$/,
-    where: "TikTok Ads Manager › Tools › Events › Web events.",
+    get where() { return tt("TikTok Ads Manager › Tools › Events › Web events.") },
     hosts: ["https://analytics.tiktok.com"],
   },
   pinterest_tag: {
     id: "pinterest_tag",
     name: "Pinterest Tag",
-    label: "Tag ID",
+    get label() { return tt("Tag ID") },
     example: "2612345678901",
     pattern: /^[0-9]{10,16}$/,
-    where: "Pinterest Ads › Conversions › Tag manager.",
+    get where() { return tt("Pinterest Ads › Conversions › Tag manager.") },
     hosts: ["https://s.pinimg.com", "https://ct.pinterest.com"],
   },
   clarity: {
     id: "clarity",
     name: "Microsoft Clarity",
-    label: "Project ID",
+    get label() { return tt("Project ID") },
     example: "k3x9q2w7ab",
     pattern: /^[a-z0-9]{6,16}$/,
-    where: "Clarity › your project › Settings › Overview.",
+    get where() { return tt("Clarity › your project › Settings › Overview.") },
     hosts: ["https://www.clarity.ms", "https://*.clarity.ms", "https://c.bing.com"],
     letters: "lower",
   },
   klaviyo: {
     id: "klaviyo",
     name: "Klaviyo",
-    label: "Public API key (site ID)",
+    get label() { return tt("Public API key (site ID)") },
     example: "AbC123",
     pattern: /^[A-Za-z0-9]{6}$/,
-    where: "Klaviyo › Settings › Account › API keys, the six characters under Public API key.",
+    get where() { return tt("Klaviyo › Settings › Account › API keys, the six characters under Public API key.") },
     hosts: ["https://*.klaviyo.com", "https://klaviyo.com"],
     letters: "exact",
   },
   omnisend: {
     id: "omnisend",
     name: "Omnisend",
-    label: "Brand ID",
+    get label() { return tt("Brand ID") },
     example: "5f8a1b2c3d4e5f6a7b8c9d0e",
     pattern: /^[a-f0-9]{24}$/,
-    where: "Omnisend › Store settings › Connect store › your brand ID.",
+    get where() { return tt("Omnisend › Store settings › Connect store › your brand ID.") },
     hosts: ["https://omnisnippet1.com", "https://*.omnisnippet1.com", "https://*.omnisend.com"],
     letters: "lower",
   },
@@ -130,13 +131,13 @@ export const PURCHASE_TRACKERS: TrackerId[] = ["ga4", "gtm", "google_ads", "meta
 
 /** "A, B and C", for a sentence. */
 function inWords(names: string[]): string {
-  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+  return names.length <= 1 ? (names[0] ?? "") : tt("{value} and {names}", { value: names.slice(0, -1).join(", "), names: names[names.length - 1] })
 }
 
 /** What Website settings › Commerce says about the integrations, from this list, so a service added here is named there. */
 export function trackersHint(): string {
   const pagesOnly = TRACKER_ORDER.filter((id) => !PURCHASE_TRACKERS.includes(id)).map((id) => TRACKERS[id].name.replace(/^Microsoft /, ""))
-  return `${inWords(TRACKER_ORDER.map((id) => TRACKERS[id].name))} load on every page of this website once you add them. Each paid order is reported to them once${pagesOnly.length ? `, except ${inWords(pagesOnly)}` : ""}.`
+  return tt("{value} load on every page of this website once you add them. Each paid order is reported to them once{value2}.", { value: inWords(TRACKER_ORDER.map((id) => TRACKERS[id].name)), value2: pagesOnly.length ? tt(", except {pagesOnly}", { pagesOnly: inWords(pagesOnly) }) : "" })
 }
 
 export type Tracking = Partial<Record<TrackerId, string>>

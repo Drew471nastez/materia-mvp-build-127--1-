@@ -49,6 +49,8 @@ import { OFFERED_PLANS, planDisplayName, planHighlights } from "@/lib/billing/pl
 import type { HomeProgress, ProgressItem } from "@/lib/home/progress"
 import { APP_PAGE_KEPT_MS, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { PayPalMark, StripeMark, VisaMark } from "./payment-marks"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export const GETTING_STARTED_ID = "getting-started"
 
@@ -273,7 +275,7 @@ export function GettingStartedCard({
     list.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: "ease-out" })
   }, [progress.phase])
 
-  const title = challenges ? "Challenges" : "Getting started"
+  const title = challenges ? tt("Challenges") : tt("Getting started")
   return (
     <section
       ref={cardRef}
@@ -288,7 +290,7 @@ export function GettingStartedCard({
             {title}
           </h2>
           <span data-progress-count="" className="text-[12px] font-medium tabular-nums text-[#9ca3af]">
-            {done} of {total}
+            {tt("{done} of {total}", { done, total })}
           </span>
         </div>
         <div
@@ -297,7 +299,7 @@ export function GettingStartedCard({
           aria-valuemin={0}
           aria-valuemax={total}
           aria-valuenow={done}
-          aria-label={challenges ? "Challenges done" : "Setup progress"}
+          aria-label={challenges ? tt("Challenges done") : tt("Setup progress")}
         >
           {/* Full width, moved back by what is left: it grows on translate, and keeps its round end. */}
           <div
@@ -325,7 +327,7 @@ function countText(item: ProgressItem): string | null {
   if (item.done || item.target == null || item.target <= 1) return null
   const current = item.current ?? 0
   if (item.unit === "cents") {
-    const money = (cents: number) => `$${Math.floor(cents / 100).toLocaleString("en-US")}`
+    const money = (cents: number) => `$${Math.floor(cents / 100).toLocaleString(appLocale())}`
     return `${money(current)}/${money(item.target)}`
   }
   return `${current}/${item.target}`
@@ -361,7 +363,7 @@ function ProgressRow({
         }
       >
         {item.label}
-        {item.done && <span className="sr-only"> (done)</span>}
+        {item.done && <span className="sr-only"> {tt("(done)")}</span>}
       </span>
       {count && <span className="shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{count}</span>}
       {isNext && (
@@ -437,9 +439,9 @@ export function SetupGuideCard({ onOpen }: { onOpen?: () => void }) {
       onClick={onOpen ?? bumpGettingStarted}
       className={`${CARD} home-guide min-h-[300px] cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]`}
     >
-      <span className="px-6 pt-6 text-[13px] font-medium text-[#6b7280]">Store setup guide</span>
+      <span className="px-6 pt-6 text-[13px] font-medium text-[#6b7280]">{tt("Store setup guide")}</span>
       <span className="mt-1.5 max-w-[15ch] px-6 text-[26px] font-semibold leading-[1.12] tracking-[-0.02em] text-[#111114] sm:text-[28px]">
-        How to get started with your store
+        {tt("How to get started with your store")}
       </span>
 
       {/* The card's own shape clips the thumbnail where it runs off the corner. */}
@@ -452,7 +454,7 @@ export function SetupGuideCard({ onOpen }: { onOpen?: () => void }) {
           </span>
           <span className="relative flex items-end justify-between gap-3 pb-3 pr-3">
             <span className="text-[22px] font-semibold leading-[1.08] tracking-[-0.015em] text-white">
-              Welcome to
+              {tt("Welcome to")}
               <br />
               Storelib
             </span>
@@ -487,13 +489,13 @@ export function PlanCard({ planId }: { planId: string }) {
       {/* The deep violet sky it first had, clouded and grained, its clouds drifting on hover (globals.css, home-plan-head). */}
       <div className="home-plan-head flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
         <h2 id="your-plan-title" className="text-[13.5px] font-semibold text-white">
-          Your Plan
+          {tt("Your Plan")}
         </h2>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col px-5 pb-5 pt-4">
         <p className="text-[30px] font-semibold leading-none tracking-[-0.02em] text-[#111114]">{planDisplayName(id)}</p>
-        <p className="mt-2 text-[12.5px] text-[#9ca3af]">Included in your plan</p>
+        <p className="mt-2 text-[12.5px] text-[#9ca3af]">{tt("Included in your plan")}</p>
 
         <div className="relative mt-3.5 min-h-[96px] flex-1 overflow-hidden">
           {/* 2px in from the left and 1px down: the checks' 1px ring sits outside their circle, and the list clips. */}
@@ -516,7 +518,7 @@ export function PlanCard({ planId }: { planId: string }) {
           href={free ? "/app/settings/billing/upgrade" : "/app/settings/billing"}
           className="mt-4 inline-flex h-11 w-full shrink-0 items-center justify-center rounded-[12px] bg-[#16161a] text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-colors duration-150 hover:bg-[#2a2a31] active:bg-[#0b0b0d] focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]"
         >
-          {free ? "Upgrade to Pro" : "Manage plan"}
+          {free ? tt("Upgrade to Pro") : tt("Manage plan")}
         </AppLink>
       </div>
     </section>

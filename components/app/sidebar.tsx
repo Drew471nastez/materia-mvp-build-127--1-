@@ -48,6 +48,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { tt } from "@/lib/i18n/text"
 
 
 // Progress circle component for setup widget
@@ -289,7 +290,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    */
   const physicalCommerce = usePhysicalCommerceEnabled()
   /* COMMUNITY, after Products, only while the platform switch is on (the layout reads it). Off, the row is not there at all. */
-  const communityItem: NavItemData[] = communitiesEnabled ? [{ href: "/app/community", label: "Community", icon: NAV_ICONS_EXTRA.community }] : []
+  const communityItem: NavItemData[] = communitiesEnabled ? [{ href: "/app/community", label: tt("Community"), icon: NAV_ICONS_EXTRA.community }] : []
   const mainNavItems: NavItemData[] = [
     { href: "/app", label: t("nav.dashboard"), icon: NAV_ICONS.dashboard },
     {
@@ -297,8 +298,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       label: t("nav.products"),
       icon: NAV_ICONS.products,
       children: [
-        { href: "/app/coupons", label: "Coupons" },
-        { href: "/app/reviews", label: "Reviews" },
+        { href: "/app/coupons", label: tt("Coupons") },
+        { href: "/app/reviews", label: tt("Reviews") },
         /* No Memberships row: memberships are communities now (Community, below, while the switch is on). A creator's existing ones still open at /app/memberships. */
       ],
     },
@@ -351,12 +352,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   ]
   /* Collections under Products, first, for every shop (Shopify's Products › Collections); stock beside them only while physical commerce is on in /admin. */
   mainNavItems.find((item) => item.href === "/app/products")?.children?.unshift(
-    ...(physicalCommerce ? [{ href: "/app/inventory", label: "Inventory" }] : []),
-    { href: "/app/products/collections", label: "Collections" },
+    ...(physicalCommerce ? [{ href: "/app/inventory", label: tt("Inventory") }] : []),
+    { href: "/app/products/collections", label: tt("Collections") },
   )
-  mainNavItems.find((item) => item.href === "/app/products")?.children?.push({ href: "/app/files", label: "Files" })
+  mainNavItems.find((item) => item.href === "/app/products")?.children?.push({ href: "/app/files", label: tt("Files") })
   /* Upsells and bundles beside Coupons: they apply in the cart checkout, so only while physical commerce is on in /admin (app/app/offers). */
-  if (physicalCommerce) mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: "Upsells and bundles" })
+  if (physicalCommerce) mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: tt("Upsells and bundles") })
 
   /*
     INTEGRATIONS, ALWAYS THERE. A row to the Integrations page
@@ -371,13 +372,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const at = mainNavItems.findIndex((item) => item.href === "/app/emails")
     mainNavItems.splice(at < 0 ? mainNavItems.length : at + 1, 0, {
       href: "/app/integrations",
-      label: "Integrations",
+      label: tt("Integrations"),
       icon: NAV_ICONS_EXTRA.integrations,
       ...(installedIntegrations.length > 0
         ? {
             children: installedIntegrations.map((i) => ({
               href: `/app/integrations?integration=${encodeURIComponent(i.id)}`,
-              label: i.needsAttention ? `${i.name} (needs attention)` : i.name,
+              label: i.needsAttention ? tt("{name} (needs attention)", { name: i.name }) : i.name,
               thumb: <MiniMark item={{ id: i.id, name: i.name, logo: i.logo ?? null }} />,
             })),
           }
@@ -416,8 +417,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    */
   const profileDropdownItems = [
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
-    { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
-    { href: "/account/library", label: "Library", icon: Library },
+    { href: "/explore", label: tt("Explore"), icon: Compass, target: "_blank" as const },
+    { href: "/account/library", label: tt("Library"), icon: Library },
   ]
 
   /**
@@ -734,7 +735,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openStorelibPage(router, "/explore") } }}
                 onMouseEnter={() => prefetchHref(router, "/explore", "hover")}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
-                title="Discover"
+                title={tt("Discover")}
               >
                 <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
               </Link>
@@ -742,7 +743,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 onClick={openNotifications}
                 data-notifications-trigger=""
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all relative"
-                title="Notifications"
+                title={tt("Notifications")}
               >
                 <Bell className="h-[19px] w-[19px]" strokeWidth={1.5} />
                 <LiveNotificationBadge {...badgeProps} />
@@ -750,7 +751,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Link
                 href="/app/settings"
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
-                title="Settings"
+                title={tt("Settings")}
               >
                 <Settings className="h-[19px] w-[19px]" strokeWidth={1.5} />
               </Link>
@@ -805,7 +806,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         upgradeTitle={t("nav.upgradeToPro")}
         upgradeSubtitle={t("nav.unlockBenefits")}
         storeUnpublishedNote={
-          storeUrl && !storePublished ? "Store is unpublished. Go to Settings to publish." : undefined
+          storeUrl && !storePublished ? tt("Store is unpublished. Go to Settings to publish.") : undefined
         }
         setupSlot={
           setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/emails") ? (
@@ -830,8 +831,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-[#1a1a2e]">Store setup</p>
-                <p className="text-[12px] text-[#6b7280]">{setupProgress.completed} of {setupProgress.total} steps done</p>
+                <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Store setup")}</p>
+                <p className="text-[12px] text-[#6b7280]">{tt("{completed} of {total} steps done", { completed: setupProgress.completed, total: setupProgress.total })}</p>
               </div>
               <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
             </button>
@@ -894,7 +895,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               variant="ghost"
               size="icon"
               className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
-              aria-label="Explore"
+              aria-label={tt("Explore")}
               onClick={() => {
                 /* The same document either way (lib/navigation/cross-section.ts). */
                 openStorelibPage(router, "/explore")
@@ -908,7 +909,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 relative"
               onClick={openNotifications}
               data-notifications-trigger=""
-              aria-label="Notifications"
+              aria-label={tt("Notifications")}
             >
               <Bell className="h-5 w-5" />
               <LiveNotificationBadge {...badgeProps} />
@@ -1002,7 +1003,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           upgradeSubtitle={t("nav.unlockBenefits")}
           storeUnpublishedNote={
             storeUrl && !storePublished
-              ? "Store is unpublished. Go to Settings to publish."
+              ? tt("Store is unpublished. Go to Settings to publish.")
               : undefined
           }
         />
@@ -1053,7 +1054,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           }}
           data-shell-chrome=""
           data-setup-pill=""
-          aria-label={`Store setup, ${setupProgressPercent}% done`}
+          aria-label={tt("Store setup, {setupProgressPercent}% done", { setupProgressPercent })}
           className={cn(
             // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
             // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.
@@ -1064,7 +1065,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           )}
         >
           <SetupProgressCircle progress={setupProgressPercent} size={20} strokeWidth={2.5} />
-          <span className="font-medium text-[#374151] whitespace-nowrap">Setup</span>
+          <span className="font-medium text-[#374151] whitespace-nowrap">{tt("Setup")}</span>
           <span className="font-medium tabular-nums text-violet-600">{setupProgressPercent}%</span>
         </button>
       )}

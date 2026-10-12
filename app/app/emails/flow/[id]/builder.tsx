@@ -82,6 +82,8 @@ import { refreshMatching, write } from "@/components/email/emails-cache"
 import { PreviewLayer } from "@/components/email/compose/preview-layer"
 import type { PreviewMode } from "@/components/email/compose/email-preview"
 import { FlowTopBar, StepMark, backButton } from "../flow-parts"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface StepStats {
   sent: number
@@ -185,25 +187,25 @@ function day(iso: string | null | undefined): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
   const sameYear = d.getFullYear() === new Date().getFullYear()
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })
+  return d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) }))
 }
 
 function stepTitle(steps: FlowStep[], s: FlowStep): string {
-  if (s.type === "email") return s.config.subject.trim() || "No subject yet"
+  if (s.type === "email") return s.config.subject.trim() || tt("No subject yet")
   if (s.type === "wait") return waitText(s)
-  return `Only if ${CONDITIONS[s.config.check].phrase}`
+  return tt("Only if {phrase}", { phrase: CONDITIONS[s.config.check].phrase })
 }
 
 function stepKindName(steps: FlowStep[], s: FlowStep): string {
-  if (s.type === "email") return `Email ${emailNumber(steps, s.id)}`
-  if (s.type === "wait") return "Wait"
-  return "Check"
+  if (s.type === "email") return tt("Email {count}", { count: emailNumber(steps, s.id) })
+  if (s.type === "wait") return tt("Wait")
+  return tt("Check")
 }
 
 const STATE: Record<string, { label: string; tone: "success" | "neutral" }> = {
-  active: { label: "Live", tone: "success" },
-  draft: { label: "Draft", tone: "neutral" },
-  paused: { label: "Paused", tone: "neutral" },
+  active: { get label() { return tt("Live") }, tone: "success" },
+  draft: { get label() { return tt("Draft") }, tone: "neutral" },
+  paused: { get label() { return tt("Paused") }, tone: "neutral" },
 }
 const stateOf = (status: string) => STATE[status] ?? STATE.draft
 
@@ -252,7 +254,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
 
   const addStep = (at: number, type: StepType) => {
     if (draft.steps.length >= MAX_STEPS) {
-      toast({ title: "That is the most steps a flow can have", description: `Up to ${MAX_STEPS}.` })
+      toast({ title: tt("That is the most steps a flow can have"), description: tt("Up to {maxSteps}.", { maxSteps: MAX_STEPS }) })
       return
     }
     const step = blankStep(type)
@@ -284,7 +286,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       const out = await res.json().catch(() => ({}))
       if (!res.ok) {
         if (Array.isArray(out.problems)) setFlagged(true)
-        toast({ title: "Not saved", description: out.problems?.[0]?.message ?? out.error ?? "Try again.", variant: "destructive" })
+        toast({ title: tt("Not saved"), description: out.problems?.[0]?.message ?? out.error ?? tt("Try again."), variant: "destructive" })
         return false
       }
       /* What the server kept is what is shown: it may have tidied a body. */
@@ -295,7 +297,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       refreshMatching(FLOWS_KEY)
       return true
     } catch {
-      toast({ title: "Not saved", description: "Could not reach Storelib. Check your connection.", variant: "destructive" })
+      toast({ title: tt("Not saved"), description: tt("Could not reach Storelib. Check your connection."), variant: "destructive" })
       return false
     } finally {
       setSaving(false)
@@ -321,7 +323,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
     if (next && problems.length > 0) {
       setFlagged(true)
       setSelected(problems[0].stepId ?? null)
-      toast({ title: "Not turned on yet", description: problems[0].message, variant: "destructive" })
+      toast({ title: tt("Not turned on yet"), description: problems[0].message, variant: "destructive" })
       return
     }
     setSwitching(true)
@@ -334,18 +336,18 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       })
       const out = await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast({ title: next ? "Not turned on" : "Not turned off", description: out.problems?.[0]?.message ?? out.error ?? "Try again.", variant: "destructive" })
+        toast({ title: next ? tt("Not turned on") : tt("Not turned off"), description: out.problems?.[0]?.message ?? out.error ?? tt("Try again."), variant: "destructive" })
         return
       }
       setStatus(out.status)
       refreshMatching(FLOWS_KEY)
       toast({
-        title: next ? "Live" : "Paused",
+        title: next ? tt("Live") : tt("Paused"),
         description: next
-          ? `From now on, ${TRIGGERS[draft.trigger].sentence.charAt(0).toLowerCase()}${TRIGGERS[draft.trigger].sentence.slice(1)} starts it.`
+          ? tt("From now on, {value}{value2} starts it.", { value: TRIGGERS[draft.trigger].sentence.charAt(0).toLowerCase(), value2: TRIGGERS[draft.trigger].sentence.slice(1) })
           : out.stopped > 0
-            ? `${out.stopped} ${out.stopped === 1 ? "person" : "people"} partway through will get nothing more.`
-            : "Nobody new starts it.",
+            ? tt("{stopped, plural, one {# person} other {# people}} partway through will get nothing more.", { stopped: out.stopped })
+            : tt("Nobody new starts it."),
       })
       router.refresh()
     } finally {
@@ -366,7 +368,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       router.replace(EMAILS)
     } catch {
       setDeleting(false)
-      toast({ title: "Not deleted", description: "Try again.", variant: "destructive" })
+      toast({ title: tt("Not deleted"), description: tt("Try again."), variant: "destructive" })
     }
   }
 
@@ -404,25 +406,25 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       const out = await res.json().catch(() => ({}))
       if (!res.ok || !out.id) throw new Error(out.error)
       refreshMatching(FLOWS_KEY)
-      toast({ title: "Copy made", description: "It is off until you turn it on." })
+      toast({ title: tt("Copy made"), description: tt("It is off until you turn it on.") })
       router.push(`/app/emails/flow/${out.id}`)
     } catch (error) {
-      toast({ title: "No copy made", description: (error as Error)?.message || "Try again.", variant: "destructive" })
+      toast({ title: tt("No copy made"), description: (error as Error)?.message || tt("Try again."), variant: "destructive" })
     } finally {
       setCopying(false)
     }
   }
   const menu: ActionMenuItem[] = [
-    ...(on ? [{ label: "Turn off", onClick: turnOff }] : dirty ? [{ label: "Save and turn on", onClick: () => void setOn(true) }] : []),
-    { label: copying ? "Copying" : "Duplicate", onClick: () => void duplicate() },
-    { label: "Delete automation", variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirmDelete(true) },
+    ...(on ? [{ label: tt("Turn off"), onClick: turnOff }] : dirty ? [{ label: tt("Save and turn on"), onClick: () => void setOn(true) }] : []),
+    { label: copying ? tt("Copying") : tt("Duplicate"), onClick: () => void duplicate() },
+    { label: tt("Delete automation"), variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirmDelete(true) },
   ]
   const busy = saving || switching || deleting || copying
   /* The bar's one action. Save is the phone's: from 768px it is in the foot bar. */
   const primary = dirty
-    ? { label: saving ? "Saving" : "Save", run: () => void save(), phoneOnly: true }
+    ? { label: saving ? tt("Saving") : tt("Save"), run: () => void save(), phoneOnly: true }
     : !on
-      ? { label: switching ? "Turning on" : "Turn on", run: () => void setOn(true), phoneOnly: false }
+      ? { label: switching ? tt("Turning on") : tt("Turn on"), run: () => void setOn(true), phoneOnly: false }
       : null
   /* Back to what was last saved, from the foot bar. */
   const discard = () => {
@@ -468,7 +470,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
         reach however far down the flow the edit was.
       */}
       <FlowTopBar width={FLOW_WIDTH} className="flex h-14 items-center gap-1.5 md:h-auto md:items-start md:gap-2 md:pt-6">
-        <button type="button" aria-label="Back to automations" title="Automations" className={cn(backButton, "-ml-2.5 md:-ml-1.5")} onClick={back}>
+        <button type="button" aria-label={tt("Back to automations")} title={tt("Automations")} className={cn(backButton, "-ml-2.5 md:-ml-1.5")} onClick={back}>
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="min-w-0 flex-1">
@@ -479,14 +481,14 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
                 characters) sizes the cell instead and the badge floats off. */}
             <span className="-ml-1.5 inline-grid min-w-0 grid-cols-[minmax(0,auto)]">
               <span aria-hidden className={cn(nameText, "invisible col-start-1 row-start-1 overflow-hidden whitespace-pre px-1.5")}>
-                {draft.name || "Name"}
+                {draft.name || tt("Name")}
               </span>
               <input
-                aria-label="Name"
+                aria-label={tt("Name")}
                 size={1}
                 value={draft.name}
                 maxLength={80}
-                placeholder="Name"
+                placeholder={tt("Name")}
                 onChange={(e) => update({ name: e.target.value })}
                 className={cn(
                   nameText,
@@ -513,10 +515,10 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
             </button>
           ) : null}
           <ResponsiveActionMenu
-            title={draft.name || "Automation"}
+            title={draft.name || tt("Automation")}
             items={menu}
             trigger={
-              <button type="button" aria-label="More actions" className={cn(backButton, "-mr-2 text-[#4b5563] md:mr-0")} disabled={deleting}>
+              <button type="button" aria-label={tt("More actions")} className={cn(backButton, "-mr-2 text-[#4b5563] md:mr-0")} disabled={deleting}>
                 <Ellipsis className="h-5 w-5" />
               </button>
             }
@@ -593,14 +595,14 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
         <div className="border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)]">
           <div className={cn("mx-auto flex h-16 items-center justify-between gap-4", FLOW_WIDTH, FLOW_GUTTER)}>
             <p className="text-[13px] font-medium text-[#1a1a2e]" aria-live="polite">
-              {saving ? "Saving" : dirty ? "Unsaved changes" : ""}
+              {saving ? tt("Saving") : dirty ? tt("Unsaved changes") : ""}
             </p>
             <div className="flex items-center gap-2">
               <button type="button" className={cn(secondaryDepth, "h-9 rounded-lg px-3.5 text-[13px]")} disabled={busy} onClick={discard}>
-                Discard
+                {tt("Discard")}
               </button>
               <button type="button" className={cn(DEPTH_PRIMARY, "h-9 min-w-[64px] rounded-lg px-3.5 text-[13px]")} disabled={busy} onClick={() => void save()}>
-                {saving ? "Saving" : "Save"}
+                {saving ? tt("Saving") : tt("Save")}
               </button>
             </div>
           </div>
@@ -608,7 +610,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       </div>
 
       {wide === false ? (
-        <BottomSheet isOpen={selected !== null && panel !== null} onClose={() => setSelected(null)} label="Edit step" hideFrom={null} aboveKeyboard maxHeight="min(90dvh, 760px)">
+        <BottomSheet isOpen={selected !== null && panel !== null} onClose={() => setSelected(null)} label={tt("Edit step")} hideFrom={null} aboveKeyboard maxHeight="min(90dvh, 760px)">
           {panel}
         </BottomSheet>
       ) : null}
@@ -616,10 +618,10 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       <Confirm
         open={confirmOff}
         onOpenChange={setConfirmOff}
-        title={`Turn off ${draft.name}?`}
-        body={`${data.counts.active} ${data.counts.active === 1 ? "person is" : "people are"} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.`}
-        cancel="Keep it on"
-        confirm="Turn off"
+        title={tt("Turn off {name}?", { name: draft.name })}
+        body={tt("{active, plural, one {# person is} other {# people are}} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.", { active: data.counts.active })}
+        cancel={tt("Keep it on")}
+        confirm={tt("Turn off")}
         danger
         busy={switching}
         onConfirm={() => void setOn(false)}
@@ -627,10 +629,10 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       <Confirm
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={`Delete ${draft.name}?`}
-        body={on || data.counts.active > 0 ? "It stops at once for everyone partway through, and its history goes with it." : "Its steps and history go with it."}
-        cancel="Keep it"
-        confirm={deleting ? "Deleting" : "Delete"}
+        title={tt("Delete {name}?", { name: draft.name })}
+        body={on || data.counts.active > 0 ? tt("It stops at once for everyone partway through, and its history goes with it.") : tt("Its steps and history go with it.")}
+        cancel={tt("Keep it")}
+        confirm={deleting ? tt("Deleting") : tt("Delete")}
         danger
         busy={deleting}
         onConfirm={() => void remove()}
@@ -638,8 +640,8 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <DialogContent className="max-w-[calc(100vw-2rem)] rounded-2xl p-0 sm:max-w-[420px]">
           <div className="p-5">
-            <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">Leave without saving?</DialogTitle>
-            <DialogDescription className="mt-1.5 text-[14px] text-[#6b7280]">Your changes to this flow are not saved yet.</DialogDescription>
+            <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Leave without saving?")}</DialogTitle>
+            <DialogDescription className="mt-1.5 text-[14px] text-[#6b7280]">{tt("Your changes to this flow are not saved yet.")}</DialogDescription>
           </div>
           <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
             <button
@@ -651,7 +653,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
                 leave()
               }}
             >
-              Leave
+              {tt("Leave")}
             </button>
             <button
               type="button"
@@ -663,7 +665,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
                 }
               }}
             >
-              Save and leave
+              {tt("Save and leave")}
             </button>
           </div>
         </DialogContent>
@@ -720,14 +722,14 @@ function StateLine(props: {
   if (props.trigger === "abandoned_checkout" && !props.startsRecorded) notes.push("Started checkouts are not recorded on your account yet, so this sends nothing for now.")
   const line = on
     ? props.tracking && counts.active > 0
-      ? `${counts.active} ${counts.active === 1 ? "person is" : "people are"} partway through. Edits reach them from their next step.`
-      : "Sending. People who trigger it from now on go through it."
+      ? tt("{active, plural, one {# person is} other {# people are}} partway through. Edits reach them from their next step.", { active: counts.active })
+      : tt("Sending. People who trigger it from now on go through it.")
     : problems.length > 0
-      ? `${problems.length} ${problems.length === 1 ? "thing" : "things"} to finish before it can go on.`
-      : "Not sending. Turn it on and it starts for people who trigger it from then on."
+      ? tt("{length, plural, one {# thing} other {# things}} to finish before it can go on.", { length: problems.length })
+      : tt("Not sending. Turn it on and it starts for people who trigger it from then on.")
   return (
     <section
-      aria-label="Whether this automation is sending"
+      aria-label={tt("Whether this automation is sending")}
       className={cn(
         "flex gap-3 rounded-xl border px-3.5 py-3",
         on ? "border-[#cde9d6] bg-[#f3fbf6]" : problems.length > 0 ? "border-[#f3e2a8] bg-[#fffbeb]" : "border-[#e5e7eb]/70 bg-white",
@@ -736,7 +738,7 @@ function StateLine(props: {
       <span aria-hidden className={cn("mt-[5px] h-2 w-2 shrink-0 rounded-full", on ? "bg-[#1f9d55]" : problems.length > 0 ? "bg-[#e0a800]" : "bg-[#b5b5bd]")} />
       <div className="min-w-0 flex-1 text-[13px] leading-5">
         <p className="text-[#1a1a2e]">{line}</p>
-        {toNews ? <p className="text-[#4b5563]">Only people who asked for your news get it.</p> : null}
+        {toNews ? <p className="text-[#4b5563]">{tt("Only people who asked for your news get it.")}</p> : null}
         {notes.map((n) => (
           <p key={n} className="mt-1 text-[#5c4300]">{n}</p>
         ))}
@@ -791,16 +793,16 @@ function Canvas(props: {
   const rule = entryRule(draft.trigger, draft.config)
   const products = isPurchaseTrigger(draft.trigger) ? draft.config.product_ids?.length ?? 0 : 0
   return (
-    <ol aria-label="Steps" className="mt-4 w-full">
+    <ol aria-label={tt("Steps")} className="mt-4 w-full">
       <li>
         <button type="button" className={cn(node, props.selected === "trigger" ? nodeOn : nodeRest)} onClick={() => props.onSelect("trigger")}>
           <StepMark kind="trigger" trigger={draft.trigger} />
           <span className="min-w-0 flex-1">
-            <span className="block text-[12px] font-medium text-[#6b7280]">Starts when</span>
+            <span className="block text-[12px] font-medium text-[#6b7280]">{tt("Starts when")}</span>
             <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{TRIGGERS[draft.trigger].sentence}</span>
             <span className="block truncate text-[12px] text-[#6b7280]">
               {entryText(draft.trigger, rule)}
-              {isPurchaseTrigger(draft.trigger) ? ` · ${products > 0 ? `${products} ${products === 1 ? "product" : "products"}` : "Any product"}` : ""}
+              {isPurchaseTrigger(draft.trigger) ? ` · ${products > 0 ? `${products} ${products === 1 ? "product" : "products"}` : tt("Any product")}` : ""}
             </span>
           </span>
         </button>
@@ -822,26 +824,26 @@ function Canvas(props: {
                   <span className={cn("line-clamp-2 block break-words text-[14px] font-semibold", s.type === "email" && !s.config.subject.trim() ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>
                     {stepTitle(draft.steps, s)}
                   </span>
-                  {s.type === "condition" ? <span className="block text-[12px] text-[#6b7280]">Everyone else leaves here.</span> : null}
+                  {s.type === "condition" ? <span className="block text-[12px] text-[#6b7280]">{tt("Everyone else leaves here.")}</span> : null}
                   {stats && stats.sent + stats.failed > 0 ? (
                     <span className="mt-1 flex flex-wrap gap-x-3 text-[12px] tabular-nums text-[#4b5563]">
-                      <span>{stats.sent.toLocaleString("en-US")} sent</span>
-                      <span>{pct(stats.opened, stats.sent)} opened</span>
-                      <span>{pct(stats.clicked, stats.sent)} clicked</span>
-                      {stats.failed > 0 ? <span className="text-[#8a1c0f]">{stats.failed} failed</span> : null}
+                      <span>{tt("{value} sent", { value: stats.sent.toLocaleString(appLocale()) })}</span>
+                      <span>{pct(stats.opened, stats.sent)} {tt("opened")}</span>
+                      <span>{pct(stats.clicked, stats.sent)} {tt("clicked")}</span>
+                      {stats.failed > 0 ? <span className="text-[#8a1c0f]">{tt("{failed} failed", { failed: stats.failed })}</span> : null}
                     </span>
                   ) : null}
                   {props.flagged && problems.length > 0 ? <span className="mt-1 block text-[12px] text-[#8a1c0f]">{problems[0].message}</span> : null}
                 </span>
-                {problems.length > 0 ? <span aria-label="Needs attention" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#e0a800] shadow-[0_0_0_3px_rgba(224,168,0,0.18)]" /> : null}
+                {problems.length > 0 ? <span aria-label={tt("Needs attention")} className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#e0a800] shadow-[0_0_0_3px_rgba(224,168,0,0.18)]" /> : null}
               </button>
             </li>
           </React.Fragment>
         )
       })}
-      <Connector onAdd={(type) => props.onAdd(draft.steps.length, type)} label={draft.steps.length === 0 ? "Add the first step" : undefined} />
+      <Connector onAdd={(type) => props.onAdd(draft.steps.length, type)} label={draft.steps.length === 0 ? tt("Add the first step") : undefined} />
       <li className="flex justify-center">
-        <span className="inline-flex h-7 items-center rounded-full border border-[#e3e4e8] bg-white px-3 text-[12px] font-medium text-[#6b7280]">End</span>
+        <span className="inline-flex h-7 items-center rounded-full border border-[#e3e4e8] bg-white px-3 text-[12px] font-medium text-[#6b7280]">{tt("End")}</span>
       </li>
     </ol>
   )
@@ -852,7 +854,7 @@ const AddButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes
     <button
       ref={ref}
       type="button"
-      aria-label={label ?? "Add a step here"}
+      aria-label={label ?? tt("Add a step here")}
       {...props}
       className={cn(
         "relative z-[1] inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[#d5d7dd] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-[background-color,color,border-color] duration-100 hover:border-[#1a1a2e] hover:bg-[#1a1a2e] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
@@ -870,13 +872,13 @@ function Connector({ onAdd, label }: { onAdd: (type: StepType) => void; label?: 
     <li className="relative flex h-12 items-center justify-center">
       <span aria-hidden className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 rounded-full bg-[#dfe1e6]" />
       <ResponsiveActionMenu
-        title="Add a step"
+        title={tt("Add a step")}
         align="center"
         trigger={<AddButton label={label} />}
         items={[
-          { label: "Email", onClick: () => onAdd("email") },
-          { label: "Wait", onClick: () => onAdd("wait") },
-          { label: "Check", onClick: () => onAdd("condition") },
+          { label: tt("Email"), onClick: () => onAdd("email") },
+          { label: tt("Wait"), onClick: () => onAdd("wait") },
+          { label: tt("Check"), onClick: () => onAdd("condition") },
         ]}
       />
     </li>
@@ -901,7 +903,7 @@ function PanelHead({ kind, trigger, title, onClose }: { kind: Parameters<typeof 
     <div className="flex items-center gap-2.5 border-b border-[#eef0f2] px-4 py-3">
       <StepMark kind={kind} trigger={trigger} />
       <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
-      <button type="button" aria-label="Close" className={cn(iconButton, "h-9 w-9")} onClick={onClose}>
+      <button type="button" aria-label={tt("Close")} className={cn(iconButton, "h-9 w-9")} onClick={onClose}>
         <X className="h-4 w-4" />
       </button>
     </div>
@@ -912,7 +914,7 @@ function PanelHead({ kind, trigger, title, onClose }: { kind: Parameters<typeof 
 function PanelDone({ onClose }: { onClose: () => void }) {
   return (
     <button type="button" data-panel-done="" className={cn(DEPTH_PRIMARY, "h-10 shrink-0 rounded-[10px] px-4 text-[15px] sm:h-8 sm:rounded-lg sm:px-3.5 sm:text-[13px] lg:hidden")} onClick={onClose}>
-      Done
+      {tt("Done")}
     </button>
   )
 }
@@ -947,10 +949,10 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
   const setAudience = (a: Audience) => onChange({ config: { ...draft.config, audience: a } })
   return (
     <div>
-      <PanelHead kind="trigger" trigger={draft.trigger} title="Starts when" onClose={onClose} />
+      <PanelHead kind="trigger" trigger={draft.trigger} title={tt("Starts when")} onClose={onClose} />
       <div className="space-y-6 px-4 py-4">
         <fieldset>
-          <legend className={labelText}>What starts it</legend>
+          <legend className={labelText}>{tt("What starts it")}</legend>
           <div className="space-y-2">
             {TRIGGER_ORDER.map((t) => (
               <Choice
@@ -967,18 +969,18 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
               />
             ))}
           </div>
-          {on ? <p className={hint}>Turn it off to change this. People already in it joined for the current reason.</p> : null}
-          {draft.trigger === "abandoned_checkout" ? <p className={hint}>An hour after someone presses Pay and no order comes of it. Only people who ticked &ldquo;Email me news and offers&rdquo; at checkout, or are on your list, get it, and it stops the moment they buy.</p> : null}
+          {on ? <p className={hint}>{tt("Turn it off to change this. People already in it joined for the current reason.")}</p> : null}
+          {draft.trigger === "abandoned_checkout" ? <p className={hint}>{tt("An hour after someone presses Pay and no order comes of it. Only people who ticked “Email me news and offers” at checkout, or are on your list, get it, and it stops the moment they buy.")}</p> : null}
         </fieldset>
 
         {purchase ? (
           <fieldset>
-            <legend className={labelText}>Which purchases</legend>
+            <legend className={labelText}>{tt("Which purchases")}</legend>
             <div className="space-y-2">
-              <Choice checked={!only} label="Any product" onChange={() => { setOnly(false); onChange({ config: { ...draft.config, product_ids: undefined } }) }} />
-              <Choice checked={only} label="Only these products" detail={products.length === 0 ? "You have no products yet." : undefined} disabled={products.length === 0} onChange={() => setOnly(true)} />
+              <Choice checked={!only} label={tt("Any product")} onChange={() => { setOnly(false); onChange({ config: { ...draft.config, product_ids: undefined } }) }} />
+              <Choice checked={only} label={tt("Only these products")} detail={products.length === 0 ? tt("You have no products yet.") : undefined} disabled={products.length === 0} onChange={() => setOnly(true)} />
             </div>
-            {only && products.length > 0 && picked.size === 0 ? <p className={hint} data-no-products-picked="">Tick at least one. With none ticked it starts for any product.</p> : null}
+            {only && products.length > 0 && picked.size === 0 ? <p className={hint} data-no-products-picked="">{tt("Tick at least one. With none ticked it starts for any product.")}</p> : null}
             {only && products.length > 0 ? (
               <div className="mt-2 max-h-[220px] overflow-y-auto rounded-xl border border-[#e3e4e8]">
                 {products.map((p) => (
@@ -1004,24 +1006,24 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
 
         {purchase ? (
           <fieldset>
-            <legend className={labelText}>Who gets it</legend>
+            <legend className={labelText}>{tt("Who gets it")}</legend>
             <div className="space-y-2">
-              <Choice checked={audience === "buyers"} label="Every buyer" detail="For notes about their order: thanks, how to use it, a review." onChange={() => setAudience("buyers")} />
-              <Choice checked={audience === "subscribers"} label="Only buyers who asked for your news" detail="For offers and new work. They ticked the box at checkout or joined your list." onChange={() => setAudience("subscribers")} />
+              <Choice checked={audience === "buyers"} label={tt("Every buyer")} detail={tt("For notes about their order: thanks, how to use it, a review.")} onChange={() => setAudience("buyers")} />
+              <Choice checked={audience === "subscribers"} label={tt("Only buyers who asked for your news")} detail={tt("For offers and new work. They ticked the box at checkout or joined your list.")} onChange={() => setAudience("subscribers")} />
             </div>
           </fieldset>
         ) : null}
 
         {draft.trigger !== "first_purchase" ? (
           <fieldset>
-            <legend className={labelText}>Who can go through it again</legend>
+            <legend className={labelText}>{tt("Who can go through it again")}</legend>
             <div className="space-y-2">
-              {draft.trigger === "purchase" ? <Choice checked={rule.mode === "each"} label="Every order" detail="Each order starts it once. The same order never starts it twice." onChange={() => setRule({ mode: "each" })} /> : null}
-              <Choice checked={rule.mode === "once"} label="Once per person" detail="Never twice for the same address." onChange={() => setRule({ mode: "once" })} />
-              <Choice checked={rule.mode === "after"} label="Again, after a while" onChange={() => setRule({ mode: "after", days: rule.mode === "after" ? rule.days : draft.trigger === "abandoned_checkout" ? 7 : 30 })}>
+              {draft.trigger === "purchase" ? <Choice checked={rule.mode === "each"} label={tt("Every order")} detail={tt("Each order starts it once. The same order never starts it twice.")} onChange={() => setRule({ mode: "each" })} /> : null}
+              <Choice checked={rule.mode === "once"} label={tt("Once per person")} detail={tt("Never twice for the same address.")} onChange={() => setRule({ mode: "once" })} />
+              <Choice checked={rule.mode === "after"} label={tt("Again, after a while")} onChange={() => setRule({ mode: "after", days: rule.mode === "after" ? rule.days : draft.trigger === "abandoned_checkout" ? 7 : 30 })}>
                 {rule.mode === "after" ? (
                   <span className="mt-2 flex items-center gap-2 text-[13px] text-[#4b5563]">
-                    Not within
+                    {tt("Not within")}
                     <input
                       type="number"
                       min={1}
@@ -1030,16 +1032,16 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
                       onChange={(e) => setRule({ mode: "after", days: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
                       className={cn("h-8 w-16 rounded-lg border border-[#d5d7dd] px-2 text-center text-[16px] outline-none sm:text-[13px]", CALM_FOCUS)}
                     />
-                    days of their last time
+                    {tt("days of their last time")}
                   </span>
                 ) : null}
               </Choice>
             </div>
           </fieldset>
         ) : (
-          <p className={hint}>A first order happens once, so each person goes through this once: when they first buy from you.</p>
+          <p className={hint}>{tt("A first order happens once, so each person goes through this once: when they first buy from you.")}</p>
         )}
-        <p className={hint}>Only people who trigger it after you turn it on are sent anything. Someone who unsubscribes is never sent another email, wherever they are in the flow.</p>
+        <p className={hint}>{tt("Only people who trigger it after you turn it on are sent anything. Someone who unsubscribes is never sent another email, wherever they are in the flow.")}</p>
       </div>
       <div data-panel-foot="" className="sticky bottom-0 z-[2] flex justify-end border-t border-[#eef0f2] bg-white px-4 py-3 lg:hidden">
         <PanelDone onClose={onClose} />
@@ -1094,16 +1096,16 @@ function StepPanel(props: {
         phone, so the row fits 360px with Done at its end.
       */}
       <div data-panel-foot="" className="sticky bottom-0 z-[2] flex items-center gap-2 border-t border-[#eef0f2] bg-white px-4 py-3 lg:static">
-        <button type="button" className={cn(PANEL_BUTTON, "max-sm:w-10 max-sm:px-0")} disabled={i <= 0} onClick={() => props.onMove(-1)} aria-label="Move up">
+        <button type="button" className={cn(PANEL_BUTTON, "max-sm:w-10 max-sm:px-0")} disabled={i <= 0} onClick={() => props.onMove(-1)} aria-label={tt("Move up")}>
           <ArrowUp aria-hidden className="h-4 w-4 sm:hidden" />
-          <span className="max-sm:hidden">Move up</span>
+          <span className="max-sm:hidden">{tt("Move up")}</span>
         </button>
-        <button type="button" className={cn(PANEL_BUTTON, "max-sm:w-10 max-sm:px-0")} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)} aria-label="Move down">
+        <button type="button" className={cn(PANEL_BUTTON, "max-sm:w-10 max-sm:px-0")} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)} aria-label={tt("Move down")}>
           <ArrowDown aria-hidden className="h-4 w-4 sm:hidden" />
-          <span className="max-sm:hidden">Move down</span>
+          <span className="max-sm:hidden">{tt("Move down")}</span>
         </button>
         <button type="button" className={PANEL_REMOVE} onClick={props.onRemove}>
-          Remove
+          {tt("Remove")}
         </button>
         <PanelDone onClose={props.onClose} />
       </div>
@@ -1122,7 +1124,7 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
     try {
       const res = await fetch(`/api/automations/flows/${props.flowId}/test`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step }) })
       const out = await res.json().catch(() => ({}))
-      toast(res.ok ? { title: "Test sent", description: `To ${out.to}. Names and products are filled with examples.` } : { title: "Test not sent", description: out.error ?? "Try again.", variant: "destructive" })
+      toast(res.ok ? { title: tt("Test sent"), description: tt("To {to}. Names and products are filled with examples.", { to: out.to }) } : { title: tt("Test not sent"), description: out.error ?? tt("Try again."), variant: "destructive" })
     } finally {
       setTesting(false)
     }
@@ -1157,7 +1159,7 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
       setFetched({ html: out.html, subject: String(out.subject ?? ""), previewText: String(out.previewText ?? ""), fromName: String(out.fromName ?? "") })
       setPreviewOpen(true)
     } catch (error) {
-      toast({ title: "No preview", description: (error as Error)?.message || "Check your connection and try again.", variant: "destructive" })
+      toast({ title: tt("No preview"), description: (error as Error)?.message || tt("Check your connection and try again."), variant: "destructive" })
     } finally {
       setPreviewing(false)
     }
@@ -1170,7 +1172,7 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
           open={previewOpen}
           onClose={() => setPreviewOpen(false)}
           html={preview.html}
-          senderName={preview.fromName || "You"}
+          senderName={preview.fromName || tt("You")}
           subject={preview.subject}
           previewText={preview.previewText}
           mode={previewMode}
@@ -1180,10 +1182,10 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
       {s && s.sent + s.failed > 0 ? (
         <dl className="grid grid-cols-4 overflow-hidden rounded-xl border border-[#eef0f2] text-center">
           {[
-            ["Sent", s.sent.toLocaleString("en-US")],
-            ["Opened", pct(s.opened, s.sent)],
-            ["Clicked", pct(s.clicked, s.sent)],
-            ["Failed", s.failed.toLocaleString("en-US")],
+            [tt("Sent"), s.sent.toLocaleString(appLocale())],
+            [tt("Opened"), pct(s.opened, s.sent)],
+            [tt("Clicked"), pct(s.clicked, s.sent)],
+            ["Failed", s.failed.toLocaleString(appLocale())],
           ].map(([k, v], n) => (
             <div key={k} className={cn("px-2 py-2", n > 0 && "border-l border-[#eef0f2]")}>
               <dt className="text-[11px] font-medium text-[#6b7280]">{k}</dt>
@@ -1193,33 +1195,33 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
         </dl>
       ) : null}
       <div>
-        <label className={labelText} htmlFor={`subject-${step.id}`}>Subject</label>
-        <input id={`subject-${step.id}`} className={field} value={step.config.subject} maxLength={200} onChange={(e) => set({ subject: e.target.value })} placeholder="Welcome, {{first_name}}" />
+        <label className={labelText} htmlFor={`subject-${step.id}`}>{tt("Subject")}</label>
+        <input id={`subject-${step.id}`} className={field} value={step.config.subject} maxLength={200} onChange={(e) => set({ subject: e.target.value })} placeholder={tt("Welcome, {{first_name}}")} />
       </div>
       <div>
         <label className={labelText} htmlFor={`preview-${step.id}`}>
-          Preview text <span className="font-normal text-[#6b7280]">(optional)</span>
+          {tt("Preview text")} <span className="font-normal text-[#6b7280]">{tt("(optional)")}</span>
         </label>
-        <input id={`preview-${step.id}`} className={field} value={step.config.preview_text ?? ""} maxLength={200} onChange={(e) => set({ preview_text: e.target.value || undefined })} placeholder="Shown after the subject in most inboxes" />
+        <input id={`preview-${step.id}`} className={field} value={step.config.preview_text ?? ""} maxLength={200} onChange={(e) => set({ preview_text: e.target.value || undefined })} placeholder={tt("Shown after the subject in most inboxes")} />
       </div>
       <div>
         <div className="mb-1.5 flex min-h-8 items-center justify-between gap-3">
-          <span className={cn(labelText, "mb-0")}>Email</span>
+          <span className={cn(labelText, "mb-0")}>{tt("Email")}</span>
           <button type="button" data-flow-preview="" className={cn(PANEL_BUTTON, "-my-1")} disabled={previewing} onClick={() => void openPreview()}>
-            {previewing ? "Opening" : "Preview"}
+            {previewing ? tt("Opening") : tt("Preview")}
           </button>
         </div>
-        <BodyEditor key={step.id} label="Email body" value={step.config.body} onChange={(body) => set({ body })} links={fields.filter((f) => f.link).map((f) => ({ label: f.label, href: `{{${f.key}}}` }))} />
+        <BodyEditor key={step.id} label={tt("Email body")} value={step.config.body} onChange={(body) => set({ body })} links={fields.filter((f) => f.link).map((f) => ({ label: f.label, href: `{{${f.key}}}` }))} />
         <p className={hint}>
-          Fields: {fields.filter((f) => !f.link).map((f) => `{{${f.key}}}`).join(", ")}. &ldquo;Hi {"{{first_name}}"},&rdquo; reads &ldquo;Hi there,&rdquo; when a name is not known, and {"{{creator_name}}"} is the name on your profile when the email is sent. Every email ends with your name and an unsubscribe link.
+          {tt("Fields: {value}. “Hi", { value: fields.filter((f) => !f.link).map((f) => `{{${f.key}}}`).join(", ") })} {"{{first_name}}"}{tt(",” reads “Hi there,” when a name is not known, and")} {"{{creator_name}}"} {tt("is the name on your profile when the email is sent. Every email ends with your name and an unsubscribe link.")}
         </p>
       </div>
       <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5">
         <p className="min-w-0 text-[12px] text-[#4b5563]">
-          {props.accountEmail ? <>Send this one to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span>, as it is now.</> : "Your account has no email address for a test."}
+          {props.accountEmail ? <>{tt("Send this one to")} <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span>{tt(", as it is now.")}</> : tt("Your account has no email address for a test.")}
         </p>
         <button type="button" className={PANEL_BUTTON} disabled={testing || !props.accountEmail} onClick={() => void test()}>
-          {testing ? "Sending" : "Send test"}
+          {testing ? tt("Sending") : tt("Send test")}
         </button>
       </div>
     </>
@@ -1229,29 +1231,29 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
 function WaitFields({ step, onChange }: { step: Extract<FlowStep, { type: "wait" }>; onChange: (s: FlowStep) => void }) {
   return (
     <div>
-      <span className={labelText}>Wait for</span>
+      <span className={labelText}>{tt("Wait for")}</span>
       <div className="flex items-center gap-2">
         <input
           type="number"
           min={1}
           max={365}
-          aria-label="How long"
+          aria-label={tt("How long")}
           className={cn(field, "w-24 text-center")}
           value={step.config.amount || ""}
           onChange={(e) => onChange({ ...step, config: { ...step.config, amount: Math.max(0, Math.floor(Number(e.target.value) || 0)) } })}
         />
         <select
-          aria-label="Unit"
+          aria-label={tt("Unit")}
           className={cn(field, "w-auto pr-8")}
           value={step.config.unit}
           onChange={(e) => onChange({ ...step, config: { ...step.config, unit: e.target.value as WaitUnit } })}
         >
-          <option value="minutes">minutes</option>
-          <option value="hours">hours</option>
-          <option value="days">days</option>
+          <option value="minutes">{tt("minutes")}</option>
+          <option value="hours">{tt("hours")}</option>
+          <option value="days">{tt("days")}</option>
         </select>
       </div>
-      <p className={hint}>Counted from the step before. The next step goes out within the hour after the wait ends, in any time zone the same moment.</p>
+      <p className={hint}>{tt("Counted from the step before. The next step goes out within the hour after the wait ends, in any time zone the same moment.")}</p>
     </div>
   )
 }
@@ -1260,7 +1262,7 @@ function CheckFields({ steps, step, onChange }: { steps: FlowStep[]; step: Extra
   const hasEmailBefore = Boolean(emailBefore(steps, step.id))
   return (
     <fieldset>
-      <legend className={labelText}>Continue only if they</legend>
+      <legend className={labelText}>{tt("Continue only if they")}</legend>
       <div className="space-y-2">
         {(Object.keys(CONDITIONS) as ConditionCheck[]).map((c) => {
           const needs = CONDITIONS[c].needsEmailBefore && !hasEmailBefore
@@ -1270,13 +1272,13 @@ function CheckFields({ steps, step, onChange }: { steps: FlowStep[]; step: Extra
               checked={step.config.check === c}
               disabled={needs && step.config.check !== c}
               label={CONDITIONS[c].phrase.replace(/^they /, "")}
-              detail={needs ? "Needs an email before this step." : undefined}
+              detail={needs ? tt("Needs an email before this step.") : undefined}
               onChange={() => onChange({ ...step, config: { check: c } })}
             />
           )
         })}
       </div>
-      <p className={hint}>Everyone else leaves the flow here and is sent nothing more from it. Opens are a hint: some mail apps hide them.</p>
+      <p className={hint}>{tt("Everyone else leaves the flow here and is sent nothing more from it. Opens are a hint: some mail apps hide them.")}</p>
     </fieldset>
   )
 }
@@ -1286,12 +1288,12 @@ function CheckFields({ steps, step, onChange }: { steps: FlowStep[]; step: Extra
 function Summary({ draft, problems, onPick, bare, className }: { draft: Draft; problems: Problem[]; onPick: (stepId: string | null) => void; bare?: boolean; className?: string }) {
   const lines = timeline(draft.steps)
   return (
-    <section aria-label="What happens" className={cn(bare ? "" : card, className)}>
+    <section aria-label={tt("What happens")} className={cn(bare ? "" : card, className)}>
       <div className="px-4 pb-4 pt-3.5">
-        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">What happens</h2>
+        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("What happens")}</h2>
         <ol className="mt-3 space-y-2.5">
           <li className="flex gap-3 text-[13px]">
-            <span className="w-[92px] shrink-0 text-[#6b7280]">When</span>
+            <span className="w-[92px] shrink-0 text-[#6b7280]">{tt("When")}</span>
             <span className="min-w-0 text-[#1a1a2e]">{TRIGGERS[draft.trigger].sentence}</span>
           </li>
           {lines.map((l) => (
@@ -1303,14 +1305,14 @@ function Summary({ draft, problems, onPick, bare, className }: { draft: Draft; p
             </li>
           ))}
           <li className="flex gap-3 text-[13px]">
-            <span className="w-[92px] shrink-0 text-[#6b7280]">Then</span>
-            <span className="text-[#4b5563]">The flow ends for them.</span>
+            <span className="w-[92px] shrink-0 text-[#6b7280]">{tt("Then")}</span>
+            <span className="text-[#4b5563]">{tt("The flow ends for them.")}</span>
           </li>
         </ol>
       </div>
       {problems.length > 0 ? (
         <div className="border-t border-[#eef0f2] px-4 py-3.5">
-          <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Before it can go on</h3>
+          <h3 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Before it can go on")}</h3>
           <ul className="mt-1.5 space-y-1">
             {problems.map((p, i) => (
               <li key={i}>
@@ -1323,8 +1325,8 @@ function Summary({ draft, problems, onPick, bare, className }: { draft: Draft; p
         </div>
       ) : null}
       <div className="space-y-1.5 border-t border-[#eef0f2] px-4 py-3.5 text-[12px] leading-[1.5] text-[#6b7280]">
-        <p>Each email goes to each person once, however often they trigger it. Someone who unsubscribes gets nothing more.</p>
-        <p>Edits reach people already in it from their next step. Turning it off stops everyone where they are.</p>
+        <p>{tt("Each email goes to each person once, however often they trigger it. Someone who unsubscribes gets nothing more.")}</p>
+        <p>{tt("Edits reach people already in it from their next step. Turning it off stops everyone where they are.")}</p>
       </div>
     </section>
   )
@@ -1344,7 +1346,7 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
     try {
       const res = await fetch(`/api/automations/flows/${data.flow.id}/retry`, { method: "POST" })
       const out = await res.json().catch(() => ({}))
-      toast(res.ok ? { title: out.retried > 0 ? "Trying again" : "Nothing to try again", description: out.retried > 0 ? `${out.retried} ${out.retried === 1 ? "step is" : "steps are"} back in the queue.` : "Interrupted sends are never sent twice." } : { title: "Not retried", description: out.error ?? "Try again.", variant: "destructive" })
+      toast(res.ok ? { title: out.retried > 0 ? tt("Trying again") : tt("Nothing to try again"), description: out.retried > 0 ? tt("{retried, plural, one {# step is} other {# steps are}} back in the queue.", { retried: out.retried }) : tt("Interrupted sends are never sent twice.") } : { title: tt("Not retried"), description: out.error ?? tt("Try again."), variant: "destructive" })
       if (res.ok) router.refresh()
     } finally {
       setRetrying(false)
@@ -1354,44 +1356,44 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
   const where = (r: RunView) => {
     if (r.status === "active") {
       const s = steps.find((x) => x.id === r.current_step_id)
-      if (!s) return "In progress"
-      return s.type === "email" ? `Next: ${stepKindName(steps, s)}` : s.type === "wait" ? `Waiting ${waitText(s)}` : "At the check"
+      if (!s) return tt("In progress")
+      return s.type === "email" ? `Next: ${stepKindName(steps, s)}` : s.type === "wait" ? tt("Waiting {s}", { s: waitText(s) }) : tt("At the check")
     }
-    if (r.status === "completed") return "Went through every step"
+    if (r.status === "completed") return tt("Went through every step")
     return r.exit_reason ?? RUN_STATUS[r.status]?.label ?? r.status
   }
 
   return (
-    <section aria-label="Activity" className={cn(card, "mt-10 overflow-hidden")}>
+    <section aria-label={tt("Activity")} className={cn(card, "mt-10 overflow-hidden")}>
       <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#eef0f2] px-4 py-2.5">
-        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Activity</h2>
+        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Activity")}</h2>
         {data.tracking && total > 0 ? (
           <p className="flex flex-wrap gap-x-3 text-[12px] tabular-nums text-[#4b5563]">
-            <span>{counts.active} in progress</span>
-            <span>{counts.finished} finished</span>
-            <span>{counts.left} left or stopped</span>
-            {counts.failed > 0 ? <span className="text-[#8a1c0f]">{counts.failed} failed</span> : null}
+            <span>{tt("{active} in progress", { active: counts.active })}</span>
+            <span>{tt("{finished} finished", { finished: counts.finished })}</span>
+            <span>{tt("{left} left or stopped", { left: counts.left })}</span>
+            {counts.failed > 0 ? <span className="text-[#8a1c0f]">{tt("{failed} failed", { failed: counts.failed })}</span> : null}
           </p>
         ) : null}
         {data.failedJobs > 0 && on ? (
           <button type="button" className={cn(PANEL_BUTTON, "ml-auto")} disabled={retrying} onClick={() => void retry()}>
-            {retrying ? "Retrying" : "Try failed again"}
+            {retrying ? tt("Retrying") : tt("Try failed again")}
           </button>
         ) : null}
       </div>
       {data.runs.length === 0 ? (
         <p className="px-4 py-8 text-center text-[13px] text-[#6b7280]">
-          {on ? "Nobody has gone through it yet. The first person shows up here with where they joined." : "Nobody has gone through it yet."}
+          {on ? tt("Nobody has gone through it yet. The first person shows up here with where they joined.") : tt("Nobody has gone through it yet.")}
         </p>
       ) : (
         <ScrollEdge>
           <table className="w-full min-w-[640px] border-collapse">
             <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
               <tr>
-                <th data-scroll-edge="" className="sticky left-0 z-[1] h-9 bg-[#fafbfb] px-3 text-left text-[12px] font-medium text-[#4b5563]">Contact</th>
-                <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">From</th>
-                <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Started</th>
-                <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Where they are</th>
+                <th data-scroll-edge="" className="sticky left-0 z-[1] h-9 bg-[#fafbfb] px-3 text-left text-[12px] font-medium text-[#4b5563]">{tt("Contact")}</th>
+                <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">{tt("From")}</th>
+                <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">{tt("Started")}</th>
+                <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">{tt("Where they are")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f1f2f4]">
@@ -1403,7 +1405,7 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
                       <span className="block max-w-[170px] truncate sm:max-w-[220px]">{r.email}</span>
                     </td>
                     <td className="h-12 px-3 text-[13px] text-[#4b5563]">
-                      <span className="block max-w-[200px] truncate">{joinedSentence(r.source_detail, r.trigger_type) ?? "Not recorded"}</span>
+                      <span className="block max-w-[200px] truncate">{joinedSentence(r.source_detail, r.trigger_type) ?? tt("Not recorded")}</span>
                     </td>
                     <td className="h-12 whitespace-nowrap px-3 text-[13px] tabular-nums text-[#4b5563]">{day(r.started_at)}</td>
                     <td className="h-12 px-3 text-[13px]">

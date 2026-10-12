@@ -5,6 +5,8 @@
  * and the tests.
  */
 import { propertyParam, type PropertySelector } from "./properties"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /** The period the line counts: the Analytics page's own "Last 30 days", so the link opens on the same numbers. */
 export const SUMMARY_PRESET = "last_30_days" as const
@@ -17,12 +19,12 @@ export function summaryHref(selector: PropertySelector): string {
   return `/app/analytics?${p.toString()}`
 }
 
-const count = new Intl.NumberFormat("en-US")
+const count = new Intl.NumberFormat(appLocale())
 
 /** "Last 30 days: 1,240 visitors · 18 orders", or "No visits yet" before anybody came. */
 export function summaryText(s: { visitors: number; orders: number }): string {
-  if (s.visitors <= 0 && s.orders <= 0) return "No visits yet"
+  if (s.visitors <= 0 && s.orders <= 0) return tt("No visits yet")
   const v = `${count.format(s.visitors)} ${s.visitors === 1 ? "visitor" : "visitors"}`
   const o = `${count.format(s.orders)} ${s.orders === 1 ? "order" : "orders"}`
-  return `Last 30 days: ${v} · ${o}`
+  return tt("Last 30 days: {v} · {o}", { v, o })
 }

@@ -397,6 +397,7 @@ export function placeholderName(expr, used) {
   } else if (ts.isElementAccessExpression(e)) base = ts.isIdentifier(e.expression) ? e.expression.text : ""
   else if (ts.isTemplateExpression(e)) base = "text"
   else if (ts.isConditionalExpression(e)) base = "value"
+  if (/^[A-Z0-9_]+$/.test(base)) base = base.toLowerCase().replace(/_(label|labels|name|names|text)$/, "").replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase())
   base = base.replace(/^(get|format|to)(?=[A-Z])/, "").replace(/^[A-Z]/, (c) => c.toLowerCase()).replace(/[^\w]/g, "")
   if (!base || !/^[A-Za-z_]\w*$/.test(base) || base.length > 24) base = "value"
   let name = base

@@ -33,6 +33,7 @@ import {
   type ThemeCoverLayout,
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
+import { tt } from "@/lib/i18n/text"
 
 export interface ThemeCoverSpec {
   brand: string
@@ -118,8 +119,8 @@ export function ThemeCover({
   /** Accessible name; the cover is decorative when omitted. */
   title?: string
 }) {
-  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? "Georgia, serif" : "Inter, system-ui, sans-serif")
-  const body = fontStack(spec.fontBody, "Inter, system-ui, sans-serif")
+  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? tt("Georgia, serif") : tt("Inter, system-ui, sans-serif"))
+  const body = fontStack(spec.fontBody, tt("Inter, system-ui, sans-serif"))
   const darkPage = isDark(spec.bg)
   const heroDark = isDark(spec.heroBg)
   const onHero = spec.heroText
@@ -197,7 +198,7 @@ export function ThemeCover({
         </text>
         <rect x={x0 + ctaW + 14} y={ctaY} width={132} height={44} rx={btnR} fill="none" stroke={withAlpha(spec.heroText, 0.35)} strokeWidth={1.5} />
         <text x={x0 + ctaW + 14 + 66} y={ctaY + 28} textAnchor="middle" fill={onHero} fontFamily={body} fontSize={16} fontWeight={500}>
-          Learn more
+          {tt("Learn more")}
         </text>
       </g>
     )
@@ -226,7 +227,7 @@ export function ThemeCover({
       style={style}
       role={title ? "img" : undefined}
       aria-hidden={title ? undefined : true}
-      preserveAspectRatio="xMidYMid slice"
+      preserveAspectRatio={tt("xMidYMid slice")}
     >
       {title && <title>{title}</title>}
       {/* page */}
@@ -238,7 +239,7 @@ export function ThemeCover({
       <text x={64} y={navY + 40} fill={spec.text} fontFamily={heading} fontSize={22} fontWeight={700} letterSpacing={-0.4}>
         {spec.brand}
       </text>
-      {["Home", "Shop", "About"].map((l, i) => (
+      {[tt("Home"), tt("Shop"), tt("About")].map((l, i) => (
         <text key={l} x={W - 460 + i * 86} y={navY + 39} fill={i === 0 ? spec.text : spec.textSecondary} fontFamily={body} fontSize={15} fontWeight={500}>
           {l}
         </text>
@@ -249,7 +250,7 @@ export function ThemeCover({
           coordinates cannot be overridden. */}
       <rect x={W - 180} y={navY + 16} width={116} height={32} rx={radius(spec.buttonStyle, 32)} fill={spec.primary} />
       <text x={W - 180 + 58} y={navY + 16 + 21} textAnchor="middle" fill={ctaTextColor} fontFamily={body} fontSize={13.5} fontWeight={600}>
-        {spec.cta.length > 12 ? "Shop" : spec.cta}
+        {spec.cta.length > 12 ? tt("Shop") : spec.cta}
       </text>
 
       {/* hero */}
@@ -259,10 +260,10 @@ export function ThemeCover({
       {/* product grid */}
       <rect x={0} y={gridY} width={W} height={gridH} fill={spec.bg} />
       <text x={64} y={gridY + 58} fill={spec.text} fontFamily={heading} fontSize={26} fontWeight={700} letterSpacing={-0.5}>
-        Featured
+        {tt("Featured")}
       </text>
       <text x={W - 64} y={gridY + 57} textAnchor="end" fill={spec.primary} fontFamily={body} fontSize={15} fontWeight={600}>
-        View all →
+        {tt("View all →")}
       </text>
       {tiles.map((tint, i) => {
         const gap = 24
@@ -291,8 +292,8 @@ export function ThemeCover({
 export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSpec; className?: string; style?: CSSProperties }) {
   const PW = 390
   const PH = 780
-  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? "Georgia, serif" : "Inter, system-ui, sans-serif")
-  const body = fontStack(spec.fontBody, "Inter, system-ui, sans-serif")
+  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? tt("Georgia, serif") : tt("Inter, system-ui, sans-serif"))
+  const body = fontStack(spec.fontBody, tt("Inter, system-ui, sans-serif"))
   const darkPage = isDark(spec.bg)
   const onHero = spec.heroText
   const onHeroMuted = withAlpha(spec.heroText, 0.7)
@@ -312,7 +313,7 @@ export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSp
   const tiles = [withAlpha(spec.primary, darkPage ? 0.55 : 0.18), withAlpha(spec.text, darkPage ? 0.18 : 0.08)]
 
   return (
-    <svg viewBox={`0 0 ${PW} ${PH}`} className={className} style={style} aria-hidden preserveAspectRatio="xMidYMin slice">
+    <svg viewBox={`0 0 ${PW} ${PH}`} className={className} style={style} aria-hidden preserveAspectRatio={tt("xMidYMin slice")}>
       <rect width={PW} height={PH} fill={spec.bg} />
       {/* nav */}
       <line x1={0} y1={navH - 0.5} x2={PW} y2={navH - 0.5} stroke={spec.border} />
@@ -344,7 +345,7 @@ export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSp
       </text>
       {/* grid */}
       <text x={20} y={gridY + 44} fill={spec.text} fontFamily={heading} fontSize={20} fontWeight={700} letterSpacing={-0.4}>
-        Featured
+        {tt("Featured")}
       </text>
       {tiles.map((tint, i) => {
         const gap = 14

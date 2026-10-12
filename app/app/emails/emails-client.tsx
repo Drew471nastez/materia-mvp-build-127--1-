@@ -64,6 +64,8 @@ import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
 import { TABS, campaignKey, isTab, loadReport, loadTab, reportKey, tabKey, type MessagesData, type SentData, type SubscribersData } from "./emails-data"
 import { noteListAddress } from "./list-return"
 import { openLayer } from "./layer-nav"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search)
@@ -76,7 +78,7 @@ function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "repl
 
 async function postJson(url: string, body?: unknown): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null)
-  const data = res ? await res.json().catch(() => ({})) : { error: "You seem to be offline. Try again." }
+  const data = res ? await res.json().catch(() => ({})) : { error: tt("You seem to be offline. Try again.") }
   return { ok: !!res?.ok, data }
 }
 
@@ -128,7 +130,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const [period, setPeriod] = React.useState<RangeValue>(() => resolveValue({ preset: "last_30_days" }, today, "last_30_days"))
   const periodKey = `${period.preset}:${period.start}:${period.end}`
   const rangeQuery = React.useMemo(() => {
-    if (period.preset === "all_time") return "timeRange=all"
+    if (period.preset === "all_time") return tt("timeRange=all")
     const b = boundsOf(period, timeZone, Date.now())
     return `start=${encodeURIComponent(new Date(b.start).toISOString())}&end=${encodeURIComponent(new Date(b.end).toISOString())}`
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -366,7 +368,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const onCampaignIntent = (c: CampaignRow) => {
     if (tab === "drafts") {
       router.prefetch(`/app/emails/edit/${c.id}`)
-      prefetch(campaignKey(c.id), () => fetch(`/api/email/campaigns/${c.id}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("not ok")))), 5_000)
+      prefetch(campaignKey(c.id), () => fetch(`/api/email/campaigns/${c.id}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(tt("not ok"))))), 5_000)
     } else {
       prefetch(reportKey(c.id), () => loadReport(c.id), 15_000)
     }
@@ -375,8 +377,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   /* ── Actions ────────────────────────────────────────────────────────── */
   const copyEmail = (email: string) => {
     void navigator.clipboard?.writeText(email).then(
-      () => onNotice("Email copied"),
-      () => onNotice("Could not copy the email"),
+      () => onNotice(tt("Email copied")),
+      () => onNotice(tt("Could not copy the email")),
     )
   }
   const [confirm, setConfirm] = React.useState<{ type: "campaign" | "subscriber" | "flow" | "flow-off" | "message"; id: string } | null>(null)
@@ -396,7 +398,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
 
   const deleteCampaign = async (id: string): Promise<string> => {
     const { error } = await createClient().from("email_campaigns").delete().eq("id", id)
-    if (error) return "The email was not deleted. Try again."
+    if (error) return tt("The email was not deleted. Try again.")
     for (const key of ALL_EMAIL_LISTS) write<CampaignRow[]>(key, (prev) => (prev ?? []).filter((c) => c.id !== id))
     write<SentData | undefined>(keyFor("published"), (prev) => (prev ? { ...prev, campaigns: prev.campaigns.filter((c) => c.id !== id) } : prev))
     refreshCampaignLists()
@@ -408,17 +410,17 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       case "unschedule": {
         const r = await postJson(`/api/email/campaigns/${id}/schedule`, { scheduled_at: null })
         refreshCampaignLists()
-        return r.ok ? "Moved back to drafts" : String(r.data.error ?? "Could not unschedule. Try again.")
+        return r.ok ? tt("Moved back to drafts") : String(r.data.error ?? "Could not unschedule. Try again.")
       }
       case "stop": {
         const r = await postJson(`/api/email/campaigns/${id}/stop`)
         refreshCampaignLists()
-        return r.ok ? "Stopped. Nobody else will get it." : String(r.data.error ?? "Could not stop it. Try again.")
+        return r.ok ? tt("Stopped. Nobody else will get it.") : String(r.data.error ?? "Could not stop it. Try again.")
       }
       case "retry": {
         const r = await postJson("/api/email/send", { campaign_id: id, retry_failed: true })
         refreshCampaignLists()
-        return r.ok ? "Sending again to the ones not sent" : String(r.data.error ?? "Could not send again. Try again.")
+        return r.ok ? tt("Sending again to the ones not sent") : String(r.data.error ?? "Could not send again. Try again.")
       }
       case "duplicate":
         return duplicate(id)
@@ -450,18 +452,18 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     }).catch(() => null)
     if (!res || !res.ok) {
       writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, read_at: before } : r)))
-      if (!quiet) onNotice("Not saved. Try again.")
+      if (!quiet) onNotice(tt("Not saved. Try again."))
       return
     }
-    if (!quiet) onNotice(read ? "Marked as read" : "Marked as new")
+    if (!quiet) onNotice(read ? tt("Marked as read") : tt("Marked as new"))
   }
   const toggleRead = (m: MessageRow) => void setRead(m, !m.read_at)
   const deleteMessage = async (id: string) => {
     const res = await fetch(`/api/email/messages/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
-    if (!res || !res.ok) return onNotice("Not deleted. Try again.")
+    if (!res || !res.ok) return onNotice(tt("Not deleted. Try again."))
     writeMessages((rows) => rows.filter((r) => r.id !== id))
     if (messageParam === id) onBack()
-    onNotice("Message deleted")
+    onNotice(tt("Message deleted"))
   }
   /* Opening a new message reads it. */
   const openedMessage = messageParam ? (messagesData?.rows ?? []).find((r) => r.id === messageParam) ?? null : null
@@ -476,17 +478,17 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
 
   const removeSubscriber = async (id: string) => {
     const { error } = await createClient().from("subscribers").update({ is_active: false, status: "unsubscribed" }).eq("id", id)
-    if (error) return onNotice("Not removed. Try again.")
+    if (error) return onNotice(tt("Not removed. Try again."))
     write<SubscribersData>(keyFor("subscribers"), (prev) => (prev ? { ...prev, rows: prev.rows.map((s) => (s.id === id ? { ...s, status: "unsubscribed" } : s)) } : prev!))
-    onNotice("Subscriber removed")
+    onNotice(tt("Subscriber removed"))
   }
 
   const deleteFlow = async (id: string) => {
     /* Through the server, which takes everyone out of it first. */
     const res = await fetch(`/api/automations/flows/${id}`, { method: "DELETE" }).catch(() => null)
-    if (!res || !res.ok) return onNotice("Not deleted. Try again.")
+    if (!res || !res.ok) return onNotice(tt("Not deleted. Try again."))
     write<FlowRow[]>(keyFor("flows"), (prev) => (prev ?? []).filter((f) => f.id !== id))
-    onNotice("Automation deleted")
+    onNotice(tt("Automation deleted"))
   }
 
   /**
@@ -509,17 +511,17 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     const out = res ? await res.json().catch(() => ({})) : {}
     if (!res || !res.ok) {
       const first = Array.isArray(out.problems) && out.problems[0]?.message
-      onNotice(first || out.error || (on ? "Not turned on. Try again." : "Not turned off. Try again."), true)
+      onNotice(first || out.error || (on ? tt("Not turned on. Try again.") : tt("Not turned off. Try again.")), true)
       return
     }
     write<FlowRow[]>(keyFor("flows"), (prev) => (prev ?? []).map((f) => (f.id === flow.id ? { ...f, status: on ? "active" : "paused" } : f)))
     refresh(keyFor("flows"))
     onNotice(
       on
-        ? "On. New people start it from now."
+        ? tt("On. New people start it from now.")
         : out.stopped > 0
-          ? `Off. ${out.stopped} ${out.stopped === 1 ? "person" : "people"} stopped partway.`
-          : "Off. Sign-ups are still recorded.",
+          ? tt("Off. {stopped, plural, one {# person} other {# people}} stopped partway.", { stopped: out.stopped })
+          : tt("Off. Sign-ups are still recorded."),
     )
   }
 
@@ -530,20 +532,20 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const duplicateFlow = async (flow: FlowRow) => {
     const res = await fetch(`/api/automations/flows/${flow.id}/duplicate`, { method: "POST" }).catch(() => null)
     const out = res ? await res.json().catch(() => ({})) : {}
-    if (!res || !res.ok || !out.id) return onNotice(out.error || "Could not make a copy. Try again.", true)
+    if (!res || !res.ok || !out.id) return onNotice(out.error || tt("Could not make a copy. Try again."), true)
     refresh(keyFor("flows"))
-    onNotice("Copy made. It is off until you turn it on.")
+    onNotice(tt("Copy made. It is off until you turn it on."))
     openLayer(router, `/app/emails/flow/${out.id}`)
   }
 
   /** Every subscribed address as a CSV, named for today. */
   const exportSubscribers = async () => {
     const rows = (subscribersData?.rows ?? []).filter((s) => s.status === "subscribed")
-    if (rows.length === 0) return onNotice("There are no subscribers to export")
-    const headers = ["Email", "Name", "Source", "Source detail", "Status", "Subscribed Date"]
+    if (rows.length === 0) return onNotice(tt("There are no subscribers to export"))
+    const headers = [tt("Email"), tt("Name"), tt("Source"), tt("Source detail"), tt("Status"), tt("Subscribed Date")]
     const lines = rows.map((s) => {
       const v = sourceView(s.source_detail, s.source)
-      return [s.email, s.name || "", v.label, v.detail, s.status === "subscribed" && s.unsubscribed_at ? "resubscribed" : s.status, s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString() : ""]
+      return [s.email, s.name || "", v.label, v.detail, s.status === "subscribed" && s.unsubscribed_at ? "resubscribed" : s.status, s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString(appLocale(), zoned()) : ""]
     })
     const csv = [headers, ...lines].map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n")
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }))
@@ -554,7 +556,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    onNotice(`Exported ${rows.length.toLocaleString("en-US")} subscribers`)
+    onNotice(tt("Exported {value} subscribers", { value: rows.length.toLocaleString(appLocale()) }))
   }
 
   const confirmDelete = async () => {
@@ -634,7 +636,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
           role="region"
-          aria-label={displayedId.startsWith("contact:") ? "Contact" : displayedId.startsWith("message:") ? "Message" : "Email"}
+          aria-label={displayedId.startsWith("contact:") ? tt("Contact") : displayedId.startsWith("message:") ? tt("Message") : tt("Email")}
           data-email-detail={displayedId.startsWith("email:") ? rowOf(displayedId) : undefined}
           data-contact-page={displayedId.startsWith("contact:") ? rowOf(displayedId) : undefined}
           data-message-page={displayedId.startsWith("message:") ? rowOf(displayedId) : undefined}
@@ -675,31 +677,31 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       <ComposeDialog
         open={confirm !== null}
         onClose={() => setConfirm(null)}
-        title={confirm?.type === "message" ? "Delete this message?" : confirm?.type === "campaign" ? "Delete this email?" : confirm?.type === "flow" ? "Delete this automation?" : confirm?.type === "flow-off" ? `Turn off ${flows.find((f) => f.id === confirm.id)?.name ?? "this automation"}?` : "Remove this subscriber?"}
+        title={confirm?.type === "message" ? tt("Delete this message?") : confirm?.type === "campaign" ? tt("Delete this email?") : confirm?.type === "flow" ? tt("Delete this automation?") : confirm?.type === "flow-off" ? tt("Turn off {value}?", { value: flows.find((f) => f.id === confirm.id)?.name ?? tt("this automation") }) : tt("Remove this subscriber?")}
         footer={
           <>
             <button type="button" className={buttonSecondary} onClick={() => setConfirm(null)}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" className={cn(buttonPrimary, "bg-[#b42318] hover:bg-[#9b1c14] active:bg-[#861912]")} onClick={() => void confirmDelete()}>
-              {confirm?.type === "subscriber" ? "Remove" : confirm?.type === "flow-off" ? "Turn off" : "Delete"}
+              {confirm?.type === "subscriber" ? tt("Remove") : confirm?.type === "flow-off" ? tt("Turn off") : tt("Delete")}
             </button>
           </>
         }
       >
         <p className="text-[14px] text-[#1a1a2e]">
           {confirm?.type === "message"
-            ? "It is removed from Messages. The email you got about it stays in your inbox, and the sender stays in your contacts."
+            ? tt("It is removed from Messages. The email you got about it stays in your inbox, and the sender stays in your contacts.")
             : confirm?.type === "campaign"
-            ? "It is removed with its numbers. Anything already sent stays in people's inboxes."
+            ? tt("It is removed with its numbers. Anything already sent stays in people's inboxes.")
             : confirm?.type === "flow"
-              ? "Everyone partway through it gets nothing more, and it is removed."
+              ? tt("Everyone partway through it gets nothing more, and it is removed.")
               : confirm?.type === "flow-off"
                 ? (() => {
                     const n = flows.find((f) => f.id === confirm.id)?.totals?.in_progress ?? 0
-                    return `${n} ${n === 1 ? "person is" : "people are"} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.`
+                    return tt("{n, plural, one {# person is} other {# people are}} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.", { n })
                   })()
-              : "They are unsubscribed and get no more of your emails."}
+              : tt("They are unsubscribed and get no more of your emails.")}
         </p>
       </ComposeDialog>
     </div>

@@ -13,6 +13,8 @@
  * answers sooner, next to the field it is about.
  */
 import { CODE_PATTERN } from "@/lib/checkout/coupon-state"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface CouponRecord {
   id: string
@@ -139,24 +141,24 @@ export type CouponProblem = { field: CouponField; message: string }
  * is kept as it is (the server does the same).
  */
 export function formProblem(form: CouponForm, savedCode: string | null = null, freeShipping = false): CouponProblem | null {
-  if (!form.code) return { field: "code", message: "Enter a code, or generate one." }
-  if (!CODE_PATTERN.test(form.code) && form.code !== savedCode) return { field: "code", message: "A code is 3 to 32 letters, numbers, - or _." }
+  if (!form.code) return { field: "code", message: tt("Enter a code, or generate one.") }
+  if (!CODE_PATTERN.test(form.code) && form.code !== savedCode) return { field: "code", message: tt("A code is 3 to 32 letters, numbers, - or _.") }
   const value = Number(form.discount_value)
   /* A free shipping code (physical commerce) may take nothing else off. */
   const shippingOnly = freeShipping && (!form.discount_value || value === 0)
-  if (!shippingOnly && (!form.discount_value || !Number.isFinite(value) || !(value > 0))) return { field: "value", message: "Enter how much it takes off." }
-  if (form.discount_type === "percentage" && value > 100) return { field: "value", message: "A percentage is at most 100." }
-  if (form.discount_type === "fixed" && value > 100_000) return { field: "value", message: "A fixed amount is at most $100,000." }
-  if (form.applies_to === "specific" && form.product_ids.length === 0) return { field: "products", message: "Pick at least one product." }
-  if (form.has_min_purchase && !(Number(form.min_purchase_amount) > 0)) return { field: "minimum", message: "Enter the smallest order it works on." }
+  if (!shippingOnly && (!form.discount_value || !Number.isFinite(value) || !(value > 0))) return { field: "value", message: tt("Enter how much it takes off.") }
+  if (form.discount_type === "percentage" && value > 100) return { field: "value", message: tt("A percentage is at most 100.") }
+  if (form.discount_type === "fixed" && value > 100_000) return { field: "value", message: tt("A fixed amount is at most $100,000.") }
+  if (form.applies_to === "specific" && form.product_ids.length === 0) return { field: "products", message: tt("Pick at least one product.") }
+  if (form.has_min_purchase && !(Number(form.min_purchase_amount) > 0)) return { field: "minimum", message: tt("Enter the smallest order it works on.") }
   if (form.has_usage_limit) {
     const n = Number(form.usage_limit)
-    if (!form.usage_limit || !Number.isInteger(n) || n < 1) return { field: "uses", message: "Enter how many times it can be used." }
+    if (!form.usage_limit || !Number.isInteger(n) || n < 1) return { field: "uses", message: tt("Enter how many times it can be used.") }
   }
-  if (form.has_start && !validLocal(form.starts_at)) return { field: "start", message: "Pick when it starts." }
-  if (form.has_end && !validLocal(form.expires_at)) return { field: "end", message: "Pick when it ends." }
+  if (form.has_start && !validLocal(form.starts_at)) return { field: "start", message: tt("Pick when it starts.") }
+  if (form.has_end && !validLocal(form.expires_at)) return { field: "end", message: tt("Pick when it ends.") }
   if (form.has_start && form.has_end && new Date(form.expires_at) <= new Date(form.starts_at)) {
-    return { field: "end", message: "The end has to be after the start." }
+    return { field: "end", message: tt("The end has to be after the start.") }
   }
   return null
 }
@@ -180,7 +182,7 @@ export function formPayload(form: CouponForm) {
 
 const money = (value: number) => `$${Number.isInteger(value) ? value : value.toFixed(2)}`
 const when = (local: string) =>
-  new Date(local).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
+  new Date(local).toLocaleString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }))
 
 /**
  * The code in plain lines, as a buyer would meet it: what it takes off and
@@ -192,10 +194,10 @@ export function summaryLines(form: CouponForm, products: Pick<CouponProduct, "id
   const value = Number(form.discount_value)
   const on =
     form.applies_to === "all"
-      ? "all products"
+      ? tt("all products")
       : form.product_ids.length === 1
-        ? products.find((p) => p.id === form.product_ids[0])?.title ?? "1 product"
-        : `${form.product_ids.length} products`
+        ? products.find((p) => p.id === form.product_ids[0])?.title ?? tt("1 product")
+        : tt("{length} products", { length: form.product_ids.length })
   if (form.discount_value && value > 0) {
     lines.push(`${form.discount_type === "percentage" ? `${value}%` : money(value)} off ${on}`)
   } else {
@@ -204,7 +206,7 @@ export function summaryLines(form: CouponForm, products: Pick<CouponProduct, "id
   if (form.has_min_purchase && Number(form.min_purchase_amount) > 0) lines.push(`Orders of ${money(Number(form.min_purchase_amount))} or more`)
   if (form.has_usage_limit && Number(form.usage_limit) >= 1) {
     const n = Number(form.usage_limit)
-    lines.push(n === 1 ? "Can be used once" : `Can be used ${n.toLocaleString("en-US")} times`)
+    lines.push(n === 1 ? "Can be used once" : `Can be used ${n.toLocaleString(appLocale())} times`)
   }
   if (form.has_start && validLocal(form.starts_at)) lines.push(`Starts ${when(form.starts_at)}`)
   if (form.has_end && validLocal(form.expires_at)) lines.push(`Ends ${when(form.expires_at)}`)

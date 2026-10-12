@@ -6,6 +6,7 @@ import { WaitingArea } from "@/components/ui/activity-spinner"
 import { keepStripeFramesInApp } from "@/lib/payments/stripe-frames-in-app"
 import { appHoldsStripeWindows, isNativeApp } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export type EmbeddedPurpose = "stripe_onboarding" | "stripe_management" | "stripe_payouts"
 
@@ -61,7 +62,7 @@ function sealsStripeFrames(): boolean {
 const APPEARANCE = {
   overlays: "dialog" as const,
   variables: {
-    fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    get fontFamily() { return tt("Inter, system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif") },
     fontSizeBase: "15px",
     colorPrimary: "#1a1a2e",
     colorBackground: "#ffffff",
@@ -101,7 +102,7 @@ const FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@40
 export function StripeConnectEmbedded({
   purpose,
   collection,
-  failedTitle = "Couldn't load verification",
+  failedTitle = tt("Couldn't load verification"),
   onExit,
   onStep,
   fallback,
@@ -213,7 +214,7 @@ export function StripeConnectEmbedded({
           onClick={() => setAttempt((n) => n + 1)}
           className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white hover:bg-[#2a2a44] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30"
         >
-          Try again
+          {tt("Try again")}
         </button>
         {fallback ? <div className="mt-3">{fallback}</div> : null}
       </div>
@@ -224,7 +225,7 @@ export function StripeConnectEmbedded({
     <div className={cn("relative w-full", className)}>
       {!ready ? (
         <div className="flex min-h-[220px] items-center justify-center" aria-live="polite">
-          <WaitingArea className="h-16" size={18} label="Loading" />
+          <WaitingArea className="h-16" size={18} label={tt("Loading")} />
         </div>
       ) : null}
       <div

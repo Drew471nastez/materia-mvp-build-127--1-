@@ -38,6 +38,7 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_LEVEL, PROGRAM_SUMMARY_MAX, PROGRAM_TITLE_MAX, centsFromTyped, programPrice, typedFromCents, type ProgramMode, type ProgramStatus } from "@/lib/communities/learn"
 import type { BuilderProgram, LearnBuilderData } from "./model"
 import { StatusPill, learnRequest } from "./builder-parts"
+import { tt } from "@/lib/i18n/text"
 
 const CARD = "space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:py-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
@@ -119,15 +120,15 @@ export function ProgramEditor({
 
   const save = React.useCallback(async () => {
     if (!dirty || phase !== "idle") return
-    if (native && !form.title.trim()) return setError({ field: "title", message: "Give the program a name." })
-    if (form.mode === "paid" && (centsFromTyped(form.price) ?? 0) < 50) return setError({ field: "price", message: "Set a price of at least 0.50." })
-    if (form.status === "published" && native && lessons === 0) return setError({ field: "status", message: "Add a lesson before publishing." })
+    if (native && !form.title.trim()) return setError({ field: "title", message: tt("Give the program a name.") })
+    if (form.mode === "paid" && (centsFromTyped(form.price) ?? 0) < 50) return setError({ field: "price", message: tt("Set a price of at least 0.50.") })
+    if (form.status === "published" && native && lessons === 0) return setError({ field: "status", message: tt("Add a lesson before publishing.") })
     setError(null)
     setPhase("saving")
     const res = await learnRequest(url, "PATCH", changes)
     if (!res.ok) {
       setPhase("idle")
-      setError({ field: res.data.field, message: res.data.error || "That did not save. Try again." })
+      setError({ field: res.data.field, message: res.data.error || tt("That did not save. Try again.") })
       return
     }
     setSaved(form)
@@ -150,43 +151,43 @@ export function ProgramEditor({
   }, [save])
 
   const leave = async () => {
-    if (dirty && !(await ask({ title: "Discard changes?", body: "Your edits since the last save will be lost. Lessons are saved as you make them.", confirm: "Discard", cancel: "Keep editing" }))) return
+    if (dirty && !(await ask({ title: tt("Discard changes?"), body: tt("Your edits since the last save will be lost. Lessons are saved as you make them."), confirm: tt("Discard"), cancel: tt("Keep editing") }))) return
     onBack()
   }
 
   const remove = async () => {
     const course = program.kind === "course"
     const yes = await ask({
-      title: course ? `Take ${program.title} out of Learn?` : `Delete ${program.title}?`,
-      body: course ? "Members stop seeing it here. The course and its buyers are not touched." : "Its modules, lessons and their files are deleted. This cannot be undone.",
-      confirm: course ? "Take out" : "Delete",
-      cancel: "Keep it",
+      title: course ? tt("Take {title} out of Learn?", { title: program.title }) : tt("Delete {title}?", { title: program.title }),
+      body: course ? tt("Members stop seeing it here. The course and its buyers are not touched.") : tt("Its modules, lessons and their files are deleted. This cannot be undone."),
+      confirm: course ? tt("Take out") : tt("Delete"),
+      cancel: tt("Keep it"),
       tone: "critical",
     })
     if (!yes) return
     const res = await learnRequest(url, "DELETE")
-    if (!res.ok) return setError({ message: res.data.error || "That did not go. Try again." })
+    if (!res.ok) return setError({ message: res.data.error || tt("That did not go. Try again.") })
     onDeleted()
   }
 
   const uploadCover = async (file: File) => {
-    if (!/^image\//.test(file.type)) return setError({ field: "cover", message: "Pick a picture: JPG, PNG or WebP." })
+    if (!/^image\//.test(file.type)) return setError({ field: "cover", message: tt("Pick a picture: JPG, PNG or WebP.") })
     setError(null)
     setUploading(0)
     const uploader = new DirectUploader({ file, folder: "product-images", onProgress: (p) => setUploading(Math.round(p)) })
     try {
       const result = await uploader.start()
       if (result.publicUrl) set("coverUrl", result.publicUrl)
-      else setError({ field: "cover", message: "The picture did not upload. Try again." })
+      else setError({ field: "cover", message: tt("The picture did not upload. Try again.") })
     } catch (e) {
-      setError({ field: "cover", message: (e as { message?: string })?.message || "The picture did not upload. Try again." })
+      setError({ field: "cover", message: (e as { message?: string })?.message || tt("The picture did not upload. Try again.") })
     } finally {
       uploader.destroy()
       setUploading(null)
     }
   }
 
-  const stateWord = dirty ? "Unsaved changes" : saved.status === "published" ? "Published" : "Draft"
+  const stateWord = dirty ? tt("Unsaved changes") : saved.status === "published" ? "Published" : "Draft"
   const errorFor = (field: string) => (error?.field === field ? error.message : null)
   const levelName = (n: number) => data.levels.find((l) => l.level === n)?.name
   const price = centsFromTyped(form.price)
@@ -195,13 +196,13 @@ export function ProgramEditor({
     <div className="flex min-h-full flex-col" data-program-editor={program.id}>
       <div className="mx-auto w-full max-w-[880px] flex-1 space-y-4 pb-6 sm:space-y-5">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => void leave()} aria-label="Back to programs" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa] sm:h-9 sm:w-9">
+          <button type="button" onClick={() => void leave()} aria-label={tt("Back to programs")} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa] sm:h-9 sm:w-9">
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] text-[#6b7280]">{native ? "Program" : "A course you sell"}</p>
+            <p className="text-[13px] text-[#6b7280]">{native ? tt("Program") : tt("A course you sell")}</p>
             <h2 className="flex min-w-0 items-center gap-2 text-[19px] font-bold leading-6 text-[#1a1a2e] sm:text-[22px]">
-              <span className="truncate">{form.title.trim() || "Untitled program"}</span>
+              <span className="truncate">{form.title.trim() || tt("Untitled program")}</span>
               <StatusPill status={saved.status} />
             </h2>
           </div>
@@ -215,36 +216,36 @@ export function ProgramEditor({
 
         <section className={CARD} aria-labelledby="program-details">
           <h3 id="program-details" className={CARD_TITLE}>
-            Details
+            {tt("Details")}
           </h3>
           {native ? (
             <div>
               <label htmlFor="program-title" className={LABEL}>
-                Name
+                {tt("Name")}
               </label>
               <input id="program-title" className={cn(FIELD, "h-11 sm:h-10")} value={form.title} maxLength={PROGRAM_TITLE_MAX} onChange={(e) => set("title", e.target.value)} aria-invalid={!!errorFor("title")} />
               <FieldError text={errorFor("title")} />
             </div>
           ) : (
             <p className="text-[14px] leading-6 text-[#4b5563]">
-              Its name and cover are the course&apos;s own.{" "}
+              {tt("Its name and cover are the course's own.")}{" "}
               {program.editHref ? (
                 <Link href={program.editHref} className="font-medium text-[#1a1a2e] underline decoration-[#d1d5db] underline-offset-2 hover:decoration-[#1a1a2e]">
-                  Edit the course
+                  {tt("Edit the course")}
                 </Link>
               ) : null}
             </p>
           )}
           <div>
             <label htmlFor="program-summary" className={LABEL}>
-              Description
+              {tt("Description")}
             </label>
-            <textarea id="program-summary" rows={4} className={cn(FIELD, "min-h-[104px] resize-y py-2.5 leading-6")} value={form.summary} maxLength={PROGRAM_SUMMARY_MAX} onChange={(e) => set("summary", e.target.value)} placeholder="What members will be able to do by the end." />
+            <textarea id="program-summary" rows={4} className={cn(FIELD, "min-h-[104px] resize-y py-2.5 leading-6")} value={form.summary} maxLength={PROGRAM_SUMMARY_MAX} onChange={(e) => set("summary", e.target.value)} placeholder={tt("What members will be able to do by the end.")} />
             <FieldError text={errorFor("summary")} />
           </div>
           {native ? (
             <div>
-              <p className={LABEL}>Cover</p>
+              <p className={LABEL}>{tt("Cover")}</p>
               <CoverPick url={form.coverUrl} uploading={uploading} onPick={(f) => void uploadCover(f)} onClear={() => set("coverUrl", null)} />
               <FieldError text={errorFor("cover")} />
             </div>
@@ -254,18 +255,18 @@ export function ProgramEditor({
         <section className={CARD} aria-labelledby="program-lessons">
           <div className="flex items-baseline justify-between gap-3">
             <h3 id="program-lessons" className={CARD_TITLE}>
-              Lessons
+              {tt("Lessons")}
             </h3>
-            <span className="text-[13px] tabular-nums text-[#6b7280]">{lessons === 1 ? "1 lesson" : `${lessons} lessons`}</span>
+            <span className="text-[13px] tabular-nums text-[#6b7280]">{lessons === 1 ? tt("1 lesson") : tt("{lessons} lessons", { lessons })}</span>
           </div>
           {native ? (
             <CourseEditor productId={program.id} ensureProductId={async () => program.id} onLessonCount={setLessons} notify={(m) => setNote(m)} />
           ) : (
             <p className="text-[14px] leading-6 text-[#4b5563]">
-              This course&apos;s modules and lessons are edited in the course itself, and change here too.{" "}
+              {tt("This course's modules and lessons are edited in the course itself, and change here too.")}{" "}
               {program.editHref ? (
                 <Link href={program.editHref} className="font-medium text-[#1a1a2e] underline decoration-[#d1d5db] underline-offset-2 hover:decoration-[#1a1a2e]">
-                  Edit lessons
+                  {tt("Edit lessons")}
                 </Link>
               ) : null}
             </p>
@@ -275,31 +276,31 @@ export function ProgramEditor({
         <section className={CARD} aria-labelledby="program-access">
           <div>
             <h3 id="program-access" className={CARD_TITLE}>
-              Who can open it
+              {tt("Who can open it")}
             </h3>
-            <p className={HINT}>Only members ever see Learn. This decides which of them can open the lessons.</p>
+            <p className={HINT}>{tt("Only members ever see Learn. This decides which of them can open the lessons.")}</p>
           </div>
           <Segmented<ProgramMode>
-            label="Who can open it"
+            label={tt("Who can open it")}
             value={form.mode}
             onChange={(v) => set("mode", v)}
             options={[
               { value: "free", label: "Free" },
-              { value: "level", label: "A level" },
-              { value: "paid", label: "Paid" },
+              { value: "level", label: tt("A level") },
+              { value: "paid", label: tt("Paid") },
             ]}
           />
-          {form.mode === "free" ? <p className="text-[14px] leading-6 text-[#4b5563]">Every member can open it.</p> : null}
+          {form.mode === "free" ? <p className="text-[14px] leading-6 text-[#4b5563]">{tt("Every member can open it.")}</p> : null}
           {form.mode === "level" ? (
             <div>
               <label htmlFor="program-level" className={LABEL}>
-                Opens at
+                {tt("Opens at")}
               </label>
               <div className="relative">
                 <select id="program-level" className={cn(FIELD, "h-11 appearance-none pr-9 sm:h-10")} value={form.level} onChange={(e) => set("level", Number(e.target.value))}>
                   {Array.from({ length: MAX_LEVEL - 1 }, (_, i) => i + 2).map((n) => (
                     <option key={n} value={n}>
-                      Level {n}
+                      {tt("Level {n}", { n })}
                       {levelName(n) ? `, ${levelName(n)}` : ""}
                     </option>
                   ))}
@@ -308,14 +309,14 @@ export function ProgramEditor({
                   <path d="M5.5 8l4.5 4.5L14.5 8" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <p className={HINT}>Members reach levels by taking part. Below it, they see the program with the level it opens at.</p>
+              <p className={HINT}>{tt("Members reach levels by taking part. Below it, they see the program with the level it opens at.")}</p>
               <FieldError text={errorFor("level")} />
             </div>
           ) : null}
           {form.mode === "paid" ? (
             <div>
               <label htmlFor="program-price" className={LABEL}>
-                Price, one payment
+                {tt("Price, one payment")}
               </label>
               <div className="relative max-w-[240px]">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] font-medium uppercase text-[#6b7280]">{data.currency}</span>
@@ -330,15 +331,15 @@ export function ProgramEditor({
                 />
               </div>
               <p className={HINT}>
-                {price && price >= 50 ? `Members pay ${programPrice(price, data.currency)} once, in a checkout inside the community. ` : "Members pay once, in a checkout inside the community. "}
-                It is not a Storelib product and is not listed anywhere else.
-                {program.buyers ? ` ${program.buyers} bought it so far.` : ""}
+                {price && price >= 50 ? tt("Members pay {amount} once, in a checkout inside the community. ", { amount: programPrice(price, data.currency) }) : tt("Members pay once, in a checkout inside the community. ")}
+                {tt("It is not a Storelib product and is not listed anywhere else.")}
+                {program.buyers ? tt(" {buyers} bought it so far.", { buyers: program.buyers }) : ""}
               </p>
               {!data.canSell ? (
                 <p className="mt-2 rounded-xl border border-[#f1e3bd] bg-[#fdf8ea] px-3.5 py-2.5 text-[13.5px] leading-5 text-[#6b4e00]">
-                  Payouts are not set up yet, so nobody can buy it.{" "}
+                  {tt("Payouts are not set up yet, so nobody can buy it.")}{" "}
                   <Link href="/app/payouts" className="font-medium underline underline-offset-2">
-                    Set up payouts
+                    {tt("Set up payouts")}
                   </Link>
                 </p>
               ) : null}
@@ -349,22 +350,22 @@ export function ProgramEditor({
 
         <section className={CARD} aria-labelledby="program-release">
           <h3 id="program-release" className={CARD_TITLE}>
-            Release
+            {tt("Release")}
           </h3>
           <div className={SWITCH_GROUP}>
-            <SwitchRow title="Published" hint={form.status === "published" ? "Members see it under Learn." : "Only you and your team see it."} checked={form.status === "published"} onChange={(v) => set("status", v ? "published" : "draft")} />
+            <SwitchRow title="Published" hint={form.status === "published" ? tt("Members see it under Learn.") : tt("Only you and your team see it.")} checked={form.status === "published"} onChange={(v) => set("status", v ? "published" : "draft")} />
           </div>
           <FieldError text={errorFor("status")} />
           {form.mode !== "paid" ? (
             <div>
               <label htmlFor="program-drip" className={LABEL}>
-                Opens after joining
+                {tt("Opens after joining")}
               </label>
               <div className="flex items-center gap-2">
                 <input id="program-drip" inputMode="numeric" className={cn(FIELD, "h-11 w-[96px] tabular-nums sm:h-10")} value={form.drip} onChange={(e) => set("drip", e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="0" />
-                <span className="text-[14px] text-[#4b5563]">days</span>
+                <span className="text-[14px] text-[#4b5563]">{tt("days")}</span>
               </div>
-              <p className={HINT}>Leave it empty to open it from the day someone joins.</p>
+              <p className={HINT}>{tt("Leave it empty to open it from the day someone joins.")}</p>
               <FieldError text={errorFor("dripDays")} />
             </div>
           ) : null}
@@ -372,7 +373,7 @@ export function ProgramEditor({
 
         <div className="flex justify-start pt-1">
           <button type="button" onClick={() => void remove()} className={cn(secondaryDepth, "h-10 rounded-[10px] px-3.5 text-[14px] text-[#b42318] sm:h-9 sm:rounded-lg sm:text-[13.5px]")}>
-            {program.kind === "course" ? "Take out of Learn" : "Delete program"}
+            {program.kind === "course" ? tt("Take out of Learn") : tt("Delete program")}
           </button>
         </div>
       </div>
@@ -385,7 +386,7 @@ export function ProgramEditor({
             <span className={cn("truncate", dirty ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{note ?? stateWord}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <LeaveButton mode={dirty ? "cancel" : "back"} asks={dirty} label="Going back to programs" onLeave={() => void leave()} />
+            <LeaveButton mode={dirty ? "cancel" : "back"} asks={dirty} label={tt("Going back to programs")} onLeave={() => void leave()} />
             <SaveButton phase={phase} disabled={!dirty} saved={savedThisVisit} onSave={() => void save()} />
           </div>
         </div>
@@ -414,13 +415,13 @@ function CoverPick({ url, uploading, onPick, onClear }: { url: string | null; up
         onClick={() => input.current?.click()}
         disabled={uploading !== null}
         className={cn("absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-[13.5px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8b5cf6]/40", url ? "bg-black/0 text-transparent hover:bg-black/30 hover:text-white" : "text-[#4b5563] hover:bg-[#f1f2f4]")}
-        aria-label={url ? "Change the cover" : "Add a cover"}
+        aria-label={url ? tt("Change the cover") : tt("Add a cover")}
       >
         <ImagePlus className="h-5 w-5" aria-hidden />
-        {uploading !== null ? `Uploading ${uploading}%` : url ? "Change" : "Add a cover, 16:9"}
+        {uploading !== null ? tt("Uploading {uploading}%", { uploading }) : url ? tt("Change") : tt("Add a cover, 16:9")}
       </button>
       {url && uploading === null ? (
-        <button type="button" onClick={onClear} aria-label="Remove the cover" className="absolute right-2 top-2 inline-flex h-10 w-10 items-center justify-center rounded-full sm:h-8 sm:w-8 bg-white/95 text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+        <button type="button" onClick={onClear} aria-label={tt("Remove the cover")} className="absolute right-2 top-2 inline-flex h-10 w-10 items-center justify-center rounded-full sm:h-8 sm:w-8 bg-white/95 text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
           <X className="h-4 w-4" />
         </button>
       ) : null}

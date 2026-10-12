@@ -1,5 +1,6 @@
 import type { LinkTarget, SectionLinkSource } from "@/components/website-builder/link-picker"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * The pages of Website Settings, in the order they are listed. The ids are
@@ -12,16 +13,16 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
  * settings it was a page nobody went looking for.
  */
 export const SETTINGS_SECTIONS = [
-  { id: "general", label: "General", group: "site" },
-  { id: "domains", label: "Domains", group: "site" },
-  { id: "seo", label: "SEO & Social", group: "site" },
-  { id: "pages", label: "Pages", group: "content" },
-  { id: "navigation", label: "Navigation", group: "content" },
-  { id: "commerce", label: "Commerce", group: "content" },
-  { id: "policies", label: "Policies", group: "content" },
-  { id: "publishing", label: "Publishing", group: "live" },
-  { id: "backups", label: "Backups & Versions", group: "live" },
-  { id: "connections", label: "Connections", group: "code" },
+  { id: "general", get label() { return tt("General") }, group: "site" },
+  { id: "domains", get label() { return tt("Domains") }, group: "site" },
+  { id: "seo", get label() { return tt("SEO & Social") }, group: "site" },
+  { id: "pages", get label() { return tt("Pages") }, group: "content" },
+  { id: "navigation", get label() { return tt("Navigation") }, group: "content" },
+  { id: "commerce", get label() { return tt("Commerce") }, group: "content" },
+  { id: "policies", get label() { return tt("Policies") }, group: "content" },
+  { id: "publishing", get label() { return tt("Publishing") }, group: "live" },
+  { id: "backups", get label() { return tt("Backups & Versions") }, group: "live" },
+  { id: "connections", get label() { return tt("Connections") }, group: "code" },
 ] as const
 
 /**
@@ -31,9 +32,9 @@ export const SETTINGS_SECTIONS = [
  * live, and the code tools.
  */
 export const SETTINGS_GROUP_LABELS: Record<(typeof SETTINGS_SECTIONS)[number]["group"], string> = {
-  site: "Website",
-  content: "Content",
-  live: "Going live",
+  get site() { return tt("Website") },
+  get content() { return tt("Content") },
+  get live() { return tt("Going live") },
   code: "Code",
 }
 

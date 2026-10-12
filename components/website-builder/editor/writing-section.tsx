@@ -25,6 +25,7 @@
  * see lib/website-builder/ai-placement.ts.
  */
 import { useEffect, useRef } from "react"
+import { tt } from "@/lib/i18n/text"
 
 /** A section file, in the Storelib Builder Framework, to be typed. */
 const SAMPLE = `<template>
@@ -141,7 +142,7 @@ export function WritingSection({ prompt }: { prompt: string }) {
     <div className="wb-writing" data-writing-section="">
       {/* For a screen reader: what is happening, which the picture shows. */}
       <p className="sr-only" role="status" aria-live="polite">
-        Writing a section{prompt ? `: ${prompt}` : ""}
+        {tt("Writing a section")}{prompt ? `: ${prompt}` : ""}
       </p>
       <div className="wb-writing-inner" aria-hidden="true">
         <div ref={codeRef} className="wb-writing-code" />

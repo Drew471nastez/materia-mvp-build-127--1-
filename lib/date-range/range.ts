@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  A PERIOD OF TIME, THE ONE WAY EVERY /app PAGE PICKS ONE
@@ -174,14 +175,14 @@ export function presetRange(id: PresetId, today: Ymd, firstDay: Ymd = "2020-01-0
 }
 
 export const PRESET_LABEL: Record<PresetId, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  last_7_days: "Last 7 days",
-  last_30_days: "Last 30 days",
-  last_90_days: "Last 90 days",
-  last_12_months: "Last 12 months",
-  month_to_date: "Month to date",
-  all_time: "All time",
+  get today() { return tt("Today") },
+  get yesterday() { return tt("Yesterday") },
+  get last_7_days() { return tt("Last 7 days") },
+  get last_30_days() { return tt("Last 30 days") },
+  get last_90_days() { return tt("Last 90 days") },
+  get last_12_months() { return tt("Last 12 months") },
+  get month_to_date() { return tt("Month to date") },
+  get all_time() { return tt("All time") },
 }
 
 /**
@@ -229,10 +230,10 @@ export function resolveValue(v: Partial<RangeValue> | null | undefined, today: Y
 /* ── comparison ────────────────────────────────────────────────────────── */
 
 export const COMPARE_LABEL: Record<CompareMode, string> = {
-  none: "No comparison",
-  previous_period: "Previous period",
-  previous_year: "Previous year",
-  custom: "Custom",
+  get none() { return tt("No comparison") },
+  get previous_period() { return tt("Previous period") },
+  get previous_year() { return tt("Previous year") },
+  get custom() { return tt("Custom") },
 }
 
 /**

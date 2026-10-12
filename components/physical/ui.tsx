@@ -23,6 +23,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
 import { useMoneyMark } from "@/lib/store/currency-context"
 import { countTyped, decimalTyped, moneyTyped } from "@/lib/physical/typed-values"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 export const CARD_PAD = "px-4 py-4 sm:px-6 sm:py-5"
@@ -119,7 +121,7 @@ export function dollarsOf(cents: number | null | undefined): string {
 
 export function money(cents: number, currency = "USD"): string {
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
+    return new Intl.NumberFormat(appLocale(), { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
   } catch {
     return `$${(cents / 100).toFixed(2)}`
   }
@@ -235,14 +237,14 @@ export function CountryPicker({ value, onChange, taken }: { value: string[]; onC
       {value.length ? (
         <div className="flex max-h-[92px] flex-wrap gap-1.5 overflow-y-auto">
           {value.length > 12 ? (
-            <span className="inline-flex h-7 items-center rounded-full bg-[#f1f2f4] px-2.5 text-[12.5px] font-medium text-[#374151]">{value.length} countries</span>
+            <span className="inline-flex h-7 items-center rounded-full bg-[#f1f2f4] px-2.5 text-[12.5px] font-medium text-[#374151]">{tt("{length} countries", { length: value.length })}</span>
           ) : (
             value.map((c) => (
               <button key={c} type="button" onClick={() => onChange(value.filter((x) => x !== c))} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#f1f2f4] pl-1.5 pr-1.5 text-[12.5px] font-medium text-[#374151] hover:bg-[#e8e9ec]">
                 <CountryFlag code={c} className="h-[12px] w-[18px]" />
                 {countryName(c)}
                 <X aria-hidden className="h-3 w-3" />
-                <span className="sr-only">Remove</span>
+                <span className="sr-only">{tt("Remove")}</span>
               </button>
             ))
           )}
@@ -251,14 +253,14 @@ export function CountryPicker({ value, onChange, taken }: { value: string[]; onC
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search countries" aria-label="Search countries" className={cn(FIELD, "pl-9")} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search countries")} aria-label={tt("Search countries")} className={cn(FIELD, "pl-9")} />
         </div>
         <button type="button" className={cn(BTN_GHOST, "shrink-0 px-2.5")} onClick={allOn ? clear : selectAll} disabled={!allOn && free.length === 0} data-select-all="">
-          {allOn ? "Clear" : q ? "Select these" : "Select all"}
+          {allOn ? tt("Clear") : q ? tt("Select these") : tt("Select all")}
         </button>
         {value.length && !allOn ? (
           <button type="button" className={cn(BTN_GHOST, "shrink-0 px-2.5")} onClick={clear} data-clear-all="">
-            Clear
+            {tt("Clear")}
           </button>
         ) : null}
       </div>
@@ -278,12 +280,12 @@ export function CountryPicker({ value, onChange, taken }: { value: string[]; onC
                 <span className={cn("grid h-4 w-4 shrink-0 place-items-center rounded border", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db] bg-white")}>{on ? <Check className="h-3 w-3 text-white" strokeWidth={3} /> : null}</span>
                 <CountryFlag code={c.code} near={false} className={blocked ? "opacity-50" : undefined} />
                 <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                {blocked ? <span className="shrink-0 text-[12px] text-[#9ca3af]">In another zone</span> : null}
+                {blocked ? <span className="shrink-0 text-[12px] text-[#9ca3af]">{tt("In another zone")}</span> : null}
               </button>
             </li>
           )
         })}
-        {list.length === 0 ? <li className="px-3 py-3 text-[13.5px] text-[#6b7280]">No country matches.</li> : null}
+        {list.length === 0 ? <li className="px-3 py-3 text-[13.5px] text-[#6b7280]">{tt("No country matches.")}</li> : null}
       </ul>
     </div>
   )
@@ -386,10 +388,10 @@ async function request<T>(path: string, init?: { method?: string; body?: unknown
       cache: "no-store",
     })
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-    if (!res.ok) return { ok: false, error: typeof data.error === "string" ? data.error : "Something went wrong. Try again.", data }
+    if (!res.ok) return { ok: false, error: typeof data.error === "string" ? data.error : tt("Something went wrong. Try again."), data }
     return { ok: true, data: data as T }
   } catch {
-    return { ok: false, error: "The connection dropped. Try again." }
+    return { ok: false, error: tt("The connection dropped. Try again.") }
   }
 }
 
@@ -401,7 +403,7 @@ export function actionKey(): string {
 export function dateTime(iso: string | null | undefined): string {
   if (!iso) return ""
   const d = new Date(iso)
-  return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+  return d.toLocaleString(appLocale(), zoned({ month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
 }
 
 /** Below 640px, the breakpoint every Modal turns into the app's own bottom sheet at. */
@@ -487,7 +489,7 @@ function ModalSheet({ open, onClose, title, children, footer, wide }: { open: bo
       header={
         <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-2" data-modal-sheet-head="">
           <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
-          <button type="button" data-close="" data-sheet-close="" aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]">
+          <button type="button" data-close="" data-sheet-close="" aria-label={tt("Close")} className="grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -553,7 +555,7 @@ function ModalDialog({ open, onClose, title, children, footer, wide }: { open: b
       >
         <div className="flex items-center justify-between gap-3 border-b border-[#f1f2f4] px-4 py-3 sm:px-5">
           <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
-          <button type="button" data-close="" onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]">
+          <button type="button" data-close="" onClick={onClose} aria-label={tt("Close")} className="grid h-9 w-9 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]">
             <X className="h-4 w-4" />
           </button>
         </div>

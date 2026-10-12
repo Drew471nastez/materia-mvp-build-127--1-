@@ -20,6 +20,7 @@
  */
 import * as React from "react"
 import { ChoiceAction, ChoicePicker, type Choice } from "@/components/ui/choice-list"
+import { tt } from "@/lib/i18n/text"
 
 /** Zones better known by another name, found by it in search and shown under the city. */
 export const TIME_ZONES: { code: string; name: string }[] = [
@@ -152,7 +153,7 @@ export function timeZoneChoices(now = new Date()): Choice[] {
     .map((code) => {
       const offset = offsetOf(code, now)
       const parts = code.split("/")
-      const region = parts.length > 1 ? parts.slice(0, -1).join(" · ").replace(/_/g, " ") : "Coordinated Universal Time"
+      const region = parts.length > 1 ? parts.slice(0, -1).join(" · ").replace(/_/g, " ") : tt("Coordinated Universal Time")
       const known = names.get(code)
       const plain = offset.replace("−", "-")
       return {
@@ -189,18 +190,18 @@ export function TimeZonePicker({ value, onChange }: { value: string; onChange: (
   return (
     <ChoicePicker
       name="time-zone"
-      title="Time zone"
+      title={tt("Time zone")}
       choices={timeZoneChoices}
       value={value}
       onChange={onChange}
-      placeholder="Search a city, region or UTC offset"
+      placeholder={tt("Search a city, region or UTC offset")}
       fieldLabel={zoneName(value)}
       fieldAside={offsetOf(value)}
       lead={
         device && device !== value
           ? (compact, pick) => (
               <ChoiceAction compact={compact} aside={offsetOf(device)} onClick={() => pick(device)}>
-                Use my current time zone ({zoneName(device)})
+                {tt("Use my current time zone ({name})", { name: zoneName(device) })}
               </ChoiceAction>
             )
           : undefined

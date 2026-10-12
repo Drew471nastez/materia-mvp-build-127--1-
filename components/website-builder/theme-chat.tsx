@@ -146,6 +146,7 @@ import { typeToward } from "@/lib/website-builder/ask-typing"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
 import { CLOSE_EASE, CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, PILL_RADIUS, SLIDE_MS, SOFTEN_RINGS, dockGeometry, softenMask } from "@/lib/website-builder/ask-dock"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { tt } from "@/lib/i18n/text"
 
 /** A picture in the thread: the composer's, once sent, or a stored one read back. */
 type Attachment = ComposerPicture
@@ -274,23 +275,23 @@ function clock(seconds: number): string {
 function plainWriteError(status: number, error: string | undefined, compileErrors: boolean): string {
   const raw = error ?? ""
   if (compileErrors || /did not compile|would not be correct|too long to finish|could not produce|sent nothing|cut off/i.test(raw)) {
-    return "I could not get that section right this time. Try again, or describe it in a few more words."
+    return tt("I could not get that section right this time. Try again, or describe it in a few more words.")
   }
-  if (/declined/i.test(raw)) return "That is not something I can write. Try describing a different section."
-  if (status === 504 || /took too long/i.test(raw)) return "Writing that section took too long. Try again, or describe a smaller section."
-  if (status === 401) return "Your session ended. Sign in again to use Storelib AI."
+  if (/declined/i.test(raw)) return tt("That is not something I can write. Try describing a different section.")
+  if (status === 504 || /took too long/i.test(raw)) return tt("Writing that section took too long. Try again, or describe a smaller section.")
+  if (status === 401) return tt("Your session ended. Sign in again to use Storelib AI.")
   if (status === 429 || status >= 500 || /reach|fetch|network|timeout|overload|rate limit/i.test(raw)) {
-    return "Storelib AI is busy right now. Try again in a moment."
+    return tt("Storelib AI is busy right now. Try again in a moment.")
   }
-  return raw ? plainChatError(raw) : "That did not work. Try again."
+  return raw ? plainChatError(raw) : tt("That did not work. Try again.")
 }
 
 /** What the words of a report problem are. */
 function reportProblem(problem: "not_set_up" | "not_found" | "busy" | "failed"): string {
-  if (problem === "not_set_up") return "Reports turn on once the database update is run."
-  if (problem === "busy") return "That is a lot of reports at once. Try again in a minute."
-  if (problem === "not_found") return "This answer is no longer in your history."
-  return "The report did not send. Try again."
+  if (problem === "not_set_up") return tt("Reports turn on once the database update is run.")
+  if (problem === "busy") return tt("That is a lot of reports at once. Try again in a minute.")
+  if (problem === "not_found") return tt("This answer is no longer in your history.")
+  return tt("The report did not send. Try again.")
 }
 
 /*
@@ -397,7 +398,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
               type="button"
               data-ask-sent-image=""
               onClick={() => onView(pictures, index)}
-              aria-label={`Open ${image.name}`}
+              aria-label={tt("Open {name}", { name: image.name })}
               className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f1f2f4] transition-opacity hover:opacity-90"
             >
               {/* Held at its final size, a neutral shimmer until the picture has decoded, then faded in over it. */}
@@ -420,11 +421,11 @@ const ExchangeItem = React.memo(function ExchangeItem({
               key={`gone-${index}`}
               data-ask-missing-image=""
               role="img"
-              aria-label="Picture no longer available"
+              aria-label={tt("Picture no longer available")}
               className="flex h-16 w-[104px] flex-col items-center justify-center gap-1 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-2 text-center"
             >
               <ImageOff aria-hidden className="h-3.5 w-3.5 text-[#6b7280]/70" strokeWidth={1.8} />
-              <span className="text-[11px] leading-[1.25] text-[#6b7280]">Picture no longer available</span>
+              <span className="text-[11px] leading-[1.25] text-[#6b7280]">{tt("Picture no longer available")}</span>
             </span>
           ))}
         </div>
@@ -440,8 +441,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
       {exchange.notKept && (
         <p data-ask-not-kept={exchange.notKept} className="text-right text-[11.5px] leading-snug text-[#6b7280]">
           {exchange.notKept === "chat"
-            ? "This message could not be saved, so it will not be here after a reload."
-            : "These pictures could not be kept, so they will not show after a reload."}
+            ? tt("This message could not be saved, so it will not be here after a reload.")
+            : tt("These pictures could not be kept, so they will not show after a reload.")}
         </p>
       )}
 
@@ -457,7 +458,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
       )}
       {exchange.running && (
         <div className="min-w-0">
-          <ActivityLine label={sending && exchange.images?.length ? "Sending your pictures" : activityLine(activity, elapsed)} />
+          <ActivityLine label={sending && exchange.images?.length ? tt("Sending your pictures") : activityLine(activity, elapsed)} />
         </div>
       )}
 
@@ -474,7 +475,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
                 onClick={() => onOpenCode(exchange.written!.path)}
                 className="relative ml-0.5 whitespace-nowrap text-[12px] font-medium text-[#6b7280] underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
               >
-                View code
+                {tt("View code")}
               </button>
             </>
           )}
@@ -517,7 +518,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
             className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e] disabled:opacity-40"
           >
             <RotateCcw className="h-3 w-3" strokeWidth={2} />
-            Try again
+            {tt("Try again")}
           </button>
         </div>
       )}
@@ -1231,13 +1232,13 @@ function ThemeChatPanel({
         if (total > MAX_TOTAL_IMAGE_BYTES) {
           letGoPreview(id)
           setAttached((previous) => previous.filter((a) => a.id !== id))
-          setAttachError(`That is more than ${MAX_TOTAL_IMAGE_BYTES / (1024 * 1024)}MB of pictures in one message. Send some now and the rest after.`)
+          setAttachError(tt("That is more than {value}MB of pictures in one message. Send some now and the rest after.", { value: MAX_TOTAL_IMAGE_BYTES / (1024 * 1024) }))
           return
         }
         letGoPreview(id)
         patchPicture(id, { state: "ready", progress: 1, mediaType: ready.mediaType, data: ready.data, url: ready.url, error: undefined })
       } catch (thrown) {
-        const message = thrown instanceof PrepareError ? thrown.message : `${file.name} could not be read.`
+        const message = thrown instanceof PrepareError ? thrown.message : tt("{name} could not be read.", { name: file.name })
         /* A HEIC this browser cannot open is not going to open on a second try. */
         const retry = !(kindOf(file) === "heic" && /HEIC/.test(message))
         patchPicture(id, { state: "failed", progress: 0, error: message, source: retry ? file : undefined })
@@ -1296,7 +1297,7 @@ function ThemeChatPanel({
               })
             })
             .catch((thrown) => {
-              const message = thrown instanceof PrepareError ? thrown.message : `${file.name} could not be read.`
+              const message = thrown instanceof PrepareError ? thrown.message : tt("{name} could not be read.", { name: file.name })
               setAttached((previous) => previous.filter((a) => !ids.includes(a.id)))
               setAttachError(message)
             })
@@ -1530,7 +1531,7 @@ function ThemeChatPanel({
                   ...e,
                   running: false,
                   activity: settleActivity(e.activity),
-                  reply: "Stopped, you moved to another page. Nothing was applied there.",
+                  reply: tt("Stopped, you moved to another page. Nothing was applied there."),
                 }))
                 return
               }
@@ -1603,7 +1604,7 @@ function ThemeChatPanel({
                 finished = true
                 return
               } else if (type === "error") {
-                const message = typeof event.message === "string" ? event.message : "The edit failed."
+                const message = typeof event.message === "string" ? event.message : tt("The edit failed.")
                 patch((e) => ({ ...e, running: false, error: message, activity: settleActivity(e.activity, true) }))
                 if (!finished) playAskSound("error")
                 finished = true
@@ -1622,7 +1623,7 @@ function ThemeChatPanel({
           },
         )
         if (!result.ok) {
-          patch((e) => ({ ...e, running: false, sent: true, error: result.error ?? "That did not go through.", activity: settleActivity(e.activity, true) }))
+          patch((e) => ({ ...e, running: false, sent: true, error: result.error ?? tt("That did not go through."), activity: settleActivity(e.activity, true) }))
           if (!finished) playAskSound("error")
           return
         }
@@ -1643,8 +1644,8 @@ function ThemeChatPanel({
            * them back. Silently reverting work somebody watched happen would
            * be the more surprising behaviour.
            */
-          error: stopped ? undefined : "Lost the connection. Anything already changed is still here.",
-          reply: stopped ? e.reply ?? "Stopped." : e.reply,
+          error: stopped ? undefined : tt("Lost the connection. Anything already changed is still here."),
+          reply: stopped ? e.reply ?? tt("Stopped.") : e.reply,
         }))
       } finally {
         abortRef.current = null
@@ -1723,7 +1724,7 @@ function ThemeChatPanel({
       ])
       const patch = (change: (exchange: Exchange) => Exchange) => patchExchange(id, change)
       /* The spot it is writing into, labelled with what it is writing. */
-      let subject = "New section"
+      let subject = tt("New section")
       const tell = () => onWorkingChange?.([WRITING_SECTION_ID], subject)
       onWriteStart?.(prompt)
       tell()
@@ -1787,18 +1788,18 @@ function ThemeChatPanel({
           plainError: plainWriteError,
         })
       } catch {
-        outcome = { error: "Storelib AI could not be reached. Check your connection and try again." }
+        outcome = { error: tt("Storelib AI could not be reached. Check your connection and try again.") }
       } finally {
         onWorkingChange?.([])
         const done = outcome
         const kept = !!done?.written
         const answered = !!done?.answered
-        if (!kept) onWriteFailed?.(done?.reply ?? done?.error ?? "The section could not be written.", answered)
+        if (!kept) onWriteFailed?.(done?.reply ?? done?.error ?? tt("The section could not be written."), answered)
         /* Nothing on the canvas to look at: the reason, or the answer, is read here. */
         if (!kept && dock) setExpanded(true)
         patch((e) => {
           let activity = settleActivity(e.activity, !kept && !answered)
-          if (done?.written) activity = reduceActivity(activity, { type: "progress", phase: "done", label: "Done", sections: [] })
+          if (done?.written) activity = reduceActivity(activity, { type: "progress", phase: "done", label: tt("Done"), sections: [] })
           if (done?.offer) activity = reduceActivity(activity, { type: "question", ...done.offer })
           return {
             ...e,
@@ -1941,7 +1942,7 @@ function ThemeChatPanel({
 
   const reportOne = React.useCallback(
     async (exchange: Exchange, reason: string): Promise<ReportState> => {
-      if (!exchange.messageId) return { stage: "problem", message: "This answer cannot be reported yet.", reason }
+      if (!exchange.messageId) return { stage: "problem", message: tt("This answer cannot be reported yet."), reason }
       const result = await reportAnswer(installId, { messageId: exchange.messageId, reason, engine: exchange.engine })
       if (result.ok) return { stage: "sent" }
       return { stage: "problem", message: reportProblem(result.problem), reason }
@@ -2460,28 +2461,28 @@ function ThemeChatPanel({
       ? (openQuestion?.activity.question?.question ?? (lastRun.written ? lastRun.reply : undefined) ?? detailToShow(undefined, lastRun.activity.done))
       : null
   const placeholder = listening
-    ? "Listening…"
+    ? tt("Listening…")
     : voice.state === "transcribing"
-      ? "Writing it out…"
+      ? tt("Writing it out…")
       : pillLine
         ? `${pillLine}…`
         : foldedLine
           ? foldedLine
           : mode === "code"
             ? attached.length
-              ? "Add a note, or just send"
+              ? tt("Add a note, or just send")
               : locked
-                ? "Describe the change"
-                : "Describe a section"
+                ? tt("Describe the change")
+                : tt("Describe a section")
             : busy
-                ? "Ask for the next change"
+                ? tt("Ask for the next change")
                 : attached.length
-                  ? "Add a note, or just send"
+                  ? tt("Add a note, or just send")
                   : openQuestion
-                    ? "Or type your answer"
+                    ? tt("Or type your answer")
                     : exchanges.length
-                      ? "Continue the conversation"
-                      : "Ask for a change"
+                      ? tt("Continue the conversation")
+                      : tt("Ask for a change")
 
   /* Undo is offered on the newest run that changed this page, while this is still the page. */
   const undoable = React.useMemo(() => {
@@ -2579,11 +2580,11 @@ function ThemeChatPanel({
     <div data-ask-header="" className={cn("flex shrink-0 items-center gap-0.5", phone ? "h-[52px] px-1.5" : "h-12 px-2.5")}>
       {view === "history" ? (
         <>
-          <button type="button" onClick={() => setView("thread")} aria-label="Back to the conversation" className={iconButton}>
+          <button type="button" onClick={() => setView("thread")} aria-label={tt("Back to the conversation")} className={iconButton}>
             <ChevronLeft className="h-[19px] w-[19px]" strokeWidth={1.9} />
           </button>
           <span data-ask-title="" className="min-w-0 flex-1 truncate pl-1 text-[14px] font-semibold text-[#1a1a2e]">
-            Chats
+            {tt("Chats")}
           </span>
         </>
       ) : phone ? (
@@ -2597,12 +2598,12 @@ function ThemeChatPanel({
           type="button"
           data-ask-history-button=""
           onClick={openHistory}
-          aria-label="Conversation history"
-          title="Conversation history"
+          aria-label={tt("Conversation history")}
+          title={tt("Conversation history")}
           className="flex h-11 min-w-0 flex-1 items-center gap-1 rounded-full pl-2.5 pr-2 text-left transition-colors hover:bg-black/[0.05] active:bg-black/[0.08]"
         >
           <span data-ask-title="" className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">
-            {conversation.title || "Ask Storelib"}
+            {conversation.title || tt("Ask Storelib")}
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#1a1a2e]/55" strokeWidth={2.2} />
         </button>
@@ -2612,8 +2613,8 @@ function ThemeChatPanel({
             type="button"
             data-ask-history-button=""
             onClick={openHistory}
-            aria-label="Conversation history"
-            title="Conversation history"
+            aria-label={tt("Conversation history")}
+            title={tt("Conversation history")}
             className={cn(iconButton, "w-auto gap-0.5 px-2")}
           >
             <History className="h-[17px] w-[17px]" strokeWidth={1.8} />
@@ -2622,7 +2623,7 @@ function ThemeChatPanel({
           <span className="flex min-w-0 flex-1 items-center gap-2 pl-1.5">
             <StorelibLogo size={16} alt="" />
             <span data-ask-title="" className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">
-              {conversation.title || "Ask Storelib"}
+              {conversation.title || tt("Ask Storelib")}
             </span>
           </span>
         </>
@@ -2637,8 +2638,8 @@ function ThemeChatPanel({
         data-ask-new=""
         onClick={newChat}
         disabled={busyNow}
-        aria-label="New chat"
-        title={busyNow ? "Available when this change finishes" : "New chat"}
+        aria-label={tt("New chat")}
+        title={busyNow ? tt("Available when this change finishes") : tt("New chat")}
         className={iconButton}
       >
         <SquarePen className="h-[17px] w-[17px]" strokeWidth={1.8} />
@@ -2648,15 +2649,15 @@ function ThemeChatPanel({
           type="button"
           data-ask-maximize=""
           onClick={toggleMaximize}
-          aria-label={isMax ? "Restore size" : "Maximize"}
+          aria-label={isMax ? tt("Restore size") : tt("Maximize")}
           aria-pressed={isMax}
-          title={isMax ? "Restore size" : "Maximize"}
+          title={isMax ? tt("Restore size") : tt("Maximize")}
           className={iconButton}
         >
           {isMax ? <Minimize2 className="h-4 w-4" strokeWidth={1.8} /> : <Maximize2 className="h-4 w-4" strokeWidth={1.8} />}
         </button>
       )}
-      <button type="button" data-ask-close="" onClick={closeChat} aria-label="Close chat" title="Close chat" className={iconButton}>
+      <button type="button" data-ask-close="" onClick={closeChat} aria-label={tt("Close chat")} title={tt("Close chat")} className={iconButton}>
         <X className="h-[18px] w-[18px]" strokeWidth={1.8} />
       </button>
     </div>
@@ -2691,27 +2692,27 @@ function ThemeChatPanel({
           */}
           {!keeping.chat ? (
             <p data-ask-not-set-up="chat" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
-              Chats are not saved yet. They are kept once the database update is run.
+              {tt("Chats are not saved yet. They are kept once the database update is run.")}
             </p>
           ) : historyError === "not_set_up" ? (
             <p data-ask-not-set-up="" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
-              History turns on once the database update is run. Until then your messages here are kept as one chat.
+              {tt("History turns on once the database update is run. Until then your messages here are kept as one chat.")}
             </p>
           ) : null}
           {keeping.chat && !keeping.pictures && (
             <p data-ask-not-set-up="pictures" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
-              Pictures show here until you leave. They are kept once the database update is run.
+              {tt("Pictures show here until you leave. They are kept once the database update is run.")}
             </p>
           )}
           {loadingHistory ? (
             <p className="flex items-center gap-2 text-[13px] text-[#6b7280]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading
+              {tt("Loading")}
             </p>
           ) : historyError === "read_failed" ? (
             <div className="rounded-xl border border-red-500/25 bg-red-500/[0.04] px-3 py-2.5">
-              <p className="text-[13px] font-medium text-[#1a1a2e]">This chat could not be loaded.</p>
-              <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#6b7280]">Nothing is lost. You can still ask for a change.</p>
+              <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("This chat could not be loaded.")}</p>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#6b7280]">{tt("Nothing is lost. You can still ask for a change.")}</p>
             </div>
           ) : exchanges.length === 0 ? (
             /* Empty: nothing to read, so only what to ask, down by the box you type it in. */
@@ -2743,7 +2744,7 @@ function ThemeChatPanel({
                   <li className="flex items-start gap-2 text-[12.5px] text-[#6b7280]">
                     <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#6b7280]/50" />
                     <span>
-                      Up next: <span className="text-[#1a1a2e]/75">{queued.text}</span>
+                      {tt("Up next:")} <span className="text-[#1a1a2e]/75">{queued.text}</span>
                     </span>
                   </li>
                 )}
@@ -2805,14 +2806,14 @@ function ThemeChatPanel({
                 }}
                 className="relative ml-1 font-medium text-[#1a1a2e] underline underline-offset-2 after:absolute after:-inset-2 after:content-['']"
               >
-                Open Settings
+                {tt("Open Settings")}
               </button>
             )}
           </span>
           <button
             type="button"
             onClick={voice.clearError}
-            aria-label="Dismiss"
+            aria-label={tt("Dismiss")}
             className="relative -my-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e]"
           >
             <X className="h-3 w-3" strokeWidth={2.25} />
@@ -2885,7 +2886,7 @@ function ThemeChatPanel({
         <span
           data-ask-voice-clock=""
           role="timer"
-          aria-label={`Recording, ${clock(voice.seconds)}`}
+          aria-label={tt("Recording, {seconds}", { seconds: clock(voice.seconds) })}
           className="absolute inset-0 flex items-center justify-center gap-1.5 text-[12.5px] tabular-nums text-[#1a1a2e]/80"
         >
           <span aria-hidden className="ask-rec-dot h-2 w-2 rounded-full bg-[#dc2626]" />
@@ -2925,8 +2926,8 @@ function ThemeChatPanel({
         fileInputRef.current?.click()
       }}
       disabled={attached.length >= MAX_IMAGES}
-      aria-label="Attach pictures or a video"
-      title={attached.length >= MAX_IMAGES ? `${MAX_IMAGES} pictures is the most one message can carry` : "Attach pictures or a video"}
+      aria-label={tt("Attach pictures or a video")}
+      title={attached.length >= MAX_IMAGES ? tt("{maxImages} pictures is the most one message can carry", { maxImages: MAX_IMAGES }) : tt("Attach pictures or a video")}
       className={cn(quietRound, dock && "border border-black/[0.06] bg-white/60")}
     >
       <Paperclip className="h-4 w-4" strokeWidth={1.9} />
@@ -2939,9 +2940,9 @@ function ThemeChatPanel({
       data-ask-mic={voice.state}
       onClick={() => (voice.state === "idle" ? startVoice() : voice.stop())}
       disabled={voice.state === "starting" || voice.state === "transcribing"}
-      aria-label={listening ? "Stop recording" : "Speak instead of typing"}
+      aria-label={listening ? tt("Stop recording") : tt("Speak instead of typing")}
       aria-pressed={listening}
-      title={listening ? "Stop, and keep what was said" : "Speak instead of typing"}
+      title={listening ? tt("Stop, and keep what was said") : tt("Speak instead of typing")}
       className={cn(
         quietRound,
         dock && !listening && "border border-black/[0.06] bg-white/60",
@@ -2964,8 +2965,8 @@ function ThemeChatPanel({
       type="button"
       data-ask-stop=""
       onClick={() => abortRef.current?.abort()}
-      aria-label="Stop"
-      title="Stop"
+      aria-label={tt("Stop")}
+      title={tt("Stop")}
       className={cn(quietRound, "border border-[#e5e7eb] bg-white")}
     >
       <Square className="h-2.5 w-2.5 fill-current" />
@@ -2985,8 +2986,8 @@ function ThemeChatPanel({
       data-ask-send=""
       onClick={() => submit(takeDraft())}
       disabled={(draft.trim().length === 0 && attached.length === 0) || preparing}
-      aria-label={busy ? "Queue" : "Send"}
-      title={preparing ? "Waiting for the pictures to be ready" : undefined}
+      aria-label={busy ? tt("Queue") : tt("Send")}
+      title={preparing ? tt("Waiting for the pictures to be ready") : undefined}
       className={cn(
         roundButton,
         "disabled:opacity-100",
@@ -3007,7 +3008,7 @@ function ThemeChatPanel({
       ref={fieldRef}
       rows={1}
       value={draft}
-      aria-label="Message Storelib AI"
+      aria-label={tt("Message Storelib AI")}
       onChange={(event) => {
         /*
           A person typing takes the box back from words still typing
@@ -3095,7 +3096,7 @@ function ThemeChatPanel({
       <button
         type="button"
         onClick={() => setAttachError(null)}
-        aria-label="Dismiss"
+        aria-label={tt("Dismiss")}
         className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e]"
       >
         <X className="h-3 w-3" strokeWidth={2.25} />
@@ -3215,7 +3216,7 @@ function ThemeChatPanel({
   const dropTarget = dragging && (
     <div data-drop-target="" className="pointer-events-none absolute inset-2 z-[120] flex flex-col items-center justify-center gap-2 rounded-[22px] border-2 border-dashed border-[#1a1a2e]/25 bg-white/90">
       <ImagePlus className="h-6 w-6 text-[#1a1a2e]/60" strokeWidth={1.75} />
-      <p className="text-[13px] font-medium text-[#1a1a2e]">Drop pictures or a video</p>
+      <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("Drop pictures or a video")}</p>
     </div>
   )
 

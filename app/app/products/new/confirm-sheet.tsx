@@ -24,6 +24,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import { secondaryDepth } from "./editor-buttons"
+import { tt } from "@/lib/i18n/text"
 
 /** The breakpoint the sheet hides itself from, and the bar's buttons change size at. */
 const PHONE = "(max-width: 639px)"
@@ -70,7 +71,7 @@ const primaryDepth = cn(
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40",
 )
 
-const AHEAD: ConfirmQuestion = { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
+const AHEAD: ConfirmQuestion = { get title() { return tt("Discard changes?") }, get body() { return tt("Your edits since the last save will be lost.") }, get confirm() { return tt("Discard") }, get cancel() { return tt("Keep editing") } }
 
 export function ConfirmSheet({
   question,

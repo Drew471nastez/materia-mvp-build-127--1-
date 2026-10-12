@@ -25,6 +25,8 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { CANCEL_NOTE_MAX, CANCEL_REASONS, type CancelReason } from "@/lib/billing/cancel-reasons"
 import { planComparison } from "@/lib/billing/plans"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export function usePhone(): boolean {
   const [phone, setPhone] = React.useState(false)
@@ -38,7 +40,7 @@ export function usePhone(): boolean {
   return phone
 }
 
-const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+const longDate = (iso: string) => new Date(iso).toLocaleDateString(appLocale(), zoned({ month: "long", day: "numeric", year: "numeric" }))
 
 /** The rows where Free differs from Pro: values side by side, and what Free does not have at all. */
 function freeChanges() {
@@ -95,25 +97,25 @@ export function CancelPlanDialog({
       open={open}
       onClose={close}
       phone={phone}
-      label={`Cancel ${planName}`}
+      label={tt("Cancel {planName}", { planName })}
       className="flex max-h-[calc(100dvh-48px)] max-w-[480px] flex-col gap-0 overflow-hidden rounded-2xl p-0"
       sheet={{ dismissible: !busy, maxHeight: "calc(var(--vv-h, 100dvh) * 0.9)" }}
     >
       <div className="flex min-h-0 flex-1 flex-col" data-cancel-plan-dialog="">
         <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", phone ? "px-5 pb-4 pt-1" : "px-6 pb-5 pt-6")}>
-          <SheetDialogTitle className="pr-8 text-[18px] font-semibold leading-snug text-[#1a1a2e]">Cancel {planName}?</SheetDialogTitle>
+          <SheetDialogTitle className="pr-8 text-[18px] font-semibold leading-snug text-[#1a1a2e]">{tt("Cancel {planName}?", { planName })}</SheetDialogTitle>
           <p className="mt-2 text-[14px] leading-relaxed text-[#4b5563]" data-cancel-until="">
             {until ? (
               <>
-                {planName} stays on until <span className="font-semibold text-[#1a1a2e]">{until}</span>, the end of the period you paid for. Then your account moves to Free and nothing more is charged.
+                {tt("{planName} stays on until", { planName })} <span className="font-semibold text-[#1a1a2e]">{until}</span>{tt(", the end of the period you paid for. Then your account moves to Free and nothing more is charged.")}
               </>
             ) : (
-              <>{planName} stays on until the end of the period you paid for. Then your account moves to Free and nothing more is charged.</>
+              <>{tt("{planName} stays on until the end of the period you paid for. Then your account moves to Free and nothing more is charged.", { planName })}</>
             )}
           </p>
 
           <div className="mt-4 rounded-xl border border-[#eceef1] bg-[#fafafb]" data-cancel-changes="">
-            <p className="px-3.5 pb-1 pt-3 text-[13px] font-medium text-[#1a1a2e]">On Free{until ? ` from ${until}` : ""}</p>
+            <p className="px-3.5 pb-1 pt-3 text-[13px] font-medium text-[#1a1a2e]">{tt("On Free")}{until ? tt(" from {until}", { until }) : ""}</p>
             <dl className="divide-y divide-[#eceef1] px-3.5 text-[13.5px]">
               {changes.values.map((row) => (
                 <div key={row.label} className="flex items-center justify-between gap-3 py-2">
@@ -127,15 +129,15 @@ export function CancelPlanDialog({
             </dl>
             {changes.lost.length > 0 ? (
               <p className="border-t border-[#eceef1] px-3.5 py-2.5 text-[13px] leading-5 text-[#6b7280]">
-                Not on Free: {changes.lost.map((l, i) => (i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1))).join(", ")}.
+                {tt("Not on Free: {value}.", { value: changes.lost.map((l, i) => (i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1))).join(", ") })}
               </p>
             ) : null}
           </div>
-          <p className="mt-2.5 text-[13px] leading-5 text-[#6b7280]">Your products, pages, customers and orders stay as they are.</p>
+          <p className="mt-2.5 text-[13px] leading-5 text-[#6b7280]">{tt("Your products, pages, customers and orders stay as they are.")}</p>
 
           <div className="mt-5">
             <p id="cancel-why" className="text-[14px] font-medium text-[#1a1a2e]">
-              Why are you leaving? <span className="font-normal text-[#8a8f98]">Optional</span>
+              {tt("Why are you leaving?")} <span className="font-normal text-[#8a8f98]">{tt("Optional")}</span>
             </p>
             <div role="radiogroup" aria-labelledby="cancel-why" className="mt-2.5 space-y-1.5">
               {CANCEL_REASONS.map((r) => {
@@ -159,13 +161,13 @@ export function CancelPlanDialog({
               })}
             </div>
             <label className="mt-3 block">
-              <span className="sr-only">Anything else to tell us</span>
+              <span className="sr-only">{tt("Anything else to tell us")}</span>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value.slice(0, CANCEL_NOTE_MAX))}
                 rows={2}
                 maxLength={CANCEL_NOTE_MAX}
-                placeholder="Anything else you'd like us to know"
+                placeholder={tt("Anything else you'd like us to know")}
                 className="block w-full resize-none rounded-xl border border-[#e6e8ec] bg-white px-3.5 py-2.5 text-[16px] leading-snug text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.03)] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd2] focus:ring-2 focus:ring-[#1a1a2e]/10 sm:text-[14.5px]"
                 data-cancel-note=""
               />
@@ -187,7 +189,7 @@ export function CancelPlanDialog({
               data-cancel-keep=""
               className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-[#e3e5e9] bg-white text-[15px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none transition-[background-color] duration-150 hover:bg-[#f8f9fa] active:bg-[#eef0f2] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
             >
-              Keep {planName}
+              {tt("Keep {planName}", { planName })}
             </button>
             <button
               type="button"
@@ -201,10 +203,10 @@ export function CancelPlanDialog({
               {busy ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  Cancelling
+                  {tt("Cancelling")}
                 </>
               ) : (
-                "Cancel plan"
+                tt("Cancel plan")
               )}
             </button>
           </div>

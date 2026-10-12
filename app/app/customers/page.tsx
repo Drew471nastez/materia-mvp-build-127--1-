@@ -6,9 +6,14 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Users } from "lucide-react"
 import { pageUser } from "@/lib/auth/page-user"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata = {
-  title: "Customers",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Customers"),
+  }
 }
 
 export default async function CustomersPage() {

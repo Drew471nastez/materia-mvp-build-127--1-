@@ -48,6 +48,8 @@ import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-
 import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export type SetupMode = "setup" | "bank" | "details"
 type Step = 0 | 1 | 2 | 3
@@ -81,13 +83,13 @@ const SHEET_Z = PANEL_Z + 10
  * came from a server that had passed Stripe's text straight through.
  */
 function safe(message: string): string {
-  if (!message.trim() || readsLikeStripe(message)) return "Something went wrong. Try again in a moment."
+  if (!message.trim() || readsLikeStripe(message)) return tt("Something went wrong. Try again in a moment.")
   return message
 }
 
 async function read<T>(res: Response): Promise<T> {
   const data = (await res.json().catch(() => ({}))) as T & { error?: string }
-  if (!res.ok) throw new Error(safe(data.error || "Something went wrong. Try again in a moment."))
+  if (!res.ok) throw new Error(safe(data.error || tt("Something went wrong. Try again in a moment.")))
   return data
 }
 
@@ -160,7 +162,7 @@ function IdHandoffQr({ url }: { url: string }) {
     <div className="flex h-[180px] w-[180px] items-center justify-center rounded-2xl border border-[#eceef1] bg-white p-2" data-id-phone-qr="">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="Scan with your phone to verify your ID" className="h-full w-full" />
+        <img src={src} alt={tt("Scan with your phone to verify your ID")} className="h-full w-full" />
       ) : (
         <span className="h-8 w-8 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/50" />
       )}
@@ -274,7 +276,7 @@ function Panel({
  * lands. Nothing jumps: the shapes are the sizes of the things they stand
  * in for.
  */
-export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { open: boolean; onClose: () => void; label?: string }) {
+export function PaymentsPanelWaiting({ open, onClose, label = tt("Payments") }: { open: boolean; onClose: () => void; label?: string }) {
   const phone = usePhone()
   return (
     <Panel open={open} phone={phone} onClose={onClose} label={label}>
@@ -284,7 +286,7 @@ export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { op
             <>
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={tt("Close")}
                 onClick={onClose}
                 className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
               >
@@ -299,11 +301,11 @@ export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { op
                 <StorelibLogo size={28} />
                 <span className="text-[15px] font-semibold text-[#1a1a2e]">Storelib</span>
                 <span aria-hidden className="h-4 w-px bg-[#e5e7eb]" />
-                <span className="truncate text-[14px] text-[#6b7280]">Payments</span>
+                <span className="truncate text-[14px] text-[#6b7280]">{tt("Payments")}</span>
               </span>
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={tt("Close")}
                 onClick={onClose}
                 className="-mr-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#eef0f2] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
               >
@@ -315,7 +317,7 @@ export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { op
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="mx-auto w-full max-w-[560px] sm:px-6 sm:pb-16 sm:pt-10">
-          <Shimmer className="hidden sm:mb-6 sm:block sm:px-1" label={`Opening ${label.toLowerCase()}`}>
+          <Shimmer className="hidden sm:mb-6 sm:block sm:px-1" label={tt("Opening {value}", { value: label.toLowerCase() })}>
             <ShimmerBlock className="h-6 w-48 rounded-lg" />
             <ShimmerBlock className="mt-2 h-3.5 w-72 rounded-full" />
           </Shimmer>
@@ -372,7 +374,7 @@ const STEP_LABELS_NO_ID = ["Personal info", "Bank account"] as const
 
 function Stepper({ step, done: all, labels = STEP_LABELS }: { step: number; done?: boolean; labels?: readonly string[] }) {
   return (
-    <ol className="flex items-center gap-2" aria-label="Setup steps">
+    <ol className="flex items-center gap-2" aria-label={tt("Setup steps")}>
       {labels.map((label, i) => {
         const done = all || i < step
         const on = !all && i === step
@@ -410,7 +412,7 @@ export function InfoTip({ label, children }: { label: string; children: React.Re
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`About ${label}`}
+          aria-label={tt("About {label}", { label })}
           data-info-tip=""
           onPointerDown={(e) => (pointer.current = e.pointerType)}
           onPointerEnter={(e) => {
@@ -471,7 +473,7 @@ function Field({
       <div className={cn("flex items-center gap-1.5", dense ? "mb-1" : "mb-1.5")}>
         <label htmlFor={id} className={cn("font-medium text-[#1a1a2e]", dense ? "text-[12px]" : "text-[13px]")}>
           {label}
-          {optional ? <span className="font-normal text-[#9ca3af]"> (optional)</span> : null}
+          {optional ? <span className="font-normal text-[#9ca3af]"> {tt("(optional)")}</span> : null}
         </label>
         {tip ? <InfoTip label={label}>{tip}</InfoTip> : null}
       </div>
@@ -679,7 +681,7 @@ export function PaymentsSetupFlow({
     onClose()
   }
 
-  const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payouts"
+  const title = mode === "bank" ? (data.payoutDestination ? tt("Payout account") : tt("Add bank account")) : mode === "details" ? tt("Account details") : tt("Set up payouts")
   /*
    * THE PHONE APP RUNS STORELIB'S OWN STEPS (round 19, the owner: "bring
    * back the iOS style steps with icons, Stripe embedded only on the web").
@@ -801,11 +803,11 @@ export function PaymentsSetupFlow({
   const subtitle =
     mode === "setup"
       ? idNeeded
-        ? "Your personal info, a quick ID check with Stripe, then your bank. About five minutes."
-        : "Your personal info, then your bank. About five minutes."
+        ? tt("Your personal info, a quick ID check with Stripe, then your bank. About five minutes.")
+        : tt("Your personal info, then your bank. About five minutes.")
       : mode === "bank"
-        ? "Where your cash outs are sent."
-        : "The details on your payments account."
+        ? tt("Where your cash outs are sent.")
+        : tt("The details on your payments account.")
 
   const bar = (
     <>
@@ -816,7 +818,7 @@ export function PaymentsSetupFlow({
             <>
               <button
                 type="button"
-                aria-label={backCloses ? "Close" : "Back"}
+                aria-label={backCloses ? tt("Close") : tt("Back")}
                 onClick={onBack}
                 className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
               >
@@ -831,11 +833,11 @@ export function PaymentsSetupFlow({
                 <StorelibLogo size={28} />
                 <span className="text-[15px] font-semibold text-[#1a1a2e]">Storelib</span>
                 <span aria-hidden className="h-4 w-px bg-[#e5e7eb]" />
-                <span className="truncate text-[14px] text-[#6b7280]">Payments</span>
+                <span className="truncate text-[14px] text-[#6b7280]">{tt("Payments")}</span>
               </span>
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={tt("Close")}
                 onClick={onClose}
                 className="-mr-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#eef0f2] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
               >
@@ -1016,7 +1018,7 @@ function AppBrowserSetup({
           }, 4000)
         }
       } catch (err) {
-        if (!gone) setError(safe(err instanceof Error ? err.message : "We could not start setup just now."))
+        if (!gone) setError(safe(err instanceof Error ? err.message : tt("We could not start setup just now.")))
       }
     })()
 
@@ -1033,15 +1035,15 @@ function AppBrowserSetup({
       {open && !error && !launched ? (
         <div aria-live="polite" className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_8px_30px_rgba(16,24,40,0.12)]">
-            <span aria-label="Opening" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+            <span aria-label={tt("Opening")} className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
           </span>
         </div>
       ) : null}
-      <BottomSheet isOpen={open && !!error} onClose={() => { setError(null); onClose() }} label="Set up payouts" hideFrom={null} zIndex={PANEL_Z}>
+      <BottomSheet isOpen={open && !!error} onClose={() => { setError(null); onClose() }} label={tt("Set up payouts")} hideFrom={null} zIndex={PANEL_Z}>
         <div className="flex flex-col items-center px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-center">
-          <p className="text-[15px] font-semibold text-[#1a1a2e]">Couldn&apos;t open setup</p>
+          <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Couldn't open setup")}</p>
           <p className="mt-1 text-[14px] text-[#6b7280]">{error}</p>
-          <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>Try again</button>
+          <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{tt("Try again")}</button>
         </div>
       </BottomSheet>
     </>
@@ -1056,7 +1058,7 @@ function SheetBar({ title, onClose }: { title: string; onClose: () => void }) {
       <h2 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
       <button
         type="button"
-        aria-label="Close"
+        aria-label={tt("Close")}
         onClick={onClose}
         className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
       >
@@ -1096,7 +1098,7 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
         onData(next)
         setReady(true)
       } catch (err) {
-        if (!gone) setError(safe(err instanceof Error ? err.message : "We could not start setup just now."))
+        if (!gone) setError(safe(err instanceof Error ? err.message : tt("We could not start setup just now.")))
       }
     })()
     return () => {
@@ -1110,14 +1112,14 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
         <p className="text-[14px] text-[#6b7280]">{error}</p>
-        <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>Try again</button>
+        <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{tt("Try again")}</button>
       </div>
     )
   }
   if (!ready) {
     return (
       <div className="flex flex-1 items-center justify-center py-16">
-        <span aria-label="Loading" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+        <span aria-label={tt("Loading")} className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
       </div>
     )
   }
@@ -1290,7 +1292,7 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
     try {
       onDone(await post<Overview>("begin", { agree: true, kind, country, firstName, lastName, businessName: kind === "business" ? businessName : "" }))
     } catch (err) {
-      setError(safe(err instanceof Error ? err.message : "We could not start setup just now."))
+      setError(safe(err instanceof Error ? err.message : tt("We could not start setup just now.")))
     } finally {
       setBusy(false)
     }
@@ -1302,18 +1304,18 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
         <ErrorLine message={error} />
         <div>
           <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-[13px] font-medium text-[#1a1a2e]">Where are you based?</span>
-            <InfoTip label="Country">
+            <span className="text-[13px] font-medium text-[#1a1a2e]">{tt("Where are you based?")}</span>
+            <InfoTip label={tt("Country")}>
               {hasAccount
-                ? "Locked once your payments account is created. It sets your payout currency and tax rules. Disconnect below and start over if you chose the wrong country."
-                : "Where you live. It sets your payout currency and which ID Stripe asks for, and cannot be changed after you continue."}
+                ? tt("Locked once your payments account is created. It sets your payout currency and tax rules. Disconnect below and start over if you chose the wrong country.")
+                : tt("Where you live. It sets your payout currency and which ID Stripe asks for, and cannot be changed after you continue.")}
             </InfoTip>
           </div>
           {hasAccount && data.payoutHint?.country ? (
             <div className="flex h-11 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-[#f9fafb] px-3.5 text-[14px] text-[#1a1a2e] sm:h-10 sm:rounded-lg">
               <CountryFlag code={data.payoutHint.country} />
               <span className="flex-1 truncate">{countryLabel(data.payoutHint.country)}</span>
-              <Lock className="h-3.5 w-3.5 text-[#9ca3af]" aria-label="Locked" />
+              <Lock className="h-3.5 w-3.5 text-[#9ca3af]" aria-label={tt("Locked")} />
             </div>
           ) : (
             /* Marked when a country is picked, not when the field loses focus:
@@ -1326,20 +1328,20 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
         </div>
 
         <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
-          <Field label="First name" error={issue("firstName")} tip={kind === "business" ? "The first name of the person running the business, as on their ID." : "Exactly as on your passport or ID card, with any middle names."}>
-            <input className={cn(FIELD, issue("firstName") && FIELD_BAD)} value={firstName} placeholder="First name" autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
+          <Field label={tt("First name")} error={issue("firstName")} tip={kind === "business" ? tt("The first name of the person running the business, as on their ID.") : tt("Exactly as on your passport or ID card, with any middle names.")}>
+            <input className={cn(FIELD, issue("firstName") && FIELD_BAD)} value={firstName} placeholder={tt("First name")} autoComplete="given-name" onBlur={() => mark("firstName")} onChange={(e) => setFirstName(e.target.value)} />
           </Field>
-          <Field label="Last name" error={issue("lastName")} tip="Your last name exactly as on your ID, including any second last name.">
-            <input className={cn(FIELD, issue("lastName") && FIELD_BAD)} value={lastName} placeholder="Last name" autoComplete="family-name" onBlur={() => mark("lastName")} onChange={(e) => setLastName(e.target.value)} />
+          <Field label={tt("Last name")} error={issue("lastName")} tip={tt("Your last name exactly as on your ID, including any second last name.")}>
+            <input className={cn(FIELD, issue("lastName") && FIELD_BAD)} value={lastName} placeholder={tt("Last name")} autoComplete="family-name" onBlur={() => mark("lastName")} onChange={(e) => setLastName(e.target.value)} />
           </Field>
         </div>
       </div>
 
       <Footer>
-        <button type="button" className={SECONDARY} onClick={onBack}>Cancel</button>
+        <button type="button" className={SECONDARY} onClick={onBack}>{tt("Cancel")}</button>
         <button type="submit" className={PRIMARY} disabled={busy}>
           {busy ? <Spinner /> : null}
-          {busy ? "Saving" : "Continue"}
+          {busy ? tt("Saving") : tt("Continue")}
         </button>
       </Footer>
     </form>
@@ -1451,7 +1453,7 @@ function useDetailsForm() {
     try {
       setForm(await post<DetailsForm>("details-form", {}))
     } catch (err) {
-      setError(safe(err instanceof Error ? err.message : "We could not load this step."))
+      setError(safe(err instanceof Error ? err.message : tt("We could not load this step.")))
     }
   }, [])
   React.useEffect(() => {
@@ -1465,12 +1467,12 @@ function FormWaiting({ error, onRetry }: { error: string | null; onRetry: () => 
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
         <p className="text-[14px] text-[#6b7280]">{error}</p>
-        <button type="button" className={cn(SECONDARY, "mt-4")} onClick={onRetry}>Try again</button>
+        <button type="button" className={cn(SECONDARY, "mt-4")} onClick={onRetry}>{tt("Try again")}</button>
       </div>
     )
   }
   return (
-    <Shimmer className="flex flex-1 flex-col gap-4 px-5 sm:px-7" label="Loading">
+    <Shimmer className="flex flex-1 flex-col gap-4 px-5 sm:px-7" label={tt("Loading")}>
       <ShimmerBlock className="h-4 w-40 rounded-full" />
       <ShimmerBlock className="h-11 w-full rounded-[10px] sm:h-10" />
       <ShimmerBlock className="h-4 w-32 rounded-full" />
@@ -1666,7 +1668,7 @@ function DetailsStep({
   if (empty) {
     return (
       <div className="flex flex-1 items-center justify-center py-16">
-        <span aria-label="Loading" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+        <span aria-label={tt("Loading")} className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
       </div>
     )
   }
@@ -1693,7 +1695,7 @@ function DetailsStep({
       setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
     } catch (err) {
       playAskSound("error")
-      setError(safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : "That photo could not be used. Take it again in good light."))
+      setError(safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : tt("That photo could not be used. Take it again in good light.")))
     } finally {
       setUploading(null)
     }
@@ -1751,7 +1753,7 @@ function DetailsStep({
       /* Typing the number instead of showing the document: the number is this step's answer, so it is sent here. */
       if (typeIdInstead) {
         if (idNumber.trim().length < 4) {
-          setError(`Enter your ${form.idNumber.label.split(" (")[0]}, or verify with your ID instead.`)
+          setError(tt("Enter your {value}, or verify with your ID instead.", { value: form.idNumber.label.split(" (")[0] }))
           return
         }
         setBusy(true)
@@ -1761,7 +1763,7 @@ function DetailsStep({
           onData(res.overview)
           onNext(res.form, res.overview)
         } catch (err) {
-          setError(safe(err instanceof Error ? err.message : "That could not be saved. Try again."))
+          setError(safe(err instanceof Error ? err.message : tt("That could not be saved. Try again.")))
         } finally {
           /* Whether the parent moves on or keeps this step, the button stops spinning. */
           setBusy(false)
@@ -1770,10 +1772,10 @@ function DetailsStep({
       }
       if (uploading) return
       if (form.needs.fields.includes("document") && !docGivenAtOpen && !front) {
-        setIdProblem(idDevice === "desk" ? "Scan the code with your phone and photograph your ID." : idPhase === "back" ? "Take the back of your ID, or say it's a passport." : "Take a photo of your ID to carry on.")
+        setIdProblem(idDevice === "desk" ? tt("Scan the code with your phone and photograph your ID.") : idPhase === "back" ? tt("Take the back of your ID, or say it's a passport.") : tt("Take a photo of your ID to carry on."))
         return
       }
-      if (missingProof) return setError("Add a photo of your ID that shows your address.")
+      if (missingProof) return setError(tt("Add a photo of your ID that shows your address."))
       /*
        * Stripe has the ID, even if the copy of the form here has not caught
        * up: say so, so the next step is the bank and never this step again.
@@ -1784,11 +1786,11 @@ function DetailsStep({
       return
     }
     if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree) || bankBad) {
-      setError("Check the fields marked in red.")
+      setError(tt("Check the fields marked in red."))
       return
     }
-    if (missingProof) return setError("Add a document that shows your address.")
-    if (missingDoc) return setError(idEither ? (only === "details" ? `Enter your ${form.idNumber.label.split(" (")[0]}.` : `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.`) : "Add a photo of the front of your ID.")
+    if (missingProof) return setError(tt("Add a document that shows your address."))
+    if (missingDoc) return setError(idEither ? (only === "details" ? tt("Enter your {value}.", { value: form.idNumber.label.split(" (")[0] }) : tt("Take a photo of your ID, or enter your {value} instead.", { value: form.idNumber.label.split(" (")[0] })) : tt("Add a photo of the front of your ID."))
     setBusy(true)
     setError(null)
     try {
@@ -1839,7 +1841,7 @@ function DetailsStep({
       }
       onNext(latest, sent)
     } catch (err) {
-      setError(safe(err instanceof Error ? err.message : "Those details were not saved. Try again."))
+      setError(safe(err instanceof Error ? err.message : tt("Those details were not saved. Try again.")))
     } finally {
       setBusy(false)
     }
@@ -1892,7 +1894,7 @@ function DetailsStep({
       const message = err instanceof Error ? err.message : ""
       const offline = /No connection|took too long|did not go through|did not answer/i.test(message)
       if (offline) setIdProblem(verifyLine("offline"))
-      else setIdProblem(safe(message || "That photo could not be used. Take it again."))
+      else setIdProblem(safe(message || tt("That photo could not be used. Take it again.")))
       setIdState("idle")
     } finally {
       setUploading(null)
@@ -1903,34 +1905,34 @@ function DetailsStep({
   const idPhoto = has("document")
     ? (
           <div className="space-y-2" data-id-photo="storelib">
-            {only === "id" ? null : <span className="block text-[13px] font-medium text-[#1a1a2e]">Verify who you are</span>}
+            {only === "id" ? null : <span className="block text-[13px] font-medium text-[#1a1a2e]">{tt("Verify who you are")}</span>}
             {idVerified ? (
               <div className="flex items-center gap-3 rounded-2xl border border-[#abefc6] bg-[#f6fef9] px-4 py-3.5" data-identity="done">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#067647]">
                   <Check className="h-4 w-4" strokeWidth={3} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[14px] font-medium text-[#1a1a2e]">{idState === "done" ? "Verified" : "ID sent"}</span>
-                  <span className="block text-[12.5px] text-[#6b7280]">{idState === "done" ? "Stripe has your ID." : "Stripe is checking it. This usually takes under a minute."}</span>
+                  <span className="block text-[14px] font-medium text-[#1a1a2e]">{idState === "done" ? tt("Verified") : tt("ID sent")}</span>
+                  <span className="block text-[12.5px] text-[#6b7280]">{idState === "done" ? tt("Stripe has your ID.") : tt("Stripe is checking it. This usually takes under a minute.")}</span>
                 </span>
               </div>
             ) : idDevice === null ? (
               <div className="flex h-[88px] items-center justify-center rounded-2xl border border-[#e3e5e8] bg-white">
-                <span aria-label="Loading" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+                <span aria-label={tt("Loading")} className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
               </div>
             ) : idDevice === "desk" ? (
               <div className="flex flex-col items-center rounded-2xl border border-[#e3e5e8] bg-white px-5 py-6 text-center" data-id-phone-scan="">
                 <IdHandoffQr url={handoffUrl} />
                 <span className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#1a1a2e]">
                   <Smartphone className="h-4 w-4" />
-                  Scan with your phone
+                  {tt("Scan with your phone")}
                 </span>
                 <span className="mt-1.5 max-w-[300px] text-[13px] leading-[18px] text-[#6b7280]">
-                  Point your camera at the code. Photograph your ID on your phone and it goes straight to Stripe. Storelib never sees the document.
+                  {tt("Point your camera at the code. Photograph your ID on your phone and it goes straight to Stripe. Storelib never sees the document.")}
                 </span>
                 <span className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-[#6b7280]">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#067647]" />
-                  This page updates when the photo is in
+                  {tt("This page updates when the photo is in")}
                 </span>
               </div>
             ) : (
@@ -1949,14 +1951,14 @@ function DetailsStep({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold text-[#1a1a2e]">
-                    {sendingId ? (sentPct >= 99 ? "Waiting for Stripe" : `Sending ${sentPct}%`) : idPhase === "back" ? "Take the back" : "Take a photo of your ID"}
+                    {sendingId ? (sentPct >= 99 ? tt("Waiting for Stripe") : tt("Sending {sentPct}%", { sentPct })) : idPhase === "back" ? tt("Take the back") : tt("Take a photo of your ID")}
                   </span>
                   <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
                     {sendingId
-                      ? "Stripe is saving the photo. If it doesn't answer, take it again."
+                      ? tt("Stripe is saving the photo. If it doesn't answer, take it again.")
                       : idPhase === "back"
-                        ? "The other side of the card. A passport has no back."
-                        : "Your camera opens. Front, then the back. Storelib never sees the document."}
+                        ? tt("The other side of the card. A passport has no back.")
+                        : tt("Your camera opens. Front, then the back. Storelib never sees the document.")}
                   </span>
                 </span>
               </button>
@@ -1968,7 +1970,7 @@ function DetailsStep({
             ) : null}
             {idDevice === "phone" && idPhase === "back" && !idVerified && !sendingId ? (
               <button type="button" onClick={markIdSent} className="text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-passport="">
-                It's a passport
+                {tt("It's a passport")}
               </button>
             ) : null}
           </div>
@@ -1980,13 +1982,13 @@ function DetailsStep({
       <div className="flex-1 space-y-5 px-5 sm:px-7">
         {form.active ? (
           <StepIntro
-            title="Stripe needs a little more"
-            line={`To keep your payouts going, Stripe asks for this now${form.dueBy ? `, by ${new Date(form.dueBy).toLocaleDateString(undefined, { day: "numeric", month: "long" })}` : ""}. It takes a minute.`}
+            title={tt("Stripe needs a little more")}
+            line={tt("To keep your payouts going, Stripe asks for this now{value}. It takes a minute.", { value: form.dueBy ? tt(", by {date}", { date: new Date(form.dueBy).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "long" })) }) : "" })}
           />
         ) : only === "id" ? (
-          <StepIntro title="Verify your ID" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
+          <StepIntro title={tt("Verify your ID")} line={tt("Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document.")} />
         ) : (
-          <StepIntro title="Your details" line="Only what Stripe needs to verify you in your country. It goes straight to Stripe and Storelib never keeps it." />
+          <StepIntro title={tt("Your details")} line={tt("Only what Stripe needs to verify you in your country. It goes straight to Stripe and Storelib never keeps it.")} />
         )}
         {only === "id" ? null : form.needs.problems.length ? (
           <div role="status" className="space-y-1 rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-3 text-[13px] leading-[19px] text-[#93370d]" data-setup-problems="">
@@ -1999,51 +2001,51 @@ function DetailsStep({
 
         {has("dob") ? (
           <div>
-            <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">Date of birth</span>
+            <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Date of birth")}</span>
             <div className="grid grid-cols-[1fr_1.6fr_1.2fr] gap-2">
-              <input className={cn(FIELD, tried && !dob.day && FIELD_BAD)} inputMode="numeric" placeholder="Day" maxLength={2} autoComplete="bday-day" aria-label="Day" value={dob.day} onChange={(e) => setDob({ ...dob, day: e.target.value.replace(/\D/g, "") })} />
+              <input className={cn(FIELD, tried && !dob.day && FIELD_BAD)} inputMode="numeric" placeholder={tt("Day")} maxLength={2} autoComplete="bday-day" aria-label={tt("Day")} value={dob.day} onChange={(e) => setDob({ ...dob, day: e.target.value.replace(/\D/g, "") })} />
               <span className="relative block">
-                <select className={cn(FIELD, "cursor-pointer appearance-none pr-8", !dob.month && "text-[#9ca3af]", tried && !dob.month && FIELD_BAD)} aria-label="Month" autoComplete="bday-month" value={dob.month} onChange={(e) => setDob({ ...dob, month: e.target.value })}>
-                  <option value="">Month</option>
+                <select className={cn(FIELD, "cursor-pointer appearance-none pr-8", !dob.month && "text-[#9ca3af]", tried && !dob.month && FIELD_BAD)} aria-label={tt("Month")} autoComplete="bday-month" value={dob.month} onChange={(e) => setDob({ ...dob, month: e.target.value })}>
+                  <option value="">{tt("Month")}</option>
                   {MONTHS.map((m, i) => (
                     <option key={m} value={String(i + 1)}>{m}</option>
                   ))}
                 </select>
                 <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
               </span>
-              <input className={cn(FIELD, tried && !/^\d{4}$/.test(dob.year) && FIELD_BAD)} inputMode="numeric" placeholder="Year" maxLength={4} autoComplete="bday-year" aria-label="Year" value={dob.year} onChange={(e) => setDob({ ...dob, year: e.target.value.replace(/\D/g, "") })} />
+              <input className={cn(FIELD, tried && !/^\d{4}$/.test(dob.year) && FIELD_BAD)} inputMode="numeric" placeholder={tt("Year")} maxLength={4} autoComplete="bday-year" aria-label={tt("Year")} value={dob.year} onChange={(e) => setDob({ ...dob, year: e.target.value.replace(/\D/g, "") })} />
             </div>
-            <span className="mt-1.5 block text-[12px] text-[#6b7280]">You need to be 18 or older to be paid out.</span>
+            <span className="mt-1.5 block text-[12px] text-[#6b7280]">{tt("You need to be 18 or older to be paid out.")}</span>
           </div>
         ) : null}
 
         {has("address") ? (
           <div className="space-y-3">
-            <span className="block text-[13px] font-medium text-[#1a1a2e]">Home address</span>
-            <input className={cn(FIELD, tried && !address.line1.trim() && FIELD_BAD)} placeholder="Street and number" autoComplete="address-line1" aria-label="Street and number" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} />
-            <input className={FIELD} placeholder="Apartment, floor (optional)" autoComplete="address-line2" aria-label="Apartment or floor" value={address.line2} onChange={(e) => setAddress({ ...address, line2: e.target.value })} />
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">{tt("Home address")}</span>
+            <input className={cn(FIELD, tried && !address.line1.trim() && FIELD_BAD)} placeholder={tt("Street and number")} autoComplete="address-line1" aria-label={tt("Street and number")} value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} />
+            <input className={FIELD} placeholder={tt("Apartment, floor (optional)")} autoComplete="address-line2" aria-label={tt("Apartment or floor")} value={address.line2} onChange={(e) => setAddress({ ...address, line2: e.target.value })} />
             <div className="grid grid-cols-[1.4fr_1fr] gap-2">
-              <input className={cn(FIELD, tried && !address.city.trim() && FIELD_BAD)} placeholder="City" autoComplete="address-level2" aria-label="City" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
-              <input className={cn(FIELD, tried && !address.postalCode.trim() && FIELD_BAD)} placeholder="Postal code" autoComplete="postal-code" aria-label="Postal code" value={address.postalCode} onChange={(e) => setAddress({ ...address, postalCode: e.target.value })} />
+              <input className={cn(FIELD, tried && !address.city.trim() && FIELD_BAD)} placeholder={tt("City")} autoComplete="address-level2" aria-label={tt("City")} value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
+              <input className={cn(FIELD, tried && !address.postalCode.trim() && FIELD_BAD)} placeholder={tt("Postal code")} autoComplete="postal-code" aria-label={tt("Postal code")} value={address.postalCode} onChange={(e) => setAddress({ ...address, postalCode: e.target.value })} />
             </div>
             {has("state") ? (
-              <input className={cn(FIELD, tried && !address.state.trim() && FIELD_BAD)} placeholder="State, county or region" autoComplete="address-level1" aria-label="State, county or region" value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} />
+              <input className={cn(FIELD, tried && !address.state.trim() && FIELD_BAD)} placeholder={tt("State, county or region")} autoComplete="address-level1" aria-label={tt("State, county or region")} value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} />
             ) : null}
-            <span className="block text-[12px] text-[#6b7280]">Where you live. A PO box or military address cannot be verified.</span>
+            <span className="block text-[12px] text-[#6b7280]">{tt("Where you live. A PO box or military address cannot be verified.")}</span>
           </div>
         ) : null}
 
         {has("phone") ? (
-          <Field label="Phone number" error={issue("phone", phone.replace(/\D/g, "").length < 7, "Enter your phone number, with the country code.")}>
+          <Field label={tt("Phone number")} error={issue("phone", phone.replace(/\D/g, "").length < 7, tt("Enter your phone number, with the country code."))}>
             <PhoneField country={form.country} value={phone} onChange={setPhone} />
           </Field>
         ) : null}
 
         {has("nationality") ? (
           <div>
-            <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">Nationality</span>
+            <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Nationality")}</span>
             <CountryPicker value={nationality} onChange={setNationality} sheetZIndex={SHEET_Z} fieldClassName="rounded-[10px] border-[#e3e5e8] text-[16px] shadow-none sm:h-10 sm:rounded-lg sm:text-[14px]" />
-            {tried && !countryOf(nationality) ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">Choose your nationality.</span> : null}
+            {tried && !countryOf(nationality) ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{tt("Choose your nationality.")}</span> : null}
           </div>
         ) : null}
 
@@ -2054,18 +2056,18 @@ function DetailsStep({
             label={form.idNumber.label}
             hint={
               idEither
-                ? `Not needed if you add a photo of your ID. ${form.idNumber.hint}`
+                ? tt("Not needed if you add a photo of your ID. {hint}", { hint: form.idNumber.hint })
                 : front
-                  ? `Your ID photo is in, but Stripe still asks for this number in ${countryLabel(form.country) ?? "your country"}. ${form.idNumber.hint}`
+                  ? tt("Your ID photo is in, but Stripe still asks for this number in {value}. {hint}", { value: countryLabel(form.country) ?? tt("your country"), hint: form.idNumber.hint })
                   : form.idNumber.hint
             }
-            error={issue("idNumber", idBad, "Enter your ID number exactly as on your document.")}
+            error={issue("idNumber", idBad, tt("Enter your ID number exactly as on your document."))}
           >
             <input className={FIELD} inputMode={form.country === "US" || form.country === "RO" ? "numeric" : undefined} autoComplete="off" spellCheck={false} value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
           </Field>
         ) : has("idNumber") && idEither && !front ? (
           <button type="button" onClick={() => setTypeIdInstead(true)} className="-mt-2 text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline">
-            Rather type your {form.idNumber.label.split(" (")[0]} instead?
+            {tt("Rather type your")} {form.idNumber.label.split(" (")[0]} {tt("instead?")}
           </button>
         ) : null}
 
@@ -2073,20 +2075,20 @@ function DetailsStep({
 
         {only === "id" && idEither && !front && !typeIdInstead ? (
           <button type="button" onClick={() => setTypeIdInstead(true)} className="-mt-1 text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-number-instead="">
-            Use my {form.idNumber.label.split(" (")[0]} instead
+            {tt("Use my")} {form.idNumber.label.split(" (")[0]} {tt("instead")}
           </button>
         ) : null}
 
         {has("ssnLast4") ? (
-          <Field label="Last 4 digits of your SSN" hint="Stripe asks for these four digits to confirm who you are." error={issue("ssnLast4", !/^\d{4}$/.test(ssnLast4), "Enter the last four digits of your SSN.")}>
+          <Field label={tt("Last 4 digits of your SSN")} hint={tt("Stripe asks for these four digits to confirm who you are.")} error={issue("ssnLast4", !/^\d{4}$/.test(ssnLast4), tt("Enter the last four digits of your SSN."))}>
             <input className={FIELD} inputMode="numeric" maxLength={4} autoComplete="off" value={ssnLast4} onChange={(e) => setSsnLast4(e.target.value.replace(/\D/g, ""))} />
           </Field>
         ) : null}
 
         {has("proofOfAddress") && !(has("document") && !idVerified && !docGivenAtOpen) ? (
           <div className="space-y-2">
-            <span className="block text-[13px] font-medium text-[#1a1a2e]">One more photo</span>
-            <span className="block text-[12px] leading-[18px] text-[#6b7280]">An ID that shows your address. The same camera, then you're done.</span>
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">{tt("One more photo")}</span>
+            <span className="block text-[12px] leading-[18px] text-[#6b7280]">{tt("An ID that shows your address. The same camera, then you're done.")}</span>
             <button
               type="button"
               onClick={() => (idDevice === "phone" ? openIdCamera("front", "proofOfAddress") : proofPicker.current?.click())}
@@ -2102,10 +2104,10 @@ function DetailsStep({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[15px] font-semibold text-[#1a1a2e]">
-                  {uploading === "proofOfAddress-front" ? "Sending to Stripe" : uploaded["proofOfAddress-front"] ? "Added" : "Add a photo of your ID"}
+                  {uploading === "proofOfAddress-front" ? tt("Sending to Stripe") : uploaded["proofOfAddress-front"] ? tt("Added") : tt("Add a photo of your ID")}
                 </span>
                 <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
-                  {uploaded["proofOfAddress-front"] ? "Tap to replace it." : "A clear colour photo. It goes straight to Stripe."}
+                  {uploaded["proofOfAddress-front"] ? tt("Tap to replace it.") : tt("A clear colour photo. It goes straight to Stripe.")}
                 </span>
               </span>
             </button>
@@ -2126,29 +2128,29 @@ function DetailsStep({
         {has("politicalExposure") ? (
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#eceef1] px-3.5 py-3">
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={pep} onChange={(e) => setPep(e.target.checked)} />
-            <span className="text-[13px] leading-[19px] text-[#4b5563]">I hold, or have held in the last year, a prominent public role. Leave it unticked if not.</span>
+            <span className="text-[13px] leading-[19px] text-[#4b5563]">{tt("I hold, or have held in the last year, a prominent public role. Leave it unticked if not.")}</span>
           </label>
         ) : null}
 
         {bankHere ? (
           <div className="space-y-4 border-t border-[#f1f2f4] pt-5" data-details-bank="">
             <div>
-              <span className="block text-[15px] font-semibold text-[#1a1a2e]">Where should we send your money?</span>
-              <span className="mt-0.5 block text-[12.5px] text-[#6b7280]">{bank.currency ? `Payouts arrive in ${bank.currency}.` : "The account your payouts go to."}</span>
+              <span className="block text-[15px] font-semibold text-[#1a1a2e]">{tt("Where should we send your money?")}</span>
+              <span className="mt-0.5 block text-[12.5px] text-[#6b7280]">{bank.currency ? tt("Payouts arrive in {currency}.", { currency: bank.currency }) : tt("The account your payouts go to.")}</span>
             </div>
-            <Field label="Account holder name" error={tried && holderName.trim().length < 2 ? "Enter the name on the account." : undefined}>
+            <Field label={tt("Account holder name")} error={tried && holderName.trim().length < 2 ? tt("Enter the name on the account.") : undefined}>
               <input className={FIELD} autoComplete="name" value={holderName} onChange={(e) => setHolder(e.target.value)} />
             </Field>
             {bank.kind === "iban" ? (
-              <Field label="IBAN" error={tried && !ibanLooksValid(iban, form.country) ? "That IBAN does not look right. Check it in your bank app." : undefined}>
+              <Field label="IBAN" error={tried && !ibanLooksValid(iban, form.country) ? tt("That IBAN does not look right. Check it in your bank app.") : undefined}>
                 <input className={cn(FIELD, "font-mono tracking-[0.02em]")} autoComplete="off" spellCheck={false} autoCapitalize="characters" placeholder={`${form.country}00 0000 0000 0000 0000`} value={iban} onChange={(e) => setIban(formatIban(e.target.value))} />
               </Field>
             ) : (
               <>
-                <Field label={bank.routingLabel ?? "Bank code"} error={tried && !!bank.routingPattern && !new RegExp(bank.routingPattern).test(routing.replace(/\s/g, "").toUpperCase()) ? `Check your ${(bank.routingLabel ?? "bank code").toLowerCase()}.` : undefined}>
+                <Field label={bank.routingLabel ?? tt("Bank code")} error={tried && !!bank.routingPattern && !new RegExp(bank.routingPattern).test(routing.replace(/\s/g, "").toUpperCase()) ? tt("Check your {value}.", { value: (bank.routingLabel ?? "bank code").toLowerCase() }) : undefined}>
                   <input className={FIELD} autoComplete="off" spellCheck={false} inputMode={form.country === "IN" ? undefined : "numeric"} value={routing} onChange={(e) => setRouting(e.target.value)} />
                 </Field>
-                <Field label={bank.accountLabel ?? "Account number"} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? "Enter your account number." : undefined}>
+                <Field label={bank.accountLabel ?? tt("Account number")} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? tt("Enter your account number.") : undefined}>
                   <input className={FIELD} autoComplete="off" spellCheck={false} inputMode="numeric" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
                 </Field>
               </>
@@ -2160,10 +2162,10 @@ function DetailsStep({
           <label className={cn("flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-3", tried && !agree ? "border-[#f3b8ab] bg-[#fff8f6]" : "border-[#eceef1]")}>
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
             <span className="text-[13px] leading-[19px] text-[#4b5563]">
-              I agree to Storelib's{" "}
-              <a href="/terms" onClick={(e) => (e.preventDefault(), openInApp(`${window.location.origin}/terms`))} className="font-medium text-[#1a1a2e] underline underline-offset-2">Terms</a>{" "}
-              and the{" "}
-              <a href={form.agreementUrl} onClick={(e) => (e.preventDefault(), openInApp(form.agreementUrl))} className="font-medium text-[#1a1a2e] underline underline-offset-2">Stripe Connected Account Agreement</a>, and confirm these details are true.
+              {tt("I agree to Storelib's")}{" "}
+              <a href="/terms" onClick={(e) => (e.preventDefault(), openInApp(`${window.location.origin}/terms`))} className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Terms")}</a>{" "}
+              {tt("and the")}{" "}
+              <a href={form.agreementUrl} onClick={(e) => (e.preventDefault(), openInApp(form.agreementUrl))} className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Stripe Connected Account Agreement")}</a>{tt(", and confirm these details are true.")}
             </span>
           </label>
         ) : null}
@@ -2172,10 +2174,10 @@ function DetailsStep({
       </div>
 
       <Footer>
-        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+        <button type="button" className={SECONDARY} onClick={onBack}>{tt("Back")}</button>
         <button type="submit" className={PRIMARY} disabled={busy || !!uploading}>
           {busy || uploading ? <Spinner /> : null}
-          {busy ? "Saving" : uploading && only !== "id" ? (sentPct >= 99 ? "Waiting for Stripe" : `Sending ${sentPct}%`) : "Continue"}
+          {busy ? tt("Saving") : uploading && only !== "id" ? (sentPct >= 99 ? tt("Waiting for Stripe") : tt("Sending {sentPct}%", { sentPct })) : tt("Continue")}
         </button>
       </Footer>
       <IdCamera
@@ -2197,7 +2199,7 @@ function DetailsStep({
         onClose={() => setCameraSide(null)}
         onDenied={() => {
           setCameraSide(null)
-          setIdProblem("Allow the camera for Storelib, then take the photo here.")
+          setIdProblem(tt("Allow the camera for Storelib, then take the photo here."))
         }}
         onNoBack={
           cameraSide === "back"
@@ -2227,7 +2229,7 @@ function DetailsStep({
  * the panel quietly went nowhere, and a creator who had just saved one was
  * left looking at the form wondering whether it took.
  */
-function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }: { failed?: boolean; onBack: () => void; backLabel?: string; onDone: (sent: Overview) => void; onData: (next: Overview) => void }) {
+function BankForm({ failed = false, onBack, backLabel = tt("Back"), onDone, onData }: { failed?: boolean; onBack: () => void; backLabel?: string; onDone: (sent: Overview) => void; onData: (next: Overview) => void }) {
   const { form, error: loadError, load } = useDetailsForm()
   const [holder, setHolder] = React.useState<string | null>(null)
   const [iban, setIban] = React.useState("")
@@ -2244,8 +2246,8 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
   const currencies = bank.currencies?.length ? bank.currencies : bank.currency ? [bank.currency] : []
   const currency = picked ?? (bank.currency && currencies.includes(bank.currency) ? bank.currency : currencies[0] ?? null)
   /* What Stripe has right now, not what the page was opened with: during setup that said "Change bank account" to somebody adding their first. */
-  const title = failed ? "Your payout account needs attention" : bank.last4 ? "Change bank account" : "Add your bank account"
-  const line = failed ? "A payout didn't go through. Add the account you want paid into." : bank.last4 ? "The new account is used for your next payout." : "Where your payouts are sent."
+  const title = failed ? tt("Your payout account needs attention") : bank.last4 ? tt("Change bank account") : tt("Add your bank account")
+  const line = failed ? tt("A payout didn't go through. Add the account you want paid into.") : bank.last4 ? tt("The new account is used for your next payout.") : tt("Where your payouts are sent.")
   const name = holder ?? bank.holderName
   const ibanOk = ibanLooksValid(iban, form.country)
   const routingOk = !bank.routingPattern || new RegExp(bank.routingPattern).test(routing.replace(/\s/g, "").toUpperCase())
@@ -2255,7 +2257,7 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
     setTried(true)
     if (busy) return
     if (name.trim().length < 2 || (bank.kind === "iban" ? !ibanOk : accountNumber.replace(/[\s-]/g, "").length < 4 || !routingOk)) {
-      setError("Check the fields marked in red.")
+      setError(tt("Check the fields marked in red."))
       return
     }
     setBusy(true)
@@ -2265,7 +2267,7 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
       onData(res.overview)
       onDone(res.overview)
     } catch (err) {
-      setError(safe(err instanceof Error ? err.message : "That bank account was not saved. Try again."))
+      setError(safe(err instanceof Error ? err.message : tt("That bank account was not saved. Try again.")))
     } finally {
       setBusy(false)
     }
@@ -2279,13 +2281,13 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
         {bank.last4 ? (
           <div className="flex items-center gap-3 rounded-xl border border-[#eceef1] px-3.5 py-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#4b5563]"><Landmark className="h-4 w-4" /></span>
-            <span className="text-[13.5px] text-[#4b5563]">Current account ending in <span className="font-medium tabular-nums text-[#1a1a2e]">{bank.last4}</span></span>
+            <span className="text-[13.5px] text-[#4b5563]">{tt("Current account ending in")} <span className="font-medium tabular-nums text-[#1a1a2e]">{bank.last4}</span></span>
           </div>
         ) : null}
         {currencies.length > 1 ? (
           <div className="space-y-2">
-            <span className="block text-[13px] font-medium text-[#1a1a2e]">Payout currency</span>
-            <div role="radiogroup" aria-label="Payout currency" className="grid gap-2" style={{ gridTemplateColumns: `repeat(${currencies.length}, minmax(0, 1fr))` }}>
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">{tt("Payout currency")}</span>
+            <div role="radiogroup" aria-label={tt("Payout currency")} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${currencies.length}, minmax(0, 1fr))` }}>
               {currencies.map((cur) => {
                 const on = cur === currency
                 return (
@@ -2302,26 +2304,26 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
                     )}
                   >
                     <span className="text-[14px] font-semibold text-[#1a1a2e]">{cur}</span>
-                    <span className="truncate text-[12px] text-[#6b7280]">{cur === currencies[0] ? "Local" : currencyName(cur)}</span>
+                    <span className="truncate text-[12px] text-[#6b7280]">{cur === currencies[0] ? tt("Local") : currencyName(cur)}</span>
                   </button>
                 )
               })}
             </div>
           </div>
         ) : null}
-        <Field label="Account holder name" hint="Your name, as your bank has it." error={tried && name.trim().length < 2 ? "Enter the name on the account." : undefined}>
+        <Field label={tt("Account holder name")} hint={tt("Your name, as your bank has it.")} error={tried && name.trim().length < 2 ? tt("Enter the name on the account.") : undefined}>
           <input className={FIELD} autoComplete="name" value={name} onChange={(e) => setHolder(e.target.value)} />
         </Field>
         {bank.kind === "iban" ? (
-          <Field label="IBAN" hint={currency ? `Your ${currency} account. Payouts arrive in ${currency}.` : undefined} error={tried && !ibanOk ? "That IBAN does not look right. Check it in your bank app." : undefined}>
+          <Field label="IBAN" hint={currency ? tt("Your {currency} account. Payouts arrive in {currency2}.", { currency, currency2: currency }) : undefined} error={tried && !ibanOk ? tt("That IBAN does not look right. Check it in your bank app.") : undefined}>
             <input className={cn(FIELD, "font-mono tracking-[0.02em]")} autoComplete="off" spellCheck={false} autoCapitalize="characters" placeholder={`${form.country}00 0000 0000 0000 0000`} value={iban} onChange={(e) => setIban(formatIban(e.target.value))} />
           </Field>
         ) : (
           <>
-            <Field label={bank.routingLabel ?? "Bank code"} error={tried && !routingOk ? `Check your ${(bank.routingLabel ?? "bank code").toLowerCase()}.` : undefined}>
+            <Field label={bank.routingLabel ?? tt("Bank code")} error={tried && !routingOk ? tt("Check your {value}.", { value: (bank.routingLabel ?? "bank code").toLowerCase() }) : undefined}>
               <input className={FIELD} autoComplete="off" spellCheck={false} inputMode={form.country === "IN" ? undefined : "numeric"} value={routing} onChange={(e) => setRouting(e.target.value)} />
             </Field>
-            <Field label={bank.accountLabel ?? "Account number"} hint={currency ? `Payouts arrive in ${currency}.` : undefined} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? "Enter your account number." : undefined}>
+            <Field label={bank.accountLabel ?? tt("Account number")} hint={currency ? tt("Payouts arrive in {currency}.", { currency }) : undefined} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? tt("Enter your account number.") : undefined}>
               <input className={FIELD} autoComplete="off" spellCheck={false} inputMode="numeric" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
             </Field>
           </>
@@ -2331,7 +2333,7 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
         <button type="button" className={SECONDARY} onClick={onBack}>{backLabel}</button>
         <button type="submit" className={PRIMARY} disabled={busy}>
           {busy ? <Spinner /> : null}
-          {busy ? "Saving" : bank.last4 ? "Save account" : "Add account"}
+          {busy ? tt("Saving") : bank.last4 ? tt("Save account") : tt("Add account")}
         </button>
       </Footer>
     </form>
@@ -2416,14 +2418,14 @@ function Outcome({ outcome, what, onContinue, onDone, onChecked }: { outcome: Ou
 
   const copy =
     outcome === "done"
-      ? { icon: <Check className="h-5 w-5" strokeWidth={3} />, tone: "bg-[#ecfdf3] text-[#067647]", title: "Payments active", line: "You're ready to accept payments. Your sales are paid into your balance and you cash out to your bank.", action: "Done", primary: onDone }
+      ? { icon: <Check className="h-5 w-5" strokeWidth={3} />, tone: "bg-[#ecfdf3] text-[#067647]", title: tt("Payments active"), line: tt("You're ready to accept payments. Your sales are paid into your balance and you cash out to your bank."), action: tt("Done"), primary: onDone }
       : outcome === "bank"
         ? {
             icon: <Landmark className="h-5 w-5" />,
             tone: "bg-[#fffaeb] text-[#b54708]",
-            title: "Add your bank account",
-            line: "Everything else is done. Add the account your payouts go to and payments switch on.",
-            action: "Add bank account",
+            title: tt("Add your bank account"),
+            line: tt("Everything else is done. Add the account your payouts go to and payments switch on."),
+            action: tt("Add bank account"),
             primary: onContinue,
           }
         : outcome === "checking"
@@ -2431,20 +2433,20 @@ function Outcome({ outcome, what, onContinue, onDone, onChecked }: { outcome: Ou
             icon: <Clock className="h-5 w-5" />,
             tone: "bg-[#f4f3ff] text-[#5b4bd5]",
             /* "Checking your ID" when no ID had gone in read as the form having lost something. It is checking the details then. */
-            title: what === "id" ? "Checking your ID" : "Checking your details",
+            title: what === "id" ? tt("Checking your ID") : tt("Checking your details"),
             line:
               waited >= 15
-                ? "Stripe is taking a closer look at this one. Nothing more is needed from you, and we'll email you the moment payments are on."
-                : "This usually takes a few seconds. You can close this: we'll email you the moment payments are on.",
-            action: "Done",
+                ? tt("Stripe is taking a closer look at this one. Nothing more is needed from you, and we'll email you the moment payments are on.")
+                : tt("This usually takes a few seconds. You can close this: we'll email you the moment payments are on."),
+            action: tt("Done"),
             primary: onDone,
           }
         : {
             icon: <Clock className="h-5 w-5" />,
             tone: "bg-[#fffaeb] text-[#b54708]",
-            title: "Verification isn't finished",
-            line: "Payments turn on once Stripe has verified your identity. It saved what you entered, so you pick up where you left off.",
-            action: "Continue verification",
+            title: tt("Verification isn't finished"),
+            line: tt("Payments turn on once Stripe has verified your identity. It saved what you entered, so you pick up where you left off."),
+            action: tt("Continue verification"),
             primary: onContinue,
           }
   return (

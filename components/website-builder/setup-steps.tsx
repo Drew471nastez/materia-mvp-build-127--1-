@@ -9,6 +9,7 @@
 import * as React from "react"
 import { Check, Copy } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function Steps({ children, className }: { children: React.ReactNode; className?: string }) {
   return <ol className={cn("relative", className)}>{children}</ol>
@@ -40,7 +41,7 @@ export function Step({
         )}
       >
         {done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : n}
-        <span className="sr-only">{done ? ", done" : ""}</span>
+        <span className="sr-only">{done ? tt(", done") : ""}</span>
       </span>
       <div className={cn("min-w-0 flex-1 pt-[3px] transition-opacity duration-200", muted && "opacity-55")}>
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -90,11 +91,11 @@ export function CommandBlock({ label, value, disabled = false }: { label?: strin
           type="button"
           onClick={copy}
           disabled={disabled}
-          aria-label={copied ? "Copied" : label ? `Copy: ${label}` : "Copy"}
+          aria-label={copied ? tt("Copied") : label ? `Copy: ${label}` : tt("Copy")}
           className="flex w-12 shrink-0 items-center justify-center gap-1.5 border-l border-white/10 text-[13px] font-medium text-white/75 transition-colors hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:hover:bg-transparent sm:w-[84px]"
         >
           {copied ? <Check className="h-4 w-4 text-emerald-300 sm:h-3.5 sm:w-3.5" strokeWidth={2.5} /> : <Copy className="h-4 w-4 sm:h-3.5 sm:w-3.5" strokeWidth={1.75} />}
-          <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+          <span className="hidden sm:inline">{copied ? tt("Copied") : tt("Copy")}</span>
         </button>
       </div>
     </div>

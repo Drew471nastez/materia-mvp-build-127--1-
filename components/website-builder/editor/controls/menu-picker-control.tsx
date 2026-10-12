@@ -23,12 +23,13 @@ import { cn } from "@/lib/utils"
 import { MAIN_MENU } from "@/lib/website-builder/storefront-data"
 import { useEditorFieldEnv } from "./context"
 import { NOTE } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 export function MenuPickerControl({
   value,
   onChange,
   label,
-  noneLabel = "No menu",
+  noneLabel = tt("No menu"),
 }: {
   value: string
   onChange: (v: string) => void
@@ -42,9 +43,9 @@ export function MenuPickerControl({
   const raw = typeof value === "string" ? value : ""
   const current = noneLabel === null && !raw ? MAIN_MENU : raw
   const missing = current !== "" && current !== MAIN_MENU && !menus[current]
-  const title = (h: string) => menus[h]?.title || (h === MAIN_MENU ? "Main menu" : h)
+  const title = (h: string) => menus[h]?.title || (h === MAIN_MENU ? tt("Main menu") : h)
   const links = current && !missing ? (menus[current]?.links ?? []) : []
-  const preview = links.length ? links.map((l) => l.title).join(", ") : current && !missing ? "No links yet" : ""
+  const preview = links.length ? links.map((l) => l.title).join(", ") : current && !missing ? tt("No links yet") : ""
   const canEdit = !!env?.openMenus && !!current && !missing
 
   return (
@@ -53,14 +54,14 @@ export function MenuPickerControl({
         <div className="relative flex min-h-[52px] items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/40 focus-within:bg-muted/40">
           <span className="min-w-0 flex-1">
             <span className={cn("block truncate text-[13px] font-medium max-sm:text-[15px]", current ? "text-foreground" : "text-muted-foreground")}>
-              {current ? (missing ? `${current} (not made yet)` : title(current)) : noneLabel}
+              {current ? (missing ? tt("{current} (not made yet)", { current }) : title(current)) : noneLabel}
             </span>
             {preview && <span className="mt-0.5 block truncate text-[12px] text-muted-foreground max-sm:text-[13px]" data-menu-preview="">{preview}</span>}
           </span>
           <ChevronsUpDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           {/* The card is the select: transparent over it, so the platform's own list opens. */}
           <select
-            aria-label={label ? `${label}: choose a menu` : "Choose a menu"}
+            aria-label={label ? `${label}: choose a menu` : tt("Choose a menu")}
             data-menu-select=""
             className="absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0"
             value={current}
@@ -72,7 +73,7 @@ export function MenuPickerControl({
                 {title(h)}
               </option>
             ))}
-            {missing && <option value={current}>{current} (not made yet)</option>}
+            {missing && <option value={current}>{tt("{current} (not made yet)", { current })}</option>}
           </select>
         </div>
         {canEdit && (
@@ -83,11 +84,11 @@ export function MenuPickerControl({
             className="flex h-9 w-full items-center gap-1.5 border-t border-border px-3 text-left text-[12.5px] font-medium text-foreground/80 transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:bg-muted/40 focus-visible:outline-none max-sm:h-11 max-sm:text-[14px]"
           >
             <PencilLine aria-hidden className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-            Edit menu
+            {tt("Edit menu")}
           </button>
         )}
       </div>
-      {missing && <p className={NOTE}>No menu has this name yet, so the section shows none.</p>}
+      {missing && <p className={NOTE}>{tt("No menu has this name yet, so the section shows none.")}</p>}
     </div>
   )
 }

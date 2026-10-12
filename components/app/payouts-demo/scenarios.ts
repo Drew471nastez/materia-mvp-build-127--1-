@@ -1,5 +1,6 @@
 import { getStorelibPaymentsStatus, statusFactsOf, type StorelibStatusView } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -30,19 +31,19 @@ export type ScenarioId =
   | "setup"
 
 export const SCENARIOS: Array<{ id: ScenarioId; label: string }> = [
-  { id: "active", label: "Active, selling" },
-  { id: "first_sales", label: "First sales" },
-  { id: "dispute", label: "Dispute open" },
-  { id: "payout_failed", label: "Payout failed" },
-  { id: "action_required", label: "Stripe needs details" },
-  { id: "id_required", label: "ID verification needed" },
-  { id: "info_required", label: "More information needed" },
-  { id: "bank_required", label: "Bank account needed" },
-  { id: "verifying", label: "Verification pending" },
-  { id: "under_review", label: "Under review" },
-  { id: "restricted", label: "Payouts paused" },
-  { id: "disabled", label: "Permanently disabled" },
-  { id: "setup", label: "Not set up" },
+  { id: "active", get label() { return tt("Active, selling") } },
+  { id: "first_sales", get label() { return tt("First sales") } },
+  { id: "dispute", get label() { return tt("Dispute open") } },
+  { id: "payout_failed", get label() { return tt("Payout failed") } },
+  { id: "action_required", get label() { return tt("Stripe needs details") } },
+  { id: "id_required", get label() { return tt("ID verification needed") } },
+  { id: "info_required", get label() { return tt("More information needed") } },
+  { id: "bank_required", get label() { return tt("Bank account needed") } },
+  { id: "verifying", get label() { return tt("Verification pending") } },
+  { id: "under_review", get label() { return tt("Under review") } },
+  { id: "restricted", get label() { return tt("Payouts paused") } },
+  { id: "disabled", get label() { return tt("Permanently disabled") } },
+  { id: "setup", get label() { return tt("Not set up") } },
 ]
 
 export const DEMO_CURRENCIES = ["ron", "eur", "usd", "gbp"] as const
@@ -55,11 +56,11 @@ const SCALE: Record<DemoCurrency, number> = { ron: 1, eur: 0.2, usd: 0.22, gbp: 
 const price = (lei: number, c: DemoCurrency) => Math.round((lei * SCALE[c]) * 100)
 
 const PRODUCTS = [
-  { id: "p-drums", title: "Lo-fi Drum Kit Vol. 2", lei: 89 },
-  { id: "p-presets", title: "Lightroom Presets: Bucharest Nights", lei: 59 },
-  { id: "p-notion", title: "Notion Creator OS", lei: 129 },
-  { id: "p-course", title: "Store Theme Basics (course)", lei: 349 },
-  { id: "p-samples", title: "Techno Samples: Warehouse", lei: 45 },
+  { id: "p-drums", get title() { return tt("Lo-fi Drum Kit Vol. 2") }, lei: 89 },
+  { id: "p-presets", get title() { return tt("Lightroom Presets: Bucharest Nights") }, lei: 59 },
+  { id: "p-notion", get title() { return tt("Notion Creator OS") }, lei: 129 },
+  { id: "p-course", get title() { return tt("Store Theme Basics (course)") }, lei: 349 },
+  { id: "p-samples", get title() { return tt("Techno Samples: Warehouse") }, lei: 45 },
 ]
 
 const BUYERS: Array<[string, string]> = [
@@ -225,7 +226,7 @@ function overviewFor(status: StorelibStatusView, c: DemoCurrency, opts: { beat: 
     checkoutOpen: opts.checkoutOpen,
     balances: opts.beat === "done" ? [{ currency: c, availableMinor: opts.available, pendingMinor: opts.pending }] : [],
     balancesAt: new Date().toISOString(),
-    payoutDestination: opts.bank ? { bankName: "Banca Demo", country: "RO", currency: c, last4: "4821", holder: "individual" } : null,
+    payoutDestination: opts.bank ? { bankName: tt("Banca Demo"), country: "RO", currency: c, last4: "4821", holder: "individual" } : null,
     payouts: [],
     can: { embeddedOnboarding: true, hostedOnboarding: false, embeddedPayoutForm: true, requestPayout: true },
     unavailable: [],
@@ -233,8 +234,8 @@ function overviewFor(status: StorelibStatusView, c: DemoCurrency, opts: { beat: 
     uxState: status.status === "ACTIVE" ? "PAYMENTS_ACTIVE" : status.status === "VERIFYING" ? "VERIFICATION_IN_PROGRESS" : status.status === "NOT_STARTED" ? "PAYMENTS_NOT_CONFIGURED" : "ACTION_REQUIRED",
     chargesEnabled: status.canCharge,
     payoutsEnabled: status.status === "ACTIVE",
-    prefill: { firstName: "Demo", lastName: "Creator", country: "RO" },
-    payoutHint: opts.beat === "personal" ? null : { accountName: "Demo Creator", currency: c, country: "RO", holderType: "individual", inStorelib: true },
+    prefill: { firstName: tt("Demo"), lastName: tt("Creator"), country: "RO" },
+    payoutHint: opts.beat === "personal" ? null : { accountName: tt("Demo Creator"), currency: c, country: "RO", holderType: "individual", inStorelib: true },
     paymentsStatus: status,
     beat: opts.beat,
     statusLabel: status.title,
@@ -248,7 +249,7 @@ function payoutsFrom(orders: DemoOrder[], c: DemoCurrency, now: number, opts: { 
     const created = Math.floor((now - (i * 9 + 3) * DAY) / 1000)
     const amount = price(380 + ((i * 137) % 900), c)
     const status: DemoPayout["status"] = i === 0 && opts.failedLast ? "failed" : i === 0 && opts.inTransit ? "in_transit" : "paid"
-    out.push({ id: `po_demo_${i}`, amount, currency: c, status, arrival_date: created + 2 * 86400, created, method: "standard", type: "bank_account", description: null, destination: "Banca Demo ••••4821" })
+    out.push({ id: `po_demo_${i}`, amount, currency: c, status, arrival_date: created + 2 * 86400, created, method: "standard", type: "bank_account", description: null, destination: tt("Banca Demo ••••4821") })
   }
   return out
 }
@@ -299,10 +300,10 @@ export function buildScenario(id: ScenarioId, c: DemoCurrency, now = Date.now())
         amountMinor: orders[2].amount_cents,
         currency: c,
         productTitle: orders[2].product.title,
-        reason: "The buyer says they did not get what they paid for.",
+        reason: tt("The buyer says they did not get what they paid for."),
         stage: "respond",
-        label: "Open",
-        line: "Storelib is answering the bank. Add anything that proves the sale so it can be sent with the response.",
+        label: tt("Open"),
+        line: tt("Storelib is answering the bank. Add anything that proves the sale so it can be sent with the response."),
         tone: "attention",
         openedAt: new Date(now - 2 * DAY).toISOString(),
         evidenceDueBy: new Date(now + 9 * DAY).toISOString(),
@@ -314,11 +315,11 @@ export function buildScenario(id: ScenarioId, c: DemoCurrency, now = Date.now())
         id: "00000000-0000-4000-8000-0000000000d2",
         amountMinor: price(59, c),
         currency: c,
-        productTitle: "Lightroom Presets: Bucharest Nights",
-        reason: "The buyer does not recognise the payment on their statement.",
+        productTitle: tt("Lightroom Presets: Bucharest Nights"),
+        reason: tt("The buyer does not recognise the payment on their statement."),
         stage: "won",
-        label: "Won",
-        line: "The bank decided for you. The money was returned to your balance.",
+        label: tt("Won"),
+        line: tt("The bank decided for you. The money was returned to your balance."),
         tone: "good",
         openedAt: new Date(now - 70 * DAY).toISOString(),
         evidenceDueBy: null,

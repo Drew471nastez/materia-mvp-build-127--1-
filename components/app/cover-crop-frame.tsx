@@ -57,6 +57,7 @@ import {
   type Size,
 } from "@/lib/images/cover-crop"
 import { SHEET_EASE } from "@/components/ui/bottom-sheet"
+import { tt } from "@/lib/i18n/text"
 
 /** A finger has to travel this far before a press becomes a drag. */
 const SLOP_PX = 4
@@ -497,7 +498,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
       ref={frameRef}
       role={editable ? "group" : onActivate ? "button" : undefined}
       tabIndex={editable || onActivate ? 0 : undefined}
-      aria-label={editable ? `${label}. Drag to move it, pinch or use + and - to zoom, arrow keys to nudge.` : label}
+      aria-label={editable ? tt("{label}. Drag to move it, pinch or use + and - to zoom, arrow keys to nudge.", { label }) : label}
       data-cover-crop-frame=""
       data-sheet-no-drag={editable ? "" : undefined}
       onPointerDown={onPointerDown}
@@ -528,7 +529,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
         /* The one element on the sheet that keeps every touch for itself. */
         touchAction: editable ? "none" : undefined,
         /* Nothing inside can change the size of anything outside. */
-        contain: "layout paint",
+        contain: tt("layout paint"),
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
       }}

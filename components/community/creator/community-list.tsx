@@ -38,6 +38,7 @@ import type { CommunityLimitView, CommunityListRow } from "./view-types"
 import { ROLE_LABEL } from "./logic"
 import { Confirm, ToastHost, card, errorText, send, useToast } from "./parts"
 import { UpgradeSheet } from "./upgrade-sheet"
+import { tt } from "@/lib/i18n/text"
 
 /** New community: the Products page's violet New product, at the bar's 32px (35 from 1024px) with a 44px press on a phone. */
 const NEW_LOOK = cn(accentDepth, "relative h-8 gap-1.5 rounded-lg px-3 text-[13px] max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-[''] lg:h-[35px] lg:px-[13px] lg:text-[14.5px]")
@@ -53,7 +54,7 @@ function stateOf(r: CommunityListRow): State {
   return r.status === "published" ? "live" : "draft"
 }
 
-const STATE_WORD: Record<State, string> = { live: "Published", draft: "Draft", archived: "Archived", suspended: "Suspended" }
+const STATE_WORD: Record<State, string> = { get live() { return tt("Published") }, get draft() { return tt("Draft") }, get archived() { return tt("Archived") }, get suspended() { return tt("Suspended") } }
 const STATE_DOT: Record<State, string> = { live: "bg-[#22a06b]", draft: "bg-[#e0a100]", archived: "bg-[#b6bac1]", suspended: "bg-[#d92d20]" }
 
 /**
@@ -125,8 +126,8 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
       const res = await send<{ id?: string }>(`/api/app/community/${r.id}/duplicate`, "POST")
       setBusy(false)
       if (res.status === 402) return setUpgrade(true)
-      if (!res.ok || !res.data.id) return toast(errorText(res.data.error, "The copy could not be made. Try again."))
-      toast("Copied as a new draft")
+      if (!res.ok || !res.data.id) return toast(errorText(res.data.error, tt("The copy could not be made. Try again.")))
+      toast(tt("Copied as a new draft"))
       router.push(`/app/community/${res.data.id}/settings`)
     },
     [room, router, toast],
@@ -139,7 +140,7 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
       setBusy(false)
       setArchiving(null)
       if (!res.ok) return toast(errorText(res.data.error))
-      toast(r.archived ? "Brought back as a draft" : "Archived")
+      toast(r.archived ? tt("Brought back as a draft") : tt("Archived"))
       router.refresh()
     },
     [router, toast],
@@ -148,8 +149,8 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
   const share = React.useCallback(
     async (r: CommunityListRow) => {
       const done = await shareCommunity(r)
-      if (done === "copied") toast("Link copied")
-      else if (done === "failed") toast("The link could not be copied.")
+      if (done === "copied") toast(tt("Link copied"))
+      else if (done === "failed") toast(tt("The link could not be copied."))
     },
     [toast],
   )
@@ -157,27 +158,27 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-community-list="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">Community</h1>
+        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Community")}</h1>
         {available && rows.length > 0 ? (
           <Link href="/app/community/new" onClick={askNew} className={NEW_LOOK} data-new-community="" data-at-limit={room ? undefined : ""}>
             <Plus aria-hidden className="h-4 w-4" />
-            New community
+            {tt("New community")}
           </Link>
         ) : null}
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         {!available ? (
-          <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")}>Communities are not set up on Storelib yet. They appear here once they are.</div>
+          <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")}>{tt("Communities are not set up on Storelib yet. They appear here once they are.")}</div>
         ) : rows.length === 0 ? (
           <div className={cn(card, "mt-3 px-6 py-12 text-center")} data-empty="">
-            <p className="text-[16px] font-semibold text-[#1a1a2e]">Start a community</p>
+            <p className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Start a community")}</p>
             <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-relaxed text-[#6b7280]">
-              A place for your members: posts, chat, Learn and live events. Free, paid every month or year, or by invite only.
+              {tt("A place for your members: posts, chat, Learn and live events. Free, paid every month or year, or by invite only.")}
             </p>
             <Link href="/app/community/new" onClick={askNew} className={cn(NEW_LOOK, "mt-5 inline-flex h-10 px-4 text-[14px]")}>
               <Plus aria-hidden className="h-4 w-4" />
-              New community
+              {tt("New community")}
             </Link>
           </div>
         ) : (
@@ -189,10 +190,10 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
         )}
         {available && limit.max !== null && rows.length > 0 ? (
           <p className="mt-4 px-1 text-[12.5px] text-[#9ca3af]" data-limit-note="">
-            {Math.min(limit.owned, limit.max)} of {limit.max} communities on the Free plan.{" "}
+            {Math.min(limit.owned, limit.max)} {tt("of {max} communities on the Free plan.", { max: limit.max })}{" "}
             {!room ? (
               <button type="button" onClick={() => setUpgrade(true)} className="inline-flex min-h-10 items-center font-medium text-[#1a1a2e] underline-offset-2 hover:underline md:min-h-0">
-                Upgrade for more
+                {tt("Upgrade for more")}
               </button>
             ) : null}
           </p>
@@ -203,8 +204,8 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
       <Confirm
         open={archiving !== null}
         onClose={() => setArchiving(null)}
-        title={`Archive ${archiving?.name ?? "this community"}?`}
-        detail="Members can still read it. Nobody can post or join until you bring it back. Nothing is deleted."
+        title={tt("Archive {value}?", { value: archiving?.name ?? tt("this community") })}
+        detail={tt("Members can still read it. Nobody can post or join until you bring it back. Nothing is deleted.")}
         action="Archive"
         busy={busy}
         onConfirm={() => archiving && void archive(archiving)}
@@ -229,20 +230,20 @@ const CommunityCard = React.memo(function CommunityCard({
   const state = stateOf(r)
   const base = `/app/community/${r.id}`
   const items = React.useMemo<ActionMenuItem[]>(() => {
-    const out: ActionMenuItem[] = [{ label: "Open", icon: <ExternalLink className="h-4 w-4" />, href: `/community/${r.slug}`, target: "_blank" }]
-    if (r.can.edit) out.push({ label: "Edit", icon: <Pencil className="h-4 w-4" />, href: `${base}/settings` })
-    out.push({ label: "Share", icon: <Share className="h-4 w-4" />, onClick: () => onShare(r) })
-    if (r.can.analytics) out.push({ label: "Analytics", icon: <BarChart3 className="h-4 w-4" />, href: `${base}/analytics` })
-    if (r.can.duplicate) out.push({ label: "Duplicate settings", icon: <Copy className="h-4 w-4" />, onClick: () => onDuplicate(r), separatorBefore: true })
+    const out: ActionMenuItem[] = [{ label: tt("Open"), icon: <ExternalLink className="h-4 w-4" />, href: `/community/${r.slug}`, target: "_blank" }]
+    if (r.can.edit) out.push({ label: tt("Edit"), icon: <Pencil className="h-4 w-4" />, href: `${base}/settings` })
+    out.push({ label: tt("Share"), icon: <Share className="h-4 w-4" />, onClick: () => onShare(r) })
+    if (r.can.analytics) out.push({ label: tt("Analytics"), icon: <BarChart3 className="h-4 w-4" />, href: `${base}/analytics` })
+    if (r.can.duplicate) out.push({ label: tt("Duplicate settings"), icon: <Copy className="h-4 w-4" />, onClick: () => onDuplicate(r), separatorBefore: true })
     if (r.can.archive && state !== "suspended")
       out.push(
         r.archived
-          ? { label: "Bring back", icon: <ArchiveRestore className="h-4 w-4" />, onClick: () => onArchive(r), separatorBefore: !r.can.duplicate }
-          : { label: "Archive", icon: <Archive className="h-4 w-4" />, onClick: () => onArchive(r), variant: "warning", separatorBefore: !r.can.duplicate },
+          ? { label: tt("Bring back"), icon: <ArchiveRestore className="h-4 w-4" />, onClick: () => onArchive(r), separatorBefore: !r.can.duplicate }
+          : { label: tt("Archive"), icon: <Archive className="h-4 w-4" />, onClick: () => onArchive(r), variant: "warning", separatorBefore: !r.can.duplicate },
       )
     return out
   }, [r, base, state, onShare, onDuplicate, onArchive])
-  const line = r.tagline?.trim() || (r.role !== "owner" ? `You are ${r.role === "admin" ? "an admin" : "a moderator"} here` : r.priceLine) || ""
+  const line = r.tagline?.trim() || (r.role !== "owner" ? tt("You are {value} here", { value: r.role === "admin" ? tt("an admin") : tt("a moderator") }) : r.priceLine) || ""
 
   return (
     <li
@@ -273,7 +274,7 @@ const CommunityCard = React.memo(function CommunityCard({
             </span>
             {r.mrrCents !== null ? (
               <span className="min-w-0 truncate" data-card-mrr="">
-                <span className="font-semibold tabular-nums text-[#1a1a2e]">{money(r.mrrCents, r.currency)}</span> MRR
+                <span className="font-semibold tabular-nums text-[#1a1a2e]">{money(r.mrrCents, r.currency)}</span> {tt("MRR")}
               </span>
             ) : r.role !== "owner" ? (
               <span className="min-w-0 truncate">{ROLE_LABEL[r.role]}</span>
@@ -282,7 +283,7 @@ const CommunityCard = React.memo(function CommunityCard({
             ) : null}
           </p>
           <span className="pointer-events-auto relative z-[1]">
-            <ResponsiveActionMenu title={r.name} align="end" trigger={<RowMenuButton label={`Actions for ${r.name}`} className={MENU_LOOK} data-card-menu="" />} items={items} />
+            <ResponsiveActionMenu title={r.name} align="end" trigger={<RowMenuButton label={tt("Actions for {name}", { name: r.name })} className={MENU_LOOK} data-card-menu="" />} items={items} />
           </span>
         </div>
       </div>

@@ -56,6 +56,7 @@ import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { useFrameCommit } from "./use-frame-commit"
 import { beginLive, endLive } from "@/lib/website-builder/live-settings"
+import { tt } from "@/lib/i18n/text"
 
 /** The glide from where the finger let go to the step it lands on. */
 const SETTLE_MS = 140
@@ -242,8 +243,8 @@ export function SliderNumberControl({
       if (d.range) { d.range.style.translate = ""; d.range.style.willChange = "" }
       if (Math.abs(thumbFrom) < 0.5 || typeof d.thumbWrap.animate !== "function") return
       const timing = { duration: SETTLE_MS, easing: SETTLE_EASE }
-      d.thumbWrap.animate([{ translate: `${thumbFrom}px 0` }, { translate: "0px 0" }], timing)
-      d.range?.animate([{ translate: `${rangeFrom}px 0` }, { translate: "0px 0" }], timing)
+      d.thumbWrap.animate([{ translate: tt("{thumbFrom}px 0", { thumbFrom }) }, { translate: "0px 0" }], timing)
+      d.range?.animate([{ translate: tt("{rangeFrom}px 0", { rangeFrom }) }, { translate: "0px 0" }], timing)
     }
 
     wrap.addEventListener("pointerdown", onDown, { capture: true })

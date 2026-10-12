@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils"
 import { takeTraversal } from "@/lib/ui/app-navigation"
 import { backThen } from "@/lib/navigation/go-back"
 import { discardAllUnsaved, hasUnsaved, requestLeave, saveAllUnsaved, setLeaveAsker, subscribeUnsaved } from "@/lib/settings/unsaved-guard"
+import { tt } from "@/lib/i18n/text"
 
 /** The extra history entry's mark (see Back, above). */
 const GUARD_KEY = "__settingsUnsaved"
@@ -196,7 +197,7 @@ export function SettingsLeaveGuard() {
     const ok = await saveAllUnsaved()
     setBusy(false)
     if (!ok) {
-      setError("That didn't save. Check the fields and try again.")
+      setError(tt("That didn't save. Check the fields and try again."))
       return
     }
     leave(go)
@@ -206,8 +207,8 @@ export function SettingsLeaveGuard() {
   const body = (
     <div className="space-y-4" data-settings-leave-guard="">
       <div className={phone ? "px-1" : ""}>
-        <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Save your changes?</h2>
-        <p className="mt-1 text-[14px] leading-[20px] text-[#6b7280]">You changed some settings and haven&apos;t saved them yet.</p>
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{tt("Save your changes?")}</h2>
+        <p className="mt-1 text-[14px] leading-[20px] text-[#6b7280]">{tt("You changed some settings and haven't saved them yet.")}</p>
         {error ? (
           <p role="alert" className="mt-2 text-[13.5px] text-[#b42318]">
             {error}
@@ -217,13 +218,13 @@ export function SettingsLeaveGuard() {
       <div className={cn("flex gap-2", phone ? "flex-col" : "flex-row-reverse")}>
         <button type="button" onClick={() => void save()} disabled={busy} className={cn(primaryDepth, "h-11 gap-2 rounded-xl px-5 text-[14px] disabled:opacity-70", phone ? "w-full" : "")} data-leave-save="">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {busy ? "Saving" : "Save"}
+          {busy ? tt("Saving") : tt("Save")}
         </button>
         <button type="button" onClick={discard} disabled={busy} className={cn(secondaryDepth, "h-11 rounded-xl px-5 text-[14px] text-[#b42318]", phone ? "w-full" : "")} data-leave-discard="">
-          Discard
+          {tt("Discard")}
         </button>
         <button type="button" onClick={keep} disabled={busy} className={cn("h-11 rounded-xl px-4 text-[14px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]", phone ? "w-full" : "mr-auto")} data-leave-keep="">
-          Keep editing
+          {tt("Keep editing")}
         </button>
       </div>
     </div>
@@ -231,7 +232,7 @@ export function SettingsLeaveGuard() {
 
   if (phone) {
     return (
-      <BottomSheet isOpen={open} onClose={keep} label="Save your changes?" hideFrom={null} dismissible={!busy} zIndex={210}>
+      <BottomSheet isOpen={open} onClose={keep} label={tt("Save your changes?")} hideFrom={null} dismissible={!busy} zIndex={210}>
         <div className="px-4 pb-3 pt-2">{body}</div>
       </BottomSheet>
     )
@@ -265,7 +266,7 @@ function GuardDialog({ open, onClose, children }: { open: boolean; onClose: () =
         ref={card}
         role="alertdialog"
         aria-modal="true"
-        aria-label="Save your changes?"
+        aria-label={tt("Save your changes?")}
         className="relative w-full max-w-[420px] rounded-2xl border border-[#e5e7eb]/60 bg-white p-5 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28)] animate-in fade-in zoom-in-[0.97] duration-150"
       >
         {children}

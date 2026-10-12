@@ -40,6 +40,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export interface EngineOption {
   id: string
@@ -107,7 +108,7 @@ export function ModelPicker({
   const levelIndex = levels && level ? levels.indexOf(level) : 0
 
   const rows = (
-    <ul role="listbox" aria-label="Model" data-ask-model-menu="" className={cn(phone ? "px-2 pb-2" : "p-1")}>
+    <ul role="listbox" aria-label={tt("Model")} data-ask-model-menu="" className={cn(phone ? "px-2 pb-2" : "p-1")}>
       {engines.map((option) => {
         const selected = option.id === chosen.id
         return (
@@ -165,7 +166,7 @@ export function ModelPicker({
   const strengthRow = levels && level && (
     <div data-ask-strength={level.id} className={cn("border-t border-[#e5e7eb]/70", phone ? "mx-2 px-3 pb-3 pt-2.5" : "mx-1 px-2.5 pb-2.5 pt-2")}>
       <span id="ask-strength-label" className={cn("block text-[#1a1a2e]", phone ? "text-[15px]" : "text-[13px]")}>
-        Strength
+        {tt("Strength")}
       </span>
       {/* Its own line, full width: three labels beside the word do not fit the 268px popover. */}
       <div
@@ -219,10 +220,10 @@ export function ModelPicker({
       >
         <span className="min-w-0 flex-1">
           <span className={cn("block text-[#1a1a2e]", phone ? "text-[15px]" : "text-[13px]")}>
-            {anyOwn ? "Your own AI is on" : "Use your own AI"}
+            {anyOwn ? tt("Your own AI is on") : tt("Use your own AI")}
           </span>
           <span className={cn("block leading-snug text-[#6b7280]", phone ? "text-[13px]" : "text-[11.5px]")}>
-            {anyOwn ? "Those edits don't use your AI edits. Manage" : "Your OpenAI key. Doesn't use your AI edits"}
+            {anyOwn ? tt("Those edits don't use your AI edits. Manage") : tt("Your OpenAI key. Doesn't use your AI edits")}
           </span>
         </span>
         <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 -rotate-90 text-[#9ca3af]" strokeWidth={2} />
@@ -243,7 +244,7 @@ export function ModelPicker({
           phone ? "min-h-[52px] px-3" : "min-h-[40px] px-2.5",
         )}
       >
-        <span className={cn("min-w-0 flex-1 text-[#1a1a2e]", phone ? "text-[15px]" : "text-[13px]")}>Sounds</span>
+        <span className={cn("min-w-0 flex-1 text-[#1a1a2e]", phone ? "text-[15px]" : "text-[13px]")}>{tt("Sounds")}</span>
         <span aria-hidden className={switchTrack(!!sounds)}>
           <span className={switchKnob(!!sounds)} />
         </span>
@@ -259,8 +260,8 @@ export function ModelPicker({
         onClick={() => onOpenChange(!open)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`Model: ${chosen.label}${level ? `, ${level.label} strength` : ""}${chosenOwn ? `, on ${chosenOwn.toLowerCase()}` : ""}`}
-        title="Which model answers"
+        aria-label={`Model: ${chosen.label}${level ? tt(", {label} strength", { label: level.label }) : ""}${chosenOwn ? tt(", on {value}", { value: chosenOwn.toLowerCase() }) : ""}`}
+        title={tt("Which model answers")}
         className={cn(
           "relative flex items-center gap-1.5 rounded-full text-[13px] text-[#1a1a2e]/80 transition-colors hover:bg-black/[0.05] hover:text-[#1a1a2e]",
           phone ? "h-11 pl-3 pr-2.5" : "h-9 pl-2.5 pr-2",
@@ -292,7 +293,7 @@ export function ModelPicker({
         </div>
       )}
       {phone && (
-        <BottomSheet isOpen={open} onClose={() => onOpenChange(false)} title="Model" hideFrom={null}>
+        <BottomSheet isOpen={open} onClose={() => onOpenChange(false)} title={tt("Model")} hideFrom={null}>
           {rows}
           {strengthRow}
           {ownRow}

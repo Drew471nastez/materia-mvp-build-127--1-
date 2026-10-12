@@ -57,6 +57,7 @@ import { createClient } from "@/lib/supabase/client"
 import { SaveNotification } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { AvatarMark } from "@/components/app/app-avatar"
+import { tt } from "@/lib/i18n/text"
 
 /* React 19.2's <Activity>. The installed types are 19.0's, which do not name it yet; the runtime has it. */
 const Activity = (ReactModule as unknown as {
@@ -183,11 +184,11 @@ function UnsavedChangesDialog({
   isSaving: boolean
 }) {
   return (
-    <EditorQuestion open={open} onClose={onClose} label="Save changes?" desktopWidth="md:max-w-[340px]">
+    <EditorQuestion open={open} onClose={onClose} label={tt("Save changes?")} desktopWidth="md:max-w-[340px]">
       <div className="px-6 pt-5 pb-5 text-center md:pt-6">
-        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">Save changes?</h2>
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Save changes?")}</h2>
         <p className="text-sm text-[#6b7280]">
-          Once saved, they'll appear on your OnePage.
+          {tt("Once saved, they'll appear on your OnePage.")}
         </p>
       </div>
 
@@ -201,10 +202,10 @@ function UnsavedChangesDialog({
           {isSaving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Saving
+              {tt("Saving")}
             </>
           ) : (
-            'Save changes'
+            tt("Save changes")
           )}
         </button>
 
@@ -214,7 +215,7 @@ function UnsavedChangesDialog({
           data-unsaved-discard=""
           className="w-full h-12 px-4 bg-white text-[#c4290c] font-medium rounded-xl border border-[#e5e7eb] hover:bg-[#fafafa] transition-colors disabled:opacity-50"
         >
-          Discard changes
+          {tt("Discard changes")}
         </button>
 
         <button
@@ -222,7 +223,7 @@ function UnsavedChangesDialog({
           disabled={isSaving}
           className="w-full h-11 px-4 text-[#6b7280] font-medium rounded-xl hover:bg-[#f3f4f6] hover:text-[#1a1a2e] transition-colors disabled:opacity-50"
         >
-          Keep editing
+          {tt("Keep editing")}
         </button>
       </div>
     </EditorQuestion>
@@ -243,11 +244,11 @@ function ProUpgradeDialog({
   onKeepEditing: () => void
 }) {
   return (
-    <EditorQuestion open={open} onClose={onClose} label="Upgrade to Pro?" desktopWidth="md:max-w-[420px]">
+    <EditorQuestion open={open} onClose={onClose} label={tt("Upgrade to Pro?")} desktopWidth="md:max-w-[420px]">
       <div className="px-6 pt-5 pb-5 text-center md:pt-6">
-        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">Upgrade to Pro?</h2>
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Upgrade to Pro?")}</h2>
         <p className="text-sm text-[#6b7280] leading-relaxed">
-          The verified badge and hiding Storelib branding are part of Pro. Upgrade to save these changes.
+          {tt("The verified badge and hiding Storelib branding are part of Pro. Upgrade to save these changes.")}
         </p>
       </div>
 
@@ -259,21 +260,21 @@ function ProUpgradeDialog({
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
-          Upgrade to Pro
+          {tt("Upgrade to Pro")}
         </button>
 
         <button
           onClick={onDiscard}
           className="w-full h-12 px-4 bg-white text-[#374151] font-medium rounded-xl border border-[#e5e7eb] hover:bg-[#fafafa] transition-colors"
         >
-          Discard changes
+          {tt("Discard changes")}
         </button>
 
         <button
           onClick={onKeepEditing}
           className="w-full h-11 px-4 text-[#6b7280] font-medium rounded-xl hover:bg-[#f3f4f6] hover:text-[#1a1a2e] transition-colors"
         >
-          Keep editing
+          {tt("Keep editing")}
         </button>
       </div>
     </EditorQuestion>
@@ -340,7 +341,7 @@ function ShareOnePage({
             <span className="text-xl font-semibold" style={{ color: theme.text_color }}>{onepage.title?.trim() ? onepage.title.charAt(0).toUpperCase() : <AvatarMark name="" size={48} />}</span>
           </div>
         )}
-        <h3 className="text-[15px] font-semibold" style={{ color: theme.text_color }}>{onepage.title || "Your name"}</h3>
+        <h3 className="text-[15px] font-semibold" style={{ color: theme.text_color }}>{onepage.title || tt("Your name")}</h3>
         <p className="mt-0.5 text-[12.5px]" style={{ color: `${theme.text_color}99` }}>/{onepage.slug}</p>
       </div>
 
@@ -348,23 +349,23 @@ function ShareOnePage({
         <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{address}</span>
         <button type="button" onClick={onCopy} data-share-copy="" className={cn(primaryDepth, "h-9 gap-1.5 rounded-lg px-3.5 text-[13px]")}>
           {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? tt("Copied") : tt("Copy")}
         </button>
       </div>
 
       <button type="button" onClick={onOpen} className={row}>
         <ExternalLink className="h-4 w-4 shrink-0 text-[#6b7280]" />
-        Open in a new tab
+        {tt("Open in a new tab")}
       </button>
 
       {!connectedDomain && (
         <button type="button" onClick={() => { window.location.href = "/app/settings?tab=domains" }} className={cn(row, "justify-between")}>
           <span className="flex items-center gap-3">
             <Globe className="h-4 w-4 shrink-0 text-[#6b7280]" />
-            Add a custom domain
+            {tt("Add a custom domain")}
           </span>
-          <span title={hasPro ? "Included in your plan" : "Custom domains are part of Pro"} className="rounded-full bg-[#f1f2f4] px-2 py-0.5 text-[11.5px] font-semibold text-[#4b5563]">
-            {hasPro ? "Included" : "Pro"}
+          <span title={hasPro ? tt("Included in your plan") : tt("Custom domains are part of Pro")} className="rounded-full bg-[#f1f2f4] px-2 py-0.5 text-[11.5px] font-semibold text-[#4b5563]">
+            {hasPro ? tt("Included") : "Pro"}
           </span>
         </button>
       )}
@@ -374,7 +375,7 @@ function ShareOnePage({
   if (isPhone) {
     return (
       /* Built while the page is idle and kept, as the notifications sheet is: the tap only slides it up. */
-      <BottomSheet isOpen={open} onClose={onClose} title="Share your OnePage" hideFrom="md" keepMounted>
+      <BottomSheet isOpen={open} onClose={onClose} title={tt("Share your OnePage")} hideFrom="md" keepMounted>
         <div className="px-4 pb-3 pt-3">{body}</div>
       </BottomSheet>
     )
@@ -383,7 +384,7 @@ function ShareOnePage({
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
       <DialogContent overlayClassName="backdrop-blur-[3px]" className="w-[calc(100%-32px)] max-w-[420px] gap-0 overflow-hidden rounded-2xl p-0">
         <DialogHeader className="border-b border-[#eef0f2] px-5 py-4">
-          <DialogTitle className="text-center text-[17px] font-semibold text-[#1a1a2e]">Share your OnePage</DialogTitle>
+          <DialogTitle className="text-center text-[17px] font-semibold text-[#1a1a2e]">{tt("Share your OnePage")}</DialogTitle>
         </DialogHeader>
         <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden p-5">{body}</div>
       </DialogContent>
@@ -878,7 +879,7 @@ function EditorLayout() {
         await settingsTabRef.current?.saveAllSettings()
       } catch (error) {
         console.error("Settings could not be prepared for saving:", error)
-        showSaveFailure("Couldn't save. Try again")
+        showSaveFailure(tt("Couldn't save. Try again"))
         return
       }
     }
@@ -1098,7 +1099,7 @@ function EditorLayout() {
       if (!result.ok) return
     } catch (error) {
       console.error("Save before leaving failed:", error)
-      showSaveFailure("Couldn't save. Try again")
+      showSaveFailure(tt("Couldn't save. Try again"))
       return
     } finally {
       setIsSavingForNav(false)
@@ -1208,9 +1209,9 @@ function EditorLayout() {
   }
 
   const tabs = [
-    { id: "links" as const, label: "Links", icon: Link2 },
-    { id: "design" as const, label: "Design", icon: Palette },
-    { id: "products" as const, label: "Products", icon: ShoppingBag },
+    { id: "links" as const, label: tt("Links"), icon: Link2 },
+    { id: "design" as const, label: tt("Design"), icon: Palette },
+    { id: "products" as const, label: tt("Products"), icon: ShoppingBag },
   ]
 
   // Determine save button state
@@ -1219,7 +1220,7 @@ function EditorLayout() {
       return (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="hidden sm:inline ml-2">Saving...</span>
+          <span className="hidden sm:inline ml-2">{tt("Saving...")}</span>
         </>
       )
     }
@@ -1227,7 +1228,7 @@ function EditorLayout() {
       return (
         <>
           <Check className="h-4 w-4" />
-          <span className="hidden sm:inline ml-2">Saved</span>
+          <span className="hidden sm:inline ml-2">{tt("Saved")}</span>
         </>
       )
     }
@@ -1237,7 +1238,7 @@ function EditorLayout() {
       return (
         <>
           <AlertCircle className="h-4 w-4" />
-          <span className="hidden sm:inline ml-2">Try again</span>
+          <span className="hidden sm:inline ml-2">{tt("Try again")}</span>
         </>
       )
     }
@@ -1247,7 +1248,7 @@ function EditorLayout() {
     return (
       <>
         {showZap ? <Zap className="h-4 w-4" strokeWidth={2.5} /> : <Save className="h-4 w-4" />}
-        <span className="hidden sm:inline ml-2">Save</span>
+        <span className="hidden sm:inline ml-2">{tt("Save")}</span>
       </>
     )
   }
@@ -1266,13 +1267,13 @@ function EditorLayout() {
 
   const handleUndoClick = () => {
     undo()
-    setHistoryToastMessage("Undone")
+    setHistoryToastMessage(tt("Undone"))
     setHistoryToastSequence((v) => v + 1)
   }
 
   const handleRedoClick = () => {
     redo()
-    setHistoryToastMessage("Redone")
+    setHistoryToastMessage(tt("Redone"))
     setHistoryToastSequence((v) => v + 1)
   }
 
@@ -1298,7 +1299,7 @@ function EditorLayout() {
       <SaveNotification
         key={saveToastSequence}
         show={saveToastSequence > 0}
-        message="Changes saved"
+        message={tt("Changes saved")}
         duration={4000}
       />
       <SaveNotification
@@ -1358,8 +1359,8 @@ function EditorLayout() {
             <button
               type="button"
               onClick={handleExit}
-              aria-label="Back to Storelib"
-              title="Back to Storelib"
+              aria-label={tt("Back to Storelib")}
+              title={tt("Back to Storelib")}
               data-onepage-exit=""
               className="md:hidden -ml-1 inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] active:bg-[#eceef1] [-webkit-tap-highlight-color:transparent]"
             >
@@ -1372,8 +1373,8 @@ function EditorLayout() {
                 className={cn(iconDepth, "h-8 w-8 rounded-[9px] text-[#374151]")}
                 onClick={handleUndoClick}
                 disabled={!canUndo}
-                title="Undo"
-                aria-label="Undo"
+                title={tt("Undo")}
+                aria-label={tt("Undo")}
               >
                 <Undo2 className="h-4 w-4" strokeWidth={2} />
               </button>
@@ -1382,8 +1383,8 @@ function EditorLayout() {
                 className={cn(iconDepth, "h-8 w-8 rounded-[9px] text-[#374151]")}
                 onClick={handleRedoClick}
                 disabled={!canRedo}
-                title="Redo"
-                aria-label="Redo"
+                title={tt("Redo")}
+                aria-label={tt("Redo")}
               >
                 <Redo2 className="h-4 w-4" strokeWidth={2} />
               </button>
@@ -1402,12 +1403,12 @@ function EditorLayout() {
               )}
             >
               {saveState === "saving"
-                ? "Saving…"
+                ? tt("Saving…")
                 : saveState === "error" && isDirty
-                  ? "Failed"
+                  ? tt("Failed")
                   : isDirty
-                    ? "Unsaved"
-                    : "Saved"}
+                    ? tt("Unsaved")
+                    : tt("Saved")}
             </span>
 
             {/* Tab Navigation - Desktop - Pill shaped tabs */}
@@ -1447,7 +1448,7 @@ function EditorLayout() {
             {/* Settings Button - Desktop */}
             <button
               onClick={() => handleTabChange("settings")}
-              title="Settings"
+              title={tt("Settings")}
               className={cn(
                 "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-[background-color,border-color,color,box-shadow] duration-200 cursor-pointer",
                 activeTab === "settings"
@@ -1465,7 +1466,7 @@ function EditorLayout() {
           {/* Unsaved — mr-auto pushes it to the far left of the panel, away from the divider */}
           {isDirty && saveState !== "saving" && (
             <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0 mr-auto">
-              Unsaved
+              {tt("Unsaved")}
             </span>
           )}
 
@@ -1474,8 +1475,8 @@ function EditorLayout() {
             type="button"
             className={cn(iconDepth, "md:hidden h-8 w-8 rounded-[9px] text-[#374151]")}
             onClick={() => setShowLinkModal(true)}
-            aria-label="Share your OnePage"
-            title="Share your OnePage"
+            aria-label={tt("Share your OnePage")}
+            title={tt("Share your OnePage")}
             data-onepage-share=""
           >
             <Share className="h-4 w-4" strokeWidth={2} />
@@ -1506,7 +1507,7 @@ function EditorLayout() {
               className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-all cursor-pointer whitespace-nowrap"
             >
               <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span>Share your OnePage</span>
+              <span>{tt("Share your OnePage")}</span>
             </button>
           </div>
 
@@ -1523,12 +1524,12 @@ function EditorLayout() {
             {showMobilePreview ? (
               <>
                 <Edit3 className="h-4 w-4 mr-1.5" />
-                Edit
+                {tt("Edit")}
               </>
             ) : (
               <>
                 <Eye className="h-4 w-4 mr-1.5" />
-                Preview
+                {tt("Preview")}
               </>
             )}
           </Button>
@@ -1650,7 +1651,7 @@ function EditorLayout() {
             data-onepage-loader=""
             aria-hidden={arrived}
           >
-            <BuilderLoader tone="light" lines={["Loading your page"]} />
+            <BuilderLoader tone="light" lines={[tt("Loading your page")]} />
           </div>
         )}
       </div>
@@ -1686,7 +1687,7 @@ function EditorLayout() {
         >
           {/* 9px under the bar's 1px hairline: 10px over the buttons, as --op-tabbar-h counts it. */}
           <div ref={phoneRowRef} className="grid grid-cols-4 gap-1.5 px-3 pt-[9px] min-[340px]:gap-2 min-[340px]:px-4" data-tab-row="phone">
-            {[...tabs, { id: "settings" as const, label: "Settings", icon: SlidersHorizontal }].map((tab) => {
+            {[...tabs, { id: "settings" as const, label: tt("Settings"), icon: SlidersHorizontal }].map((tab) => {
               const Icon = tab.icon
               const on = activeTab === tab.id
               return (
@@ -1757,8 +1758,8 @@ function EditorLayout() {
 
       {/* The way out, the same dark glass as the creator page and the website builder. */}
       {leaving && (
-        <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back" data-onepage-leaving="">
-          <BuilderLoader className="wb-leaving-content" tone="dark" lines={["Going back", "Almost there"]} />
+        <div className="wb-leaving" role="status" aria-live="polite" aria-label={tt("Going back")} data-onepage-leaving="">
+          <BuilderLoader className="wb-leaving-content" tone="dark" lines={[tt("Going back"), tt("Almost there")]} />
         </div>
       )}
 

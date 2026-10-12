@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  REVIEWS, THE RULES WITH NO DATABASE
@@ -32,12 +33,12 @@ export const RATING_WORDS = ["", "Poor", "Fair", "Good", "Very good", "Excellent
 export type ReviewStatus = "published" | "hidden"
 
 export const REPORT_REASONS = [
-  { id: "abusive", label: "Abusive, hateful or threatening" },
-  { id: "spam", label: "Spam or advertising" },
-  { id: "off_topic", label: "Not about this product" },
-  { id: "not_a_buyer", label: "Not written by a real buyer" },
-  { id: "personal_info", label: "Shares private information" },
-  { id: "other", label: "Something else" },
+  { id: "abusive", get label() { return tt("Abusive, hateful or threatening") } },
+  { id: "spam", get label() { return tt("Spam or advertising") } },
+  { id: "off_topic", get label() { return tt("Not about this product") } },
+  { id: "not_a_buyer", get label() { return tt("Not written by a real buyer") } },
+  { id: "personal_info", get label() { return tt("Shares private information") } },
+  { id: "other", get label() { return tt("Something else") } },
 ] as const
 
 export type ReportReason = (typeof REPORT_REASONS)[number]["id"]
@@ -55,10 +56,10 @@ export type ReviewInput = { ok: true; rating: number; content: string } | { ok: 
 export function checkReviewInput(body: { rating?: unknown; content?: unknown } | null | undefined): ReviewInput {
   const rating = Number(body?.rating)
   const content = typeof body?.content === "string" ? body.content.trim() : ""
-  if (!body?.rating || !content) return { ok: false, error: "productId, rating, and content are required" }
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { ok: false, error: "Rating must be between 1 and 5" }
-  if (content.length < MIN_REVIEW_CHARS) return { ok: false, error: `Review must be at least ${MIN_REVIEW_CHARS} characters` }
-  if (content.length > MAX_REVIEW_CHARS) return { ok: false, error: `Keep the review under ${MAX_REVIEW_CHARS} characters` }
+  if (!body?.rating || !content) return { ok: false, error: tt("productId, rating, and content are required") }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { ok: false, error: tt("Rating must be between 1 and 5") }
+  if (content.length < MIN_REVIEW_CHARS) return { ok: false, error: tt("Review must be at least {minReviewChars} characters", { minReviewChars: MIN_REVIEW_CHARS }) }
+  if (content.length > MAX_REVIEW_CHARS) return { ok: false, error: tt("Keep the review under {maxReviewChars} characters", { maxReviewChars: MAX_REVIEW_CHARS }) }
   return { ok: true, rating, content }
 }
 
@@ -66,8 +67,8 @@ export type ReplyInput = { ok: true; text: string } | { ok: false; error: string
 
 export function checkReplyInput(value: unknown): ReplyInput {
   const text = typeof value === "string" ? value.trim().replace(/\r\n/g, "\n") : ""
-  if (text.length < 2) return { ok: false, error: "Write a reply first." }
-  if (text.length > MAX_REPLY_CHARS) return { ok: false, error: `Keep the reply under ${MAX_REPLY_CHARS} characters` }
+  if (text.length < 2) return { ok: false, error: tt("Write a reply first.") }
+  if (text.length > MAX_REPLY_CHARS) return { ok: false, error: tt("Keep the reply under {maxReplyChars} characters", { maxReplyChars: MAX_REPLY_CHARS }) }
   return { ok: true, text }
 }
 

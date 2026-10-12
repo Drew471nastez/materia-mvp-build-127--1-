@@ -20,6 +20,8 @@ import { eventDateBadge, eventTime } from "@/lib/communities/format"
 import type { CommunityHead, OverviewData } from "./view-types"
 import { EVENT_KIND_LABEL } from "./logic"
 import { Section, buttonSecondary, card } from "./parts"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 function Figure({ label: name, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -50,7 +52,7 @@ function CopyAddress({ path }: { path: string }) {
         className={cn(buttonSecondary, "h-10 shrink-0 sm:h-8")}
       >
         {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Copy aria-hidden className="h-3.5 w-3.5" />}
-        {copied ? "Copied" : "Copy link"}
+        {copied ? tt("Copied") : tt("Copy link")}
       </button>
     </div>
   )
@@ -60,27 +62,27 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
   const f = data.figures
   const base = `/app/community/${head.id}`
   const figures: { label: string; value: string; hint?: string }[] = [
-    { label: "Members", value: f.members.toLocaleString("en-US") },
-    { label: "Active, 30 days", value: f.active30d.toLocaleString("en-US") },
-    { label: "New, 30 days", value: f.new30d.toLocaleString("en-US") },
-    { label: "Posts this week", value: f.posts7d.toLocaleString("en-US"), hint: `${f.comments7d.toLocaleString("en-US")} ${f.comments7d === 1 ? "comment" : "comments"}` },
+    { label: tt("Members"), value: f.members.toLocaleString(appLocale()) },
+    { label: tt("Active, 30 days"), value: f.active30d.toLocaleString(appLocale()) },
+    { label: tt("New, 30 days"), value: f.new30d.toLocaleString(appLocale()) },
+    { label: tt("Posts this week"), value: f.posts7d.toLocaleString(appLocale()), hint: `${f.comments7d.toLocaleString(appLocale())} ${f.comments7d === 1 ? "comment" : "comments"}` },
   ]
   if (data.sells && head.can.manage_pricing) {
     figures.push(
-      { label: "Paid members", value: f.paidMembers.toLocaleString("en-US") },
-      { label: "Monthly revenue", value: money(f.mrrCents, f.currency), hint: "From active memberships" },
-      { label: "Cancellations, 30 days", value: f.cancellations30d.toLocaleString("en-US") },
+      { label: tt("Paid members"), value: f.paidMembers.toLocaleString(appLocale()) },
+      { label: tt("Monthly revenue"), value: money(f.mrrCents, f.currency), hint: tt("From active memberships") },
+      { label: tt("Cancellations, 30 days"), value: f.cancellations30d.toLocaleString(appLocale()) },
     )
   }
   const waiting = [
-    f.pendingRequests > 0 && head.can.approve_member ? { href: `${base}/members?status=pending`, text: `${f.pendingRequests} ${f.pendingRequests === 1 ? "request" : "requests"} to join` } : null,
-    f.openReports > 0 && head.can.review_reports ? { href: `${base}/moderation`, text: `${f.openReports} open ${f.openReports === 1 ? "report" : "reports"}` } : null,
+    f.pendingRequests > 0 && head.can.approve_member ? { href: `${base}/members?status=pending`, text: tt("{pendingRequests, plural, one {# request} other {# requests}} to join", { pendingRequests: f.pendingRequests }) } : null,
+    f.openReports > 0 && head.can.review_reports ? { href: `${base}/moderation`, text: tt("{openReports} open {openReports, plural, one {report} other {reports}}", { openReports: f.openReports }) } : null,
   ].filter((x): x is { href: string; text: string } => x !== null)
 
   return (
     <div className="space-y-4" data-overview="">
       {data.steps.length > 0 ? (
-        <Section title={created ? "Your community is ready" : "Next steps"} hint={created ? "A few things to do next. Each one goes away once it is done." : undefined}>
+        <Section title={created ? tt("Your community is ready") : tt("Next steps")} hint={created ? tt("A few things to do next. Each one goes away once it is done.") : undefined}>
           <ol className="-mx-1 divide-y divide-[#f1f2f4]" data-next-steps="">
             {data.steps.map((s, i) => (
               <li key={s.id} data-step={s.id} className="flex items-center gap-3 px-1 py-3 first:pt-0 last:pb-0">
@@ -100,7 +102,7 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
         </Section>
       ) : null}
 
-      <section className={cn(card, "overflow-hidden")} aria-label="Figures">
+      <section className={cn(card, "overflow-hidden")} aria-label={tt("Figures")}>
         {/* Hairlines between the figures are the 1px gaps of a grey grid behind white cells; blank cells finish the last row. */}
         <div className="grid grid-cols-2 gap-px bg-[#f1f2f4] sm:grid-cols-4" data-figures="">
           {figures.map((x) => (
@@ -117,11 +119,11 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         {head.eventsEnabled ? (
           <Section
-            title="Upcoming events"
+            title={tt("Upcoming events")}
             action={
               head.can.manage_events ? (
                 <Link href={`${base}/events`} className="-my-1 inline-flex min-h-10 items-center gap-1 text-[13px] font-medium text-[#4b5563] hover:text-[#1a1a2e] sm:min-h-8">
-                  All events
+                  {tt("All events")}
                   <ArrowRight aria-hidden className="h-3.5 w-3.5" />
                 </Link>
               ) : null
@@ -130,15 +132,15 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
             {/* ROUND 14: a price nobody can pay is said once. The checklist above says it when this person sees the checklist. */}
             {(data.pricedEventsUnsellable ?? 0) > 0 && !data.steps.some((s) => s.id === "event_payouts") ? (
               <p className="mb-3 rounded-xl border border-[#f1e3bd] bg-[#fdf8ea] px-3.5 py-2.5 text-[13px] leading-5 text-[#6b4e00]" data-events-unsellable="">
-                {data.pricedEventsUnsellable === 1 ? "One event has a ticket price, but payouts are not connected, so nobody can buy it." : `${data.pricedEventsUnsellable} events have a ticket price, but payouts are not connected, so nobody can buy them.`}
+                {data.pricedEventsUnsellable === 1 ? tt("One event has a ticket price, but payouts are not connected, so nobody can buy it.") : tt("{pricedEventsUnsellable} events have a ticket price, but payouts are not connected, so nobody can buy them.", { pricedEventsUnsellable: data.pricedEventsUnsellable })}
               </p>
             ) : null}
             {data.upcoming.length === 0 ? (
               <p className="text-[13.5px] text-[#6b7280]">
-                No events scheduled.{" "}
+                {tt("No events scheduled.")}{" "}
                 {head.can.manage_events ? (
                   <Link href={`${base}/events?new=1`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-                    Schedule one
+                    {tt("Schedule one")}
                   </Link>
                 ) : null}
               </p>
@@ -158,13 +160,13 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
                           {eventTime(e.startsAt, e.endsAt)} · {EVENT_KIND_LABEL[e.kind]}
                           <span className="sm:hidden">
                             {" "}
-                            · {e.goingCount} going
+                            · {tt("{goingCount} going", { goingCount: e.goingCount })}
                           </span>
                         </p>
                       </div>
                       <span className="hidden shrink-0 text-[12.5px] tabular-nums text-[#6b7280] sm:inline">
                         {e.goingCount}
-                        {e.capacity ? `/${e.capacity}` : ""} going
+                        {e.capacity ? `/${e.capacity}` : ""} {tt("going")}
                       </span>
                     </li>
                   )
@@ -174,9 +176,9 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
           </Section>
         ) : null}
 
-        <Section title="Waiting for you">
+        <Section title={tt("Waiting for you")}>
           {waiting.length === 0 ? (
-            <p className="text-[13.5px] text-[#6b7280]">All clear.</p>
+            <p className="text-[13.5px] text-[#6b7280]">{tt("All clear.")}</p>
           ) : (
             <ul className="-my-1">
               {waiting.map((w) => (
@@ -193,7 +195,7 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
             </ul>
           )}
           <div className="mt-4 border-t border-[#f1f2f4] pt-3">
-            <p className="mb-1.5 text-[12.5px] font-medium text-[#6b7280]">{head.status === "published" ? "Its address" : "Its address, once published"}</p>
+            <p className="mb-1.5 text-[12.5px] font-medium text-[#6b7280]">{head.status === "published" ? tt("Its address") : tt("Its address, once published")}</p>
             <CopyAddress path={data.publicUrl} />
           </div>
         </Section>

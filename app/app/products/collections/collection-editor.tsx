@@ -51,6 +51,7 @@ import {
   type Collection,
   type CollectionProduct,
 } from "./collection-parts"
+import { tt } from "@/lib/i18n/text"
 
 /** On a phone the sheet is the form's height whatever is in it, so switching between picking and rules never moves its top edge. */
 const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.9)"
@@ -130,11 +131,11 @@ export function CollectionEditor({
   const save = async () => {
     if (busy) return
     if (!body.title) {
-      setError("Give the collection a title.")
+      setError(tt("Give the collection a title."))
       titleRef.current?.focus()
       return
     }
-    if (kind === "smart" && body.rules.length === 0) return setError("Finish at least one condition: a field, how it compares and a value.")
+    if (kind === "smart" && body.rules.length === 0) return setError(tt("Finish at least one condition: a field, how it compares and a value."))
     setBusy(true)
     setError(null)
     const problem = await onSave(c?.id ?? null, body)
@@ -167,22 +168,22 @@ export function CollectionEditor({
   const pickedSet = new Set(picked)
   const toggle = (id: string) => setPicked((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]))
 
-  const heading = c ? "Edit collection" : "New collection"
+  const heading = c ? tt("Edit collection") : tt("New collection")
 
   const pickPanel = (
     <div data-pick-panel="" className="space-y-2">
       {products.length === 0 ? (
-        <p className={HINT}>Add a product first, then pick it here.</p>
+        <p className={HINT}>{tt("Add a product first, then pick it here.")}</p>
       ) : (
         <>
           {products.length > 6 ? (
             <label className="relative block">
               <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-              <input type="search" enterKeyHint="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products" aria-label="Search products" className={cn(FIELD, "pl-9 [&::-webkit-search-cancel-button]:hidden")} />
+              <input type="search" enterKeyHint="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search products")} aria-label={tt("Search products")} className={cn(FIELD, "pl-9 [&::-webkit-search-cancel-button]:hidden")} />
             </label>
           ) : null}
           {/* On a phone the list is part of the sheet's scroll, never a scroll inside a scroll; on a computer it keeps the dialog short. */}
-          <ul aria-label="Products" className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb] sm:max-h-[296px] sm:overflow-y-auto sm:overscroll-contain">
+          <ul aria-label={tt("Products")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb] sm:max-h-[296px] sm:overflow-y-auto sm:overscroll-contain">
             {shown.map((p) => {
               const on = pickedSet.has(p.id)
               return (
@@ -199,21 +200,21 @@ export function CollectionEditor({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] leading-5 text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
                       <span className="block truncate text-[13px] leading-[18px] text-[#6b7280] sm:text-[12px]">
-                        {KIND_LABEL[p.type] ?? "Product"}
-                        {p.status !== "published" ? " · Draft" : ""}
+                        {KIND_LABEL[p.type] ?? tt("Product")}
+                        {p.status !== "published" ? tt(" · Draft") : ""}
                       </span>
                     </span>
                   </button>
                 </li>
               )
             })}
-            {shown.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">No product matches that.</li> : null}
+            {shown.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
           </ul>
           <div className="flex min-h-8 items-center justify-between gap-3">
-            <p className={HINT}>{picked.length === 0 ? "None picked yet." : `${picked.length} of ${products.length} picked`}</p>
+            <p className={HINT}>{picked.length === 0 ? tt("None picked yet.") : tt("{length} of {length2} picked", { length: picked.length, length2: products.length })}</p>
             {picked.length > 0 ? (
               <button type="button" onClick={() => setPicked([])} className="relative h-8 shrink-0 cursor-pointer rounded-lg px-2 text-[14px] font-medium text-[#4b5563] after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-[''] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:text-[13px] sm:after:hidden">
-                Clear
+                {tt("Clear")}
               </button>
             ) : null}
           </div>
@@ -225,10 +226,10 @@ export function CollectionEditor({
   const rulesPanel = (
     <div data-rules-panel="" className="space-y-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[15px] text-[#4b5563] sm:text-[14px]">
-        <span>Products must match</span>
-        <select value={match} onChange={(e) => setMatch(e.target.value as "all" | "any")} aria-label="Which conditions" className={cn(SELECT, "h-10 w-auto rounded-[10px] font-medium sm:h-8 sm:rounded-lg sm:text-[13px]")}>
-          <option value="all">all conditions</option>
-          <option value="any">any condition</option>
+        <span>{tt("Products must match")}</span>
+        <select value={match} onChange={(e) => setMatch(e.target.value as "all" | "any")} aria-label={tt("Which conditions")} className={cn(SELECT, "h-10 w-auto rounded-[10px] font-medium sm:h-8 sm:rounded-lg sm:text-[13px]")}>
+          <option value="all">{tt("all conditions")}</option>
+          <option value="any">{tt("any condition")}</option>
         </select>
       </div>
       <div data-conditions="" className="overflow-hidden rounded-xl border border-[#e5e7eb]">
@@ -256,7 +257,7 @@ export function CollectionEditor({
             )}
           >
             <Plus aria-hidden className="h-4 w-4" />
-            Add condition
+            {tt("Add condition")}
           </button>
         ) : null}
       </div>
@@ -289,13 +290,13 @@ export function CollectionEditor({
           <div className="space-y-4">
             <div>
               <label htmlFor="collection-title" className={LABEL}>
-                Title
+                {tt("Title")}
               </label>
-              <input id="collection-title" ref={titleRef} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="New in, Courses, Under $30" autoComplete="off" className={FIELD} />
+              <input id="collection-title" ref={titleRef} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder={tt("New in, Courses, Under $30")} autoComplete="off" className={FIELD} />
             </div>
             <div>
               <label htmlFor="collection-description" className={LABEL}>
-                Description <span className="font-normal text-[#9ca3af]">optional</span>
+                {tt("Description")} <span className="font-normal text-[#9ca3af]">{tt("optional")}</span>
               </label>
               <textarea
                 id="collection-description"
@@ -303,16 +304,16 @@ export function CollectionEditor({
                 maxLength={5000}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                placeholder="Shown at the top of the collection's page"
+                placeholder={tt("Shown at the top of the collection's page")}
                 className={cn(FIELD, "h-auto min-h-[88px] resize-none py-2.5 sm:resize-y leading-[1.45]")}
               />
             </div>
           </div>
 
           <div className={cn(SWITCH_GROUP, "mt-5")}>
-            <SwitchRow title="Published" hint="Can be shown on your website" checked={published} onChange={setPublished} />
+            <SwitchRow title={tt("Published")} hint={tt("Can be shown on your website")} checked={published} onChange={setPublished} />
             <label className="flex min-h-[56px] items-center gap-3 px-4 py-2 sm:min-h-[52px]">
-              <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">Sort by</span>
+              <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{tt("Sort by")}</span>
               <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
                 {SORTS.map(([v, label]) => (
                   <option key={v} value={v}>
@@ -325,15 +326,15 @@ export function CollectionEditor({
 
           <section aria-labelledby="collection-products" className="mt-6 space-y-3">
             <h3 id="collection-products" className={SECTION_TITLE}>
-              Products
+              {tt("Products")}
             </h3>
             <Segmented
-              label="How products get in"
+              label={tt("How products get in")}
               value={kind}
               onChange={setKind}
               options={[
-                { value: "manual", label: "Pick products" },
-                { value: "smart", label: "Match by rules" },
+                { value: "manual", label: tt("Pick products") },
+                { value: "smart", label: tt("Match by rules") },
               ]}
             />
             <SwapPanels
@@ -354,7 +355,7 @@ export function CollectionEditor({
           {c ? (
             <div className="mt-6 border-t border-[#eef0f2] pt-4">
               <button type="button" data-delete-collection="" disabled={busy} onClick={() => onDelete(c)} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px] text-[#4b5563] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
-                Delete collection
+                {tt("Delete collection")}
               </button>
             </div>
           ) : null}
@@ -362,7 +363,7 @@ export function CollectionEditor({
 
         <div data-editor-foot="" className="grid shrink-0 grid-cols-2 gap-2.5 border-t border-[#eef0f2] px-5 pt-3 sm:flex sm:justify-end sm:gap-2 sm:px-6 sm:pb-3">
           <button type="button" onClick={close} disabled={busy} className={cn(secondaryDepth, FOOT_BUTTON)}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button
             type="button"
@@ -372,10 +373,10 @@ export function CollectionEditor({
             aria-busy={busy || undefined}
             className={cn(primaryDepth, FOOT_BUTTON, "relative sm:min-w-[60px]", "disabled:cursor-default disabled:bg-[#ebebef] disabled:text-[#a1a1aa] disabled:shadow-none", busy && "cursor-default")}
           >
-            <span className={cn(busy && "opacity-0")}>{c ? "Save" : "Create"}</span>
+            <span className={cn(busy && "opacity-0")}>{c ? tt("Save") : tt("Create")}</span>
             {busy ? (
               <span aria-hidden className="absolute inset-0 flex items-center justify-center">
-                <ActivitySpinner size={18} label="Saving" className="text-white" />
+                <ActivitySpinner size={18} label={tt("Saving")} className="text-white" />
               </span>
             ) : null}
           </button>
@@ -416,14 +417,14 @@ function RuleRow({
   const n = index + 1
   return (
     <div data-condition="" className="grid grid-cols-2 gap-2 border-[#eef0f2] p-3 [div+&]:border-t sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto] sm:items-center sm:p-2.5">
-      <select value={rule.field} onChange={(e) => onField(e.target.value as RuleField)} aria-label={`Condition ${n}: field`} className={SELECT}>
+      <select value={rule.field} onChange={(e) => onField(e.target.value as RuleField)} aria-label={tt("Condition {n}: field", { n })} className={SELECT}>
         {fields.map((f) => (
           <option key={f} value={f}>
             {fieldWords(f)}
           </option>
         ))}
       </select>
-      <select value={rule.op} onChange={(e) => onOp(e.target.value as RuleOp)} aria-label={`Condition ${n}: how it compares`} className={SELECT}>
+      <select value={rule.op} onChange={(e) => onOp(e.target.value as RuleOp)} aria-label={tt("Condition {n}: how it compares", { n })} className={SELECT}>
         {ops.map((o) => (
           <option key={o} value={o}>
             {OP_WORDS[o]}
@@ -432,9 +433,9 @@ function RuleRow({
       </select>
       <div className="col-span-2 flex min-w-0 items-center gap-2 sm:contents">
         {rule.field === "type" ? (
-          <select value={rule.value} onChange={(e) => onValue(e.target.value)} aria-label={`Condition ${n}: product type`} className={cn(SELECT, "flex-1", !rule.value && "text-[#9ca3af]")}>
+          <select value={rule.value} onChange={(e) => onValue(e.target.value)} aria-label={tt("Condition {n}: product type", { n })} className={cn(SELECT, "flex-1", !rule.value && "text-[#9ca3af]")}>
             <option value="" disabled>
-              Choose a type
+              {tt("Choose a type")}
             </option>
             {PRODUCT_KINDS.filter(([k]) => physical || k !== "physical" || rule.value === k).map(([k, label]) => (
               <option key={k} value={k} className="text-[#1a1a2e]">
@@ -449,8 +450,8 @@ function RuleRow({
               value={rule.value}
               onChange={(e) => onValue(e.target.value)}
               inputMode={NUMERIC_FIELDS.has(rule.field) ? "decimal" : undefined}
-              aria-label={`Condition ${n}: value`}
-              placeholder={money ? "30" : rule.field === "weight" ? "Grams" : rule.field === "inventory" ? "10" : rule.field === "tag" ? "summer" : rule.field === "category" ? "T-Shirts" : "Word"}
+              aria-label={tt("Condition {n}: value", { n })}
+              placeholder={money ? "30" : rule.field === "weight" ? tt("Grams") : rule.field === "inventory" ? "10" : rule.field === "tag" ? "summer" : rule.field === "category" ? tt("T-Shirts") : tt("Word")}
               autoComplete="off"
               list={rule.field === "category" ? `collection-categories-${n}` : undefined}
               className={cn(FIELD, money && "pl-7", NUMERIC_FIELDS.has(rule.field) && "tabular-nums")}
@@ -468,7 +469,7 @@ function RuleRow({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`Remove condition ${n}`}
+          aria-label={tt("Remove condition {n}", { n })}
           className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-[#6b7280] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:bg-[#f1f2f4] active:bg-[#eceef1] sm:h-8 sm:w-8 sm:rounded-lg"
         >
           <X className="h-4 w-4" />
@@ -484,9 +485,9 @@ function Caught({ finished, caught }: { finished: number; caught: CollectionProd
   return (
     <div data-caught="" aria-live="polite" className="rounded-xl bg-[#f6f7f8] px-3.5 py-3">
       {finished === 0 ? (
-        <p className={HINT}>Finish a condition to see which products it catches.</p>
+        <p className={HINT}>{tt("Finish a condition to see which products it catches.")}</p>
       ) : caught.length === 0 ? (
-        <p className={HINT}>No products match yet.</p>
+        <p className={HINT}>{tt("No products match yet.")}</p>
       ) : (
         <>
           <p className="text-[13px] leading-5 text-[#4b5563]">
@@ -498,12 +499,12 @@ function Caught({ finished, caught }: { finished: number; caught: CollectionProd
                 <ProductThumb src={p.thumbnail_url} title={p.title} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] leading-5 text-[#1a1a2e] sm:text-[13px]">{p.title}</span>
-                  <span className="block truncate text-[12px] leading-4 text-[#6b7280]">{KIND_LABEL[p.type] ?? "Product"}</span>
+                  <span className="block truncate text-[12px] leading-4 text-[#6b7280]">{KIND_LABEL[p.type] ?? tt("Product")}</span>
                 </span>
               </li>
             ))}
           </ul>
-          {caught.length > first.length ? <p className="mt-2 text-[12.5px] text-[#6b7280]">and {caught.length - first.length} more</p> : null}
+          {caught.length > first.length ? <p className="mt-2 text-[12.5px] text-[#6b7280]">{tt("and {value} more", { value: caught.length - first.length })}</p> : null}
         </>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * THE PART OF THE PREVIEW YOU CAN ACTUALLY SEE. The preview root sits inside
@@ -69,7 +70,7 @@ function holesFor(box: DOMRect, panels: DOMRect[]): string | undefined {
   const o = 2
   const outer = `M${-o} ${-o}H${box.width + o}V${box.height + o}H${-o}Z`
   const cut = holes.map((h) => `M${h.left - box.left} ${h.top - box.top}H${h.right - box.left}V${h.bottom - box.top}H${h.left - box.left}Z`).join("")
-  return `path(evenodd, "${outer}${cut}")`
+  return tt("path(evenodd, \"{outer}{cut}\")", { outer, cut })
 }
 
 function overlaps(a: DOMRect, panels: DOMRect[]): boolean {

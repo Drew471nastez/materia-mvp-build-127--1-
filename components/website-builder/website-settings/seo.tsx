@@ -4,6 +4,7 @@ import { useState } from "react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
 
@@ -16,8 +17,8 @@ function previewOf(ctx: SettingsContext) {
   const handle = ctx.websiteUrlDisplay.split(".")[0] || "Storelib"
   const brand = str(ctx.settings.brand_name).trim() || handle
   return {
-    title: str(ctx.settings.seo_title).trim() || `${handle} | Storelib`,
-    description: str(ctx.settings.seo_description).trim() || `Visit ${brand}'s website on Storelib`,
+    title: str(ctx.settings.seo_title).trim() || tt("{handle} | Storelib", { handle }),
+    description: str(ctx.settings.seo_description).trim() || tt("Visit {brand}'s website on Storelib", { brand }),
   }
 }
 
@@ -37,7 +38,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle>SEO & Social</PageTitle>
+      <PageTitle>{tt("SEO & Social")}</PageTitle>
 
       {/* What a search result looks like, drawn from the same fallbacks the
           live page uses, in a search page's own dark colours. */}
@@ -46,7 +47,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
       </div>
 
       <Card footer={GOES_LIVE}>
-        <Row label="Site title" hint="The first line of a search result and the browser tab on your home page." stack htmlFor="wb-seo-title">
+        <Row label={tt("Site title")} hint={tt("The first line of a search result and the browser tab on your home page.")} stack htmlFor="wb-seo-title">
           <div className="flex flex-col gap-1.5">
             <input
               id="wb-seo-title"
@@ -59,7 +60,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
             <Counter value={title} max={60} />
           </div>
         </Row>
-        <Row label="Meta description" hint="The line under the title. One or two sentences about what you sell." stack htmlFor="wb-seo-description">
+        <Row label={tt("Meta description")} hint={tt("The line under the title. One or two sentences about what you sell.")} stack htmlFor="wb-seo-description">
           <div className="flex flex-col gap-1.5">
             <textarea
               id="wb-seo-description"
@@ -81,7 +82,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
           from here is a choice to remove. A value saved before still reads
           (theme-metadata.ts).
         */}
-        <Row label="Social image" hint="Shown when a link to your website is shared. 1200 × 630 works everywhere." stack>
+        <Row label={tt("Social image")} hint={tt("Shown when a link to your website is shared. 1200 × 630 works everywhere.")} stack>
           <div className="flex max-w-[420px] flex-col gap-3">
             <SharePreview image={image} title={preview.title} description={preview.description} address={ctx.websiteUrlDisplay} />
             <div className="dark">
@@ -90,11 +91,11 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
           </div>
         </Row>
         <Row
-          label="Search engines"
-          hint={listed ? "Google and others may list this website." : "Search engines are asked not to list this website."}
+          label={tt("Search engines")}
+          hint={listed ? tt("Google and others may list this website.") : tt("Search engines are asked not to list this website.")}
           inline
         >
-          <Toggle checked={listed} onChange={(on) => ctx.onSettingChange("seo_robots", on)} label="Let search engines list this website" />
+          <Toggle checked={listed} onChange={(on) => ctx.onSettingChange("seo_robots", on)} label={tt("Let search engines list this website")} />
         </Row>
       </Card>
     </>
@@ -111,13 +112,13 @@ function SharePreview({ image, title, description, address }: { image?: string; 
   const shown = image && failed !== image ? image : null
   return (
     /* A shared link as a messaging app draws it in its dark theme, on the page's own dark (it was a white card). */
-    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1c1e] text-left" aria-label="Shared link preview" data-share-preview="">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1c1e] text-left" aria-label={tt("Shared link preview")} data-share-preview="">
       <div className="relative aspect-[1200/630] w-full bg-white/[0.04]">
         {shown ? (
           <img src={shown} alt="" className="absolute inset-0 h-full w-full object-cover" onError={() => setFailed(shown)} />
         ) : (
           <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[12.5px] text-white/45">
-            No picture yet. Your logo or first hero picture is used instead.
+            {tt("No picture yet. Your logo or first hero picture is used instead.")}
           </p>
         )}
       </div>

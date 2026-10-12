@@ -31,6 +31,7 @@ import { ChevronDown, ExternalLink, Loader2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { plainWords, type EditorSyncReport, type PendingChanges, type ReportFile, type SyncAction } from "@/lib/github-sync/editor-status"
+import { tt } from "@/lib/i18n/text"
 
 /* ── reading it ────────────────────────────────────────────────────────── */
 
@@ -116,13 +117,13 @@ interface Shown {
 }
 
 const ACTION_LABEL: Record<SyncAction, string> = {
-  retry: "Try again",
-  pull: "Bring them in",
-  push: "Send to GitHub",
-  reconnect: "Reconnect",
-  repo: "Pick repository",
-  open: "Open in GitHub",
-  reset: "Put back Storelib's version",
+  get retry() { return tt("Try again") },
+  get pull() { return tt("Bring them in") },
+  get push() { return tt("Send to GitHub") },
+  get reconnect() { return tt("Reconnect") },
+  get repo() { return tt("Pick repository") },
+  get open() { return tt("Open in GitHub") },
+  get reset() { return tt("Put back Storelib's version") },
 }
 
 const DOT: Record<Tone, string> = {
@@ -229,8 +230,8 @@ export function SyncNotice({
     shown = {
       key: "conflict",
       tone: "warn",
-      title: `GitHub changed ${conflict.what} while you were editing it`,
-      body: "Keep your edits, or use the version from GitHub. Nothing is saved until you pick.",
+      title: tt("GitHub changed {what} while you were editing it", { what: conflict.what }),
+      body: tt("Keep your edits, or use the version from GitHub. Nothing is saved until you pick."),
       primary: null,
       details: false,
     }
@@ -240,12 +241,12 @@ export function SyncNotice({
     shown = {
       key: r.key,
       tone: p && p.kind !== "unread" && p.kind !== "too-many" ? "error" : "warn",
-      title: p ? p.title : `${failedCount} file${failedCount === 1 ? "" : "s"} didn't sync`,
+      title: p ? p.title : tt("{failedCount, plural, one {# file} other {# files}} didn't sync", { failedCount }),
       body: p
         ? p.body
         : r.taken > 0
-          ? `${r.taken} came in${live ? " and are ready to publish" : ""}. Fix the rest on GitHub and push again.`
-          : "Fix them on GitHub and push again. Your site is unchanged.",
+          ? tt("{taken} came in{value}. Fix the rest on GitHub and push again.", { taken: r.taken, value: live ? tt(" and are ready to publish") : "" })
+          : tt("Fix them on GitHub and push again. Your site is unchanged."),
       primary: first ? { label: ACTION_LABEL[first], run: () => void run(first) } : null,
       details: failedCount > 0 || r.notes.length > 0 || !!p,
     }
@@ -254,8 +255,8 @@ export function SyncNotice({
     shown = {
       key: r.key,
       tone: "info",
-      title: `${n} file${n === 1 ? "" : "s"} updated from GitHub`,
-      body: live ? "Publish to make them live." : "They're saved in your draft.",
+      title: tt("{n, plural, one {# file} other {# files}} updated from GitHub", { n }),
+      body: live ? tt("Publish to make them live.") : tt("They're saved in your draft."),
       primary: live ? { label: "Publish", run: onPublish } : null,
       details: r.takenNames.length > 0 || r.notes.length > 0,
     }
@@ -263,8 +264,8 @@ export function SyncNotice({
     shown = {
       key: "agent",
       tone: "info",
-      title: `${agentNote.count} change${agentNote.count === 1 ? "" : "s"} from ${agentNote.who}`,
-      body: live ? "Publish to make them live." : "They're saved in your draft.",
+      title: tt("{count, plural, one {# change} other {# changes}} from {who}", { count: agentNote.count, who: agentNote.who }),
+      body: live ? tt("Publish to make them live.") : tt("They're saved in your draft."),
       primary: live ? { label: "Publish", run: onPublish } : null,
       details: false,
     }
@@ -272,8 +273,8 @@ export function SyncNotice({
     shown = {
       key: `ignored|${r.ignored.at}`,
       tone: "quiet",
-      title: `A push to ${r.ignored.branch} wasn't brought in`,
-      body: `This site follows ${r.branch ?? "another branch"}. Merge it into ${r.branch ?? "that branch"} on GitHub to bring it in.`,
+      title: tt("A push to {branch} wasn't brought in", { branch: r.ignored.branch }),
+      body: tt("This site follows {value}. Merge it into {value2} on GitHub to bring it in.", { value: r.branch ?? tt("another branch"), value2: r.branch ?? tt("that branch") }),
       primary: null,
       details: false,
     }
@@ -307,8 +308,8 @@ export function SyncNotice({
           ))
         : (
             <>
-              <ActionButton label="Try again" busy={busy === "pull:"} onClick={() => void run("pull")} primary />
-              {r.canSendSite && <ActionButton label="Replace them on GitHub with your site's version" busy={busy === "push:"} onClick={() => void run("push")} />}
+              <ActionButton label={tt("Try again")} busy={busy === "pull:"} onClick={() => void run("pull")} primary />
+              {r.canSendSite && <ActionButton label={tt("Replace them on GitHub with your site's version")} busy={busy === "push:"} onClick={() => void run("push")} />}
             </>
           )}
     </div>
@@ -337,23 +338,23 @@ export function SyncNotice({
         >
           <span className={cn("block text-[13px] font-semibold text-[#1a1a2e]", phone ? "line-clamp-2" : "truncate")}>{s.title}</span>
           <span className={cn("block text-[12px] text-[#6b7280]", phone ? "line-clamp-2" : "truncate")}>
-            {phone && s.details ? <span className="font-medium text-[#1a1a2e] underline underline-offset-2">See details</span> : s.body}
+            {phone && s.details ? <span className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("See details")}</span> : s.body}
           </span>
         </span>
         {s.key === "conflict" ? (
           phone ? null : <>
             <button type="button" onClick={onKeepMine} className={secondaryBtn}>
-              Keep mine
+              {tt("Keep mine")}
             </button>
             <button type="button" onClick={onUseTheirs} className={primaryBtn}>
-              Use GitHub's
+              {tt("Use GitHub's")}
             </button>
           </>
         ) : (
           <>
             {s.details && !phone && (
               <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className={secondaryBtn}>
-                <span>Details</span>
+                <span>{tt("Details")}</span>
                 {!phone && <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />}
               </button>
             )}
@@ -364,7 +365,7 @@ export function SyncNotice({
             )}
             <button
               type="button"
-              aria-label="Dismiss"
+              aria-label={tt("Dismiss")}
               onClick={close}
               className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] outline-none transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] max-sm:h-10 max-sm:w-10"
             >
@@ -377,10 +378,10 @@ export function SyncNotice({
       {phone && s.key === "conflict" && (
         <div className="flex gap-2 px-3.5 pb-3">
           <button type="button" onClick={onKeepMine} className={cn(secondaryBtn, "flex-1 justify-center border border-[#e5e7eb]")}>
-            Keep mine
+            {tt("Keep mine")}
           </button>
           <button type="button" onClick={onUseTheirs} className={cn(primaryBtn, "flex-1 justify-center")}>
-            Use GitHub's
+            {tt("Use GitHub's")}
           </button>
         </div>
       )}
@@ -460,10 +461,10 @@ function SyncDetails({ report, busy, onRun, showTaken }: { report: EditorSyncRep
     <div className="text-[13px]">
       {showTaken && report.takenNames.length > 0 && (
         <div className="px-3.5 py-3">
-          <p className="text-[12px] font-medium text-[#6b7280]">Updated</p>
+          <p className="text-[12px] font-medium text-[#6b7280]">{tt("Updated")}</p>
           <p className="mt-1 text-[13px] text-[#1a1a2e]">
             {report.takenNames.join(", ")}
-            {report.taken > report.takenNames.length ? ` and ${report.taken - report.takenNames.length} more` : ""}
+            {report.taken > report.takenNames.length ? tt(" and {value} more", { value: report.taken - report.takenNames.length }) : ""}
           </p>
         </div>
       )}
@@ -484,7 +485,7 @@ function SyncDetails({ report, busy, onRun, showTaken }: { report: EditorSyncRep
                       rel="noopener noreferrer"
                       className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[12px] font-medium text-[#1a1a2e] hover:bg-[#f9fafb] max-sm:min-h-10"
                     >
-                      Open in GitHub
+                      {tt("Open in GitHub")}
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
@@ -504,12 +505,12 @@ function SyncDetails({ report, busy, onRun, showTaken }: { report: EditorSyncRep
               )}
             </li>
           ))}
-          {report.moreFiles > 0 && <li className="px-3.5 py-2.5 text-[12px] text-[#6b7280]">and {report.moreFiles} more, listed on the commit on GitHub</li>}
+          {report.moreFiles > 0 && <li className="px-3.5 py-2.5 text-[12px] text-[#6b7280]">{tt("and {moreFiles} more, listed on the commit on GitHub", { moreFiles: report.moreFiles })}</li>}
         </ul>
       )}
       {report.notes.length > 0 && (
         <div className="border-t border-[#eceef1] px-3.5 py-3">
-          <p className="text-[12px] font-medium text-[#6b7280]">Good to know</p>
+          <p className="text-[12px] font-medium text-[#6b7280]">{tt("Good to know")}</p>
           <ul className="mt-1 space-y-1">
             {report.notes.map((n, i) => (
               <li key={i} className="text-[12px] text-[#4b5563]">{n}</li>
@@ -520,7 +521,7 @@ function SyncDetails({ report, busy, onRun, showTaken }: { report: EditorSyncRep
       {report.commitUrl && (
         <div className="border-t border-[#eceef1] px-3.5 py-2.5">
           <a href={report.commitUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12px] text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-            Commit {report.commit} on GitHub
+            {tt("Commit {commit} on GitHub", { commit: report.commit })}
             <ExternalLink className="h-3 w-3" />
           </a>
         </div>

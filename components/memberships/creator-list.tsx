@@ -23,22 +23,23 @@ import { cn } from "@/lib/utils"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, StatusBadge, card } from "@/app/app/orders/order-parts"
 import { money, pricePer } from "@/lib/memberships/state"
 import type { CreatorMembershipRow } from "@/lib/memberships/view-types"
+import { tt } from "@/lib/i18n/text"
 
 function priceLine(r: CreatorMembershipRow): string {
   const parts = [r.monthlyPriceCents ? pricePer(r.monthlyPriceCents, "month") : "", r.yearlyPriceCents ? pricePer(r.yearlyPriceCents, "year") : ""].filter(Boolean)
-  return parts.length ? parts.join(" or ") : "No price yet"
+  return parts.length ? parts.join(" or ") : tt("No price yet")
 }
 
 export function CreatorMembershipsList({ rows }: { rows: CreatorMembershipRow[] }) {
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-creator-memberships="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Memberships</h1>
+        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Memberships")}</h1>
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         {rows.length === 0 ? (
-          <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")}>No memberships.</div>
+          <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")}>{tt("No memberships.")}</div>
         ) : (
           <ul className={cn(card, "mt-3 divide-y divide-[#f1f2f4] overflow-hidden")}>
             {rows.map((r) => (
@@ -53,7 +54,7 @@ export function CreatorMembershipsList({ rows }: { rows: CreatorMembershipRow[] 
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
                       <p className="truncate text-[15px] font-semibold text-[#1a1a2e]">{r.title}</p>
-                      <StatusBadge tone={r.status === "published" ? "success" : "neutral"}>{r.status === "published" ? "On sale" : "Draft"}</StatusBadge>
+                      <StatusBadge tone={r.status === "published" ? "success" : "neutral"}>{r.status === "published" ? tt("On sale") : tt("Draft")}</StatusBadge>
                     </div>
                     <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{priceLine(r)}</p>
                   </div>
@@ -63,7 +64,7 @@ export function CreatorMembershipsList({ rows }: { rows: CreatorMembershipRow[] 
                   </div>
                   <div className="hidden w-[120px] text-right sm:block">
                     <p className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(r.stats.monthlyCents)}</p>
-                    <p className="text-[12px] text-[#6b7280]">a month</p>
+                    <p className="text-[12px] text-[#6b7280]">{tt("a month")}</p>
                   </div>
                   <p className="text-[13px] tabular-nums text-[#6b7280] sm:hidden">{r.stats.members}</p>
                   <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2]" />

@@ -12,6 +12,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { PickerDivider, PickerRow, onRowsKey, pickerSurface, usePhone } from "@/components/app/date-range-picker"
 import { cn } from "@/lib/utils"
 import { SegmentEditor } from "./segment-editor"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export interface AudienceOption {
   type: string
@@ -28,21 +30,21 @@ export interface Audience {
   segmentId: string | null
 }
 
-const n = (v: number | null | undefined) => (typeof v === "number" ? v.toLocaleString("en-US") : "")
+const n = (v: number | null | undefined) => (typeof v === "number" ? v.toLocaleString(appLocale()) : "")
 
 export function audienceLabel(a: Audience, options: AudienceOption[], segments: SegmentOption[]): { label: string; count: number | null } {
   if (a.type === "segment") {
     const s = segments.find((x) => x.id === a.segmentId)
-    return { label: s ? s.name : "A segment", count: s?.count ?? null }
+    return { label: s ? s.name : tt("A segment"), count: s?.count ?? null }
   }
-  if (a.type === "last_24h") return { label: "Joined in the last 24 hours", count: null }
+  if (a.type === "last_24h") return { label: tt("Joined in the last 24 hours"), count: null }
   const o = options.find((x) => x.type === a.type) ?? options[0]
-  return { label: o?.label ?? "All subscribers", count: o?.count ?? null }
+  return { label: o?.label ?? tt("All subscribers"), count: o?.count ?? null }
 }
 
 function Rows({ value, options, segments, compact, onPick, onNew }: { value: Audience; options: AudienceOption[]; segments: SegmentOption[]; compact: boolean; onPick: (a: Audience) => void; onNew?: () => void }) {
   return (
-    <div role="menu" aria-label="Audience" onKeyDown={onRowsKey} className={compact ? "px-2 pb-3" : "max-h-[360px] overflow-y-auto p-1.5"}>
+    <div role="menu" aria-label={tt("Audience")} onKeyDown={onRowsKey} className={compact ? "px-2 pb-3" : "max-h-[360px] overflow-y-auto p-1.5"}>
       {options.map((o) => (
         <PickerRow key={o.type} rowKey={o.type} compact={compact} checked={value.type === o.type} detail={n(o.count)} onClick={() => onPick({ type: o.type, segmentId: null })}>
           {o.label}
@@ -51,7 +53,7 @@ function Rows({ value, options, segments, compact, onPick, onNew }: { value: Aud
       {segments.length ? (
         <>
           <PickerDivider compact={compact} />
-          <p className={cn("px-3 pb-1 pt-1.5 font-medium text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")}>Segments</p>
+          <p className={cn("px-3 pb-1 pt-1.5 font-medium text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")}>{tt("Segments")}</p>
           {segments.map((s) => (
             <PickerRow key={s.id} rowKey={s.id} compact={compact} checked={value.type === "segment" && value.segmentId === s.id} detail={n(s.count)} onClick={() => onPick({ type: "segment", segmentId: s.id })}>
               {s.name}
@@ -70,7 +72,7 @@ function Rows({ value, options, segments, compact, onPick, onNew }: { value: Aud
             data-new-segment=""
           >
             <Plus className="h-4 w-4 text-[#6b7280]" aria-hidden />
-            New segment
+            {tt("New segment")}
           </button>
         </>
       ) : null}
@@ -132,7 +134,7 @@ export function AudiencePicker({
     return (
       <>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Send to" hideFrom="sm">
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Send to")} hideFrom="sm">
           <Rows value={value} options={options} segments={segments} compact onPick={pick} onNew={onNew} />
         </BottomSheet>
         {editor}

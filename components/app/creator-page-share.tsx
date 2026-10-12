@@ -41,6 +41,7 @@ import { Check, Copy, ExternalLink, Globe, ShieldCheck } from "lucide-react"
 import { InlinePanel } from "@/components/app/inline-panel"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { tt } from "@/lib/i18n/text"
 
 interface Domain {
   domain?: string | null
@@ -134,14 +135,14 @@ export function CreatorPageShare({
       */}
       <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
         <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-        <h2 className="text-[20px] font-semibold leading-none text-white">Your page is live</h2>
+        <h2 className="text-[20px] font-semibold leading-none text-white">{tt("Your page is live")}</h2>
       </div>
 
       <div className="space-y-5 px-5 pb-5 pt-3 text-white">
-        <p className="text-[15px] text-white/60">Every edit shows up straight away. There is nothing to publish.</p>
+        <p className="text-[15px] text-white/60">{tt("Every edit shows up straight away. There is nothing to publish.")}</p>
 
         <div>
-          <p className="mb-2.5 text-[15px] font-medium">Page address</p>
+          <p className="mb-2.5 text-[15px] font-medium">{tt("Page address")}</p>
           <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
             <div className="flex items-center gap-3 px-4 py-3.5">
               <Globe className="h-4 w-4 shrink-0 text-white/50" strokeWidth={1.75} />
@@ -150,7 +151,7 @@ export function CreatorPageShare({
                 type="button"
                 onClick={() => void copy()}
                 className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Copy address"
+                aria-label={tt("Copy address")}
               >
                 {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
               </button>
@@ -159,8 +160,8 @@ export function CreatorPageShare({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Open my page"
-                title="Open my page"
+                aria-label={tt("Open my page")}
+                title={tt("Open my page")}
               >
                 <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
               </a>
@@ -168,7 +169,7 @@ export function CreatorPageShare({
 
             <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px] text-white/70">
               <Globe className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
-              Visible to anyone with the link
+              {tt("Visible to anyone with the link")}
             </div>
 
             {/*
@@ -185,17 +186,17 @@ export function CreatorPageShare({
                 {domain?.domain
                   ? domain.status === "active"
                     ? domain.domain
-                    : `${domain.domain}, waiting on DNS`
-                  : "Add a custom domain"}
+                    : tt("{domain}, waiting on DNS", { domain: domain.domain })
+                  : tt("Add a custom domain")}
               </span>
-              <span className="shrink-0 text-white/50">{domain?.domain ? "Manage" : "Set up"}</span>
+              <span className="shrink-0 text-white/50">{domain?.domain ? tt("Manage") : tt("Set up")}</span>
             </a>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 text-[14px] text-white/80">
           <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
-          No security issues found
+          {tt("No security issues found")}
         </div>
 
         <a
@@ -205,7 +206,7 @@ export function CreatorPageShare({
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-[15px] font-semibold text-[#111113] no-underline shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_-1px_0_rgba(0,0,0,0.08)] transition-colors hover:bg-white/90 active:bg-white/80"
         >
           <ExternalLink className="h-4 w-4" />
-          Open my page
+          {tt("Open my page")}
         </a>
       </div>
     </div>
@@ -225,7 +226,7 @@ export function CreatorPageShare({
       <BottomSheet
         isOpen={open}
         onClose={onClose}
-        label="Your creator page"
+        label={tt("Your creator page")}
         hideFrom={null}
         className="bg-[#1f1f1f]"
       >
@@ -242,7 +243,7 @@ export function CreatorPageShare({
     <InlinePanel
       open={open}
       onClose={onClose}
-      label="Your creator page"
+      label={tt("Your creator page")}
       className="right-3 top-[56px] w-[420px] max-w-[calc(100vw-16px)]"
       surfaceClassName="border border-white/10 bg-[#1f1f1f] shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)] [will-change:transform,opacity]"
       /*

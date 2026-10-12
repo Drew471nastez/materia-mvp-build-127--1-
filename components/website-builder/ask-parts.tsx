@@ -28,6 +28,7 @@ import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-
 import { chosenOption, type AskQuestion } from "@/lib/website-builder/ask-activity"
 import { optionAction, readImageUrl, type QuestionAction } from "@/lib/sites/agent/questions"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: () => void }) {
   return (
@@ -35,7 +36,7 @@ export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: (
       type="button"
       data-ask-connect=""
       onClick={onClick}
-      title="Use your own ChatGPT here, or connect Claude Code or Codex"
+      title={tt("Use your own ChatGPT here, or connect Claude Code or Codex")}
       className={cn(
         "relative flex shrink-0 items-center gap-1.5 rounded-full border border-black/[0.08] bg-white pl-1 pr-2.5 text-[12.5px] font-medium text-[#1a1a2e]/80 transition-colors",
         "hover:border-black/[0.16] hover:text-[#1a1a2e] active:bg-black/[0.03]",
@@ -50,7 +51,7 @@ export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: (
           <OpenAIMark className="h-3 w-3 text-black" />
         </span>
       </span>
-      Connect AI
+      {tt("Connect AI")}
     </button>
   )
 }
@@ -82,7 +83,7 @@ export function ModeSwitch({
   return (
     <div
       role="radiogroup"
-      aria-label="What to ask for"
+      aria-label={tt("What to ask for")}
       data-ask-modes=""
       data-mode={mode}
       className="relative grid shrink-0 grid-cols-2 rounded-full bg-black/[0.045] p-0.5"
@@ -258,7 +259,7 @@ export function QuestionChoices({
                   answered && !picked && "border-[#e5e7eb] bg-transparent text-[#6b7280]/80",
                 )}
               >
-                {uploading && uploadOption.current === option ? "Uploading" : option}
+                {uploading && uploadOption.current === option ? tt("Uploading") : option}
               </button>
             )
           })}
@@ -281,7 +282,7 @@ export function QuestionChoices({
               const url = await onUpload(file)
               onImage(url, "upload_image", uploadOption.current)
             } catch (thrown) {
-              setProblem(thrown instanceof Error && thrown.message ? thrown.message : "The upload did not go through. Try again.")
+              setProblem(thrown instanceof Error && thrown.message ? thrown.message : tt("The upload did not go through. Try again."))
             } finally {
               setUploading(false)
             }
@@ -330,7 +331,7 @@ export function ImageUrlField({ phone, onUse, onCancel }: { phone: boolean; onUs
   /* A path on the creator's own site is drawn there, not here: it is used as it is. */
   const sitePath = !!url && url.startsWith("/")
   const usable = !!url && (loaded === "ok" || sitePath)
-  const message = !value.trim() ? null : read.ok === false ? read.error : loaded === "broken" && !sitePath ? "That address does not open as a picture." : null
+  const message = !value.trim() ? null : read.ok === false ? read.error : loaded === "broken" && !sitePath ? tt("That address does not open as a picture.") : null
   return (
     <form
       data-ask-image-url=""
@@ -365,7 +366,7 @@ export function ImageUrlField({ phone, onUse, onCancel }: { phone: boolean; onUs
           inputMode="url"
           autoComplete="off"
           spellCheck={false}
-          aria-label="Picture address"
+          aria-label={tt("Picture address")}
           aria-invalid={message ? true : undefined}
           placeholder="https://"
           onChange={(event) => setValue(event.target.value)}
@@ -381,7 +382,7 @@ export function ImageUrlField({ phone, onUse, onCancel }: { phone: boolean; onUs
           disabled={!usable}
           className={cn("shrink-0 rounded-full bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white disabled:opacity-40", phone ? "h-10" : "h-8")}
         >
-          Use it
+          {tt("Use it")}
         </button>
       </div>
       {message && (
@@ -417,20 +418,20 @@ export function ScopeChip({
     return (
       <span
         data-ask-scope="locked"
-        title={`Only ${name} will change`}
+        title={tt("Only {name} will change", { name })}
         className={cn(
           "inline-flex min-w-0 items-center gap-1 rounded-full border border-[#1a1a2e]/12 bg-white pl-2.5 pr-1 text-[12px] text-[#1a1a2e]",
           phone ? "h-9" : "h-7",
         )}
       >
         <span className="min-w-0 truncate">
-          <span className="text-[#6b7280]">Editing:</span> {name}
+          <span className="text-[#6b7280]">{tt("Editing:")}</span> {name}
         </span>
         <button
           type="button"
           onClick={onUnlock}
-          aria-label={`Stop editing only ${name}`}
-          title="Edit the whole page instead"
+          aria-label={tt("Stop editing only {name}", { name })}
+          title={tt("Edit the whole page instead")}
           className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors after:absolute after:-inset-3 after:content-[''] hover:bg-black/[0.06] hover:text-[#1a1a2e]"
         >
           <X className="h-3 w-3" strokeWidth={2.25} />
@@ -448,7 +449,7 @@ export function ScopeChip({
         phone ? "h-9 after:absolute after:-inset-y-1 after:inset-x-0 after:content-['']" : "h-7",
       )}
     >
-      <span className="min-w-0 truncate">Limit to {name}</span>
+      <span className="min-w-0 truncate">{tt("Limit to {name}", { name })}</span>
     </button>
   )
 }

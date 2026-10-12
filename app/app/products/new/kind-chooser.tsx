@@ -51,6 +51,7 @@ import { openEditor, returnToProducts } from "../list-return"
 import { NEW_PRODUCT_HREF, editorHref, kindHref, kindOptions, type ProductKind } from "./product-kinds"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
+import { tt } from "@/lib/i18n/text"
 
 type Router = ReturnType<typeof useRouter>
 
@@ -232,7 +233,7 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
       <div ref={body} data-new-product-chooser="" className="px-2 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-1 md:pb-2 md:pt-2">
         <div className="flex items-center justify-between gap-3 pb-2 pl-3 pr-1 md:pt-1">
           <SheetDialogTitle className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{CHOOSER_TITLE}</SheetDialogTitle>
-          <button type="button" onClick={close} aria-label="Close" className={cn(CLOSE, "max-md:hidden")}>
+          <button type="button" onClick={close} aria-label={tt("Close")} className={cn(CLOSE, "max-md:hidden")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -276,7 +277,7 @@ export function NewProductKindPage({ communities: communitiesOn }: { communities
     <div data-kind-page="" className="mx-auto w-full max-w-[560px] px-4 pb-24 pt-[calc(env(safe-area-inset-top,0px)+12px)] sm:px-6 md:pb-10 md:pt-12">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">{CHOOSER_TITLE}</h1>
-        <button type="button" aria-label="Close" data-layer-back="" onClick={() => returnToProducts(router, null)} className={CLOSE}>
+        <button type="button" aria-label={tt("Close")} data-layer-back="" onClick={() => returnToProducts(router, null)} className={CLOSE}>
           <X className="h-5 w-5" />
         </button>
       </div>

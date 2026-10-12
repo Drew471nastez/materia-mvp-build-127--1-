@@ -100,6 +100,7 @@ import { BannerGlobe } from "./globe"
 /* Swiper's own two, and no more: the core's layout and the fade. */
 import "swiper/css"
 import "swiper/css/effect-fade"
+import { tt } from "@/lib/i18n/text"
 
 /** How long a slide stays, in ms. */
 export const SLIDE_MS = 9000
@@ -416,7 +417,7 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
       ref={rootRef}
       data-home-banner=""
       aria-roledescription="carousel"
-      aria-label="Announcements"
+      aria-label={tt("Announcements")}
       className="home-banner relative isolate overflow-hidden rounded-2xl"
       onPointerEnter={(e) => e.pointerType === "mouse" && setBit(HOVER, true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && setBit(HOVER, false)}
@@ -447,7 +448,7 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
                   id={`home-banner-slide-${a.id}`}
                   role={count > 1 ? "tabpanel" : "group"}
                   aria-roledescription="slide"
-                  aria-label={`${i + 1} of ${count}`}
+                  aria-label={tt("{value} of {count}", { value: i + 1, count })}
                   /* Not aria-hidden, and data-slide rather than data-state: either attribute changing
                      anywhere makes a :has() on <html> in globals.css (the nav pill's dialog rule, the
                      cookie banner's) restyle the whole page. inert keeps the slides beside the one
@@ -481,7 +482,7 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
           </div>
 
           {count > 1 && (
-            <div ref={tabsAt} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey}>
+            <div ref={tabsAt} role="tablist" aria-label={tt("Announcements")} className="home-banner-tabs" onKeyDown={onTabKey}>
               {list.map((a, i) => {
                 const on = i === index
                 return (

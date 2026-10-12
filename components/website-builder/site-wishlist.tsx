@@ -38,6 +38,7 @@ import {
   serializeList,
   toggled,
 } from "@/lib/site-accounts/wishlist-list"
+import { tt } from "@/lib/i18n/text"
 
 interface SiteWishlistValue {
   ids: string[]
@@ -79,7 +80,7 @@ function readCookie(name: string): string | null {
 }
 
 function secureSuffix(): string {
-  return window.location.protocol === "https:" ? "; Secure" : ""
+  return window.location.protocol === "https:" ? tt("; Secure") : ""
 }
 
 /** The cookie copy of the guest list, for the Wishlist page's server render. */

@@ -37,6 +37,7 @@ import { describeStatus, money, pricePer, shortDate, yearlySaving } from "@/lib/
 import type { CreatorMembershipScreen, FeedPost, MemberView, PostRow } from "@/lib/memberships/view-types"
 import { PostView, fileSize } from "./post-view"
 import { StatusLabel } from "./status-line"
+import { tt } from "@/lib/i18n/text"
 
 type Tab = "updates" | "members" | "settings"
 const WIDTH = "max-w-[980px]"
@@ -49,7 +50,7 @@ async function send<T>(url: string, method: string, body?: unknown): Promise<{ o
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) })
     return { ok: res.ok, data: (await res.json().catch(() => ({}))) as T & { error?: string; field?: string } }
   } catch {
-    return { ok: false, data: { error: "The connection dropped. Nothing was saved. Try again." } as T & { error?: string } }
+    return { ok: false, data: { error: tt("The connection dropped. Nothing was saved. Try again.") } as T & { error?: string } }
   }
 }
 
@@ -137,7 +138,7 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
       const result = await uploader.start()
       setUploads((u) => u.map((x) => (x.key === key ? { ...x, progress: 100, url: result.publicUrl || undefined, assetId: result.assetId || undefined, name: result.fileName || x.name, size: result.fileSize || x.size } : x)))
     } catch (e) {
-      const message = (e as { message?: string })?.message || "The upload did not finish."
+      const message = (e as { message?: string })?.message || tt("The upload did not finish.")
       setUploads((u) => u.map((x) => (x.key === key ? { ...x, error: message } : x)))
     } finally {
       uploader.destroy()
@@ -166,7 +167,7 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
       sendEmail: onSale && sendEmail,
     })
     setBusy(false)
-    if (!res.ok || !res.data.post) return setError(res.data.error || "The update could not be posted. Try again.")
+    if (!res.ok || !res.data.post) return setError(res.data.error || tt("The update could not be posted. Try again."))
     onPosted(res.data.post, res.data.emailing ?? 0)
     setTitle("")
     setBody("")
@@ -178,13 +179,13 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
   return (
     <section aria-labelledby="composer-title" data-composer="" className={cn(card, "px-4 py-4 sm:px-5")}>
       <h2 id="composer-title" className="text-[15px] font-semibold text-[#1a1a2e]">
-        Post an update to members
+        {tt("Post an update to members")}
       </h2>
       <div className="mt-3 space-y-2.5">
-        <label htmlFor="post-title" className="sr-only">Title</label>
-        <input id="post-title" value={title} onChange={(e) => setTitle(e.target.value.slice(0, LIMITS.titleChars))} placeholder="Title" className={cn(field, "h-11 font-medium")} />
-        <label htmlFor="post-body" className="sr-only">Your update</label>
-        <textarea ref={bodyRef} id="post-body" value={body} onChange={(e) => setBody(e.target.value.slice(0, LIMITS.bodyChars))} placeholder="Write to your members" rows={4} className={cn(field, "resize-none py-2.5 leading-relaxed")} />
+        <label htmlFor="post-title" className="sr-only">{tt("Title")}</label>
+        <input id="post-title" value={title} onChange={(e) => setTitle(e.target.value.slice(0, LIMITS.titleChars))} placeholder={tt("Title")} className={cn(field, "h-11 font-medium")} />
+        <label htmlFor="post-body" className="sr-only">{tt("Your update")}</label>
+        <textarea ref={bodyRef} id="post-body" value={body} onChange={(e) => setBody(e.target.value.slice(0, LIMITS.bodyChars))} placeholder={tt("Write to your members")} rows={4} className={cn(field, "resize-none py-2.5 leading-relaxed")} />
       </div>
 
       {uploads.length > 0 ? (
@@ -203,8 +204,8 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
                         <span className="block h-full bg-[#1a1a2e] transition-[width] duration-200" style={{ width: `${u.progress}%` }} />
                       </span>
                     )}
-                    {u.error ? <span className="absolute inset-0 grid place-items-center bg-[#fef2f2]/90 px-1 text-center text-[11px] text-[#991b1b]">Failed</span> : null}
-                    <button type="button" onClick={() => setUploads((x) => x.filter((y) => y.key !== u.key))} aria-label={`Remove ${u.name}`} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/75">
+                    {u.error ? <span className="absolute inset-0 grid place-items-center bg-[#fef2f2]/90 px-1 text-center text-[11px] text-[#991b1b]">{tt("Failed")}</span> : null}
+                    <button type="button" onClick={() => setUploads((x) => x.filter((y) => y.key !== u.key))} aria-label={tt("Remove {name}", { name: u.name })} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/75">
                       <X aria-hidden className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -218,9 +219,9 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
                 <FileText aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13.5px] font-medium text-[#1a1a2e]">{u.name}</p>
-                  <p className={cn("text-[12px]", u.error ? "text-[#b91c1c]" : "text-[#6b7280]")}>{u.error ? u.error : u.progress < 100 ? `Uploading ${u.progress}%` : fileSize(u.size)}</p>
+                  <p className={cn("text-[12px]", u.error ? "text-[#b91c1c]" : "text-[#6b7280]")}>{u.error ? u.error : u.progress < 100 ? tt("Uploading {progress}%", { progress: u.progress }) : fileSize(u.size)}</p>
                 </div>
-                <button type="button" onClick={() => setUploads((x) => x.filter((y) => y.key !== u.key))} aria-label={`Remove ${u.name}`} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
+                <button type="button" onClick={() => setUploads((x) => x.filter((y) => y.key !== u.key))} aria-label={tt("Remove {name}", { name: u.name })} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
                   <X aria-hidden className="h-4 w-4" />
                 </button>
               </div>
@@ -230,9 +231,9 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
 
       {pickLinks ? (
         <div className="mt-3 rounded-xl border border-[#e8eaee] p-2">
-          <p className="px-1.5 pb-1.5 text-[12.5px] font-medium text-[#6b7280]">Link products in this update (up to {LIMITS.links})</p>
+          <p className="px-1.5 pb-1.5 text-[12.5px] font-medium text-[#6b7280]">{tt("Link products in this update (up to {links})", { links: LIMITS.links })}</p>
           {screen.products.length === 0 ? (
-            <p className="px-1.5 pb-1 text-[13px] text-[#6b7280]">You have no other products yet.</p>
+            <p className="px-1.5 pb-1 text-[13px] text-[#6b7280]">{tt("You have no other products yet.")}</p>
           ) : (
             <ul className="max-h-56 overflow-y-auto">
               {screen.products.map((p) => {
@@ -242,7 +243,7 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
                     <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-[#f7f7f8]">
                       <input type="checkbox" checked={on} disabled={!on && links.length >= LIMITS.links} onChange={() => setLinks((l) => (on ? l.filter((x) => x !== p.id) : [...l, p.id]))} className="h-4 w-4 accent-[#1a1a2e]" />
                       <span className="truncate text-[13.5px] text-[#1a1a2e]">{p.title}</span>
-                      {p.status !== "published" ? <span className="text-[12px] text-[#9ca3af]">Draft</span> : null}
+                      {p.status !== "published" ? <span className="text-[12px] text-[#9ca3af]">{tt("Draft")}</span> : null}
                     </label>
                   </li>
                 )
@@ -255,7 +256,7 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
           {links.map((id) => (
             <span key={id} className="inline-flex items-center gap-1.5 rounded-lg bg-[#f1f2f4] py-1 pl-2.5 pr-1 text-[12.5px] font-medium text-[#1a1a2e]">
               {screen.products.find((p) => p.id === id)?.title}
-              <button type="button" onClick={() => setLinks((l) => l.filter((x) => x !== id))} aria-label="Remove link" className="grid h-5 w-5 place-items-center rounded text-[#6b7280] hover:bg-[#e4e6ea]">
+              <button type="button" onClick={() => setLinks((l) => l.filter((x) => x !== id))} aria-label={tt("Remove link")} className="grid h-5 w-5 place-items-center rounded text-[#6b7280] hover:bg-[#e4e6ea]">
                 <X aria-hidden className="h-3 w-3" />
               </button>
             </span>
@@ -268,31 +269,31 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#f1f2f4] pt-3">
         <input ref={imageInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onChange={(e) => { pick(e.target.files, "image"); e.target.value = "" }} />
         <input ref={fileInput} type="file" multiple hidden onChange={(e) => { pick(e.target.files, "file"); e.target.value = "" }} />
-        <button type="button" onClick={() => imageInput.current?.click()} className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0")} aria-label="Add pictures">
+        <button type="button" onClick={() => imageInput.current?.click()} className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0")} aria-label={tt("Add pictures")}>
           <ImagePlus aria-hidden className="h-4 w-4" />
-          <span className="max-sm:hidden">Picture</span>
+          <span className="max-sm:hidden">{tt("Picture")}</span>
         </button>
-        <button type="button" onClick={() => fileInput.current?.click()} className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0")} aria-label="Attach files">
+        <button type="button" onClick={() => fileInput.current?.click()} className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0")} aria-label={tt("Attach files")}>
           <Paperclip aria-hidden className="h-4 w-4" />
-          <span className="max-sm:hidden">File</span>
+          <span className="max-sm:hidden">{tt("File")}</span>
         </button>
-        <button type="button" onClick={() => setPickLinks((o) => !o)} aria-pressed={pickLinks} className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0", pickLinks && "bg-[#f1f2f4]")} aria-label="Link products">
+        <button type="button" onClick={() => setPickLinks((o) => !o)} aria-pressed={pickLinks} className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0", pickLinks && "bg-[#f1f2f4]")} aria-label={tt("Link products")}>
           <Link2 aria-hidden className="h-4 w-4" />
-          <span className="max-sm:hidden">Product</span>
+          <span className="max-sm:hidden">{tt("Product")}</span>
         </button>
         <div className="ml-auto flex items-center gap-3">
           {onSale ? (
             <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#4b5563]">
               <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 accent-[#1a1a2e]" />
-              Email {emailable === 1 ? "1 member" : `${emailable} members`}
+              {tt("Email")} {emailable === 1 ? tt("1 member") : tt("{emailable} members", { emailable })}
             </label>
           ) : null}
           <button type="button" onClick={() => void submit()} disabled={!ready || busy} data-post-button="" className={cn(buttonPrimary, "h-9 px-4 text-[13.5px] max-sm:h-10")}>
-            {busy ? "Posting" : pending ? "Uploading" : "Post"}
+            {busy ? tt("Posting") : pending ? tt("Uploading") : tt("Post")}
           </button>
         </div>
       </div>
-      {!onSale ? <p className="mt-2 text-[12.5px] text-[#6b7280]">Members see posts on their membership page. Put the membership on sale in Settings to let people join.</p> : null}
+      {!onSale ? <p className="mt-2 text-[12.5px] text-[#6b7280]">{tt("Members see posts on their membership page. Put the membership on sale in Settings to let people join.")}</p> : null}
     </section>
   )
 }
@@ -300,9 +301,9 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
 function Updates({ screen, posts, setPosts, notice }: { screen: CreatorMembershipScreen; posts: PostRow[]; setPosts: React.Dispatch<React.SetStateAction<PostRow[]>>; notice: (text: string) => void }) {
   const remove = async (id: string) => {
     const res = await send(`/api/app/memberships/${screen.product.id}/posts/${id}`, "DELETE")
-    if (!res.ok) return notice(res.data.error || "The update could not be removed.")
+    if (!res.ok) return notice(res.data.error || tt("The update could not be removed."))
     setPosts((list) => list.filter((p) => p.id !== id))
-    notice("Update removed")
+    notice(tt("Update removed"))
   }
   return (
     <div className="space-y-4">
@@ -310,11 +311,11 @@ function Updates({ screen, posts, setPosts, notice }: { screen: CreatorMembershi
         screen={screen}
         onPosted={(post, emailing) => {
           setPosts((list) => [post, ...list])
-          notice(emailing > 0 ? `Posted, and emailing ${emailing} ${emailing === 1 ? "member" : "members"}` : "Posted")
+          notice(emailing > 0 ? tt("Posted, and emailing {emailing, plural, one {# member} other {# members}}", { emailing }) : tt("Posted"))
         }}
       />
       {posts.length === 0 ? (
-        <p className="px-1 py-6 text-center text-[13.5px] text-[#6b7280]">Nothing posted yet. Your first update shows up here, as members see it.</p>
+        <p className="px-1 py-6 text-center text-[13.5px] text-[#6b7280]">{tt("Nothing posted yet. Your first update shows up here, as members see it.")}</p>
       ) : (
         <div className="space-y-3">
           {posts.map((p) => (
@@ -324,10 +325,10 @@ function Updates({ screen, posts, setPosts, notice }: { screen: CreatorMembershi
                 fileHref={(assetId) => `/api/memberships/files/${p.id}/${assetId}`}
                 aside={
                   <ResponsiveActionMenu
-                    title="Update"
-                    items={[{ label: "Remove update", variant: "destructive", onClick: () => void remove(p.id) }]}
+                    title={tt("Update")}
+                    items={[{ label: tt("Remove update"), variant: "destructive", onClick: () => void remove(p.id) }]}
                     trigger={
-                      <button type="button" aria-label="Actions for this update" className="-mr-1.5 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
+                      <button type="button" aria-label={tt("Actions for this update")} className="-mr-1.5 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
                         <MoreHorizontal aria-hidden className="h-4 w-4" />
                       </button>
                     }
@@ -335,7 +336,7 @@ function Updates({ screen, posts, setPosts, notice }: { screen: CreatorMembershi
                 }
               />
               <p className="mt-1.5 px-2 text-[12px] text-[#9ca3af]">
-                {p.email_status === "sent" ? (p.emailed_count > 0 ? `Emailed to ${p.emailed_count} ${p.emailed_count === 1 ? "member" : "members"}` : "Not emailed") : p.email_status === "queued" || p.email_status === "sending" ? "Emailing members" : "Not emailed"}
+                {p.email_status === "sent" ? (p.emailed_count > 0 ? tt("Emailed to {emailed_count, plural, one {# member} other {# members}}", { emailed_count: p.emailed_count }) : tt("Not emailed")) : p.email_status === "queued" || p.email_status === "sending" ? tt("Emailing members") : tt("Not emailed")}
               </p>
             </div>
           ))}
@@ -349,12 +350,12 @@ function Updates({ screen, posts, setPosts, notice }: { screen: CreatorMembershi
 
 type MemberFilter = "all" | "active" | "trialing" | "past_due" | "canceled" | "ended"
 const FILTERS: { value: MemberFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "trialing", label: "Trial" },
-  { value: "past_due", label: "Payment failed" },
-  { value: "canceled", label: "Cancelling" },
-  { value: "ended", label: "Ended" },
+  { value: "all", get label() { return tt("All") } },
+  { value: "active", get label() { return tt("Active") } },
+  { value: "trialing", get label() { return tt("Trial") } },
+  { value: "past_due", get label() { return tt("Payment failed") } },
+  { value: "canceled", get label() { return tt("Cancelling") } },
+  { value: "ended", get label() { return tt("Ended") } },
 ]
 
 function viewOf(m: MemberView) {
@@ -379,10 +380,10 @@ function Members({ screen }: { screen: CreatorMembershipScreen }) {
   }, [screen.members])
   const shown = filter === "all" ? screen.members : screen.members.filter((m) => filterOf(m) === filter)
   const figures = [
-    { label: "Members", value: String(screen.stats.members) },
-    { label: "A month", value: money(screen.stats.monthlyCents) },
-    { label: "In a trial", value: String(screen.stats.trialing) },
-    { label: "Payment failed", value: String(screen.stats.pastDue) },
+    { label: tt("Members"), value: String(screen.stats.members) },
+    { label: tt("A month"), value: money(screen.stats.monthlyCents) },
+    { label: tt("In a trial"), value: String(screen.stats.trialing) },
+    { label: tt("Payment failed"), value: String(screen.stats.pastDue) },
   ]
   return (
     <div className="space-y-4">
@@ -395,9 +396,9 @@ function Members({ screen }: { screen: CreatorMembershipScreen }) {
         ))}
       </div>
 
-      <section aria-label="Members" className={cn(card, "overflow-hidden")}>
+      <section aria-label={tt("Members")} className={cn(card, "overflow-hidden")}>
         <div className="flex h-[52px] items-center border-b border-[#eef0f2] px-2 md:h-12">
-          <div role="tablist" aria-label="Members" className="-my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2 scrollbar-hide">
+          <div role="tablist" aria-label={tt("Members")} className="-my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2 scrollbar-hide">
             {FILTERS.map((f) => (
               <button
                 key={f.value}
@@ -414,7 +415,7 @@ function Members({ screen }: { screen: CreatorMembershipScreen }) {
           </div>
         </div>
         {shown.length === 0 ? (
-          <p className="px-5 py-10 text-center text-[13.5px] text-[#6b7280]">{screen.members.length === 0 ? "No members yet. When someone joins, they show up here." : "Nobody here."}</p>
+          <p className="px-5 py-10 text-center text-[13.5px] text-[#6b7280]">{screen.members.length === 0 ? tt("No members yet. When someone joins, they show up here.") : tt("Nobody here.")}</p>
         ) : (
           <>
             <ul className="divide-y divide-[#f1f2f4] md:hidden">
@@ -437,11 +438,11 @@ function Members({ screen }: { screen: CreatorMembershipScreen }) {
             <table className="hidden w-full border-collapse md:table">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
-                  <th className="h-9 px-4 text-left text-[12px] font-medium text-[#4b5563]">Member</th>
-                  <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Status</th>
-                  <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Plan</th>
-                  <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">Joined</th>
-                  <th className="h-9 px-4 text-left text-[12px] font-medium text-[#4b5563]">Next</th>
+                  <th className="h-9 px-4 text-left text-[12px] font-medium text-[#4b5563]">{tt("Member")}</th>
+                  <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">{tt("Status")}</th>
+                  <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">{tt("Plan")}</th>
+                  <th className="h-9 px-3 text-left text-[12px] font-medium text-[#4b5563]">{tt("Joined")}</th>
+                  <th className="h-9 px-4 text-left text-[12px] font-medium text-[#4b5563]">{tt("Next")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f1f2f4]">
@@ -536,7 +537,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
       const result = await uploader.start()
       if (result.publicUrl) set("cover", result.publicUrl)
     } catch (e) {
-      setError({ text: (e as { message?: string })?.message || "The picture did not upload." })
+      setError({ text: (e as { message?: string })?.message || tt("The picture did not upload.") })
     } finally {
       uploader.destroy()
       setBusy(null)
@@ -554,7 +555,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
     /* The same rules the server applies (lib/memberships/plan.ts), said before anything is sent. */
     const checked = checkPlan(plan, { publishing: publish === true || (publish === null && status === "published") })
     if (!checked.ok) return setError({ text: checked.error, field: checked.field })
-    if (!s.title.trim()) return setError({ text: "Give the membership a name.", field: "title" })
+    if (!s.title.trim()) return setError({ text: tt("Give the membership a name."), field: "title" })
     setBusy(publish === true ? "publish" : publish === false ? "unpublish" : "save")
     const res = await send<{ status?: string; slug?: string | null }>(`/api/app/memberships/${screen.product.id}`, "PUT", {
       title: s.title,
@@ -564,9 +565,9 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
       publish,
     })
     setBusy(null)
-    if (!res.ok) return setError({ text: res.data.error || "The membership could not be saved.", field: res.data.field })
+    if (!res.ok) return setError({ text: res.data.error || tt("The membership could not be saved."), field: res.data.field })
     setSaved(JSON.stringify(s))
-    setNote(publish === true ? "On sale" : publish === false ? "Taken off sale" : "Saved")
+    setNote(publish === true ? tt("On sale") : publish === false ? tt("Taken off sale") : tt("Saved"))
     onSaved(res.data.status || status, res.data.slug ?? null, s.title)
     void fetch("/api/revalidate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: res.data.slug, type: "product", handle: screen.handle || undefined, productId: screen.product.id }) }).catch(() => {})
   }
@@ -577,25 +578,25 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
     <div className="space-y-4 pb-24">
       {!screen.paymentsReady ? (
         <div role="status" className="rounded-2xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-[13.5px] text-[#92400e]">
-          Connect payouts before members can join: people pay you through Stripe.{" "}
+          {tt("Connect payouts before members can join: people pay you through Stripe.")}{" "}
           <Link href="/app/settings?tab=payments" className="font-semibold underline">
-            Set up payouts
+            {tt("Set up payouts")}
           </Link>
         </div>
       ) : null}
 
-      <SettingsSection title="Page" hint="What people see before they join.">
+      <SettingsSection title={tt("Page")} hint={tt("What people see before they join.")}>
         <div className="space-y-3">
           <div>
-            <label htmlFor="m-title" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">Name</label>
-            <input id="m-title" value={s.title} onChange={(e) => set("title", e.target.value.slice(0, 120))} placeholder="Inner circle" aria-invalid={bad("title") || undefined} className={cn(field, "h-11", bad("title") && "border-[#dc2626]")} />
+            <label htmlFor="m-title" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">{tt("Name")}</label>
+            <input id="m-title" value={s.title} onChange={(e) => set("title", e.target.value.slice(0, 120))} placeholder={tt("Inner circle")} aria-invalid={bad("title") || undefined} className={cn(field, "h-11", bad("title") && "border-[#dc2626]")} />
           </div>
           <div>
-            <label htmlFor="m-description" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">Description</label>
-            <textarea id="m-description" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 20_000))} rows={5} placeholder="Who it is for and what you share" className={cn(field, "resize-y py-2.5 leading-relaxed")} />
+            <label htmlFor="m-description" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">{tt("Description")}</label>
+            <textarea id="m-description" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 20_000))} rows={5} placeholder={tt("Who it is for and what you share")} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
           </div>
           <div>
-            <p className="mb-1.5 text-[13px] font-medium text-[#4b5563]">Picture</p>
+            <p className="mb-1.5 text-[13px] font-medium text-[#4b5563]">{tt("Picture")}</p>
             <div className="flex items-center gap-3">
               {s.cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -607,11 +608,11 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
               )}
               <input ref={coverInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { void uploadCover(e.target.files?.[0]); e.target.value = "" }} />
               <button type="button" onClick={() => coverInput.current?.click()} disabled={busy === "cover"} className={buttonSecondary}>
-                {busy === "cover" ? "Uploading" : s.cover ? "Change" : "Add a picture"}
+                {busy === "cover" ? tt("Uploading") : s.cover ? tt("Change") : tt("Add a picture")}
               </button>
               {s.cover ? (
                 <button type="button" onClick={() => set("cover", null)} className={cn(buttonSecondary, "border-transparent shadow-none")}>
-                  Remove
+                  {tt("Remove")}
                 </button>
               ) : null}
             </div>
@@ -619,12 +620,12 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
         </div>
       </SettingsSection>
 
-      <SettingsSection title="Price" hint="Offer monthly, yearly or both. Members keep the price they joined at.">
+      <SettingsSection title={tt("Price")} hint={tt("Offer monthly, yearly or both. Members keep the price they joined at.")}>
         <div className="grid gap-3 sm:grid-cols-3">
           {(
             [
-              ["monthly", "Monthly", "9"],
-              ["yearly", "Yearly", "90"],
+              ["monthly", tt("Monthly"), "9"],
+              ["yearly", tt("Yearly"), "90"],
             ] as const
           ).map(([k, label, ph]) => (
             <div key={k}>
@@ -633,15 +634,15 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">$</span>
                 <input id={`m-${k}`} inputMode="decimal" value={s[k]} onChange={(e) => set(k, e.target.value.replace(/[^\d.]/g, "").slice(0, 9))} placeholder={ph} aria-invalid={bad(k) || undefined} className={cn(field, "h-11 pl-7 tabular-nums", bad(k) && "border-[#dc2626]")} />
               </div>
-              {k === "yearly" && saving > 0 ? <p className="mt-1 text-[12.5px] text-[#15803d]">Saves {saving}% against monthly</p> : null}
+              {k === "yearly" && saving > 0 ? <p className="mt-1 text-[12.5px] text-[#15803d]">{tt("Saves {saving}% against monthly", { saving })}</p> : null}
             </div>
           ))}
           <div>
-            <label htmlFor="m-trial" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">Free trial</label>
+            <label htmlFor="m-trial" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">{tt("Free trial")}</label>
             <select id="m-trial" value={s.trialDays} onChange={(e) => set("trialDays", e.target.value)} aria-invalid={bad("trial") || undefined} className={cn(field, "h-11 appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b7280%22 stroke-width=%222%22><path d=%22m6 9 6 6 6-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8")}>
               {[0, 3, 7, 14, 30].map((d) => (
                 <option key={d} value={String(d)}>
-                  {d === 0 ? "No trial" : `${d} days`}
+                  {d === 0 ? tt("No trial") : tt("{d} days", { d })}
                 </option>
               ))}
             </select>
@@ -649,18 +650,18 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
         </div>
       </SettingsSection>
 
-      <SettingsSection title="What members get" hint="Shown on the page and at checkout. A line each.">
+      <SettingsSection title={tt("What members get")} hint={tt("Shown on the page and at checkout. A line each.")}>
         <div className="space-y-2">
           {s.benefits.map((b, i) => (
             <div key={i} className="flex items-center gap-2">
               <input
                 value={b}
                 onChange={(e) => set("benefits", s.benefits.map((x, j) => (j === i ? e.target.value.slice(0, LIMITS.benefitChars) : x)))}
-                placeholder={i === 0 ? "A new video lesson every week" : "Another thing members get"}
-                aria-label={`Benefit ${i + 1}`}
+                placeholder={i === 0 ? tt("A new video lesson every week") : tt("Another thing members get")}
+                aria-label={tt("Benefit {value}", { value: i + 1 })}
                 className={cn(field, "h-10")}
               />
-              <button type="button" onClick={() => set("benefits", s.benefits.length > 1 ? s.benefits.filter((_, j) => j !== i) : [""])} aria-label={`Remove benefit ${i + 1}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
+              <button type="button" onClick={() => set("benefits", s.benefits.length > 1 ? s.benefits.filter((_, j) => j !== i) : [""])} aria-label={tt("Remove benefit {value}", { value: i + 1 })} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
                 <Trash2 aria-hidden className="h-4 w-4" />
               </button>
             </div>
@@ -668,15 +669,15 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
           {s.benefits.length < LIMITS.benefits ? (
             <button type="button" onClick={() => set("benefits", [...s.benefits, ""])} className={cn(buttonSecondary, "mt-1")}>
               <Plus aria-hidden className="h-4 w-4" />
-              Add a line
+              {tt("Add a line")}
             </button>
           ) : null}
         </div>
       </SettingsSection>
 
-      <SettingsSection title="Included products" hint="Members get these in their library while their membership lasts.">
+      <SettingsSection title={tt("Included products")} hint={tt("Members get these in their library while their membership lasts.")}>
         {screen.products.length === 0 ? (
-          <p className="text-[13.5px] text-[#6b7280]">No other products yet. Courses and products you make can be included here.</p>
+          <p className="text-[13.5px] text-[#6b7280]">{tt("No other products yet. Courses and products you make can be included here.")}</p>
         ) : (
           <ul className="-mx-1.5 max-h-72 overflow-y-auto">
             {screen.products.map((p) => {
@@ -692,7 +693,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
                       <span aria-hidden className="h-9 w-9 rounded-lg bg-[#eceef1]" />
                     )}
                     <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{p.title}</span>
-                    <span className="text-[12px] text-[#9ca3af]">{p.type === "course" ? "Course" : p.status === "published" ? "" : "Draft"}</span>
+                    <span className="text-[12px] text-[#9ca3af]">{p.type === "course" ? tt("Course") : p.status === "published" ? "" : tt("Draft")}</span>
                   </label>
                 </li>
               )
@@ -705,24 +706,24 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
       <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]">
         <div className={cn(card, "flex flex-wrap items-center gap-2 px-3 py-2.5 shadow-[0_8px_24px_-8px_rgba(17,24,39,0.18)]")}>
           <p role="status" className={cn("min-w-0 flex-1 truncate px-1 text-[13px]", error ? "text-[#b91c1c]" : "text-[#6b7280]")}>
-            {error ? error.text : note ? note : dirty ? "Unsaved changes" : status === "published" ? "On sale" : "Draft"}
+            {error ? error.text : note ? note : dirty ? tt("Unsaved changes") : status === "published" ? tt("On sale") : tt("Draft")}
           </p>
           {status === "published" ? (
             <>
               <button type="button" onClick={() => void save(false)} disabled={busy !== null} className={cn(buttonSecondary, "h-9")}>
-                {busy === "unpublish" ? "Saving" : "Take off sale"}
+                {busy === "unpublish" ? tt("Saving") : tt("Take off sale")}
               </button>
               <button type="button" onClick={() => void save(null)} disabled={busy !== null || !dirty} className={cn(buttonPrimary, "h-9 px-4")}>
-                {busy === "save" ? "Saving" : "Save"}
+                {busy === "save" ? tt("Saving") : tt("Save")}
               </button>
             </>
           ) : (
             <>
               <button type="button" onClick={() => void save(null)} disabled={busy !== null || !dirty} className={cn(buttonSecondary, "h-9")}>
-                {busy === "save" ? "Saving" : "Save draft"}
+                {busy === "save" ? tt("Saving") : tt("Save draft")}
               </button>
               <button type="button" onClick={() => void save(true)} disabled={busy !== null} data-publish="" className={cn(buttonPrimary, "h-9 px-4")}>
-                {busy === "publish" ? "Publishing" : "Put on sale"}
+                {busy === "publish" ? tt("Publishing") : tt("Put on sale")}
               </button>
             </>
           )}
@@ -755,25 +756,25 @@ export function CreatorMembershipScreenView({ screen: initial, initialTab, isNew
   }
   const pageHref = screen.handle && screen.product.slug ? `/${screen.handle}/${screen.product.slug}` : null
   const tabs: { value: Tab; label: string; count?: number }[] = [
-    { value: "updates", label: "Updates", count: posts.length },
-    { value: "members", label: "Members", count: screen.stats.members },
-    { value: "settings", label: "Settings" },
+    { value: "updates", label: tt("Updates"), count: posts.length },
+    { value: "members", label: tt("Members"), count: screen.stats.members },
+    { value: "settings", label: tt("Settings") },
   ]
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-creator-membership="" data-tab={tab}>
       <PaneBar width={WIDTH} className="flex min-h-[64px] items-center gap-2 pb-2 pt-3">
-        <Link href="/app/memberships" aria-label="Memberships" className="-ml-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#1a1a2e] hover:bg-[#eceef1]">
+        <Link href="/app/memberships" aria-label={tt("Memberships")} className="-ml-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#1a1a2e] hover:bg-[#eceef1]">
           <ArrowLeft aria-hidden className="h-[18px] w-[18px]" />
         </Link>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <h1 className="truncate text-[20px] font-bold text-[#1a1a2e] sm:text-[24px]">{screen.product.title || "Membership"}</h1>
-          <StatusBadge tone={screen.product.status === "published" ? "success" : "neutral"}>{screen.product.status === "published" ? "On sale" : "Draft"}</StatusBadge>
+          <StatusBadge tone={screen.product.status === "published" ? "success" : "neutral"}>{screen.product.status === "published" ? tt("On sale") : tt("Draft")}</StatusBadge>
         </div>
         {pageHref && screen.product.status === "published" ? (
-          <a href={pageHref} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "max-sm:h-9 max-sm:w-9 max-sm:px-0")} aria-label="View page">
+          <a href={pageHref} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "max-sm:h-9 max-sm:w-9 max-sm:px-0")} aria-label={tt("View page")}>
             <ExternalLink aria-hidden className="h-4 w-4" />
-            <span className="max-sm:hidden">View page</span>
+            <span className="max-sm:hidden">{tt("View page")}</span>
           </a>
         ) : null}
       </PaneBar>

@@ -15,6 +15,7 @@
 
 import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
+import { tt } from "@/lib/i18n/text"
 
 export type ShareSurface = "creator" | "onepage" | "website"
 
@@ -40,9 +41,9 @@ export interface ShareAddress {
  * and the switch between them said nothing about which is which.
  */
 export const SURFACE_HINT: Record<ShareSurface, string> = {
-  creator: "Your page with everything you sell",
-  onepage: "Your link in bio page",
-  website: "The website you published",
+  get creator() { return tt("Your page with everything you sell") },
+  get onepage() { return tt("Your link in bio page") },
+  get website() { return tt("The website you published") },
 }
 
 export type BioPlatform =

@@ -14,6 +14,7 @@ import * as React from "react"
 import { Check, Copy, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { switchKnobDark, switchTrackDark } from "@/components/ui/switch-style"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * The subject's name, and its one action beside it. On a phone the action
@@ -165,7 +166,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 /** The site's address with copy and open, the same everywhere it appears. */
 export function AddressValue({ url, display }: { url: string; display: string }) {
   const [copied, setCopied] = React.useState(false)
-  if (!url) return <span className="text-[14.5px] text-white/45">No address yet</span>
+  if (!url) return <span className="text-[14.5px] text-white/45">{tt("No address yet")}</span>
   return (
     <span className="-mr-2 flex min-w-0 items-center md:mr-0 md:gap-1">
       <span className="min-w-0 flex-1 truncate text-[14.5px] text-white/85 md:flex-none">{display}</span>
@@ -178,7 +179,7 @@ export function AddressValue({ url, display }: { url: string; display: string })
           })
         }}
         className={iconButtonClass}
-        aria-label={copied ? "Address copied" : "Copy address"}
+        aria-label={copied ? tt("Address copied") : tt("Copy address")}
       >
         {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
       </button>
@@ -187,7 +188,7 @@ export function AddressValue({ url, display }: { url: string; display: string })
         target="_blank"
         rel="noopener noreferrer"
         className={iconButtonClass}
-        aria-label="Open the website"
+        aria-label={tt("Open the website")}
       >
         <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
       </a>
@@ -221,7 +222,7 @@ export function SearchResultPreview({ address, title, description, compact = fal
   return (
     <div
       className={cn("rounded-xl border border-white/[0.08] bg-[#171717] text-left", compact ? "p-4" : "rounded-2xl p-4 md:p-6")}
-      aria-label="Search result preview"
+      aria-label={tt("Search result preview")}
       data-search-preview=""
     >
       <p className={cn("truncate text-[#bdc1c6]", compact ? "text-[12.5px]" : "text-[13px]")}>{address}</p>

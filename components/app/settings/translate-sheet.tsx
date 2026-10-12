@@ -25,6 +25,7 @@ import { Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, Pill, api } from "@/components/physical/ui"
 import { languageName } from "@/lib/markets/locales"
+import { tt } from "@/lib/i18n/text"
 
 type Status = "missing" | "outdated" | "draft" | "done"
 interface Item {
@@ -51,10 +52,10 @@ interface Loaded {
 }
 
 const STATUS: Record<Status, { label: string; tone: "gray" | "amber" | "blue" | "green" }> = {
-  missing: { label: "To translate", tone: "gray" },
-  outdated: { label: "Changed", tone: "amber" },
-  draft: { label: "AI draft", tone: "blue" },
-  done: { label: "Done", tone: "green" },
+  missing: { get label() { return tt("To translate") }, tone: "gray" },
+  outdated: { get label() { return tt("Changed") }, tone: "amber" },
+  draft: { get label() { return tt("AI draft") }, tone: "blue" },
+  done: { get label() { return tt("Done") }, tone: "green" },
 }
 
 type Filter = "todo" | "all"
@@ -115,7 +116,7 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
     setApprove(new Set())
     await load(locale)
     setBusy(null)
-    setNote("Saved")
+    setNote(tt("Saved"))
     window.setTimeout(() => setNote(null), 1800)
   }
 
@@ -130,7 +131,7 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
     }
     await load(locale)
     setBusy(null)
-    setNote(r.data.drafted ? `${r.data.drafted} drafted. Read them, then approve.${r.data.left ? ` ${r.data.left} still to go: press again.` : ""}` : "Nothing left to draft.")
+    setNote(r.data.drafted ? tt("{drafted} drafted. Read them, then approve.{value}", { drafted: r.data.drafted, value: r.data.left ? tt(" {left} still to go: press again.", { left: r.data.left }) : "" }) : tt("Nothing left to draft."))
   }
 
   const name = locale ? languageName(locale, "en") : ""
@@ -143,30 +144,30 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
       open={!!locale}
       onClose={onClose}
       wide
-      title={`Translate to ${name}`}
+      title={tt("Translate to {name}", { name })}
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2">
           {note ? <span className="mr-auto text-[13px] text-[#4b5563]">{note}</span> : null}
           {drafts.length ? (
             <button type="button" className={BTN_SECONDARY} disabled={!!busy} onClick={() => void save(drafts.map((d) => d.key))}>
-              Approve all drafts ({drafts.length})
+              {tt("Approve all drafts ({length})", { length: drafts.length })}
             </button>
           ) : null}
           <button type="button" className={BTN_PRIMARY} disabled={!!busy || pending === 0} onClick={() => void save()} data-save-translations="">
-            {busy === "save" ? "Saving" : pending ? `Save ${pending}` : "Save"}
+            {busy === "save" ? tt("Saving") : pending ? tt("Save {pending}", { pending }) : tt("Save")}
           </button>
         </div>
       }
     >
       <div className="space-y-4" data-translate-sheet={locale ?? ""}>
-        {data && !data.ready ? <Notice tone="amber">Translations aren&apos;t set up yet. Run SQL part 136 in Supabase, then try again.</Notice> : null}
+        {data && !data.ready ? <Notice tone="amber">{tt("Translations aren't set up yet. Run SQL part 136 in Supabase, then try again.")}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         {data ? (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-[13px] text-[#4b5563]" data-translate-progress="">
-              {data.progress ? `${data.progress.done} of ${data.progress.total} translated` : ""}. Anything not translated shows in {languageName(defaultLanguage, "en")}.
+              {data.progress ? tt("{done} of {total} translated", { done: data.progress.done, total: data.progress.total }) : ""}{tt(". Anything not translated shows in {name}.", { name: languageName(defaultLanguage, "en") })}
             </p>
-            <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label="Show">
+            <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
               {(["todo", "all"] as Filter[]).map((f) => (
                 <button
                   key={f}
@@ -176,20 +177,20 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
                   onClick={() => setFilter(f)}
                   className={cn("h-8 rounded-md px-3 text-[13px] font-medium transition-colors", filter === f ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
                 >
-                  {f === "todo" ? "To do" : "All"}
+                  {f === "todo" ? tt("To do") : tt("All")}
                 </button>
               ))}
             </div>
             <button type="button" className={BTN_GHOST} onClick={() => void draftWithAi()} disabled={!!busy} data-translate-ai="">
               <Sparkles className="h-4 w-4" />
-              {busy === "ai" ? "Translating" : "Translate with AI"}
+              {busy === "ai" ? tt("Translating") : tt("Translate with AI")}
             </button>
           </div>
         ) : !error ? (
           <div className="h-40" aria-busy="true" />
         ) : null}
 
-        {data && shownGroups.length === 0 ? <p className="py-6 text-center text-[13.5px] text-[#6b7280]">{items.length ? "Everything is translated." : "Your website has no text to translate yet."}</p> : null}
+        {data && shownGroups.length === 0 ? <p className="py-6 text-center text-[13.5px] text-[#6b7280]">{items.length ? tt("Everything is translated.") : tt("Your website has no text to translate yet.")}</p> : null}
 
         {shownGroups.map((g) => (
           <section key={g.id} aria-labelledby={`tr-${g.id}`} className="space-y-2">
@@ -224,7 +225,7 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
                               })
                             }
                           />
-                          Approve
+                          {tt("Approve")}
                         </label>
                       ) : null}
                     </div>
@@ -234,20 +235,20 @@ export function TranslateSheet({ locale, defaultLanguage, onClose }: { locale: s
                         value={value}
                         onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
                         rows={Math.min(8, Math.max(2, Math.ceil(i.source.length / 70)))}
-                        placeholder={`In ${name}`}
-                        aria-label={`${i.label} in ${name}`}
+                        placeholder={tt("In {name}", { name })}
+                        aria-label={tt("{label} in {name}", { label: i.label, name })}
                         className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[14px] leading-5 text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
                       />
                     ) : (
                       <input
                         value={value}
                         onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
-                        placeholder={`In ${name}`}
-                        aria-label={`${i.label} in ${name}`}
+                        placeholder={tt("In {name}", { name })}
+                        aria-label={tt("{label} in {name}", { label: i.label, name })}
                         className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
                       />
                     )}
-                    {i.rich ? <p className="text-[12px] text-[#9ca3af]">Edited here, it&apos;s saved as plain text: a blank line starts a new paragraph.</p> : null}
+                    {i.rich ? <p className="text-[12px] text-[#9ca3af]">{tt("Edited here, it's saved as plain text: a blank line starts a new paragraph.")}</p> : null}
                   </li>
                 )
               })}

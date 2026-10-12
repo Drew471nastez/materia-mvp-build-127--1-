@@ -21,6 +21,7 @@
 import type { SelectOption } from "@/lib/website-builder/types"
 import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
 import { FontPreviewPicker } from "../font-preview-picker"
+import { tt } from "@/lib/i18n/text"
 
 export const THEME_FONT_OPTIONS: SelectOption[] = [...OFFERED_FAMILIES].sort((a, b) => a.localeCompare(b)).map((f) => ({ label: f, value: f }))
 
@@ -55,10 +56,10 @@ export function FontPickerControl({
     const known = list.some((o) => o.value === value)
     /* The theme's own family first when it is not one of ours, under its name. */
     const shown = known ? list : [{ label: handle.family, value }, ...list]
-    return <FontPreviewPicker bare label={label ?? "Font"} value={value} onChange={onChange} options={shown} />
+    return <FontPreviewPicker bare label={label ?? tt("Font")} value={value} onChange={onChange} options={shown} />
   }
-  const list = options && options.length ? options : [{ label: "The theme's font", value: "" }, ...THEME_FONT_OPTIONS]
+  const list = options && options.length ? options : [{ label: tt("The theme's font"), value: "" }, ...THEME_FONT_OPTIONS]
   const known = list.some((o) => o.value === value)
   /* Each family drawn in its own face (../font-preview-picker), the name the theme's list does not know kept at the end. */
-  return <FontPreviewPicker bare label={label ?? "Font"} value={value} onChange={onChange} options={value && !known ? [...list, { label: value, value }] : list} />
+  return <FontPreviewPicker bare label={label ?? tt("Font")} value={value} onChange={onChange} options={value && !known ? [...list, { label: value, value }] : list} />
 }

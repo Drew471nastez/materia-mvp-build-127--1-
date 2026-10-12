@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  WHERE AN IMPORTED THEME'S SECTIONS GO IN ADD A SECTION
@@ -41,25 +42,25 @@ export interface ImportedSectionFacts {
 
 /** The categories, in the order the library lists them. Only the ones a theme has are shown. */
 export const IMPORTED_SECTION_CATEGORIES = [
-  { id: "hero", label: "Hero and banners" },
-  { id: "slideshow", label: "Slideshows" },
-  { id: "text", label: "Text" },
-  { id: "media", label: "Image and video" },
-  { id: "products", label: "Products" },
-  { id: "collections", label: "Collections" },
-  { id: "features", label: "Features" },
-  { id: "testimonials", label: "Testimonials" },
-  { id: "logos", label: "Logos and trust" },
-  { id: "social", label: "Social" },
+  { id: "hero", get label() { return tt("Hero and banners") } },
+  { id: "slideshow", get label() { return tt("Slideshows") } },
+  { id: "text", get label() { return tt("Text") } },
+  { id: "media", get label() { return tt("Image and video") } },
+  { id: "products", get label() { return tt("Products") } },
+  { id: "collections", get label() { return tt("Collections") } },
+  { id: "features", get label() { return tt("Features") } },
+  { id: "testimonials", get label() { return tt("Testimonials") } },
+  { id: "logos", get label() { return tt("Logos and trust") } },
+  { id: "social", get label() { return tt("Social") } },
   { id: "faq", label: "FAQ" },
-  { id: "countdown", label: "Countdowns" },
-  { id: "newsletter", label: "Newsletter" },
-  { id: "blog", label: "Blog" },
-  { id: "contact", label: "Contact" },
-  { id: "announcements", label: "Announcements" },
-  { id: "layout", label: "Dividers" },
-  { id: "popups", label: "Popups" },
-  { id: "other", label: "Other" },
+  { id: "countdown", get label() { return tt("Countdowns") } },
+  { id: "newsletter", get label() { return tt("Newsletter") } },
+  { id: "blog", get label() { return tt("Blog") } },
+  { id: "contact", get label() { return tt("Contact") } },
+  { id: "announcements", get label() { return tt("Announcements") } },
+  { id: "layout", get label() { return tt("Dividers") } },
+  { id: "popups", get label() { return tt("Popups") } },
+  { id: "other", get label() { return tt("Other") } },
 ] as const
 
 export type ImportedSectionCategory = (typeof IMPORTED_SECTION_CATEGORIES)[number]["id"]

@@ -46,6 +46,7 @@ import { moneyOf } from "../analytics/reports"
 import { computeApplicationFee } from "../billing/fee-calculator"
 import { PRO_PRICE_CENTS } from "../billing/plans"
 import { homeProgress, nextSetupStep, type ProgressFacts } from "./progress"
+import { appLocale } from "@/lib/i18n/format"
 
 export type AnnouncementId =
   | "welcome"
@@ -212,7 +213,7 @@ export const NO_SALES: SalesSummary = { count: 0, cents: 0, first: null, last30:
 export function money(cents: number): string {
   const whole = Math.round(cents) % 100 === 0 || Math.abs(cents) >= 100_000
   const dollars = whole ? Math.round(cents / 100) : cents / 100
-  return `$${dollars.toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })}`
+  return `$${dollars.toLocaleString(appLocale(), { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })}`
 }
 
 /** How long ago, in the words a person uses. Hours and days since, never a weekday, so it reads the same in every time zone. */
@@ -229,7 +230,7 @@ export function ago(at: number, now: number): string {
 export function ordinal(n: number): string {
   const tens = n % 100
   const suffix = tens >= 11 && tens <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")
-  return `${n.toLocaleString("en-US")}${suffix}`
+  return `${n.toLocaleString(appLocale())}${suffix}`
 }
 
 /* ─── The rules ────────────────────────────────────────────────────────── */
@@ -354,7 +355,7 @@ export const RULES: readonly Rule[] = [
         eyebrow: "Milestone",
         title: m.kind === "money" ? `You passed ${money(m.value)} in sales` : `Your ${ordinal(m.value)} sale`,
         line: m.kind === "money"
-          ? `It happened ${ago(m.at, now)}, across ${p.sales.count.toLocaleString("en-US")} sales.`
+          ? `It happened ${ago(m.at, now)}, across ${p.sales.count.toLocaleString(appLocale())} sales.`
           : `It came in ${ago(m.at, now)}. ${money(p.sales.cents)} so far.`,
         cta: "See analytics",
         href: "/app/analytics",

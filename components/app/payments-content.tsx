@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, CheckCircle2, AlertTriangle, CreditCard, Unplug, RefreshCw, Info } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
 
 interface PaymentsContentProps {
   creator: {
@@ -72,7 +73,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
   useEffect(() => {
     if (searchParams.get("success") === "true") {
-      setSuccess("Successfully connected to Stripe! Verifying your account...")
+      setSuccess(tt("Successfully connected to Stripe! Verifying your account..."))
       fetchConnectionStatus()
     }
   }, [searchParams])
@@ -86,7 +87,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
   const fetchConnectionStatus = async () => {
     try {
       const response = await fetch("/api/stripe/connect/status")
-      if (!response.ok) throw new Error("Failed to fetch status")
+      if (!response.ok) throw new Error(tt("Failed to fetch status"))
       const data = await response.json()
       setConnectionStatus(data)
       console.log("[v0] Connection status fetched:", data)
@@ -103,7 +104,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
       router.push("/app/payouts")
       return
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      setError(err instanceof Error ? err.message : tt("Something went wrong"))
       setIsLoading(false)
     }
   }
@@ -119,14 +120,14 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || "Failed to disconnect")
+        throw new Error(data.error || tt("Failed to disconnect"))
       }
 
       setConnectionStatus(null)
-      setSuccess("Successfully disconnected from Stripe")
+      setSuccess(tt("Successfully disconnected from Stripe"))
       router.refresh()
     } catch (err) {
-      setError("Failed to refresh status")
+      setError(tt("Failed to refresh status"))
     } finally {
       setIsDisconnecting(false)
     }
@@ -151,13 +152,13 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || "Failed to save settings")
+        throw new Error(data.error || tt("Failed to save settings"))
       }
 
-      setSuccess("Payment settings saved successfully!")
+      setSuccess(tt("Payment settings saved successfully!"))
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      setError(err instanceof Error ? err.message : tt("Something went wrong"))
     } finally {
       setIsSaving(false)
     }
@@ -170,9 +171,9 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
     try {
       await fetchConnectionStatus()
-      setSuccess("Status refreshed successfully!")
+      setSuccess(tt("Status refreshed successfully!"))
     } catch (err) {
-      setError("Failed to refresh status")
+      setError(tt("Failed to refresh status"))
     } finally {
       setIsRefreshing(false)
     }
@@ -185,16 +186,16 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
   return (
     <div className="min-h-screen bg-white p-4 sm:p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">Payments & Store Settings</h1>
-        <p className="text-muted-foreground">Connect your payout method to start selling</p>
+        <h1 className="text-2xl font-semibold text-foreground">{tt("Payments & Store Settings")}</h1>
+        <p className="text-muted-foreground">{tt("Connect your payout method to start selling")}</p>
       </div>
 
       <div className="max-w-2xl space-y-6">
         {isTestMode && (
           <Alert>
             <AlertDescription className="flex items-center gap-2">
-              <Badge variant="secondary">Test Mode</Badge>
-              <span className="text-sm">You're using Stripe test keys</span>
+              <Badge variant="secondary">{tt("Test Mode")}</Badge>
+              <span className="text-sm">{tt("You're using Stripe test keys")}</span>
             </AlertDescription>
           </Alert>
         )}
@@ -205,12 +206,12 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
             <AlertDescription>
               <strong>
                 {!connectionStatus?.connected
-                  ? "Connect payouts to sell paid products."
-                  : "Your Stripe account has restrictions."}
+                  ? tt("Connect payouts to sell paid products.")
+                  : tt("Your Stripe account has restrictions.")}
               </strong>{" "}
               {!connectionStatus?.connected
-                ? "You won't be able to accept payments until your Stripe account is connected and verified."
-                : "Complete your Stripe verification to enable all payment features."}
+                ? tt("You won't be able to accept payments until your Stripe account is connected and verified.")
+                : tt("Complete your Stripe verification to enable all payment features.")}
             </AlertDescription>
           </Alert>
         )}
@@ -232,30 +233,30 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Stripe Connect
+              {tt("Stripe Connect")}
             </CardTitle>
-            <CardDescription>Receive payments directly to your bank account</CardDescription>
+            <CardDescription>{tt("Receive payments directly to your bank account")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Status</p>
+                <p className="text-sm font-medium">{tt("Status")}</p>
                 <div className="mt-1 flex items-center gap-2">
                   {connectionStatus?.status === "connected" ? (
                     <>
                       <Badge variant="default" className="bg-green-600">
-                        Fully Enabled
+                        {tt("Fully Enabled")}
                       </Badge>
                       {connectionStatus?.accountId && (
                         <span className="text-xs text-muted-foreground">{connectionStatus.accountId}</span>
                       )}
                     </>
                   ) : connectionStatus?.status === "pending" ? (
-                    <Badge variant="destructive">Restricted</Badge>
+                    <Badge variant="destructive">{tt("Restricted")}</Badge>
                   ) : connectionStatus?.status === "pending" ? (
-                    <Badge variant="secondary">Pending Verification</Badge>
+                    <Badge variant="secondary">{tt("Pending Verification")}</Badge>
                   ) : (
-                    <Badge variant="outline">Not Connected</Badge>
+                    <Badge variant="outline">{tt("Not Connected")}</Badge>
                   )}
                 </div>
               </div>
@@ -270,7 +271,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                     className="gap-2 bg-transparent"
                   >
                     <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                    Refresh
+                    {tt("Refresh")}
                   </Button>
                 )}
 
@@ -279,12 +280,12 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Connecting...
+                        {tt("Connecting...")}
                       </>
                     ) : connectionStatus?.status === "pending" || connectionStatus?.status === "pending" ? (
-                      "Complete Setup"
+                      tt("Complete Setup")
                     ) : (
-                      "Connect Stripe"
+                      tt("Connect Stripe")
                     )}
                   </Button>
                 ) : (
@@ -294,27 +295,26 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                         {isDisconnecting ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Disconnecting...
+                            {tt("Disconnecting...")}
                           </>
                         ) : (
                           <>
                             <Unplug className="mr-2 h-4 w-4" />
-                            Disconnect
+                            {tt("Disconnect")}
                           </>
                         )}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Disconnect Stripe?</AlertDialogTitle>
+                        <AlertDialogTitle>{tt("Disconnect Stripe?")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will disable new paid checkouts until you reconnect. Historical orders will remain
-                          intact.
+                          {tt("This will disable new paid checkouts until you reconnect. Historical orders will remain intact.")}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDisconnect}>Disconnect</AlertDialogAction>
+                        <AlertDialogCancel>{tt("Cancel")}</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDisconnect}>{tt("Disconnect")}</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -325,20 +325,20 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
             {connectionStatus?.chargesEnabled !== undefined && (
               <div className="space-y-2 rounded-lg border bg-muted/50 p-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Charges enabled:</span>
+                  <span className="text-muted-foreground">{tt("Charges enabled:")}</span>
                   <Badge variant={connectionStatus.chargesEnabled ? "default" : "destructive"}>
-                    {connectionStatus.chargesEnabled ? "Yes" : "No"}
+                    {connectionStatus.chargesEnabled ? tt("Yes") : tt("No")}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Payouts enabled:</span>
+                  <span className="text-muted-foreground">{tt("Payouts enabled:")}</span>
                   <Badge variant={connectionStatus.payoutsEnabled ? "default" : "destructive"}>
-                    {connectionStatus.payoutsEnabled ? "Yes" : "No"}
+                    {connectionStatus.payoutsEnabled ? tt("Yes") : tt("No")}
                   </Badge>
                 </div>
                 {(!connectionStatus.chargesEnabled || !connectionStatus.payoutsEnabled) && (
                   <p className="pt-2 text-xs text-muted-foreground">
-                    Complete your Stripe verification to enable all features. Click "Complete Setup" above.
+                    {tt("Complete your Stripe verification to enable all features. Click \"Complete Setup\" above.")}
                   </p>
                 )}
               </div>
@@ -352,19 +352,19 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .76-.653h8.14c2.97 0 4.93 1.017 5.848 3.03.774 1.697.587 3.694-.544 5.78-1.296 2.388-3.413 3.61-6.116 3.61h-.777a.77.77 0 0 0-.76.653l-.647 4.11a.641.641 0 0 1-.633.647H7.076z" />
               </svg>
-              PayPal (Optional)
+              {tt("PayPal (Optional)")}
             </CardTitle>
-            <CardDescription>Alternative payment method for your customers</CardDescription>
+            <CardDescription>{tt("Alternative payment method for your customers")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert className="border-blue-200 bg-blue-50 text-blue-800">
               <AlertDescription className="text-sm">
-                PayPal is optional. Most creators use Stripe for payouts.
+                {tt("PayPal is optional. Most creators use Stripe for payouts.")}
               </AlertDescription>
             </Alert>
 
             <div className="grid gap-2">
-              <Label htmlFor="paypal-email">PayPal Email</Label>
+              <Label htmlFor="paypal-email">{tt("PayPal Email")}</Label>
               <Input
                 id="paypal-email"
                 type="email"
@@ -373,7 +373,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                 placeholder="your@email.com"
               />
               <p className="text-xs text-muted-foreground">
-                Your PayPal account email (optional - save settings to update)
+                {tt("Your PayPal account email (optional - save settings to update)")}
               </p>
             </div>
           </CardContent>
@@ -381,12 +381,12 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Payment Settings</CardTitle>
-            <CardDescription>Configure your default payment preferences</CardDescription>
+            <CardTitle>{tt("Payment Settings")}</CardTitle>
+            <CardDescription>{tt("Configure your default payment preferences")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="currency">Default Currency</Label>
+              <Label htmlFor="currency">{tt("Default Currency")}</Label>
               <Select value={defaultCurrency} onValueChange={setDefaultCurrency}>
                 <SelectTrigger id="currency">
                   <SelectValue />
@@ -403,7 +403,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
             <div className="grid gap-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="descriptor">Statement Descriptor</Label>
+                <Label htmlFor="descriptor">{tt("Statement Descriptor")}</Label>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -411,8 +411,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p className="text-sm">
-                        This text appears on your customers' bank statements. It helps them identify the charge.
-                        Format: &quot;(Your Name) - STORELIB&quot;. Only your name can be changed. Max 22 characters total.
+                        {tt("This text appears on your customers' bank statements. It helps them identify the charge. Format: \"(Your Name) - STORELIB\". Only your name can be changed. Max 22 characters total.")}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -423,16 +422,16 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                   id="descriptor"
                   value={statementDescriptor}
                   onChange={(e) => setStatementDescriptor(e.target.value.slice(0, 10).toUpperCase())}
-                  placeholder={creator.name?.slice(0, 10).toUpperCase() || "YOUR NAME"}
+                  placeholder={creator.name?.slice(0, 10).toUpperCase() || tt("YOUR NAME")}
                   maxLength={10}
                   className="rounded-r-none border-r-0"
                 />
                 <div className="flex h-10 items-center rounded-r-md border border-l-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
-                  - STORELIB
+                  {tt("- STORELIB")}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Bank statement will show: <span className="font-mono">{statementDescriptor || creator.name?.slice(0, 10).toUpperCase() || "YOURNAME"} - STORELIB</span>
+                {tt("Bank statement will show:")} <span className="font-mono">{statementDescriptor || creator.name?.slice(0, 10).toUpperCase() || "YOURNAME"} {tt("- STORELIB")}</span>
               </p>
             </div>
 
@@ -440,10 +439,10 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {tt("Saving...")}
                 </>
               ) : (
-                "Save Settings"
+                tt("Save Settings")
               )}
             </Button>
           </CardContent>

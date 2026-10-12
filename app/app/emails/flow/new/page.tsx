@@ -3,8 +3,12 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { FlowChooser } from "./chooser"
 import { pageUser } from "@/lib/auth/page-user"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = { title: "New automation" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("New automation") }
+}
 export const dynamic = "force-dynamic"
 
 /** The templates, and which of them this creator already made (to open, not copy). */

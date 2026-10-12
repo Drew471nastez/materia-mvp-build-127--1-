@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  WHAT A CREATOR CAN START: THE KINDS, AND WHERE EACH ONE OPENS
@@ -48,8 +49,8 @@ export interface KindOption {
 }
 
 export const KIND_OPTIONS: readonly KindOption[] = [
-  { kind: "digital", title: "Digital product", line: "Files people download: templates, presets, sample packs, ebooks." },
-  { kind: "course", title: "Video course", line: "Lessons in order, a player, and each buyer's progress." },
+  { kind: "digital", get title() { return tt("Digital product") }, get line() { return tt("Files people download: templates, presets, sample packs, ebooks.") } },
+  { kind: "course", get title() { return tt("Video course") }, get line() { return tt("Lessons in order, a player, and each buyer's progress.") } },
 ]
 
 /**
@@ -57,14 +58,14 @@ export const KIND_OPTIONS: readonly KindOption[] = [
  * in /admin (lib/platform/physical-commerce.ts), after the two above, so
  * with the switch off the question is exactly what it always was.
  */
-export const PHYSICAL_KIND_OPTION: KindOption = { kind: "physical", title: "Physical product", line: "Things you ship: clothing, prints, merch, gear, with stock." }
+export const PHYSICAL_KIND_OPTION: KindOption = { kind: "physical", get title() { return tt("Physical product") }, get line() { return tt("Things you ship: clothing, prints, merch, gear, with stock.") } }
 
 /**
  * Members who pay every month or year: asked only while communities are
  * switched on in /admin (lib/communities/flag.ts). Last, because it is not
  * a product in the editor: it opens the community's setup.
  */
-export const COMMUNITY_KIND_OPTION: KindOption = { kind: "community", title: "Paid community", line: "Members pay monthly or yearly to join your community." }
+export const COMMUNITY_KIND_OPTION: KindOption = { kind: "community", get title() { return tt("Paid community") }, get line() { return tt("Members pay monthly or yearly to join your community.") } }
 
 /** The answers to show, for the platform switches that are on. */
 export function kindOptions(physical: boolean, communities = false): readonly KindOption[] {

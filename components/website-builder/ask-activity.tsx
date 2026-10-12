@@ -32,6 +32,7 @@ import { Check, ChevronRight, Copy, Flag } from "lucide-react"
 
 import type { ActivityCode, TimelineRow } from "@/lib/website-builder/ask-activity"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /* ── the line ──────────────────────────────────────────────────────────── */
 
@@ -76,7 +77,7 @@ export function ActivityLine({ label, className }: { label: string; className?: 
 /** "4 steps", or "Details" when all there is to show is the plan or a file. */
 export function stepsLabel(steps: number, extra: boolean): string | null {
   if (steps > 0) return `${steps} step${steps === 1 ? "" : "s"}`
-  return extra ? "Details" : null
+  return extra ? tt("Details") : null
 }
 
 export function StepsToggle({
@@ -165,7 +166,7 @@ export function StepsTimeline({
                 </span>
                 <span className="ask-step-label">{row.label}</span>
                 {row.count > 1 && <span className="ask-step-count">{row.count}</span>}
-                {row.state === "failed" && <span className="ask-step-note">did not work</span>}
+                {row.state === "failed" && <span className="ask-step-note">{tt("did not work")}</span>}
               </li>
             )
           })}
@@ -197,7 +198,7 @@ export function CodePreview({ file, onOpenCode }: { file: ActivityCode; onOpenCo
           onClick={() => setOpen((was) => !was)}
           className="relative shrink-0 font-medium text-[#1a1a2e]/80 underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
         >
-          {open ? "Hide code" : "View code"}
+          {open ? tt("Hide code") : tt("View code")}
         </button>
         {open && onOpenCode && (
           <button
@@ -205,7 +206,7 @@ export function CodePreview({ file, onOpenCode }: { file: ActivityCode; onOpenCo
             onClick={() => onOpenCode(file.path)}
             className="relative shrink-0 font-medium text-[#1a1a2e]/80 underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
           >
-            Open in editor
+            {tt("Open in editor")}
           </button>
         )}
       </div>
@@ -213,7 +214,7 @@ export function CodePreview({ file, onOpenCode }: { file: ActivityCode; onOpenCo
         /* The one thing in a thread that scrolls sideways, inside itself. */
         <pre
           data-code-scroll=""
-          aria-label={`${file.path}, ${lines} lines`}
+          aria-label={tt("{path}, {lines} lines", { path: file.path, lines })}
           className="mt-1.5 max-h-44 max-w-full overflow-auto overscroll-contain rounded-xl border border-[#e5e7eb] bg-white px-2.5 py-2 text-[11px] leading-[1.45] [overflow-wrap:normal] [touch-action:pan-x_pan-y]"
         >
           <code className="font-mono text-[#1a1a2e]/80">{file.source}</code>
@@ -325,15 +326,15 @@ export function AnswerMeta({
             phone && "after:absolute after:-inset-3 after:content-['']",
           )}
         >
-          Undo
+          {tt("Undo")}
         </button>
       )}
-      {undo === "done" && <span data-ask-undone="">Undone</span>}
+      {undo === "done" && <span data-ask-undone="">{tt("Undone")}</span>}
       {steps && <StepsToggle label={steps} open={stepsOpen} onToggle={onToggleSteps} phone={phone} />}
       <span className="min-w-0 flex-1" />
       {copied && (
         <span data-ask-copied={copied} role="status" className={cn("text-[12px]", copied === "copied" ? "text-[#1a1a2e]" : "text-[#b45309]")}>
-          {copied === "copied" ? "Copied" : "Could not copy. Select the text instead."}
+          {copied === "copied" ? tt("Copied") : tt("Could not copy. Select the text instead.")}
         </span>
       )}
       {copyText && (
@@ -341,8 +342,8 @@ export function AnswerMeta({
           type="button"
           data-ask-copy=""
           onClick={() => void copy()}
-          aria-label={copied === "copied" ? "Copied" : "Copy the answer"}
-          title={copied === "copied" ? "Copied" : "Copy"}
+          aria-label={copied === "copied" ? tt("Copied") : tt("Copy the answer")}
+          title={copied === "copied" ? tt("Copied") : tt("Copy")}
           className={icon}
         >
           {copied === "copied" ? <Check className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />}
@@ -354,9 +355,9 @@ export function AnswerMeta({
           type="button"
           data-ask-report=""
           onClick={() => onReport(report.stage === "closed" ? { stage: "open", reason: "" } : { stage: "closed" })}
-          aria-label="Report this answer"
+          aria-label={tt("Report this answer")}
           aria-expanded={report.stage !== "closed"}
-          title="Report"
+          title={tt("Report")}
           className={cn(icon, report.stage !== "closed" && "bg-black/[0.05] text-[#1a1a2e]")}
         >
           <Flag className="h-3.5 w-3.5" strokeWidth={1.9} />
@@ -364,7 +365,7 @@ export function AnswerMeta({
       )}
       {report.stage === "sent" && (
         <span data-ask-reported="" role="status" className="text-[#1a1a2e]">
-          Reported. Thank you.
+          {tt("Reported. Thank you.")}
         </span>
       )}
     </div>
@@ -473,7 +474,7 @@ export function ReportForm({
       data-ask-report-form=""
       data-ask-keep=""
       role="dialog"
-      aria-label="Report this answer"
+      aria-label={tt("Report this answer")}
       onSubmit={(event) => {
         event.preventDefault()
         if (!sending) onSend(reason)
@@ -498,7 +499,7 @@ export function ReportForm({
         <style>{"@keyframes ask-report-in{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:none}}"}</style>
       )}
       <label className="block text-[12.5px] font-medium text-[#1a1a2e]" htmlFor={fieldId}>
-        What went wrong?
+        {tt("What went wrong?")}
       </label>
       <div className="mt-1.5 flex flex-wrap gap-1">
         {REPORT_REASONS.map((chip) => (
@@ -527,7 +528,7 @@ export function ReportForm({
           value={reason}
           maxLength={500}
           onChange={(event) => onChange({ stage: "open", reason: event.target.value })}
-          placeholder="Or say it in a few words"
+          placeholder={tt("Or say it in a few words")}
           className={cn(
             "block min-w-0 flex-1 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[#1a1a2e] outline-none placeholder:text-[#6b7280]/70 focus:border-[#1a1a2e]/30",
             /* 16px on a phone: smaller, and iOS zooms the page to the field when it is focused. */
@@ -539,7 +540,7 @@ export function ReportForm({
           disabled={sending}
           className={cn("shrink-0 rounded-full bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white disabled:opacity-60", phone ? "h-10" : "h-8")}
         >
-          {sending ? "Sending" : "Send"}
+          {sending ? tt("Sending") : tt("Send")}
         </button>
       </div>
       {report.stage === "problem" && (

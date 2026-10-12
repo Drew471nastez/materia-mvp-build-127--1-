@@ -32,6 +32,7 @@
 
 import { ALLOWED_IMAGE_TYPES, LONG_EDGE, MAX_IMAGE_BYTES, type AllowedImageType } from "@/lib/sites/agent/attachments"
 import { fitWithin, kindOf, stillTimes } from "@/lib/website-builder/ask-attach"
+import { tt } from "@/lib/i18n/text"
 
 export interface Prepared {
   mediaType: AllowedImageType
@@ -54,7 +55,7 @@ const KEEP_BELOW_BYTES = MAX_IMAGE_BYTES / 2
 function readAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onerror = () => reject(new PrepareError("That file could not be read."))
+    reader.onerror = () => reject(new PrepareError(tt("That file could not be read.")))
     reader.onload = () => resolve(String(reader.result ?? ""))
     reader.readAsDataURL(blob)
   })
@@ -86,7 +87,7 @@ async function decode(file: Blob): Promise<{ source: CanvasImageSource; width: n
     return { source: image, width: image.naturalWidth, height: image.naturalHeight, close: () => URL.revokeObjectURL(url) }
   } catch {
     URL.revokeObjectURL(url)
-    throw new PrepareError("That picture could not be opened.")
+    throw new PrepareError(tt("That picture could not be opened."))
   }
 }
 
@@ -128,13 +129,13 @@ async function encodeAt(source: CanvasImageSource, width: number, height: number
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext("2d")
-  if (!context) throw new PrepareError("This browser could not shrink the picture.")
+  if (!context) throw new PrepareError(tt("This browser could not shrink the picture."))
   context.fillStyle = "#ffffff"
   context.fillRect(0, 0, canvas.width, canvas.height)
   context.imageSmoothingQuality = "high"
   context.drawImage(source, 0, 0, width, height)
   return await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new PrepareError("This browser could not shrink the picture."))), "image/jpeg", quality),
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new PrepareError(tt("This browser could not shrink the picture.")))), "image/jpeg", quality),
   )
 }
 

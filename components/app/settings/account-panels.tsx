@@ -11,6 +11,8 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { WebPushError, disableWebPush, enableWebPush, readWebPush, type WebPushState } from "@/lib/push/web-client"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 /**
  * ===========================================================================
@@ -147,7 +149,7 @@ export function useSavedSwitch(initial: boolean, save: (value: boolean) => Promi
         } catch (e) {
           wanted.current = saved.current
           setValue(saved.current)
-          setError(e instanceof Error && e.message ? e.message : "That did not save. Try again.")
+          setError(e instanceof Error && e.message ? e.message : tt("That did not save. Try again."))
           break
         }
       }
@@ -185,7 +187,7 @@ export function Saved({ at }: { at: number }) {
       {shown && (
         <>
           <Check className="h-3 w-3" aria-hidden="true" />
-          Saved
+          {tt("Saved")}
         </>
       )}
     </span>
@@ -223,11 +225,11 @@ export async function savePreference(body: Record<string, boolean>) {
       body: JSON.stringify(body),
     })
   } catch {
-    throw new Error("Could not reach Storelib. Check your connection and try again.")
+    throw new Error(tt("Could not reach Storelib. Check your connection and try again."))
   }
   if (!res.ok) {
     const data = await res.json().catch(() => null)
-    throw new Error((data && typeof data.error === "string" && data.error) || "That did not save. Try again.")
+    throw new Error((data && typeof data.error === "string" && data.error) || tt("That did not save. Try again."))
   }
 }
 
@@ -273,26 +275,26 @@ export function PrivacyPanel({
     <div className="space-y-4 sm:space-y-6" data-account-panel="privacy">
       <section className={CARD} aria-labelledby="privacy-heading">
         <h3 id="privacy-heading" className="mb-4 text-[15px] font-semibold text-[#1a1a2e]">
-          Privacy
+          {tt("Privacy")}
         </h3>
         <div className="divide-y divide-[#f0f1f3]">
           <PrivacyRow
             id="personalized"
             title={
               <>
-                Personalized recommendations
+                {tt("Personalized recommendations")}
                 <Saved at={personalized.savedAt} />
               </>
             }
             detail={
               <>
-                Explore shows products like the ones you bought or saved first.
+                {tt("Explore shows products like the ones you bought or saved first.")}
                 {personalized.error && <span className="mt-1 block text-red-600">{personalized.error}</span>}
               </>
             }
             control={
               <Switch
-                label="Personalized recommendations"
+                label={tt("Personalized recommendations")}
                 checked={personalized.value}
                 busy={personalized.busy}
                 onChange={personalized.change}
@@ -303,30 +305,30 @@ export function PrivacyPanel({
             id="newsletter"
             title={
               <>
-                Storelib newsletter
+                {tt("Storelib newsletter")}
                 <Saved at={newsletter.savedAt} />
               </>
             }
             detail={
               <>
-                Weekly assets and new templates, sent to <span className="break-all text-[#374151]">{email}</span>.
+                {tt("Weekly assets and new templates, sent to")} <span className="break-all text-[#374151]">{email}</span>.
                 {newsletter.error && <span className="mt-1 block text-red-600">{newsletter.error}</span>}
               </>
             }
             control={
-              <Switch label="Storelib newsletter" checked={newsletter.value} busy={newsletter.busy} onChange={newsletter.change} />
+              <Switch label={tt("Storelib newsletter")} checked={newsletter.value} busy={newsletter.busy} onChange={newsletter.change} />
             }
           />
           <PrivacyRow
             id="analytics"
             title={
               <>
-                Analytics on this device
+                {tt("Analytics on this device")}
                 <Saved at={analyticsSavedAt} />
               </>
             }
-            detail="Counts visits and page speed in this browser. Off stores nothing."
-            control={<Switch label="Analytics on this device" checked={analytics} onChange={changeAnalytics} />}
+            detail={tt("Counts visits and page speed in this browser. Off stores nothing.")}
+            control={<Switch label={tt("Analytics on this device")} checked={analytics} onChange={changeAnalytics} />}
           />
           <DeviceNotificationsRow />
         </div>
@@ -348,10 +350,10 @@ export function PrivacyPanel({
  * (lib/push/web-client names them).
  */
 export const NOTIFICATION_WORDS: Record<"blocked" | "unsupported" | "iphone" | "idle", string> = {
-  blocked: "Blocked in this browser's settings for storelib.com. Allow notifications there (the icon beside the address), then turn this on.",
-  unsupported: "This browser cannot show notifications.",
-  iphone: "Safari on iPhone does not show website notifications. The Storelib app for iPhone does.",
-  idle: "A notification on this computer when you make a sale or a payout is ready.",
+  get blocked() { return tt("Blocked in this browser's settings for storelib.com. Allow notifications there (the icon beside the address), then turn this on.") },
+  get unsupported() { return tt("This browser cannot show notifications.") },
+  get iphone() { return tt("Safari on iPhone does not show website notifications. The Storelib app for iPhone does.") },
+  get idle() { return tt("A notification on this computer when you make a sale or a payout is ready.") },
 }
 
 /**
@@ -414,22 +416,22 @@ function PhoneNotificationsRow() {
 
   const detail =
     permission === "granted"
-      ? "A notification on this phone when you make a sale or a payout is ready. Turn it off in your phone's settings."
+      ? tt("A notification on this phone when you make a sale or a payout is ready. Turn it off in your phone's settings.")
       : permission === "denied"
-        ? `Off in your phone's settings. Turn this on to open ${phoneSettingsPath(platform)}.`
-        : "A notification on this phone when you make a sale or a payout is ready."
+        ? tt("Off in your phone's settings. Turn this on to open {platform}.", { platform: phoneSettingsPath(platform) })
+        : tt("A notification on this phone when you make a sale or a payout is ready.")
 
   return (
     <PrivacyRow
       id="phone-notifications"
       title={
         <>
-          Notifications on this phone
+          {tt("Notifications on this phone")}
           <Saved at={savedAt} />
         </>
       }
       detail={<span data-notifications-detail="">{detail}</span>}
-      control={<Switch label="Notifications on this phone" checked={permission === "granted"} busy={busy} onChange={(v) => void change(v)} />}
+      control={<Switch label={tt("Notifications on this phone")} checked={permission === "granted"} busy={busy} onChange={(v) => void change(v)} />}
     />
   )
 }
@@ -472,7 +474,7 @@ function BrowserNotificationsRow() {
       if (now === (next ? "on" : "off")) setSavedAt(Date.now())
     } catch (e) {
       setState(was)
-      setError(e instanceof WebPushError ? e.message : "That did not change. Try again.")
+      setError(e instanceof WebPushError ? e.message : tt("That did not change. Try again."))
     } finally {
       busyRef.current = false
       setBusy(false)
@@ -490,7 +492,7 @@ function BrowserNotificationsRow() {
       id="browser-notifications"
       title={
         <>
-          Notifications on this browser
+          {tt("Notifications on this browser")}
           <Saved at={savedAt} />
         </>
       }
@@ -502,7 +504,7 @@ function BrowserNotificationsRow() {
       }
       control={
         <Switch
-          label="Notifications on this browser"
+          label={tt("Notifications on this browser")}
           checked={state === "on"}
           busy={busy}
           disabled={state === "blocked" || state === "unsupported" || state === "iphone"}
@@ -600,10 +602,10 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
     try {
       const res = await fetch("/api/auth/reset-password", { method: "POST", headers: { "Content-Type": "application/json" } })
       const data = await res.json().catch(() => null)
-      if (res.ok) setResetNote({ tone: "ok", text: `We sent a reset link to ${email}. It works for one hour.` })
-      else setResetNote({ tone: "error", text: (data && data.error) || "We could not send the link. Try again in a moment." })
+      if (res.ok) setResetNote({ tone: "ok", text: tt("We sent a reset link to {email}. It works for one hour.", { email }) })
+      else setResetNote({ tone: "error", text: (data && data.error) || tt("We could not send the link. Try again in a moment.") })
     } catch {
-      setResetNote({ tone: "error", text: "Could not reach Storelib. Check your connection and try again." })
+      setResetNote({ tone: "error", text: tt("Could not reach Storelib. Check your connection and try again.") })
     } finally {
       setResetBusy(false)
     }
@@ -612,12 +614,12 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
   return (
     <section className={CARD} aria-labelledby="password-heading" data-settings-card="password">
       <h3 id="password-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
-        Password
+        {tt("Password")}
       </h3>
       <p className="mt-1 text-[13px] leading-[1.45] text-[#6b7280]">
         {hasPassword
-          ? "Changing it signs you out on your other devices."
-          : `You sign in with ${via || "another account"}. Set a password to sign in with your email too.`}
+          ? tt("Changing it signs you out on your other devices.")
+          : tt("You sign in with {value}. Set a password to sign in with your email too.", { value: via || tt("another account") })}
       </p>
 
       {!open ? (
@@ -632,12 +634,12 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
             className={OPEN_STEP}
             data-password-open=""
           >
-            {hasPassword ? "Change password" : "Set a password"}
+            {hasPassword ? tt("Change password") : tt("Set a password")}
           </button>
           {hasPassword ? (
           <button type="button" onClick={sendReset} disabled={resetBusy} className={TEXT_ACTION} data-password-reset="">
             {resetBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            Email me a reset link
+            {tt("Email me a reset link")}
           </button>
           ) : null}
         </div>
@@ -664,7 +666,7 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
         {/* For password managers: which account this password belongs to. */}
         <input type="email" autoComplete="username" value={email} readOnly hidden />
         <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{hasPassword ? "New password" : "Password"}</span>
+          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{hasPassword ? tt("New password") : tt("Password")}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -676,7 +678,7 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
           />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{hasPassword ? "Confirm new password" : "Confirm password"}</span>
+          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{hasPassword ? tt("Confirm new password") : tt("Confirm password")}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -689,7 +691,7 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
 
         {step === "reauth" && (
           <label className="block sm:col-span-2">
-            <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">Code from your email</span>
+            <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{tt("Code from your email")}</span>
             <input
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -697,17 +699,17 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
               onChange={(e) => setNonce(e.target.value.replace(/\s/g, ""))}
               className={`${FIELD} tracking-[0.2em]`}
             />
-            <span className="mt-1.5 block text-[12px] text-[#6b7280]">Sent to {email}.</span>
+            <span className="mt-1.5 block text-[12px] text-[#6b7280]">{tt("Sent to {email}.", { email })}</span>
           </label>
         )}
 
         <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-center">
           <button type="button" onClick={() => void change()} disabled={busy || !password || !confirm || (step === "reauth" && !nonce)} className={INK} data-password-submit="">
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            {step === "reauth" ? "Confirm and change" : hasPassword ? "Change password" : "Set password"}
+            {step === "reauth" ? tt("Confirm and change") : hasPassword ? tt("Change password") : tt("Set password")}
           </button>
           <button type="button" onClick={cancel} disabled={busy} className={OPEN_STEP} data-password-cancel="">
-            Cancel
+            {tt("Cancel")}
           </button>
         </div>
       </div>
@@ -716,7 +718,7 @@ export function PasswordCard({ email, hasPassword = true, via }: { email: string
       )}
 
       {error && <Note tone="error">{error}</Note>}
-      {done && <Note tone="ok">{hasPassword ? "Password changed. Your other devices were signed out." : "Password set. You can now sign in with your email and this password."}</Note>}
+      {done && <Note tone="ok">{hasPassword ? tt("Password changed. Your other devices were signed out.") : tt("Password set. You can now sign in with your email and this password.")}</Note>}
       {resetNote && <Note tone={resetNote.tone}>{resetNote.text}</Note>}
     </section>
   )
@@ -745,26 +747,26 @@ export function SecurityPanel({
 
       <section className={CARD} aria-labelledby="sessions-heading" data-settings-card="sessions">
         <h3 id="sessions-heading" className="mb-4 text-[15px] font-semibold text-[#1a1a2e]">
-          Signed in
+          {tt("Signed in")}
         </h3>
         <div className="divide-y divide-[#f0f1f3]">
           <div className="flex items-center justify-between gap-4 pb-3" data-session-row="this">
             <div className="min-w-0">
-              <p className="text-[14px] font-medium text-[#1a1a2e]">This device</p>
-              <p className="mt-0.5 text-[13px] text-[#6b7280]">Your other devices stay signed in.</p>
+              <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("This device")}</p>
+              <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Your other devices stay signed in.")}</p>
             </div>
             <button type="button" onClick={onSignOut} className={`${QUIET} shrink-0`}>
-              Sign out
+              {tt("Sign out")}
             </button>
           </div>
           <div className="flex items-center justify-between gap-4 pt-3" data-session-row="all">
             <div className="min-w-0">
-              <p className="text-[14px] font-medium text-[#1a1a2e]">Every device</p>
-              <p className="mt-0.5 text-[13px] text-[#6b7280]">Phones, computers and the app, this one included.</p>
+              <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Every device")}</p>
+              <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Phones, computers and the app, this one included.")}</p>
             </div>
             <button type="button" onClick={onSignOutEverywhere} disabled={signingOutEverywhere} className={`${QUIET} shrink-0`}>
               {signingOutEverywhere && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-              Sign out everywhere
+              {tt("Sign out everywhere")}
             </button>
           </div>
         </div>
@@ -774,14 +776,14 @@ export function SecurityPanel({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h3 id="delete-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
-              Delete account
+              {tt("Delete account")}
             </h3>
             <p className="mt-1 text-[13px] leading-[1.45] text-[#6b7280]">
-              Removes your store, products, customers and sales history for good.
+              {tt("Removes your store, products, customers and sales history for good.")}
             </p>
             {createdAt && (
               <p className="mt-2 text-[12px] text-[#6b7280]">
-                Account created {new Date(createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                {tt("Account created {date}", { date: new Date(createdAt).toLocaleDateString(appLocale(), zoned({ month: "long", day: "numeric", year: "numeric" })) })}
               </p>
             )}
           </div>
@@ -790,7 +792,7 @@ export function SecurityPanel({
             onClick={onDeleteAccount}
             className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#2d2d44]"
           >
-            Delete account
+            {tt("Delete account")}
           </button>
         </div>
       </section>
@@ -830,7 +832,7 @@ export function EmailChangeFlow({
     e?.preventDefault()
     const clean = newEmail.trim().toLowerCase()
     if (!clean || clean === currentEmail.toLowerCase()) {
-      setError("Enter the new email you want to use.")
+      setError(tt("Enter the new email you want to use."))
       return
     }
     setBusy(true)
@@ -838,7 +840,7 @@ export function EmailChangeFlow({
     try {
       const { ok, data } = await post("/api/auth/change-email", { newEmail: clean })
       if (!ok) {
-        setError((data && data.error) || "We could not send the code. Try again in a moment.")
+        setError((data && data.error) || tt("We could not send the code. Try again in a moment."))
         return
       }
       setDouble(data?.double !== false)
@@ -846,7 +848,7 @@ export function EmailChangeFlow({
       setCurrentCode("")
       setStep("verify")
     } catch {
-      setError("Could not reach Storelib. Check your connection and try again.")
+      setError(tt("Could not reach Storelib. Check your connection and try again."))
     } finally {
       setBusy(false)
     }
@@ -859,7 +861,7 @@ export function EmailChangeFlow({
     try {
       const { ok, data } = await post("/api/auth/verify-email-change", { code: code.trim(), currentCode: currentCode.trim() })
       if (!ok) {
-        setError((data && data.error) || "That did not work. Try again in a moment.")
+        setError((data && data.error) || tt("That did not work. Try again in a moment."))
         return
       }
       /* The new address is in the account now; a fresh token carries it too. */
@@ -871,7 +873,7 @@ export function EmailChangeFlow({
       setStep("done")
       onChanged(data?.newEmail || newEmail.trim().toLowerCase())
     } catch {
-      setError("Could not reach Storelib. Check your connection and try again.")
+      setError(tt("Could not reach Storelib. Check your connection and try again."))
     } finally {
       setBusy(false)
     }
@@ -880,9 +882,9 @@ export function EmailChangeFlow({
   if (step === "done") {
     return (
       <div className="py-4" data-email-change="done">
-        <p className="text-[15px] font-semibold text-[#1a1a2e]">Email changed</p>
+        <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Email changed")}</p>
         <p className="mt-1 text-[13px] leading-[1.45] text-[#6b7280]">
-          You now sign in with <span className="font-medium text-[#1a1a2e]">{newEmail.trim().toLowerCase()}</span>. We told your old address too.
+          {tt("You now sign in with")} <span className="font-medium text-[#1a1a2e]">{newEmail.trim().toLowerCase()}</span>{tt(". We told your old address too.")}
         </p>
       </div>
     )
@@ -892,10 +894,10 @@ export function EmailChangeFlow({
     return (
       <form onSubmit={send} className="space-y-4" data-email-change="input" noValidate>
         <p className="text-[13px] leading-[1.45] text-[#6b7280]">
-          We send a code to the new address and one to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>. Both are needed.
+          {tt("We send a code to the new address and one to")} <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>{tt(". Both are needed.")}
         </p>
         <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">New email</span>
+          <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{tt("New email")}</span>
           <input
             type="email"
             autoComplete="email"
@@ -908,7 +910,7 @@ export function EmailChangeFlow({
         {error && <Note tone="error">{error}</Note>}
         <button type="submit" disabled={busy || !newEmail.trim()} className={`${PRIMARY} w-full`}>
           {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-          Send codes
+          {tt("Send codes")}
         </button>
       </form>
     )
@@ -918,7 +920,7 @@ export function EmailChangeFlow({
     <form onSubmit={verify} className="space-y-4" data-email-change="verify" noValidate>
       <label className="block">
         <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">
-          Code sent to <span className="break-all text-[#1a1a2e]">{newEmail.trim().toLowerCase()}</span>
+          {tt("Code sent to")} <span className="break-all text-[#1a1a2e]">{newEmail.trim().toLowerCase()}</span>
         </span>
         <input
           inputMode="numeric"
@@ -933,7 +935,7 @@ export function EmailChangeFlow({
       {double && (
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">
-            Code sent to <span className="break-all text-[#1a1a2e]">{currentEmail}</span>
+            {tt("Code sent to")} <span className="break-all text-[#1a1a2e]">{currentEmail}</span>
           </span>
           <input
             inputMode="numeric"
@@ -951,7 +953,7 @@ export function EmailChangeFlow({
         className={`${PRIMARY} w-full`}
       >
         {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-        Change email
+        {tt("Change email")}
       </button>
       <button
         type="button"
@@ -961,7 +963,7 @@ export function EmailChangeFlow({
         }}
         className="h-11 w-full text-[13px] font-medium text-[#6b7280] hover:text-[#374151]"
       >
-        Use a different email
+        {tt("Use a different email")}
       </button>
     </form>
   )

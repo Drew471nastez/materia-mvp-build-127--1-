@@ -12,6 +12,7 @@
 import * as React from "react"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Empty, Notice, Pill, SelectInput, TextInput, api } from "@/components/physical/ui"
 import { ROLE_LABEL, ROLE_SUMMARY, invitable, type MemberRole } from "@/lib/team/roles"
+import { tt } from "@/lib/i18n/text"
 
 interface Member {
   id: string
@@ -59,7 +60,7 @@ export function TeamPanel() {
     const r = await api<{ emailed: boolean }>("/api/team", { method: "POST", body: { email, role } })
     setBusy(null)
     if (r.ok === false) return setSaid({ tone: "red", text: r.error })
-    setSaid({ tone: "green", text: r.data.emailed ? `Invite sent to ${email.trim().toLowerCase()}.` : "Invite saved, but the email did not go out. Use Resend in a moment." })
+    setSaid({ tone: "green", text: r.data.emailed ? tt("Invite sent to {value}.", { value: email.trim().toLowerCase() }) : tt("Invite saved, but the email did not go out. Use Resend in a moment.") })
     setEmail("")
     void load()
   }
@@ -81,7 +82,7 @@ export function TeamPanel() {
     setBusy(m.id)
     const r = await api<{ emailed: boolean }>("/api/team", { method: "POST", body: { email: m.email, role: m.role } })
     setBusy(null)
-    setSaid(r.ok ? { tone: "green", text: `A new invite went to ${m.email}.` } : { tone: "red", text: r.error })
+    setSaid(r.ok ? { tone: "green", text: tt("A new invite went to {email}.", { email: m.email }) } : { tone: "red", text: r.error })
     void load()
   }
   const work = async (store: string | null) => {
@@ -104,8 +105,8 @@ export function TeamPanel() {
   }
 
   if (error) return <Notice>{error}</Notice>
-  if (!data) return <Card title="Team" help="team"><div className="h-24" aria-hidden /></Card>
-  if (!data.ready) return <Notice tone="gray">The team is not set up on Storelib yet. Try again later.</Notice>
+  if (!data) return <Card title={tt("Team")} help="team"><div className="h-24" aria-hidden /></Card>
+  if (!data.ready) return <Notice tone="gray">{tt("The team is not set up on Storelib yet. Try again later.")}</Notice>
 
   const team = data.team
   const used = team?.members.length ?? 0
@@ -117,26 +118,26 @@ export function TeamPanel() {
       {said && <Notice tone={said.tone}>{said.text}</Notice>}
 
       {data.acting && (
-        <Card title={`Working in ${data.acting.name}`} description={`As ${ROLE_LABEL[data.acting.role]}: ${ROLE_SUMMARY[data.acting.role].toLowerCase()}.`}>
+        <Card title={tt("Working in {name}", { name: data.acting.name })} description={tt("As {role}: {value}.", { role: ROLE_LABEL[data.acting.role], value: ROLE_SUMMARY[data.acting.role].toLowerCase() })}>
           <button type="button" className={BTN_SECONDARY} disabled={busy !== null} onClick={() => work(null)}>
-            Back to my account
+            {tt("Back to my account")}
           </button>
         </Card>
       )}
 
       {team && (
         <Card
-          title="Team"
+          title={tt("Team")}
           help="team"
-          description={`People who help run your store. ${used} of ${team.limit} seats used.`}
+          description={tt("People who help run your store. {used} of {limit} seats used.", { used, limit: team.limit })}
         >
           <ul className="divide-y divide-[#f1f2f4]">
             <li className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">You</p>
-                <p className="text-[13px] text-[#6b7280]">Everything, including payouts, billing and the team</p>
+                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{tt("You")}</p>
+                <p className="text-[13px] text-[#6b7280]">{tt("Everything, including payouts, billing and the team")}</p>
               </div>
-              <Pill tone="gray">Owner</Pill>
+              <Pill tone="gray">{tt("Owner")}</Pill>
             </li>
             {team.members.map((m) => (
               <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -145,15 +146,15 @@ export function TeamPanel() {
                   <p className="text-[13px] text-[#6b7280]">{ROLE_SUMMARY[m.role]}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {m.status === "invited" && <Pill tone={expired(m) ? "amber" : "blue"}>{expired(m) ? "Invite expired" : "Invited"}</Pill>}
-                  <SelectInput value={m.role} onChange={(v) => change(m, v as MemberRole)} disabled={busy === m.id} aria-label={`Role for ${m.email}`} className="w-[120px]">
-                    {ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{invitable(r) ? ROLE_LABEL[r] : `${ROLE_LABEL[r]} (not open yet)`}</option>)}
+                  {m.status === "invited" && <Pill tone={expired(m) ? "amber" : "blue"}>{expired(m) ? tt("Invite expired") : tt("Invited")}</Pill>}
+                  <SelectInput value={m.role} onChange={(v) => change(m, v as MemberRole)} disabled={busy === m.id} aria-label={tt("Role for {email}", { email: m.email })} className="w-[120px]">
+                    {ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{invitable(r) ? ROLE_LABEL[r] : tt("{role} (not open yet)", { role: ROLE_LABEL[r] })}</option>)}
                   </SelectInput>
                   {m.status === "invited" && (
                     <button type="button" className={BTN_SECONDARY} disabled={busy === m.id} onClick={() => resend(m)}>Resend</button>
                   )}
                   <button type="button" className={BTN_DANGER} disabled={busy === m.id} onClick={() => remove(m)}>
-                    {m.status === "invited" ? "Cancel" : "Remove"}
+                    {m.status === "invited" ? tt("Cancel") : tt("Remove")}
                   </button>
                 </div>
               </li>
@@ -166,27 +167,27 @@ export function TeamPanel() {
               inputMode="email"
               autoComplete="off"
               placeholder="name@example.com"
-              aria-label="Email to invite"
+              aria-label={tt("Email to invite")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={full}
               className="flex-1"
             />
-            <SelectInput value={role} onChange={(v) => setRole(v as MemberRole)} aria-label="Role" disabled={full} className="sm:w-[140px]">
-              {ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{invitable(r) ? ROLE_LABEL[r] : `${ROLE_LABEL[r]} (not open yet)`}</option>)}
+            <SelectInput value={role} onChange={(v) => setRole(v as MemberRole)} aria-label={tt("Role")} disabled={full} className="sm:w-[140px]">
+              {ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{invitable(r) ? ROLE_LABEL[r] : tt("{role} (not open yet)", { role: ROLE_LABEL[r] })}</option>)}
             </SelectInput>
             <button type="submit" className={BTN_PRIMARY} disabled={full || busy === "invite" || !email.trim()}>
-              {busy === "invite" ? "Sending" : "Send invite"}
+              {busy === "invite" ? tt("Sending") : tt("Send invite")}
             </button>
           </form>
           <p className="mt-2 text-[13px] leading-5 text-[#6b7280]">
-            {full ? "Every seat is taken. Remove someone, or upgrade your plan to invite more." : `${ROLE_LABEL[role]}: ${ROLE_SUMMARY[role].toLowerCase()}. They sign in with their own Storelib account.`}
+            {full ? tt("Every seat is taken. Remove someone, or upgrade your plan to invite more.") : tt("{role}: {value}. They sign in with their own Storelib account.", { role: ROLE_LABEL[role], value: ROLE_SUMMARY[role].toLowerCase() })}
           </p>
         </Card>
       )}
 
       {data.stores.length > 0 ? (
-        <Card title="Stores you're on" description="Stores whose owners invited you. Open one to work in it.">
+        <Card title={tt("Stores you're on")} description={tt("Stores whose owners invited you. Open one to work in it.")}>
           <ul className="divide-y divide-[#f1f2f4]">
             {data.stores.map((s) => {
               const here = data.acting?.creatorId === s.creatorId
@@ -197,10 +198,10 @@ export function TeamPanel() {
                     <p className="text-[13px] text-[#6b7280]">{ROLE_LABEL[s.role]} · {ROLE_SUMMARY[s.role]}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {here ? <Pill tone="green">Working here</Pill> : (
-                      <button type="button" className={BTN_PRIMARY} disabled={busy !== null} onClick={() => work(s.creatorId)}>Open</button>
+                    {here ? <Pill tone="green">{tt("Working here")}</Pill> : (
+                      <button type="button" className={BTN_PRIMARY} disabled={busy !== null} onClick={() => work(s.creatorId)}>{tt("Open")}</button>
                     )}
-                    <button type="button" className={BTN_SECONDARY} disabled={busy !== null} onClick={() => leave(s)}>Leave</button>
+                    <button type="button" className={BTN_SECONDARY} disabled={busy !== null} onClick={() => leave(s)}>{tt("Leave")}</button>
                   </div>
                 </li>
               )
@@ -208,8 +209,8 @@ export function TeamPanel() {
           </ul>
         </Card>
       ) : !team ? (
-        <Card title="Team" help="team">
-          <Empty title="No team yet">When a store's owner invites you, it shows here and you can open it from your own account.</Empty>
+        <Card title={tt("Team")} help="team">
+          <Empty title={tt("No team yet")}>{tt("When a store's owner invites you, it shows here and you can open it from your own account.")}</Empty>
         </Card>
       ) : null}
     </div>

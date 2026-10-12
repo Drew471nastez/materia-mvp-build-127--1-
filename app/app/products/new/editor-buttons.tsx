@@ -26,6 +26,7 @@ import { Check, ChevronLeft } from "lucide-react"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { cn } from "@/lib/utils"
 import { REST_SHADOW, criticalDepth, primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { tt } from "@/lib/i18n/text"
 
 /* The depth itself lives in components/ui/depth-button.ts, so every light
    surface in /app presses the same way; it is re-exported here for the
@@ -74,7 +75,7 @@ export function LeaveButton({
   disabled = false,
   leaving = false,
   asks = false,
-  label = "Going back to products",
+  label = tt("Going back to products"),
   onLeave,
 }: {
   mode: LeaveMode
@@ -115,7 +116,7 @@ export function LeaveButton({
       data-answers-press=""
       data-mode={mode}
       data-leaving={going ? "" : undefined}
-      aria-label={back ? "Back" : "Cancel"}
+      aria-label={back ? tt("Back") : tt("Cancel")}
       aria-busy={going || undefined}
       disabled={disabled}
       onClick={
@@ -136,11 +137,11 @@ export function LeaveButton({
         show the dim alone.
       */}
       <span aria-hidden className={cn(word, back ? "opacity-0" : "opacity-100", going && !back && PRESS_CONTENT_OUT)}>
-        Cancel
+        {tt("Cancel")}
       </span>
       <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back ? "opacity-100" : "opacity-0", going && back && PRESS_CONTENT_OUT)}>
         <ChevronLeft className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2.25} />
-        Back
+        {tt("Back")}
       </span>
       {going ? (
         <span className={cn(word, PRESS_SPINNER_IN)}>
@@ -189,7 +190,7 @@ export function SaveButton({
   onSave: () => void
 }) {
   const busy = phase !== "idle"
-  const word = !busy && disabled && saved ? "Saved" : "Save"
+  const word = !busy && disabled && saved ? "Saved" : tt("Save")
   return (
     <button
       type="button"
@@ -217,7 +218,7 @@ export function SaveButton({
       </span>
       {phase === "saving" ? (
         <span aria-hidden className="absolute inset-0 flex items-center justify-center">
-          <ActivitySpinner size={18} label="Saving" className="text-white" />
+          <ActivitySpinner size={18} label={tt("Saving")} className="text-white" />
         </span>
       ) : null}
       {phase === "saved" ? (

@@ -15,6 +15,8 @@
 
 import { cleanOrigin, type OrderOrigin, type OrderSource } from "./order-source"
 import { midnightOf, todayIn } from "../date-range/range"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface OrderRow {
   id: string
@@ -108,13 +110,13 @@ export function showsProblem(stage: ShipStage, problem: boolean | null | undefin
 }
 
 export const SHIP_STAGE_LABEL: Record<ShipStage, string> = {
-  unfulfilled: "Unfulfilled",
-  partially_fulfilled: "Partially fulfilled",
-  fulfilled: "Fulfilled",
-  delivered: "Delivered",
-  partially_returned: "Partially returned",
-  returned: "Returned",
-  cancelled: "Cancelled",
+  get unfulfilled() { return tt("Unfulfilled") },
+  get partially_fulfilled() { return tt("Partially fulfilled") },
+  get fulfilled() { return tt("Fulfilled") },
+  get delivered() { return tt("Delivered") },
+  get partially_returned() { return tt("Partially returned") },
+  get returned() { return tt("Returned") },
+  get cancelled() { return tt("Cancelled") },
 }
 
 /** Null when nothing in the order ships (or the checkout was never read). Processing is still unfulfilled: nothing has left. */
@@ -133,11 +135,11 @@ export function shipStageOf(fulfillment: string | null | undefined, returnStatus
 export type ShipFilter = "unfulfilled" | "partially_fulfilled" | "fulfilled" | "delivered" | "returned"
 
 export const SHIP_FILTERS: Array<{ value: ShipFilter; label: string }> = [
-  { value: "unfulfilled", label: "Unfulfilled" },
-  { value: "partially_fulfilled", label: "Partially fulfilled" },
-  { value: "fulfilled", label: "Fulfilled" },
-  { value: "delivered", label: "Delivered" },
-  { value: "returned", label: "Returned" },
+  { value: "unfulfilled", get label() { return tt("Unfulfilled") } },
+  { value: "partially_fulfilled", get label() { return tt("Partially fulfilled") } },
+  { value: "fulfilled", get label() { return tt("Fulfilled") } },
+  { value: "delivered", get label() { return tt("Delivered") } },
+  { value: "returned", get label() { return tt("Returned") } },
 ]
 
 export function isShipFilter(value: unknown): value is ShipFilter {
@@ -299,7 +301,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       tipCents,
       taxCents,
       taxIncluded,
-      taxLabel: taxLabels.length === 1 ? taxLabels[0] : "Tax",
+      taxLabel: taxLabels.length === 1 ? taxLabels[0] : tt("Tax"),
       shippingCents,
       totalCents,
       feeCents: lines.reduce((n, r) => n + (r.fee_cents || 0), 0),
@@ -368,12 +370,12 @@ export function startOfDay(ms: number, timeZone: string): number {
 export type View = "all" | "unfulfilled" | "paid" | "pending" | "refunded"
 
 export const VIEWS: Array<{ value: View; label: string }> = [
-  { value: "all", label: "All" },
+  { value: "all", get label() { return tt("All") } },
   /* Shopify's own second tab: what is still to send. Shown only to a shop with something to ship (the list hides empty views). */
-  { value: "unfulfilled", label: "Unfulfilled" },
-  { value: "paid", label: "Paid" },
-  { value: "pending", label: "Payment pending" },
-  { value: "refunded", label: "Refunded" },
+  { value: "unfulfilled", get label() { return tt("Unfulfilled") } },
+  { value: "paid", get label() { return tt("Paid") } },
+  { value: "pending", get label() { return tt("Payment pending") } },
+  { value: "refunded", get label() { return tt("Refunded") } },
 ]
 
 export function isView(value: unknown): value is View {
@@ -398,10 +400,10 @@ export function inView(order: Order, view: View): boolean {
 export type Sort = "newest" | "oldest" | "total_desc" | "total_asc"
 
 export const SORTS: Array<{ value: Sort; label: string }> = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
-  { value: "total_desc", label: "Highest total" },
-  { value: "total_asc", label: "Lowest total" },
+  { value: "newest", get label() { return tt("Newest first") } },
+  { value: "oldest", get label() { return tt("Oldest first") } },
+  { value: "total_desc", get label() { return tt("Highest total") } },
+  { value: "total_asc", get label() { return tt("Lowest total") } },
 ]
 
 export function isSort(value: unknown): value is Sort {
@@ -527,15 +529,15 @@ export type ColumnKey =
   | "method"
 
 export const COLUMNS: Array<{ key: ColumnKey; label: string; align?: "right" }> = [
-  { key: "date", label: "Date" },
-  { key: "customer", label: "Customer" },
-  { key: "source", label: "Source" },
-  { key: "total", label: "Total", align: "right" },
-  { key: "payment", label: "Payment status" },
-  { key: "fulfillment", label: "Fulfillment status" },
-  { key: "items", label: "Items" },
-  { key: "delivery", label: "Delivery status" },
-  { key: "method", label: "Delivery method" },
+  { key: "date", get label() { return tt("Date") } },
+  { key: "customer", get label() { return tt("Customer") } },
+  { key: "source", get label() { return tt("Source") } },
+  { key: "total", get label() { return tt("Total") }, align: "right" },
+  { key: "payment", get label() { return tt("Payment status") } },
+  { key: "fulfillment", get label() { return tt("Fulfillment status") } },
+  { key: "items", get label() { return tt("Items") } },
+  { key: "delivery", get label() { return tt("Delivery status") } },
+  { key: "method", get label() { return tt("Delivery method") } },
 ]
 
 /** Hidden columns are kept in a cookie so the server renders the table the creator left. */
@@ -552,22 +554,22 @@ export function hiddenColumnsFrom(cookie: string | undefined | null): ColumnKey[
 /* ─── Words ───────────────────────────────────────────────────────────── */
 
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
-  paid: "Paid",
-  pending: "Payment pending",
-  refunded: "Refunded",
-  partially_refunded: "Partially refunded",
-  failed: "Failed",
-  disputed: "Disputed",
+  get paid() { return tt("Paid") },
+  get pending() { return tt("Payment pending") },
+  get refunded() { return tt("Refunded") },
+  get partially_refunded() { return tt("Partially refunded") },
+  get failed() { return tt("Failed") },
+  get disputed() { return tt("Disputed") },
 }
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
-  fulfilled: "Fulfilled",
-  unfulfilled: "Unfulfilled",
+  get fulfilled() { return tt("Fulfilled") },
+  get unfulfilled() { return tt("Unfulfilled") },
 }
 
 export const SOURCE_LABEL: Record<OrderSource, string> = {
   storelib: "Storelib",
-  website: "Website",
+  get website() { return tt("Website") },
 }
 
 export function itemsLabel(count: number): string {
@@ -578,9 +580,9 @@ export function itemsLabel(count: number): string {
 
 function formatIn(ms: number, timeZone: string, options: Intl.DateTimeFormatOptions): string {
   try {
-    return new Intl.DateTimeFormat("en-US", { ...options, timeZone }).format(new Date(ms))
+    return new Intl.DateTimeFormat(appLocale(), zoned({ ...options, timeZone })).format(new Date(ms))
   } catch {
-    return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(new Date(ms))
+    return new Intl.DateTimeFormat(appLocale(), zoned({ ...options, timeZone: "UTC" })).format(new Date(ms))
   }
 }
 
@@ -592,17 +594,17 @@ function clock(ms: number, timeZone: string): string {
 export function listDate(iso: string, now: number, timeZone: string): string {
   const ms = Date.parse(iso)
   const today = startOfDay(now, timeZone)
-  if (ms >= today) return `Today at ${clock(ms, timeZone)}`
-  if (ms >= today - DAY) return `Yesterday at ${clock(ms, timeZone)}`
+  if (ms >= today) return tt("Today at {value}", { value: clock(ms, timeZone) })
+  if (ms >= today - DAY) return tt("Yesterday at {value}", { value: clock(ms, timeZone) })
   const sameYear = formatIn(ms, timeZone, { year: "numeric" }) === formatIn(now, timeZone, { year: "numeric" })
-  if (sameYear) return `${formatIn(ms, timeZone, { month: "short", day: "numeric" })} at ${clock(ms, timeZone)}`
+  if (sameYear) return tt("{value} at {value2}", { value: formatIn(ms, timeZone, { month: "short", day: "numeric" }), value2: clock(ms, timeZone) })
   return formatIn(ms, timeZone, { month: "short", day: "numeric", year: "numeric" })
 }
 
 /** "April 7, 2025 at 9:40 am". */
 export function fullDate(iso: string, timeZone: string): string {
   const ms = Date.parse(iso)
-  return `${formatIn(ms, timeZone, { month: "long", day: "numeric", year: "numeric" })} at ${clock(ms, timeZone)}`
+  return tt("{value} at {value2}", { value: formatIn(ms, timeZone, { month: "long", day: "numeric", year: "numeric" }), value2: clock(ms, timeZone) })
 }
 
 /** "9:40 am". */
@@ -614,8 +616,8 @@ export function timeOfDay(iso: string, timeZone: string): string {
 export function dayHeading(iso: string, now: number, timeZone: string): string {
   const ms = Date.parse(iso)
   const today = startOfDay(now, timeZone)
-  if (ms >= today && ms < today + DAY) return "Today"
-  if (ms >= today - DAY && ms < today) return "Yesterday"
+  if (ms >= today && ms < today + DAY) return tt("Today")
+  if (ms >= today - DAY && ms < today) return tt("Yesterday")
   const sameYear = formatIn(ms, timeZone, { year: "numeric" }) === formatIn(now, timeZone, { year: "numeric" })
   return formatIn(ms, timeZone, sameYear ? { month: "long", day: "numeric" } : { month: "long", day: "numeric", year: "numeric" })
 }

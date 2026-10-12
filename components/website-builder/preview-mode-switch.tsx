@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { ArrowLeft, Code2, Globe, Moon, Settings, Sun } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -134,9 +135,9 @@ export function PreviewModeSwitch({
           }}
         />
       )}
-      {seg("preview", "Preview", Globe)}
-      {seg("code", "Code", Code2)}
-      {seg("settings", "Website Settings", Settings)}
+      {seg("preview", tt("Preview"), Globe)}
+      {seg("code", tt("Code"), Code2)}
+      {seg("settings", tt("Website Settings"), Settings)}
     </div>
   )
 }
@@ -421,7 +422,7 @@ export function CodePane({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Back to the editor"
+            aria-label={tt("Back to the editor")}
             className={cn(
               "flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium transition-[background-color,color,scale] duration-150 active:scale-95",
               dark
@@ -430,7 +431,7 @@ export function CodePane({
             )}
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
-            Editor
+            {tt("Editor")}
           </button>
           <span
             className={cn(
@@ -439,7 +440,7 @@ export function CodePane({
             )}
           >
             <Code2 className="h-4 w-4" strokeWidth={1.75} />
-            Code
+            {tt("Code")}
           </span>
           {/* Right-aligned, and a 36px target: on a phone this is the only
               way to reach the setting, since the editor's own icon row is
@@ -447,7 +448,7 @@ export function CodePane({
           <button
             type="button"
             onClick={() => askFrameForTheme(dark ? "light" : "dark")}
-            aria-label={dark ? "Switch to the light editor" : "Switch to the dark editor"}
+            aria-label={dark ? tt("Switch to the light editor") : tt("Switch to the dark editor")}
             className={cn(
               "ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,scale] duration-150 active:scale-90",
               dark
@@ -476,7 +477,7 @@ export function CodePane({
       <div className="relative min-h-0 flex-1">
         <iframe
           ref={frameRef}
-          title="Code editor"
+          title={tt("Code editor")}
           src={`/website-builder/code/${installId}?embedded=1${codeFilePath ? `&path=${encodeURIComponent(codeFilePath)}` : ""}`}
           onLoad={() => setLoaded(true)}
           className={cn(

@@ -19,6 +19,7 @@ import { Plus } from "lucide-react"
 
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { BlockSchema, SectionPreset } from "@/lib/website-builder/types"
+import { tt } from "@/lib/i18n/text"
 
 export interface BlockChoice {
   type: string
@@ -53,7 +54,7 @@ export function AddBlockButton({
   const choices = React.useMemo(() => blockChoices(options), [options])
   const items = React.useMemo<ActionMenuItem[]>(() => choices.map((c) => ({ label: c.label, onClick: () => onAdd(c) })), [choices, onAdd])
   if (choices.length === 0) return null
-  const text = label ?? (choices.length === 1 ? `Add ${choices[0].label.toLowerCase()}` : "Add block")
+  const text = label ?? (choices.length === 1 ? tt("Add {value}", { value: choices[0].label.toLowerCase() }) : tt("Add block"))
   if (choices.length === 1) {
     return (
       <button type="button" className={BUTTON} data-add-block="" onClick={() => onAdd(choices[0])}>
@@ -64,7 +65,7 @@ export function AddBlockButton({
   }
   return (
     <ResponsiveActionMenu
-      title="Add block"
+      title={tt("Add block")}
       align="start"
       menuWidth="w-60"
       items={items}

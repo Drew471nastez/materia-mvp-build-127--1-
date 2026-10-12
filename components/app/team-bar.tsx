@@ -15,6 +15,7 @@ import * as React from "react"
 import { usePathname } from "next/navigation"
 import { ROLE_LABEL, areaOfPath, memberCan, type MemberRole } from "@/lib/team/roles"
 import { TeamAreaClosed } from "./team-area-closed"
+import { tt } from "@/lib/i18n/text"
 
 export function TeamBar({ store, role, ownStore = true, children }: { store: string; role: MemberRole; ownStore?: boolean; children: React.ReactNode }) {
   const pathname = usePathname() || "/app"
@@ -30,12 +31,12 @@ export function TeamBar({ store, role, ownStore = true, children }: { store: str
     <>
       <div role="status" className="flex items-center justify-center gap-3 bg-[#1a1a2e] px-4 py-2 text-[13px] leading-5 text-white">
         <span className="truncate">
-          Working in <strong className="font-semibold">{store}</strong> as {ROLE_LABEL[role]}
+          {tt("Working in")} <strong className="font-semibold">{store}</strong> {tt("as")} {ROLE_LABEL[role]}
         </span>
         {/* Someone with no store of their own has no account dashboard to go back to. */}
         {ownStore ? (
           <button type="button" onClick={back} disabled={leaving} className="shrink-0 rounded-lg bg-white/10 px-2.5 py-1 font-medium hover:bg-white/20 disabled:opacity-60">
-            {leaving ? "Going back" : "Back to my account"}
+            {leaving ? tt("Going back") : tt("Back to my account")}
           </button>
         ) : null}
       </div>

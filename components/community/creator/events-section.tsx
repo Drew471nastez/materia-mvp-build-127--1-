@@ -33,6 +33,7 @@ import { EventTicketsPanel } from "./event-tickets"
 import { AccessEditor } from "./access-editor"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { Dialog, Empty, FilterTabs, ListCard, Notice, PicturePick, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 interface Draft {
   id: string | null
@@ -163,9 +164,9 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
     const body = { ...draft, replay: draft.id ? draft.replay : undefined, priceMode: priced ? draft.priceMode : undefined }
     const res = draft.id ? await send(`${base}/${draft.id}`, "PATCH", body) : await send(base, "POST", body)
     setBusy(false)
-    if (!res.ok) return setError({ text: errorText(res.data.error, "The event could not be saved."), field: res.data.field })
+    if (!res.ok) return setError({ text: errorText(res.data.error, tt("The event could not be saved.")), field: res.data.field })
     setDraft(null)
-    toast(draft.id ? "Event saved" : "Event scheduled")
+    toast(draft.id ? tt("Event saved") : tt("Event scheduled"))
     await reload()
     router.refresh()
   }
@@ -178,18 +179,18 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
     setCancelling(null)
     const back = res.data.refunded ?? 0
     const failed = res.data.failed ?? 0
-    toast(status === "cancelled" ? (back > 0 ? `Cancelled. ${back} ${back === 1 ? "ticket" : "tickets"} refunded${failed > 0 ? `, ${failed} did not go back` : ""}` : "Event cancelled") : "Event back on")
+    toast(status === "cancelled" ? (back > 0 ? tt("Cancelled. {back, plural, one {# ticket} other {# tickets}} refunded{value}", { back, value: failed > 0 ? tt(", {failed} did not go back", { failed }) : "" }) : tt("Event cancelled")) : tt("Event back on"))
     await reload()
   }
 
   const menu = (e: EventEditView): ActionMenuItem[] => {
     const items: ActionMenuItem[] = [
-      { label: Date.parse(e.startsAt) < Date.now() ? "Edit or add the replay" : "Edit", onClick: () => { setError(null); setDraft(draftOf(e)) } },
-      { label: "Open event page", href: `/community/${head.slug}/events/${e.id}`, target: "_blank" },
+      { label: Date.parse(e.startsAt) < Date.now() ? tt("Edit or add the replay") : tt("Edit"), onClick: () => { setError(null); setDraft(draftOf(e)) } },
+      { label: tt("Open event page"), href: `/community/${head.slug}/events/${e.id}`, target: "_blank" },
     ]
-    if (tickets.ready && ((e.priceCents ?? 0) > 0 || e.ticketsSold > 0)) items.push({ label: "Tickets", onClick: () => setPanelFor(e) })
-    if (e.status === "scheduled" && Date.parse(e.startsAt) > Date.now()) items.push({ label: "Cancel event", variant: "destructive", onClick: () => { setRefundAll(true); setCancelling(e) }, separatorBefore: true })
-    if (e.status === "cancelled") items.push({ label: "Put it back on", onClick: () => void setStatus(e, "scheduled"), separatorBefore: true })
+    if (tickets.ready && ((e.priceCents ?? 0) > 0 || e.ticketsSold > 0)) items.push({ label: tt("Tickets"), onClick: () => setPanelFor(e) })
+    if (e.status === "scheduled" && Date.parse(e.startsAt) > Date.now()) items.push({ label: tt("Cancel event"), variant: "destructive", onClick: () => { setRefundAll(true); setCancelling(e) }, separatorBefore: true })
+    if (e.status === "cancelled") items.push({ label: tt("Put it back on"), onClick: () => void setStatus(e, "scheduled"), separatorBefore: true })
     return items
   }
 
@@ -232,23 +233,23 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
   return (
     <div className="space-y-4" data-events="">
       <ListCard
-        head={<FilterTabs label="Which events" value={view} onChange={setView} tabs={[{ value: "upcoming", label: "Upcoming", count: data.upcoming.length }, { value: "past", label: "Past", count: data.past.length }]} />}
+        head={<FilterTabs label={tt("Which events")} value={view} onChange={setView} tabs={[{ value: "upcoming", label: tt("Upcoming"), count: data.upcoming.length }, { value: "past", label: tt("Past"), count: data.past.length }]} />}
         actions={
           <button type="button" onClick={() => { setError(null); setDraft(blankDraft()) }} className={buttonPrimary} data-event-new="">
             <Plus aria-hidden className="h-4 w-4" />
-            Schedule
+            {tt("Schedule")}
           </button>
         }
       >
         {list.length === 0 ? (
           view === "upcoming" ? (
-            <Empty title="No events scheduled." detail="A call, a workshop or a Q&A. Members get a reminder before it starts.">
+            <Empty title={tt("No events scheduled.")} detail={tt("A call, a workshop or a Q&A. Members get a reminder before it starts.")}>
               <button type="button" onClick={() => setDraft(blankDraft())} className={cn(buttonPrimary, "h-10 px-4")}>
-                Schedule an event
+                {tt("Schedule an event")}
               </button>
             </Empty>
           ) : (
-            <Empty title="No past events." />
+            <Empty title={tt("No past events.")} />
           )
         ) : (
           <ul className="divide-y divide-[#f1f2f4]">
@@ -264,17 +265,17 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                   <div className="min-w-0 flex-1">
                     <p className="flex min-w-0 items-center gap-2">
                       <span className={cn("truncate text-[14.5px] font-medium", e.status === "cancelled" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{e.title}</span>
-                      {e.status === "cancelled" ? <StatusBadge tone="neutral">Cancelled</StatusBadge> : null}
-                      {view === "past" && e.replayVideoId ? <StatusBadge tone="success">Replay</StatusBadge> : null}
+                      {e.status === "cancelled" ? <StatusBadge tone="neutral">{tt("Cancelled")}</StatusBadge> : null}
+                      {view === "past" && e.replayVideoId ? <StatusBadge tone="success">{tt("Replay")}</StatusBadge> : null}
                     </p>
-                    <p className="line-clamp-2 text-[12.5px] text-[#6b7280] sm:truncate">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], `${e.goingCount}${e.capacity ? ` of ${e.capacity}` : ""} going`].join(" · ")}</p>
+                    <p className="line-clamp-2 text-[12.5px] text-[#6b7280] sm:truncate">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], tt("{goingCount}{value} going", { goingCount: e.goingCount, value: e.capacity ? tt(" of {capacity}", { capacity: e.capacity }) : "" })].join(" · ")}</p>
                     {money ? (
                       <p className="mt-0.5 text-[12.5px] leading-snug tabular-nums text-[#4b5563] max-sm:line-clamp-2 sm:truncate" data-event-money="">
                         {money}
                       </p>
                     ) : null}
                   </div>
-                  <RowMenu items={menu(e)} label={`Actions for ${e.title}`} />
+                  <RowMenu items={menu(e)} label={tt("Actions for {title}", { title: e.title })} />
                 </li>
               )
             })}
@@ -285,15 +286,15 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
       <Dialog
         open={draft !== null}
         onClose={() => setDraft(null)}
-        title={draft?.id ? "Edit event" : "Schedule an event"}
+        title={draft?.id ? tt("Edit event") : tt("Schedule an event")}
         wide
         footer={
           <>
             <button type="button" onClick={() => setDraft(null)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-event-save="">
-              {busy ? "Saving" : draft?.id ? "Save" : "Schedule"}
+              {busy ? tt("Saving") : draft?.id ? tt("Save") : tt("Schedule")}
             </button>
           </>
         }
@@ -302,14 +303,14 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
           <div className="space-y-4" data-event-editor="">
             <div>
               <label htmlFor="ev-title" className={label}>
-                Title
+                {tt("Title")}
               </label>
-              <input id="ev-title" value={draft.title} onChange={(e) => set("title", e.target.value.slice(0, 140))} placeholder="Monthly Q&A" aria-invalid={bad("title") || undefined} className={cn(field, "h-11 sm:h-10", bad("title") && "border-[#dc2626]")} />
+              <input id="ev-title" value={draft.title} onChange={(e) => set("title", e.target.value.slice(0, 140))} placeholder={tt("Monthly Q&A")} aria-invalid={bad("title") || undefined} className={cn(field, "h-11 sm:h-10", bad("title") && "border-[#dc2626]")} />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr]">
               <div>
                 <label htmlFor="ev-kind" className={label}>
-                  Kind
+                  {tt("Kind")}
                 </label>
                 <select id="ev-kind" value={draft.kind} onChange={(e) => set("kind", e.target.value as EventKind)} className={selectField}>
                   {(["online", "live", "workshop", "ama", "meetup", "in_person"] as const).map((k) => (
@@ -321,7 +322,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
               </div>
               <div>
                 <label htmlFor="ev-zone" className={label}>
-                  Time zone
+                  {tt("Time zone")}
                 </label>
                 <select id="ev-zone" value={draft.timezone} onChange={(e) => set("timezone", e.target.value)} className={selectField}>
                   {zoneList.map((z) => (
@@ -335,19 +336,19 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1.3fr_1fr_1fr]">
               <div className="col-span-2 sm:col-span-1">
                 <label htmlFor="ev-date" className={label}>
-                  Date
+                  {tt("Date")}
                 </label>
                 <input id="ev-date" type="date" value={draft.startDate} onChange={(e) => setDraft({ ...draft, startDate: e.target.value, endDate: e.target.value })} aria-invalid={bad("start") || undefined} className={cn(field, "h-11 sm:h-10", bad("start") && "border-[#dc2626]")} />
               </div>
               <div>
                 <label htmlFor="ev-start" className={label}>
-                  Starts
+                  {tt("Starts")}
                 </label>
                 <input id="ev-start" type="time" value={draft.startTime} onChange={(e) => set("startTime", e.target.value)} className={cn(field, "h-11 sm:h-10", bad("start") && "border-[#dc2626]")} />
               </div>
               <div>
                 <label htmlFor="ev-end" className={label}>
-                  Ends
+                  {tt("Ends")}
                 </label>
                 <input id="ev-end" type="time" value={draft.endTime} onChange={(e) => set("endTime", e.target.value)} aria-invalid={bad("end") || undefined} className={cn(field, "h-11 sm:h-10", bad("end") && "border-[#dc2626]")} />
               </div>
@@ -355,63 +356,63 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="ev-meeting" className={label}>
-                  {draft.kind === "in_person" || draft.kind === "meetup" ? "Link (optional)" : "Meeting link"}
+                  {draft.kind === "in_person" || draft.kind === "meetup" ? tt("Link (optional)") : tt("Meeting link")}
                 </label>
                 <input id="ev-meeting" inputMode="url" value={draft.meetingUrl} onChange={(e) => set("meetingUrl", e.target.value.trim().slice(0, 1000))} placeholder="https://zoom.us/j/..." aria-invalid={bad("meetingUrl") || undefined} className={cn(field, "h-11 sm:h-10", bad("meetingUrl") && "border-[#dc2626]")} />
               </div>
               <div>
                 <label htmlFor="ev-location" className={label}>
-                  Place
+                  {tt("Place")}
                 </label>
-                <input id="ev-location" value={draft.location} onChange={(e) => set("location", e.target.value.slice(0, 300))} placeholder={draft.kind === "in_person" || draft.kind === "meetup" ? "Address" : "Optional"} className={cn(field, "h-11 sm:h-10")} />
+                <input id="ev-location" value={draft.location} onChange={(e) => set("location", e.target.value.slice(0, 300))} placeholder={draft.kind === "in_person" || draft.kind === "meetup" ? tt("Address") : tt("Optional")} className={cn(field, "h-11 sm:h-10")} />
               </div>
             </div>
             <div className="grid grid-cols-[1fr_120px] gap-3">
               <div>
                 <label htmlFor="ev-live" className={label}>
-                  Livestream link
+                  {tt("Livestream link")}
                 </label>
-                <input id="ev-live" inputMode="url" value={draft.livestreamUrl} onChange={(e) => set("livestreamUrl", e.target.value.trim().slice(0, 1000))} placeholder="Optional" aria-invalid={bad("livestreamUrl") || undefined} className={cn(field, "h-11 sm:h-10", bad("livestreamUrl") && "border-[#dc2626]")} />
+                <input id="ev-live" inputMode="url" value={draft.livestreamUrl} onChange={(e) => set("livestreamUrl", e.target.value.trim().slice(0, 1000))} placeholder={tt("Optional")} aria-invalid={bad("livestreamUrl") || undefined} className={cn(field, "h-11 sm:h-10", bad("livestreamUrl") && "border-[#dc2626]")} />
               </div>
               <div>
                 <label htmlFor="ev-cap" className={label}>
-                  {draft.priceMode === "paid" ? "Seats" : "Capacity"}
+                  {draft.priceMode === "paid" ? tt("Seats") : tt("Capacity")}
                 </label>
-                <input id="ev-cap" inputMode="numeric" value={draft.capacity} onChange={(e) => set("capacity", e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="No limit" aria-invalid={bad("capacity") || undefined} className={cn(field, "h-11 tabular-nums sm:h-10")} />
+                <input id="ev-cap" inputMode="numeric" value={draft.capacity} onChange={(e) => set("capacity", e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder={tt("No limit")} aria-invalid={bad("capacity") || undefined} className={cn(field, "h-11 tabular-nums sm:h-10")} />
               </div>
             </div>
             <div>
               <label htmlFor="ev-desc" className={label}>
-                About it
+                {tt("About it")}
               </label>
-              <textarea id="ev-desc" value={draft.description} onChange={(e) => set("description", e.target.value.slice(0, 4000))} rows={3} placeholder="What you will cover and who it is for" className={cn(field, "resize-y py-2.5 leading-relaxed")} />
+              <textarea id="ev-desc" value={draft.description} onChange={(e) => set("description", e.target.value.slice(0, 4000))} rows={3} placeholder={tt("What you will cover and who it is for")} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
             </div>
             <div>
-              <p className={label}>Cover</p>
+              <p className={label}>{tt("Cover")}</p>
               <PicturePick value={draft.coverUrl} onChange={(v) => set("coverUrl", v)} shape="wide" name="cover" onError={(m) => setError({ text: m })} />
             </div>
             <AccessEditor value={draft.access} onChange={(v) => set("access", v)} options={options} idPrefix="ev" />
             {mayPrice ? (
               <div className="border-t border-[#e5e7eb]/60 pt-4" data-tickets-card="">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Tickets</h3>
-                  {draft.id && soldFor(draft.id) > 0 ? <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{soldFor(draft.id)} sold</span> : null}
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Tickets")}</h3>
+                  {draft.id && soldFor(draft.id) > 0 ? <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{soldFor(draft.id)} {tt("sold")}</span> : null}
                 </div>
                 {!tickets.ready ? (
                   <p className="mt-1.5 text-[13px] leading-5 text-[#6b7280]" data-tickets-missing="">
-                    Paid events need the database update, run-now part 105. Until it runs every event is free. Only you and your team see this line.
+                    {tt("Paid events need the database update, run-now part 105. Until it runs every event is free. Only you and your team see this line.")}
                   </p>
                 ) : (
                   <>
                     <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                       <TicketMode value={draft.priceMode} onChange={(v) => set("priceMode", v)} paidOff={!tickets.canSell} />
-                      {draft.priceMode === "free" ? <p className="text-[13px] text-[#6b7280]">Free for everyone who can see it.</p> : null}
+                      {draft.priceMode === "free" ? <p className="text-[13px] text-[#6b7280]">{tt("Free for everyone who can see it.")}</p> : null}
                     </div>
                     {!tickets.canSell ? (
                       <p className="mt-2 rounded-xl border border-[#f1e3bd] bg-[#fdf8ea] px-3.5 py-2.5 text-[13px] leading-5 text-[#6b4e00]" data-payouts-off="">
-                        Payouts are not set up yet, so a ticket cannot be sold.{" "}
+                        {tt("Payouts are not set up yet, so a ticket cannot be sold.")}{" "}
                         <Link href="/app/settings?tab=payments" className="font-medium underline underline-offset-2">
-                          Set up payouts
+                          {tt("Set up payouts")}
                         </Link>
                       </p>
                     ) : null}
@@ -419,7 +420,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                       <div className="mt-3 space-y-3.5">
                         <div>
                           <label htmlFor="ev-price" className={label}>
-                            Price a ticket
+                            {tt("Price a ticket")}
                           </label>
                           <div className="relative max-w-[220px]">
                             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13.5px] font-medium uppercase text-[#6b7280]">{tickets.currency}</span>
@@ -434,14 +435,14 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                             />
                           </div>
                           <p className="mt-1.5 text-[12.5px] leading-snug text-[#6b7280]">
-                            Members pay once, in a checkout inside the community. The meeting link, the address and who else is going open when they have a ticket.
-                            {draft.capacity ? ` ${draft.capacity} seats.` : " No seat limit: add a capacity above to sell a set number."}
+                            {tt("Members pay once, in a checkout inside the community. The meeting link, the address and who else is going open when they have a ticket.")}
+                            {draft.capacity ? tt(" {capacity} seats.", { capacity: draft.capacity }) : tt(" No seat limit: add a capacity above to sell a set number.")}
                           </p>
                         </div>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_152px]">
                           <div>
                             <label htmlFor="ev-close-date" className={label}>
-                              Sales close
+                              {tt("Sales close")}
                             </label>
                             <input
                               id="ev-close-date"
@@ -454,13 +455,13 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                           </div>
                           <div>
                             <label htmlFor="ev-close-time" className={label}>
-                              At
+                              {tt("At")}
                             </label>
                             <input id="ev-close-time" type="time" value={draft.salesCloseTime} onChange={(e) => set("salesCloseTime", e.target.value)} className={cn(field, "h-11 sm:h-10", bad("salesClose") && "border-[#dc2626]")} />
                           </div>
                           <div className="col-span-2 sm:col-span-1">
                             <label htmlFor="ev-refund-window" className={label}>
-                              Refunds up to
+                              {tt("Refunds up to")}
                             </label>
                             <div className="flex items-center gap-2">
                               <input
@@ -468,36 +469,36 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                                 inputMode="numeric"
                                 value={draft.refundWindow}
                                 onChange={(e) => set("refundWindow", e.target.value.replace(/\D/g, "").slice(0, 4))}
-                                placeholder="None"
+                                placeholder={tt("None")}
                                 aria-invalid={bad("refundWindow") || undefined}
                                 className={cn(field, "h-11 w-[92px] shrink-0 tabular-nums sm:h-10", bad("refundWindow") && "border-[#dc2626]")}
                               />
-                              <span className="text-[13.5px] text-[#4b5563]">hours before</span>
+                              <span className="text-[13.5px] text-[#4b5563]">{tt("hours before")}</span>
                             </div>
                           </div>
                         </div>
                         <p className="text-[12.5px] leading-snug text-[#6b7280]">
-                          {draft.salesCloseDate ? "Nobody can buy a ticket after that." : "Leave the date empty and sales stop when the event starts."}{" "}
-                          {draft.refundWindow ? `A holder can give up their seat and get their money back ${refundWindowWords(Number(draft.refundWindow))}.` : "Hours before the start when a holder can still refund themselves. Empty means only you can refund them."}
+                          {draft.salesCloseDate ? tt("Nobody can buy a ticket after that.") : tt("Leave the date empty and sales stop when the event starts.")}{" "}
+                          {draft.refundWindow ? tt("A holder can give up their seat and get their money back {value}.", { value: refundWindowWords(Number(draft.refundWindow)) }) : tt("Hours before the start when a holder can still refund themselves. Empty means only you can refund them.")}
                         </p>
                         <div>
                           <label htmlFor="ev-refund-policy" className={label}>
-                            Refund policy for this event
+                            {tt("Refund policy for this event")}
                           </label>
                           <textarea
                             id="ev-refund-policy"
                             value={draft.refundPolicy}
                             onChange={(e) => set("refundPolicy", e.target.value.slice(0, 2000))}
                             rows={3}
-                            placeholder={tickets.communityPolicy ? "Leave it empty to use the community's policy" : "What happens if somebody cannot come"}
+                            placeholder={tickets.communityPolicy ? tt("Leave it empty to use the community's policy") : tt("What happens if somebody cannot come")}
                             className={cn(field, "resize-y py-2.5 leading-relaxed")}
                           />
                           <p className="mt-1.5 text-[12.5px] leading-snug text-[#6b7280]">
                             {draft.refundPolicy.trim()
-                              ? "Buyers see these words on the event page and in their receipt."
+                              ? tt("Buyers see these words on the event page and in their receipt.")
                               : tickets.communityPolicy
-                                ? `Empty, so buyers see the community's policy: ${tickets.communityPolicy.slice(0, 140)}${tickets.communityPolicy.length > 140 ? "..." : ""}`
-                                : "Empty, and the community has no policy either, so buyers are told to ask you."}
+                                ? tt("Empty, so buyers see the community's policy: {value}{value2}", { value: tickets.communityPolicy.slice(0, 140), value2: tickets.communityPolicy.length > 140 ? "..." : "" })
+                                : tt("Empty, and the community has no policy either, so buyers are told to ask you.")}
                           </p>
                         </div>
                       </div>
@@ -509,11 +510,11 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
             {draft.id ? (
               <div>
                 <label htmlFor="ev-replay" className={label}>
-                  Replay
+                  {tt("Replay")}
                 </label>
                 <ReplayUpload communityId={head.id} onDone={(id) => set("replay", id)} onError={(m) => setError({ text: m, field: "replay" })} />
-                <input id="ev-replay" value={draft.replay} onChange={(e) => set("replay", e.target.value.trim().slice(0, 300))} placeholder="Or paste a Storelib video id" aria-invalid={bad("replay") || undefined} className={cn(field, "mt-2 h-11 font-mono text-[13px] sm:h-10", bad("replay") && "border-[#dc2626]")} />
-                <p className="mt-1 text-[12.5px] text-[#6b7280]">Members who could attend can watch it on the event page afterwards.</p>
+                <input id="ev-replay" value={draft.replay} onChange={(e) => set("replay", e.target.value.trim().slice(0, 300))} placeholder={tt("Or paste a Storelib video id")} aria-invalid={bad("replay") || undefined} className={cn(field, "mt-2 h-11 font-mono text-[13px] sm:h-10", bad("replay") && "border-[#dc2626]")} />
+                <p className="mt-1 text-[12.5px] text-[#6b7280]">{tt("Members who could attend can watch it on the event page afterwards.")}</p>
               </div>
             ) : null}
             {error ? <Notice>{error.text}</Notice> : null}
@@ -525,11 +526,11 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
       <Dialog
         open={cancelling !== null}
         onClose={() => setCancelling(null)}
-        title={`Cancel ${cancelling?.title ?? "this event"}?`}
+        title={tt("Cancel {value}?", { value: cancelling?.title ?? tt("this event") })}
         footer={
           <>
             <button type="button" onClick={() => setCancelling(null)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              Keep it on
+              {tt("Keep it on")}
             </button>
             <button
               type="button"
@@ -538,12 +539,12 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
               className="inline-flex h-10 items-center justify-center rounded-lg bg-[#b42318] px-4 text-[13px] font-medium text-white hover:bg-[#9a1d14] disabled:opacity-50 sm:h-9"
               data-cancel-confirm=""
             >
-              {busy ? "Working" : liveTickets > 0 && mayRefund && refundAll ? "Cancel and refund" : "Cancel event"}
+              {busy ? tt("Working") : liveTickets > 0 && mayRefund && refundAll ? tt("Cancel and refund") : tt("Cancel event")}
             </button>
           </>
         }
       >
-        <p className="text-[14px] leading-relaxed text-[#4b5563]">It shows as cancelled to members, and anyone going hears about it. You can put it back on.</p>
+        <p className="text-[14px] leading-relaxed text-[#4b5563]">{tt("It shows as cancelled to members, and anyone going hears about it. You can put it back on.")}</p>
         {liveTickets > 0 ? (
           <div className="mt-3" data-cancel-refund="">
             {mayRefund ? (
@@ -552,14 +553,14 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                   id="cancel-refund-all"
                   checked={refundAll}
                   onChange={setRefundAll}
-                  title="Refund everybody"
-                  hint={`${liveTickets} ${liveTickets === 1 ? "person holds a ticket" : "people hold tickets"}, ${eventPriceLabel(cancelling?.money?.grossCents ?? 0, cancelling?.money?.currency ?? null)} in all. A card takes 5 to 10 days to show it.`}
+                  title={tt("Refund everybody")}
+                  hint={tt("{liveTickets, plural, one {# person holds a ticket} other {# people hold tickets}}, {amount} in all. A card takes 5 to 10 days to show it.", { liveTickets, amount: eventPriceLabel(cancelling?.money?.grossCents ?? 0, cancelling?.money?.currency ?? null) })}
                 />
-                {!refundAll ? <p className="mt-2 text-[13px] leading-5 text-[#b42318]">Nobody gets their money back. You can refund them one at a time in Tickets.</p> : null}
+                {!refundAll ? <p className="mt-2 text-[13px] leading-5 text-[#b42318]">{tt("Nobody gets their money back. You can refund them one at a time in Tickets.")}</p> : null}
               </>
             ) : (
               <p className="rounded-xl border border-[#f1e3bd] bg-[#fdf8ea] px-3.5 py-2.5 text-[13px] leading-5 text-[#6b4e00]">
-                {liveTickets} {liveTickets === 1 ? "person holds a ticket" : "people hold tickets"}. Your role cannot give money back, so ask the owner to refund them.
+                {tt("{liveTickets, plural, one {# person holds a ticket} other {# people hold tickets}}. Your role cannot give money back, so ask the owner to refund them.", { liveTickets })}
               </p>
             )}
           </div>
@@ -580,7 +581,7 @@ function ReplayUpload({ communityId, onDone, onError }: { communityId: string; o
       const video = await uploadCommunityVideo({ endpoint: `/api/app/community/${communityId}/videos`, file, onProgress: setProgress })
       onDone(video.id)
     } catch (e) {
-      onError((e as { message?: string })?.message || "The video did not upload. Try again.")
+      onError((e as { message?: string })?.message || tt("The video did not upload. Try again."))
     } finally {
       setProgress(null)
     }
@@ -589,7 +590,7 @@ function ReplayUpload({ communityId, onDone, onError }: { communityId: string; o
     <div className="flex items-center gap-2">
       <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = "" }} />
       <button type="button" disabled={progress !== null} onClick={() => input.current?.click()} className={buttonSecondary} data-replay-upload="">
-        {progress !== null ? `Uploading ${progress}%` : "Upload the replay"}
+        {progress !== null ? tt("Uploading {progress}%", { progress }) : tt("Upload the replay")}
       </button>
     </div>
   )
@@ -602,7 +603,7 @@ function ReplayUpload({ communityId, onDone, onError }: { communityId: string; o
  */
 function TicketMode({ value, onChange, paidOff }: { value: "free" | "paid"; onChange: (v: "free" | "paid") => void; paidOff: boolean }) {
   return (
-    <div role="radiogroup" aria-label="Tickets" className="inline-flex rounded-[10px] bg-[#eef0f2] p-0.5" data-ticket-mode={value}>
+    <div role="radiogroup" aria-label={tt("Tickets")} className="inline-flex rounded-[10px] bg-[#eef0f2] p-0.5" data-ticket-mode={value}>
       {(["free", "paid"] as const).map((v) => (
         <button
           key={v}
@@ -618,7 +619,7 @@ function TicketMode({ value, onChange, paidOff }: { value: "free" | "paid"; onCh
             v === "paid" && paidOff && "cursor-default text-[#9ca3af] hover:text-[#9ca3af]",
           )}
         >
-          {v === "free" ? "Free" : "Paid"}
+          {v === "free" ? "Free" : tt("Paid")}
         </button>
       ))}
     </div>

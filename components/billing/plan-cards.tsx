@@ -35,6 +35,7 @@ import Link from "next/link"
 import { ArrowRight, Check, Loader2, X } from "lucide-react"
 import { SWAP_EASE, SWAP_MS, TextSwap } from "@/components/ui/text-swap"
 import { OFFERED_PLANS, YEARLY_BILLING_LIVE, YEARLY_SAVING_PERCENT, pricedFor, type BillingInterval, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
+import { tt } from "@/lib/i18n/text"
 
 export interface PlanCardAction {
   label: string
@@ -110,7 +111,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
   free: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
     blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
-    filter: "brightness(0.7) contrast(0.94) brightness(0.95)",
+    get filter() { return tt("brightness(0.7) contrast(0.94) brightness(0.95)") },
     ground: "bg-[#151516]",
     fade: "from-[#0b0b0c]/85",
     grain: 0.2,
@@ -121,7 +122,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
   growth: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    filter: "brightness(0.42) contrast(0.9)",
+    get filter() { return tt("brightness(0.42) contrast(0.9)") },
     ground: "bg-[#1d1270]",
     fade: "from-[#130b55]/85",
     grain: 0.2,
@@ -163,7 +164,7 @@ function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: O
   const content = action.loading ? (
     <>
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-      Processing
+      {tt("Processing")}
     </>
   ) : (
     <>
@@ -214,7 +215,7 @@ function PlanCard({
   /* Yearly Pro is shown, not sold, until its Stripe price exists (lib/billing/plans). */
   const heldAction = (i: BillingInterval): PlanCardAction => {
     const held = i === "yearly" && plan.priceCents > 0 && !YEARLY_BILLING_LIVE && !action.settled
-    return held ? { label: "Yearly opens soon", settled: true } : action
+    return held ? { label: tt("Yearly opens soon"), settled: true } : action
   }
   const monthlyAction = heldAction("monthly")
   const yearlyAction = heldAction("yearly")
@@ -256,7 +257,7 @@ function PlanCard({
           aria-hidden="true"
           data-plan-grain=""
           className="pointer-events-none absolute inset-0 -z-10"
-          style={{ backgroundImage: PLAN_GRAIN, backgroundSize: `${GRAIN_TILE}px ${GRAIN_TILE}px`, opacity: look.grain }}
+          style={{ backgroundImage: PLAN_GRAIN, backgroundSize: tt("{grainTile}px {grainTile2}px", { grainTile: GRAIN_TILE, grainTile2: GRAIN_TILE }), opacity: look.grain }}
         />
         <span className="self-start rounded-full bg-white/15 px-2.5 py-0.5 text-[11.5px] font-semibold leading-[18px] text-white ring-1 ring-inset ring-white/25">
           {label ?? plan.pill}
@@ -290,7 +291,7 @@ function PlanCard({
                 <X className="h-[11px] w-[11px] text-[#6b7280]" strokeWidth={3.25} />
               </span>
               <span>
-                <span className="sr-only">Not included: </span>
+                <span className="sr-only">{tt("Not included:")} </span>
                 {feature}
               </span>
             </li>
@@ -434,7 +435,7 @@ function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingI
   return (
     <div
       role="radiogroup"
-      aria-label="Billing"
+      aria-label={tt("Billing")}
       data-billing-interval={value}
       className={`relative inline-grid shrink-0 grid-cols-2 rounded-full bg-[#eceef1] shadow-[inset_0_1px_2px_rgba(16,24,40,0.10),inset_0_0_0_1px_rgba(16,24,40,0.04)] ${small ? "p-[3px]" : "p-1"}`}
     >
@@ -459,17 +460,17 @@ function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingI
             aria-checked={on}
             data-interval-option={option}
             onClick={() => onChange(option)}
-            style={{ transition: `color ${SWITCH_MS}ms ${SWITCH_EASE}` }}
+            style={{ transition: tt("color {switchMs}ms {switchEase}", { switchMs: SWITCH_MS, switchEase: SWITCH_EASE }) }}
             className={`relative z-[1] inline-flex cursor-pointer motion-reduce:!transition-none select-none items-center justify-center whitespace-nowrap rounded-full text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] ${
               small
                 ? "h-[26px] gap-1.5 px-3 after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"
                 : "h-9 gap-1.5 px-4 sm:px-5"
             } ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
           >
-            {option === "monthly" ? "Monthly" : "Yearly"}
+            {option === "monthly" ? tt("Monthly") : tt("Yearly")}
             {option === "yearly" ? (
               <span className={`rounded-full bg-[#111113] font-semibold text-white ${small ? "px-1.5 text-[10.5px] leading-[16px]" : "px-1.5 py-px text-[10.5px] leading-4"}`}>
-                Save {YEARLY_SAVING_PERCENT}%
+                {tt("Save")} {YEARLY_SAVING_PERCENT}%
               </span>
             ) : null}
           </button>

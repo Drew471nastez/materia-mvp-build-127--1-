@@ -10,6 +10,7 @@
 import type { AccessRuleJson } from "@/lib/communities/types"
 import type { RuleOptions } from "./view-types"
 import { label, selectField } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 export function describeRule(rule: AccessRuleJson, options: RuleOptions): string {
   const tiers = (rule.tierIds ?? []).map((id) => options.tiers.find((t) => t.id === id)?.name).filter(Boolean) as string[]
@@ -31,16 +32,16 @@ export function AccessEditor({ value, onChange, options, idPrefix }: { value: Ac
     <div className="space-y-3" data-access-editor="">
       {options.tiers.length > 1 ? (
         <fieldset>
-          <legend className={label}>Who can see it</legend>
+          <legend className={label}>{tt("Who can see it")}</legend>
           <div className="space-y-0.5">
             <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-1.5 hover:bg-[#f7f7f8]">
               <input type="checkbox" checked={everyone} onChange={() => onChange({ ...value, tierIds: undefined })} className="h-4 w-4 accent-[#1a1a2e]" />
-              <span className="text-[14px] text-[#1a1a2e]">Every member</span>
+              <span className="text-[14px] text-[#1a1a2e]">{tt("Every member")}</span>
             </label>
             {options.tiers.map((t) => (
               <label key={t.id} className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-1.5 hover:bg-[#f7f7f8]">
                 <input type="checkbox" checked={tierIds.includes(t.id)} onChange={() => toggle(t.id)} className="h-4 w-4 accent-[#1a1a2e]" />
-                <span className="text-[14px] text-[#1a1a2e]">Members on {t.name}</span>
+                <span className="text-[14px] text-[#1a1a2e]">{tt("Members on {name}", { name: t.name })}</span>
               </label>
             ))}
           </div>
@@ -49,18 +50,18 @@ export function AccessEditor({ value, onChange, options, idPrefix }: { value: Ac
       {options.levels.length > 1 ? (
         <div>
           <label htmlFor={`${idPrefix}-level`} className={label}>
-            From level
+            {tt("From level")}
           </label>
           <select id={`${idPrefix}-level`} value={String(value.minLevel ?? 1)} onChange={(e) => onChange({ ...value, minLevel: Number(e.target.value) > 1 ? Number(e.target.value) : undefined })} className={selectField}>
             {options.levels.map((l) => (
               <option key={l.level} value={String(l.level)}>
-                {l.level === 1 ? "Any level" : `Level ${l.level}, ${l.name}`}
+                {l.level === 1 ? tt("Any level") : tt("Level {level}, {name}", { level: l.level, name: l.name })}
               </option>
             ))}
           </select>
         </div>
       ) : null}
-      {options.tiers.length <= 1 && options.levels.length <= 1 ? <p className="text-[13px] text-[#6b7280]">Every member can see it.</p> : null}
+      {options.tiers.length <= 1 && options.levels.length <= 1 ? <p className="text-[13px] text-[#6b7280]">{tt("Every member can see it.")}</p> : null}
     </div>
   )
 }

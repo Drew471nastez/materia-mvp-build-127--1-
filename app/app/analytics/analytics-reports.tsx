@@ -34,13 +34,15 @@ import { FRESH_MS, askReport, keptAnswer, questionOf, reportKey } from "@/lib/an
 import { HelpLabel } from "@/components/app/help-label"
 import { SourceIcon, type IconFor } from "@/components/analytics/source-icon"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /** The funnel's steps, in steps of the accent every /app screen uses. */
 const FUNNEL = ["#6d28d9", "#8b5cf6", "#a78bfa", "#c4b5fd"]
 
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const money = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
 const fmtMoney = (cents: number) => money.format((cents || 0) / 100)
-const fmtCount = (n: number) => Math.round(n).toLocaleString("en-US")
+const fmtCount = (n: number) => Math.round(n).toLocaleString(appLocale())
 const fmtPct = (f: number) => `${(f * 100).toFixed(f > 0 && f < 0.1 ? 1 : 0).replace(/\.0+$/, "")}%`
 const plural = (n: number, one: string, many: string) => `${fmtCount(n)} ${n === 1 ? one : many}`
 
@@ -104,7 +106,7 @@ function Tabs<T extends string>({ value, options, onChange }: { value: T; option
 function Change({ h }: { h: Pick<Headline, "change" | "value"> }) {
   const compared = React.useContext(ComparedContext)
   if (!compared) return null
-  if (h.change === null) return <span className="text-[13px] text-[#9ca3af]">{h.value > 0 ? "New" : ""}</span>
+  if (h.change === null) return <span className="text-[13px] text-[#9ca3af]">{h.value > 0 ? tt("New") : ""}</span>
   const pct = Math.round(h.change * 100)
   if (pct === 0) return <span className="text-[13px] text-[#9ca3af]">0%</span>
   return (
@@ -139,7 +141,7 @@ interface ListRow {
 function RowChange({ value, previous }: { value: number; previous: number | undefined }) {
   const compared = React.useContext(ComparedContext)
   if (!compared || previous === undefined) return null
-  if (previous <= 0) return <span className="text-[12px] text-[#c4c7cf]">{value > 0 ? "New" : ""}</span>
+  if (previous <= 0) return <span className="text-[12px] text-[#c4c7cf]">{value > 0 ? tt("New") : ""}</span>
   const pct = Math.round(((value - previous) / previous) * 100)
   if (pct === 0) return <span className="text-[12px] text-[#9ca3af]">0%</span>
   return (
@@ -234,7 +236,7 @@ function List({
       </ol>
       {rows.length > LIST_ROWS ? (
         <button type="button" onClick={() => setAll(true)} className="mt-auto min-h-[32px] w-fit cursor-pointer rounded-md py-1 text-[12px] font-medium text-[#7c3aed] hover:underline">
-          View all {rows.length}
+          {tt("View all {length}", { length: rows.length })}
         </button>
       ) : null}
       <Dialog open={all} onOpenChange={setAll}>
@@ -266,9 +268,9 @@ function fromBreakdown(rows: BreakdownRow[], note?: (r: BreakdownRow) => string 
 /** What each step's rate is of: the step before it, by name. */
 const OF: Record<FunnelStep["key"], string> = {
   visitors: "",
-  product: "of visitors",
-  checkout: "of product viewers",
-  orders: "of checkouts",
+  get product() { return tt("of visitors") },
+  get checkout() { return tt("of product viewers") },
+  get orders() { return tt("of checkouts") },
 }
 
 /**
@@ -286,7 +288,7 @@ function Funnel({ steps }: { steps: FunnelStep[] }) {
           <p className="min-h-[32px] text-[12px] leading-4 text-[#6b7280]">{s.label}</p>
           <p className="mt-1 text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{s.recorded ? fmtCount(s.value) : "–"}</p>
           <p className="min-h-[32px] text-[11px] leading-4 tabular-nums text-[#9ca3af]">
-            {!s.recorded ? "Not recorded" : s.rate !== null ? `${fmtPct(s.rate)} ${OF[s.key]}` : ""}
+            {!s.recorded ? tt("Not recorded") : s.rate !== null ? `${fmtPct(s.rate)} ${OF[s.key]}` : ""}
           </p>
           <div className="mt-auto flex h-[72px] items-end">
             <div
@@ -368,16 +370,16 @@ type DeviceTab = "device" | "browser"
 type SignupTab = "property" | "source"
 
 const SOURCE_TABS: Array<{ value: SourceTab; label: string }> = [
-  { value: "source", label: "Source" },
-  { value: "social", label: "Social" },
-  { value: "referrer", label: "Referrer" },
-  { value: "campaign", label: "Campaign" },
+  { value: "source", get label() { return tt("Source") } },
+  { value: "social", get label() { return tt("Social") } },
+  { value: "referrer", get label() { return tt("Referrer") } },
+  { value: "campaign", get label() { return tt("Campaign") } },
 ]
 const SOURCE_EMPTY: Record<SourceTab, string> = {
-  source: "No visits in this period. Share your link to bring some in.",
-  social: "No visits from social apps. Add your link to your bio.",
-  referrer: "No visits from other websites in this period.",
-  campaign: "No visits from tagged links. Add utm_campaign to a link to see it here.",
+  get source() { return tt("No visits in this period. Share your link to bring some in.") },
+  get social() { return tt("No visits from social apps. Add your link to your bio.") },
+  get referrer() { return tt("No visits from other websites in this period.") },
+  get campaign() { return tt("No visits from tagged links. Add utm_campaign to a link to see it here.") },
 }
 
 function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelector; perProduct: boolean }) {
@@ -398,49 +400,49 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
     <>
       <Card
         card="traffic"
-        title="Traffic sources"
-        help="Where each visit came from, judged by its first page: a search engine, a social app, an email, another website, or typed in directly."
+        title={tt("Traffic sources")}
+        help={tt("Where each visit came from, judged by its first page: a search engine, a social app, an email, another website, or typed in directly.")}
         className={soft}
         tabs={<Tabs value={sourceTab} onChange={setSourceTab} options={SOURCE_TABS} />}
       >
         <Body blank={!lists} wait="list">
-          {lists ? <List key={sourceTab} title="Traffic sources" rows={traffic.rows} previous={traffic.previous} format={fmtCount} lead={{ icon: sourceTab }} empty={SOURCE_EMPTY[sourceTab]} /> : null}
+          {lists ? <List key={sourceTab} title={tt("Traffic sources")} rows={traffic.rows} previous={traffic.previous} format={fmtCount} lead={{ icon: sourceTab }} empty={SOURCE_EMPTY[sourceTab]} /> : null}
         </Body>
       </Card>
 
       {onePage ? (
-        <Card card="pages" title="Top links" help="The links and buttons on your OnePage that were tapped most, by the name they have on the page, and how many people tapped each." className={soft}>
+        <Card card="pages" title={tt("Top links")} help={tt("The links and buttons on your OnePage that were tapped most, by the name they have on the page, and how many people tapped each.")} className={soft}>
           <Body blank={!lists} wait="list">
             {lists ? (
               <List
-                title="Top links"
+                title={tt("Top links")}
                 rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, "person", "people") }))}
                 format={fmtCount}
-                empty="No link taps in this period. Add links to your OnePage."
+                empty={tt("No link taps in this period. Add links to your OnePage.")}
               />
             ) : null}
           </Body>
         </Card>
       ) : (
-        <Card card="pages" title="Top pages" help="The pages opened most, with how many people opened each. A page opened again within half an hour counts once." className={soft}>
+        <Card card="pages" title={tt("Top pages")} help={tt("The pages opened most, with how many people opened each. A page opened again within half an hour counts once.")} className={soft}>
           <Body blank={!lists} wait="list">
             {lists ? (
               <List
-                title="Top pages"
+                title={tt("Top pages")}
                 rows={r.topPages.map((p) => ({ key: p.key, label: p.label, value: p.views, note: [p.place, plural(p.visitors, "visitor", "visitors")].filter(Boolean).join(" · ") }))}
                 format={fmtCount}
-                empty="No pages opened in this period. Share a link to one of your pages."
+                empty={tt("No pages opened in this period. Share a link to one of your pages.")}
               />
             ) : null}
           </Body>
         </Card>
       )}
 
-      <Card card="products" title="Top products" help="Revenue from each product, less refunds, with its orders and how often its page was opened." className={soft}>
+      <Card card="products" title={tt("Top products")} help={tt("Revenue from each product, less refunds, with its orders and how often its page was opened.")} className={soft}>
         <Body blank={!lists} wait="list">
           {lists ? (
             <List
-              title="Top products"
+              title={tt("Top products")}
               rows={r.topProducts.map((p) => ({
                 key: p.key,
                 label: p.label,
@@ -448,7 +450,7 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
                 note: `${plural(p.orders, "order", "orders")} · ${plural(p.views, "view", "views")}`,
               }))}
               format={fmtMoney}
-              empty="No product views or orders in this period."
+              empty={tt("No product views or orders in this period.")}
             />
           ) : null}
         </Body>
@@ -456,58 +458,58 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
 
       <Card
         card="funnel"
-        title="Funnel"
-        help="Of the people who visited, how many opened a product, how many started a checkout, and how many orders came in. Each step is shown as a share of the one before."
+        title={tt("Funnel")}
+        help={tt("Of the people who visited, how many opened a product, how many started a checkout, and how many orders came in. Each step is shown as a share of the one before.")}
         className={cn("xl:col-span-2", soft)}
       >
         <Body blank={!lists} wait="funnel">
-          {lists ? (r.funnel.every((s) => s.value === 0) ? <Empty>No visits in this period.</Empty> : <Funnel steps={r.funnel} />) : null}
+          {lists ? (r.funnel.every((s) => s.value === 0) ? <Empty>{tt("No visits in this period.")}</Empty> : <Funnel steps={r.funnel} />) : null}
         </Body>
       </Card>
 
       <Card
         card="subscribers"
-        title="Subscribers"
-        help="People who left their email on your pages or at checkout, and where they came from. Imports and contacts you added yourself are not counted."
+        title={tt("Subscribers")}
+        help={tt("People who left their email on your pages or at checkout, and where they came from. Imports and contacts you added yourself are not counted.")}
         className={soft}
         tabs={
           property.type === "all" ? (
-            <Tabs value={signupTab} onChange={setSignupTab} options={[{ value: "property", label: "Page" }, { value: "source", label: "Source" }]} />
+            <Tabs value={signupTab} onChange={setSignupTab} options={[{ value: "property", label: tt("Page") }, { value: "source", label: tt("Source") }]} />
           ) : undefined
         }
       >
         <Body blank={!lists} wait="figure">
           {lists ? (
             r.subscribers === null ? (
-              <Empty>{perProduct ? "Sign-ups are counted for your pages, not for one product." : "Sign-ups could not be read. Refresh the page to try again."}</Empty>
+              <Empty>{perProduct ? tt("Sign-ups are counted for your pages, not for one product.") : tt("Sign-ups could not be read. Refresh the page to try again.")}</Empty>
             ) : (
               <>
                 <div className="flex h-9 items-baseline gap-2.5" data-figure="">
                   <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtCount(r.subscribers.value)}</span>
                   <Change h={r.subscribers} />
                 </div>
-                <List key={signupTab} title="Subscribers" rows={signups.rows} previous={signups.previous} format={fmtCount} empty="No sign-ups in this period. Add a sign-up form to your page." />
+                <List key={signupTab} title={tt("Subscribers")} rows={signups.rows} previous={signups.previous} format={fmtCount} empty={tt("No sign-ups in this period. Add a sign-up form to your page.")} />
               </>
             )
           ) : null}
         </Body>
       </Card>
 
-      <Card card="countries" title="Countries" help="Where visits came from, from their connection." className={soft}>
+      <Card card="countries" title={tt("Countries")} help={tt("Where visits came from, from their connection.")} className={soft}>
         <Body blank={!lists} wait="list">
-          {lists ? <List title="Countries" rows={countries.rows} previous={countries.previous} format={fmtCount} lead={{ flag: true }} empty="No locations recorded in this period." /> : null}
+          {lists ? <List title={tt("Countries")} rows={countries.rows} previous={countries.previous} format={fmtCount} lead={{ flag: true }} empty={tt("No locations recorded in this period.")} /> : null}
         </Body>
       </Card>
 
       <Card
         card="devices"
-        title="Devices"
-        help="The device and browser of the first page of each visit."
+        title={tt("Devices")}
+        help={tt("The device and browser of the first page of each visit.")}
         className={soft}
-        tabs={<Tabs value={deviceTab} onChange={setDeviceTab} options={[{ value: "device", label: "Device" }, { value: "browser", label: "Browser" }]} />}
+        tabs={<Tabs value={deviceTab} onChange={setDeviceTab} options={[{ value: "device", label: tt("Device") }, { value: "browser", label: tt("Browser") }]} />}
       >
         <Body blank={!lists} wait="list">
-          {lists ? <List key={deviceTab} title={deviceTab === "device" ? "Devices" : "Browsers"} rows={devices.rows} previous={devices.previous} format={fmtCount} lead={{ icon: deviceTab }} empty="No visits in this period." /> : null}
+          {lists ? <List key={deviceTab} title={deviceTab === "device" ? tt("Devices") : tt("Browsers")} rows={devices.rows} previous={devices.previous} format={fmtCount} lead={{ icon: deviceTab }} empty={tt("No visits in this period.")} /> : null}
         </Body>
       </Card>
     </>
@@ -517,13 +519,13 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
 /** The cards before any answer: every card in its shape. */
 function Blank({ property }: { property: PropertySelector }) {
   const cards: Array<[string, string, WaitKind, string?]> = [
-    ["traffic", "Traffic sources", "list"],
-    ["pages", property.type === "onepage" ? "Top links" : "Top pages", "list"],
-    ["products", "Top products", "list"],
-    ["funnel", "Funnel", "funnel", "xl:col-span-2"],
-    ["subscribers", "Subscribers", "figure"],
-    ["countries", "Countries", "list"],
-    ["devices", "Devices", "list"],
+    ["traffic", tt("Traffic sources"), "list"],
+    ["pages", property.type === "onepage" ? tt("Top links") : tt("Top pages"), "list"],
+    ["products", tt("Top products"), "list"],
+    ["funnel", tt("Funnel"), "funnel", "xl:col-span-2"],
+    ["subscribers", tt("Subscribers"), "figure"],
+    ["countries", tt("Countries"), "list"],
+    ["devices", tt("Devices"), "list"],
   ]
   return (
     <>
@@ -754,7 +756,7 @@ function ReportsView({ state, property }: { state: ReportsState; property: Prope
       <div aria-busy={loading} data-analytics-cards="" className={cn("grid gap-4 transition-[opacity,filter] duration-300 md:grid-cols-2 xl:grid-cols-3", soft && "opacity-60 blur-[0.5px]")}>
         {failed && (!shown || shown.reports.partial) ? (
           <p className="rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3 text-[13px] text-[#8a1c0f] md:col-span-2 xl:col-span-3">
-            The reports could not be loaded. Refresh the page to try again.
+            {tt("The reports could not be loaded. Refresh the page to try again.")}
           </p>
         ) : null}
 
@@ -762,7 +764,7 @@ function ReportsView({ state, property }: { state: ReportsState; property: Prope
 
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">
-            This period has more activity than one report reads at once. Choose a shorter period for exact figures.
+            {tt("This period has more activity than one report reads at once. Choose a shorter period for exact figures.")}
           </p>
         ) : null}
       </div>

@@ -31,6 +31,8 @@ import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/imag
 import { archiveProduct, isArchivedProduct as isArchived, restoreProduct } from "@/lib/products/archive"
 import { pressMark } from "@/lib/press-mark"
 import { ReadinessBanner } from "@/components/physical/readiness-banner"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 interface Product {
   id: string
@@ -242,7 +244,7 @@ const escapeHtml = (value: unknown) =>
 
 // StoreLib branded PDF Export function
 const generateProductsPDF = (products: Product[], formatPrice: (cents: number) => string) => {
-  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const today = new Date().toLocaleDateString(appLocale(), zoned({ year: 'numeric', month: 'long', day: 'numeric' }))
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -321,8 +323,8 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
               <td class="product-title">${escapeHtml(product.title)}</td>
               <td>${escapeHtml(product.type)}</td>
               <td class="price">${escapeHtml(formatPrice(product.price_cents))}</td>
-              <td><span class="status status-${isArchived(product) ? 'archived' : product.status === 'published' ? 'published' : 'draft'}">${isArchived(product) ? 'Archived' : escapeHtml(product.status)}</span></td>
-              <td>${new Date(product.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+              <td><span class="status status-${isArchived(product) ? 'archived' : product.status === 'published' ? 'published' : 'draft'}">${isArchived(product) ? tt("Archived") : escapeHtml(product.status)}</span></td>
+              <td>${new Date(product.created_at).toLocaleDateString(appLocale(), zoned({ year: 'numeric', month: 'short', day: 'numeric' }))}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -351,13 +353,13 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
 
 // CSV Export function
 const generateProductsCSV = (products: Product[], formatPrice: (cents: number) => string) => {
-  const headers = ['Title', 'Type', 'Price', 'Status', 'Slug', 'Created At', 'Description']
+  const headers = [tt("Title"), tt("Type"), tt("Price"), tt("Status"), tt("Slug"), tt("Created At"), tt("Description")]
 
   const rows = products.map(product => [
     `"${product.title.replace(/"/g, '""')}"`,
     product.type,
     formatPrice(product.price_cents),
-    isArchived(product) ? 'Archived' : product.status,
+    isArchived(product) ? tt("Archived") : product.status,
     product.slug,
     new Date(product.created_at).toISOString(),
     `"${(product.description || '').replace(/"/g, '""')}"`
@@ -381,13 +383,13 @@ type View = "all" | "active" | "draft" | "archived"
 type Sort = "newest" | "oldest" | "title_asc" | "title_desc" | "price_desc" | "price_asc" | "sales"
 
 const SORTS: Array<{ value: Sort; label: string }> = [
-  { value: "newest", label: "Newest" },
-  { value: "oldest", label: "Oldest" },
-  { value: "title_asc", label: "Title A to Z" },
-  { value: "title_desc", label: "Title Z to A" },
-  { value: "price_desc", label: "Price high to low" },
-  { value: "price_asc", label: "Price low to high" },
-  { value: "sales", label: "Best selling" },
+  { value: "newest", get label() { return tt("Newest") } },
+  { value: "oldest", get label() { return tt("Oldest") } },
+  { value: "title_asc", get label() { return tt("Title A to Z") } },
+  { value: "title_desc", get label() { return tt("Title Z to A") } },
+  { value: "price_desc", get label() { return tt("Price high to low") } },
+  { value: "price_asc", get label() { return tt("Price low to high") } },
+  { value: "sales", get label() { return tt("Best selling") } },
 ]
 
 /** Which view a product is in besides All: All is everything that is not archived. */
@@ -459,15 +461,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
   const exportPDF = () => {
     generateProductsPDF(products, formatMoney)
-    showNotification("PDF report generated")
+    showNotification(tt("PDF report generated"))
   }
   const exportCSV = () => {
     generateProductsCSV(products, formatMoney)
-    showNotification("CSV file downloaded")
+    showNotification(tt("CSV file downloaded"))
   }
   const exportItems = [
-    { label: "Export as CSV", onClick: exportCSV },
-    { label: "Export as PDF", onClick: exportPDF },
+    { label: tt("Export as CSV"), onClick: exportCSV },
+    { label: tt("Export as PDF"), onClick: exportPDF },
   ]
 
   /* Polaris's order, and as on Orders only the views with something in them, plus the open one. The view's button is there even with All alone, as it always was on a phone: the toolbar keeps its shape. */
@@ -563,10 +565,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, ...row } : p)))
       /* The router's kept pages (this list, the editor fetched ahead) still hold the old row. */
       router.refresh()
-      showNotification(restoring ? (row.status === "published" ? "Product restored" : "Product restored as a draft") : "Product archived")
+      showNotification(restoring ? (row.status === "published" ? tt("Product restored") : tt("Product restored as a draft")) : tt("Product archived"))
     } catch (error) {
       console.error("Error archiving product:", error)
-      showNotification(restoring ? "Could not restore the product" : "Could not archive the product", "error")
+      showNotification(restoring ? tt("Could not restore the product") : tt("Could not archive the product"), "error")
     }
   }
 
@@ -577,7 +579,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       // Create a duplicate with a new title and all required fields
       const duplicateData = {
         creator_id: product.creator_id,
-        title: `${product.title} (Copy)`,
+        title: tt("{title} (Copy)", { title: product.title }),
         type: product.type,
         price_cents: product.price_cents,
         status: "draft",
@@ -607,11 +609,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           )
           .catch(() => null)
         setProducts(prev => [data, ...prev])
-        showNotification("Product duplicated")
+        showNotification(tt("Product duplicated"))
       }
     } catch (error) {
       console.error("Error duplicating product:", error)
-      showNotification("Could not duplicate the product", "error")
+      showNotification(tt("Could not duplicate the product"), "error")
     }
   }
 
@@ -665,10 +667,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     const url = getProductUrl(creatorUsername, product.slug)
     try {
       await navigator.clipboard.writeText(url)
-      showNotification("Link copied")
+      showNotification(tt("Link copied"))
     } catch (error) {
       console.error("Error copying to clipboard:", error)
-      showNotification("Could not copy the link", "error")
+      showNotification(tt("Could not copy the link"), "error")
     }
   }
 
@@ -693,7 +695,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         if (product.status === "published" && product.slug) announceChange({ removedProduct: product.slug })
         rememberDeleted(product.id)
         setProducts(prev => prev.filter(p => p.id !== product.id))
-        showNotification("Product deleted")
+        showNotification(tt("Product deleted"))
       } else {
         announceChange({ product: product.id })
         rememberStatus(product.id, result)
@@ -705,7 +707,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       router.refresh()
     } catch (error) {
       console.error("Error deleting product:", error)
-      setDeleteError(error instanceof Error && error.message ? error.message : "Could not delete the product")
+      setDeleteError(error instanceof Error && error.message ? error.message : tt("Could not delete the product"))
     } finally {
       setIsDeleting(false)
     }
@@ -972,7 +974,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const previewOff = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!window.matchMedia("(hover: hover)").matches) showNotification("Publish to view")
+    if (!window.matchMedia("(hover: hover)").matches) showNotification(tt("Publish to view"))
   }
 
   /*
@@ -1009,16 +1011,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   })
 
   const emptyTitle = searchQuery
-    ? "No products match"
+    ? tt("No products match")
     : products.length === 0
-      ? "No products yet"
+      ? tt("No products yet")
       : view === "archived"
-        ? "No archived products"
+        ? tt("No archived products")
         : view === "draft"
-          ? "No drafts"
+          ? tt("No drafts")
           : view === "active"
-            ? "No active products"
-            : "Every product is archived"
+            ? tt("No active products")
+            : tt("Every product is archived")
 
   const viewLabel = views.find((v) => v.value === view)?.label ?? t("products.all")
 
@@ -1059,23 +1061,23 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           <div className="flex shrink-0 items-center gap-1.5 md:gap-2 lg:gap-[9px]">
             {/* Products › Collections, beside the list it groups (on a phone it is under Products in the menu). */}
             <Link href="/app/products/collections" data-products-collections="" className={cn(EXPORT_LOOK, "hover:bg-[#f7f7f8] active:bg-[#f1f2f4] max-md:hidden")}>
-              Collections
+              {tt("Collections")}
             </Link>
             <ResponsiveActionMenu
-              title="Export"
+              title={tt("Export")}
               align="end"
               trigger={
-                <Press aria-label="Export products" className="max-md:hidden" look={EXPORT_LOOK}>
-                  Export
+                <Press aria-label={tt("Export products")} className="max-md:hidden" look={EXPORT_LOOK}>
+                  {tt("Export")}
                 </Press>
               }
               items={exportItems}
             />
             <ResponsiveActionMenu
-              title="Export"
+              title={tt("Export")}
               align="end"
               trigger={
-                <Press aria-label="Export products" data-download="" className="md:hidden" look={DOWNLOAD_LOOK}>
+                <Press aria-label={tt("Export products")} data-download="" className="md:hidden" look={DOWNLOAD_LOOK}>
                   <Download className="h-4 w-4" />
                 </Press>
               }
@@ -1104,7 +1106,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         <ReadinessBanner surface="products" className="mt-1 md:mt-2 lg:mt-[9px]" />
         <section
           ref={sectionRef}
-          aria-label="Products"
+          aria-label={tt("Products")}
           className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]"
         >
           {/*
@@ -1141,7 +1143,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               >
                 <PickSheet
                   name="views"
-                  title="View"
+                  title={tt("View")}
                   options={views}
                   value={view}
                   onPick={pickView}
@@ -1149,7 +1151,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     <button
                       type="button"
                       data-view-select=""
-                      aria-label={`Showing ${viewLabel}. Change view`}
+                      aria-label={tt("Showing {viewLabel}. Change view", { viewLabel })}
                       className="flex h-11 shrink-0 cursor-pointer items-center gap-1 rounded-lg pl-2.5 pr-2 text-[15px] font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] [-webkit-tap-highlight-color:transparent] md:h-8 md:px-2 md:text-[13px] md:hover:bg-[#f4f4f6] md:data-open:bg-[#ececef] lg:h-[35px] lg:gap-[5px] lg:px-[9px] lg:text-[14.5px]"
                     >
                       {/* Its own element: see TRANSLATED TEXT below. */}
@@ -1164,15 +1166,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     ref={searchInputRef}
                     type="search"
                     enterKeyHint="search"
-                    aria-label="Search products"
+                    aria-label={tt("Search products")}
                     value={searchQuery}
                     onChange={(e) => search(e.target.value)}
                     onKeyDown={searchKey}
-                    placeholder="Search products"
+                    placeholder={tt("Search products")}
                     className="h-11 min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:h-8 md:text-[13px] lg:h-[35px] lg:text-[14.5px] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
-                    <button type="button" aria-label="Clear search" className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] active:text-[#4b5563] md:h-8 md:w-8 md:hover:text-[#4b5563] lg:h-[35px] lg:w-[35px]" onClick={clearSearch}>
+                    <button type="button" aria-label={tt("Clear search")} className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] active:text-[#4b5563] md:h-8 md:w-8 md:hover:text-[#4b5563] lg:h-[35px] lg:w-[35px]" onClick={clearSearch}>
                       <X className="h-4 w-4" />
                     </button>
                   ) : null}
@@ -1180,20 +1182,20 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 <span aria-hidden data-divider="" className="h-6 w-px shrink-0 bg-[#e5e7eb] md:h-5 lg:h-[22px]" />
                 <PickSheet
                   name="sort"
-                  title="Sort by"
+                  title={tt("Sort by")}
                   options={SORTS}
                   value={sort}
                   onPick={pickSort}
                   align="end"
                   trigger={
-                    <Press aria-label="Sort" data-sort="" look={cn(SORT_LOOK, sort !== "newest" && SORT_ON, "group-data-open/press:bg-[#ececef]")}>
+                    <Press aria-label={tt("Sort")} data-sort="" look={cn(SORT_LOOK, sort !== "newest" && SORT_ON, "group-data-open/press:bg-[#ececef]")}>
                       <ArrowUpDown className="h-4 w-4 md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" />
                     </Press>
                   }
                 />
               </div>
               <div data-list-head="" aria-hidden hidden={pageProducts.length === 0} className="flex h-9 items-center border-b border-[#eef0f2] px-3 text-[12px] font-medium text-[#6b7280] md:hidden">
-                Product
+                {tt("Product")}
               </div>
             </>
           ) : null}
@@ -1218,7 +1220,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 each and 12px apart, on the row's middle; the name gives way
                 (an ellipsis) before they move.
               */}
-              <ul aria-label="Products" data-list="" className="md:hidden" hidden={pageProducts.length === 0}>
+              <ul aria-label={tt("Products")} data-list="" className="md:hidden" hidden={pageProducts.length === 0}>
                 {drawn.map((product) => {
                   const status = productStatus(product)
                   return (
@@ -1253,11 +1255,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table lg:text-[14.5px]" hidden={pageProducts.length === 0}>
                 <thead>
                   <tr className="h-9 text-left text-[12px] text-[#6b7280] lg:h-[40px] lg:text-[13.5px] xl:h-[44px]">
-                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">Product</th>
-                    <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">Status</th>
-                    <th scope="col" className="hidden w-[97px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell lg:px-[13px] xl:w-[110px]">Sales</th>
-                    <th scope="col" className="w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">Price</th>
-                    <th scope="col" className="w-[106px] border-b border-[#eef0f2] lg:w-[117px] xl:w-[124px]" aria-label="Actions" />
+                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">{tt("Product")}</th>
+                    <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">{tt("Status")}</th>
+                    <th scope="col" className="hidden w-[97px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell lg:px-[13px] xl:w-[110px]">{tt("Sales")}</th>
+                    <th scope="col" className="w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">{tt("Price")}</th>
+                    <th scope="col" className="w-[106px] border-b border-[#eef0f2] lg:w-[117px] xl:w-[124px]" aria-label={tt("Actions")} />
                   </tr>
                 </thead>
                 <tbody>
@@ -1282,16 +1284,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">{emptyTitle}</p>
               <p className="mt-1 max-w-[320px] text-[14px] leading-5 text-[#6b7280] md:text-[13px] lg:max-w-[352px] lg:text-[14.5px]">
                 {searchQuery
-                  ? "Try another name, or clear the search."
+                  ? tt("Try another name, or clear the search.")
                   : products.length === 0
-                    ? "Add something to sell, like a preset pack, a course or an ebook. It goes on your page and your website."
+                    ? tt("Add something to sell, like a preset pack, a course or an ebook. It goes on your page and your website.")
                     : view === "archived"
-                      ? "A product you archive is kept here, off your page, until you restore it."
-                      : "Nothing in this view right now."}
+                      ? tt("A product you archive is kept here, off your page, until you restore it.")
+                      : tt("Nothing in this view right now.")}
               </p>
               {searchQuery ? (
                 <Press className="mt-4 max-md:mt-2.5" look={cn(SECONDARY_LOOK, BAR_BUTTON_SIZE)} onClick={clearSearch}>
-                  Clear search
+                  {tt("Clear search")}
                 </Press>
               ) : products.length === 0 ? (
                 <Link
@@ -1301,7 +1303,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   onTouchStart={warmNew}
                   className={cn(NEW_LOOK, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}
                 >
-                  Create product
+                  {tt("Create product")}
                 </Link>
               ) : null}
             </div>
@@ -1322,14 +1324,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             >
               <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">
                 {/* One string, so a page turn replaces the words (see TRANSLATED TEXT below). */}
-                {`${from + 1}\u2013${from + pageProducts.length} of ${filteredProducts.length.toLocaleString("en-US")}`}
+                {tt("{value}–{value2} of {value3}", { value: from + 1, value2: from + pageProducts.length, value3: filteredProducts.length.toLocaleString(appLocale()) })}
               </span>
               {pages > 1 ? (
                 <div className="flex items-center gap-1 max-md:gap-0">
-                  <Press aria-label="Previous page" look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow <= 1} onClick={() => setPage(pageNow - 1)}>
+                  <Press aria-label={tt("Previous page")} look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow <= 1} onClick={() => setPage(pageNow - 1)}>
                     <ChevronLeft className="h-4 w-4" />
                   </Press>
-                  <Press aria-label="Next page" look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow >= pages} onClick={() => setPage(pageNow + 1)}>
+                  <Press aria-label={tt("Next page")} look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow >= pages} onClick={() => setPage(pageNow + 1)}>
                     <ChevronRight className="h-4 w-4" />
                   </Press>
                 </div>
@@ -1368,7 +1370,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 disabled={isDeleting}
                 className={cn(buttonSecondary, "max-md:h-11 max-md:flex-1 max-md:text-[15px]")}
               >
-                Cancel
+                {tt("Cancel")}
               </button>
               <button
                 type="button"
@@ -1386,7 +1388,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 {isDeleting ? (
                   <>
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    <span>{deleteKind === "archive" ? "Archiving" : "Deleting"}</span>
+                    <span>{deleteKind === "archive" ? tt("Archiving") : tt("Deleting")}</span>
                   </>
                 ) : (
                   <span>{deleteQuestion(productToDelete.title, deleteKind).confirm}</span>
@@ -1441,7 +1443,7 @@ function useRowActions(product: Product, username: string, labels: RowLabels, ap
       { label: labels.share, onClick: () => api.current?.share(product) },
       { label: isArchived(product) ? labels.restore : labels.archive, onClick: () => api.current?.archive(product), separatorBefore: true },
       { label: labels.duplicate, onClick: () => api.current?.duplicate(product) },
-      { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => api.current?.remove(product) },
+      { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => api.current?.remove(product) },
     ],
     [product, username, labels, api],
   )
@@ -1457,12 +1459,12 @@ function Preview({ product, username, look, api }: { product: Product; username:
   const on = productStatus(product) === "live"
   const url = getProductUrl(username, product.slug)
   const button = on ? (
-    <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`View ${product.title}`} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
-      View
+    <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={tt("View {title}", { title: product.title })} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
+      {tt("View")}
     </a>
   ) : (
-    <button type="button" data-preview="" aria-disabled="true" aria-label={`View ${product.title}`} onClick={(e) => api.current?.previewOff(e)} className={look}>
-      View
+    <button type="button" data-preview="" aria-disabled="true" aria-label={tt("View {title}", { title: product.title })} onClick={(e) => api.current?.previewOff(e)} className={look}>
+      {tt("View")}
     </button>
   )
   if (on) return button
@@ -1471,7 +1473,7 @@ function Preview({ product, username, look, api }: { product: Product; username:
     <Tooltip delayDuration={400}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
-        Publish to view
+        {tt("Publish to view")}
       </TooltipContent>
     </Tooltip>
   )
@@ -1531,7 +1533,7 @@ const PhoneRow = memo(function PhoneRow({
       />
       <Thumb src={product.thumbnail_url} title={product.title} size="phone" />
       <span className="pointer-events-none min-w-0 flex-1">
-        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title || "Untitled draft"}</span>
+        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title || tt("Untitled draft")}</span>
         <span data-meta="" className="mt-1 block h-4 truncate text-[12px] leading-4 text-[#6b7280]">
           {mark ? (
             <>
@@ -1543,7 +1545,7 @@ const PhoneRow = memo(function PhoneRow({
           {product.sales_count ? (
             <>
               <Sep />
-              <span className="tabular-nums">{`${product.sales_count.toLocaleString("en-US")} sold`}</span>
+              <span className="tabular-nums">{tt("{value} sold", { value: product.sales_count.toLocaleString(appLocale()) })}</span>
             </>
           ) : null}
         </span>
@@ -1552,7 +1554,7 @@ const PhoneRow = memo(function PhoneRow({
       <ResponsiveActionMenu
         title={product.title}
         align="end"
-        trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_PHONE} />}
+        trigger={<RowMenuButton label={tt("Actions for {title}", { title: product.title })} className={ROW_MENU_PHONE} />}
         items={items}
       />
     </li>
@@ -1605,7 +1607,7 @@ const TableRow = memo(function TableRow({
             onClick={(e) => api.current?.open(product.id)(e)}
             className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14.5px] xl:text-[15.5px]"
           >
-            {product.title || "Untitled draft"}
+            {product.title || tt("Untitled draft")}
           </Link>
         </div>
       </td>
@@ -1613,7 +1615,7 @@ const TableRow = memo(function TableRow({
         <StatusMark status={status} label={statusText} strong={status === "live"} />
       </td>
       <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">
-        {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#b6bac1]">0</span>}
+        {product.sales_count ? product.sales_count.toLocaleString(appLocale()) : <span className="text-[#b6bac1]">0</span>}
       </td>
       <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
       <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
@@ -1622,7 +1624,7 @@ const TableRow = memo(function TableRow({
           <ResponsiveActionMenu
             title={product.title}
             align="end"
-            trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_TABLE} />}
+            trigger={<RowMenuButton label={tt("Actions for {title}", { title: product.title })} className={ROW_MENU_TABLE} />}
             items={items}
           />
         </div>
@@ -1644,7 +1646,7 @@ function OpeningMark({ size }: { size: "phone" | "table" }) {
       className={cn("relative z-[1] grid shrink-0 place-items-center", size === "phone" ? "h-8 w-8" : "h-7 w-7 lg:h-[31px] lg:w-[31px]")}
       style={{ animation: `press-spinner-in 120ms ease-out ${LAYER_PRESS_WAIT_MS}ms both` }}
     >
-      <ActivitySpinner size={16} label="Opening" className="text-[#4b5563]" />
+      <ActivitySpinner size={16} label={tt("Opening")} className="text-[#4b5563]" />
     </span>
   )
 }

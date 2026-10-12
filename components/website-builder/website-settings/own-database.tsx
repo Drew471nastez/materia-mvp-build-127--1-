@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react"
 import { OWN_DB_KEY, OWN_DB_URL, checkDatabaseUrl, checkPublicKey, ownDatabase } from "@/lib/website-builder/own-database"
 import { Card, GOES_LIVE, Row, buttonClass, inputClass, primaryButtonClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -63,13 +64,13 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
         body: JSON.stringify({ installId: ctx.installId, ref }),
       })
       const d = (await res.json().catch(() => ({}))) as { url?: string; key?: string; error?: string }
-      if (!res.ok || !d.url || !d.key) throw new Error(d.error || "That project could not be connected. Try again.")
+      if (!res.ok || !d.url || !d.key) throw new Error(d.error || tt("That project could not be connected. Try again."))
       ctx.onSettingChange(OWN_DB_URL, d.url)
       ctx.onSettingChange(OWN_DB_KEY, d.key)
       setUrl(d.url)
       setListing((l) => (l ? { ...l, projects: null } : l))
     } catch (e) {
-      setProblem(e instanceof Error ? e.message : "That project could not be connected. Try again.")
+      setProblem(e instanceof Error ? e.message : tt("That project could not be connected. Try again."))
     } finally {
       setPicking(null)
     }
@@ -99,7 +100,7 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
   const projects = listing?.projects ?? null
 
   return (
-    <Card title="Your own database" footer={open || projects ? GOES_LIVE : undefined}>
+    <Card title={tt("Your own database")} footer={open || projects ? GOES_LIVE : undefined}>
       <Row
         label={
           <span className="inline-flex items-center gap-2.5">
@@ -109,26 +110,26 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
         }
         hint={
           connected
-            ? <>Connected to <span className="text-white/70">{new URL(connected.url).hostname}</span>. Sections that use a database can read and save to it.</>
-            : <>For sections you write that read or save your own data, like a waitlist or a guestbook. Your project&rsquo;s security rules decide what they can reach.</>
+            ? <>{tt("Connected to")} <span className="text-white/70">{new URL(connected.url).hostname}</span>{tt(". Sections that use a database can read and save to it.")}</>
+            : <>{tt("For sections you write that read or save your own data, like a waitlist or a guestbook. Your project’s security rules decide what they can reach.")}</>
         }
         inline
       >
         {listing === null ? (
-          <Loader2 className="h-4 w-4 animate-spin text-white/45" aria-label="Loading" />
+          <Loader2 className="h-4 w-4 animate-spin text-white/45" aria-label={tt("Loading")} />
         ) : oauth ? (
           !projects && (
             <div className="flex gap-2">
-              {connected && <button type="button" className={buttonClass} onClick={disconnect}>Disconnect</button>}
+              {connected && <button type="button" className={buttonClass} onClick={disconnect}>{tt("Disconnect")}</button>}
               <button type="button" className={connected ? buttonClass : primaryButtonClass} onClick={signIn} data-own-db-signin="">
-                {connected ? "Change" : "Connect Supabase"}
+                {connected ? tt("Change") : tt("Connect Supabase")}
               </button>
             </div>
           )
         ) : (
           !open && (
             <button type="button" className={buttonClass} onClick={() => setOpen(true)} data-own-db-open="">
-              {connected ? "Change" : "Connect"}
+              {connected ? tt("Change") : tt("Connect")}
             </button>
           )
         )}
@@ -138,7 +139,7 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
       {projects && (
         <div className="px-4 py-4 md:px-6" data-own-db-projects="">
           <p className="mb-2.5 text-[13.5px] text-white/60">
-            {projects.length === 0 ? "This Supabase account has no projects yet. Make one at supabase.com, then connect again." : "Pick the project this website uses."}
+            {projects.length === 0 ? tt("This Supabase account has no projects yet. Make one at supabase.com, then connect again.") : tt("Pick the project this website uses.")}
           </p>
           <ul className="divide-y divide-white/[0.07] overflow-hidden rounded-xl border border-white/10">
             {projects.map((p) => (
@@ -151,9 +152,9 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[14.5px] font-medium text-white">{p.name || p.ref}</span>
-                    <span className="block truncate text-[12.5px] text-white/45">{p.ref}.supabase.co{p.region ? ` · ${p.region}` : ""}</span>
+                    <span className="block truncate text-[12.5px] text-white/45">{tt("{ref}.supabase.co", { ref: p.ref })}{p.region ? ` · ${p.region}` : ""}</span>
                   </span>
-                  {picking === p.ref ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white/60" /> : <span className="shrink-0 text-[13px] text-white/60">Use</span>}
+                  {picking === p.ref ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white/60" /> : <span className="shrink-0 text-[13px] text-white/60">{tt("Use")}</span>}
                 </button>
               </li>
             ))}
@@ -164,24 +165,24 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
       {!oauth && open && (
         <div className="space-y-3 px-4 py-4 md:px-6" data-own-db-form="">
           <label className="block">
-            <span className="mb-1.5 block text-[13px] text-white/60">Project URL</span>
+            <span className="mb-1.5 block text-[13px] text-white/60">{tt("Project URL")}</span>
             <input className={inputClass} inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://abcd.supabase.co" value={url} onChange={(e) => setUrl(e.target.value)} />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-[13px] text-white/60">Anon or publishable key</span>
+            <span className="mb-1.5 block text-[13px] text-white/60">{tt("Anon or publishable key")}</span>
             <input
               className={inputClass}
               autoComplete="off"
               spellCheck={false}
-              placeholder={connected ? "Leave empty to keep the current key" : "eyJ… or sb_publishable_…"}
+              placeholder={connected ? tt("Leave empty to keep the current key") : tt("eyJ… or sb_publishable_…")}
               value={key}
               onChange={(e) => setKey(e.target.value)}
             />
           </label>
           <div className="flex flex-wrap gap-2 pt-1">
-            <button type="button" className={primaryButtonClass} onClick={save}>Save</button>
-            <button type="button" className={buttonClass} onClick={() => { setOpen(false); setProblem(null); setKey("") }}>Cancel</button>
-            {connected && <button type="button" className={buttonClass} onClick={disconnect}>Disconnect</button>}
+            <button type="button" className={primaryButtonClass} onClick={save}>{tt("Save")}</button>
+            <button type="button" className={buttonClass} onClick={() => { setOpen(false); setProblem(null); setKey("") }}>{tt("Cancel")}</button>
+            {connected && <button type="button" className={buttonClass} onClick={disconnect}>{tt("Disconnect")}</button>}
           </div>
         </div>
       )}

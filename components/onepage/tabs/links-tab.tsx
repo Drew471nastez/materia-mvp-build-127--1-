@@ -60,7 +60,7 @@ function Toggle({ checked, onCheckedChange, label }: { checked: boolean; onCheck
 
 /** A card's own on and off, at the end of its row. */
 function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (checked: boolean) => void; label?: string }) {
-  return <Switch checked={checked} onChange={onCheckedChange} label={label ?? (checked ? "Shown on your page" : "Hidden from your page")} />
+  return <Switch checked={checked} onChange={onCheckedChange} label={label ?? (checked ? tt("Shown on your page") : tt("Hidden from your page"))} />
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -128,6 +128,7 @@ import { BlockBadges, BlockExtras, EXTRA_BLOCK_CATALOG, EXTRA_BLOCK_TYPES, Extra
 import { canonicalSocialPlatform, hasSocialHandles, socialHandleUrl } from "@/lib/onepage/social-url"
 import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * WHERE EACH PLATFORM'S LINKS LIVE.
@@ -177,7 +178,7 @@ function validateSocialUrl(platform: string, url: string): { valid: boolean; err
 
   if (key === "email") {
     const address = typed.replace(/^mailto:/i, "")
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return { valid: false, error: "Enter an email address, like you@example.com" }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return { valid: false, error: tt("Enter an email address, like you@example.com") }
     return { valid: true, transformedUrl: `mailto:${address}` }
   }
 
@@ -188,10 +189,10 @@ function validateSocialUrl(platform: string, url: string): { valid: boolean; err
   }
 
   const hint =
-    key === "website" ? "Enter your website address, like yoursite.com"
-    : key === "whatsapp" ? "Enter your number with its country code, or a wa.me link"
-    : LINK_ONLY_PLATFORMS.has(key) || !hasSocialHandles(key) ? `Paste the link to your ${name} page`
-    : "Enter a link or an @username"
+    key === "website" ? tt("Enter your website address, like yoursite.com")
+    : key === "whatsapp" ? tt("Enter your number with its country code, or a wa.me link")
+    : LINK_ONLY_PLATFORMS.has(key) || !hasSocialHandles(key) ? tt("Paste the link to your {name} page", { name })
+    : tt("Enter a link or an @username")
 
   let parsed: URL
   const full = /^https?:\/\//i.test(typed) ? typed : `https://${typed.replace(/^\/\//, "")}`
@@ -206,7 +207,7 @@ function validateSocialUrl(platform: string, url: string): { valid: boolean; err
 
   const hosts = SOCIAL_HOSTS[key]
   if (hosts && !hosts.test(parsed.hostname.toLowerCase())) {
-    return { valid: false, error: `That isn't a ${name} link` }
+    return { valid: false, error: tt("That isn't a {name} link", { name }) }
   }
 
   return { valid: true, transformedUrl: full }
@@ -214,43 +215,43 @@ function validateSocialUrl(platform: string, url: string): { valid: boolean; err
 
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
-  { id: "threads", label: "Threads", placeholder: "https://threads.net/@username", color: "#000000" },
-  { id: "email", label: "Email", placeholder: "mailto:you@email.com", color: "#EA4335" },
+  { id: "threads", get label() { return tt("Threads") }, placeholder: "https://threads.net/@username", color: "#000000" },
+  { id: "email", get label() { return tt("Email") }, placeholder: "mailto:you@email.com", color: "#EA4335" },
   { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2" },
   { id: "youtube", label: "YouTube", placeholder: "https://youtube.com/@channel", color: "#FF0000" },
-  { id: "twitter", label: "X (Twitter)", placeholder: "https://x.com/username", color: "#000000" },
+  { id: "twitter", get label() { return tt("X (Twitter)") }, placeholder: "https://x.com/username", color: "#000000" },
   { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000" },
   { id: "whatsapp", label: "WhatsApp", placeholder: "https://wa.me/1234567890", color: "#25D366" },
-  { id: "snapchat", label: "Snapchat", placeholder: "https://snapchat.com/add/username", color: "#FFFC00" },
+  { id: "snapchat", get label() { return tt("Snapchat") }, placeholder: "https://snapchat.com/add/username", color: "#FFFC00" },
   { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F" },
   { id: "discord", label: "Discord", placeholder: "https://discord.gg/invite", color: "#5865F2" },
   { id: "github", label: "GitHub", placeholder: "https://github.com/username", color: "#333333" },
-  { id: "kick", label: "Kick", placeholder: "https://kick.com/username", color: "#53FC18" },
+  { id: "kick", get label() { return tt("Kick") }, placeholder: "https://kick.com/username", color: "#53FC18" },
   { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2" },
   { id: "patreon", label: "Patreon", placeholder: "https://patreon.com/creator", color: "#FF424D" },
   { id: "pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username", color: "#E60023" },
   { id: "soundcloud", label: "SoundCloud", placeholder: "https://soundcloud.com/username", color: "#FF5500" },
   { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954" },
-  { id: "applemusic", label: "Apple Music", placeholder: "https://music.apple.com/...", color: "#FA233B" },
+  { id: "applemusic", get label() { return tt("Apple Music") }, placeholder: "https://music.apple.com/...", color: "#FA233B" },
   { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
   { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
-  { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1" },
+  { id: "website", get label() { return tt("Website") }, placeholder: "https://yourwebsite.com", color: "#6366F1" },
   { id: "calendly", label: "Calendly", placeholder: "https://calendly.com/username", color: "#006BFF" },
 ]
 
 // Default background images library
 const IMAGE_LIBRARY = [
-  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80", label: "Colorful Gradient" },
-  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=800&q=80", label: "Blue Gradient" },
-  { id: "minimal1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=800&q=80", label: "Abstract Minimal" },
-  { id: "minimal2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=800&q=80", label: "Soft Waves" },
-  { id: "minimal3", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80", label: "Mesh Gradient" },
-  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800&q=80", label: "Dark Abstract" },
-  { id: "dark2", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80", label: "Mountains" },
-  { id: "texture1", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800&q=80", label: "Marble" },
-  { id: "texture2", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=800&q=80", label: "Paper Texture" },
-  { id: "nature1", url: "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=800&q=80", label: "Ocean" },
-  { id: "nature2", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=800&q=80", label: "Forest" },
+  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80", get label() { return tt("Colorful Gradient") } },
+  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=800&q=80", get label() { return tt("Blue Gradient") } },
+  { id: "minimal1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=800&q=80", get label() { return tt("Abstract Minimal") } },
+  { id: "minimal2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=800&q=80", get label() { return tt("Soft Waves") } },
+  { id: "minimal3", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80", get label() { return tt("Mesh Gradient") } },
+  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800&q=80", get label() { return tt("Dark Abstract") } },
+  { id: "dark2", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80", get label() { return tt("Mountains") } },
+  { id: "texture1", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800&q=80", get label() { return tt("Marble") } },
+  { id: "texture2", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=800&q=80", get label() { return tt("Paper Texture") } },
+  { id: "nature1", url: "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=800&q=80", get label() { return tt("Ocean") } },
+  { id: "nature2", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=800&q=80", get label() { return tt("Forest") } },
 ]
 
 /*
@@ -268,104 +269,104 @@ const IMAGE_LIBRARY = [
 const blockCategories = [
   {
     id: "most_popular",
-    label: "Most Popular",
+    get label() { return tt("Most Popular") },
     icon: Heart,
     blocks: [
-      { type: "product" as const, label: "Digital Product", description: "Sell a digital product on your page", icon: ShoppingBag },
-      { type: "email_capture" as const, label: "Email Signup", description: "Collect emails from visitors", icon: Mail },
-      { type: "link_button" as const, label: "YouTube", description: "Link to YouTube", icon: Video, preset: { label: "Subscribe on YouTube", url: "https://youtube.com/@" } },
-      { type: "link_button" as const, label: "Spotify", description: "Share your music", icon: Share2, preset: { label: "Listen on Spotify", url: "https://open.spotify.com/" } },
-      { type: "link_button" as const, label: "TikTok", description: "Link to TikTok", icon: Share2, preset: { label: "Follow on TikTok", url: "https://tiktok.com/@" } },
-      { type: "link_button" as const, label: "Instagram", description: "Link to Instagram", icon: Share2, preset: { label: "Follow on Instagram", url: "https://instagram.com/" } },
+      { type: "product" as const, get label() { return tt("Digital Product") }, get description() { return tt("Sell a digital product on your page") }, icon: ShoppingBag },
+      { type: "email_capture" as const, get label() { return tt("Email Signup") }, get description() { return tt("Collect emails from visitors") }, icon: Mail },
+      { type: "link_button" as const, label: "YouTube", get description() { return tt("Link to YouTube") }, icon: Video, preset: { get label() { return tt("Subscribe on YouTube") }, url: "https://youtube.com/@" } },
+      { type: "link_button" as const, label: "Spotify", get description() { return tt("Share your music") }, icon: Share2, preset: { get label() { return tt("Listen on Spotify") }, url: "https://open.spotify.com/" } },
+      { type: "link_button" as const, label: "TikTok", get description() { return tt("Link to TikTok") }, icon: Share2, preset: { get label() { return tt("Follow on TikTok") }, url: "https://tiktok.com/@" } },
+      { type: "link_button" as const, label: "Instagram", get description() { return tt("Link to Instagram") }, icon: Share2, preset: { get label() { return tt("Follow on Instagram") }, url: "https://instagram.com/" } },
     ],
   },
   {
     id: "products",
-    label: "Products",
+    get label() { return tt("Products") },
     icon: ShoppingBag,
     blocks: [
-      { type: "product" as const, label: "Digital Product", description: "Sell a digital product", icon: ShoppingBag },
-      { type: "email_capture" as const, label: "Email Signup", description: "Collect emails from visitors", icon: Mail },
-      { type: "link_button" as const, label: "My Link", description: "Add a simple link", icon: Link, preset: { label: "My Link", url: "" } },
-      { type: "link_button" as const, label: "Store Link", description: "Link to your store", icon: ShoppingBag, preset: { label: "Shop Now", url: "" } },
-      { type: "link_button" as const, label: "eCourse", description: "Sell online courses", icon: Video, comingSoon: true, preset: { label: "View Course", url: "" } },
-      { type: "link_button" as const, label: "Coaching", description: "Offer coaching sessions", icon: User, comingSoon: true, preset: { label: "Book Coaching", url: "" } },
+      { type: "product" as const, get label() { return tt("Digital Product") }, get description() { return tt("Sell a digital product") }, icon: ShoppingBag },
+      { type: "email_capture" as const, get label() { return tt("Email Signup") }, get description() { return tt("Collect emails from visitors") }, icon: Mail },
+      { type: "link_button" as const, get label() { return tt("My Link") }, get description() { return tt("Add a simple link") }, icon: Link, preset: { get label() { return tt("My Link") }, url: "" } },
+      { type: "link_button" as const, get label() { return tt("Store Link") }, get description() { return tt("Link to your store") }, icon: ShoppingBag, preset: { get label() { return tt("Shop Now") }, url: "" } },
+      { type: "link_button" as const, label: "eCourse", get description() { return tt("Sell online courses") }, icon: Video, comingSoon: true, preset: { get label() { return tt("View Course") }, url: "" } },
+      { type: "link_button" as const, get label() { return tt("Coaching") }, get description() { return tt("Offer coaching sessions") }, icon: User, comingSoon: true, preset: { get label() { return tt("Book Coaching") }, url: "" } },
     ],
   },
   {
     id: "social",
-    label: "Social",
+    get label() { return tt("Social") },
     icon: Share2,
     blocks: [
-      { type: "social_row" as const, label: "Social Icons", description: "Display social links", icon: Share2 },
-      { type: "link_button" as const, label: "Instagram", description: "Link to Instagram", icon: Share2, preset: { label: "Follow on Instagram", url: "https://instagram.com/" } },
-      { type: "link_button" as const, label: "TikTok", description: "Link to TikTok", icon: Share2, preset: { label: "Follow on TikTok", url: "https://tiktok.com/@" } },
-      { type: "link_button" as const, label: "YouTube", description: "Link to YouTube", icon: Share2, preset: { label: "Subscribe on YouTube", url: "https://youtube.com/@" } },
-      { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
-      { type: "link_button" as const, label: "Facebook", description: "Link to Facebook", icon: Share2, preset: { label: "Follow on Facebook", url: "https://facebook.com/" } },
-      { type: "link_button" as const, label: "LinkedIn", description: "Link to LinkedIn", icon: Share2, preset: { label: "Connect on LinkedIn", url: "https://linkedin.com/in/" } },
-      { type: "link_button" as const, label: "Threads", description: "Link to Threads", icon: ({ className }: { className?: string }) => <SocialIcon platform="threads" size={16} className={className} />, preset: { label: "Follow on Threads", url: "https://threads.net/@" } },
+      { type: "social_row" as const, get label() { return tt("Social Icons") }, get description() { return tt("Display social links") }, icon: Share2 },
+      { type: "link_button" as const, label: "Instagram", get description() { return tt("Link to Instagram") }, icon: Share2, preset: { get label() { return tt("Follow on Instagram") }, url: "https://instagram.com/" } },
+      { type: "link_button" as const, label: "TikTok", get description() { return tt("Link to TikTok") }, icon: Share2, preset: { get label() { return tt("Follow on TikTok") }, url: "https://tiktok.com/@" } },
+      { type: "link_button" as const, label: "YouTube", get description() { return tt("Link to YouTube") }, icon: Share2, preset: { get label() { return tt("Subscribe on YouTube") }, url: "https://youtube.com/@" } },
+      { type: "link_button" as const, get label() { return tt("X (Twitter)") }, get description() { return tt("Link to X") }, icon: Share2, preset: { get label() { return tt("Follow on X") }, url: "https://x.com/" } },
+      { type: "link_button" as const, label: "Facebook", get description() { return tt("Link to Facebook") }, icon: Share2, preset: { get label() { return tt("Follow on Facebook") }, url: "https://facebook.com/" } },
+      { type: "link_button" as const, label: "LinkedIn", get description() { return tt("Link to LinkedIn") }, icon: Share2, preset: { get label() { return tt("Connect on LinkedIn") }, url: "https://linkedin.com/in/" } },
+      { type: "link_button" as const, get label() { return tt("Threads") }, get description() { return tt("Link to Threads") }, icon: ({ className }: { className?: string }) => <SocialIcon platform="threads" size={16} className={className} />, preset: { get label() { return tt("Follow on Threads") }, url: "https://threads.net/@" } },
     ],
   },
   {
     id: "media",
-    label: "Media",
+    get label() { return tt("Media") },
     icon: Video,
     blocks: [
-      { type: "image" as const, label: "Image", description: "Upload or link an image", icon: ImageIcon },
+      { type: "image" as const, get label() { return tt("Image") }, get description() { return tt("Upload or link an image") }, icon: ImageIcon },
       EXTRA_BLOCK_CATALOG.video,
-      { type: "link_button" as const, label: "YouTube Video", description: "Embed a video link", icon: Video, preset: { label: "Watch Video", url: "https://youtube.com/watch?v=" } },
-      { type: "link_button" as const, label: "Vimeo", description: "Link to Vimeo", icon: Video, preset: { label: "Watch on Vimeo", url: "https://vimeo.com/" } },
+      { type: "link_button" as const, get label() { return tt("YouTube Video") }, get description() { return tt("Embed a video link") }, icon: Video, preset: { get label() { return tt("Watch Video") }, url: "https://youtube.com/watch?v=" } },
+      { type: "link_button" as const, label: "Vimeo", get description() { return tt("Link to Vimeo") }, icon: Video, preset: { get label() { return tt("Watch on Vimeo") }, url: "https://vimeo.com/" } },
     ],
   },
   {
     id: "documents",
-    label: "Documents",
+    get label() { return tt("Documents") },
     icon: FileText,
     blocks: [
-      { type: "pdf_document" as const, label: "PDF Document", description: "Share a PDF with preview", icon: FileText },
-      { type: "food_menu" as const, label: "Food & Drinks Menu", description: "Share your restaurant menu", icon: FileText },
-      { type: "link_button" as const, label: "Google Docs", description: "Link to Google Docs", icon: FileText, preset: { label: "View Document", url: "https://docs.google.com/" } },
-      { type: "link_button" as const, label: "Notion", description: "Link to Notion page", icon: ({ className }: { className?: string }) => <SocialIcon platform="notion" size={16} className={className} />, preset: { label: "View Page", url: "https://notion.so/", icon: "notion" } },
+      { type: "pdf_document" as const, get label() { return tt("PDF Document") }, get description() { return tt("Share a PDF with preview") }, icon: FileText },
+      { type: "food_menu" as const, get label() { return tt("Food & Drinks Menu") }, get description() { return tt("Share your restaurant menu") }, icon: FileText },
+      { type: "link_button" as const, get label() { return tt("Google Docs") }, get description() { return tt("Link to Google Docs") }, icon: FileText, preset: { get label() { return tt("View Document") }, url: "https://docs.google.com/" } },
+      { type: "link_button" as const, label: "Notion", get description() { return tt("Link to Notion page") }, icon: ({ className }: { className?: string }) => <SocialIcon platform="notion" size={16} className={className} />, preset: { get label() { return tt("View Page") }, url: "https://notion.so/", icon: "notion" } },
     ],
   },
   {
     id: "audio",
-    label: "Audio",
+    get label() { return tt("Audio") },
     icon: Video,
     blocks: [
-      { type: "link_button" as const, label: "Spotify", description: "Share your music", icon: Share2, preset: { label: "Listen on Spotify", url: "https://open.spotify.com/" } },
-      { type: "link_button" as const, label: "Apple Music", description: "Link to Apple Music", icon: Share2, preset: { label: "Listen on Apple Music", url: "https://music.apple.com/" } },
-      { type: "link_button" as const, label: "SoundCloud", description: "Link to SoundCloud", icon: Share2, preset: { label: "Listen on SoundCloud", url: "https://soundcloud.com/" } },
-      { type: "link_button" as const, label: "Podcast", description: "Link to your podcast", icon: Share2, preset: { label: "Listen to Podcast", url: "" } },
+      { type: "link_button" as const, label: "Spotify", get description() { return tt("Share your music") }, icon: Share2, preset: { get label() { return tt("Listen on Spotify") }, url: "https://open.spotify.com/" } },
+      { type: "link_button" as const, get label() { return tt("Apple Music") }, get description() { return tt("Link to Apple Music") }, icon: Share2, preset: { get label() { return tt("Listen on Apple Music") }, url: "https://music.apple.com/" } },
+      { type: "link_button" as const, label: "SoundCloud", get description() { return tt("Link to SoundCloud") }, icon: Share2, preset: { get label() { return tt("Listen on SoundCloud") }, url: "https://soundcloud.com/" } },
+      { type: "link_button" as const, get label() { return tt("Podcast") }, get description() { return tt("Link to your podcast") }, icon: Share2, preset: { get label() { return tt("Listen to Podcast") }, url: "" } },
     ],
   },
   {
     id: "contact",
-    label: "Contact",
+    get label() { return tt("Contact") },
     icon: MessageSquare,
     blocks: [
-      { type: "email_capture" as const, label: "Email Signup", description: "Collect emails", icon: Mail },
-      { type: "calendly" as const, label: "Calendly", description: "Book meetings with Calendly", icon: Calendar },
+      { type: "email_capture" as const, get label() { return tt("Email Signup") }, get description() { return tt("Collect emails") }, icon: Mail },
+      { type: "calendly" as const, label: "Calendly", get description() { return tt("Book meetings with Calendly") }, icon: Calendar },
       EXTRA_BLOCK_CATALOG.map,
-      { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, comingSoon: true, preset: { label: "Contact Me", url: "" } },
-      { type: "link_button" as const, label: "WhatsApp", description: "Link to WhatsApp", icon: MessageSquare, preset: { label: "Message on WhatsApp", url: "https://wa.me/" } },
-      { type: "link_button" as const, label: "Telegram", description: "Link to Telegram", icon: MessageSquare, preset: { label: "Message on Telegram", url: "https://t.me/" } },
-      { type: "link_button" as const, label: "Discord", description: "Link to Discord", icon: MessageSquare, preset: { label: "Join Discord", url: "https://discord.gg/" } },
+      { type: "link_button" as const, get label() { return tt("Contact Form") }, get description() { return tt("Link to form") }, icon: FileText, comingSoon: true, preset: { get label() { return tt("Contact Me") }, url: "" } },
+      { type: "link_button" as const, label: "WhatsApp", get description() { return tt("Link to WhatsApp") }, icon: MessageSquare, preset: { get label() { return tt("Message on WhatsApp") }, url: "https://wa.me/" } },
+      { type: "link_button" as const, label: "Telegram", get description() { return tt("Link to Telegram") }, icon: MessageSquare, preset: { get label() { return tt("Message on Telegram") }, url: "https://t.me/" } },
+      { type: "link_button" as const, label: "Discord", get description() { return tt("Link to Discord") }, icon: MessageSquare, preset: { get label() { return tt("Join Discord") }, url: "https://discord.gg/" } },
     ],
   },
   {
     id: "other",
-    label: "Other",
+    get label() { return tt("Other") },
     icon: Grid3X3,
     blocks: [
-      { type: "link_button" as const, label: "Link", description: "Add any URL", icon: Link },
+      { type: "link_button" as const, get label() { return tt("Link") }, get description() { return tt("Add any URL") }, icon: Link },
       EXTRA_BLOCK_CATALOG.heading,
-      { type: "text" as const, label: "Text", description: "Add text content", icon: Type },
+      { type: "text" as const, get label() { return tt("Text") }, get description() { return tt("Add text content") }, icon: Type },
       EXTRA_BLOCK_CATALOG.faq,
       EXTRA_BLOCK_CATALOG.countdown,
-      { type: "divider" as const, label: "Divider", description: "Add spacing", icon: Minus },
-      { type: "group" as const, label: "Group", description: "Group blocks together", icon: Layers },
+      { type: "divider" as const, get label() { return tt("Divider") }, get description() { return tt("Add spacing") }, icon: Minus },
+      { type: "group" as const, get label() { return tt("Group") }, get description() { return tt("Group blocks together") }, icon: Layers },
     ],
   },
 ]
@@ -384,44 +385,44 @@ function getBlockPreviewData(block: OnePageBlock) {
           <path fillRule="evenodd" clipRule="evenodd" d="M17.2583 2.83306C13.7917 2.44562 10.2083 2.44562 6.74177 2.83306C4.72971 3.05794 3.10538 4.64295 2.86883 6.66548C2.45429 10.2098 2.45429 13.7903 2.86883 17.3346C3.10538 19.3571 4.72971 20.9422 6.74177 21.167C10.2083 21.5545 13.7917 21.5545 17.2583 21.167C19.2703 20.9422 20.8946 19.3571 21.1312 17.3346C21.5457 13.7903 21.5457 10.2098 21.1312 6.66548C20.8946 4.64295 19.2703 3.05794 17.2583 2.83306ZM6.90838 4.32378C10.2642 3.94871 13.7358 3.94871 17.0916 4.32378C18.4218 4.47244 19.4872 5.52205 19.6414 6.83973C20.0424 10.2683 20.0424 13.7318 19.6414 17.1604C19.4872 18.478 18.4218 19.5277 17.0916 19.6763C13.7358 20.0514 10.2642 20.0514 6.90838 19.6763C5.57827 19.5277 4.51278 18.478 4.35867 17.1604C3.95767 13.7318 3.95767 10.2683 4.35867 6.83973C4.51278 5.52205 5.57827 4.47244 6.90838 4.32378Z"/>
         </svg>
       )
-      return { title: data.label || "My Link", subtitle: displayUrl, icon: isNotionUrl ? NotionIcon : Link }
+      return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: isNotionUrl ? NotionIcon : Link }
     }
     case "header":
-      return { title: "Header", subtitle: "Profile section", icon: User }
+      return { title: tt("Header"), subtitle: tt("Profile section"), icon: User }
     case "text": {
       const data = block.data as TextBlockData
-      return { title: data.content?.slice(0, 30) || "Text block", subtitle: "Text", icon: Type }
+      return { title: data.content?.slice(0, 30) || tt("Text block"), subtitle: tt("Text"), icon: Type }
     }
     case "image":
-      return { title: "Image", subtitle: "Image block", icon: ImageIcon }
+      return { title: tt("Image"), subtitle: tt("Image block"), icon: ImageIcon }
     case "divider":
-      return { title: "Divider", subtitle: "Spacing", icon: Minus }
+      return { title: tt("Divider"), subtitle: tt("Spacing"), icon: Minus }
     case "email_capture": {
       const data = block.data as EmailCaptureBlockData
-      return { title: data.headline || "Email Signup", subtitle: "Lead capture form", icon: Mail }
+      return { title: data.headline || tt("Email Signup"), subtitle: tt("Lead capture form"), icon: Mail }
     }
     case "social_row":
-      return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
+      return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
     case "product": {
       const data = block.data as ProductBlockData
-      return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+      return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
     }
     case "group": {
       const data = block.data as GroupBlockData
       const childCount = data.children?.length || 0
-      return { title: data.title || "Group", subtitle: `${childCount} item${childCount !== 1 ? 's' : ''} · ${data.layout}`, icon: Layers }
+      return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: Layers }
     }
     case "pdf_document": {
       const data = block.data as PDFDocumentBlockData
-      return { title: data.title || "PDF Document", subtitle: data.pdf_file_url ? "PDF uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+      return { title: data.title || tt("PDF Document"), subtitle: data.pdf_file_url ? tt("PDF uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
     }
     case "food_menu": {
       const data = block.data as FoodMenuBlockData
-      return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+      return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
     }
     case "calendly": {
       const data = block.data as CalendlyBlockData
-      return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
+      return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? tt("Calendly connected") : tt("Add Calendly URL"), icon: Calendar, thumbnail_url: data.thumbnail_url }
     }
     case "heading":
     case "faq":
@@ -636,7 +637,7 @@ export function LinksTab() {
     const to = clampReorder(id, Math.max(0, Math.min(list.length - 1, from + dir)))
     if (from < 0 || to === from) return
     writeReorder(id, to)
-    setReorderMessage(`${name}, position ${to + 1} of ${list.length}`)
+    setReorderMessage(tt("{name}, position {value} of {length}", { name, value: to + 1, length: list.length }))
     /* A card React moved can lose focus on the way; the grip gets it back. */
     requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-reorder-grip="${CSS.escape(id)}"]`)?.focus({ preventScroll: false }))
   }
@@ -1022,7 +1023,7 @@ export function LinksTab() {
       const fileExt = file.name.split('.').pop()
       /* Under the owner's own folder: storage only lets a person write there. */
       const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error('Not signed in')
+      if (!ownerId) throw new Error(tt("Not signed in"))
       const fileName = `${ownerId}/thumbnail_${thumbnailBlockId}_${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
@@ -1257,7 +1258,7 @@ export function LinksTab() {
     const validation = validateSocialUrl(selectedSocial, socialUrl)
 
     if (!validation.valid) {
-      setSocialUrlError(validation.error || "Invalid URL")
+      setSocialUrlError(validation.error || tt("Invalid URL"))
       return
     }
 
@@ -1316,7 +1317,7 @@ export function LinksTab() {
             {onepage.avatar_video_url ? (
               <>
                 {avatar_url ? (
-                  <img src={avatar_url} alt={title || 'Avatar'} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                  <img src={avatar_url} alt={title || tt("Avatar")} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
                 ) : (
                   <div className="absolute inset-0 bg-gray-200 animate-pulse" />
                 )}
@@ -1333,7 +1334,7 @@ export function LinksTab() {
                 />
               </>
             ) : avatar_url ? (
-              <img src={avatar_url} alt={title || 'Avatar'} className="w-full h-full object-cover" />
+              <img src={avatar_url} alt={title || tt("Avatar")} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">{title?.trim() ? title.charAt(0) : <AvatarMark name="" size={72} />}</div>
             )}
@@ -1351,7 +1352,7 @@ export function LinksTab() {
             }}
             className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity cursor-pointer"
     >
-            <h2 className="font-semibold">{title || "Your Name"}</h2>
+            <h2 className="font-semibold">{title || tt("Your Name")}</h2>
             <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity" />
           </button>
           {onepage.bio ? (
@@ -1374,7 +1375,7 @@ export function LinksTab() {
               }}
               className="text-left mt-0.5 hover:opacity-70 transition-opacity cursor-pointer"
             >
-              <p className="text-sm text-gray-400 italic">Add your bio...</p>
+              <p className="text-sm text-gray-400 italic">{tt("Add your bio...")}</p>
             </button>
           )}
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
@@ -1451,7 +1452,7 @@ export function LinksTab() {
           )}
           strokeWidth={2.25}
         />
-        Add
+        {tt("Add")}
       </button>
 
       {/* Quick Actions */}
@@ -1468,7 +1469,7 @@ export function LinksTab() {
           }}
         >
           <Layers className="h-3 w-3 mr-1" />
-          Add Group
+          {tt("Add Group")}
         </Button>
         <Button
           variant={showArchiveView ? "default" : "outline"}
@@ -1480,7 +1481,7 @@ export function LinksTab() {
           onClick={() => setShowArchiveView(!showArchiveView)}
         >
           <Archive className="h-3 w-3 mr-1" />
-          {showArchiveView ? "Back to links" : "View archive"}
+          {showArchiveView ? tt("Back to links") : tt("View archive")}
           {archivedBlocks.length > 0 && !showArchiveView && (
             <span className="ml-1.5 bg-gray-200 text-gray-600 text-[10px] min-w-[18px] h-[18px] flex items-center justify-center rounded-full">{archivedBlocks.length}</span>
           )}
@@ -1491,14 +1492,14 @@ export function LinksTab() {
       {showArchiveView && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-700">Archived Blocks</h3>
-            <span className="text-xs text-muted-foreground">{archivedBlocks.length} items</span>
+            <h3 className="text-sm font-medium text-gray-700">{tt("Archived Blocks")}</h3>
+            <span className="text-xs text-muted-foreground">{tt("{length} items", { length: archivedBlocks.length })}</span>
           </div>
           {archivedBlocks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Archive className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No archived blocks</p>
-              <p className="text-xs mt-1">Archived blocks will appear here</p>
+              <p className="text-sm">{tt("No archived blocks")}</p>
+              <p className="text-xs mt-1">{tt("Archived blocks will appear here")}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1520,7 +1521,7 @@ export function LinksTab() {
                       className="h-8 text-xs shrink-0"
                     >
                       <RotateCcw className="h-3 w-3 mr-1" />
-                      Restore
+                      {tt("Restore")}
                     </Button>
                   </div>
                 )
@@ -1533,7 +1534,7 @@ export function LinksTab() {
       {/* The cards. Each one is picked up and moved by link-reorder.ts; the list only says which are cards. */}
       {!showArchiveView && (
       <div ref={reorderListRef} onPointerDown={onReorderPointerDown} className="group/list flex flex-col gap-2" data-reorder-list="">
-        <p id="onepage-reorder-help" className="sr-only">Drag the grip, or hold a card, to move it. With the keyboard, the up and down arrows move it one place.</p>
+        <p id="onepage-reorder-help" className="sr-only">{tt("Drag the grip, or hold a card, to move it. With the keyboard, the up and down arrows move it one place.")}</p>
         <p className="sr-only" aria-live="polite">{reorderMessage}</p>
         {sortedBlocks.map((block, index) => (
           <React.Fragment key={block.id}>
@@ -1550,7 +1551,7 @@ export function LinksTab() {
                 <span aria-hidden className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-xl bg-white/70 opacity-0 shadow-[inset_0_0_0_1.5px_#1a1a2e] transition-opacity duration-150 group-data-[drop-into]/card:opacity-100">
                   <span className="flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-3 py-1.5 text-[12px] font-medium text-white shadow-[0_2px_8px_rgba(16,24,40,0.2)]">
                     <Plus className="h-3.5 w-3.5" />
-                    Drop to add to group
+                    {tt("Drop to add to group")}
                   </span>
                 </span>
               ) : null}
@@ -1641,7 +1642,7 @@ export function LinksTab() {
                   }}
                   className="absolute inset-x-0 -top-4 -bottom-4 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
-                  aria-label="Add block here"
+                  aria-label={tt("Add block here")}
                 >
                   <span className="absolute inset-x-2 h-px bg-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:translate-y-[0.5px] group-focus-within/add-divider:translate-y-[0.5px]" />
                   <span className="absolute inset-x-3 h-px bg-gray-200 rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:-translate-y-[0.5px] group-focus-within/add-divider:-translate-y-[0.5px]" />
@@ -1657,8 +1658,8 @@ export function LinksTab() {
         {sortedBlocks.length === 0 && (
           <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50/50">
             <Link className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-            <p className="font-medium text-muted-foreground">No links yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Click "Add" to get started</p>
+            <p className="font-medium text-muted-foreground">{tt("No links yet")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{tt("Click \"Add\" to get started")}</p>
           </div>
         )}
       </div>
@@ -1669,7 +1670,7 @@ export function LinksTab() {
         open={showAddModal}
         onClose={closeAddSheet}
         phone={isMobileModalViewport}
-        label={addToGroupId ? "Add to Group" : "Add Block"}
+        label={addToGroupId ? tt("Add to Group") : tt("Add Block")}
         onOpenAutoFocus={(e) => e.preventDefault()}
         /*
           AS THE NOTIFICATIONS SHEET IS: built while the page is idle and
@@ -1684,11 +1685,11 @@ export function LinksTab() {
           {/* Header with title and close button */}
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0 border-b border-gray-100">
             <SheetDialogTitle className="text-lg sm:text-xl font-semibold">
-              {addToGroupId ? "Add to Group" : "Add Block"}
+              {addToGroupId ? tt("Add to Group") : tt("Add Block")}
             </SheetDialogTitle>
             {addToGroupId && (
               <p className="text-xs text-muted-foreground mt-1">
-                Adding block to group. Some block types are not available.
+                {tt("Adding block to group. Some block types are not available.")}
               </p>
             )}
           </DialogHeader>
@@ -1698,7 +1699,7 @@ export function LinksTab() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search platforms..."
+                placeholder={tt("Search platforms...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 h-10 sm:h-11 bg-gray-50 border-gray-200 focus:border-gray-400 rounded-xl text-sm"
@@ -1720,10 +1721,10 @@ export function LinksTab() {
             {!searchQuery && !addToGroupId && (
               <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-5">
                 {[
-                  { label: "Group", icon: Grid3X3, type: "group" as const },
-                  { label: "Link", icon: Link, type: "link_button" as const },
-                  { label: "Product", icon: ShoppingBag, type: "product" as const },
-                  { label: "Form", icon: Mail, type: "email_capture" as const },
+                  { label: tt("Group"), icon: Grid3X3, type: "group" as const },
+                  { label: tt("Link"), icon: Link, type: "link_button" as const },
+                  { label: tt("Product"), icon: ShoppingBag, type: "product" as const },
+                  { label: tt("Form"), icon: Mail, type: "email_capture" as const },
                 ].map((item) => {
                   const Icon = item.icon
                   return (
@@ -1744,8 +1745,8 @@ export function LinksTab() {
             {!searchQuery && addToGroupId && (
               <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-5">
                 {[
-                  { label: "Link", icon: Link, type: "link_button" as const },
-                  { label: "Image", icon: ImageIcon, type: "image" as const },
+                  { label: tt("Link"), icon: Link, type: "link_button" as const },
+                  { label: tt("Image"), icon: ImageIcon, type: "image" as const },
                 ].map((item) => {
                   const Icon = item.icon
                   return (
@@ -1832,13 +1833,13 @@ export function LinksTab() {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm text-gray-900">{block.label}</p>
                                   <p className="text-[11px] sm:text-xs text-gray-500 truncate">
-                                    {atLimit ? `Already added (${currentCount}/2)` : block.description}
+                                    {atLimit ? tt("Already added ({currentCount}/2)", { currentCount }) : block.description}
                                   </p>
                                 </div>
                                 {isComingSoon ? (
-                                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Coming Soon</span>
+                                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Coming Soon")}</span>
                                 ) : atLimit ? (
-                                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
+                                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Added")}</span>
                                 ) : (
                                   <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
                                 )}
@@ -1895,13 +1896,13 @@ export function LinksTab() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-gray-900">{block.label}</p>
                           <p className="text-[11px] sm:text-xs text-gray-500 truncate">
-                            {atLimit ? `Already added (${currentCount}/2)` : block.description}
+                            {atLimit ? tt("Already added ({currentCount}/2)", { currentCount }) : block.description}
                           </p>
                         </div>
                         {isComingSoon ? (
-                          <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Coming Soon</span>
+                          <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Coming Soon")}</span>
                         ) : atLimit ? (
-                          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
+                          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Added")}</span>
                         ) : (
                           <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
                         )}
@@ -1910,7 +1911,7 @@ export function LinksTab() {
                   })
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-sm text-gray-500">No results found for "{searchQuery}"</p>
+                    <p className="text-sm text-gray-500">{tt("No results found for \"{searchQuery}\"", { searchQuery })}</p>
                   </div>
                 )}
               </div>
@@ -1923,7 +1924,7 @@ export function LinksTab() {
         open={showSocialModal}
         onClose={closeSocialSheet}
         phone={isMobileModalViewport}
-        label={selectedSocial ? "Edit Social Link" : "Add Social Link"}
+        label={selectedSocial ? tt("Edit Social Link") : tt("Add Social Link")}
         onOpenAutoFocus={(e) => e.preventDefault()}
         /* Built ahead and kept, as Add block is; closeSocialSheet resets what was typed. */
         sheet={{ keepMounted: true }}
@@ -1931,7 +1932,7 @@ export function LinksTab() {
       >
           <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
             <SheetDialogTitle className="text-base sm:text-lg font-semibold">
-              {selectedSocial ? "Edit Social Link" : "Add Social Link"}
+              {selectedSocial ? tt("Edit Social Link") : tt("Add Social Link")}
             </SheetDialogTitle>
           </DialogHeader>
 
@@ -1944,7 +1945,7 @@ export function LinksTab() {
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search platforms..."
+                    placeholder={tt("Search platforms...")}
                     className="pl-10 h-11 rounded-xl bg-gray-50 border-gray-200"
                   />
                   {searchQuery && (
@@ -2003,7 +2004,7 @@ export function LinksTab() {
                   p.label.toLowerCase().includes(searchQuery.toLowerCase())
                 ).length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    <p className="text-sm">No platforms found</p>
+                    <p className="text-sm">{tt("No platforms found")}</p>
                   </div>
                 )}
               </div>
@@ -2024,7 +2025,7 @@ export function LinksTab() {
                       </div>
                       <div>
                         <p className="font-medium">{platform?.label}</p>
-                        <p className="text-xs text-muted-foreground">Add your {platform?.label} link</p>
+                        <p className="text-xs text-muted-foreground">{tt("Add your {label} link", { label: platform?.label })}</p>
                       </div>
                     </div>
 
@@ -2047,7 +2048,7 @@ export function LinksTab() {
                       )}
                       {(selectedSocial === 'instagram' || selectedSocial === 'twitter' || selectedSocial === 'threads' || selectedSocial === 'tiktok' || selectedSocial === 'telegram') && (
                         <p className="text-xs text-muted-foreground">
-                          Tip: You can enter just @username
+                          {tt("Tip: You can enter just @username")}
                         </p>
                       )}
                     </div>
@@ -2066,14 +2067,14 @@ export function LinksTab() {
                         }}
                         disabled={!socialUrl}
                       >
-                        {social_links?.[selectedSocial as keyof typeof social_links] ? "Update" : "Add"}
+                        {social_links?.[selectedSocial as keyof typeof social_links] ? tt("Update") : tt("Add")}
                       </Button>
                       <Button
                         variant="outline"
                         className="rounded-xl h-[44px] w-full text-[15px] font-semibold"
                         onClick={() => closeSocialSheet()}
                       >
-                        Back
+                        {tt("Back")}
                       </Button>
                       {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
@@ -2089,7 +2090,7 @@ export function LinksTab() {
                           }}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                          {tt("Delete")}
                         </Button>
                       )}
                     </div>
@@ -2103,29 +2104,29 @@ export function LinksTab() {
 
       <SaveNotification
         show={showDeleteSocialNotification}
-        message="Deleted"
+        message={tt("Deleted")}
         duration={3000}
         icon={DeletedIcon}
       />
       <SaveNotification
         show={showAddBlockNotification}
-        message="New block added"
+        message={tt("New block added")}
         duration={4000}
       />
       <SaveNotification
         show={showUpdateSocialNotification}
-        message="Updated"
+        message={tt("Updated")}
         duration={3000}
       />
       <SaveNotification
         show={showBlockRemovedNotification}
-        message="Block removed"
+        message={tt("Block removed")}
         duration={3000}
         icon={DeletedIcon}
       />
       <SaveNotification
         show={showBlockArchivedNotification}
-        message="Block archived"
+        message={tt("Block archived")}
         duration={3000}
       />
 
@@ -2140,12 +2141,12 @@ export function LinksTab() {
           setStreamingUrlError(null)
         }}
         phone={isMobileModalViewport}
-        label={streamingUrl ? "Edit Streaming Link" : "Add Streaming Link"}
+        label={streamingUrl ? tt("Edit Streaming Link") : tt("Add Streaming Link")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-4 sm:p-5 border-b">
             <SheetDialogTitle className="text-base sm:text-lg font-semibold">
-              {streamingUrl ? "Edit Streaming Link" : "Add Streaming Link"}
+              {streamingUrl ? tt("Edit Streaming Link") : tt("Add Streaming Link")}
             </SheetDialogTitle>
           </DialogHeader>
 
@@ -2206,11 +2207,11 @@ export function LinksTab() {
 
               const handleSave = () => {
                 if (!streamingUrl.trim()) {
-                  setStreamingUrlError('Please enter a URL')
+                  setStreamingUrlError(tt("Please enter a URL"))
                   return
                 }
                 if (config && !config.urlPattern.test(streamingUrl)) {
-                  setStreamingUrlError(`Please enter a valid ${config.name} URL`)
+                  setStreamingUrlError(tt("Please enter a valid {name} URL", { name: config.name }))
                   return
                 }
                 if (streamingBlockData && streamingBlockUpdateFn && streamingPlatformIndex >= 0) {
@@ -2237,8 +2238,8 @@ export function LinksTab() {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">{config?.name || 'Streaming Platform'}</p>
-                      <p className="text-xs text-muted-foreground">Add your {config?.name || 'streaming'} link</p>
+                      <p className="font-medium">{config?.name || tt("Streaming Platform")}</p>
+                      <p className="text-xs text-muted-foreground">{tt("Add your")} {config?.name || 'streaming'} {tt("link")}</p>
                     </div>
                   </div>
 
@@ -2250,7 +2251,7 @@ export function LinksTab() {
                         setStreamingUrl(e.target.value)
                         if (streamingUrlError) setStreamingUrlError(null)
                       }}
-                      placeholder={config?.placeholder || 'Enter URL...'}
+                      placeholder={config?.placeholder || tt("Enter URL...")}
                       className={cn(
                         "h-11 rounded-xl",
                         streamingUrlError && "border-red-500 focus-visible:ring-red-500"
@@ -2260,7 +2261,7 @@ export function LinksTab() {
                       <p className="text-xs text-red-500">{streamingUrlError}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Tip: Paste the full URL from {config?.name || 'the platform'}
+                      {tt("Tip: Paste the full URL from")} {config?.name || tt("the platform")}
                     </p>
                   </div>
 
@@ -2270,14 +2271,14 @@ export function LinksTab() {
                       className="flex-1 rounded-xl"
                       onClick={() => setShowStreamingUrlModal(false)}
                     >
-                      Cancel
+                      {tt("Cancel")}
                     </Button>
                     <Button
                       className="flex-1 bg-gray-900 hover:bg-gray-800 rounded-xl"
                       onClick={handleSave}
                       disabled={!streamingUrl.trim()}
                     >
-                      Add
+                      {tt("Add")}
                     </Button>
                   </div>
                 </>
@@ -2291,34 +2292,34 @@ export function LinksTab() {
         open={showNameBioModal}
         onClose={() => setShowNameBioModal(false)}
         phone={isMobileModalViewport}
-        label="Edit Profile"
+        label={tt("Edit Profile")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-4 sm:p-5 border-b">
-            <SheetDialogTitle className="text-base sm:text-lg font-semibold">Edit Profile</SheetDialogTitle>
+            <SheetDialogTitle className="text-base sm:text-lg font-semibold">{tt("Edit Profile")}</SheetDialogTitle>
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Name</Label>
+              <Label className="text-sm font-medium">{tt("Name")}</Label>
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                placeholder="Your display name"
+                placeholder={tt("Your display name")}
                 className="h-11 border-2 border-gray-200 focus:border-gray-900 rounded-xl"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Bio</Label>
+              <Label className="text-sm font-medium">{tt("Bio")}</Label>
               <Textarea
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
-                placeholder="A short bio about yourself..."
+                placeholder={tt("A short bio about yourself...")}
                 className="min-h-[100px] border-2 border-gray-200 focus:border-gray-900 rounded-xl resize-none"
                 rows={4}
               />
-              <p className="text-xs text-muted-foreground">This will appear below your name on your page</p>
+              <p className="text-xs text-muted-foreground">{tt("This will appear below your name on your page")}</p>
             </div>
 
             <div className="flex gap-2 pt-2">
@@ -2327,7 +2328,7 @@ export function LinksTab() {
                 className="flex-1"
                 onClick={() => setShowNameBioModal(false)}
               >
-                Cancel
+                {tt("Cancel")}
               </Button>
               <Button
                 className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
@@ -2336,7 +2337,7 @@ export function LinksTab() {
                   setShowNameBioModal(false)
                 }}
               >
-                Save
+                {tt("Save")}
               </Button>
             </div>
           </div>
@@ -2347,7 +2348,7 @@ export function LinksTab() {
         open={showThumbnailModal}
         onClose={closeThumbnailSheet}
         phone={isMobileModalViewport}
-        label={showIconLibraryInModal ? "Choose Icon" : getThumbnailBlockType() === 'product' ? 'Edit Custom Thumbnail' : 'Edit Thumbnail'}
+        label={showIconLibraryInModal ? tt("Choose Icon") : getThumbnailBlockType() === 'product' ? tt("Edit Custom Thumbnail") : tt("Edit Thumbnail")}
         className={cn(
           "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col border-[#ececf1]",
           showIconLibraryInModal
@@ -2360,7 +2361,7 @@ export function LinksTab() {
             <>
               <DialogHeader className="p-4 border-b">
                 <SheetDialogTitle className="text-base font-semibold">
-                  {getThumbnailBlockType() === 'product' ? 'Edit Custom Thumbnail' : 'Edit Thumbnail'}
+                  {getThumbnailBlockType() === 'product' ? tt("Edit Custom Thumbnail") : tt("Edit Thumbnail")}
                 </SheetDialogTitle>
               </DialogHeader>
               <div className="p-4 space-y-3">
@@ -2407,8 +2408,8 @@ export function LinksTab() {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-medium">Upload image</p>
-                    <p className="text-xs text-muted-foreground">JPG, PNG, GIF up to 5MB</p>
+                    <p className="text-sm font-medium">{tt("Upload image")}</p>
+                    <p className="text-xs text-muted-foreground">{tt("JPG, PNG, GIF up to 5MB")}</p>
                   </div>
                 </button>
 
@@ -2423,8 +2424,8 @@ export function LinksTab() {
                       <Grid3X3 className="w-5 h-5 text-[#1a1a2e]" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Choose icon</p>
-                      <p className="text-xs text-muted-foreground">From icon library</p>
+                      <p className="text-sm font-medium">{tt("Choose icon")}</p>
+                      <p className="text-xs text-muted-foreground">{tt("From icon library")}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </button>
@@ -2468,7 +2469,7 @@ export function LinksTab() {
                       <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
                         <Trash2 className="w-5 h-5" />
                       </div>
-                      <p className="text-sm font-medium">Remove thumbnail</p>
+                      <p className="text-sm font-medium">{tt("Remove thumbnail")}</p>
                     </button>
                   ) : null
                 })()}
@@ -2492,7 +2493,7 @@ export function LinksTab() {
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <SheetDialogTitle className="text-base font-semibold">Choose Icon</SheetDialogTitle>
+                  <SheetDialogTitle className="text-base font-semibold">{tt("Choose Icon")}</SheetDialogTitle>
                 </div>
               </DialogHeader>
 
@@ -2501,7 +2502,7 @@ export function LinksTab() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Search icons..."
+                    placeholder={tt("Search icons...")}
                     value={iconSearchQuery}
                     onChange={(e) => setIconSearchQuery(e.target.value)}
                     className="pl-9 h-10 bg-white border-gray-200 rounded-lg text-sm"
@@ -2600,7 +2601,7 @@ export function LinksTab() {
                         return (
                           <div className="col-span-full text-center py-8 text-gray-500">
                             <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">No icons found</p>
+                            <p className="text-sm">{tt("No icons found")}</p>
                           </div>
                         )
                       }
@@ -2673,20 +2674,20 @@ export function LinksTab() {
           setImageFieldType(null)
         }}
         phone={isMobileModalViewport}
-        label={imageFieldType === 'digital_product_file' ? 'Upload Digital File'
-                : imageFieldType === 'product_image' ? 'Product Image'
-                : imageFieldType === 'pdf_file' ? 'Upload PDF File'
-                : imageFieldType === 'thumbnail_url' ? 'Upload Thumbnail'
-                : 'Choose an Image'}
+        label={imageFieldType === 'digital_product_file' ? tt("Upload Digital File")
+                : imageFieldType === 'product_image' ? tt("Product Image")
+                : imageFieldType === 'pdf_file' ? tt("Upload PDF File")
+                : imageFieldType === 'thumbnail_url' ? tt("Upload Thumbnail")
+                : tt("Choose an Image")}
         className="w-[calc(100%-32px)] max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-4 sm:p-5 border-b">
             <SheetDialogTitle className="text-base sm:text-lg font-semibold">
-              {imageFieldType === 'digital_product_file' ? 'Upload Digital File'
-                : imageFieldType === 'product_image' ? 'Product Image'
-                : imageFieldType === 'pdf_file' ? 'Upload PDF File'
-                : imageFieldType === 'thumbnail_url' ? 'Upload Thumbnail'
-                : 'Choose an Image'}
+              {imageFieldType === 'digital_product_file' ? tt("Upload Digital File")
+                : imageFieldType === 'product_image' ? tt("Product Image")
+                : imageFieldType === 'pdf_file' ? tt("Upload PDF File")
+                : imageFieldType === 'thumbnail_url' ? tt("Upload Thumbnail")
+                : tt("Choose an Image")}
             </SheetDialogTitle>
           </DialogHeader>
           <div className="p-4 sm:p-5 max-h-[60vh] overflow-y-auto">
@@ -2726,7 +2727,7 @@ export function LinksTab() {
                       const fileHeader = await readFileHeader(file)
                       const securityScan = scanFile(file.name, file.type || 'application/octet-stream', fileHeader, isDigitalFile ? 'link_page_file' : 'public_image')
                       if (!securityScan.safe) {
-                        throw new Error(securityScan.reason || "We couldn't accept this file. Try another file.")
+                        throw new Error(securityScan.reason || tt("We couldn't accept this file. Try another file."))
                       }
 
                       // Use signed URL upload for digital files (any size) and large image files
@@ -2755,8 +2756,8 @@ export function LinksTab() {
                         clearInterval(simInterval)
 
                         if (!uploadRes.ok) {
-                          const err = await uploadRes.json().catch(() => ({ error: 'Upload failed' }))
-                          throw new Error(err.error || 'Upload failed')
+                          const err = await uploadRes.json().catch(() => ({ error: tt("Upload failed") }))
+                          throw new Error(err.error || tt("Upload failed"))
                         }
 
                         setUploadProgress(100)
@@ -2807,11 +2808,11 @@ export function LinksTab() {
                             }),
                           })
                           if (!signedRes.ok) {
-                            const err = await signedRes.json().catch(() => ({ error: 'Failed to prepare upload' }))
-                            throw new Error(err.error || 'Failed to prepare upload')
+                            const err = await signedRes.json().catch(() => ({ error: tt("Failed to prepare upload") }))
+                            throw new Error(err.error || tt("Failed to prepare upload"))
                           }
                           const data = await signedRes.json().catch(() => null)
-                          if (!data) throw new Error('Failed to prepare upload')
+                          if (!data) throw new Error(tt("Failed to prepare upload"))
                           return data
                         }
 
@@ -2835,7 +2836,7 @@ export function LinksTab() {
                                   setUploadProgress(100)
                                   resolve(signedData.publicUrl)
                                 } else {
-                                  let errMsg = `Upload error (${xhr.status})`
+                                  let errMsg = tt("Upload error ({status})", { status: xhr.status })
                                   try {
                                     const body = JSON.parse(xhr.responseText)
                                     errMsg = body.error || body.message || errMsg
@@ -2843,9 +2844,9 @@ export function LinksTab() {
                                   reject(new Error(errMsg))
                                 }
                               })
-                              xhr.addEventListener('error', () => reject(new Error('Network error during upload.')))
-                              xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')))
-                              xhr.addEventListener('timeout', () => reject(new Error('Upload timed out.')))
+                              xhr.addEventListener('error', () => reject(new Error(tt("Network error during upload."))))
+                              xhr.addEventListener('abort', () => reject(new Error(tt("Upload was cancelled."))))
+                              xhr.addEventListener('timeout', () => reject(new Error(tt("Upload timed out."))))
                               xhr.open('PUT', signedData.signedUrl)
                               const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
                               if (anonKey) {
@@ -2956,7 +2957,7 @@ export function LinksTab() {
                         }
 
                         if (!uploaded) {
-                          throw new Error(lastError || 'Upload failed. Try again.')
+                          throw new Error(lastError || tt("Upload failed. Try again."))
                         }
                       }
 
@@ -3004,7 +3005,7 @@ export function LinksTab() {
                       /* One plain sentence: the server's own when it is one, never a code or a status. */
                       const said = error instanceof Error ? error.message : ''
                       const plain = said && said.length < 160 && !/failed|error|http|\(\d{3}\)|required|not found|denied|unauthori|token|bucket/i.test(said)
-                      alert(plain ? said : 'Upload failed. Try again.')
+                      alert(plain ? said : tt("Upload failed. Try again."))
                     } finally {
                       setImageUploading(false)
                       setTimeout(() => setUploadProgress(0), 500)
@@ -3036,16 +3037,16 @@ export function LinksTab() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className="font-medium">
-                      {imageUploading ? `Uploading... ${uploadProgress}%`
-                        : imageFieldType === 'digital_product_file' ? 'Upload file'
-                        : imageFieldType === 'pdf_file' ? 'Upload PDF'
-                        : imageFieldType === 'thumbnail_url' ? 'Upload thumbnail'
-                        : 'Upload image'}
+                      {imageUploading ? tt("Uploading... {uploadProgress}%", { uploadProgress })
+                        : imageFieldType === 'digital_product_file' ? tt("Upload file")
+                        : imageFieldType === 'pdf_file' ? tt("Upload PDF")
+                        : imageFieldType === 'thumbnail_url' ? tt("Upload thumbnail")
+                        : tt("Upload image")}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'Any file type, no size limit (audio, video, ZIP, images, docs)'
-                        : imageFieldType === 'pdf_file' ? 'PDF files only'
-                        : 'JPG, PNG, GIF up to 10MB'}
+                      {imageFieldType === 'digital_product_file' ? tt("Any file type, no size limit (audio, video, ZIP, images, docs)")
+                        : imageFieldType === 'pdf_file' ? tt("PDF files only")
+                        : tt("JPG, PNG, GIF up to 10MB")}
                     </p>
                   </div>
                 </label>
@@ -3078,9 +3079,9 @@ export function LinksTab() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {imageFieldType === 'digital_product_file' ? (data.digital_product_title || 'Current file')
-                            : imageFieldType === 'pdf_file' ? (data.title || 'PDF file')
-                            : 'Current image'}
+                          {imageFieldType === 'digital_product_file' ? (data.digital_product_title || tt("Current file"))
+                            : imageFieldType === 'pdf_file' ? (data.title || tt("PDF file"))
+                            : tt("Current image")}
                         </p>
                       </div>
                       <button
@@ -3180,21 +3181,21 @@ export function LinksTab() {
         open={showAvatarEditModal}
         onClose={() => setShowAvatarEditModal(false)}
         phone={isMobileModalViewport}
-        label="Profile Image"
+        label={tt("Profile Image")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b">
-            <SheetDialogTitle className="text-lg font-semibold text-center">Profile photo</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Profile photo")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => { setShowAvatarEditModal(false); setShowAvatarUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><ImageIcon className="h-6 w-6 text-gray-600" /></div>
-              <div className="flex-1 text-left"><p className="font-medium">Select image or GIF</p></div>
+              <div className="flex-1 text-left"><p className="font-medium">{tt("Select image or GIF")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
             <button onClick={() => { setShowAvatarEditModal(false); setShowVideoModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center"><Video className="h-6 w-6 text-yellow-600" /></div>
-              <div className="flex-1 text-left"><p className="font-medium">Select video</p></div>
+              <div className="flex-1 text-left"><p className="font-medium">{tt("Select video")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
             {(onepage.avatar_url || onepage.avatar_video_url) && (
@@ -3211,7 +3212,7 @@ export function LinksTab() {
                 updateProfile({ avatar_url: null, avatar_video_url: null })
                 setShowAvatarEditModal(false)
               }} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors">
-                <Trash2 className="h-4 w-4" /><span className="font-medium">Remove current media</span>
+                <Trash2 className="h-4 w-4" /><span className="font-medium">{tt("Remove current media")}</span>
               </button>
             )}
           </div>
@@ -3222,12 +3223,12 @@ export function LinksTab() {
         open={showAvatarUploadModal}
         onClose={() => setShowAvatarUploadModal(false)}
         phone={isMobileModalViewport}
-        label="Upload media"
+        label={tt("Upload media")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowAvatarUploadModal(false); setShowAvatarEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload media")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
             <div
@@ -3256,10 +3257,10 @@ export function LinksTab() {
             >
               <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-300")} />
               <p className={cn("font-medium transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-600")}>
-                {isDragOver ? "Drop image here" : "Select file to upload,"}
+                {isDragOver ? tt("Drop image here") : tt("Select file to upload,")}
               </p>
-              {!isDragOver && <p className="font-medium text-gray-600">or drag-and-drop file</p>}
-              <p className="text-sm text-gray-400 mt-2">Please upload an image</p>
+              {!isDragOver && <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>}
+              <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
             </div>
             <input
               ref={fileInputRef}
@@ -3292,12 +3293,12 @@ export function LinksTab() {
           }
         }}
         phone={isMobileModalViewport}
-        label="Crop Image"
+        label={tt("Crop Image")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Image")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -3409,7 +3410,7 @@ export function LinksTab() {
                   {/* Image */}
                   <img
                     src={tempImageUrl}
-                    alt="Preview"
+                    alt={tt("Preview")}
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
                     style={{
                       width: imageSizeCrop.width,
@@ -3508,13 +3509,13 @@ export function LinksTab() {
                 </div>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Drag to move, drag any corner to resize
+                  {tt("Drag to move, drag any corner to resize")}
                 </p>
 
                 <canvas ref={canvasRef} className="hidden" />
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="flex-1">Cancel</Button>
+                  <Button variant="outline" onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="flex-1">{tt("Cancel")}</Button>
                   <Button
                     onClick={async () => {
                       if (!tempImageUrl || !canvasRef.current) return
@@ -3522,7 +3523,7 @@ export function LinksTab() {
                       try {
                         const canvas = canvasRef.current
                         const ctx = canvas.getContext('2d')
-                        if (!ctx) throw new Error('No canvas context')
+                        if (!ctx) throw new Error(tt("No canvas context"))
 
                         // Output size (512x512 for crisp profile pictures)
                         const outputSize = 512
@@ -3534,7 +3535,7 @@ export function LinksTab() {
 
                         await new Promise<void>((resolve, reject) => {
                           img.onload = () => resolve()
-                          img.onerror = () => reject(new Error('Failed to load image'))
+                          img.onerror = () => reject(new Error(tt("Failed to load image")))
                           img.src = tempImageUrl
                         })
 
@@ -3554,7 +3555,7 @@ export function LinksTab() {
                         // Convert to blob and upload
                         const blob = await new Promise<Blob>((resolve, reject) => {
                           canvas.toBlob(
-                            (b) => b ? resolve(b) : reject(new Error('Failed to create blob')),
+                            (b) => b ? resolve(b) : reject(new Error(tt("Failed to create blob"))),
                             'image/png',
                             0.95
                           )
@@ -3562,7 +3563,7 @@ export function LinksTab() {
 
                         const supabase = createClient()
                         const { data: { user } } = await supabase.auth.getUser()
-                        if (!user) throw new Error('Not authenticated')
+                        if (!user) throw new Error(tt("Not authenticated"))
 
                         /*
                           ONE PROFILE PHOTO. This used to upload into
@@ -3585,7 +3586,7 @@ export function LinksTab() {
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ url: publicUrl }),
                         })
-                        if (!saved.ok) throw new Error("profile photo not saved")
+                        if (!saved.ok) throw new Error(tt("profile photo not saved"))
                         announceAvatar(publicUrl)
                         updateProfile({ avatar_url: publicUrl, avatar_video_url: null })
                         setShowAvatarCropModal(false)
@@ -3595,7 +3596,7 @@ export function LinksTab() {
                         setCropBox({ x: 50, y: 50, size: 200 })
                       } catch (error) {
                         console.error("Upload error:", error)
-                        alert('Upload failed. Try again.')
+                        alert(tt("Upload failed. Try again."))
                       } finally {
                         setUploading(false)
                       }
@@ -3603,7 +3604,7 @@ export function LinksTab() {
                     className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                     disabled={uploading}
                   >
-                    {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                    {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                   </Button>
                 </div>
               </>
@@ -3616,19 +3617,19 @@ export function LinksTab() {
         open={showVideoModal}
         onClose={() => setShowVideoModal(false)}
         phone={isMobileModalViewport}
-        label="Profile Video"
+        label={tt("Profile Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoModal(false); setShowAvatarEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Profile Video</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Profile Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => videoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left">
-                <p className="font-medium">Upload video</p>
-                <p className="text-sm text-gray-500">MP4, WebM up to 100MB</p>
+                <p className="font-medium">{tt("Upload video")}</p>
+                <p className="text-sm text-gray-500">{tt("MP4, WebM up to 100MB")}</p>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
@@ -3641,7 +3642,7 @@ export function LinksTab() {
                 if (!file) return
                 
                 if (file.size > 100 * 1024 * 1024) {
-                  alert('This file is too large. The limit is 100 MB.')
+                  alert(tt("This file is too large. The limit is 100 MB."))
                   return
                 }
                 
@@ -3669,13 +3670,13 @@ export function LinksTab() {
           }
         }}
         phone={isMobileModalViewport}
-        label="Crop Video"
+        label={tt("Crop Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
         dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempVideoUrl && (
@@ -3876,11 +3877,11 @@ export function LinksTab() {
                 </div>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Drag to move, drag any corner to resize
+                  {tt("Drag to move, drag any corner to resize")}
                 </p>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">Cancel</Button>
+                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">{tt("Cancel")}</Button>
                   <Button
                     onClick={async () => {
                       if (!tempVideoFile) return
@@ -3908,7 +3909,7 @@ export function LinksTab() {
                         setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
                       } catch (error) {
                         console.error("Upload error:", error)
-                        alert('Upload failed. Try again.')
+                        alert(tt("Upload failed. Try again."))
                       } finally {
                         setUploadingVideo(false)
                       }
@@ -3916,7 +3917,7 @@ export function LinksTab() {
                     className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                     disabled={uploadingVideo}
                   >
-                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                   </Button>
                 </div>
               </>
@@ -3992,12 +3993,12 @@ function BlockItem({
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
 
   const animationOptions = [
-    { id: 'none', label: 'None' },
-    { id: 'pulse', label: 'Pulse' },
-    { id: 'bounce', label: 'Bounce' },
-    { id: 'shake', label: 'Shake' },
-    { id: 'glow', label: 'Glow' },
-    { id: 'swipe', label: 'Swipe' },
+    { id: 'none', label: tt("None") },
+    { id: 'pulse', label: tt("Pulse") },
+    { id: 'bounce', label: tt("Bounce") },
+    { id: 'shake', label: tt("Shake") },
+    { id: 'glow', label: tt("Glow") },
+    { id: 'swipe', label: tt("Swipe") },
   ] as const
 
   // Close animation menu when clicking outside
@@ -4095,44 +4096,44 @@ function BlockItem({
         // Auto-detect Notion URLs and show Notion icon
         const isNotionUrl = data.url?.toLowerCase().includes('notion.so') || data.url?.toLowerCase().includes('notion.site')
         const effectiveIconId = data.icon || (isNotionUrl ? 'notion' : undefined)
-        return { title: data.label || "My Link", subtitle: displayUrl, icon: Link, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
+        return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: Link, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
       }
       case "header":
-        return { title: "Header", subtitle: "Profile section", icon: User }
+        return { title: tt("Header"), subtitle: tt("Profile section"), icon: User }
       case "text": {
         const data = block.data as TextBlockData
-        return { title: data.content?.slice(0, 30) || "Text block", subtitle: "Text", icon: Type }
+        return { title: data.content?.slice(0, 30) || tt("Text block"), subtitle: tt("Text"), icon: Type }
       }
       case "image":
-        return { title: "Image", subtitle: "Image block", icon: ImageIcon }
+        return { title: tt("Image"), subtitle: tt("Image block"), icon: ImageIcon }
       case "divider":
-        return { title: "Divider", subtitle: "Spacing", icon: Minus }
+        return { title: tt("Divider"), subtitle: tt("Spacing"), icon: Minus }
       case "email_capture": {
         const data = block.data as EmailCaptureBlockData
-        return { title: data.headline || "Email Signup", subtitle: "Lead capture form", icon: Mail }
+        return { title: data.headline || tt("Email Signup"), subtitle: tt("Lead capture form"), icon: Mail }
       }
       case "social_row":
-        return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
+        return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
       case "product": {
         const data = block.data as ProductBlockData
-        return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+        return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
       }
       case "group": {
         const data = block.data as GroupBlockData
         const childCount = data.children?.length || 0
-        return { title: data.title || "Group", subtitle: `${childCount} item${childCount !== 1 ? 's' : ''} · ${data.layout}`, icon: Layers }
+        return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: Layers }
       }
       case "pdf_document": {
         const data = block.data as PDFDocumentBlockData
-        return { title: data.title || "PDF Document", subtitle: data.pdf_file_url ? "PDF uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+        return { title: data.title || tt("PDF Document"), subtitle: data.pdf_file_url ? tt("PDF uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
       }
       case "food_menu": {
         const data = block.data as FoodMenuBlockData
-        return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+        return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
       }
       case "calendly": {
         const data = block.data as CalendlyBlockData
-        return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
+        return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? tt("Calendly connected") : tt("Add Calendly URL"), icon: Calendar, thumbnail_url: data.thumbnail_url }
       }
       case "heading":
       case "faq":
@@ -4185,7 +4186,7 @@ function BlockItem({
           <button
             type="button"
             data-reorder-grip={block.id}
-            aria-label={`Move ${preview.title}`}
+            aria-label={tt("Move {title}", { title: preview.title })}
             aria-describedby="onepage-reorder-help"
             onKeyDown={(e) => onGripKeyDown?.(e, preview.title)}
             className="-my-0.5 -ml-1.5 -mr-1 grid h-11 w-8 shrink-0 cursor-grab touch-none select-none place-items-center rounded-lg text-[#b4b8c0] outline-none transition-colors duration-150 hover:text-[#6b7280] active:cursor-grabbing focus-visible:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)] [-webkit-tap-highlight-color:transparent]"
@@ -4249,7 +4250,7 @@ function BlockItem({
 
         {/* Warning icon for link blocks without URL */}
         {isLinkButton && !(block.data as LinkButtonBlockData).url && (
-          <div className="p-1" title="No link added">
+          <div className="p-1" title={tt("No link added")}>
             <AlertCircle className="h-4 w-4 text-amber-500" />
           </div>
         )}
@@ -4270,7 +4271,7 @@ function BlockItem({
                   <Info className="h-4 w-4 text-blue-400" />
                 </div>
                 <div className="absolute right-0 top-full mt-1 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all z-50 shadow-lg">
-                  Position this block under the Header block or at the bottom for better look
+                  {tt("Position this block under the Header block or at the bottom for better look")}
                 </div>
               </div>
             )
@@ -4297,7 +4298,7 @@ function BlockItem({
                   ? "text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef]"
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               )}
-              title="Animation"
+              title={tt("Animation")}
             >
               <Sparkles className="h-4 w-4" />
             </button>
@@ -4342,7 +4343,7 @@ function BlockItem({
             open={showAnimationSheet}
             onClose={closeAnimationSheet}
             phone={isMobileStatsViewport}
-            label="Animation"
+            label={tt("Animation")}
             className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[360px] rounded-2xl"
             sheet={{
               onClosed: () => {
@@ -4353,7 +4354,7 @@ function BlockItem({
             }}
           >
               <DialogHeader className="p-4 border-b">
-                <SheetDialogTitle className="text-base font-semibold">Animation</SheetDialogTitle>
+                <SheetDialogTitle className="text-base font-semibold">{tt("Animation")}</SheetDialogTitle>
               </DialogHeader>
               {/* The sheet keeps clear of the home indicator itself; the dialog needs the room. */}
               <div className={cn("p-3 max-h-[65vh] overflow-y-auto", !isMobileStatsViewport && "pb-4")}>
@@ -4401,7 +4402,7 @@ function BlockItem({
                 setShowStatsModal(true)
               }}
               className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              title="View Stats"
+              title={tt("View Stats")}
             >
               <BarChart2 className="h-4 w-4" />
               {clickCount !== null && (
@@ -4415,11 +4416,11 @@ function BlockItem({
               onClose={closeStatsSheet}
               phone={isMobileStatsViewport}
               sheet={{ onOpened: () => setStatsSheetArrived(true) }}
-              label={isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}
+              label={isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : tt("Link Stats")}
               className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
             >
                 <DialogHeader className="p-4 border-b">
-                  <SheetDialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}</SheetDialogTitle>
+                  <SheetDialogTitle className="text-base font-semibold">{isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : tt("Link Stats")}</SheetDialogTitle>
                 </DialogHeader>
 
                 {/* In the sheet this scrolls under the title, and a pull down from its top closes the sheet. */}
@@ -4433,7 +4434,7 @@ function BlockItem({
                   <LinkStatsChart
                     stats={statsData}
                     loading={statsLoading}
-                    clicksLabel={isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}
+                    clicksLabel={isEmailCapture ? tt("Submissions") : isPDFDocument ? tt("Opens") : tt("Clicks")}
                     start={statsPeriod.start}
                     end={statsPeriod.end}
                     endIsToday={statsPeriod.end === statsToday}
@@ -4443,7 +4444,7 @@ function BlockItem({
           </>
         )}
 
-        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={`Show ${preview.title}`} />
+        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={tt("Show {title}", { title: preview.title })} />
       </div>
 
       {isSelected && (
@@ -4478,12 +4479,12 @@ function BlockItem({
                     className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
                   >
                     <Trash2 className="h-4 w-4 mr-1.5" />
-                    Delete
+                    {tt("Delete")}
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <p className="text-sm text-muted-foreground text-center">Remove this block?</p>
+                  <p className="text-sm text-muted-foreground text-center">{tt("Remove this block?")}</p>
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <Button
@@ -4496,9 +4497,9 @@ function BlockItem({
                         className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                        Delete
+                        {tt("Delete")}
                       </Button>
-                      <p className="text-[10px] text-muted-foreground text-center mt-1">Permanently remove</p>
+                      <p className="text-[10px] text-muted-foreground text-center mt-1">{tt("Permanently remove")}</p>
                     </div>
                     <div className="flex-1">
                       <Button
@@ -4511,9 +4512,9 @@ function BlockItem({
                         className="w-full text-amber-600 border-amber-200 hover:bg-amber-50 hover:border-amber-300"
                       >
                         <Archive className="h-3.5 w-3.5 mr-1.5" />
-                        Archive
+                        {tt("Archive")}
                       </Button>
-                      <p className="text-[10px] text-muted-foreground text-center mt-1">Restore anytime</p>
+                      <p className="text-[10px] text-muted-foreground text-center mt-1">{tt("Restore anytime")}</p>
                     </div>
                   </div>
                   <Button
@@ -4522,7 +4523,7 @@ function BlockItem({
                     onClick={() => setShowDeleteConfirm(false)}
                     className="w-full text-muted-foreground h-7 text-xs"
                   >
-                    Cancel
+                    {tt("Cancel")}
                   </Button>
                 </div>
               )}
@@ -4701,7 +4702,7 @@ function BlockEditor({
       const fileExt = file.name.split('.').pop()
       /* Under the owner's own folder: storage only lets a person write there. */
       const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error('Not signed in')
+      if (!ownerId) throw new Error(tt("Not signed in"))
       const fileName = `${ownerId}/thumbnail_${block.id}_${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
@@ -4738,7 +4739,7 @@ function BlockEditor({
       const fileExt = file.name.split('.').pop()
       /* Under the owner's own folder: storage only lets a person write there. */
       const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error('Not signed in')
+      if (!ownerId) throw new Error(tt("Not signed in"))
       const fileName = `${ownerId}/image_${block.id}_${currentImageItemId}_${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
@@ -4852,11 +4853,11 @@ function BlockEditor({
     if (block.type === "product") {
       const data = block.data as ProductBlockData
       const productStyles: { id: ProductBlockStyle; label: string }[] = [
-        { id: "button", label: "Button" },
-        { id: "callout", label: "Callout" },
-        { id: "preview", label: "Preview" },
+        { id: "button", label: tt("Button") },
+        { id: "callout", label: tt("Callout") },
+        { id: "preview", label: tt("Preview") },
       ]
-      const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning", "Custom"]
+      const ctaOptions = [tt("Get My Guide"), tt("Get it Now"), tt("Buy Now"), tt("Download"), tt("Get Access"), tt("Enroll Now"), tt("Start Learning"), tt("Custom")]
       const blockBackgroundColorPresets = ['#1a1a2e', '#b2846c', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
       const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#f5f5f5', '#374151', '#6b7280']
       const buttonColorPresets = ['#ffffff', '#1a1a1a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
@@ -4871,7 +4872,7 @@ function BlockEditor({
         <div className="space-y-4">
           {/* Style Selector - Carousel style UI */}
           <div className="space-y-2">
-            <Label className="text-xs">Style</Label>
+            <Label className="text-xs">{tt("Style")}</Label>
             <div className="flex gap-2">
               {productStyles.map(({ id, label }) => (
                 <button
@@ -4893,8 +4894,8 @@ function BlockEditor({
 
           {/* Custom Thumbnail Section */}
           <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs">Custom Thumbnail</Label>
-            <p className="text-xs text-muted-foreground">Override the product image with a custom thumbnail</p>
+            <Label className="text-xs">{tt("Custom Thumbnail")}</Label>
+            <p className="text-xs text-muted-foreground">{tt("Override the product image with a custom thumbnail")}</p>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -4904,13 +4905,13 @@ function BlockEditor({
                 {data.custom_thumbnail ? (
                   <img
                     src={data.custom_thumbnail}
-                    alt="Custom thumbnail"
+                    alt={tt("Custom thumbnail")}
                     className="w-full h-full object-cover rounded-lg"
                   />
                 ) : data.product_thumbnail ? (
                   <img
                     src={data.product_thumbnail}
-                    alt="Product thumbnail"
+                    alt={tt("Product thumbnail")}
                     className="w-full h-full object-cover rounded-lg opacity-50"
                   />
                 ) : (
@@ -4931,7 +4932,7 @@ function BlockEditor({
                   className="text-xs text-gray-500 hover:text-red-500"
                 >
                   <X className="h-3 w-3 mr-1" />
-                  Remove
+                  {tt("Remove")}
                 </Button>
               )}
             </div>
@@ -4939,14 +4940,14 @@ function BlockEditor({
 
           {/* CTA Button Text - Modern Dropdown */}
           <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs">Button Text</Label>
+            <Label className="text-xs">{tt("Button Text")}</Label>
             <div className="relative" ref={ctaDropdownRef}>
               <button
                 type="button"
                 onClick={() => setShowCtaDropdown(!showCtaDropdown)}
                 className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
               >
-                <span className="truncate">{ctaOptions.slice(0, -1).includes(data.cta_text || "") ? data.cta_text : "Custom"}</span>
+                <span className="truncate">{ctaOptions.slice(0, -1).includes(data.cta_text || "") ? data.cta_text : tt("Custom")}</span>
                 <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform", showCtaDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -4984,7 +4985,7 @@ function BlockEditor({
                         : "text-gray-700 hover:bg-gray-50"
                     )}
                   >
-                    Custom
+                    {tt("Custom")}
                   </button>
                 </div>
               )}
@@ -4993,7 +4994,7 @@ function BlockEditor({
             <Input
               value={data.cta_text || ""}
               onChange={(e) => updateData({ cta_text: e.target.value })}
-              placeholder="Enter button text..."
+              placeholder={tt("Enter button text...")}
               className="h-9 rounded-lg"
             />
           </div>
@@ -5001,14 +5002,14 @@ function BlockEditor({
           {/* Color Customizers - Only show for callout/preview styles */}
           {(data.style === "callout" || data.style === "preview") && (
             <div className="space-y-4 pt-2 border-t">
-              <p className="text-[14px] font-semibold text-[#1a1a2e]">Colours for this block</p>
-              <p className="-mt-3 text-[13px] text-[#6b7280]">Picking a theme sets these back to the theme&apos;s.</p>
+              <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Colours for this block")}</p>
+              <p className="-mt-3 text-[13px] text-[#6b7280]">{tt("Picking a theme sets these back to the theme's.")}</p>
 
               {/* The four overrides, each the editor's one colour field; Reset goes back to the theme's. */}
               <ColorRow
-                label="Block background"
+                label={tt("Block background")}
                 value={data.block_background_color || null}
-                emptyLabel="Theme"
+                emptyLabel={tt("Theme")}
                 /* With none of its own the block takes the theme's button colour, and the picker starts there. */
                 fallback={onepage?.theme.button_color || "#1a1a2e"}
                 onChange={(color) => updateData({ block_background_color: color })}
@@ -5016,10 +5017,10 @@ function BlockEditor({
                 suggestions={blockBackgroundColorPresets}
               />
               <ColorRow
-                label="Text"
-                description={`Title, description, price${data.style === "callout" ? " and button" : ""}`}
+                label={tt("Text")}
+                description={tt("Title, description, price{value}", { value: data.style === "callout" ? tt(" and button") : "" })}
                 value={data.text_color || null}
-                emptyLabel="Theme"
+                emptyLabel={tt("Theme")}
                 /* Every picker starts on what the block shows now: the theme's colour, not a guess. */
                 fallback={onepage?.theme.button_text_color || "#111827"}
                 onChange={(color) => updateData({ text_color: color })}
@@ -5028,9 +5029,9 @@ function BlockEditor({
               />
               {data.style === "preview" && (
                 <ColorRow
-                  label="Button"
+                  label={tt("Button")}
                   value={data.button_color || null}
-                  emptyLabel="Theme"
+                  emptyLabel={tt("Theme")}
                   fallback={onepage?.theme.button_color || "#ffffff"}
                   onChange={(color) => updateData({ button_color: color })}
                   onClear={() => updateData({ button_color: null })}
@@ -5039,9 +5040,9 @@ function BlockEditor({
               )}
               {data.style === "preview" && (
                 <ColorRow
-                  label="Button text"
+                  label={tt("Button text")}
                   value={data.button_text_color || null}
-                  emptyLabel="Theme"
+                  emptyLabel={tt("Theme")}
                   fallback={onepage?.theme.button_text_color || "#1a1a1a"}
                   onChange={(color) => updateData({ button_text_color: color })}
                   onClear={() => updateData({ button_text_color: null })}
@@ -5058,15 +5059,15 @@ function BlockEditor({
     return (
       <div className="space-y-3">
         <div>
-          <p className="text-[16px] font-semibold text-[#1a1a2e]">Display</p>
-          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">How this block sits on your page</p>
+          <p className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Display")}</p>
+          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{tt("How this block sits on your page")}</p>
         </div>
 
         {/* Classic and Featured, as Linktree's link editor draws them: a picture of each, the picked one in a thin dark border. */}
         <div className="grid grid-cols-2 gap-3">
           {([
-            { id: "default" as const, label: "Classic" },
-            { id: "pro" as const, label: "Featured" },
+            { id: "default" as const, label: tt("Classic") },
+            { id: "pro" as const, label: tt("Featured") },
           ]).map((o) => {
             const on = currentLayoutType === o.id
             return (
@@ -5101,12 +5102,12 @@ function BlockEditor({
         {/* Display Mode Options - Only shown when Pro Layout is selected and NOT YouTube */}
         {currentLayoutType === 'pro' && block.type === 'link_button' && !isYouTubeUrl((block.data as LinkButtonBlockData).url) && (
           <div className="pt-3 mt-1 border-t space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Display Mode</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("Display Mode")}</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'cover', label: 'Cover', desc: 'Fill & crop' },
-                { id: 'contain', label: 'Fit', desc: 'Show all' },
-                { id: 'full', label: 'Full', desc: 'Original' },
+                { id: 'cover', label: tt("Cover"), desc: tt("Fill & crop") },
+                { id: 'contain', label: tt("Fit"), desc: tt("Show all") },
+                { id: 'full', label: tt("Full"), desc: tt("Original") },
               ].map((mode) => {
                 const currentDisplayMode = (block.data as LinkButtonBlockData).display_mode || 'cover'
                 return (
@@ -5142,10 +5143,10 @@ function BlockEditor({
               and the picture as a row you press, with the picture itself
               on its left and a chevron on its right.
             */}
-            <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">Info</p>
+            <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Info")}</p>
             <label className="block">
-              <span className="sr-only">Title</span>
-              <input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="Title" aria-label="Title" data-link-title="" className={linkField} />
+              <span className="sr-only">{tt("Title")}</span>
+              <input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder={tt("Title")} aria-label={tt("Title")} data-link-title="" className={linkField} />
             </label>
             <label className="block">
               <span className="sr-only">URL</span>
@@ -5184,8 +5185,8 @@ function BlockEditor({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Thumbnail</span>
-                <span className="block truncate text-[13px] text-[#6b7280]">{data.thumbnail_url ? "An image beside the title" : hasLinkIcon(data.icon) ? "An icon beside the title" : "Add an image or an icon"}</span>
+                <span className="block text-[14.5px] font-medium text-[#1a1a2e]">{tt("Thumbnail")}</span>
+                <span className="block truncate text-[13px] text-[#6b7280]">{data.thumbnail_url ? tt("An image beside the title") : hasLinkIcon(data.icon) ? tt("An icon beside the title") : tt("Add an image or an icon")}</span>
               </span>
               <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} />
             </button>
@@ -5193,7 +5194,7 @@ function BlockEditor({
             {/* WhatsApp Group URL - Only shown for WhatsApp URLs */}
             {(data.url?.includes('wa.me') || data.url?.includes('whatsapp.com')) && (
               <div className="space-y-1.5">
-                <Label className="text-xs">WhatsApp Group URL</Label>
+                <Label className="text-xs">{tt("WhatsApp Group URL")}</Label>
                 <Input
                   value={(data as any).whatsapp_group_url || ""}
                   onChange={(e) => updateData({ whatsapp_group_url: e.target.value })}
@@ -5206,11 +5207,11 @@ function BlockEditor({
             {/* YouTube Settings - Only shown for YouTube URLs */}
             {isYouTubeUrl(data.url) && (
               <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">YouTube Settings</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("YouTube Settings")}</Label>
                 <div className="space-y-2">
                   {[
-                    { id: 'embed_video', label: 'Play video on page', desc: 'Embed video directly in Pro Layout' },
-                    { id: 'open_video', label: 'Open YouTube video', desc: 'Redirect on click only' },
+                    { id: 'embed_video', label: tt("Play video on page"), desc: tt("Embed video directly in Pro Layout") },
+                    { id: 'open_video', label: tt("Open YouTube video"), desc: tt("Redirect on click only") },
                   ].map((mode) => {
                     const currentMode = data.youtube_mode || 'embed_video'
                     const isActive = currentMode === mode.id
@@ -5279,7 +5280,7 @@ function BlockEditor({
                     }}
                     className="w-full text-xs text-center py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    ↻ Refresh thumbnail
+                    {tt("↻ Refresh thumbnail")}
                   </button>
                 )}
               </div>
@@ -5288,12 +5289,12 @@ function BlockEditor({
             {/* Spotify Settings - Only shown for Spotify URLs */}
             {isSpotifyUrl(data.url) && (
               <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Spotify Settings</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("Spotify Settings")}</Label>
                 <div className="space-y-2">
                   {[
-                    { id: 'audio_preview', label: 'Audio preview', desc: 'Open modern preview modal' },
-                    { id: 'go_to_url', label: 'Go to URL', desc: 'Redirect to Spotify directly' },
-                    { id: 'show_streaming', label: 'Show streaming', desc: 'Display all platforms' },
+                    { id: 'audio_preview', label: tt("Audio preview"), desc: tt("Open modern preview modal") },
+                    { id: 'go_to_url', label: tt("Go to URL"), desc: tt("Redirect to Spotify directly") },
+                    { id: 'show_streaming', label: tt("Show streaming"), desc: tt("Display all platforms") },
                   ].map((mode) => {
                     const currentMode = data.spotify_mode || 'go_to_url'
                     const isActive = currentMode === mode.id
@@ -5360,11 +5361,11 @@ function BlockEditor({
                       </svg>
                     </div>
                     <div>
-                      <div className="text-sm font-medium">Enable Metadata</div>
-                      <div className="text-xs text-muted-foreground">Show song type & artist info</div>
+                      <div className="text-sm font-medium">{tt("Enable Metadata")}</div>
+                      <div className="text-xs text-muted-foreground">{tt("Show song type & artist info")}</div>
                     </div>
                   </div>
-                  <Toggle label="Enable Metadata"
+                  <Toggle label={tt("Enable Metadata")}
                     checked={data.spotify_show_metadata !== false}
                     onCheckedChange={async (checked) => {
                       updateData({ spotify_show_metadata: checked })
@@ -5412,14 +5413,14 @@ function BlockEditor({
                   className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Refresh Thumbnail
+                  {tt("Refresh Thumbnail")}
                 </button>
 
                 {/* Streaming Services List - shown when show_streaming is selected */}
                 {data.spotify_mode === 'show_streaming' && (
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-medium text-muted-foreground">Streaming services</div>
+                      <div className="text-xs font-medium text-muted-foreground">{tt("Streaming services")}</div>
                       <button
                         type="button"
                         onClick={async () => {
@@ -5436,10 +5437,10 @@ function BlockEditor({
                         className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        Sync
+                        {tt("Sync")}
                       </button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Visitors may see a different order depending on their location or preferences.</p>
+                    <p className="text-[10px] text-muted-foreground">{tt("Visitors may see a different order depending on their location or preferences.")}</p>
                     {(data.streaming_services || [
                       { platform: 'apple_music', found: false, url: null },
                       { platform: 'youtube_music', found: false, url: null },
@@ -5497,7 +5498,7 @@ function BlockEditor({
                           <div className="flex-1">
                             <div className="text-sm font-medium">{config.name}</div>
                             <div className={cn("text-xs", service.found ? "text-green-600" : "text-gray-400")}>
-                              {service.found ? "Visible" : "Not found"}
+                              {service.found ? tt("Visible") : tt("Not found")}
                             </div>
                           </div>
                           {onOpenStreamingModal && (
@@ -5508,7 +5509,7 @@ function BlockEditor({
                               }}
                               className="text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium"
                             >
-                              {service.found ? "Edit" : "+ Add"}
+                              {service.found ? tt("Edit") : tt("+ Add")}
                             </button>
                           )}
                         </div>
@@ -5522,7 +5523,7 @@ function BlockEditor({
             {/* SoundCloud Settings - Only shown for SoundCloud URLs */}
             {data.url?.includes('soundcloud.com') && (
               <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">SoundCloud Settings</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("SoundCloud Settings")}</Label>
 
                 {/* Refresh Thumbnail button */}
                 <button
@@ -5547,7 +5548,7 @@ function BlockEditor({
                   className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Refresh Thumbnail
+                  {tt("Refresh Thumbnail")}
                 </button>
               </div>
             )}
@@ -5555,11 +5556,11 @@ function BlockEditor({
             {/* Apple Music Settings - Only shown for Apple Music URLs */}
             {data.url?.includes('music.apple.com') && (
               <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Apple Music Settings</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("Apple Music Settings")}</Label>
                 <div className="space-y-2">
                   {[
-                    { id: 'audio_preview', label: 'Audio preview', desc: 'Open modern preview modal' },
-                    { id: 'go_to_url', label: 'Go to URL', desc: 'Redirect to Apple Music directly' },
+                    { id: 'audio_preview', label: tt("Audio preview"), desc: tt("Open modern preview modal") },
+                    { id: 'go_to_url', label: tt("Go to URL"), desc: tt("Redirect to Apple Music directly") },
                   ].map((mode) => {
                     const currentMode = data.apple_music_mode || 'go_to_url'
                     const isActive = currentMode === mode.id
@@ -5631,11 +5632,11 @@ function BlockEditor({
                       </svg>
                     </div>
                     <div>
-                      <div className="text-sm font-medium">Enable Metadata</div>
-                      <div className="text-xs text-muted-foreground">Show song type & artist info</div>
+                      <div className="text-sm font-medium">{tt("Enable Metadata")}</div>
+                      <div className="text-xs text-muted-foreground">{tt("Show song type & artist info")}</div>
                     </div>
                   </div>
-                  <Toggle label="Enable Metadata"
+                  <Toggle label={tt("Enable Metadata")}
                     checked={data.apple_music_show_metadata !== false}
                     onCheckedChange={async (checked) => {
                       updateData({ apple_music_show_metadata: checked })
@@ -5684,7 +5685,7 @@ function BlockEditor({
                   className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Refresh Thumbnail
+                  {tt("Refresh Thumbnail")}
                 </button>
               </div>
             )}
@@ -5697,11 +5698,11 @@ function BlockEditor({
         return (
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Text</Label>
+              <Label className="text-xs">{tt("Text")}</Label>
               <Textarea value={data.content} onChange={(e) => updateData({ content: e.target.value })} rows={3} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Alignment</Label>
+              <Label className="text-xs">{tt("Alignment")}</Label>
               <div className="flex gap-2">
                 {(["left", "center", "right"] as const).map((align) => (
                   <Button
@@ -5726,12 +5727,12 @@ function BlockEditor({
 
         // Button text presets
         const buttonTextPresets = [
-          { id: 'subscribe', label: 'Subscribe', text: 'Subscribe' },
-          { id: 'join', label: 'Join Now', text: 'Join Now' },
-          { id: 'get_access', label: 'Get Access', text: 'Get Access' },
-          { id: 'download', label: 'Download', text: 'Download' },
-          { id: 'sign_up', label: 'Sign Up', text: 'Sign Up' },
-          { id: 'unlock', label: 'Unlock Now', text: 'Unlock Now' },
+          { id: 'subscribe', label: tt("Subscribe"), text: tt("Subscribe") },
+          { id: 'join', label: tt("Join Now"), text: tt("Join Now") },
+          { id: 'get_access', label: tt("Get Access"), text: tt("Get Access") },
+          { id: 'download', label: tt("Download"), text: tt("Download") },
+          { id: 'sign_up', label: tt("Sign Up"), text: tt("Sign Up") },
+          { id: 'unlock', label: tt("Unlock Now"), text: tt("Unlock Now") },
         ] as const
 
         // Handle preset change - clear custom text when selecting a preset
@@ -5744,8 +5745,8 @@ function BlockEditor({
 
         // Layout options
         const layoutOptions = [
-          { id: 'default', label: 'Default', description: 'Classic email form' },
-          { id: 'pro', label: 'Pro', description: 'Compact with image' },
+          { id: 'default', label: tt("Default"), description: tt("Classic email form") },
+          { id: 'pro', label: 'Pro', description: tt("Compact with image") },
         ] as const
 
         return (
@@ -5753,40 +5754,40 @@ function BlockEditor({
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
               <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
-                Settings
+                {tt("Settings")}
               </TabsTrigger>
               <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
-                Layout
+                {tt("Layout")}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="settings" className="mt-0 space-y-4">
               {/* Headline */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Headline</Label>
+                <Label className="text-xs">{tt("Headline")}</Label>
                 <Input
                   value={data.headline || "Join my newsletter"}
                   onChange={(e) => updateData({ headline: e.target.value })}
                   className="h-9"
-                  placeholder="Join my newsletter"
+                  placeholder={tt("Join my newsletter")}
                 />
               </div>
 
               {/* Description */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Description</Label>
+                <Label className="text-xs">{tt("Description")}</Label>
                 <Input
                   value={data.description || "Get updates and exclusive content"}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="h-9"
-                  placeholder="Get updates and exclusive content"
+                  placeholder={tt("Get updates and exclusive content")}
                 />
               </div>
 
               {/* Button Text Selector - Dropdown like Animation */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Button Text</Label>
+                <Label className="text-xs">{tt("Button Text")}</Label>
                 <div className="relative">
                   <button
                     type="button"
@@ -5798,7 +5799,7 @@ function BlockEditor({
                     }}
                     className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
                   >
-                    <span>{buttonTextPresets.find(p => p.id === (data.button_preset || 'subscribe'))?.label || 'Subscribe'}</span>
+                    <span>{buttonTextPresets.find(p => p.id === (data.button_preset || 'subscribe'))?.label || tt("Subscribe")}</span>
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </button>
                   <div className="hidden absolute left-0 top-full mt-1 w-full bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
@@ -5831,7 +5832,7 @@ function BlockEditor({
 
               {/* Custom Button Text Input - Always visible */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Custom Text</Label>
+                <Label className="text-xs">{tt("Custom Text")}</Label>
                 <Input
                   value={data.custom_button_text || ""}
                   onChange={(e) => {
@@ -5845,26 +5846,26 @@ function BlockEditor({
                     }
                   }}
                   className="h-9"
-                  placeholder="Enter custom button text"
+                  placeholder={tt("Enter custom button text")}
                 />
               </div>
 
               {/* Success Message */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Success Message</Label>
+                <Label className="text-xs">{tt("Success Message")}</Label>
                 <Input
                   value={data.success_message || "Thanks for subscribing!"}
                   onChange={(e) => updateData({ success_message: e.target.value })}
                   className="h-9"
-                  placeholder="Thanks for subscribing!"
+                  placeholder={tt("Thanks for subscribing!")}
                 />
               </div>
 
               {/* Product Image Picker - Always show in settings */}
               <div className="space-y-2 pt-2 border-t">
-                <Label className="text-xs">Product Image</Label>
+                <Label className="text-xs">{tt("Product Image")}</Label>
                 <p className="text-[10px] text-muted-foreground">
-                  Display an image with your email form (used in Pro layout)
+                  {tt("Display an image with your email form (used in Pro layout)")}
                 </p>
                 <div className="flex gap-2 items-center">
                   {data.product_image ? (
@@ -5892,7 +5893,7 @@ function BlockEditor({
                     className="h-8 text-xs"
                   >
                     <Upload className="w-3 h-3 mr-1.5" />
-                    {data.product_image ? 'Change' : 'Upload'}
+                    {data.product_image ? tt("Change") : tt("Upload")}
                   </Button>
                 </div>
               </div>
@@ -5901,10 +5902,10 @@ function BlockEditor({
               <div className="space-y-2 pt-2 border-t">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-xs">Enable Digital Product</Label>
-                    <p className="text-[10px] text-muted-foreground">Allow subscribers get a free product on signup</p>
+                    <Label className="text-xs">{tt("Enable Digital Product")}</Label>
+                    <p className="text-[10px] text-muted-foreground">{tt("Allow subscribers get a free product on signup")}</p>
                   </div>
-                  <Toggle label="Enable Digital Product"
+                  <Toggle label={tt("Enable Digital Product")}
                     checked={data.enable_digital_product || false}
                     onCheckedChange={(checked) => updateData({ enable_digital_product: checked })}
                   />
@@ -5914,7 +5915,7 @@ function BlockEditor({
                   <div className="space-y-3 pt-2">
                     {/* Digital Product File Picker */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Digital Product File</Label>
+                      <Label className="text-xs">{tt("Digital Product File")}</Label>
                       <button
                         type="button"
                         onClick={() => onOpenImageLibrary(block.id, 'digital_product_file')}
@@ -5931,12 +5932,12 @@ function BlockEditor({
                         )}
                         <div className="flex-1 text-left min-w-0">
                           <p className="text-xs font-medium truncate">
-                            {data.digital_product_title || "Upload file"}
+                            {data.digital_product_title || tt("Upload file")}
                           </p>
                           <p className="text-[10px] text-muted-foreground truncate">
                             {data.digital_product_file_url
-                              ? "Click to change file"
-                              : "PDF, ZIP, or any file type"}
+                              ? tt("Click to change file")
+                              : tt("PDF, ZIP, or any file type")}
                           </p>
                         </div>
                         <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
@@ -5944,12 +5945,12 @@ function BlockEditor({
 
                       {data.digital_product_file_url && (
                         <div className="space-y-1.5 mt-2">
-                          <Label className="text-[10px]">File Name</Label>
+                          <Label className="text-[10px]">{tt("File Name")}</Label>
                           <Input
                             value={data.digital_product_title || ""}
                             onChange={(e) => updateData({ digital_product_title: e.target.value })}
                             className="h-8 text-xs"
-                            placeholder="My Free Guide"
+                            placeholder={tt("My Free Guide")}
                           />
                         </div>
                       )}
@@ -5957,7 +5958,7 @@ function BlockEditor({
 
                     {data.digital_product_file_url && (
                       <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
-                        When visitors subscribe, they can download "{data.digital_product_title || 'your file'}" directly on this page.
+                        {tt("When visitors subscribe, they can download \"")}{data.digital_product_title || tt("your file")}{tt("\" directly on this page.")}
                       </p>
                     )}
                   </div>
@@ -5971,13 +5972,13 @@ function BlockEditor({
                   className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef] rounded-lg transition-colors"
                 >
                   <Mail className="w-4 h-4" />
-                  See subscribers
+                  {tt("See subscribers")}
                 </a>
               </div>
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
 
               {/* Layout Options Grid */}
               <div className="grid grid-cols-2 gap-3">
@@ -6008,9 +6009,9 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Default</span>
+                    <span className="font-medium text-sm">{tt("Default")}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Classic centered form</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Classic centered form")}</p>
                 </button>
 
                 {/* Pro Layout Option */}
@@ -6045,10 +6046,10 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Featured</span>
+                    <span className="font-medium text-sm">{tt("Featured")}</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Compact with image</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Compact with image")}</p>
                 </button>
               </div>
             </TabsContent>
@@ -6061,16 +6062,16 @@ function BlockEditor({
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Show Avatar</Label>
-              <Toggle label="Show Avatar" checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+              <Label className="text-xs">{tt("Show Avatar")}</Label>
+              <Toggle label={tt("Show Avatar")} checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Show Name</Label>
-              <Toggle label="Show Name" checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+              <Label className="text-xs">{tt("Show Name")}</Label>
+              <Toggle label={tt("Show Name")} checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Show Bio</Label>
-              <Toggle label="Show Bio" checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+              <Label className="text-xs">{tt("Show Bio")}</Label>
+              <Toggle label={tt("Show Bio")} checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
             </div>
           </div>
         )
@@ -6081,7 +6082,7 @@ function BlockEditor({
 
         return (
           <div className="space-y-3">
-            <Label className="text-xs">Social Links</Label>
+            <Label className="text-xs">{tt("Social Links")}</Label>
             {activeSocials.length > 0 ? (
               <div className="space-y-2">
                 {activeSocials.map(({ platform, url }) => {
@@ -6123,7 +6124,7 @@ function BlockEditor({
               </div>
             ) : (
               <p className="text-xs text-muted-foreground py-2">
-                No social links added yet
+                {tt("No social links added yet")}
               </p>
             )}
 
@@ -6134,13 +6135,13 @@ function BlockEditor({
               onClick={onOpenSocialModal}
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Social Link
+              {tt("Add Social Link")}
             </Button>
 
             {/* Padding Controls */}
             <div className="space-y-4 pt-4 border-t border-gray-100">
-              <RangeRow compact label="Top padding" value={(block.data as SocialRowBlockData).padding_top ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_top: value })} />
-              <RangeRow compact label="Bottom padding" value={(block.data as SocialRowBlockData).padding_bottom ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_bottom: value })} />
+              <RangeRow compact label={tt("Top padding")} value={(block.data as SocialRowBlockData).padding_top ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_top: value })} />
+              <RangeRow compact label={tt("Bottom padding")} value={(block.data as SocialRowBlockData).padding_bottom ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_bottom: value })} />
             </div>
           </div>
         )
@@ -6149,28 +6150,28 @@ function BlockEditor({
       case "divider": {
         const data = block.data as DividerBlockData
         const dividerStyles = [
-          { id: "space", label: "Space", preview: <div className="w-full h-3" /> },
-          { id: "line", label: "Line", preview: <div className="w-full h-[1px] bg-gray-400" /> },
-          { id: "dots", label: "Dots", preview: (
+          { id: "space", label: tt("Space"), preview: <div className="w-full h-3" /> },
+          { id: "line", label: tt("Line"), preview: <div className="w-full h-[1px] bg-gray-400" /> },
+          { id: "dots", label: tt("Dots"), preview: (
             <div className="flex justify-center gap-1.5">
               {[...Array(3)].map((_, i) => <div key={i} className="w-1 h-1 rounded-full bg-gray-400" />)}
             </div>
           )},
-          { id: "wave", label: "Wave", preview: (
+          { id: "wave", label: tt("Wave"), preview: (
             <svg width="100%" height="8" viewBox="0 0 60 8" preserveAspectRatio="none">
               <path d="M0 4 Q 7.5 0, 15 4 T 30 4 T 45 4 T 60 4" fill="none" stroke="#9ca3af" strokeWidth="1" />
             </svg>
           )},
-          { id: "zigzag", label: "Zigzag", preview: (
+          { id: "zigzag", label: tt("Zigzag"), preview: (
             <svg width="100%" height="8" viewBox="0 0 60 8" preserveAspectRatio="none">
               <path d="M0 4 L10 0 L20 8 L30 0 L40 8 L50 0 L60 4" fill="none" stroke="#9ca3af" strokeWidth="1" />
             </svg>
           )},
-          { id: "dashed", label: "Dashed", preview: <div className="w-full border-t border-dashed border-gray-400" /> },
-          { id: "gradient", label: "Gradient", preview: (
+          { id: "dashed", label: tt("Dashed"), preview: <div className="w-full border-t border-dashed border-gray-400" /> },
+          { id: "gradient", label: tt("Gradient"), preview: (
             <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent" />
           )},
-          { id: "double", label: "Double", preview: (
+          { id: "double", label: tt("Double"), preview: (
             <div className="flex flex-col gap-0.5">
               <div className="w-full h-[1px] bg-gray-400" />
               <div className="w-full h-[1px] bg-gray-400" />
@@ -6181,7 +6182,7 @@ function BlockEditor({
         return (
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Style</Label>
+              <Label className="text-xs">{tt("Style")}</Label>
               <div className="grid grid-cols-4 gap-2">
                 {dividerStyles.map(({ id, label, preview }) => (
                   <button
@@ -6198,7 +6199,7 @@ function BlockEditor({
                 ))}
               </div>
             </div>
-            <RangeRow compact label="Height" value={data.height} min={8} max={64} step={4} unit="px" onChange={(value) => updateData({ height: value })} />
+            <RangeRow compact label={tt("Height")} value={data.height} min={8} max={64} step={4} unit="px" onChange={(value) => updateData({ height: value })} />
           </div>
         )
       }
@@ -6236,25 +6237,25 @@ function BlockEditor({
         }
 
         const aspectRatios: { id: string; label: string }[] = [
-          { id: 'original', label: 'Original' },
-          { id: 'square', label: 'Square' },
-          { id: 'portrait', label: 'Portrait' },
-          { id: 'landscape', label: 'Landscape' },
-          { id: 'wide', label: 'Wide' },
+          { id: 'original', label: tt("Original") },
+          { id: 'square', label: tt("Square") },
+          { id: 'portrait', label: tt("Portrait") },
+          { id: 'landscape', label: tt("Landscape") },
+          { id: 'wide', label: tt("Wide") },
         ]
 
         const displayStyles: { id: string; label: string; desc: string }[] = [
-          { id: 'single', label: 'Single', desc: 'One image at a time' },
-          { id: 'grid', label: 'Grid', desc: 'Multiple images in grid' },
-          { id: 'carousel', label: 'Carousel', desc: 'Swipeable slideshow' },
+          { id: 'single', label: tt("Single"), desc: tt("One image at a time") },
+          { id: 'grid', label: tt("Grid"), desc: tt("Multiple images in grid") },
+          { id: 'carousel', label: tt("Carousel"), desc: tt("Swipeable slideshow") },
         ]
 
         const borderRadiusOptions: { id: string; label: string }[] = [
-          { id: 'none', label: 'None' },
-          { id: 'sm', label: 'Small' },
-          { id: 'md', label: 'Medium' },
-          { id: 'lg', label: 'Large' },
-          { id: 'full', label: 'Full' },
+          { id: 'none', label: tt("None") },
+          { id: 'sm', label: tt("Small") },
+          { id: 'md', label: tt("Medium") },
+          { id: 'lg', label: tt("Large") },
+          { id: 'full', label: tt("Full") },
         ]
 
         return (
@@ -6262,11 +6263,11 @@ function BlockEditor({
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
               <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
-                Settings
+                {tt("Settings")}
               </TabsTrigger>
               <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
-                Layout
+                {tt("Layout")}
               </TabsTrigger>
             </TabsList>
 
@@ -6274,8 +6275,8 @@ function BlockEditor({
               {/* Images List */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Images</Label>
-                  <span className="text-xs text-muted-foreground">{images.length} image{images.length !== 1 ? 's' : ''}</span>
+                  <Label className="text-xs font-medium">{tt("Images")}</Label>
+                  <span className="text-xs text-muted-foreground">{tt("{length, plural, one {# image} other {# images}}", { length: images.length })}</span>
                 </div>
 
                 {images.map((img, index) => (
@@ -6288,7 +6289,7 @@ function BlockEditor({
                           onClick={() => removeImage(img.id)}
                           className="ml-auto text-xs text-red-500 hover:text-red-600"
                         >
-                          Remove
+                          {tt("Remove")}
                         </button>
                       )}
                     </div>
@@ -6307,14 +6308,14 @@ function BlockEditor({
                         {imageUploading === img.id ? (
                           <div className="flex flex-col items-center gap-2 text-gray-400">
                             <div className="w-8 h-8 border-2 border-gray-300 border-t-[#1a1a2e] rounded-full animate-spin" />
-                            <span className="text-xs font-medium">Uploading...</span>
+                            <span className="text-xs font-medium">{tt("Uploading...")}</span>
                           </div>
                         ) : img.image_url ? (
                           <img src={img.image_url} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
                         ) : (
                           <div className="flex flex-col items-center gap-2 text-gray-400">
                             <ImageIcon className="w-8 h-8" />
-                            <span className="text-xs font-medium">Click to upload</span>
+                            <span className="text-xs font-medium">{tt("Click to upload")}</span>
                           </div>
                         )}
                         {!imageUploading && (
@@ -6327,7 +6328,7 @@ function BlockEditor({
                       <Input
                         value={img.title || ''}
                         onChange={(e) => updateImage(img.id, { title: e.target.value })}
-                        placeholder="Caption (optional)"
+                        placeholder={tt("Caption (optional)")}
                         className="h-8 text-xs"
                       />
                     </div>
@@ -6335,7 +6336,7 @@ function BlockEditor({
                     {/* Link URL for this image */}
                     {data.clickable && (
                       <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Link URL</Label>
+                        <Label className="text-[10px] text-muted-foreground">{tt("Link URL")}</Label>
                         <Input
                           value={img.link_url || ''}
                           onChange={(e) => updateImage(img.id, { link_url: e.target.value || null })}
@@ -6355,7 +6356,7 @@ function BlockEditor({
                   onClick={addImage}
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Add Image
+                  {tt("Add Image")}
                 </Button>
               </div>
 
@@ -6364,10 +6365,10 @@ function BlockEditor({
               {/* Make Clickable Toggle */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-xs font-medium">Make clickable</Label>
-                  <p className="text-[10px] text-muted-foreground">Add links to images</p>
+                  <Label className="text-xs font-medium">{tt("Make clickable")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("Add links to images")}</p>
                 </div>
-                <Toggle label="Add links to images"
+                <Toggle label={tt("Add links to images")}
                   checked={data.clickable || false}
                   onCheckedChange={(checked) => updateData({ clickable: checked })}
                 />
@@ -6376,10 +6377,10 @@ function BlockEditor({
               {/* Show Captions Toggle */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-xs font-medium">Show captions</Label>
-                  <p className="text-[10px] text-muted-foreground">Display image titles</p>
+                  <Label className="text-xs font-medium">{tt("Show captions")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("Display image titles")}</p>
                 </div>
-                <Toggle label="Display image titles"
+                <Toggle label={tt("Display image titles")}
                   checked={data.show_captions || false}
                   onCheckedChange={(checked) => updateData({ show_captions: checked })}
                 />
@@ -6389,7 +6390,7 @@ function BlockEditor({
             <TabsContent value="layout" className="mt-0 space-y-4">
               {/* Display Style */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Display Style</Label>
+                <Label className="text-xs font-medium">{tt("Display Style")}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {displayStyles.map((style) => (
                     <button
@@ -6414,7 +6415,7 @@ function BlockEditor({
                 <>
                   <div className="border-t border-gray-100" />
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Grid Columns</Label>
+                    <Label className="text-xs font-medium">{tt("Grid Columns")}</Label>
                     <div className="flex gap-2">
                       {[2, 3, 4].map((cols) => (
                         <button
@@ -6441,7 +6442,7 @@ function BlockEditor({
                 <>
                   <div className="border-t border-gray-100" />
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Carousel View</Label>
+                    <Label className="text-xs font-medium">{tt("Carousel View")}</Label>
                     <div className="flex gap-2">
                       {([
                         { id: "1" as ImageCarouselViewType, label: "1" },
@@ -6467,10 +6468,10 @@ function BlockEditor({
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-xs font-medium">Autoplay</Label>
-                      <p className="text-[10px] text-muted-foreground">Auto-advance slides</p>
+                      <Label className="text-xs font-medium">{tt("Autoplay")}</Label>
+                      <p className="text-[10px] text-muted-foreground">{tt("Auto-advance slides")}</p>
                     </div>
-                    <Toggle label="Auto-advance slides"
+                    <Toggle label={tt("Auto-advance slides")}
                       checked={data.carousel_autoplay || false}
                       onCheckedChange={(checked) => updateData({ carousel_autoplay: checked })}
                     />
@@ -6482,7 +6483,7 @@ function BlockEditor({
 
               {/* Aspect Ratio */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Aspect Ratio</Label>
+                <Label className="text-xs font-medium">{tt("Aspect Ratio")}</Label>
                 <div className="flex flex-wrap gap-2">
                   {aspectRatios.map((ratio) => (
                     <button
@@ -6506,7 +6507,7 @@ function BlockEditor({
 
               {/* Border Radius */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Corner Radius</Label>
+                <Label className="text-xs font-medium">{tt("Corner Radius")}</Label>
                 <div className="flex flex-wrap gap-2">
                   {borderRadiusOptions.map((option) => (
                     <button
@@ -6530,7 +6531,7 @@ function BlockEditor({
 
               {/* Image Fit */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Image Fit</Label>
+                <Label className="text-xs font-medium">{tt("Image Fit")}</Label>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -6542,7 +6543,7 @@ function BlockEditor({
                         : "border-gray-200 hover:border-gray-300 bg-white"
                     )}
                   >
-                    Cover
+                    {tt("Cover")}
                   </button>
                   <button
                     type="button"
@@ -6554,7 +6555,7 @@ function BlockEditor({
                         : "border-gray-200 hover:border-gray-300 bg-white"
                     )}
                   >
-                    Contain
+                    {tt("Contain")}
                   </button>
                 </div>
               </div>
@@ -6577,8 +6578,8 @@ function BlockEditor({
 
         // Layout options for PDF document
         const layoutOptions = [
-          { id: 'default', label: 'Default', description: 'Button with document icon' },
-          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+          { id: 'default', label: tt("Default"), description: tt("Button with document icon") },
+          { id: 'pro', label: 'Pro', description: tt("Image, title, description & button") },
         ] as const
 
         return (
@@ -6586,40 +6587,40 @@ function BlockEditor({
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
               <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
-                Settings
+                {tt("Settings")}
               </TabsTrigger>
               <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
-                Layout
+                {tt("Layout")}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="settings" className="mt-0 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Title</Label>
+                <Label className="text-xs">{tt("Title")}</Label>
                 <Input
                   value={data.title || ""}
                   onChange={(e) => updateData({ title: e.target.value })}
                   className="h-9"
-                  placeholder="My PDF Document"
+                  placeholder={tt("My PDF Document")}
                 />
               </div>
 
               {/* Description */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Description</Label>
+                <Label className="text-xs">{tt("Description")}</Label>
                 <Textarea
                   value={data.description || ""}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="min-h-[60px] resize-none"
-                  placeholder="A brief description of your PDF..."
+                  placeholder={tt("A brief description of your PDF...")}
                 />
               </div>
 
               {/* PDF File Upload */}
               <div className="space-y-2 pt-2 border-t">
-                <Label className="text-xs">PDF File</Label>
+                <Label className="text-xs">{tt("PDF File")}</Label>
                 <button
                   type="button"
                   onClick={() => onOpenImageLibrary(block.id, 'pdf_file')}
@@ -6636,12 +6637,12 @@ function BlockEditor({
                   )}
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-xs font-medium truncate">
-                      {data.pdf_file_url ? data.title || "PDF File" : "Upload PDF"}
+                      {data.pdf_file_url ? data.title || tt("PDF File") : tt("Upload PDF")}
                     </p>
                     <p className="text-[10px] text-muted-foreground truncate">
                       {data.pdf_file_url
-                        ? "Click to change file"
-                        : "Select a PDF from your device"}
+                        ? tt("Click to change file")
+                        : tt("Select a PDF from your device")}
                     </p>
                   </div>
                   {data.pdf_file_url ? (
@@ -6663,33 +6664,33 @@ function BlockEditor({
 
               {/* Button Text */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Button Text</Label>
+                <Label className="text-xs">{tt("Button Text")}</Label>
                 <Input
                   value={data.button_text || "View PDF"}
                   onChange={(e) => updateData({ button_text: e.target.value })}
                   className="h-9"
-                  placeholder="View PDF"
+                  placeholder={tt("View PDF")}
                 />
               </div>
 
               {/* Preview Button Text */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Preview Modal Button Text</Label>
+                <Label className="text-xs">{tt("Preview Modal Button Text")}</Label>
                 <Input
                   value={data.preview_button_text || "View full PDF"}
                   onChange={(e) => updateData({ preview_button_text: e.target.value })}
                   className="h-9"
-                  placeholder="View full PDF"
+                  placeholder={tt("View full PDF")}
                 />
               </div>
 
               {/* Enable Preview Toggle */}
               <div className="flex items-center justify-between pt-2 border-t">
                 <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">Enable Preview</Label>
-                  <p className="text-[10px] text-muted-foreground">Show PDF preview modal when clicked</p>
+                  <Label className="text-xs font-medium">{tt("Enable Preview")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("Show PDF preview modal when clicked")}</p>
                 </div>
-                <Toggle label="Show PDF preview when clicked"
+                <Toggle label={tt("Show PDF preview when clicked")}
                   checked={data.enable_preview !== false}
                   onCheckedChange={(checked) => {
                     updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
@@ -6700,10 +6701,10 @@ function BlockEditor({
               {/* Open Directly Toggle */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">Open Directly</Label>
-                  <p className="text-[10px] text-muted-foreground">Open PDF file directly in new tab</p>
+                  <Label className="text-xs font-medium">{tt("Open Directly")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("Open PDF file directly in new tab")}</p>
                 </div>
-                <Toggle label="Open PDF directly in a new tab"
+                <Toggle label={tt("Open PDF directly in a new tab")}
                   checked={data.open_directly === true}
                   onCheckedChange={(checked) => {
                     updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
@@ -6713,7 +6714,7 @@ function BlockEditor({
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
 
               {/* Layout Options Grid */}
               <div className="grid grid-cols-2 gap-3">
@@ -6740,9 +6741,9 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Default</span>
+                    <span className="font-medium text-sm">{tt("Default")}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Button with icon")}</p>
                 </button>
 
                 {/* Pro Layout Option */}
@@ -6775,19 +6776,19 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Featured</span>
+                    <span className="font-medium text-sm">{tt("Featured")}</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("With image & details")}</p>
                 </button>
               </div>
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
                 <div className="space-y-2 pt-3 border-t">
-                  <Label className="text-xs">Thumbnail Image</Label>
+                  <Label className="text-xs">{tt("Thumbnail Image")}</Label>
                   <p className="text-[10px] text-muted-foreground">
-                    Display an image with your PDF (used in Featured layout)
+                    {tt("Display an image with your PDF (used in Featured layout)")}
                   </p>
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (
@@ -6815,7 +6816,7 @@ function BlockEditor({
                       className="h-8 text-xs"
                     >
                       <Upload className="w-3 h-3 mr-1.5" />
-                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                      {data.thumbnail_url ? tt("Change") : tt("Upload")}
                     </Button>
                   </div>
                 </div>
@@ -6830,8 +6831,8 @@ function BlockEditor({
 
         // Layout options for food menu
         const layoutOptions = [
-          { id: 'default', label: 'Default', description: 'Button with menu icon' },
-          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+          { id: 'default', label: tt("Default"), description: tt("Button with menu icon") },
+          { id: 'pro', label: 'Pro', description: tt("Image, title, description & button") },
         ] as const
 
         return (
@@ -6839,40 +6840,40 @@ function BlockEditor({
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
               <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
-                Settings
+                {tt("Settings")}
               </TabsTrigger>
               <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
-                Layout
+                {tt("Layout")}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="settings" className="mt-0 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Title</Label>
+                <Label className="text-xs">{tt("Title")}</Label>
                 <Input
                   value={data.title || ""}
                   onChange={(e) => updateData({ title: e.target.value })}
                   className="h-9"
-                  placeholder="Menu"
+                  placeholder={tt("Menu")}
                 />
               </div>
 
               {/* Description */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Description</Label>
+                <Label className="text-xs">{tt("Description")}</Label>
                 <Textarea
                   value={data.description || ""}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="min-h-[60px] resize-none"
-                  placeholder="A brief description of your menu..."
+                  placeholder={tt("A brief description of your menu...")}
                 />
               </div>
 
               {/* PDF File Upload */}
               <div className="space-y-2 pt-2 border-t">
-                <Label className="text-xs">Menu PDF File</Label>
+                <Label className="text-xs">{tt("Menu PDF File")}</Label>
                 <button
                   type="button"
                   onClick={() => onOpenImageLibrary(block.id, 'pdf_file')}
@@ -6889,12 +6890,12 @@ function BlockEditor({
                   )}
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-xs font-medium truncate">
-                      {data.pdf_file_url ? data.title || "Menu PDF" : "Upload Menu PDF"}
+                      {data.pdf_file_url ? data.title || tt("Menu PDF") : tt("Upload Menu PDF")}
                     </p>
                     <p className="text-[10px] text-muted-foreground truncate">
                       {data.pdf_file_url
-                        ? "Click to change file"
-                        : "Select a PDF from your device"}
+                        ? tt("Click to change file")
+                        : tt("Select a PDF from your device")}
                     </p>
                   </div>
                   {data.pdf_file_url ? (
@@ -6916,33 +6917,33 @@ function BlockEditor({
 
               {/* Button Text */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Button Text</Label>
+                <Label className="text-xs">{tt("Button Text")}</Label>
                 <Input
                   value={data.button_text || "View Menu"}
                   onChange={(e) => updateData({ button_text: e.target.value })}
                   className="h-9"
-                  placeholder="View Menu"
+                  placeholder={tt("View Menu")}
                 />
               </div>
 
               {/* Preview Button Text */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Preview Modal Button Text</Label>
+                <Label className="text-xs">{tt("Preview Modal Button Text")}</Label>
                 <Input
                   value={data.preview_button_text || "View Menu"}
                   onChange={(e) => updateData({ preview_button_text: e.target.value })}
                   className="h-9"
-                  placeholder="View Menu"
+                  placeholder={tt("View Menu")}
                 />
               </div>
 
               {/* Enable Preview Toggle */}
               <div className="flex items-center justify-between pt-2 border-t">
                 <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">Enable Preview</Label>
-                  <p className="text-[10px] text-muted-foreground">Show menu preview modal when clicked</p>
+                  <Label className="text-xs font-medium">{tt("Enable Preview")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("Show menu preview modal when clicked")}</p>
                 </div>
-                <Toggle label="Show menu preview when clicked"
+                <Toggle label={tt("Show menu preview when clicked")}
                   checked={data.enable_preview !== false}
                   onCheckedChange={(checked) => {
                     updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
@@ -6953,10 +6954,10 @@ function BlockEditor({
               {/* Open Directly Toggle */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">Open Directly</Label>
-                  <p className="text-[10px] text-muted-foreground">Open menu PDF directly in new tab</p>
+                  <Label className="text-xs font-medium">{tt("Open Directly")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("Open menu PDF directly in new tab")}</p>
                 </div>
-                <Toggle label="Open menu PDF directly in a new tab"
+                <Toggle label={tt("Open menu PDF directly in a new tab")}
                   checked={data.open_directly === true}
                   onCheckedChange={(checked) => {
                     updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
@@ -6966,7 +6967,7 @@ function BlockEditor({
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
 
               {/* Layout Options Grid */}
               <div className="grid grid-cols-2 gap-3">
@@ -6993,9 +6994,9 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Default</span>
+                    <span className="font-medium text-sm">{tt("Default")}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Button with icon")}</p>
                 </button>
 
                 {/* Pro Layout Option */}
@@ -7028,19 +7029,19 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Featured</span>
+                    <span className="font-medium text-sm">{tt("Featured")}</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("With image & details")}</p>
                 </button>
               </div>
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
                 <div className="space-y-2 pt-3 border-t">
-                  <Label className="text-xs">Thumbnail Image</Label>
+                  <Label className="text-xs">{tt("Thumbnail Image")}</Label>
                   <p className="text-[10px] text-muted-foreground">
-                    Display an image with your menu (used in Featured layout)
+                    {tt("Display an image with your menu (used in Featured layout)")}
                   </p>
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (
@@ -7068,7 +7069,7 @@ function BlockEditor({
                       className="h-8 text-xs"
                     >
                       <Upload className="w-3 h-3 mr-1.5" />
-                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                      {data.thumbnail_url ? tt("Change") : tt("Upload")}
                     </Button>
                   </div>
                 </div>
@@ -7083,8 +7084,8 @@ function BlockEditor({
 
         // Layout options for Calendly
         const layoutOptions = [
-          { id: 'default', label: 'Default', description: 'Button with calendar icon' },
-          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+          { id: 'default', label: tt("Default"), description: tt("Button with calendar icon") },
+          { id: 'pro', label: 'Pro', description: tt("Image, title, description & button") },
         ] as const
 
         return (
@@ -7092,29 +7093,29 @@ function BlockEditor({
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
               <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
-                Settings
+                {tt("Settings")}
               </TabsTrigger>
               <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
-                Layout
+                {tt("Layout")}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="settings" className="mt-0 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Title</Label>
+                <Label className="text-xs">{tt("Title")}</Label>
                 <Input
                   value={data.title || ""}
                   onChange={(e) => updateData({ title: e.target.value })}
                   className="h-9"
-                  placeholder="Book a Meeting"
+                  placeholder={tt("Book a Meeting")}
                 />
               </div>
 
               {/* Calendly URL */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Calendly URL</Label>
+                <Label className="text-xs">{tt("Calendly URL")}</Label>
                 <Input
                   value={data.calendly_url || ""}
                   onChange={(e) => updateData({ calendly_url: e.target.value })}
@@ -7122,32 +7123,32 @@ function BlockEditor({
                   placeholder="https://calendly.com/your-username/30min"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Paste your Calendly event link here
+                  {tt("Paste your Calendly event link here")}
                 </p>
               </div>
 
               {/* Button Text */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Button Text</Label>
+                <Label className="text-xs">{tt("Button Text")}</Label>
                 <Input
                   value={data.button_text || "Schedule Now"}
                   onChange={(e) => updateData({ button_text: e.target.value })}
                   className="h-9"
-                  placeholder="Schedule Now"
+                  placeholder={tt("Schedule Now")}
                 />
               </div>
 
               {/* Embed Mode Options */}
               <div className="space-y-3 pt-3 border-t">
-                <Label className="text-xs font-medium">Behavior</Label>
+                <Label className="text-xs font-medium">{tt("Behavior")}</Label>
 
                 {/* Go Directly To Link */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-xs font-medium">Go Directly To Link</Label>
-                    <p className="text-[10px] text-muted-foreground">Open Calendly page in new tab</p>
+                    <Label className="text-xs font-medium">{tt("Go Directly To Link")}</Label>
+                    <p className="text-[10px] text-muted-foreground">{tt("Open Calendly page in new tab")}</p>
                   </div>
-                  <Toggle label="Open Calendly page in a new tab"
+                  <Toggle label={tt("Open Calendly page in a new tab")}
                     checked={data.embed_mode === 'direct_link'}
                     onCheckedChange={(checked) => {
                       updateData({ embed_mode: checked ? 'direct_link' : 'embedded' })
@@ -7158,10 +7159,10 @@ function BlockEditor({
                 {/* Embedded Calendar (Modal) */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-xs font-medium">Embedded Calendar</Label>
-                    <p className="text-[10px] text-muted-foreground">Show calendar in popup modal</p>
+                    <Label className="text-xs font-medium">{tt("Embedded Calendar")}</Label>
+                    <p className="text-[10px] text-muted-foreground">{tt("Show calendar in popup modal")}</p>
                   </div>
-                  <Toggle label="Show calendar in a popup"
+                  <Toggle label={tt("Show calendar in a popup")}
                     checked={data.embed_mode === 'embedded'}
                     onCheckedChange={(checked) => {
                       updateData({ embed_mode: checked ? 'embedded' : 'direct_link', embed_type: 'modal' })
@@ -7172,7 +7173,7 @@ function BlockEditor({
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
 
               {/* Layout Options Grid */}
               <div className="grid grid-cols-2 gap-3">
@@ -7199,9 +7200,9 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Default</span>
+                    <span className="font-medium text-sm">{tt("Default")}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Button with icon")}</p>
                 </button>
 
                 {/* Pro Layout Option */}
@@ -7234,19 +7235,19 @@ function BlockEditor({
                     )}>
                       <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
-                    <span className="font-medium text-sm">Featured</span>
+                    <span className="font-medium text-sm">{tt("Featured")}</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("With image & details")}</p>
                 </button>
               </div>
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
                 <div className="space-y-2 pt-3 border-t">
-                  <Label className="text-xs">Thumbnail Image</Label>
+                  <Label className="text-xs">{tt("Thumbnail Image")}</Label>
                   <p className="text-[10px] text-muted-foreground">
-                    Display an image with your Calendly block (used in Featured layout)
+                    {tt("Display an image with your Calendly block (used in Featured layout)")}
                   </p>
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (
@@ -7274,7 +7275,7 @@ function BlockEditor({
                       className="h-8 text-xs"
                     >
                       <Upload className="w-3 h-3 mr-1.5" />
-                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                      {data.thumbnail_url ? tt("Change") : tt("Upload")}
                     </Button>
                   </div>
                 </div>
@@ -7292,7 +7293,7 @@ function BlockEditor({
           <div className="space-y-4">
             {/* Product Selector - Modern dropdown style */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Select Product</Label>
+              <Label className="text-xs">{tt("Select Product")}</Label>
               <div className="relative" ref={productDropdownRef}>
                 <button
                   type="button"
@@ -7308,7 +7309,7 @@ function BlockEditor({
                       />
                     )}
                     <span className="truncate">
-                      {selectedProduct ? selectedProduct.title : "Select a product..."}
+                      {selectedProduct ? selectedProduct.title : tt("Select a product...")}
                     </span>
                     {selectedProduct && (
                       <span className="text-xs text-muted-foreground shrink-0">
@@ -7324,13 +7325,13 @@ function BlockEditor({
                   <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[240px] overflow-y-auto">
                     {effectiveSellerProducts?.length === 0 ? (
                       <div className="px-3 py-4 text-center">
-                        <p className="text-sm text-muted-foreground mb-3">No products found.</p>
+                        <p className="text-sm text-muted-foreground mb-3">{tt("No products found.")}</p>
                         <a
                           href="/app/products/new"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg transition-colors"
                         >
                           <Plus className="w-3 h-3" />
-                          Add Product
+                          {tt("Add Product")}
                         </a>
                       </div>
                     ) : (
@@ -7398,7 +7399,7 @@ function BlockEditor({
                   className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
-                  Edit Product
+                  {tt("Edit Product")}
                 </a>
                 <a
                   href="/creator-page?pageType=product"
@@ -7407,7 +7408,7 @@ function BlockEditor({
                   className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
-                  Edit Product Page
+                  {tt("Edit Product Page")}
                 </a>
               </div>
             )}
@@ -7415,15 +7416,15 @@ function BlockEditor({
             {/* Display Options */}
             <div className="space-y-2 pt-2 border-t">
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Show Price</Label>
-                <Toggle label="Show Price"
+                <Label className="text-xs">{tt("Show Price")}</Label>
+                <Toggle label={tt("Show Price")}
                   checked={data.show_price !== false}
                   onCheckedChange={(checked) => updateData({ show_price: checked })}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Show Description</Label>
-                <Toggle label="Show Description"
+                <Label className="text-xs">{tt("Show Description")}</Label>
+                <Toggle label={tt("Show Description")}
                   checked={data.show_description !== false}
                   onCheckedChange={(checked) => updateData({ show_description: checked })}
                 />
@@ -7435,17 +7436,17 @@ function BlockEditor({
               <div className="space-y-2 pt-2 border-t">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-xs">Quick Checkout</Label>
-                    <p className="text-[10px] text-muted-foreground">Works only for free products</p>
+                    <Label className="text-xs">{tt("Quick Checkout")}</Label>
+                    <p className="text-[10px] text-muted-foreground">{tt("Works only for free products")}</p>
                   </div>
-                  <Toggle label="Quick Checkout"
+                  <Toggle label={tt("Quick Checkout")}
                     checked={data.quick_checkout || false}
                     onCheckedChange={(checked) => updateData({ quick_checkout: checked })}
                   />
                 </div>
                 {data.quick_checkout && (
                   <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
-                    Users will see a quick checkout form instead of being redirected to the checkout page.
+                    {tt("Users will see a quick checkout form instead of being redirected to the checkout page.")}
                   </p>
                 )}
               </div>
@@ -7467,7 +7468,7 @@ function BlockEditor({
       }
 
       default:
-        return <p className="text-xs text-muted-foreground">No settings available</p>
+        return <p className="text-xs text-muted-foreground">{tt("No settings available")}</p>
     }
   }
 
@@ -7479,21 +7480,21 @@ function BlockEditor({
       switch (child.type) {
         case "link_button": {
           const d = child.data as LinkButtonBlockData
-          return { title: d.label || "My Link", icon: Link, thumbnail_url: d.thumbnail_url, iconId: resolveLinkIcon(d.icon, d.url) }
+          return { title: d.label || tt("My Link"), icon: Link, thumbnail_url: d.thumbnail_url, iconId: resolveLinkIcon(d.icon, d.url) }
         }
         case "text": {
           const d = child.data as TextBlockData
-          return { title: d.content?.slice(0, 25) || "Text", icon: Type, thumbnail_url: null, iconId: null }
+          return { title: d.content?.slice(0, 25) || tt("Text"), icon: Type, thumbnail_url: null, iconId: null }
         }
         case "image": {
           const d = child.data as ImageBlockData
-          return { title: "Image", icon: ImageIcon, thumbnail_url: d.image_url, iconId: null }
+          return { title: tt("Image"), icon: ImageIcon, thumbnail_url: d.image_url, iconId: null }
         }
         case "divider":
-          return { title: "Divider", icon: Minus, thumbnail_url: null, iconId: null }
+          return { title: tt("Divider"), icon: Minus, thumbnail_url: null, iconId: null }
         case "email_capture": {
           const d = child.data as EmailCaptureBlockData
-          return { title: d.headline || "Email Signup", icon: Mail, thumbnail_url: null, iconId: null }
+          return { title: d.headline || tt("Email Signup"), icon: Mail, thumbnail_url: null, iconId: null }
         }
         default:
           return { title: child.type.replace('_', ' '), icon: Link, thumbnail_url: null, iconId: null }
@@ -7570,8 +7571,8 @@ function BlockEditor({
           return (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Title</Label>
-                <Input value={d.label || ""} onChange={(e) => updateChildData({ label: e.target.value })} className="h-9" placeholder="Link title" />
+                <Label className="text-xs">{tt("Title")}</Label>
+                <Input value={d.label || ""} onChange={(e) => updateChildData({ label: e.target.value })} className="h-9" placeholder={tt("Link title")} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">URL</Label>
@@ -7585,11 +7586,11 @@ function BlockEditor({
           return (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Text Content</Label>
-                <Textarea value={d.content || ""} onChange={(e) => updateChildData({ content: e.target.value })} className="min-h-[80px]" placeholder="Enter text..." />
+                <Label className="text-xs">{tt("Text Content")}</Label>
+                <Textarea value={d.content || ""} onChange={(e) => updateChildData({ content: e.target.value })} className="min-h-[80px]" placeholder={tt("Enter text...")} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Alignment</Label>
+                <Label className="text-xs">{tt("Alignment")}</Label>
                 <div className="flex gap-2">
                   {(["left", "center", "right"] as const).map((align) => (
                     <Button key={align} variant={d.alignment === align ? "default" : "outline"} size="sm" onClick={() => updateChildData({ alignment: align })} className="flex-1 capitalize h-8">
@@ -7606,7 +7607,7 @@ function BlockEditor({
           return (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Style</Label>
+                <Label className="text-xs">{tt("Style")}</Label>
                 <div className="flex gap-2">
                   {(["space", "line", "dots"] as const).map((style) => (
                     <Button key={style} variant={d.style === style ? "default" : "outline"} size="sm" onClick={() => updateChildData({ style })} className="capitalize h-8 flex-1">
@@ -7615,7 +7616,7 @@ function BlockEditor({
                   ))}
                 </div>
               </div>
-              <RangeRow compact label="Height" value={d.height || 24} min={8} max={64} step={4} unit="px" onChange={(v) => updateChildData({ height: v })} />
+              <RangeRow compact label={tt("Height")} value={d.height || 24} min={8} max={64} step={4} unit="px" onChange={(v) => updateChildData({ height: v })} />
             </div>
           )
         }
@@ -7624,11 +7625,11 @@ function BlockEditor({
           return (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Image URL</Label>
+                <Label className="text-xs">{tt("Image URL")}</Label>
                 <Input value={d.image_url || ""} onChange={(e) => updateChildData({ image_url: e.target.value })} className="h-9" placeholder="https://" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Link URL (optional)</Label>
+                <Label className="text-xs">{tt("Link URL (optional)")}</Label>
                 <Input value={d.link_url || ""} onChange={(e) => updateChildData({ link_url: e.target.value || null })} className="h-9" placeholder="https://" />
               </div>
             </div>
@@ -7639,18 +7640,18 @@ function BlockEditor({
           return (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Headline</Label>
+                <Label className="text-xs">{tt("Headline")}</Label>
                 <Input value={d.headline || ""} onChange={(e) => updateChildData({ headline: e.target.value })} className="h-9" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Button Text</Label>
+                <Label className="text-xs">{tt("Button Text")}</Label>
                 <Input value={d.button_text || ""} onChange={(e) => updateChildData({ button_text: e.target.value })} className="h-9" />
               </div>
             </div>
           )
         }
         default:
-          return <p className="text-xs text-muted-foreground">No settings available</p>
+          return <p className="text-xs text-muted-foreground">{tt("No settings available")}</p>
       }
     }
 
@@ -7659,22 +7660,22 @@ function BlockEditor({
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
           <TabsTrigger value="links" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Link className="w-3.5 h-3.5" />
-            Links
+            {tt("Links")}
           </TabsTrigger>
           <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
-            Layout
+            {tt("Layout")}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="links" className="mt-0 space-y-4">
           {/* Group Title */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Group Title (optional)</Label>
+            <Label className="text-xs">{tt("Group Title (optional)")}</Label>
             <Input
               value={groupData.title || ""}
               onChange={(e) => updateData({ title: e.target.value || null })}
-              placeholder="Enter group title..."
+              placeholder={tt("Enter group title...")}
               className="h-9"
             />
           </div>
@@ -7682,8 +7683,8 @@ function BlockEditor({
           {/* Canvas / Block List */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Blocks in Group</Label>
-              <span className="text-xs text-muted-foreground">{groupData.children?.length || 0} items</span>
+              <Label className="text-xs">{tt("Blocks in Group")}</Label>
+              <span className="text-xs text-muted-foreground">{groupData.children?.length || 0} {tt("items")}</span>
             </div>
 
             {/* Block Canvas */}
@@ -7696,10 +7697,10 @@ function BlockEditor({
                     className="flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors p-4"
                   >
                     <Plus className="h-8 w-8" />
-                    <span className="text-sm font-medium">Add Block</span>
+                    <span className="text-sm font-medium">{tt("Add Block")}</span>
                   </button>
                   <p className="text-xs text-gray-400 text-center px-4">
-                    or drag blocks from the list onto this group
+                    {tt("or drag blocks from the list onto this group")}
                   </p>
                 </div>
               ) : (
@@ -7758,7 +7759,7 @@ function BlockEditor({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeChildFromGroup(child.id) }}
                           className="text-gray-400 hover:text-blue-500 transition-colors p-1"
-                          title="Move out of group"
+                          title={tt("Move out of group")}
                         >
                           <ArrowUpRight className="h-3.5 w-3.5" />
                         </button>
@@ -7773,7 +7774,7 @@ function BlockEditor({
                     className="w-full flex items-center justify-center gap-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-dashed border-gray-200"
                   >
                     <Plus className="h-4 w-4" />
-                    <span className="text-xs">Add Block</span>
+                    <span className="text-xs">{tt("Add Block")}</span>
                   </button>
                 </div>
               )}
@@ -7783,7 +7784,7 @@ function BlockEditor({
             {selectedChild && (
               <div className="border rounded-xl p-3 bg-white space-y-3">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium capitalize">{selectedChild.type.replace('_', ' ')} Settings</span>
+                  <span className="text-xs font-medium capitalize">{selectedChild.type.replace('_', ' ')} {tt("Settings")}</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -7791,7 +7792,7 @@ function BlockEditor({
                       className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                     >
                       <ArrowUpRight className="h-3 w-3" />
-                      Move out
+                      {tt("Move out")}
                     </button>
                     <button
                       type="button"
@@ -7827,7 +7828,7 @@ function BlockEditor({
         </TabsContent>
 
         <TabsContent value="layout" className="mt-0 space-y-3">
-          <p className="text-xs text-muted-foreground mb-2">Choose how blocks are arranged in this group</p>
+          <p className="text-xs text-muted-foreground mb-2">{tt("Choose how blocks are arranged in this group")}</p>
 
           {/* Layout Options Grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -7853,9 +7854,9 @@ function BlockEditor({
                 )}>
                   <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", groupData.layout === "stack" ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                 </div>
-                <span className="font-medium text-sm">Stack</span>
+                <span className="font-medium text-sm">{tt("Stack")}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-6">Vertical list</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Vertical list")}</p>
             </button>
 
             {/* Carousel Layout */}
@@ -7880,9 +7881,9 @@ function BlockEditor({
                 )}>
                   <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", groupData.layout === "carousel" ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                 </div>
-                <span className="font-medium text-sm">Carousel</span>
+                <span className="font-medium text-sm">{tt("Carousel")}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-6">Swipe horizontal</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Swipe horizontal")}</p>
             </button>
           </div>
 
@@ -7890,12 +7891,12 @@ function BlockEditor({
           {groupData.layout === "carousel" && (
             <div className="space-y-4 pt-3 border-t">
               <div className="space-y-2">
-                <Label className="text-xs">Carousel View</Label>
+                <Label className="text-xs">{tt("Carousel View")}</Label>
                 <div className="flex gap-2">
                   {([
-                    { id: "1" as CarouselViewType, label: "1 per row" },
-                    { id: "1.2" as CarouselViewType, label: "1.2 per row" },
-                    { id: "1.5" as CarouselViewType, label: "1.5 per row" },
+                    { id: "1" as CarouselViewType, label: tt("1 per row") },
+                    { id: "1.2" as CarouselViewType, label: tt("1.2 per row") },
+                    { id: "1.5" as CarouselViewType, label: tt("1.5 per row") },
                   ]).map((view) => (
                     <button
                       key={view.id}
@@ -7947,11 +7948,11 @@ function BlockEditor({
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
           <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Settings className="w-3.5 h-3.5" />
-            Settings
+            {tt("Settings")}
           </TabsTrigger>
           <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
-            Layout
+            {tt("Layout")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="settings" className="mt-0">

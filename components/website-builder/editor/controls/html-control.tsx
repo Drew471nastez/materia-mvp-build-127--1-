@@ -12,6 +12,7 @@ import * as React from "react"
 import { sanitizeCustomHtml } from "@/lib/website-builder/sanitize"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { NOTE } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 /** What the clean removes, in words a person would use. */
 function whatGoes(before: string, after: string): string | null {
@@ -22,9 +23,9 @@ function whatGoes(before: string, after: string): string | null {
   if (/\son[a-z]+\s*=/i.test(before)) lost.push("click and load handlers")
   if (/<style\b|\sstyle\s*=/i.test(before)) lost.push("styles")
   if (/<iframe\b/i.test(before) && !/<iframe\b/i.test(after)) lost.push("a frame from a site that is not a known player")
-  if (lost.length === 0) return "Some of this is removed when it is saved."
-  const list = lost.length === 1 ? lost[0] : `${lost.slice(0, -1).join(", ")} and ${lost[lost.length - 1]}`
-  return `When this is saved, ${list} ${lost.length === 1 && !lost[0].endsWith("s") ? "is" : "are"} removed.`
+  if (lost.length === 0) return tt("Some of this is removed when it is saved.")
+  const list = lost.length === 1 ? lost[0] : tt("{value} and {lost}", { value: lost.slice(0, -1).join(", "), lost: lost[lost.length - 1] })
+  return tt("When this is saved, {list} {value} removed.", { list, value: lost.length === 1 && !lost[0].endsWith("s") ? "is" : "are" })
 }
 
 export function HtmlControl({

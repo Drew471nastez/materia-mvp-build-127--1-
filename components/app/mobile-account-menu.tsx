@@ -12,6 +12,7 @@ import { isNativeApp } from "@/lib/native-bridge"
 import { openStorelibPage } from "@/lib/navigation/cross-section"
 import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow } from "@/components/app/business-switcher"
 import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
+import { tt } from "@/lib/i18n/text"
 
 
 /**
@@ -111,8 +112,8 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
   const items = useMemo(() => [
     { href: "/app/settings", label: settingsLabel, icon: Settings },
     { href: "/app/settings/billing", label: billingLabel, icon: CreditCard },
-    { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
-    { href: "/account/library", label: "Library", icon: Library },
+    { href: "/explore", label: tt("Explore"), icon: Compass, target: "_blank" as const },
+    { href: "/account/library", label: tt("Library"), icon: Library },
   ], [settingsLabel, billingLabel])
 
   return (
@@ -171,7 +172,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     <BottomSheet
       isOpen={mobileProfileDropdownOpen}
       onClose={closeMobileProfile}
-      label="Account"
+      label={tt("Account")}
       hideFrom="md"
       keepMounted
     >
@@ -233,7 +234,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-red-600 active:bg-red-50"
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
-          <span>Logout</span>
+          <span>{tt("Logout")}</span>
         </button>
       </div>
     </BottomSheet>

@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  UPSELLS AND BUNDLES: WHAT AN OFFER TAKES OFF A CART
@@ -60,9 +61,9 @@ const uniq = (ids: string[]) => [...new Set(ids)]
 
 /** How a store's offer reads in a list: "15% off", "$5.00 off", "No discount". */
 export function discountLabel(o: Pick<Offer, "discountType" | "discountValue">, money: (cents: number) => string = (c) => `$${(c / 100).toFixed(2)}`): string {
-  if (o.discountType === "percent" && o.discountValue > 0) return `${o.discountValue}% off`
-  if (o.discountType === "fixed" && o.discountValue > 0) return `${money(o.discountValue)} off`
-  return "No discount"
+  if (o.discountType === "percent" && o.discountValue > 0) return tt("{discountValue}% off", { discountValue: o.discountValue })
+  if (o.discountType === "fixed" && o.discountValue > 0) return tt("{amount} off", { amount: money(o.discountValue) })
+  return tt("No discount")
 }
 
 /** One unit's discount under an offer, never more than the unit. */
@@ -182,20 +183,20 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** An offer as the store's editor sent it, checked, or what is wrong with it. */
 export function readOffer(body: Record<string, unknown> | null): { ok: true; offer: Omit<Offer, "id"> } | { ok: false; error: string } {
-  if (!body) return { ok: false, error: "Bad request." }
+  if (!body) return { ok: false, error: tt("Bad request.") }
   const kind = OFFER_KINDS.includes(body.kind as OfferKind) ? (body.kind as OfferKind) : null
-  if (!kind) return { ok: false, error: "Choose a bundle or a checkout offer." }
+  if (!kind) return { ok: false, error: tt("Choose a bundle or a checkout offer.") }
   const title = typeof body.title === "string" ? body.title.replace(/\s+/g, " ").trim().slice(0, 80) : ""
-  if (!title) return { ok: false, error: "Give it a name buyers will see, like “Complete the set”." }
+  if (!title) return { ok: false, error: tt("Give it a name buyers will see, like “Complete the set”.") }
   const ids = (v: unknown) => (Array.isArray(v) ? uniq(v.filter((x): x is string => typeof x === "string" && UUID.test(x))) : [])
   const productIds = ids(body.productIds)
   const triggerIds = kind === "checkout" ? ids(body.triggerIds).filter((id) => id !== productIds[0]).slice(0, MAX_TRIGGERS) : []
-  if (kind === "bundle" && (productIds.length < 2 || productIds.length > MAX_BUNDLE)) return { ok: false, error: `A bundle has 2 to ${MAX_BUNDLE} products.` }
-  if (kind === "checkout" && productIds.length !== 1) return { ok: false, error: "Choose the product to offer." }
+  if (kind === "bundle" && (productIds.length < 2 || productIds.length > MAX_BUNDLE)) return { ok: false, error: tt("A bundle has 2 to {maxBundle} products.", { maxBundle: MAX_BUNDLE }) }
+  if (kind === "checkout" && productIds.length !== 1) return { ok: false, error: tt("Choose the product to offer.") }
   const discountType = DISCOUNT_TYPES.includes(body.discountType as DiscountType) ? (body.discountType as DiscountType) : "percent"
   const raw = Math.round(Number(body.discountValue))
   const discountValue = discountType === "none" ? 0 : Number.isFinite(raw) ? raw : 0
-  if (discountType === "percent" && (discountValue < 1 || discountValue > MAX_PERCENT)) return { ok: false, error: `A percent off is 1 to ${MAX_PERCENT}.` }
-  if (discountType === "fixed" && (discountValue < 1 || discountValue > 10_000_000)) return { ok: false, error: "Enter the amount off." }
+  if (discountType === "percent" && (discountValue < 1 || discountValue > MAX_PERCENT)) return { ok: false, error: tt("A percent off is 1 to {maxPercent}.", { maxPercent: MAX_PERCENT }) }
+  if (discountType === "fixed" && (discountValue < 1 || discountValue > 10_000_000)) return { ok: false, error: tt("Enter the amount off.") }
   return { ok: true, offer: { kind, title, productIds, triggerIds, discountType, discountValue, active: body.active !== false } }
 }

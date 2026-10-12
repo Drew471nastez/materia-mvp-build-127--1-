@@ -11,6 +11,8 @@ import { FileImage, Package, Settings2, ShoppingBag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BTN_SECONDARY, Card, Notice, api, peekGet, prefetchGet, readFresh } from "@/components/physical/ui"
 import { GROUP_LABELS, actorLabel, describeActivity, groupOf, type ActivityEntry, type ActivityGroup } from "@/lib/activity/actions"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 type Filter = "all" | ActivityGroup
 const FILTERS: Filter[] = ["all", "products", "orders", "settings", "files"]
@@ -19,23 +21,23 @@ const ICONS: Record<ActivityGroup, React.ComponentType<{ className?: string }>> 
 type Page = { entries: ActivityEntry[]; more: boolean; missing: boolean }
 
 const EMPTY_LINE: Record<Filter, string> = {
-  all: "When you add a product, ship an order or change a setting, it shows up here.",
-  products: "Adding, renaming, repricing or publishing a product shows up here.",
-  orders: "Fulfilling, cancelling, refunding or a buyer opening a return shows up here.",
-  settings: "Changes to your store, checkout, taxes, shipping and integrations show up here.",
-  files: "Files you delete from your library show up here.",
+  get all() { return tt("When you add a product, ship an order or change a setting, it shows up here.") },
+  get products() { return tt("Adding, renaming, repricing or publishing a product shows up here.") },
+  get orders() { return tt("Fulfilling, cancelling, refunding or a buyer opening a return shows up here.") },
+  get settings() { return tt("Changes to your store, checkout, taxes, shipping and integrations show up here.") },
+  get files() { return tt("Files you delete from your library show up here.") },
 }
 
 export function dayLabel(iso: string, now = new Date()): string {
   const d = new Date(iso)
   const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
   const days = Math.round((start(now) - start(d)) / 86_400_000)
-  if (days === 0) return "Today"
-  if (days === 1) return "Yesterday"
-  return new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) }).format(d)
+  if (days === 0) return tt("Today")
+  if (days === 1) return tt("Yesterday")
+  return new Intl.DateTimeFormat(appLocale(), zoned({ weekday: "long", day: "numeric", month: "long", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) })).format(d)
 }
 
-const timeOf = (iso: string) => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(iso))
+const timeOf = (iso: string) => new Intl.DateTimeFormat(appLocale(), zoned({ hour: "numeric", minute: "2-digit" })).format(new Date(iso))
 
 const pathOf = (f: Filter, before: number | null = null) => {
   const q = new URLSearchParams()
@@ -121,9 +123,9 @@ export function ActivityPanel() {
 
   return (
     <div className="space-y-4 sm:space-y-6" data-activity-panel="">
-      <Card title="Activity" description="Every change made to your store: products, orders, settings and files, who made it and when.">
+      <Card title={tt("Activity")} description={tt("Every change made to your store: products, orders, settings and files, who made it and when.")}>
         {/* Storelib's pills (Settings' own row): words on the card, the open one on a soft grey fill with a hairline, eased in place. */}
-        <div className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Show" data-activity-filters="">
+        <div className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={tt("Show")} data-activity-filters="">
           {FILTERS.map((f) => {
             const on = filter === f
             return (
@@ -139,17 +141,17 @@ export function ActivityPanel() {
                   on ? "bg-[#f3f4f6] text-[#1a1a2e] shadow-[inset_0_0_0_1px_#d1d5db,0_1px_2px_rgba(0,0,0,0.04)]" : "text-[#6b7280] hover:bg-[#f7f7f8] hover:text-[#1a1a2e] active:bg-[#f3f4f6]",
                 )}
               >
-                {f === "all" ? "All" : GROUP_LABELS[f]}
+                {f === "all" ? tt("All") : GROUP_LABELS[f]}
               </button>
             )
           })}
         </div>
 
         {error && !entries ? <Notice>{error}</Notice> : null}
-        {missing ? <Notice>The activity log needs SQL part 113 (supabase/sql/run-now/113_store_activity.sql). Once it has run, changes show here from then on.</Notice> : null}
+        {missing ? <Notice>{tt("The activity log needs SQL part 113 (supabase/sql/run-now/113_store_activity.sql). Once it has run, changes show here from then on.")}</Notice> : null}
 
         {entries === null && !error ? (
-          <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" aria-busy="true" aria-label="Loading" data-activity-loading="">
+          <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" aria-busy="true" aria-label={tt("Loading")} data-activity-loading="">
             {[0, 1, 2, 3].map((i) => (
               <li key={i} className="flex items-center gap-3 px-3.5 py-3">
                 <span aria-hidden className="h-8 w-8 shrink-0 rounded-lg bg-[#f3f4f6]" />
@@ -162,7 +164,7 @@ export function ActivityPanel() {
           </ul>
         ) : entries && entries.length === 0 && !missing ? (
           <div key={filter} className="flex min-h-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-[#e3e5e8] px-4 py-8 text-center animate-in fade-in-50 duration-150 motion-reduce:animate-none" data-activity-empty="">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "all" ? "Nothing here yet" : `No ${GROUP_LABELS[filter].toLowerCase()} changes yet`}</p>
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "all" ? tt("Nothing here yet") : tt("No {value} changes yet", { value: GROUP_LABELS[filter].toLowerCase() })}</p>
             <p className="mt-1 text-[13px] text-[#6b7280]">{EMPTY_LINE[filter]}</p>
           </div>
         ) : (
@@ -192,7 +194,7 @@ export function ActivityPanel() {
             ))}
             {more ? (
               <button type="button" className={cn(BTN_SECONDARY, "w-full")} onClick={() => void showMore()} disabled={loadingMore} data-activity-more="">
-                {loadingMore ? "Loading" : "Show more"}
+                {loadingMore ? tt("Loading") : tt("Show more")}
               </button>
             ) : null}
           </div>

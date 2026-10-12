@@ -44,6 +44,7 @@ import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { addDays, parts, ymdOf, type Ymd } from "@/lib/date-range/range"
 import { dayLabel, from12, isoFromWall, timeLabel, to12, todayIn, viewerZone, wallFromIso } from "@/lib/onepage/schedule"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -102,10 +103,10 @@ export function MonthGrid({
           {MONTHS_LONG[view.m]} {view.y}
         </p>
         <div className="flex gap-1.5">
-          <button type="button" aria-label="Previous month" data-month-prev="" onClick={() => go(-1)} className={nav}>
+          <button type="button" aria-label={tt("Previous month")} data-month-prev="" onClick={() => go(-1)} className={nav}>
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button type="button" aria-label="Next month" data-month-next="" onClick={() => go(1)} className={nav}>
+          <button type="button" aria-label={tt("Next month")} data-month-next="" onClick={() => go(1)} className={nav}>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -191,7 +192,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
     <div className="flex items-center gap-2" data-time-input="">
       <div className={cn("inline-flex items-center rounded-xl border border-[#e3e4e8] bg-white px-2 transition-[border-color,box-shadow] focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", compact ? "h-12" : "h-10")}>
         <input
-          aria-label="Hour"
+          aria-label={tt("Hour")}
           data-time-hour=""
           inputMode="numeric"
           autoComplete="off"
@@ -221,7 +222,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
         <span aria-hidden className={cn("font-medium text-[#6b7280]", compact ? "text-[18px]" : "text-[15px]")}>:</span>
         <input
           ref={minuteRef}
-          aria-label="Minute"
+          aria-label={tt("Minute")}
           data-time-minute=""
           inputMode="numeric"
           autoComplete="off"
@@ -244,7 +245,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
           className={box}
         />
       </div>
-      <div role="radiogroup" aria-label="Morning or afternoon" className={cn("inline-flex rounded-xl bg-[#f1f2f4] p-1", compact ? "h-12" : "h-10")}>
+      <div role="radiogroup" aria-label={tt("Morning or afternoon")} className={cn("inline-flex rounded-xl bg-[#f1f2f4] p-1", compact ? "h-12" : "h-10")}>
         {(["AM", "PM"] as const).map((x) => {
           const on = (x === "PM") === pm
           return (
@@ -292,7 +293,7 @@ export function DateTimeField({
   value,
   onChange,
   label,
-  emptyLabel = "Any time",
+  emptyLabel = tt("Any time"),
   defaultTime = { hour: 9, minute: 0 },
   after,
   required = false,
@@ -343,20 +344,20 @@ export function DateTimeField({
       <MonthGrid key={open ? "open" : "shut"} selected={wall?.ymd ?? null} today={today} compact={compact} before={afterYmd} onPick={(d) => write(d, hour, minute)} />
       <div className="h-px bg-[#eef0f2]" aria-hidden />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={cn("font-medium text-[#1a1a2e]", compact ? "text-[15px]" : "text-[13.5px]")}>Time</p>
+        <p className={cn("font-medium text-[#1a1a2e]", compact ? "text-[15px]" : "text-[13.5px]")}>{tt("Time")}</p>
         <TimeInput hour={hour} minute={minute} compact={compact} onChange={(h, m) => write(wall?.ymd ?? null, h, m)} />
       </div>
-      {!wall ? <p className="-mt-2 text-[12.5px] text-[#6b7280]">Pick a day to set it.</p> : null}
+      {!wall ? <p className="-mt-2 text-[12.5px] text-[#6b7280]">{tt("Pick a day to set it.")}</p> : null}
       <div className="flex items-center justify-between gap-2">
         {!required && wall ? (
           <button type="button" onClick={() => { onChange(null); setOpen(false) }} data-datetime-clear="" className={cn(secondaryDepth, "rounded-xl px-4 text-[14px]", compact ? "h-12" : "h-10")}>
-            Clear
+            {tt("Clear")}
           </button>
         ) : (
           <span />
         )}
         <button type="button" onClick={() => setOpen(false)} data-datetime-done="" className={cn(primaryDepth, "rounded-xl px-5 text-[14px]", compact ? "h-12" : "h-10")}>
-          Done
+          {tt("Done")}
         </button>
       </div>
     </div>

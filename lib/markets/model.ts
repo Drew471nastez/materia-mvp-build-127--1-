@@ -34,6 +34,7 @@
 import { normalizeLocale } from "./locales"
 import { currencyCode, type PriceRounding } from "./money"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
+import { tt } from "@/lib/i18n/text"
 
 export interface SiteLanguage {
   code: string
@@ -83,48 +84,48 @@ const ROUNDINGS: PriceRounding[] = ["none", "whole", "nine_nine"]
 export function validateLocalization(input: unknown, opts: { baseCurrency: string }): { ok: true; value: Localization } | { ok: false; error: string } {
   const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>
   const defaultLanguage = normalizeLocale(raw.defaultLanguage)
-  if (!defaultLanguage) return { ok: false, error: "Choose the website's default language." }
+  if (!defaultLanguage) return { ok: false, error: tt("Choose the website's default language.") }
 
   const languages: SiteLanguage[] = []
   for (const l of Array.isArray(raw.languages) ? raw.languages : []) {
     const code = normalizeLocale((l as Record<string, unknown>)?.code)
-    if (!code) return { ok: false, error: "One of the languages isn't one we recognise." }
+    if (!code) return { ok: false, error: tt("One of the languages isn't one we recognise.") }
     if (code === defaultLanguage || languages.some((x) => x.code === code)) continue
     languages.push({ code, published: (l as Record<string, unknown>).published === true })
   }
-  if (languages.length > MAX_LANGUAGES) return { ok: false, error: `A website can have up to ${MAX_LANGUAGES} more languages.` }
+  if (languages.length > MAX_LANGUAGES) return { ok: false, error: tt("A website can have up to {maxLanguages} more languages.", { maxLanguages: MAX_LANGUAGES }) }
   const allLanguages = new Set([defaultLanguage, ...languages.map((l) => l.code)])
 
   const markets: Market[] = []
   const seen = new Map<string, string>()
   const list = Array.isArray(raw.markets) ? raw.markets : []
-  if (list.length > MAX_MARKETS) return { ok: false, error: `A store can have up to ${MAX_MARKETS} markets.` }
+  if (list.length > MAX_MARKETS) return { ok: false, error: tt("A store can have up to {maxMarkets} markets.", { maxMarkets: MAX_MARKETS }) }
   for (const [i, m] of list.entries()) {
     const r = (m && typeof m === "object" ? m : {}) as Record<string, unknown>
     const name = typeof r.name === "string" ? r.name.replace(/\s+/g, " ").trim().slice(0, 60) : ""
-    if (!name) return { ok: false, error: "Give every market a name." }
+    if (!name) return { ok: false, error: tt("Give every market a name.") }
     const id = typeof r.id === "string" && /^[a-z0-9-]{1,40}$/.test(r.id) ? r.id : `m${i + 1}`
     const countries: string[] = []
     for (const c of Array.isArray(r.countries) ? r.countries : []) {
       const code = typeof c === "string" ? c.trim().toUpperCase() : ""
-      if (!COUNTRY_CODES.has(code)) return { ok: false, error: `${name}: one of its countries isn't one we recognise.` }
+      if (!COUNTRY_CODES.has(code)) return { ok: false, error: tt("{name}: one of its countries isn't one we recognise.", { name }) }
       const other = seen.get(code)
-      if (other && other !== id) return { ok: false, error: `${code} is in two markets. A country can be in one market only.` }
+      if (other && other !== id) return { ok: false, error: tt("{code} is in two markets. A country can be in one market only.", { code }) }
       seen.set(code, id)
       if (!countries.includes(code)) countries.push(code)
     }
     const currency = r.currency === null || r.currency === undefined || r.currency === "" ? null : currencyCode(r.currency)
-    if (r.currency && !currency) return { ok: false, error: `${name}: that currency isn't one we recognise.` }
+    if (r.currency && !currency) return { ok: false, error: tt("{name}: that currency isn't one we recognise.", { name }) }
     const language = r.language === null || r.language === undefined || r.language === "" ? null : normalizeLocale(r.language)
-    if (language && !allLanguages.has(language)) return { ok: false, error: `${name}: add ${language} to the website's languages first.` }
+    if (language && !allLanguages.has(language)) return { ok: false, error: tt("{name}: add {language} to the website's languages first.", { name, language }) }
     const rounding = ROUNDINGS.includes(r.rounding as PriceRounding) ? (r.rounding as PriceRounding) : "none"
     const adjust = Math.round(Number(r.adjustBps ?? 0))
-    if (!Number.isFinite(adjust) || adjust < -5000 || adjust > 10000) return { ok: false, error: `${name}: keep the price adjustment between -50% and +100%.` }
+    if (!Number.isFinite(adjust) || adjust < -5000 || adjust > 10000) return { ok: false, error: tt("{name}: keep the price adjustment between -50% and +100%.", { name }) }
     markets.push({ id, name, countries, currency: currency === opts.baseCurrency ? null : currency, language, active: r.active !== false, primary: r.primary === true, rounding, adjustBps: adjust })
   }
   if (markets.length === 0) markets.push(defaultLocalization(null, defaultLanguage).markets[0])
   const primaries = markets.filter((m) => m.primary)
-  if (primaries.length !== 1) return { ok: false, error: "Choose one primary market: your store's home." }
+  if (primaries.length !== 1) return { ok: false, error: tt("Choose one primary market: your store's home.") }
   const home = primaries[0]
   /* The home market sells in the store's own currency, at its own prices. */
   home.currency = null

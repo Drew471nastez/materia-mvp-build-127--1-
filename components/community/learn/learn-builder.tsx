@@ -34,6 +34,7 @@ import { programPrice } from "@/lib/communities/learn"
 import { lessonsLabel, type BuilderProgram, type LearnBuilderData } from "./model"
 import { ProgramEditor } from "./program-editor"
 import { learnRequest, usePhone } from "./builder-parts"
+import { tt } from "@/lib/i18n/text"
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 const BTN = "h-10 rounded-[10px] px-3.5 text-[14px] sm:h-9 sm:rounded-lg sm:px-3 sm:text-[13.5px]"
@@ -42,9 +43,9 @@ const FIELD =
 
 /** What a member needs to know about a program, in one line. */
 export function accessLine(p: Pick<BuilderProgram, "mode" | "level" | "priceCents" | "currency" | "buyers">, levelName?: string): string {
-  if (p.mode === "paid" && p.priceCents) return `${programPrice(p.priceCents, p.currency)}${p.buyers ? ` · ${p.buyers} bought` : ""}`
-  if (p.mode === "level") return `From level ${p.level}${levelName ? ` (${levelName})` : ""}`
-  return "Free for members"
+  if (p.mode === "paid" && p.priceCents) return `${programPrice(p.priceCents, p.currency)}${p.buyers ? tt(" · {buyers} bought", { buyers: p.buyers }) : ""}`
+  if (p.mode === "level") return tt("From level {level}{value}", { level: p.level, value: levelName ? ` (${levelName})` : "" })
+  return tt("Free for members")
 }
 
 export function LearnBuilder({ communityId, initial = null, initialOpenId = null }: { communityId: string; initial?: LearnBuilderData | null; /** A program to open straight away (the probe). */ initialOpenId?: string | null }) {
@@ -63,7 +64,7 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
     if (res.ok) {
       setData(res.data)
       setLoadError(null)
-    } else setLoadError(res.data.error || "Learn did not load. Try again.")
+    } else setLoadError(res.data.error || tt("Learn did not load. Try again."))
     return res.ok ? res.data : null
   }, [base])
 
@@ -80,10 +81,10 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
   if (!data) {
     return (
       <div className={cn(CARD, "px-5 py-10 text-center")} data-learn-builder="loading">
-        <p className="text-[14px] text-[#6b7280]">{loadError ?? "Loading Learn"}</p>
+        <p className="text-[14px] text-[#6b7280]">{loadError ?? tt("Loading Learn")}</p>
         {loadError ? (
           <button type="button" className={cn(secondaryDepth, BTN, "mt-3")} onClick={() => void reload()}>
-            Try again
+            {tt("Try again")}
           </button>
         ) : null}
       </div>
@@ -104,7 +105,7 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
           onDeleted={async () => {
             setOpenId(null)
             await reload()
-            setNote("Program deleted")
+            setNote(tt("Program deleted"))
           }}
         />
         {confirmSheet}
@@ -122,23 +123,23 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
     setData({ ...data, programs: ids.map((x) => data.programs.find((p) => p.id === x) as BuilderProgram) })
     const res = await learnRequest(base, "PUT", { ids })
     if (!res.ok) {
-      setNote(res.data.error || "The order did not save.")
+      setNote(res.data.error || tt("The order did not save."))
       void reload()
     }
   }
   const remove = async (p: BuilderProgram) => {
     const course = p.kind === "course"
     const yes = await ask({
-      title: course ? `Take ${p.title} out of Learn?` : `Delete ${p.title}?`,
-      body: course ? "Members stop seeing it here. The course and its buyers are not touched." : "Its modules, lessons and their files are deleted. This cannot be undone.",
-      confirm: course ? "Take out" : "Delete",
-      cancel: "Keep it",
+      title: course ? tt("Take {title} out of Learn?", { title: p.title }) : tt("Delete {title}?", { title: p.title }),
+      body: course ? tt("Members stop seeing it here. The course and its buyers are not touched.") : tt("Its modules, lessons and their files are deleted. This cannot be undone."),
+      confirm: course ? tt("Take out") : tt("Delete"),
+      cancel: tt("Keep it"),
       tone: "critical",
     })
     if (!yes) return
     const res = await learnRequest(`${base}/${p.id}`, "DELETE")
-    if (!res.ok) setNote(res.data.error || "That did not go. Try again.")
-    else setNote(course ? "Taken out of Learn" : "Program deleted")
+    if (!res.ok) setNote(res.data.error || tt("That did not go. Try again."))
+    else setNote(course ? tt("Taken out of Learn") : tt("Program deleted"))
     void reload()
   }
 
@@ -146,45 +147,45 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
     <div className="space-y-4" data-learn-builder="list">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">Programs</h2>
-          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">Modules and lessons for your members, free, from a level, or sold on their own.</p>
+          <h2 className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">{tt("Programs")}</h2>
+          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{tt("Modules and lessons for your members, free, from a level, or sold on their own.")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {data.courses.length ? (
             <button type="button" className={cn(secondaryDepth, BTN)} onClick={() => setAttaching(true)}>
-              Add a course
+              {tt("Add a course")}
             </button>
           ) : null}
           <button type="button" className={cn(accentDepth, BTN, "gap-1.5")} onClick={() => setNaming(true)} disabled={!data.ready} data-new-program>
             <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-            New program
+            {tt("New program")}
           </button>
         </div>
       </div>
 
-      {!data.ready ? <Banner>Programs need the latest database update (part 102). Courses you add keep working meanwhile.</Banner> : null}
-      {!data.enabled ? <Banner>Learn is switched off, so members do not see it. Switch it on in Settings.</Banner> : null}
+      {!data.ready ? <Banner>{tt("Programs need the latest database update (part 102). Courses you add keep working meanwhile.")}</Banner> : null}
+      {!data.enabled ? <Banner>{tt("Learn is switched off, so members do not see it. Switch it on in Settings.")}</Banner> : null}
 
       {data.programs.length === 0 ? (
         <div className={cn(CARD, "flex flex-col items-center px-6 py-12 text-center")} data-learn-builder-empty>
           <span className="flex h-12 w-12 items-center justify-center rounded-[14px] border border-[#e8eaee] bg-[#f6f7f9] text-[#4b5563]">
             <PlaceIcon place="classroom" size={24} />
           </span>
-          <p className="mt-4 text-[16px] font-semibold text-[#1a1a2e]">Make the first program</p>
-          <p className="mt-1 max-w-[360px] text-[14px] leading-relaxed text-[#6b7280]">A program is modules of lessons: videos, notes and files. Members find it under Learn.</p>
+          <p className="mt-4 text-[16px] font-semibold text-[#1a1a2e]">{tt("Make the first program")}</p>
+          <p className="mt-1 max-w-[360px] text-[14px] leading-relaxed text-[#6b7280]">{tt("A program is modules of lessons: videos, notes and files. Members find it under Learn.")}</p>
           <button type="button" className={cn(primaryDepth, BTN, "mt-5")} onClick={() => setNaming(true)} disabled={!data.ready}>
-            New program
+            {tt("New program")}
           </button>
         </div>
       ) : (
         <ul className={cn(CARD, "divide-y divide-[#f0f1f3] overflow-hidden")} data-program-list>
           {data.programs.map((p, i) => {
             const items: ActionMenuItem[] = [
-              { label: "Edit", onClick: () => setOpenId(p.id) },
-              { label: "View as a member", href: `/community/${data.slug}/learn/${p.id}`, target: "_blank" },
-              ...(i > 0 ? [{ label: "Move up", icon: <ArrowUp className="h-4 w-4" />, onClick: () => void move(p.id, -1), separatorBefore: true }] : []),
-              ...(i < data.programs.length - 1 ? [{ label: "Move down", icon: <ArrowDown className="h-4 w-4" />, onClick: () => void move(p.id, 1), separatorBefore: i === 0 }] : []),
-              { label: p.kind === "course" ? "Take out of Learn" : "Delete", icon: <Trash2 className="h-4 w-4" />, variant: "destructive", onClick: () => void remove(p), separatorBefore: true },
+              { label: tt("Edit"), onClick: () => setOpenId(p.id) },
+              { label: tt("View as a member"), href: `/community/${data.slug}/learn/${p.id}`, target: "_blank" },
+              ...(i > 0 ? [{ label: tt("Move up"), icon: <ArrowUp className="h-4 w-4" />, onClick: () => void move(p.id, -1), separatorBefore: true }] : []),
+              ...(i < data.programs.length - 1 ? [{ label: tt("Move down"), icon: <ArrowDown className="h-4 w-4" />, onClick: () => void move(p.id, 1), separatorBefore: i === 0 }] : []),
+              { label: p.kind === "course" ? tt("Take out of Learn") : tt("Delete"), icon: <Trash2 className="h-4 w-4" />, variant: "destructive", onClick: () => void remove(p), separatorBefore: true },
             ]
             return (
               <li key={p.id} className="flex items-center gap-1 pr-2 sm:pr-3" data-program-row={p.id}>
@@ -204,7 +205,7 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
                       <StatusDot status={p.status} />
                       <span data-program-line>
                         {lessonsLabel(p.lessons)} · {accessLine(p, levelName(p.level))}
-                        {p.kind === "course" ? " · a course you sell" : ""}
+                        {p.kind === "course" ? tt(" · a course you sell") : ""}
                       </span>
                     </span>
                   </span>
@@ -214,7 +215,7 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
                   title={p.title}
                   items={items}
                   trigger={
-                    <button type="button" aria-label={`More for ${p.title}`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-[#4b5563] outline-none hover:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 sm:w-9">
+                    <button type="button" aria-label={tt("More for {title}", { title: p.title })} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-[#4b5563] outline-none hover:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 sm:w-9">
                       <MoreHorizontal className="h-[18px] w-[18px]" />
                     </button>
                   }
@@ -237,7 +238,7 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
           setBusy(true)
           const res = await learnRequest<{ id: string }>(base, "POST", { title })
           setBusy(false)
-          if (!res.ok) return res.data.error || "The program could not be made. Try again."
+          if (!res.ok) return res.data.error || tt("The program could not be made. Try again.")
           setNaming(false)
           const next = await reload()
           if (next?.programs.some((p) => p.id === res.data.id)) setOpenId(res.data.id)
@@ -250,10 +251,10 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
         onClose={() => setAttaching(false)}
         onPick={async (productId) => {
           const res = await learnRequest<{ id: string }>(base, "POST", { productId })
-          if (!res.ok) return res.data.error || "The course could not be added. Try again."
+          if (!res.ok) return res.data.error || tt("The course could not be added. Try again.")
           setAttaching(false)
           await reload()
-          setNote("Course added to Learn")
+          setNote(tt("Course added to Learn"))
           return null
         }}
       />
@@ -267,7 +268,7 @@ function StatusDot({ status }: { status: "draft" | "published" }) {
   return (
     <span className={cn("font-medium", status === "published" ? "text-[#1d6b45]" : "text-[#8a5a00]")} data-status={status}>
       <span aria-hidden className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-[2px]", status === "published" ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
-      {status === "published" ? "Published" : "Draft"}
+      {status === "published" ? tt("Published") : tt("Draft")}
       <span aria-hidden className="font-normal text-[#6b7280]"> · </span>
     </span>
   )
@@ -289,18 +290,18 @@ function NameSheet({ open, busy, onClose, onCreate }: { open: boolean; busy: boo
   }, [open])
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return setError("Give the program a name.")
+    if (!title.trim()) return setError(tt("Give the program a name."))
     setError(await onCreate(title))
   }
   return (
-    <SheetDialog open={open} onClose={onClose} phone={phone} label="New program" className="max-w-[440px] gap-0 rounded-2xl p-6" sheet={{ fill: false }}>
+    <SheetDialog open={open} onClose={onClose} phone={phone} label={tt("New program")} className="max-w-[440px] gap-0 rounded-2xl p-6" sheet={{ fill: false }}>
       <form onSubmit={submit} className="px-5 pb-5 sm:px-0 sm:pb-0" data-name-sheet>
-        <SheetDialogTitle className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">New program</SheetDialogTitle>
-        <p className="mt-1 text-[14px] text-[#6b7280]">It starts as a draft. Add its lessons, then publish it.</p>
+        <SheetDialogTitle className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">{tt("New program")}</SheetDialogTitle>
+        <p className="mt-1 text-[14px] text-[#6b7280]">{tt("It starts as a draft. Add its lessons, then publish it.")}</p>
         <label htmlFor="program-name" className="mt-4 block text-[13px] font-medium text-[#4b5563]">
-          Name
+          {tt("Name")}
         </label>
-        <input id="program-name" className={cn(FIELD, "mt-1.5")} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Wheel throwing, from clay to cup" autoFocus={!phone} aria-invalid={!!error} />
+        <input id="program-name" className={cn(FIELD, "mt-1.5")} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder={tt("Wheel throwing, from clay to cup")} autoFocus={!phone} aria-invalid={!!error} />
         {error ? (
           <p className="mt-2 text-[13px] text-[#b42318]" role="alert">
             {error}
@@ -308,10 +309,10 @@ function NameSheet({ open, busy, onClose, onCreate }: { open: boolean; busy: boo
         ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" className={cn(secondaryDepth, BTN, "max-sm:flex-1")} onClick={onClose}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="submit" className={cn(primaryDepth, BTN, "max-sm:flex-1")} disabled={busy} aria-busy={busy || undefined}>
-            Make program
+            {tt("Make program")}
           </button>
         </div>
       </form>
@@ -327,11 +328,11 @@ function AttachSheet({ open, courses, onClose, onPick }: { open: boolean; course
     if (open) setError(null)
   }, [open])
   return (
-    <SheetDialog open={open} onClose={onClose} phone={phone} label="Add a course" className="max-w-[480px] gap-0 rounded-2xl p-0">
+    <SheetDialog open={open} onClose={onClose} phone={phone} label={tt("Add a course")} className="max-w-[480px] gap-0 rounded-2xl p-0">
       <div className="flex h-full min-h-0 flex-col">
         <div className="shrink-0 px-5 pb-3 pt-1 sm:px-6 sm:pt-6">
-          <SheetDialogTitle className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">Add a course</SheetDialogTitle>
-          <p className="mt-1 text-[14px] text-[#6b7280]">A course you sell, inside Learn. Its lessons stay the course&apos;s own.</p>
+          <SheetDialogTitle className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">{tt("Add a course")}</SheetDialogTitle>
+          <p className="mt-1 text-[14px] text-[#6b7280]">{tt("A course you sell, inside Learn. Its lessons stay the course's own.")}</p>
           {error ? (
             <p className="mt-2 text-[13px] text-[#b42318]" role="alert">
               {error}
@@ -353,7 +354,7 @@ function AttachSheet({ open, courses, onClose, onPick }: { open: boolean; course
               >
                 <span className="relative aspect-[16/9] w-16 shrink-0 overflow-hidden rounded-md bg-[#f1f2f4]">{c.coverUrl ? <Image src={c.coverUrl} alt="" fill sizes="64px" className="object-cover" /> : null}</span>
                 <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium text-[#1a1a2e]">{c.title}</span>
-                {busy === c.id ? <span className="text-[13px] text-[#6b7280]">Adding</span> : null}
+                {busy === c.id ? <span className="text-[13px] text-[#6b7280]">{tt("Adding")}</span> : null}
               </button>
             </li>
           ))}

@@ -8,11 +8,15 @@ import { listSites, SitesUnavailableError } from "@/lib/sites/projects"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { currentCreatorId } from "@/lib/sites/projects"
 import { siteCountGate } from "@/lib/sites/plan"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = {
-  title: "Storelib AI",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Storelib AI"),
+  }
 }
 
 export default async function SitesPage() {

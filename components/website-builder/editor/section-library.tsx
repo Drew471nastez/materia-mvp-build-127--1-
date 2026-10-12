@@ -89,6 +89,7 @@ import { classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { tt } from "@/lib/i18n/text"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
 
@@ -670,7 +671,7 @@ const PreviewBox = memo(function PreviewBox({
         height: height || undefined,
         aspectRatio: height ? undefined : `1 / ${ratio}`,
         contentVisibility: eager ? "visible" : "auto",
-        containIntrinsicSize: `${width || 200}px ${height || 200}px`,
+        containIntrinsicSize: tt("{value}px {value2}px", { value: width || 200, value2: height || 200 }),
       }}
     >
       {live && empty ? <EmptyPreview title={title} /> : null}
@@ -695,7 +696,7 @@ function EmptyPreview({ title }: { title: string }) {
   return (
     <div data-preview-empty="" className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-[#f6f7f9] px-4 text-center">
       <span className="text-[13px] font-medium text-[#6b7280]">{title}</span>
-      <span className="text-[11px] text-[#9ca3af]">Shows once it has content</span>
+      <span className="text-[11px] text-[#9ca3af]">{tt("Shows once it has content")}</span>
     </div>
   )
 }
@@ -934,11 +935,11 @@ export const SectionLibrary = memo(function SectionLibrary({
     const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
     const label = (id: string) => (compatInstallId ? IMPORTED_SECTION_CATEGORY_LABELS[id] : undefined) ?? SECTION_CATEGORIES[id] ?? id
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
-      ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? "Yours", count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
+      ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
     return [
       ...mine,
-      { key: "all", label: "All", count: entries.length },
+      { key: "all", label: tt("All"), count: entries.length },
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
     ]
   }, [entries, compatInstallId])
@@ -1157,10 +1158,10 @@ export const SectionLibrary = memo(function SectionLibrary({
   }, [onAddSection, onOpenChange])
 
   const empty = searching
-    ? `Nothing matches “${query.trim()}”`
+    ? tt("Nothing matches “{value}”", { value: query.trim() })
     : activeCategory === CUSTOM_SECTION_CATEGORY
-      ? "Write a section in the code editor and it appears here"
-      : "No sections in this category"
+      ? tt("Write a section in the code editor and it appears here")
+      : tt("No sections in this category")
 
   const searchRef = useRef<HTMLInputElement | null>(null)
   const search = (
@@ -1171,8 +1172,8 @@ export const SectionLibrary = memo(function SectionLibrary({
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search sections"
-        aria-label="Search sections"
+        placeholder={tt("Search sections")}
+        aria-label={tt("Search sections")}
         /* 16px on a phone, or iOS zooms the page and does not zoom back. */
         className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white pl-9 pr-9 text-[16px] text-[#1a1a2e] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-black/5 md:h-9 md:text-sm [&::-webkit-search-cancel-button]:hidden"
       />
@@ -1180,7 +1181,7 @@ export const SectionLibrary = memo(function SectionLibrary({
         <button
           type="button"
           onClick={() => setQuery("")}
-          aria-label="Clear the search"
+          aria-label={tt("Clear the search")}
           className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
         >
           <X className="h-3.5 w-3.5" />
@@ -1259,10 +1260,10 @@ export const SectionLibrary = memo(function SectionLibrary({
       >
         <div className="flex min-h-0 flex-1 flex-col" data-section-library="phone" data-library-open={open ? "" : undefined}>
           <div className="shrink-0 px-4 pb-3 pt-0.5">
-            <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">Add a section</h2>
+            <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add a section")}</h2>
           </div>
           <div className="shrink-0 px-4 pb-3">{search}</div>
-          <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label="Categories">
+          <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label={tt("Categories")}>
             <div className="flex w-max gap-2">{categories.map(chip)}</div>
           </div>
           <div className="h-px w-full shrink-0 bg-[#f0f1f3]" />
@@ -1283,19 +1284,19 @@ export const SectionLibrary = memo(function SectionLibrary({
   return (
     <LibraryDialog open={open} onClose={() => onOpenChange(false)} labelledBy="section-library-title" searchRef={searchRef}>
       <div className="flex shrink-0 items-center gap-4 border-b border-[#f0f1f3] px-5 py-3.5">
-        <h2 id="section-library-title" className="min-w-0 shrink truncate text-[16px] font-semibold text-[#1a1a2e]">Add a section</h2>
+        <h2 id="section-library-title" className="min-w-0 shrink truncate text-[16px] font-semibold text-[#1a1a2e]">{tt("Add a section")}</h2>
         <div className="ml-auto w-[260px] max-w-full shrink-0">{search}</div>
         <button
           type="button"
           onClick={() => onOpenChange(false)}
-          aria-label="Close"
+          aria-label={tt("Close")}
           className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       <div className="flex min-h-0 flex-1">
-        <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label="Categories">
+        <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label={tt("Categories")}>
           {categories.map((cat) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
             return (
@@ -1329,7 +1330,7 @@ export const SectionLibrary = memo(function SectionLibrary({
         >
           {searching && (
             <p className="mb-3 text-[12.5px] text-[#6b7280]">
-              {shown.size === 1 ? "1 section" : `${shown.size} sections`} matching “{query.trim()}”
+              {shown.size === 1 ? tt("1 section") : tt("{size} sections", { size: shown.size })} {tt("matching “{value}”", { value: query.trim() })}
             </p>
           )}
           {grid}

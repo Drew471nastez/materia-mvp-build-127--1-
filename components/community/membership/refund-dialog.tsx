@@ -19,6 +19,7 @@ import { Check, Loader2 } from "lucide-react"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, FIELD } from "@/components/community/member/ui"
 import { REFUND_REASON_MAX, centsFromAmount, formatDay, formatMoney } from "@/lib/communities/membership-policy"
 import { MembershipSheet } from "./sheet"
+import { tt } from "@/lib/i18n/text"
 
 /** A payment as GET /api/app/community/<id>/payments answers it (lib/communities/server/membership-lifecycle CommunityPayment). */
 export interface CommunityPaymentView {
@@ -59,11 +60,11 @@ async function call<T>(url: string, body?: unknown): Promise<{ ok: true; data: T
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
     if (!res.ok) {
       const raw = typeof json.error === "string" ? json.error : ""
-      return { ok: false, error: raw && !/^[a-z_]+$/.test(raw) ? raw : "That did not go through. Try again." }
+      return { ok: false, error: raw && !/^[a-z_]+$/.test(raw) ? raw : tt("That did not go through. Try again.") }
     }
     return { ok: true, data: json as T }
   } catch {
-    return { ok: false, error: "No connection. Check it and try again." }
+    return { ok: false, error: tt("No connection. Check it and try again.") }
   }
 }
 
@@ -87,7 +88,7 @@ export function PaymentsSection({ communityId, locale = "en-US" }: { communityId
   return (
     <section aria-labelledby="community-payments-title" className="space-y-2.5" data-community-payments="">
       <h2 id="community-payments-title" className="px-1 text-[15px] font-semibold text-[#1a1a2e]">
-        Payments
+        {tt("Payments")}
       </h2>
       <CommunityPayments communityId={communityId} locale={locale} initial={payments} />
     </section>
@@ -114,20 +115,20 @@ export function CommunityPayments({ communityId, userId = null, locale = "en-US"
 
   if (error && !payments) return <p className="text-[14px] text-[#b42318]">{error}</p>
   if (!payments) return <div aria-hidden className="h-[120px] animate-pulse rounded-2xl bg-[#f3f4f6] motion-reduce:animate-none" data-payments="loading" />
-  if (payments.length === 0) return <p className="py-6 text-center text-[14px] text-[#6b7280]" data-payments="empty">No payments yet.</p>
+  if (payments.length === 0) return <p className="py-6 text-center text-[14px] text-[#6b7280]" data-payments="empty">{tt("No payments yet.")}</p>
 
   return (
     <div data-payments="">
       <ul className="divide-y divide-[#eef0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         {payments.map((p) => {
           const refunded = p.refundedCents > 0
-          const state = p.status === "disputed" ? "Disputed" : refunded ? (p.refundedCents >= p.amountCents ? "Refunded" : `${formatMoney(p.refundedCents, p.currency, locale)} refunded`) : null
+          const state = p.status === "disputed" ? tt("Disputed") : refunded ? (p.refundedCents >= p.amountCents ? tt("Refunded") : tt("{amount} refunded", { amount: formatMoney(p.refundedCents, p.currency, locale) })) : null
           return (
             <li key={p.orderId} className="flex min-h-16 items-center gap-3 px-4 py-3" data-payment={p.orderId}>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{p.buyerName}</p>
                 <p className="truncate text-[13px] text-[#6b7280]">
-                  {p.kind === "membership" ? "Membership" : p.productTitle} · {formatDay(p.createdAt, locale)}
+                  {p.kind === "membership" ? tt("Membership") : p.productTitle} · {formatDay(p.createdAt, locale)}
                 </p>
                 {state ? (
                   <p className={`truncate text-[13px] ${p.status === "disputed" ? "text-[#b42318]" : "text-[#6b7280]"}`} data-payment-state="">
@@ -144,7 +145,7 @@ export function CommunityPayments({ communityId, userId = null, locale = "en-US"
               <p className={`shrink-0 text-[14.5px] tabular-nums ${refunded && p.refundedCents >= p.amountCents ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]"}`}>{formatMoney(p.amountCents, p.currency, locale)}</p>
               {p.refundableCents > 0 && p.status !== "disputed" ? (
                 <button type="button" className={`${BTN_GHOST} shrink-0`} onClick={() => setRefunding(p)} data-payment-refund={p.orderId}>
-                  Refund
+                  {tt("Refund")}
                 </button>
               ) : (
                 <span className="hidden w-[68px] shrink-0 sm:block" aria-hidden />
@@ -169,7 +170,7 @@ export function CommunityPayments({ communityId, userId = null, locale = "en-US"
           )
           setDone((d) => ({
             ...d,
-            [p.orderId]: `${r.pending ? "Refund started" : "Refunded"} ${formatMoney(r.amountCents, p.currency, locale)}${r.endedMembership ? ", membership ended" : ""}.${r.emailed ? ` ${p.buyerName.split(" ")[0]} was emailed.` : ""}`,
+            [p.orderId]: `${r.pending ? tt("Refund started") : tt("Refunded")} ${formatMoney(r.amountCents, p.currency, locale)}${r.endedMembership ? tt(", membership ended") : ""}.${r.emailed ? tt(" {value} was emailed.", { value: p.buyerName.split(" ")[0] }) : ""}`,
           }))
         }}
       />
@@ -216,7 +217,7 @@ export function RefundDialog({
 
   const submit = async () => {
     if (!p || busy) return
-    if (!cents || tooMuch) return setError(tooMuch ? `At most ${money(max)} can go back.` : "Enter an amount to refund.")
+    if (!cents || tooMuch) return setError(tooMuch ? tt("At most {amount} can go back.", { amount: money(max) }) : tt("Enter an amount to refund."))
     setBusy(true)
     setError(null)
     const r = await call<{ refund: RefundResult }>(`/api/app/community/${communityId}/refunds`, {
@@ -255,17 +256,17 @@ export function RefundDialog({
       onClose={onClose}
       busy={busy}
       marker="refund"
-      title={p ? `Refund ${p.buyerName.split(" ")[0]}` : "Refund"}
+      title={p ? tt("Refund {value}", { value: p.buyerName.split(" ")[0] }) : tt("Refund")}
       footer={(phone) => {
         const go = (
           <button key="go" type="button" className={`${BTN_PRIMARY} ${phone ? "h-11 w-full text-[15px]" : ""}`} onClick={() => void submit()} disabled={busy || !cents || tooMuch} data-refund-submit="">
             {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
-            {busy ? "Refunding" : cents && !tooMuch ? `Refund ${money(cents)}` : "Refund"}
+            {busy ? tt("Refunding") : cents && !tooMuch ? tt("Refund {amount}", { amount: money(cents) }) : tt("Refund")}
           </button>
         )
         const cancel = (
           <button key="cancel" type="button" className={phone ? `${BTN_SECONDARY} h-11 w-full text-[15px]` : BTN_GHOST} onClick={onClose} disabled={busy}>
-            Cancel
+            {tt("Cancel")}
           </button>
         )
         return phone ? [go, cancel] : [cancel, go]
@@ -274,11 +275,11 @@ export function RefundDialog({
       {p ? (
         <div data-refund-form="">
           <p className="text-[14px] leading-relaxed text-[#6b7280]">
-            {p.kind === "membership" ? "Membership payment" : p.productTitle} of {money(p.amountCents)} on {formatDay(p.createdAt, locale)}.
+            {p.kind === "membership" ? tt("Membership payment") : p.productTitle} {tt("of {amount} on {date}.", { amount: money(p.amountCents), date: formatDay(p.createdAt, locale) })}
           </p>
-          <div role="radiogroup" aria-label="How much" className="mt-3 divide-y divide-[#f0f1f3] overflow-hidden rounded-xl border border-[#e6e8eb] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.04)]">
-            {radio(!part, p.refundedCents > 0 ? "The rest" : "Full refund", money(max), () => setPart(false), "full")}
-            {radio(part, "Part of it", "Choose the amount", () => setPart(true), "part")}
+          <div role="radiogroup" aria-label={tt("How much")} className="mt-3 divide-y divide-[#f0f1f3] overflow-hidden rounded-xl border border-[#e6e8eb] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.04)]">
+            {radio(!part, p.refundedCents > 0 ? tt("The rest") : tt("Full refund"), money(max), () => setPart(false), "full")}
+            {radio(part, tt("Part of it"), tt("Choose the amount"), () => setPart(true), "part")}
           </div>
           {part ? (
             <input
@@ -287,7 +288,7 @@ export function RefundDialog({
               value={amount}
               onChange={(e) => setAmount(e.target.value.slice(0, 12))}
               placeholder={money(max)}
-              aria-label="Amount to refund"
+              aria-label={tt("Amount to refund")}
               className={`${FIELD} mt-3 h-11 tabular-nums shadow-[0_1px_1px_rgba(16,24,40,0.04)] ${tooMuch ? "border-[#f3b4ae]" : ""}`}
               data-refund-amount=""
             />
@@ -297,20 +298,20 @@ export function RefundDialog({
             onChange={(e) => setReason(e.target.value.slice(0, REFUND_REASON_MAX))}
             rows={2}
             maxLength={REFUND_REASON_MAX}
-            placeholder="Reason, for your records (optional)"
-            aria-label="Reason"
+            placeholder={tt("Reason, for your records (optional)")}
+            aria-label={tt("Reason")}
             className={`${FIELD} mt-3 block resize-none shadow-[0_1px_1px_rgba(16,24,40,0.04)]`}
           />
           {p.kind === "membership" && p.subscriptionRunning ? (
             <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-0.5 py-1.5" data-refund-end="">
               <input type="checkbox" checked={end} onChange={(e) => setEnd(e.target.checked)} className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-[#1a1a2e]" />
               <span className="text-[14px] leading-snug text-[#374151]">
-                End their membership now
-                <span className="block text-[13px] text-[#6b7280]">Access stops today and they are not charged again. Otherwise it renews as usual.</span>
+                {tt("End their membership now")}
+                <span className="block text-[13px] text-[#6b7280]">{tt("Access stops today and they are not charged again. Otherwise it renews as usual.")}</span>
               </span>
             </label>
           ) : null}
-          <p className="mt-3 text-[13px] leading-relaxed text-[#6b7280]">It goes back to their card in 5 to 10 business days, and your share comes back from your Stripe balance. They get an email.</p>
+          <p className="mt-3 text-[13px] leading-relaxed text-[#6b7280]">{tt("It goes back to their card in 5 to 10 business days, and your share comes back from your Stripe balance. They get an email.")}</p>
           {error ? (
             <p role="alert" className="mt-3 text-[13.5px] text-[#b42318]">
               {error}

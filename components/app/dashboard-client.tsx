@@ -75,6 +75,8 @@ import type { Reports } from "@/lib/analytics/reports"
 import { NOW_STEP_MS, askReport, keptAnswer, questionOf, reportNow } from "@/lib/analytics/report-cache"
 import { PhysicalSetupCard } from "@/components/app/home/physical-setup-card"
 import { ReadinessBanner } from "@/components/physical/readiness-banner"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -236,10 +238,10 @@ export function DashboardTrendChart({
   const frameData = useMemo(() => (datesKey ? datesKey.split("\u0000").map((label) => ({ label })) : []), [datesKey])
 
   const formatValue = useCallback((val: number | null) => {
-    if (val === null) return "No visitors"
+    if (val === null) return tt("No visitors")
     if (openKPIModal === "revenue") return `$${val.toFixed(2)}`
     if (openKPIModal === "conversion") return `${val}%`
-    return val.toLocaleString()
+    return val.toLocaleString(appLocale())
   }, [openKPIModal])
 
   const metricLabel = openKPIModal === "views" ? t("dashboard.visitors")
@@ -259,7 +261,7 @@ export function DashboardTrendChart({
     () => [
       { label: metricLabel, value: (i) => formatValue(displayChartData[i] ? displayChartData[i].value : 0), mark: "line", tone: "value", color: "#8b5cf6" },
       ...(openKPIModal === "orders"
-        ? [{ value: (i: number) => { const r = displayChartData[i]?.refunds ?? 0; return r > 0 ? `${r} refunded` : null }, mark: null, tone: "note" } as ScrubRow]
+        ? [{ value: (i: number) => { const r = displayChartData[i]?.refunds ?? 0; return r > 0 ? tt("{r} refunded", { r }) : null }, mark: null, tone: "note" } as ScrubRow]
         : []),
     ],
     [displayChartData, metricLabel, formatValue, openKPIModal],
@@ -830,7 +832,7 @@ export function DashboardClient({
       return `$${(value / 1000).toFixed(1).replace(/\.0$/, '')}K`
     }
     // Remove decimal places if they are .00
-    const formatted = new Intl.NumberFormat("en-US", {
+    const formatted = new Intl.NumberFormat(appLocale(), {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 0,
@@ -847,7 +849,7 @@ export function DashboardClient({
     if (num >= 1000) {
       return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}K`
     }
-    return num.toLocaleString()
+    return num.toLocaleString(appLocale())
   }
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -1027,7 +1029,7 @@ export function DashboardClient({
     const list: ShareAddress[] = [
       {
         surface: "creator",
-        label: "Creator page",
+        label: tt("Creator page"),
         url: domainIsPage ? `https://${connectedDomain}` : getStoreShareUrl(creatorHandle),
         display: domainIsPage ? (connectedDomain as string) : getStoreUrlDisplay(creatorHandle),
       },
@@ -1042,7 +1044,7 @@ export function DashboardClient({
     if (websitePublished) {
       list.push({
         surface: "website",
-        label: "Website",
+        label: tt("Website"),
         url: domainIsWebsite ? `https://${websiteDomain}` : getWebsiteShareUrl(creatorHandle),
         display: domainIsWebsite ? (websiteDomain as string) : getWebsiteUrlDisplay(creatorHandle),
       })
@@ -1212,7 +1214,7 @@ export function DashboardClient({
               The strip follows the chosen tab; the browser scrolls it, and
               decides from the swipe whether it is the row's or the page's
               (components/app/use-tab-strip). */}
-          <div ref={kpiStripRef} role="tablist" aria-label="Metric" data-scroll-x className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={TAB_STRIP_STYLE}>
+          <div ref={kpiStripRef} role="tablist" aria-label={tt("Metric")} data-scroll-x className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={TAB_STRIP_STYLE}>
             {/* The four figures: components/app/metric-tab, the same tab Analytics draws. */}
             <MetricTab
               tab="views"
@@ -1272,7 +1274,7 @@ export function DashboardClient({
               <button
                 onClick={(e) => { e.stopPropagation(); setChartExpanded(!chartExpanded) }}
                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f3f4f6] md:bg-transparent hover:bg-[#e5e7eb] md:hover:bg-[#f3f4f6] transition-colors shrink-0"
-                title={chartExpanded ? "Hide chart" : "Show chart"}
+                title={chartExpanded ? tt("Hide chart") : tt("Show chart")}
               >
                 {chartExpanded ? (
                   <ChevronUp className="h-4 w-4 text-[#6b7280]" />
@@ -1343,12 +1345,12 @@ export function DashboardClient({
                   {figuresReady && !hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                       <span className="text-[11px] text-[#c8ccd4]">
-                        {showSampleData ? "Sample data" : "No activity yet"}
+                        {showSampleData ? tt("Sample data") : tt("No activity yet")}
                       </span>
                       <button
                         onClick={() => setShowSampleData(prev => !prev)}
                         className={`relative inline-flex h-4 w-7 rounded-full transition-colors cursor-pointer ${showSampleData ? "bg-indigo-300/80" : "bg-[#e9ecef]"}`}
-                        aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
+                        aria-label={showSampleData ? tt("Hide sample data") : tt("Show sample data")}
                       >
                         <span className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 transition-transform ${showSampleData ? "translate-x-3.5" : "translate-x-0.5"}`} />
                       </button>

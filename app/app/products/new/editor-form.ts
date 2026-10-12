@@ -16,6 +16,7 @@
 
 import { fieldRows, type CustomField } from "@/lib/products/custom-fields"
 import { isPosterName, isVideoUrl } from "@/lib/media/video"
+import { tt } from "@/lib/i18n/text"
 
 export interface UploadedFile {
   id?: string
@@ -67,14 +68,14 @@ export const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included 
 export const PHYSICAL_WHATS_INCLUDED: string[] = []
 
 export const PHYSICAL_FAQS: FAQItem[] = [
-  { id: "physical-1", question: "When will my order arrive?", answer: "You'll see delivery options and times at checkout, and you'll get an email with tracking when it ships.", isDefault: true },
-  { id: "physical-2", question: "Can I return it?", answer: "Returns are set by the shop. You can ask for one from your order page.", isDefault: true },
+  { id: "physical-1", get question() { return tt("When will my order arrive?") }, get answer() { return tt("You'll see delivery options and times at checkout, and you'll get an email with tracking when it ships.") }, isDefault: true },
+  { id: "physical-2", get question() { return tt("Can I return it?") }, get answer() { return tt("Returns are set by the shop. You can ask for one from your order page.") }, isDefault: true },
 ]
 
 export const DEFAULT_FAQS: FAQItem[] = [
-  { id: "default-1", question: "How do I access my purchase?", answer: "After checkout, download immediately on the download page. You'll also receive an email with the download link.", isDefault: true },
-  { id: "default-2", question: "Is there a refund policy?", answer: "Refund policies are set by individual creators. Check product info or contact the seller for details.", isDefault: true },
-  { id: "default-3", question: "How long do I have access?", answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.", isDefault: true },
+  { id: "default-1", get question() { return tt("How do I access my purchase?") }, get answer() { return tt("After checkout, download immediately on the download page. You'll also receive an email with the download link.") }, isDefault: true },
+  { id: "default-2", get question() { return tt("Is there a refund policy?") }, get answer() { return tt("Refund policies are set by individual creators. Check product info or contact the seller for details.") }, isDefault: true },
+  { id: "default-3", get question() { return tt("How long do I have access?") }, get answer() { return tt("You have lifetime access to all purchased content. Once you buy, it's yours forever.") }, isDefault: true },
 ]
 
 /*
@@ -87,9 +88,9 @@ export const DEFAULT_FAQS: FAQItem[] = [
 export const COURSE_WHATS_INCLUDED = ["Every lesson, to watch at your own pace", "Your place kept in each lesson", "Lifetime access"]
 
 export const COURSE_FAQS: FAQItem[] = [
-  { id: "default-1", question: "How do I watch the course?", answer: "After checkout the course is in your library. Lessons play in your browser and in the Storelib app, and each one picks up where you left off.", isDefault: true },
+  { id: "default-1", get question() { return tt("How do I watch the course?") }, get answer() { return tt("After checkout the course is in your library. Lessons play in your browser and in the Storelib app, and each one picks up where you left off.") }, isDefault: true },
   DEFAULT_FAQS[1],
-  { id: "default-3", question: "How long do I have access?", answer: "For good. Every lesson stays in your library, including the ones added later.", isDefault: true },
+  { id: "default-3", get question() { return tt("How long do I have access?") }, get answer() { return tt("For good. Every lesson stays in your library, including the ones added later.") }, isDefault: true },
 ]
 
 function sameList<T>(a: T[], b: T[], key: (x: T) => string): boolean {

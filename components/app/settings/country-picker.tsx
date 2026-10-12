@@ -24,6 +24,7 @@ import { ChoicePicker } from "@/components/ui/choice-list"
 import { countryChoices, countryLabel, countryOf, countryToSave } from "@/lib/account/country"
 import { FLAG_CODES, FLAG_SPRITE } from "@/lib/account/flag-sprite"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /* One observer per list scroller, shared by every flag in it. */
 const observers = new WeakMap<Element, IntersectionObserver>()
@@ -145,12 +146,12 @@ export function CountryPicker({
     <ChoicePicker
       id={id}
       name="country"
-      title="Country"
+      title={tt("Country")}
       choices={countryChoices}
       value={code}
       onChange={(next) => onChange(countryToSave(next))}
-      placeholder="Search countries"
-      fieldLabel={shown || "Select country"}
+      placeholder={tt("Search countries")}
+      fieldLabel={shown || tt("Select country")}
       fieldMuted={!shown}
       fieldLeading={code ? <CountryFlag code={code} /> : null}
       leading={(choice, near) => <CountryFlag code={choice.value} near={near} />}

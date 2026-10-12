@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { ICON_GROUPS, searchIcons } from "@/lib/website-builder/icon-library"
 import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
 import { FieldPopover, FIELD_TRIGGER, usePhoneLayout } from "@/components/website-builder/field-popover"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -83,8 +84,8 @@ export function IconPicker({
         autoFocus={!phone}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search icons"
-        aria-label="Search icons"
+        placeholder={tt("Search icons")}
+        aria-label={tt("Search icons")}
         className="h-7 w-full bg-transparent text-[14px] text-[#111827] outline-none placeholder:text-[#9ca3af] max-sm:text-[16px]"
       />
     </div>
@@ -94,7 +95,7 @@ export function IconPicker({
     <FieldPopover
       open={open}
       float
-      sheetLabel="Choose an icon"
+      sheetLabel={tt("Choose an icon")}
       sheetHeader={search}
       onOpenChange={(next) => (next ? setOpen(true) : close())}
       trigger={
@@ -102,7 +103,7 @@ export function IconPicker({
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] border border-[#e5e7eb] bg-white text-[#111827] shadow-[0_1px_2px_rgba(16,24,40,0.06)]">
             {Current ? <Current className="h-3.5 w-3.5" strokeWidth={1.9} /> : <Ban className="h-3 w-3 text-[#9ca3af]" strokeWidth={2} />}
           </span>
-          <span className={cn("min-w-0 flex-1 truncate", value ? "text-foreground" : "text-muted-foreground")}>{value ? iconLabel(value) : "No icon"}</span>
+          <span className={cn("min-w-0 flex-1 truncate", value ? "text-foreground" : "text-muted-foreground")}>{value ? iconLabel(value) : tt("No icon")}</span>
           <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150", open && "rotate-180")} />
         </button>
       }
@@ -125,7 +126,7 @@ export function IconPicker({
                   on ? "bg-[#111827] text-white" : "bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e9eaee]",
                 )}
               >
-                {label ?? "All"}
+                {label ?? tt("All")}
               </button>
             )
           })}
@@ -143,7 +144,7 @@ export function IconPicker({
               {(searching || !group) && <p className="mb-1 text-[12px] font-medium text-[#6b7280]">{g.label}</p>}
               <div className="grid grid-cols-6 gap-1 max-sm:grid-cols-6">
                 {none && (
-                  <button type="button" title="No icon" aria-label="No icon" aria-pressed={!value} onClick={() => pick("")} className={cn(TILE, !value && TILE_ON)} data-icon-none="">
+                  <button type="button" title={tt("No icon")} aria-label={tt("No icon")} aria-pressed={!value} onClick={() => pick("")} className={cn(TILE, !value && TILE_ON)} data-icon-none="">
                     <Ban className="h-4 w-4 text-[#9ca3af]" strokeWidth={1.75} />
                   </button>
                 )}
@@ -162,7 +163,7 @@ export function IconPicker({
         })}
 
         {matches.length === 0 && (
-          <p className="px-2 py-6 text-center text-[13px] text-[#6b7280]">Nothing matches “{query.trim()}”.</p>
+          <p className="px-2 py-6 text-center text-[13px] text-[#6b7280]">{tt("Nothing matches “{value}”.", { value: query.trim() })}</p>
         )}
       </div>
     </FieldPopover>

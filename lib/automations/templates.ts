@@ -16,6 +16,7 @@
  */
 
 import type { Audience, EntryRule, FlowStep, TriggerType } from "./flow-model"
+import { tt } from "@/lib/i18n/text"
 
 export interface FlowTemplate {
   id: string
@@ -36,7 +37,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "welcome",
     name: "Welcome series",
-    purpose: "Say hello to new subscribers, then check in a few days later.",
+    get purpose() { return tt("Say hello to new subscribers, then check in a few days later.") },
     trigger: "new_subscriber",
     entry: { mode: "after", days: 30 },
     steps: [
@@ -44,7 +45,7 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "welcome_1",
         type: "email",
         config: {
-          subject: "Welcome, {{first_name}}",
+          get subject() { return tt("Welcome, {{first_name}}") },
           body: "<p>Hi {{first_name}},</p><p>Thanks for signing up. You will hear from me when I have something new, and now and then about a sale. That is all.</p><p>You can reply to any of my emails. It comes straight to me.</p><p>{{creator_name}}</p>",
         },
       },
@@ -53,8 +54,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "welcome_2",
         type: "email",
         config: {
-          subject: "Can I ask you something?",
-          body: `<p>Hi {{first_name}},</p><p>Quick question: what made you sign up? Reply with a line or two. It helps me decide what to make next.</p>${button("See what I have made", "store_url")}<p>{{creator_name}}</p>`,
+          get subject() { return tt("Can I ask you something?") },
+          get body() { return `<p>Hi {{first_name}},</p><p>Quick question: what made you sign up? Reply with a line or two. It helps me decide what to make next.</p>${button(tt("See what I have made"), "store_url")}<p>{{creator_name}}</p>` },
         },
       },
     ],
@@ -62,7 +63,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "checkout_reminder",
     name: "Checkout reminder",
-    purpose: "Remind someone who reached checkout and did not pay.",
+    get purpose() { return tt("Remind someone who reached checkout and did not pay.") },
     trigger: "abandoned_checkout",
     entry: { mode: "after", days: 7 },
     steps: [
@@ -70,8 +71,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "cart_1",
         type: "email",
         config: {
-          subject: "You left {{product_name}} at checkout",
-          body: `<p>Hi {{first_name}},</p><p>You got as far as checkout with {{product_name}} and stopped there. If the payment failed or something looked off, you can pick up where you left off.</p>${button("Finish checkout", "checkout_url")}<p>Got a question first? Just reply.</p><p>{{creator_name}}</p>`,
+          get subject() { return tt("You left {{product_name}} at checkout") },
+          get body() { return `<p>Hi {{first_name}},</p><p>You got as far as checkout with {{product_name}} and stopped there. If the payment failed or something looked off, you can pick up where you left off.</p>${button(tt("Finish checkout"), "checkout_url")}<p>Got a question first? Just reply.</p><p>{{creator_name}}</p>` },
         },
       },
       { id: "cart_wait", type: "wait", config: { amount: 1, unit: "days" } },
@@ -79,8 +80,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "cart_2",
         type: "email",
         config: {
-          subject: "Still thinking about {{product_name}}?",
-          body: `<p>Hi {{first_name}},</p><p>One more note about {{product_name}}, in case my last email got buried. It is still there if you want it.</p>${button("Take another look", "product_url")}<p>I will not email you about it again.</p><p>{{creator_name}}</p>`,
+          get subject() { return tt("Still thinking about {{product_name}}?") },
+          get body() { return `<p>Hi {{first_name}},</p><p>One more note about {{product_name}}, in case my last email got buried. It is still there if you want it.</p>${button(tt("Take another look"), "product_url")}<p>I will not email you about it again.</p><p>{{creator_name}}</p>` },
         },
       },
     ],
@@ -88,7 +89,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "first_order",
     name: "First order welcome",
-    purpose: "Thank someone for their first order, then check it all worked.",
+    get purpose() { return tt("Thank someone for their first order, then check it all worked.") },
     trigger: "first_purchase",
     entry: { mode: "once" },
     steps: [
@@ -96,8 +97,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "first_1",
         type: "email",
         config: {
-          subject: "Thanks for your first order, {{first_name}}",
-          body: `<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. It is your first order from {{store_name}}, and I am glad you picked it.</p><p>Your download is on your order page. Keep the link and you can go back to it whenever you like.</p>${button("Open your order", "order_url")}<p>If something does not work, reply and I will sort it out.</p><p>{{creator_name}}</p>`,
+          get subject() { return tt("Thanks for your first order, {{first_name}}") },
+          get body() { return `<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. It is your first order from {{store_name}}, and I am glad you picked it.</p><p>Your download is on your order page. Keep the link and you can go back to it whenever you like.</p>${button(tt("Open your order"), "order_url")}<p>If something does not work, reply and I will sort it out.</p><p>{{creator_name}}</p>` },
         },
       },
       { id: "first_wait", type: "wait", config: { amount: 5, unit: "days" } },
@@ -105,7 +106,7 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "first_2",
         type: "email",
         config: {
-          subject: "Did the download work?",
+          get subject() { return tt("Did the download work?") },
           body: "<p>Hi {{first_name}},</p><p>Checking in a few days after your order. Did {{product_name}} download all right, and is it what you expected?</p><p>If anything is missing or confusing, reply and tell me. I will fix it.</p><p>{{creator_name}}</p>",
         },
       },
@@ -114,7 +115,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "thank_you",
     name: "Thank you after a purchase",
-    purpose: "A personal note from you, right after someone buys.",
+    get purpose() { return tt("A personal note from you, right after someone buys.") },
     trigger: "purchase",
     entry: { mode: "each" },
     steps: [
@@ -122,8 +123,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "thanks_1",
         type: "email",
         config: {
-          subject: "Thank you for buying {{product_name}}",
-          body: `<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. It means a lot.</p><p>Your receipt and download link are in a separate email, and your order page has them too:</p>${button("Open your order", "order_url")}<p>If anything is unclear, reply to this email. It comes straight to me.</p><p>Thanks again,<br>{{creator_name}}</p>`,
+          get subject() { return tt("Thank you for buying {{product_name}}") },
+          get body() { return `<p>Hi {{first_name}},</p><p>Thank you for buying {{product_name}}. It means a lot.</p><p>Your receipt and download link are in a separate email, and your order page has them too:</p>${button(tt("Open your order"), "order_url")}<p>If anything is unclear, reply to this email. It comes straight to me.</p><p>Thanks again,<br>{{creator_name}}</p>` },
         },
       },
     ],
@@ -131,7 +132,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "how_to_use",
     name: "How to use it",
-    purpose: "The day after a purchase, where to find it and how to get help.",
+    get purpose() { return tt("The day after a purchase, where to find it and how to get help.") },
     trigger: "purchase",
     entry: { mode: "each" },
     steps: [
@@ -140,8 +141,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "use_1",
         type: "email",
         config: {
-          subject: "Getting started with {{product_name}}",
-          body: `<p>Hi {{first_name}},</p><p>A quick note now that you have had {{product_name}} for a day. Your files are on your order page. Download them once and keep a copy somewhere you will find it.</p>${button("Open your order", "order_url")}<p>Not sure where to start? Reply with what you are working on and I will point you to the right part.</p><p>{{creator_name}}</p>`,
+          get subject() { return tt("Getting started with {{product_name}}") },
+          get body() { return `<p>Hi {{first_name}},</p><p>A quick note now that you have had {{product_name}} for a day. Your files are on your order page. Download them once and keep a copy somewhere you will find it.</p>${button(tt("Open your order"), "order_url")}<p>Not sure where to start? Reply with what you are working on and I will point you to the right part.</p><p>{{creator_name}}</p>` },
         },
       },
     ],
@@ -149,7 +150,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "check_in",
     name: "Check in after a week",
-    purpose: "Ask a buyer how it is going, seven days after they bought.",
+    get purpose() { return tt("Ask a buyer how it is going, seven days after they bought.") },
     trigger: "purchase",
     entry: { mode: "each" },
     steps: [
@@ -158,7 +159,7 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "checkin_1",
         type: "email",
         config: {
-          subject: "How is {{product_name}} going?",
+          get subject() { return tt("How is {{product_name}} going?") },
           body: "<p>Hi {{first_name}},</p><p>It has been a week since you bought {{product_name}}. How is it going so far?</p><p>If you have a minute, reply with a sentence or two. I read every one, and it shapes what I make next.</p><p>{{creator_name}}</p>",
         },
       },
@@ -167,7 +168,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "review_request",
     name: "Ask for a review",
-    purpose: "Ten days after a purchase, ask for a short review.",
+    get purpose() { return tt("Ten days after a purchase, ask for a short review.") },
     trigger: "purchase",
     entry: { mode: "each" },
     steps: [
@@ -176,8 +177,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "review_1",
         type: "email",
         config: {
-          subject: "Would you review {{product_name}}?",
-          body: `<p>Hi {{first_name}},</p><p>If you have a minute, would you leave a short review of {{product_name}}? A few honest words help other people decide, and they help me too.</p>${button("Leave a review", "review_url")}<p>If something did not work, reply here instead and I will fix it.</p><p>Thank you,<br>{{creator_name}}</p>`,
+          get subject() { return tt("Would you review {{product_name}}?") },
+          get body() { return `<p>Hi {{first_name}},</p><p>If you have a minute, would you leave a short review of {{product_name}}? A few honest words help other people decide, and they help me too.</p>${button(tt("Leave a review"), "review_url")}<p>If something did not work, reply here instead and I will fix it.</p><p>Thank you,<br>{{creator_name}}</p>` },
         },
       },
     ],
@@ -185,7 +186,7 @@ export const TEMPLATES: FlowTemplate[] = [
   {
     id: "win_back",
     name: "Bring buyers back",
-    purpose: "Two months after a purchase, and only if they have not bought since.",
+    get purpose() { return tt("Two months after a purchase, and only if they have not bought since.") },
     trigger: "purchase",
     entry: { mode: "each" },
     audience: "subscribers",
@@ -196,8 +197,8 @@ export const TEMPLATES: FlowTemplate[] = [
         id: "winback_1",
         type: "email",
         config: {
-          subject: "New since you bought {{product_name}}",
-          body: `<p>Hi {{first_name}},</p><p>It has been a couple of months since you bought {{product_name}}. I have made a few new things since then that you might like.</p>${button("See what is new", "store_url")}<p>Thanks for supporting my work.</p><p>{{creator_name}}</p>`,
+          get subject() { return tt("New since you bought {{product_name}}") },
+          get body() { return `<p>Hi {{first_name}},</p><p>It has been a couple of months since you bought {{product_name}}. I have made a few new things since then that you might like.</p>${button(tt("See what is new"), "store_url")}<p>Thanks for supporting my work.</p><p>{{creator_name}}</p>` },
         },
       },
     ],

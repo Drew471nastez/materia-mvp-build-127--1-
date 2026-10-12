@@ -46,6 +46,7 @@
  */
 import { ratePrice } from "./rates"
 import type { Location, ShippingProfile } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 export type ReadinessLevel = "blocking" | "recommended"
 
@@ -172,8 +173,8 @@ const BY_WEIGHT = new Set(["weight", "item_weight"])
 export function namesOf(titles: string[]): string {
   const names = [...new Set(titles.filter(Boolean))]
   if (names.length <= 1) return names[0] ?? ""
-  if (names.length === 2) return `${names[0]} and ${names[1]}`
-  return `${names[0]}, ${names[1]} and ${names.length - 2} more`
+  if (names.length === 2) return tt("{names} and {names2}", { names: names[0], names2: names[1] })
+  return tt("{names}, {names2} and {value} more", { names: names[0], names2: names[1], value: names.length - 2 })
 }
 
 /**
@@ -183,7 +184,7 @@ export function namesOf(titles: string[]): string {
 export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | null } = {}): PhysicalReadiness {
   const products = f.products.map((p) => (opts.asLive && p.id === opts.asLive ? { ...p, live: true } : p))
   /* "new": a product not saved yet, which saving publishes. Only what is true of the store is asked about it: its price and weight aren't known. */
-  if (opts.asLive === NEW_PRODUCT) products.push({ id: NEW_PRODUCT, title: "This product", live: true, requiresShipping: true, tracked: true, inStock: true, weightGrams: null, priceCents: -1, shippingProfileId: null, locationId: null })
+  if (opts.asLive === NEW_PRODUCT) products.push({ id: NEW_PRODUCT, title: tt("This product"), live: true, requiresShipping: true, tracked: true, inStock: true, weightGrams: null, priceCents: -1, shippingProfileId: null, locationId: null })
   const unknown = (p: ReadinessProduct) => p.priceCents < 0
   const live = products.filter((p) => p.live)
   /* What is checked: the products on sale, or before anything is, every physical product (Settings' checklist). */
@@ -201,21 +202,21 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
   if (products.length === 0) return summary(products, items)
 
   if (f.paymentsReady === false) {
-    items.push({ id: "payments", level: "blocking", title: "Set up payments", why: "Buyers can't pay at checkout until this is done.", href: PAYOUTS, fix: "Set up" })
+    items.push({ id: "payments", level: "blocking", title: tt("Set up payments"), why: tt("Buyers can't pay at checkout until this is done."), href: PAYOUTS, fix: tt("Set up") })
   }
 
   if (shipping.length && !anyRates && !otherWay) {
-    items.push({ id: "delivery", level: "blocking", title: "Add a shipping rate", why: "Checkout has no way to get an order to the buyer, so nobody can buy.", href: SHIPPING, fix: "Add rate" })
+    items.push({ id: "delivery", level: "blocking", title: tt("Add a shipping rate"), why: tt("Checkout has no way to get an order to the buyer, so nobody can buy."), href: SHIPPING, fix: tt("Add rate") })
   } else if (shipping.length && !otherWay) {
     const noRates = shipping.filter((p) => usableRates(profileOf(f.profiles, p.shippingProfileId)).length === 0)
     if (noRates.length) {
       items.push({
         id: "profile_rates",
         level: "blocking",
-        title: noRates.length === 1 ? `${noRates[0].title} has no shipping rate` : `${noRates.length} products have no shipping rate`,
-        why: `${namesOf(noRates.map((p) => p.title))} ${noRates.length === 1 ? "uses" : "use"} a shipping profile with no rates, so buyers can't check out with ${noRates.length === 1 ? "it" : "them"}.`,
+        title: noRates.length === 1 ? tt("{title} has no shipping rate", { title: noRates[0].title }) : tt("{length} products have no shipping rate", { length: noRates.length }),
+        why: tt("{name} {length, plural, one {uses} other {use}} a shipping profile with no rates, so buyers can't check out with {length, plural, one {it} other {them}}.", { name: namesOf(noRates.map((p) => p.title)), length: noRates.length }),
         href: SHIPPING,
-        fix: "Add rate",
+        fix: tt("Add rate"),
         products: noRates.map((p) => p.title),
       })
     }
@@ -227,23 +228,23 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
       items.push({
         id: "rate_fit",
         level: "blocking",
-        title: misfit.length === 1 ? `${misfit[0].title} gets no shipping price` : `${misfit.length} products get no shipping price`,
-        why: "Their price or weight is outside every rate you have, so checkout offers no delivery for them on their own.",
+        title: misfit.length === 1 ? tt("{title} gets no shipping price", { title: misfit[0].title }) : tt("{length} products get no shipping price", { length: misfit.length }),
+        why: tt("Their price or weight is outside every rate you have, so checkout offers no delivery for them on their own."),
         href: SHIPPING,
-        fix: "Check rates",
+        fix: tt("Check rates"),
         products: misfit.map((p) => p.title),
       })
     }
   }
 
   if (relevant.some((p) => p.tracked) && fulfilling.length === 0) {
-    items.push({ id: "location", level: "blocking", title: "Add a location you ship from", why: "Products that track stock show as sold out until a location fulfils orders.", href: LOCATIONS, fix: "Add location" })
+    items.push({ id: "location", level: "blocking", title: tt("Add a location you ship from"), why: tt("Products that track stock show as sold out until a location fulfils orders."), href: LOCATIONS, fix: tt("Add location") })
   }
 
   const usedLocations = new Set(relevant.map((p) => p.locationId).filter(Boolean) as string[])
   for (const l of fulfilling) {
     if (!l.partner || l.partner.connected || !usedLocations.has(l.id)) continue
-    items.push({ id: "partner", level: "blocking", title: `Connect ${l.partner.name}`, why: `Orders for products made by ${l.partner.name} won't be sent to them until it's connected.`, href: INTEGRATIONS, fix: "Connect" })
+    items.push({ id: "partner", level: "blocking", title: tt("Connect {name}", { name: l.partner.name }), why: tt("Orders for products made by {name} won't be sent to them until it's connected.", { name: l.partner.name }), href: INTEGRATIONS, fix: tt("Connect") })
     break
   }
 
@@ -254,10 +255,10 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
     items.push({
       id: "stock",
       level: "recommended",
-      title: soldOut.length === 1 ? `${soldOut[0].title} is out of stock` : `${soldOut.length} live products are out of stock`,
-      why: soldOut.length === 1 ? "Buyers see it as sold out. Add stock, or let it keep selling when it runs out." : "Buyers see them as sold out. Add stock, or let them keep selling when they run out.",
+      title: soldOut.length === 1 ? tt("{title} is out of stock", { title: soldOut[0].title }) : tt("{length} live products are out of stock", { length: soldOut.length }),
+      why: soldOut.length === 1 ? tt("Buyers see it as sold out. Add stock, or let it keep selling when it runs out.") : tt("Buyers see them as sold out. Add stock, or let them keep selling when they run out."),
       href: INVENTORY,
-      fix: "Add stock",
+      fix: tt("Add stock"),
       products: soldOut.map((p) => p.title),
     })
   }
@@ -269,36 +270,36 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
       items.push({
         id: "weights",
         level: "recommended",
-        title: light.length === 1 ? `Add a weight to ${light[0].title}` : `Add weights to ${light.length} products`,
-        why: "Your rates go by weight, so without one they ship at the lightest price.",
+        title: light.length === 1 ? tt("Add a weight to {title}", { title: light[0].title }) : tt("Add weights to {length} products", { length: light.length }),
+        why: tt("Your rates go by weight, so without one they ship at the lightest price."),
         href: light.length === 1 ? productHref(light[0].id) : "/app/products",
-        fix: "Add weight",
+        fix: tt("Add weight"),
         products: light.map((p) => p.title),
       })
     }
     if (f.packages === 0) {
-      items.push({ id: "package", level: "recommended", title: "Add the box you ship in", why: "Its weight is added to every parcel, so rates by weight come out right.", href: SHIPPING, fix: "Add box" })
+      items.push({ id: "package", level: "recommended", title: tt("Add the box you ship in"), why: tt("Its weight is added to every parcel, so rates by weight come out right."), href: SHIPPING, fix: tt("Add box") })
     }
   }
 
   const shipsFrom = fulfilling.find((l) => l.id === f.defaultLocationId) ?? fulfilling[0] ?? null
   if (shipsFrom && shipping.length && (!shipsFrom.addressLine1 || !shipsFrom.city || !shipsFrom.country)) {
-    items.push({ id: "ship_from", level: "recommended", title: "Add the address you ship from", why: `${shipsFrom.name} has no full address. Labels, local delivery and returns need it.`, href: LOCATIONS, fix: "Add address" })
+    items.push({ id: "ship_from", level: "recommended", title: tt("Add the address you ship from"), why: tt("{name} has no full address. Labels, local delivery and returns need it.", { name: shipsFrom.name }), href: LOCATIONS, fix: tt("Add address") })
   }
 
   if (activeLocations.some((l) => l.pickupEnabled && !l.pickupHours)) {
-    items.push({ id: "pickup_hours", level: "recommended", title: "Add pickup hours", why: "Buyers who choose pickup aren't told when they can come.", href: LOCATIONS, fix: "Add hours" })
+    items.push({ id: "pickup_hours", level: "recommended", title: tt("Add pickup hours"), why: tt("Buyers who choose pickup aren't told when they can come."), href: LOCATIONS, fix: tt("Add hours") })
   }
 
   if (f.taxMode === "manual" && f.taxRates === 0) {
-    items.push({ id: "tax_rates", level: "recommended", title: "Add your tax rates", why: "Tax is turned on but there's no rate, so no tax is charged.", href: TAXES, fix: "Add rate" })
+    items.push({ id: "tax_rates", level: "recommended", title: tt("Add your tax rates"), why: tt("Tax is turned on but there's no rate, so no tax is charged."), href: TAXES, fix: tt("Add rate") })
   }
   if (f.taxMode === "manual" && f.taxRates > 0 && f.businessDetails === false) {
-    items.push({ id: "business", level: "recommended", title: "Add your business details", why: "Receipts that charge tax should show your business name and tax number.", href: STORE, fix: "Add details" })
+    items.push({ id: "business", level: "recommended", title: tt("Add your business details"), why: tt("Receipts that charge tax should show your business name and tax number."), href: STORE, fix: tt("Add details") })
   }
 
   if (!f.contactEmail) {
-    items.push({ id: "contact_email", level: "recommended", title: "Add a contact email", why: "Buyers reply to order emails. Right now replies go to your login email.", href: STORE, fix: "Add email" })
+    items.push({ id: "contact_email", level: "recommended", title: tt("Add a contact email"), why: tt("Buyers reply to order emails. Right now replies go to your login email."), href: STORE, fix: tt("Add email") })
   }
 
   return summary(products, items)

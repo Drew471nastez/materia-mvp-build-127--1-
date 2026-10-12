@@ -1,6 +1,7 @@
 import type React from "react"
 import Link from "next/link"
 import { Sparkles } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -51,12 +52,12 @@ export function TryProStrip() {
     <AnnouncementBarMobile>
       <div className="mx-auto flex max-w-[1200px] items-center justify-center gap-2 text-center md:gap-3">
         <span className="text-[12px] md:text-[14px]">
-          <span className={STRIP_TITLE}>Try Pro</span>
-          <span className={`hidden md:inline ${STRIP_TEXT}`}>, our most popular plan for content creators and businesses.</span>
+          <span className={STRIP_TITLE}>{tt("Try Pro")}</span>
+          <span className={`hidden md:inline ${STRIP_TEXT}`}>{tt(", our most popular plan for content creators and businesses.")}</span>
         </span>
         <Link href="/upgrade" className={STRIP_ACTION}>
           <Sparkles className={STRIP_SPARKLE} aria-hidden="true" />
-          Upgrade
+          {tt("Upgrade")}
         </Link>
       </div>
     </AnnouncementBarMobile>

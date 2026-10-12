@@ -31,6 +31,7 @@ import { acceptOwnAi, useOwnAi, type OwnKey, type OwnSource } from "@/components
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { ConnectionRow, RowNote, type ConnectionTone } from "./connection-row"
 import { buttonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 const SOURCES: {
   id: OwnSource
@@ -53,10 +54,10 @@ const SOURCES: {
 ]
 
 function statusOf(key: OwnKey | undefined): { tone: ConnectionTone; status: string; detail?: string; action: string } {
-  if (!key) return { tone: "off", status: "Not connected", action: "Connect" }
-  if (key.lastError) return { tone: "attention", status: "Refused last time", detail: `ends ${key.hint}`, action: "Manage" }
+  if (!key) return { tone: "off", status: "Not connected", action: tt("Connect") }
+  if (key.lastError) return { tone: "attention", status: "Refused last time", detail: tt("ends {hint}", { hint: key.hint }), action: tt("Manage") }
   const used = relativeTime(key.lastUsedAt)
-  return { tone: "on", status: "Connected", detail: used ? `ends ${key.hint} · used ${used}` : `ends ${key.hint}`, action: "Manage" }
+  return { tone: "on", status: "Connected", detail: used ? tt("ends {hint} · used {used}", { hint: key.hint, used }) : tt("ends {hint}", { hint: key.hint }), action: tt("Manage") }
 }
 
 export function OwnAiSettings() {
@@ -67,12 +68,12 @@ export function OwnAiSettings() {
   const connected = SOURCES.filter((s) => byId(s.id))
 
   return (
-    <section aria-label="Your own AI" data-own-ai="" className="mt-6 md:mt-7">
-      <h2 className="text-[15px] font-semibold text-white md:text-[14.5px]">Use your own AI</h2>
+    <section aria-label={tt("Your own AI")} data-own-ai="" className="mt-6 md:mt-7">
+      <h2 className="text-[15px] font-semibold text-white md:text-[14.5px]">{tt("Use your own AI")}</h2>
       <p className="mt-1 max-w-[560px] text-[14px] leading-relaxed text-white/55 md:text-[13.5px]">
-        Storelib AI is already included in your plan. If you would rather it ran on your own OpenAI key, connect it here and those edits stop counting against your plan&apos;s AI edits.
+        {tt("Storelib AI is already included in your plan. If you would rather it ran on your own OpenAI key, connect it here and those edits stop counting against your plan's AI edits.")}
       </p>
-      {!own.setUp && <RowNote tone="bad">This is not switched on for your store yet.</RowNote>}
+      {!own.setUp && <RowNote tone="bad">{tt("This is not switched on for your store yet.")}</RowNote>}
 
       {own.setUp && (
         <div className="mt-3 divide-y divide-white/[0.07] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
@@ -102,7 +103,7 @@ export function OwnAiSettings() {
 
       {own.setUp && connected.length > 0 && (
         <p className="mt-3 text-[13.5px] leading-relaxed text-white/45 md:text-[13px]">
-          Storelib AI now answers on your account. Your key is used for your chats only, kept encrypted, and never shown again.
+          {tt("Storelib AI now answers on your account. Your key is used for your chats only, kept encrypted, and never shown again.")}
         </p>
       )}
     </section>
@@ -136,18 +137,18 @@ function SourceBody({
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(typeof body.error === "string" ? body.error : "Could not save your key. Try again.")
+        setError(typeof body.error === "string" ? body.error : tt("Could not save your key. Try again."))
         return
       }
       acceptOwnAi(body)
       setValue("")
       setSaved(
         body.unchecked
-          ? "Saved. We could not reach the provider to check it just now; your next message will."
-          : "Connected. Storelib AI now answers on your OpenAI key.",
+          ? tt("Saved. We could not reach the provider to check it just now; your next message will.")
+          : tt("Connected. Storelib AI now answers on your OpenAI key."),
       )
     } catch {
-      setError("Could not reach Storelib. Check your connection and try again.")
+      setError(tt("Could not reach Storelib. Check your connection and try again."))
     } finally {
       setBusy(null)
     }
@@ -161,13 +162,13 @@ function SourceBody({
       const res = await fetch(`/api/ai-keys?source=${source.id}`, { method: "DELETE" })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(typeof body.error === "string" ? body.error : "Could not remove it. Try again.")
+        setError(typeof body.error === "string" ? body.error : tt("Could not remove it. Try again."))
         return
       }
       acceptOwnAi(body)
       onDone()
     } catch {
-      setError("Could not reach Storelib. Check your connection and try again.")
+      setError(tt("Could not reach Storelib. Check your connection and try again."))
     } finally {
       setBusy(null)
     }
@@ -177,13 +178,13 @@ function SourceBody({
     <div data-own-ai-body={source.id}>
       {current?.lastError && <RowNote tone="bad">{current.lastError}</RowNote>}
       <RowNote>
-        {current ? "Replace it with a new key, or remove it to go back to Storelib AI." : "Create a key at "}
+        {current ? tt("Replace it with a new key, or remove it to go back to Storelib AI.") : tt("Create a key at ")}
         {!current && source.paste && (
           <>
             <a href={source.paste.href} target="_blank" rel="noreferrer" className={textLinkClass}>
               {source.paste.where}
             </a>
-            , then paste it here. It is checked before it is kept.
+            {tt(", then paste it here. It is checked before it is kept.")}
           </>
         )}
       </RowNote>
@@ -198,7 +199,7 @@ function SourceBody({
           type="password"
           autoComplete="off"
           spellCheck={false}
-          aria-label={`${source.name} API key`}
+          aria-label={tt("{name} API key", { name: source.name })}
           placeholder={source.paste?.placeholder}
           value={value}
           onChange={(e) => {
@@ -211,12 +212,12 @@ function SourceBody({
         <div className="flex items-center gap-2.5">
           <button type="submit" disabled={!value.trim() || !!busy} className={primaryButtonClass}>
             {busy === "save" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-            {current ? "Replace" : "Connect"}
+            {current ? tt("Replace") : tt("Connect")}
           </button>
           {current && (
             <button type="button" onClick={remove} disabled={!!busy} className={buttonClass}>
               {busy === "remove" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              Remove
+              {tt("Remove")}
             </button>
           )}
         </div>

@@ -39,6 +39,7 @@ import { Bold, ChevronDown, Heading2, Heading3, Italic, Link, List, ListOrdered,
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { cn } from "@/lib/utils"
 import { ScrollRow } from "@/components/app/rich-text/scroll-row"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * NO ASSISTANT BUTTON IN HERE.
@@ -52,10 +53,10 @@ import { ScrollRow } from "@/components/app/rich-text/scroll-row"
  */
 
 const BLOCKS = [
-  { label: "Paragraph", tag: "p" },
-  { label: "Heading 2", tag: "h2" },
-  { label: "Heading 3", tag: "h3" },
-  { label: "Heading 4", tag: "h4" },
+  { get label() { return tt("Paragraph") }, tag: "p" },
+  { get label() { return tt("Heading 2") }, tag: "h2" },
+  { get label() { return tt("Heading 3") }, tag: "h3" },
+  { get label() { return tt("Heading 4") }, tag: "h4" },
 ] as const
 
 /*
@@ -387,10 +388,10 @@ export function RichTextField({
       >
         {page ? (
           <>
-            <ToolbarButton size="page" label="Heading 2" on={active.block === "h2"} onClick={() => toggleBlock("h2")}>
+            <ToolbarButton size="page" label={tt("Heading 2")} on={active.block === "h2"} onClick={() => toggleBlock("h2")}>
               <Heading2 className="h-[17px] w-[17px]" strokeWidth={1.9} />
             </ToolbarButton>
-            <ToolbarButton size="page" label="Heading 3" on={active.block === "h3"} onClick={() => toggleBlock("h3")}>
+            <ToolbarButton size="page" label={tt("Heading 3")} on={active.block === "h3"} onClick={() => toggleBlock("h3")}>
               <Heading3 className="h-[17px] w-[17px]" strokeWidth={1.9} />
             </ToolbarButton>
           </>
@@ -399,15 +400,15 @@ export function RichTextField({
         )}
         <Divider />
 
-        <ToolbarButton size={variant} label="Bold" on={active.bold} onClick={() => run("bold")}>
+        <ToolbarButton size={variant} label={tt("Bold")} on={active.bold} onClick={() => run("bold")}>
           <Bold className="h-[15px] w-[15px]" strokeWidth={2.4} />
         </ToolbarButton>
-        <ToolbarButton size={variant} label="Italic" on={active.italic} onClick={() => run("italic")}>
+        <ToolbarButton size={variant} label={tt("Italic")} on={active.italic} onClick={() => run("italic")}>
           <Italic className="h-[15px] w-[15px]" strokeWidth={2.1} />
         </ToolbarButton>
         <ToolbarButton
           size={variant}
-          label="Link"
+          label={tt("Link")}
           on={active.link || linkDraft !== null}
           onClick={() => (active.link ? run("unlink") : openLink())}
         >
@@ -415,14 +416,14 @@ export function RichTextField({
         </ToolbarButton>
         <Divider />
 
-        <ToolbarButton size={variant} label="Bulleted list" on={active.ul} onClick={() => run("insertUnorderedList")}>
+        <ToolbarButton size={variant} label={tt("Bulleted list")} on={active.ul} onClick={() => run("insertUnorderedList")}>
           <List className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
-        <ToolbarButton size={variant} label="Numbered list" on={active.ol} onClick={() => run("insertOrderedList")}>
+        <ToolbarButton size={variant} label={tt("Numbered list")} on={active.ol} onClick={() => run("insertOrderedList")}>
           <ListOrdered className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
         {page && (
-          <ToolbarButton size="page" label="Quote" on={active.block === "blockquote"} onClick={() => toggleBlock("blockquote")}>
+          <ToolbarButton size="page" label={tt("Quote")} on={active.block === "blockquote"} onClick={() => toggleBlock("blockquote")}>
             <TextQuote className="h-[15px] w-[15px]" strokeWidth={1.9} />
           </ToolbarButton>
         )}
@@ -450,22 +451,22 @@ export function RichTextField({
                 ref.current?.focus({ preventScroll: true })
               }
             }}
-            placeholder="Link or /page"
-            aria-label="Link address"
+            placeholder={tt("Link or /page")}
+            aria-label={tt("Link address")}
             className={cn(
               "h-8 max-sm:h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-[13px] max-sm:text-[16px] outline-none focus:border-neutral-400",
               page && "max-sm:h-11",
             )}
           />
           <button type="submit" className={cn("h-8 max-sm:h-10 shrink-0 rounded-md bg-neutral-900 px-3 text-[12.5px] max-sm:text-[14px] font-medium text-white transition-colors hover:bg-neutral-800", page && "max-sm:h-11 dark:bg-white dark:text-[#0f0f0f] dark:hover:bg-white/90")}>
-            Add
+            {tt("Add")}
           </button>
           <button
             type="button"
             onClick={() => setLinkDraft(null)}
             className={cn("h-8 max-sm:h-10 shrink-0 rounded-md px-2 text-[12.5px] max-sm:text-[14px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground", page && "max-sm:h-11")}
           >
-            Cancel
+            {tt("Cancel")}
           </button>
         </form>
       )}
@@ -499,8 +500,8 @@ export function RichTextField({
       {!page && <div
         role="separator"
         aria-orientation="horizontal"
-        aria-label="Drag to resize"
-        title="Drag to resize"
+        aria-label={tt("Drag to resize")}
+        title={tt("Drag to resize")}
         data-rich-text-resize=""
         onPointerDown={startResize}
         onDoubleClick={resetSize}
@@ -561,11 +562,11 @@ function ToolbarButton({
 const Divider = () => <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
 
 function BlockSelect({ current, onPick }: { current: string; onPick: (tag: string) => void }) {
-  const label = BLOCKS.find((b) => b.tag === current)?.label ?? "Paragraph"
+  const label = BLOCKS.find((b) => b.tag === current)?.label ?? tt("Paragraph")
   return (
     <div className="relative shrink-0">
       <select
-        aria-label="Text style"
+        aria-label={tt("Text style")}
         className="h-7 max-sm:h-10 cursor-pointer appearance-none rounded-md bg-transparent pl-2 pr-6 text-[13px] max-sm:text-[15px] text-foreground/80 outline-none transition-colors hover:bg-background"
         value={BLOCKS.some((b) => b.tag === current) ? current : "p"}
         onMouseDown={(e) => e.stopPropagation()}

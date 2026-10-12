@@ -54,17 +54,19 @@ import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CoverField, GalleryEditor } from "./gallery-editor"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can"] }[] = [
-  { value: "page", label: "Page", needs: "manage_settings" },
-  { value: "access", label: "Access", needs: "manage_settings" },
-  { value: "features", label: "Features", needs: "manage_settings" },
-  { value: "policies", label: "Rules and policies", needs: "manage_settings" },
+  { value: "page", get label() { return tt("Page") }, needs: "manage_settings" },
+  { value: "access", get label() { return tt("Access") }, needs: "manage_settings" },
+  { value: "features", get label() { return tt("Features") }, needs: "manage_settings" },
+  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings" },
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
-  { value: "roles", label: "Roles", needs: "transfer_ownership" },
-  { value: "gamification", label: "Gamification", needs: "manage_gamification" },
-  { value: "notifications", label: "Notifications", needs: "view" },
-  { value: "advanced", label: "Advanced", needs: "archive" },
+  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership" },
+  { value: "gamification", get label() { return tt("Gamification") }, needs: "manage_gamification" },
+  { value: "notifications", get label() { return tt("Notifications") }, needs: "view" },
+  { value: "advanced", get label() { return tt("Advanced") }, needs: "archive" },
 ]
 
 export function SettingsSection({ head, data, tab: initialTab, videoProviders = [] }: { head: CommunityHead; data: SettingsData; tab: SettingsTab; videoProviders?: ProviderLine[] }) {
@@ -87,7 +89,7 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
   }, [tab])
   return (
     <div data-settings="" data-tab={tab}>
-      <div ref={strip} role="tablist" aria-label="Settings" className="app-gutter-bleed mb-4 flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide md:mx-0 md:px-0">
+      <div ref={strip} role="tablist" aria-label={tt("Settings")} className="app-gutter-bleed mb-4 flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide md:mx-0 md:px-0">
         {tabs.map((t) => (
           <button
             key={t.value}
@@ -126,7 +128,7 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
 function useInstant(head: CommunityHead) {
   const toast = useToast()
   const router = useRouter()
-  return async (body: Record<string, unknown>, done = "Saved") => {
+  return async (body: Record<string, unknown>, done = tt("Saved")) => {
     const res = await send(`/api/app/community/${head.id}`, "PATCH", body)
     if (!res.ok) {
       toast(errorText(res.data.error))
@@ -205,7 +207,7 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error))
     setSaved(JSON.stringify(s))
-    toast("Saved")
+    toast(tt("Saved"))
     router.refresh()
     /* The community open in another tab picks up the new cover, picture and name at once. */
     announceCommunityUpdated(head.id)
@@ -222,30 +224,30 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
     <div data-page-settings="">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-5">
         <div className="min-w-0 space-y-4">
-          <EditorCard title="About" id="about">
+          <EditorCard title={tt("About")} id="about">
             <div>
               <label htmlFor="g-name" className={label}>
-                Name
+                {tt("Name")}
               </label>
               <input id="g-name" value={s.name} onChange={(e) => set("name", e.target.value.slice(0, 80))} className={cn(field, "h-11 sm:h-10")} />
             </div>
             <div>
               <label htmlFor="g-tagline" className={label}>
-                Tagline
+                {tt("Tagline")}
               </label>
-              <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder="One line on cards and in Explore" className={cn(field, "h-11 sm:h-10")} />
+              <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder={tt("One line on cards and in Explore")} className={cn(field, "h-11 sm:h-10")} />
             </div>
             <div>
               <label htmlFor="g-desc" className={label}>
-                Description
+                {tt("Description")}
               </label>
               <textarea id="g-desc" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 10_000))} rows={6} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
             </div>
           </EditorCard>
 
-          <EditorCard title="Photos and video" hint="The cover, then pictures and videos at the top of your page, the first one shown first." id="gallery">
+          <EditorCard title={tt("Photos and video")} hint={tt("The cover, then pictures and videos at the top of your page, the first one shown first.")} id="gallery">
             <div className="min-w-0">
-              <p className={label}>Cover</p>
+              <p className={label}>{tt("Cover")}</p>
               {/* A picture, or a YouTube or Vimeo video (round 11): then the gallery's first item, and its still the cover picture on Save. */}
               <CoverField
                 communityId={head.id}
@@ -275,52 +277,52 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
             />
           </EditorCard>
 
-          <EditorCard title="What members get" hint="A line each, on the community's page.">
-            <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder="A live call every week" addLabel="Add a line" />
+          <EditorCard title={tt("What members get")} hint={tt("A line each, on the community's page.")}>
+            <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder={tt("A live call every week")} addLabel={tt("Add a line")} />
           </EditorCard>
 
-          <EditorCard title="Questions" hint="Answers to what people ask before joining.">
-            <PairEditor items={s.faq.map((r) => ({ a: r.q, b: r.a }))} onChange={(v) => set("faq", v.map((x) => ({ q: x.a, a: x.b })))} max={20} aPlaceholder="Who is it for?" bPlaceholder="The answer" addLabel="Add a question" />
+          <EditorCard title={tt("Questions")} hint={tt("Answers to what people ask before joining.")}>
+            <PairEditor items={s.faq.map((r) => ({ a: r.q, b: r.a }))} onChange={(v) => set("faq", v.map((x) => ({ q: x.a, a: x.b })))} max={20} aPlaceholder={tt("Who is it for?")} bPlaceholder={tt("The answer")} addLabel={tt("Add a question")} />
           </EditorCard>
 
-          <EditorCard title="Links">
-            <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder="Website" bPlaceholder="https://" addLabel="Add a link" singleLine />
+          <EditorCard title={tt("Links")}>
+            <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder={tt("Website")} bPlaceholder="https://" addLabel={tt("Add a link")} singleLine />
           </EditorCard>
         </div>
 
         <div className="min-w-0 space-y-4">
-          <EditorCard title="Address" id="address">
+          <EditorCard title={tt("Address")} id="address">
             <div>
               <label htmlFor="g-slug" className="sr-only">
-                Address
+                {tt("Address")}
               </label>
               <div className="flex h-11 items-center overflow-hidden rounded-lg border border-[#e1e3e7] bg-white focus-within:border-[#1a1a2e]/50 sm:h-10">
-                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]">/community/</span>
+                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]">{tt("/community/")}</span>
                 <input id="g-slug" value={s.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))} className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]" />
               </div>
               {/* The old address is kept (run-now part 94): a shared link opens the community at its new address. */}
-              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">Links to /community/{start.slug} will open the new address.</p> : <p className="mt-1 truncate text-[12px] text-[#9ca3af]">storelib.com/community/{s.slug || "..."}</p>}
+              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">{tt("Links to /community/{slug} will open the new address.", { slug: start.slug })}</p> : <p className="mt-1 truncate text-[12px] text-[#9ca3af]">{tt("storelib.com/community/")}{s.slug || "..."}</p>}
             </div>
           </EditorCard>
 
-          <EditorCard title="Logo">
+          <EditorCard title={tt("Logo")}>
             <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
           </EditorCard>
 
-          <EditorCard title="Look" hint="White or dark, everywhere in this community.">
+          <EditorCard title={tt("Look")} hint={tt("White or dark, everywhere in this community.")}>
             <Segmented
-              label="Look"
+              label={tt("Look")}
               value={look}
               options={[
-                { value: "light", label: "White" },
-                { value: "dark", label: "Dark" },
+                { value: "light", label: tt("White") },
+                { value: "dark", label: tt("Dark") },
               ]}
               onChange={(next) => {
                 if (lookBusy || next === look) return
                 const prev = look
                 setLook(next)
                 setLookBusy(true)
-                void instant({ appearance: next }, next === "dark" ? "Dark look on" : "White look on").then((ok) => {
+                void instant({ appearance: next }, next === "dark" ? tt("Dark look on") : tt("White look on")).then((ok) => {
                   setLookBusy(false)
                   if (!ok) setLook(prev)
                 })
@@ -328,10 +330,10 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
             />
           </EditorCard>
 
-          <EditorCard title="Category" hint="Where it shows up in Explore.">
+          <EditorCard title={tt("Category")} hint={tt("Where it shows up in Explore.")}>
             {/* The same list as Explore's category pills: the one picked here is the pill it is found under. */}
-            <select id="g-category" value={s.category} aria-label="Category" onChange={(e) => set("category", e.target.value)} className={selectField} data-category-select="">
-              <option value="">No category</option>
+            <select id="g-category" value={s.category} aria-label={tt("Category")} onChange={(e) => set("category", e.target.value)} className={selectField} data-category-select="">
+              <option value="">{tt("No category")}</option>
               {COMMUNITY_CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
@@ -342,9 +344,9 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
 
           {head.can.manage_settings ? (
             <p className="px-1 text-[13px] text-[#6b7280]">
-              Rules and the refund policy are in{" "}
+              {tt("Rules and the refund policy are in")}{" "}
               <Link href={`/app/community/${head.id}/settings?tab=policies`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-                Rules and policies
+                {tt("Rules and policies")}
               </Link>
               .
             </p>
@@ -352,7 +354,7 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
         </div>
       </div>
 
-      <SaveBar dirty={dirty} busy={busy || uploading} busyText={uploading ? "Uploading" : undefined} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
+      <SaveBar dirty={dirty} busy={busy || uploading} busyText={uploading ? tt("Uploading") : undefined} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
     </div>
   )
 }
@@ -373,7 +375,7 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
 
   const flip = async (key: keyof typeof features, v: boolean) => {
     setFeatures((f) => ({ ...f, [key]: v }))
-    if (!(await instant({ [key]: v }, v ? "Turned on" : "Turned off"))) setFeatures((f) => ({ ...f, [key]: !v }))
+    if (!(await instant({ [key]: v }, v ? tt("Turned on") : tt("Turned off")))) setFeatures((f) => ({ ...f, [key]: !v }))
   }
   const save = async () => {
     setBusy(true)
@@ -382,28 +384,28 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
     if (!res.ok) return setError(errorText(res.data.error))
     setSaved(JSON.stringify(w))
     setError(null)
-    toast("Saved")
+    toast(tt("Saved"))
     router.refresh()
   }
 
   return (
     <div className="space-y-4" data-features="">
-      <Section title="Sections" hint="Turned off, a section is hidden from members. Nothing in it is deleted.">
+      <Section title={tt("Sections")} hint={tt("Turned off, a section is hidden from members. Nothing in it is deleted.")}>
         <div className="-my-1 divide-y divide-[#f1f2f4]">
-          <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title="Learn" hint="Your programs and lessons, inside the community." />
-          <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title="Calendar" hint="Calls, workshops and meetups with RSVPs." />
-          <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title="Chat" hint="Spaces of the chat kind, and messages between members." />
-          <Toggle checked={features.directoryEnabled} onChange={(v) => void flip("directoryEnabled", v)} title="Member directory" hint="Members can see who else is here." />
+          <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title={tt("Learn")} hint={tt("Your programs and lessons, inside the community.")} />
+          <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title={tt("Calendar")} hint={tt("Calls, workshops and meetups with RSVPs.")} />
+          <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title={tt("Chat")} hint={tt("Spaces of the chat kind, and messages between members.")} />
+          <Toggle checked={features.directoryEnabled} onChange={(v) => void flip("directoryEnabled", v)} title={tt("Member directory")} hint={tt("Members can see who else is here.")} />
         </div>
       </Section>
 
-      <Section title="Welcome" hint="What a new member sees the first time they open it.">
-        <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} title="Show a welcome" />
+      <Section title={tt("Welcome")} hint={tt("What a new member sees the first time they open it.")}>
+        <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} title={tt("Show a welcome")} />
         {w.enabled ? (
           <div className="mt-2 space-y-1">
-            <textarea value={w.welcome} onChange={(e) => setW({ ...w, welcome: e.target.value.slice(0, 2000) })} rows={3} placeholder="Glad you are here. Start by introducing yourself." aria-label="Welcome message" className={cn(field, "resize-y py-2.5 leading-relaxed")} />
-            <Toggle checked={w.showRules} onChange={(v) => setW({ ...w, showRules: v })} title="Ask them to read the rules" hint={data.rules.length ? `${data.rules.length} ${data.rules.length === 1 ? "rule" : "rules"}, in Rules and policies.` : "There are no rules yet. Write them in Rules and policies."} />
-            <Toggle checked={w.askIntro} onChange={(v) => setW({ ...w, askIntro: v })} title="Ask them to introduce themselves" />
+            <textarea value={w.welcome} onChange={(e) => setW({ ...w, welcome: e.target.value.slice(0, 2000) })} rows={3} placeholder={tt("Glad you are here. Start by introducing yourself.")} aria-label={tt("Welcome message")} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
+            <Toggle checked={w.showRules} onChange={(v) => setW({ ...w, showRules: v })} title={tt("Ask them to read the rules")} hint={data.rules.length ? tt("{length, plural, one {# rule} other {# rules}}, in Rules and policies.", { length: data.rules.length }) : tt("There are no rules yet. Write them in Rules and policies.")} />
+            <Toggle checked={w.askIntro} onChange={(v) => setW({ ...w, askIntro: v })} title={tt("Ask them to introduce themselves")} />
           </div>
         ) : null}
       </Section>
@@ -419,8 +421,8 @@ function ListEditor({ items, onChange, max, placeholder, addLabel }: { items: st
     <div className="space-y-2">
       {rows.map((b, i) => (
         <div key={i} className="flex items-center gap-2">
-          <input value={b} onChange={(e) => onChange(rows.map((x, j) => (j === i ? e.target.value.slice(0, 120) : x)))} placeholder={i === 0 ? placeholder : ""} aria-label={`Line ${i + 1}`} className={cn(field, "h-11 sm:h-10")} />
-          <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label={`Remove line ${i + 1}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
+          <input value={b} onChange={(e) => onChange(rows.map((x, j) => (j === i ? e.target.value.slice(0, 120) : x)))} placeholder={i === 0 ? placeholder : ""} aria-label={tt("Line {value}", { value: i + 1 })} className={cn(field, "h-11 sm:h-10")} />
+          <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label={tt("Remove line {value}", { value: i + 1 })} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
             <Trash2 aria-hidden className="h-4 w-4" />
           </button>
         </div>
@@ -443,12 +445,12 @@ function PairEditor({ items, onChange, max, aPlaceholder, bPlaceholder, addLabel
           <div className={cn("min-w-0 flex-1", singleLine ? "grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.6fr]" : "space-y-1.5")}>
             <input value={it.a} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, a: e.target.value.slice(0, 200) } : x)))} placeholder={aPlaceholder} aria-label={`${addLabel.replace("Add a ", "")} ${i + 1}`} className={cn(field, "h-11 font-medium sm:h-10")} />
             {singleLine ? (
-              <input value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.trim().slice(0, 1000) } : x)))} placeholder={bPlaceholder} aria-label={`Address ${i + 1}`} className={cn(field, "h-11 sm:h-10")} />
+              <input value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.trim().slice(0, 1000) } : x)))} placeholder={bPlaceholder} aria-label={tt("Address {value}", { value: i + 1 })} className={cn(field, "h-11 sm:h-10")} />
             ) : (
-              <textarea value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.slice(0, 2000) } : x)))} placeholder={bPlaceholder} rows={2} aria-label={`Detail ${i + 1}`} className={cn(field, "resize-y py-2 leading-relaxed")} />
+              <textarea value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.slice(0, 2000) } : x)))} placeholder={bPlaceholder} rows={2} aria-label={tt("Detail {value}", { value: i + 1 })} className={cn(field, "resize-y py-2 leading-relaxed")} />
             )}
           </div>
-          <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={`Remove ${i + 1}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
+          <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={tt("Remove {value}", { value: i + 1 })} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
             <Trash2 aria-hidden className="h-4 w-4" />
           </button>
         </div>
@@ -471,14 +473,14 @@ function PairEditor({ items, onChange, max, aPlaceholder, bPlaceholder, addLabel
   (lib/communities/access-model.ts).
 */
 const PRIVACY_OPTIONS: { value: CommunityPrivacy; title: string; detail: string }[] = [
-  { value: "public", title: "Anyone", detail: "Found in Explore and on your page." },
-  { value: "unlisted", title: "People with the link", detail: "Not in Explore. Anyone who has the link can join." },
-  { value: "private", title: "Only people you invite", detail: "An invite link is the only way in." },
+  { value: "public", get title() { return tt("Anyone") }, get detail() { return tt("Found in Explore and on your page.") } },
+  { value: "unlisted", get title() { return tt("People with the link") }, get detail() { return tt("Not in Explore. Anyone who has the link can join.") } },
+  { value: "private", get title() { return tt("Only people you invite") }, get detail() { return tt("An invite link is the only way in.") } },
 ]
 
 const PRICING_OPTIONS: { value: CommunityPricing; title: string; detail: string }[] = [
-  { value: "free", title: "Free", detail: "Joining costs nothing." },
-  { value: "paid", title: "Paid", detail: "Members pay for a tier to join." },
+  { value: "free", title: "Free", get detail() { return tt("Joining costs nothing.") } },
+  { value: "paid", get title() { return tt("Paid") }, get detail() { return tt("Members pay for a tier to join.") } },
 ]
 
 const dollars = (cents: number | null) => (cents ? String(cents % 100 === 0 ? cents / 100 : (cents / 100).toFixed(2)) : "")
@@ -505,7 +507,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
     if (want.privacy === privacy && want.pricing === pricing) return
     setTypeError(null)
     if (want.pricing === "paid" && !paidTier) {
-      setTypeError("Add a paid tier with a price first, then switch to paid.")
+      setTypeError(tt("Add a paid tier with a price first, then switch to paid."))
       setAdding(true)
       return
     }
@@ -518,7 +520,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
       setPricing(before.pricing)
       return setTypeError(errorText(res.data.error))
     }
-    toast("Saved")
+    toast(tt("Saved"))
     router.refresh()
   }
 
@@ -526,24 +528,24 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
     <div className="space-y-4" data-access="">
       {!data.paymentsReady && owner && (pricing === "paid" || live.some((t) => t.kind === "paid")) ? (
         <Notice tone="warn">
-          Connect payouts before members can pay: people pay you through Stripe.{" "}
+          {tt("Connect payouts before members can pay: people pay you through Stripe.")}{" "}
           <a href="/app/settings?tab=payments" className="font-semibold underline">
-            Set up payouts
+            {tt("Set up payouts")}
           </a>
         </Notice>
       ) : null}
 
-      <Section title="Who can get in, and what it costs">
+      <Section title={tt("Who can get in, and what it costs")}>
         {owner ? (
           <>
-            <p className={cn(label, "mb-1")}>Who can get in</p>
-            <ChoiceCards rows value={privacy} onChange={(v) => void change({ privacy: v })} options={PRIVACY_OPTIONS} label="Who can get in" />
-            <p className={cn(label, "mb-1 mt-4 border-t border-[#f1f2f4] pt-3")}>What joining costs</p>
-            <ChoiceCards rows value={pricing} onChange={(v) => void change({ pricing: v })} options={PRICING_OPTIONS} label="What joining costs" />
+            <p className={cn(label, "mb-1")}>{tt("Who can get in")}</p>
+            <ChoiceCards rows value={privacy} onChange={(v) => void change({ privacy: v })} options={PRIVACY_OPTIONS} label={tt("Who can get in")} />
+            <p className={cn(label, "mb-1 mt-4 border-t border-[#f1f2f4] pt-3")}>{tt("What joining costs")}</p>
+            <ChoiceCards rows value={pricing} onChange={(v) => void change({ pricing: v })} options={PRICING_OPTIONS} label={tt("What joining costs")} />
           </>
         ) : (
           <p className="text-[14px] text-[#1a1a2e]">
-            {privacyTitle(privacy)}, {pricing === "paid" ? "paid" : "free"}. Only the owner changes this.
+            {privacyTitle(privacy)}, {pricing === "paid" ? "paid" : "free"}{tt(". Only the owner changes this.")}
           </p>
         )}
         <p className="mt-3 text-[13px] leading-snug text-[#4b5563]" data-access-summary="">
@@ -559,27 +561,27 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
             checked={approval}
             onChange={async (v) => {
               setApproval(v)
-              if (!(await instant({ approvalRequired: v }, v ? "Requests need your approval" : "People join straight away"))) setApproval(!v)
+              if (!(await instant({ approvalRequired: v }, v ? tt("Requests need your approval") : tt("People join straight away")))) setApproval(!v)
             }}
-            title="Approve each request"
-            hint={privacy === "private" ? "An invite is already an approval, so this only applies to anyone who asks without one." : pricing === "paid" ? "People ask first; once you approve, they can pay." : "People ask to join and you approve them under Members."}
+            title={tt("Approve each request")}
+            hint={privacy === "private" ? tt("An invite is already an approval, so this only applies to anyone who asks without one.") : pricing === "paid" ? tt("People ask first; once you approve, they can pay.") : tt("People ask to join and you approve them under Members.")}
           />
         </div>
       </Section>
 
       <Section
-        title="Tiers"
-        hint="What people join on. A paid tier is sold through Storelib checkout, with the price on its product."
+        title={tt("Tiers")}
+        hint={tt("What people join on. A paid tier is sold through Storelib checkout, with the price on its product.")}
         action={
           owner ? (
             <button type="button" onClick={() => setAdding(true)} className={buttonSecondary} data-tier-add="">
               <Plus aria-hidden className="h-4 w-4" />
-              Add tier
+              {tt("Add tier")}
             </button>
           ) : null
         }
       >
-        {live.length === 0 ? <p className="text-[13.5px] text-[#6b7280]">No tiers yet.</p> : (
+        {live.length === 0 ? <p className="text-[13.5px] text-[#6b7280]">{tt("No tiers yet.")}</p> : (
           <div className="-my-1 divide-y divide-[#f1f2f4]">
             {live.map((t) => (
               <TierCard key={t.id} head={head} tier={t} products={data.products} owner={owner} canDefault={live.length > 1} />
@@ -588,7 +590,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
         )}
         {archived.length ? (
           <div className="mt-4 border-t border-[#f1f2f4] pt-3">
-            <p className="mb-2 text-[12.5px] font-medium text-[#6b7280]">Not sold any more</p>
+            <p className="mb-2 text-[12.5px] font-medium text-[#6b7280]">{tt("Not sold any more")}</p>
             <ul className="space-y-1">
               {archived.map((t) => (
                 <li key={t.id} className="flex min-h-10 items-center justify-between gap-3">
@@ -617,12 +619,12 @@ function TierRestore({ head, tier }: { head: CommunityHead; tier: TierView }) {
       onClick={async () => {
         const res = await send(`/api/app/community/${head.id}/tiers/${tier.id}`, "PATCH", { archived: false })
         if (!res.ok) return toast(errorText(res.data.error))
-        toast("Back on sale")
+        toast(tt("Back on sale"))
         router.refresh()
       }}
       className={cn(buttonSecondary, "h-10 sm:h-8")}
     >
-      Sell again
+      {tt("Sell again")}
     </button>
   )
 }
@@ -652,7 +654,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
     const res = await send(base, "PATCH", body)
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error))
-    toast(tier.billing === "recurring" && (body.monthlyPrice !== undefined || body.yearlyPrice !== undefined) ? "Price saved. Members keep the price they joined at." : "Saved")
+    toast(tier.billing === "recurring" && (body.monthlyPrice !== undefined || body.yearlyPrice !== undefined) ? tt("Price saved. Members keep the price they joined at.") : tt("Saved"))
     router.refresh()
   }
 
@@ -666,7 +668,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
   const setProduct = async (productId: string, on: boolean) => {
     const res = await send(`${base}/products`, "POST", { productId, on })
     if (!res.ok) return toast(errorText(res.data.error))
-    toast(on ? "Product added" : "Product taken off")
+    toast(on ? tt("Product added") : tt("Product taken off"))
     setPicking(false)
     router.refresh()
   }
@@ -676,7 +678,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
     const y = centsFromInput(s.yearly)
     if (!m || !y || !Number.isFinite(m) || !Number.isFinite(y)) return null
     const saving = Math.round((1 - y / (m * 12)) * 100)
-    return saving > 0 ? `Saves ${saving}% against monthly` : null
+    return saving > 0 ? tt("Saves {saving}% against monthly", { saving }) : null
   })()
 
   const offered = new Set([...tier.accessProducts.map((p) => p.id)])
@@ -687,11 +689,11 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
       <div className="flex flex-wrap items-center gap-2">
         <p className="mr-auto flex min-w-0 items-center gap-2">
           <span className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">{tier.name}</span>
-          {tier.isDefault ? <StatusBadge tone="neutral">Default</StatusBadge> : null}
-          {tier.kind === "paid" && tier.productStatus !== "published" ? <StatusBadge tone="attention">Off sale</StatusBadge> : null}
+          {tier.isDefault ? <StatusBadge tone="neutral">{tt("Default")}</StatusBadge> : null}
+          {tier.kind === "paid" && tier.productStatus !== "published" ? <StatusBadge tone="attention">{tt("Off sale")}</StatusBadge> : null}
         </p>
         <span className="text-[13px] tabular-nums text-[#6b7280]">
-          {tier.priceLine || "No price"} · {tier.members.toLocaleString("en-US")} {tier.members === 1 ? "member" : "members"}
+          {tier.priceLine || tt("No price")} · {tier.members.toLocaleString(appLocale())} {tier.members === 1 ? "member" : "members"}
         </span>
       </div>
       {owner ? (
@@ -699,7 +701,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
           <div className={cn("mt-3 grid gap-3", tier.billing === "recurring" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
             <div className={tier.billing === "recurring" ? "col-span-2 sm:col-span-1" : undefined}>
               <label htmlFor={`t-name-${tier.id}`} className={label}>
-                Name
+                {tt("Name")}
               </label>
               <input id={`t-name-${tier.id}`} value={s.name} onChange={(e) => setS({ ...s, name: e.target.value.slice(0, 60) })} className={cn(field, "h-11 sm:h-10")} />
             </div>
@@ -707,22 +709,22 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
               <>
                 <div>
                   <label htmlFor={`t-m-${tier.id}`} className={label}>
-                    Monthly
+                    {tt("Monthly")}
                   </label>
-                  <PriceInput id={`t-m-${tier.id}`} value={s.monthly} onChange={(v) => setS({ ...s, monthly: v })} placeholder="None" />
+                  <PriceInput id={`t-m-${tier.id}`} value={s.monthly} onChange={(v) => setS({ ...s, monthly: v })} placeholder={tt("None")} />
                 </div>
                 <div>
                   <label htmlFor={`t-y-${tier.id}`} className={label}>
-                    Yearly
+                    {tt("Yearly")}
                   </label>
-                  <PriceInput id={`t-y-${tier.id}`} value={s.yearly} onChange={(v) => setS({ ...s, yearly: v })} placeholder="None" />
+                  <PriceInput id={`t-y-${tier.id}`} value={s.yearly} onChange={(v) => setS({ ...s, yearly: v })} placeholder={tt("None")} />
                   {yearlyHint ? <p className="mt-1 text-[12px] text-[#15803d]">{yearlyHint}</p> : null}
                 </div>
               </>
             ) : tier.billing === "one_time" ? (
               <div>
                 <label htmlFor={`t-p-${tier.id}`} className={label}>
-                  One time price
+                  {tt("One time price")}
                 </label>
                 <PriceInput id={`t-p-${tier.id}`} value={s.price} onChange={(v) => setS({ ...s, price: v })} />
               </div>
@@ -730,12 +732,12 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
           </div>
           {tier.kind === "paid" ? (
             <div className="mt-3">
-              <p className="text-[12.5px] font-medium text-[#4b5563]">Also let in buyers of</p>
+              <p className="text-[12.5px] font-medium text-[#4b5563]">{tt("Also let in buyers of")}</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {tier.accessProducts.map((p) => (
                   <span key={p.id} className="inline-flex h-10 items-center gap-0.5 rounded-full border border-[#e5e7eb] bg-[#fafbfb] pl-3 text-[12.5px] text-[#1a1a2e] sm:h-8 sm:pr-1">
                     <span className="max-w-[180px] truncate">{p.title}</span>
-                    <button type="button" aria-label={`Take ${p.title} off`} onClick={() => void setProduct(p.id, false)} className="grid h-10 w-10 place-items-center rounded-full text-[#6b7280] hover:bg-[#eceef1] sm:h-6 sm:w-6">
+                    <button type="button" aria-label={tt("Take {title} off", { title: p.title })} onClick={() => void setProduct(p.id, false)} className="grid h-10 w-10 place-items-center rounded-full text-[#6b7280] hover:bg-[#eceef1] sm:h-6 sm:w-6">
                       <X aria-hidden className="h-3.5 w-3.5" />
                     </button>
                   </span>
@@ -743,10 +745,10 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
                 {pickable.length ? (
                   <button type="button" onClick={() => setPicking(true)} className="inline-flex h-10 items-center gap-1 rounded-full border border-dashed border-[#d1d5db] px-3 text-[12.5px] font-medium text-[#4b5563] hover:border-[#9ca3af] sm:h-8">
                     <Plus aria-hidden className="h-3.5 w-3.5" />
-                    Product
+                    {tt("Product")}
                   </button>
                 ) : tier.accessProducts.length === 0 ? (
-                  <span className="text-[12.5px] text-[#9ca3af]">No other products yet.</span>
+                  <span className="text-[12.5px] text-[#9ca3af]">{tt("No other products yet.")}</span>
                 ) : null}
               </div>
             </div>
@@ -758,25 +760,25 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
           ) : null}
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             {!tier.isDefault && canDefault ? (
-              <button type="button" onClick={() => void patch({ makeDefault: true }, `${tier.name} is the default`)} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
-                Make default
+              <button type="button" onClick={() => void patch({ makeDefault: true }, tt("{name} is the default", { name: tier.name }))} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
+                {tt("Make default")}
               </button>
             ) : null}
             {!tier.isDefault ? (
               <button type="button" onClick={() => setArchiving(true)} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
-                Stop selling
+                {tt("Stop selling")}
               </button>
             ) : null}
             {dirty ? (
               <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-8")} data-tier-save="">
-                {busy ? "Saving" : "Save tier"}
+                {busy ? tt("Saving") : tt("Save tier")}
               </button>
             ) : null}
           </div>
         </>
       ) : null}
-      <Confirm open={archiving} onClose={() => setArchiving(false)} title={`Stop selling ${tier.name}?`} detail="Nobody new can join on it. Members already on it keep it while they pay." action="Stop selling" onConfirm={() => { setArchiving(false); void patch({ archived: true }, "Not sold any more") }} />
-      <Dialog open={picking} onClose={() => setPicking(false)} title="Also let in buyers of">
+      <Confirm open={archiving} onClose={() => setArchiving(false)} title={tt("Stop selling {name}?", { name: tier.name })} detail={tt("Nobody new can join on it. Members already on it keep it while they pay.")} action="Stop selling" onConfirm={() => { setArchiving(false); void patch({ archived: true }, tt("Not sold any more")) }} />
+      <Dialog open={picking} onClose={() => setPicking(false)} title={tt("Also let in buyers of")}>
         <ul className="-mx-1.5 space-y-0.5">
           {pickable.map((p) => (
             <li key={p.id}>
@@ -813,7 +815,7 @@ function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boo
     const res = await send(`/api/app/community/${head.id}/tiers`, "POST", { kind, name, price, interval })
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error))
-    toast("Tier added")
+    toast(tt("Tier added"))
     setName("")
     setPrice("")
     onClose()
@@ -823,35 +825,35 @@ function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boo
     <Dialog
       open={open}
       onClose={onClose}
-      title="New tier"
+      title={tt("New tier")}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" onClick={() => void submit()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? "Adding" : "Add tier"}
+            {busy ? tt("Adding") : tt("Add tier")}
           </button>
         </>
       }
     >
       <div className="space-y-4">
-        <Segmented value={kind} onChange={setKind} label="Kind" className="w-full" options={[{ value: "paid", label: "Paid" }, { value: "free", label: "Free" }]} />
+        <Segmented value={kind} onChange={setKind} label={tt("Kind")} className="w-full" options={[{ value: "paid", label: tt("Paid") }, { value: "free", label: "Free" }]} />
         <div>
           <label htmlFor="nt-name" className={label}>
-            Name
+            {tt("Name")}
           </label>
-          <input id="nt-name" value={name} onChange={(e) => setName(e.target.value.slice(0, 60))} placeholder={kind === "paid" ? "Inner circle" : "Members"} className={cn(field, "h-11 sm:h-10")} />
+          <input id="nt-name" value={name} onChange={(e) => setName(e.target.value.slice(0, 60))} placeholder={kind === "paid" ? tt("Inner circle") : tt("Members")} className={cn(field, "h-11 sm:h-10")} />
         </div>
         {kind === "paid" ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_1fr] sm:items-end">
             <div>
               <label htmlFor="nt-price" className={label}>
-                Price
+                {tt("Price")}
               </label>
               <PriceInput id="nt-price" value={price} onChange={setPrice} placeholder="29" />
             </div>
-            <Segmented value={interval} onChange={setInterval} label="How often" className="w-full sm:w-auto" options={[{ value: "month", label: "Monthly" }, { value: "year", label: "Yearly" }, { value: "once", label: "One time" }]} />
+            <Segmented value={interval} onChange={setInterval} label={tt("How often")} className="w-full sm:w-auto" options={[{ value: "month", label: tt("Monthly") }, { value: "year", label: tt("Yearly") }, { value: "once", label: tt("One time") }]} />
           </div>
         ) : null}
         {error ? <Notice>{error}</Notice> : null}
@@ -880,46 +882,46 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
     if (!res.ok) return setError(errorText(res.data.error))
     setSaved(JSON.stringify(s))
     setError(null)
-    toast("Saved")
+    toast(tt("Saved"))
     router.refresh()
   }
   return (
     <div className="space-y-4">
-      {data.platformHidden ? <Notice tone="warn">Storelib took this community out of Explore. Contact support to talk about it.</Notice> : null}
-      <Section title="Who can find it">
+      {data.platformHidden ? <Notice tone="warn">{tt("Storelib took this community out of Explore. Contact support to talk about it.")}</Notice> : null}
+      <Section title={tt("Who can find it")}>
         <Toggle
           checked={discover}
           onChange={async (v) => {
             setDiscover(v)
-            if (!(await instant({ discoveryEnabled: v }, v ? "Shown in Explore" : "Hidden from Explore"))) setDiscover(!v)
+            if (!(await instant({ discoveryEnabled: v }, v ? tt("Shown in Explore") : tt("Hidden from Explore")))) setDiscover(!v)
           }}
-          title="Show in Explore"
-          hint="Published public communities can be found in Explore and search."
+          title={tt("Show in Explore")}
+          hint={tt("Published public communities can be found in Explore and search.")}
           disabled={s.visibility !== "public"}
         />
         <div className="mt-3 space-y-3.5 border-t border-[#f1f2f4] pt-3.5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="d-vis" className={label}>
-                Visibility
+                {tt("Visibility")}
               </label>
               <select id="d-vis" value={s.visibility} onChange={(e) => setS({ ...s, visibility: e.target.value as typeof s.visibility })} className={selectField}>
-                <option value="public">Public: anyone can see the page</option>
-                <option value="unlisted">Unlisted: only with the link</option>
-                <option value="private">Private: members only</option>
+                <option value="public">{tt("Public: anyone can see the page")}</option>
+                <option value="unlisted">{tt("Unlisted: only with the link")}</option>
+                <option value="private">{tt("Private: members only")}</option>
               </select>
             </div>
             {/* The category is chosen in Page, from Explore's own list. */}
           </div>
           <div>
             <label htmlFor="d-seo-t" className={label}>
-              Search title
+              {tt("Search title")}
             </label>
             <input id="d-seo-t" value={s.seoTitle} onChange={(e) => setS({ ...s, seoTitle: e.target.value.slice(0, 200) })} placeholder={head.name} className={cn(field, "h-11 sm:h-10")} />
           </div>
           <div>
             <label htmlFor="d-seo-d" className={label}>
-              Search description
+              {tt("Search description")}
             </label>
             <textarea id="d-seo-d" value={s.seoDescription} onChange={(e) => setS({ ...s, seoDescription: e.target.value.slice(0, 500) })} rows={2} placeholder={head.tagline ?? ""} className={cn(field, "resize-y py-2.5")} />
           </div>
@@ -933,10 +935,10 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
 /* ── Notifications ──────────────────────────────────────────────────────── */
 
 const LEVELS: { value: NotifyLevel; title: string; detail: string }[] = [
-  { value: "all", title: "Everything", detail: "Posts, comments, reactions, events." },
-  { value: "important", title: "What matters", detail: "Everything except reactions." },
-  { value: "mentions", title: "Only for me", detail: "Mentions, replies and messages to you." },
-  { value: "none", title: "Nothing", detail: "Check in when you like." },
+  { value: "all", get title() { return tt("Everything") }, get detail() { return tt("Posts, comments, reactions, events.") } },
+  { value: "important", get title() { return tt("What matters") }, get detail() { return tt("Everything except reactions.") } },
+  { value: "mentions", get title() { return tt("Only for me") }, get detail() { return tt("Mentions, replies and messages to you.") } },
+  { value: "none", get title() { return tt("Nothing") }, get detail() { return tt("Check in when you like.") } },
 ]
 
 function Notifications({ head, data }: { head: CommunityHead; data: SettingsData }) {
@@ -950,17 +952,17 @@ function Notifications({ head, data }: { head: CommunityHead; data: SettingsData
       setN(before)
       return toast(errorText(res.data.error))
     }
-    toast("Saved")
+    toast(tt("Saved"))
   }
   return (
     <div className="space-y-4">
-      <Section title="In the community" hint="What reaches your notifications in this community.">
-        <ChoiceCards value={n.level} onChange={(v) => void save({ ...n, level: v })} options={LEVELS} label="What you hear about" columns={2} />
+      <Section title={tt("In the community")} hint={tt("What reaches your notifications in this community.")}>
+        <ChoiceCards value={n.level} onChange={(v) => void save({ ...n, level: v })} options={LEVELS} label={tt("What you hear about")} columns={2} />
       </Section>
-      <Section title="By email">
+      <Section title={tt("By email")}>
         <div className="divide-y divide-[#f1f2f4]">
-          <Toggle checked={n.emailAnnouncements} onChange={(v) => void save({ ...n, emailAnnouncements: v })} title="Announcements" />
-          <Toggle checked={n.emailEvents} onChange={(v) => void save({ ...n, emailEvents: v })} title="Event reminders" />
+          <Toggle checked={n.emailAnnouncements} onChange={(v) => void save({ ...n, emailAnnouncements: v })} title={tt("Announcements")} />
+          <Toggle checked={n.emailEvents} onChange={(v) => void save({ ...n, emailEvents: v })} title={tt("Event reminders")} />
         </div>
       </Section>
     </div>
@@ -974,7 +976,7 @@ function Policies({ head, data }: { head: CommunityHead; data: SettingsData }) {
     <div className="space-y-4" data-policies="">
       <section className={cn(card)} data-policies-rules="">
         <div className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-          <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Rules</h2>
+          <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Rules")}</h2>
         </div>
         <RulesEditor head={head} initial={data.rules} onSaved={() => {}} />
       </section>
@@ -1001,22 +1003,22 @@ function PolicyForm({ head, initial }: { head: CommunityHead; initial: PoliciesV
     setBusy(true)
     const res = await send<{ policies?: PoliciesView }>(`/api/app/community/${head.id}`, "PATCH", { policies: p })
     setBusy(false)
-    if (!res.ok) return setError({ text: res.data.error === "needs_update" ? "This needs a Storelib update first. Try again later." : errorText(res.data.error), field: res.data.field })
+    if (!res.ok) return setError({ text: res.data.error === "needs_update" ? tt("This needs a Storelib update first. Try again later.") : errorText(res.data.error), field: res.data.field })
     const next = res.data.policies ? { refundPolicy: res.data.policies.refundPolicy, contactEmail: res.data.policies.contactEmail, contactEmailPublic: res.data.policies.contactEmailPublic } : p
     setP(next)
     setSaved(JSON.stringify(next))
     setError(null)
-    toast("Saved")
+    toast(tt("Saved"))
     router.refresh()
   }
   return (
     <>
-      {!ready ? <Notice tone="info">The refund policy and contact settings arrive with a Storelib update. They can be saved once it is in.</Notice> : null}
-      <EditorCard title="Refund policy" hint="Shown at checkout and on each member's Membership page. Plain words: when you refund, and how to ask." id="refund">
+      {!ready ? <Notice tone="info">{tt("The refund policy and contact settings arrive with a Storelib update. They can be saved once it is in.")}</Notice> : null}
+      <EditorCard title={tt("Refund policy")} hint={tt("Shown at checkout and on each member's Membership page. Plain words: when you refund, and how to ask.")} id="refund">
         <div>
           <textarea
             id="p-refund"
-            aria-label="Refund policy"
+            aria-label={tt("Refund policy")}
             value={p.refundPolicy}
             disabled={!ready}
             onChange={(e) => {
@@ -1024,19 +1026,19 @@ function PolicyForm({ head, initial }: { head: CommunityHead; initial: PoliciesV
               setError(null)
             }}
             rows={5}
-            placeholder="Cancel any time and keep access until the end of the period you paid for. Write to me within 14 days of a payment for a full refund."
+            placeholder={tt("Cancel any time and keep access until the end of the period you paid for. Write to me within 14 days of a payment for a full refund.")}
             aria-invalid={error?.field === "refundPolicy" || undefined}
             className={cn(field, "resize-y py-2.5 leading-relaxed", error?.field === "refundPolicy" && "border-[#dc2626]")}
           />
           <p className="mt-1 text-right text-[12px] tabular-nums text-[#9ca3af]">
-            {p.refundPolicy.length.toLocaleString("en-US")} / {REFUND_POLICY_MAX.toLocaleString("en-US")}
+            {p.refundPolicy.length.toLocaleString(appLocale())} / {REFUND_POLICY_MAX.toLocaleString(appLocale())}
           </p>
         </div>
       </EditorCard>
-      <EditorCard title="Contact" hint="Members write to you from the community. Messages reach your inbox and this email; it stays private unless you show it." id="contact">
+      <EditorCard title={tt("Contact")} hint={tt("Members write to you from the community. Messages reach your inbox and this email; it stays private unless you show it.")} id="contact">
         <div>
           <label htmlFor="p-email" className={label}>
-            Email for members
+            {tt("Email for members")}
           </label>
           <input
             id="p-email"
@@ -1054,7 +1056,7 @@ function PolicyForm({ head, initial }: { head: CommunityHead; initial: PoliciesV
             className={cn(field, "h-11 sm:h-10 sm:max-w-[360px]", error?.field === "contactEmail" && "border-[#dc2626]")}
           />
         </div>
-        <Toggle checked={p.contactEmailPublic} disabled={!ready || !p.contactEmail.trim()} onChange={(v) => setP({ ...p, contactEmailPublic: v })} title="Show this email on the community" hint="On the About page and in Membership, beside the contact form." />
+        <Toggle checked={p.contactEmailPublic} disabled={!ready || !p.contactEmail.trim()} onChange={(v) => setP({ ...p, contactEmailPublic: v })} title={tt("Show this email on the community")} hint={tt("On the About page and in Membership, beside the contact form.")} />
       </EditorCard>
       <SaveBar dirty={dirty} busy={busy} error={error?.text ?? null} onSave={() => void save()} onReset={() => { setP(JSON.parse(saved)); setError(null) }} />
     </>
@@ -1064,8 +1066,8 @@ function PolicyForm({ head, initial }: { head: CommunityHead; initial: PoliciesV
 /* ── Roles ──────────────────────────────────────────────────────────────── */
 
 const ROLE_COPY = {
-  admin: { title: "Admins", hint: "People who help you run the community." },
-  moderator: { title: "Moderators", hint: "People who keep conversations in order." },
+  admin: { get title() { return tt("Admins") }, get hint() { return tt("People who help you run the community.") } },
+  moderator: { get title() { return tt("Moderators") }, get hint() { return tt("People who keep conversations in order.") } },
 } as const
 
 function Roles({ head, roles }: { head: CommunityHead; roles: RolesView }) {
@@ -1085,15 +1087,15 @@ function Roles({ head, roles }: { head: CommunityHead; roles: RolesView }) {
     setBusy(true)
     const res = await send(`/api/app/community/${head.id}`, "PATCH", { roles: r })
     setBusy(false)
-    if (!res.ok) return setError(res.data.error === "needs_update" ? "This needs a Storelib update first. Try again later." : errorText(res.data.error))
+    if (!res.ok) return setError(res.data.error === "needs_update" ? tt("This needs a Storelib update first. Try again later.") : errorText(res.data.error))
     setSaved(JSON.stringify(r))
     setError(null)
-    toast("Roles saved")
+    toast(tt("Roles saved"))
     router.refresh()
   }
   return (
     <div className="space-y-4" data-roles="">
-      {!roles.ready ? <Notice tone="info">Choosing what each role may do arrives with a Storelib update. Until then admins and moderators have the usual permissions shown below.</Notice> : null}
+      {!roles.ready ? <Notice tone="info">{tt("Choosing what each role may do arrives with a Storelib update. Until then admins and moderators have the usual permissions shown below.")}</Notice> : null}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {(["admin", "moderator"] as const).map((role) => (
           <EditorCard key={role} title={ROLE_COPY[role].title} hint={ROLE_COPY[role].hint} id={`role-${role}`}>
@@ -1105,7 +1107,7 @@ function Roles({ head, roles }: { head: CommunityHead; roles: RolesView }) {
           </EditorCard>
         ))}
       </div>
-      <p className="px-1 text-[13px] leading-relaxed text-[#6b7280]">Prices, payouts, deleting the community and handing it over always stay with you. Nobody can act on someone ranked the same or above them.</p>
+      <p className="px-1 text-[13px] leading-relaxed text-[#6b7280]">{tt("Prices, payouts, deleting the community and handing it over always stay with you. Nobody can act on someone ranked the same or above them.")}</p>
       <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setR(JSON.parse(saved)); setError(null) }} />
     </div>
   )
@@ -1144,54 +1146,54 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
     <div className="space-y-4">
       {error ? <Notice>{error}</Notice> : null}
       {!head.archived && head.can.manage_settings ? (
-        <Section title={head.status === "published" ? "Published" : "Draft"} hint={head.status === "published" ? "Anyone allowed can see it and join." : "Only you and your team can see it."}>
+        <Section title={head.status === "published" ? tt("Published") : tt("Draft")} hint={head.status === "published" ? tt("Anyone allowed can see it and join.") : tt("Only you and your team can see it.")}>
           {head.status === "published" ? (
-            <button type="button" onClick={() => void run("unpublish", `/api/app/community/${head.id}`, { publish: false }, "Back to a draft")} disabled={busy !== null} className={buttonSecondary}>
-              {busy === "unpublish" ? "Working" : "Unpublish"}
+            <button type="button" onClick={() => void run("unpublish", `/api/app/community/${head.id}`, { publish: false }, tt("Back to a draft"))} disabled={busy !== null} className={buttonSecondary}>
+              {busy === "unpublish" ? tt("Working") : tt("Unpublish")}
             </button>
           ) : (
-            <button type="button" onClick={() => void run("publish", `/api/app/community/${head.id}`, { publish: true }, "Published")} disabled={busy !== null} className={buttonPrimary}>
-              {busy === "publish" ? "Publishing" : "Publish"}
+            <button type="button" onClick={() => void run("publish", `/api/app/community/${head.id}`, { publish: true }, tt("Published"))} disabled={busy !== null} className={buttonPrimary}>
+              {busy === "publish" ? tt("Publishing") : tt("Publish")}
             </button>
           )}
         </Section>
       ) : null}
       {videoProviders.length ? (
-        <Section title="Videos" hint="Where replays and videos you upload to this community are kept.">
+        <Section title={tt("Videos")} hint={tt("Where replays and videos you upload to this community are kept.")}>
           <VideoProviders providers={videoProviders} />
         </Section>
       ) : null}
-      <Section title={head.archived ? "Archived" : "Archive"} hint={head.archived ? "Members can read it; nobody can post. Bringing it back makes it a draft." : "Keep everything, stop new posts and new members. Members can still read it."}>
-        <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? "Brought back as a draft" : "Archived")} disabled={busy !== null} className={buttonSecondary}>
-          {busy === "archive" ? "Working" : head.archived ? "Bring it back" : "Archive"}
+      <Section title={head.archived ? tt("Archived") : tt("Archive")} hint={head.archived ? tt("Members can read it; nobody can post. Bringing it back makes it a draft.") : tt("Keep everything, stop new posts and new members. Members can still read it.")}>
+        <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? tt("Brought back as a draft") : tt("Archived"))} disabled={busy !== null} className={buttonSecondary}>
+          {busy === "archive" ? tt("Working") : head.archived ? tt("Bring it back") : tt("Archive")}
         </button>
       </Section>
       {head.can.delete ? (
-        <Section title="Delete" hint="It disappears for everyone. Orders and payments are kept. Not possible while members still pay for it.">
+        <Section title={tt("Delete")} hint={tt("It disappears for everyone. Orders and payments are kept. Not possible while members still pay for it.")}>
           <button type="button" onClick={() => { setTyped(""); setDeleting(true) }} className="inline-flex h-10 items-center rounded-lg border border-[#fecaca] bg-white px-3 text-[13px] font-medium text-[#b42318] hover:bg-[#fef2f2] sm:h-8">
-            Delete community
+            {tt("Delete community")}
           </button>
         </Section>
       ) : null}
       <Dialog
         open={deleting}
         onClose={() => setDeleting(false)}
-        title="Delete this community?"
+        title={tt("Delete this community?")}
         footer={
           <>
             <button type="button" onClick={() => setDeleting(false)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" disabled={typed.trim() !== head.name.trim() || busy === "delete"} onClick={() => void remove()} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#b42318] px-4 text-[13px] font-medium text-white hover:bg-[#9a1d14] disabled:opacity-40 sm:h-9" data-delete-confirm="">
-              {busy === "delete" ? "Deleting" : "Delete"}
+              {busy === "delete" ? tt("Deleting") : tt("Delete")}
             </button>
           </>
         }
       >
         <p className="text-[14px] leading-relaxed text-[#4b5563]">
-          Type <span className="font-semibold text-[#1a1a2e]">{head.name}</span> to delete it.
+          {tt("Type")} <span className="font-semibold text-[#1a1a2e]">{head.name}</span> {tt("to delete it.")}
         </p>
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="Community name" autoComplete="off" className={cn(field, "mt-3 h-11 sm:h-10")} />
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label={tt("Community name")} autoComplete="off" className={cn(field, "mt-3 h-11 sm:h-10")} />
         {error ? (
           <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
             {error}

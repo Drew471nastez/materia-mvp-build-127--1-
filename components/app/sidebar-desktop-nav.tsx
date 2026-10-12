@@ -99,6 +99,7 @@ import { UserIdIcon as CreatorPageBold } from "@solar-icons/react/bold/user-id"
 
 import { cn } from "@/lib/utils"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
+import { tt } from "@/lib/i18n/text"
 
 // ── The palette, in one place ───────────────────────────────────────────────
 //
@@ -674,7 +675,7 @@ export function DesktopNavItem({
               e.stopPropagation()
               onToggle(item.href)
             }}
-            aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+            aria-label={expanded ? tt("Collapse {label}", { label: item.label }) : tt("Expand {label}", { label: item.label })}
             aria-expanded={expanded}
             className="absolute right-[10px] top-1/2 flex h-5 w-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-[6px]"
             style={{ color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : LABEL_TEXT }}

@@ -16,6 +16,7 @@ import { loadCompatFiles } from "./compat-files"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
 import { OVERRIDE_GROUP } from "@/lib/storelib-theme/compat/overrides"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * A colour scheme's colour is kept at shopify[group][scheme].settings[id]; its
@@ -100,12 +101,12 @@ export function CompatThemeSettings({
   }
   return (
     <div className="flex h-full flex-col">
-      {back("Theme settings", () => onOpen("__back__"))}
+      {back(tt("Theme settings"), () => onOpen("__back__"))}
       <div data-sheet-scroll className="wb-slim-scroll flex-1 overflow-y-auto p-2">
         {groups === null ? (
-          <p className="px-3 py-2 text-[14px] text-[#6b7280]">Loading…</p>
+          <p className="px-3 py-2 text-[14px] text-[#6b7280]">{tt("Loading…")}</p>
         ) : groups.length === 0 ? (
-          <p className="px-3 py-2 text-[14px] text-[#6b7280]">This theme has no settings of its own.</p>
+          <p className="px-3 py-2 text-[14px] text-[#6b7280]">{tt("This theme has no settings of its own.")}</p>
         ) : (
           groups.map((g) => (
             <button

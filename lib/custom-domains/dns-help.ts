@@ -17,6 +17,7 @@
  * status beside a record and the fix under it come from the same answer.
  */
 import type { DnsRecord } from "./hostname"
+import { tt } from "@/lib/i18n/text"
 
 /* ── Registrars ──────────────────────────────────────────────────────── */
 
@@ -41,32 +42,32 @@ export const REGISTRARS: readonly Registrar[] = [
     name: "GoDaddy",
     dnsUrl: (d) => `https://dcc.godaddy.com/control/dnsmanagement?domainName=${encodeURIComponent(d)}`,
     apex: "@",
-    ttl: "Default",
-    note: "GoDaddy adds a Parked A record on @. Edit it to the value above instead of adding a second one.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("GoDaddy adds a Parked A record on @. Edit it to the value above instead of adding a second one.") },
   },
   {
     id: "namecheap",
     name: "Namecheap",
     dnsUrl: (d) => `https://ap.www.namecheap.com/Domains/DomainControlPanel/${encodeURIComponent(d)}/advancedns`,
     apex: "@",
-    ttl: "Automatic",
-    note: "Under Advanced DNS, delete the parking page CNAME and the URL Redirect record first.",
+    get ttl() { return tt("Automatic") },
+    get note() { return tt("Under Advanced DNS, delete the parking page CNAME and the URL Redirect record first.") },
   },
   {
     id: "cloudflare",
     name: "Cloudflare",
     dnsUrl: (d) => `https://dash.cloudflare.com/?to=/:account/${encodeURIComponent(d)}/dns/records`,
     apex: "@",
-    ttl: "Auto",
-    note: "Set Proxy status to DNS only (grey cloud) on each record.",
+    get ttl() { return tt("Auto") },
+    get note() { return tt("Set Proxy status to DNS only (grey cloud) on each record.") },
   },
   {
     id: "squarespace",
     name: "Squarespace",
     dnsUrl: (d) => `https://account.squarespace.com/domains/managed/${encodeURIComponent(d)}/dns/dns-settings`,
     apex: "@",
-    ttl: "Default",
-    note: "Delete the Squarespace Defaults preset first, or its records stay in the way.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("Delete the Squarespace Defaults preset first, or its records stay in the way.") },
   },
   {
     id: "porkbun",
@@ -74,23 +75,23 @@ export const REGISTRARS: readonly Registrar[] = [
     dnsUrl: () => "https://porkbun.com/account/domainsSpeedy",
     apex: "",
     ttl: "600",
-    note: "Open DNS next to your domain. Delete Porkbun's parking ALIAS and CNAME records first.",
+    get note() { return tt("Open DNS next to your domain. Delete Porkbun's parking ALIAS and CNAME records first.") },
   },
   {
     id: "hostinger",
     name: "Hostinger",
     dnsUrl: (d) => `https://hpanel.hostinger.com/domain/${encodeURIComponent(d)}/dns`,
     apex: "@",
-    ttl: "Default",
-    note: "Delete Hostinger's own A record on @ and CNAME on www before adding these.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("Delete Hostinger's own A record on @ and CNAME on www before adding these.") },
   },
   {
     id: "other",
     name: "Somewhere else",
     dnsUrl: null,
     apex: "@",
-    ttl: "Default",
-    note: "If @ is refused, leave the name empty. Some providers want the full name, like www.yourname.com.",
+    get ttl() { return tt("Default") },
+    get note() { return tt("If @ is refused, leave the name empty. Some providers want the full name, like www.yourname.com.") },
   },
 ]
 
@@ -193,7 +194,7 @@ export function isCloudflareIp(ip: string): boolean {
 }
 
 const isIp = (s: string) => /^\d{1,3}(\.\d{1,3}){3}$/.test(s)
-const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`)
+const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : tt("{value} and {xs}", { value: xs.slice(0, -1).join(", "), xs: xs[xs.length - 1] }))
 
 /**
  * What to do, in plain lines, most blocking first: Cloudflare's proxy and

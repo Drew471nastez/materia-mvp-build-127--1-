@@ -11,13 +11,18 @@ import { pickBalance, salesCurrencyOf } from "@/lib/payments/display-currency";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
 import { PaneBar } from "@/app/app/orders/order-parts"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export const metadata = {
-  title: "Payouts",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Payouts"),
+  }
+}
 
 export default async function PayoutsPage() {
   const adminSupabase = createAdminClient();

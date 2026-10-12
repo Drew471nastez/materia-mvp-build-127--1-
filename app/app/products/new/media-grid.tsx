@@ -43,6 +43,7 @@ import { parseYouTubeUrl, type MediaItem } from "./editor-form"
 import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hold-to-drag"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { durationText, videoDuration, videoPosterUrl } from "@/lib/media/video"
+import { tt } from "@/lib/i18n/text"
 
 const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" || item?.type === "video" ? "video" : "photo")
 
@@ -104,12 +105,12 @@ export function MediaGrid({
     return `${kind[0].toUpperCase()}${kind.slice(1)} ${place(id)}`
   }
   const count = items.length
-  const at = (n: number) => `position ${n} of ${count}${n === 1 ? ", the thumbnail" : ""}`
+  const at = (n: number) => tt("position {n} of {count}{n, plural, one {, the thumbnail} other {}}", { n, count })
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up ${name(active.id).toLowerCase()} of ${count}.`,
-    onDragOver: ({ active, over }) => (over ? `${name(active.id)} is now at ${at(place(over.id))}.` : undefined),
-    onDragEnd: ({ active, over }) => (over ? `${name(active.id)} dropped at ${at(place(over.id))}.` : "Dropped where it was."),
-    onDragCancel: ({ active }) => `Cancelled. ${name(active.id)} is back where it was.`,
+    onDragStart: ({ active }) => tt("Picked up {value} of {count}.", { value: name(active.id).toLowerCase(), count }),
+    onDragOver: ({ active, over }) => (over ? tt("{name} is now at {value}.", { name: name(active.id), value: at(place(over.id)) }) : undefined),
+    onDragEnd: ({ active, over }) => (over ? tt("{name} dropped at {value}.", { name: name(active.id), value: at(place(over.id)) }) : tt("Dropped where it was.")),
+    onDragCancel: ({ active }) => tt("Cancelled. {name} is back where it was.", { name: name(active.id) }),
   }
 
   const onDragStart = (e: DragStartEvent) => {
@@ -135,7 +136,7 @@ export function MediaGrid({
         announcements,
         screenReaderInstructions: {
           draggable:
-            "To move a photo or video, press Space or Enter on it, then the arrow keys. Press Space or Enter again to drop it, or Escape to put it back. The first is the thumbnail.",
+            tt("To move a photo or video, press Space or Enter on it, then the arrow keys. Press Space or Enter again to drop it, or Escape to put it back. The first is the thumbnail."),
         },
       }}
       onDragStart={onDragStart}
@@ -215,7 +216,7 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
         {item.type === "video" && (
           <span aria-hidden data-media-video="" className="pointer-events-none absolute bottom-1 right-1 inline-flex h-5 items-center gap-1 rounded-md bg-black/60 px-1.5 text-[10px] font-medium tabular-nums text-white sm:bottom-1.5 sm:right-1.5 sm:text-[11px]">
             <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-            {length || "Video"}
+            {length || tt("Video")}
           </span>
         )}
         {item.type === "youtube" && (
@@ -234,7 +235,7 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
           data-media-handle=""
           {...attributes}
           {...listeners}
-          aria-label={`Move ${kind} ${index + 1}${index === 0 ? ", the thumbnail" : ""}`}
+          aria-label={tt("Move {kind} {value}{value2}", { kind, value: index + 1, value2: index === 0 ? tt(", the thumbnail") : "" })}
           className={cn(
             "absolute inset-0 flex items-center justify-center bg-black/0 outline-none transition-colors group-hover/tile:bg-black/20",
             "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8b5cf6]",
@@ -247,7 +248,7 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
         <button
           type="button"
           data-media-remove=""
-          aria-label={`Remove ${kind} ${index + 1}`}
+          aria-label={tt("Remove {kind} {value}", { kind, value: index + 1 })}
           onClick={(e) => {
             e.stopPropagation()
             onRemove(item.id)
@@ -262,7 +263,7 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
         </div>
         {index === 0 && item.type === "image" && (
           <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white sm:bottom-1.5 sm:left-1.5 sm:text-[10px]">
-            Thumbnail
+            {tt("Thumbnail")}
           </span>
         )}
         {item.type === "youtube" && (
@@ -300,7 +301,7 @@ function PendingTile({ pending, shape = "wide", cover = false }: { pending: Pend
         </span>
         <span
           role="progressbar"
-          aria-label={pending.preview ? "Uploading photo" : "Uploading video"}
+          aria-label={pending.preview ? tt("Uploading photo") : tt("Uploading video")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(pending.progress)}

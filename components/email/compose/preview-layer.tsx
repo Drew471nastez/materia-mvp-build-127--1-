@@ -30,6 +30,7 @@ import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { EmailPreview, type PreviewMode } from "./email-preview"
 import { Segmented } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 export const PREVIEW_IN_MS = 340
 export const PREVIEW_OUT_MS = 260
@@ -100,22 +101,22 @@ export function PreviewLayer({ open, onClose, mode, onMode, ...preview }: Previe
       ref={ref}
       role="dialog"
       aria-modal="true"
-      aria-label="Preview"
+      aria-label={tt("Preview")}
       data-preview-layer=""
       data-open={open ? "true" : "false"}
       className="fixed inset-0 z-[210] flex flex-col bg-[#f4f5f7] will-change-transform"
     >
       <header className="shrink-0 border-b border-[#e5e7eb] bg-white pt-[env(safe-area-inset-top,0px)]">
         <div className="mx-auto flex h-14 w-full max-w-[760px] items-center gap-2 px-4">
-          <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#1a1a2e]">Preview</h2>
+          <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#1a1a2e]">{tt("Preview")}</h2>
           <Segmented
-            label="Preview size"
+            label={tt("Preview size")}
             value={mode}
             onChange={onMode}
             className="h-9 [&>button]:min-w-[64px]"
             options={[
-              { value: "mobile", label: "Phone" },
-              { value: "desktop", label: "Desktop" },
+              { value: "mobile", label: tt("Phone") },
+              { value: "desktop", label: tt("Desktop") },
             ]}
           />
           <button
@@ -125,7 +126,7 @@ export function PreviewLayer({ open, onClose, mode, onMode, ...preview }: Previe
             data-preview-done=""
             className="-mr-2 inline-flex h-11 cursor-pointer items-center rounded-[10px] px-3 text-[16px] font-semibold text-[#1a1a2e] transition-colors duration-100 hover:bg-[#eef0f2] active:bg-[#e4e6ea] [-webkit-tap-highlight-color:transparent]"
           >
-            Done
+            {tt("Done")}
           </button>
         </div>
       </header>

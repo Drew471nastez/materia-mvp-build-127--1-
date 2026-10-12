@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  SETTING UP TO SELL PHYSICAL PRODUCTS: THE STEPS, IN ORDER
@@ -39,11 +40,11 @@ export interface PhysicalStep {
 
 export function physicalSteps(f: PhysicalSetupFacts): PhysicalStep[] {
   return [
-    { id: "fulfilment", label: "Choose how you fulfil orders", line: "Yourself, a warehouse, print on demand, a supplier or a mix.", done: f.fulfilmentChosen, href: "/app/settings?tab=shipping" },
-    { id: "location", label: "Add where your stock is", line: "Your home, a shop or a warehouse: where orders ship from.", done: f.locations > 0, href: "/app/settings?tab=locations" },
-    { id: "delivery", label: "Set how buyers get it", line: f.rates === 0 && f.pickupLocations === 0 ? "A shipping rate for where you sell, or local pickup." : "Shipping rates or local pickup are set.", done: f.rates > 0 || f.pickupLocations > 0, href: "/app/settings?tab=shipping" },
-    { id: "product", label: "Add a physical product with stock", line: f.physicalProducts > 0 && f.stockedProducts === 0 ? "Your product has no stock yet. Add some so buyers can order it." : "Its photos, price, variants and how many you have.", done: f.stockedProducts > 0, href: f.physicalProducts > 0 ? "/app/inventory" : "/app/products/new?type=physical" },
-    { id: "package", label: "Add the box you ship in", line: "Its size and weight make shipping by weight and labels right.", done: f.packages > 0, href: "/app/settings?tab=shipping" },
+    { id: "fulfilment", label: tt("Choose how you fulfil orders"), line: tt("Yourself, a warehouse, print on demand, a supplier or a mix."), done: f.fulfilmentChosen, href: "/app/settings?tab=shipping" },
+    { id: "location", label: tt("Add where your stock is"), line: tt("Your home, a shop or a warehouse: where orders ship from."), done: f.locations > 0, href: "/app/settings?tab=locations" },
+    { id: "delivery", label: tt("Set how buyers get it"), line: f.rates === 0 && f.pickupLocations === 0 ? tt("A shipping rate for where you sell, or local pickup.") : tt("Shipping rates or local pickup are set."), done: f.rates > 0 || f.pickupLocations > 0, href: "/app/settings?tab=shipping" },
+    { id: "product", label: tt("Add a physical product with stock"), line: f.physicalProducts > 0 && f.stockedProducts === 0 ? tt("Your product has no stock yet. Add some so buyers can order it.") : tt("Its photos, price, variants and how many you have."), done: f.stockedProducts > 0, href: f.physicalProducts > 0 ? "/app/inventory" : "/app/products/new?type=physical" },
+    { id: "package", label: tt("Add the box you ship in"), line: tt("Its size and weight make shipping by weight and labels right."), done: f.packages > 0, href: "/app/settings?tab=shipping" },
   ]
 }
 
@@ -54,7 +55,7 @@ export function physicalSteps(f: PhysicalSetupFacts): PhysicalStep[] {
  * sell anything, and the card says so first.
  */
 export function physicalBlockers(f: PhysicalSetupFacts): PhysicalStep[] {
-  return f.paymentsReady === false ? [{ id: "payments" as PhysicalStep["id"], label: "Set up payments to get paid", line: "Buyers can't pay for anything until this is done.", done: false, href: "/app/payouts" }] : []
+  return f.paymentsReady === false ? [{ id: "payments" as PhysicalStep["id"], label: tt("Set up payments to get paid"), line: tt("Buyers can't pay for anything until this is done."), done: false, href: "/app/payouts" }] : []
 }
 
 export function physicalSetupDone(f: PhysicalSetupFacts): boolean {

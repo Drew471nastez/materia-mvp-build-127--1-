@@ -31,6 +31,7 @@ import { relativeTime } from "@/lib/website-builder/relative-time"
 import { Step, Steps } from "@/components/website-builder/setup-steps"
 import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
 import { buttonClass, primaryButtonClass } from "@/components/website-builder/website-settings/parts"
+import { tt } from "@/lib/i18n/text"
 
 interface Link {
   account: string
@@ -85,11 +86,11 @@ interface Status {
 
 /** What GitHub's round trip came back with, from ?github= on the editor's URL. */
 const RETURNED: Record<string, string> = {
-  expired: "That GitHub link expired. Press Continue to GitHub again.",
-  cancelled: "GitHub was not connected.",
-  denied: "GitHub did not confirm that your account can reach that installation, so nothing was linked.",
-  "not-set-up": "GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.",
-  error: "Something went wrong saving the link. Try again.",
+  get expired() { return tt("That GitHub link expired. Press Continue to GitHub again.") },
+  get cancelled() { return tt("GitHub was not connected.") },
+  get denied() { return tt("GitHub did not confirm that your account can reach that installation, so nothing was linked.") },
+  get "not-set-up"() { return tt("GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.") },
+  get error() { return tt("Something went wrong saving the link. Try again.") },
 }
 
 export function GitHubMark({ className }: { className?: string }) {
@@ -118,7 +119,7 @@ function SyncRow({ title, detail, on, busy, onChange }: {
     <label className="flex min-h-[60px] cursor-pointer items-center gap-4 py-2.5">
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-medium text-white/90 md:text-[14px]">{title}</span>
-        <span className="block text-[13px] text-white/50">{on ? detail : "Off"}</span>
+        <span className="block text-[13px] text-white/50">{on ? detail : tt("Off")}</span>
       </span>
       <button
         type="button"
@@ -152,7 +153,7 @@ const AI_TOOLS = [
 
 /** A built-in's line: which file, and where its copy came from. Pure, tested as words. */
 export function editedLabel(e: Pick<Edited, "path" | "from">): { name: string; badge: string } {
-  return { name: e.path, badge: e.from === "github" ? "Edited in GitHub" : "Edited in the builder" }
+  return { name: e.path, badge: e.from === "github" ? tt("Edited in GitHub") : tt("Edited in the builder") }
 }
 
 /** What GitHub's line says. Pure, so the words are tested as words. */
@@ -160,14 +161,14 @@ export function githubStatus(
   status: Pick<Status, "configured" | "ready" | "link"> | null,
   failed: boolean,
 ): { tone: ConnectionTone; status?: string; detail?: string; action?: string; loading?: boolean } {
-  if (!status) return failed ? { tone: "attention", status: "Could not check GitHub", action: "Open" } : { tone: "off", loading: true }
+  if (!status) return failed ? { tone: "attention", status: "Could not check GitHub", action: tt("Open") } : { tone: "off", loading: true }
   if (!status.configured) return { tone: "none", status: "Not switched on for this Storelib yet" }
   if (!status.ready) return { tone: "none", status: "Needs a database update first" }
   const link = status.link
-  if (!link) return { tone: "off", status: "Not connected", action: "Connect" }
-  if (!link.repo) return { tone: "attention", status: "Pick a repository", detail: link.account || undefined, action: "Continue" }
-  if (link.lastError) return { tone: "attention", status: "Last sync failed", detail: link.repo, action: "Manage" }
-  return { tone: "on", status: "Connected", detail: link.repo, action: "Manage" }
+  if (!link) return { tone: "off", status: "Not connected", action: tt("Connect") }
+  if (!link.repo) return { tone: "attention", status: "Pick a repository", detail: link.account || undefined, action: tt("Continue") }
+  if (link.lastError) return { tone: "attention", status: "Last sync failed", detail: link.repo, action: tt("Manage") }
+  return { tone: "on", status: "Connected", detail: link.repo, action: tt("Manage") }
 }
 
 export function GitHubSyncPanel({
@@ -198,14 +199,14 @@ export function GitHubSyncPanel({
     try {
       const res = await fetch(`/api/website-builder/themes/${installId}/github`)
       const d = (await res.json().catch(() => ({}))) as Status & { error?: string }
-      if (!res.ok) throw new Error(d.error || "Could not load GitHub")
+      if (!res.ok) throw new Error(d.error || tt("Could not load GitHub"))
       setStatus(d)
       if (d.repos?.length && !repo) {
         setRepo(d.repos[0].fullName)
         setBranch(d.repos[0].defaultBranch)
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load GitHub")
+      setError(e instanceof Error ? e.message : tt("Could not load GitHub"))
     }
   }, [installId, repo])
 
@@ -225,17 +226,17 @@ export function GitHubSyncPanel({
         body: JSON.stringify(body),
       })
       const d = (await res.json().catch(() => ({}))) as { error?: string; upToDate?: boolean; saved?: number; failed?: unknown[] }
-      if (!res.ok) throw new Error(d.error || "GitHub did not answer")
-      if (kind === "export" || kind === "select") setNotice(d.upToDate ? "GitHub already has the whole theme." : "Sent the whole theme to GitHub.")
+      if (!res.ok) throw new Error(d.error || tt("GitHub did not answer"))
+      if (kind === "export" || kind === "select") setNotice(d.upToDate ? tt("GitHub already has the whole theme.") : tt("Sent the whole theme to GitHub."))
       if (kind === "pull") {
         const n = d.saved ?? 0
         const bad = d.failed?.length ?? 0
-        setNotice(n === 0 && bad === 0 ? "Already up to date." : `${n} file${n === 1 ? "" : "s"} pulled as a draft${bad ? `, ${bad} not taken (listed below)` : ""}.`)
+        setNotice(n === 0 && bad === 0 ? tt("Already up to date.") : tt("{n, plural, one {# file} other {# files}} pulled as a draft{value}.", { n, value: bad ? tt(", {bad} not taken (listed below)", { bad }) : "" }))
       }
-      if (kind === "reset") setNotice("Back to Storelib's version. GitHub gets it too.")
+      if (kind === "reset") setNotice(tt("Back to Storelib's version. GitHub gets it too."))
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "GitHub did not answer")
+      setError(e instanceof Error ? e.message : tt("GitHub did not answer"))
       await load()
     } finally {
       setBusy(null)
@@ -249,7 +250,7 @@ export function GitHubSyncPanel({
     setBusy(null)
     setConfirmDisconnect(false)
     if (!res?.ok) {
-      setError("Could not disconnect. Try again.")
+      setError(tt("Could not disconnect. Try again."))
       return
     }
     setNotice(null)
@@ -264,7 +265,7 @@ export function GitHubSyncPanel({
     <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
       <a href={`/api/github/connect?installId=${encodeURIComponent(installId)}`} className={primaryButtonClass}>
         <GitHubMark className="h-4 w-4" />
-        Continue to GitHub
+        {tt("Continue to GitHub")}
       </a>
       {status.accounts.map((a) => (
         <button
@@ -275,7 +276,7 @@ export function GitHubSyncPanel({
           className={buttonClass}
         >
           {busy === "reuse" && <Loader2 className="h-4 w-4 animate-spin" />}
-          Use {a.account || "your GitHub"}
+          {tt("Use")} {a.account || tt("your GitHub")}
         </button>
       ))}
     </div>
@@ -284,18 +285,18 @@ export function GitHubSyncPanel({
   const picker = status && link ? (
     <div>
       <p className="text-[14px] text-white/60">
-        Connected to <span className="text-white">{link.account || "GitHub"}</span>. Pick the repository for this website.
+        {tt("Connected to")} <span className="text-white">{link.account || "GitHub"}</span>{tt(". Pick the repository for this website.")}
       </p>
       {status.reposError ? (
         <p className="mt-3 text-[14px] text-red-300">{status.reposError}</p>
       ) : status.repos.length === 0 ? (
         <p className="mt-3 text-[14px] text-white/60">
-          Storelib cannot see any repositories. Give it access to one on GitHub, then <InlineButton onClick={() => void load()}>check again</InlineButton>.
+          {tt("Storelib cannot see any repositories. Give it access to one on GitHub, then")} <InlineButton onClick={() => void load()}>{tt("check again")}</InlineButton>.
         </p>
       ) : (
         <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
           <label className="block">
-            <span className="text-[13px] text-white/50">Repository</span>
+            <span className="text-[13px] text-white/50">{tt("Repository")}</span>
             <select
               value={repo}
               onChange={(e) => {
@@ -310,7 +311,7 @@ export function GitHubSyncPanel({
             </select>
           </label>
           <label className="block">
-            <span className="text-[13px] text-white/50">Branch</span>
+            <span className="text-[13px] text-white/50">{tt("Branch")}</span>
             <input
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
@@ -318,16 +319,16 @@ export function GitHubSyncPanel({
             />
           </label>
           <label className="block">
-            <span className="text-[13px] text-white/50">Folder</span>
+            <span className="text-[13px] text-white/50">{tt("Folder")}</span>
             <input
               value={folder}
               onChange={(e) => setFolder(e.target.value)}
-              placeholder="Top of the repository"
+              placeholder={tt("Top of the repository")}
               className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none placeholder:font-sans placeholder:text-white/30 focus:border-white/35 md:h-10 md:text-[14px]"
             />
           </label>
           <p className="text-[13px] leading-relaxed text-white/50 md:col-span-3">
-            An empty repository works best. If the branch is protected on GitHub, type a new one, such as storelib, and Storelib makes it.
+            {tt("An empty repository works best. If the branch is protected on GitHub, type a new one, such as storelib, and Storelib makes it.")}
           </p>
           <button
             type="button"
@@ -336,7 +337,7 @@ export function GitHubSyncPanel({
             className={`${primaryButtonClass} md:col-span-3 md:justify-self-start`}
           >
             {busy === "select" && <Loader2 className="h-4 w-4 animate-spin" />}
-            Link and send the theme
+            {tt("Link and send the theme")}
           </button>
         </div>
       )}
@@ -358,9 +359,9 @@ export function GitHubSyncPanel({
   const setup = () => (
     <>
       {status === null ? null : !status.configured ? (
-        <p className="text-[14px] text-white/60">GitHub is not switched on for this Storelib yet.</p>
+        <p className="text-[14px] text-white/60">{tt("GitHub is not switched on for this Storelib yet.")}</p>
       ) : !status.ready ? (
-        <p className="text-[14px] text-white/60">GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.</p>
+        <p className="text-[14px] text-white/60">{tt("GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.")}</p>
       ) : (
         <Steps>
           <Step n={1} title={STEPS[0][0]}>
@@ -404,17 +405,17 @@ export function GitHubSyncPanel({
               <span className="font-mono">{link.branch}</span>
               {link.folder && <span className="font-mono"> · {link.folder}</span>}
               <span className="text-white/30"> · </span>
-              {link.lastSyncedAt ? `Synced ${relativeTime(link.lastSyncedAt)}` : "Not synced yet"}
+              {link.lastSyncedAt ? tt("Synced {time}", { time: relativeTime(link.lastSyncedAt) }) : tt("Not synced yet")}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button type="button" disabled={busy !== null} onClick={() => void post({ action: "pull" }, "pull")} className={buttonClass}>
               {busy === "pull" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownToLine className="h-4 w-4" />}
-              Pull
+              {tt("Pull")}
             </button>
             <button type="button" disabled={busy !== null} onClick={() => void post({ action: "export" }, "export")} className={buttonClass}>
               {busy === "export" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpFromLine className="h-4 w-4" />}
-              Push
+              {tt("Push")}
             </button>
           </div>
         </div>
@@ -426,7 +427,7 @@ export function GitHubSyncPanel({
         {link.last && link.last.failed.length > 0 && (
           <div className="mt-4">
             <p className="text-[13px] font-medium text-white/60">
-              Not taken from {link.last.commit ? <span className="font-mono">{link.last.commit.slice(0, 7)}</span> : "the last sync"}. Fix these in the repository and push again:
+              {tt("Not taken from")} {link.last.commit ? <span className="font-mono">{link.last.commit.slice(0, 7)}</span> : tt("the last sync")}{tt(". Fix these in the repository and push again:")}
             </p>
             <ul className="mt-1.5 space-y-1.5">
               {link.last.failed.map((f) => (
@@ -448,7 +449,7 @@ export function GitHubSyncPanel({
         {/* Built-ins this site has its own copy of: drawn here only, and one press from Storelib's again. */}
         {(status.overrides?.length ?? 0) > 0 && (
           <div className="mt-6">
-            <p className="text-[13px] font-medium text-white/50">Built-in files this site has its own copy of</p>
+            <p className="text-[13px] font-medium text-white/50">{tt("Built-in files this site has its own copy of")}</p>
             <ul className="mt-1.5 divide-y divide-white/[0.05]">
               {status.overrides!.map((o) => {
                 const label = editedLabel(o)
@@ -458,18 +459,18 @@ export function GitHubSyncPanel({
                     <span className="shrink-0 rounded-md bg-white/[0.06] px-2 py-0.5 text-[12px] text-white/60">{label.badge}</span>
                     {confirmReset === o.path ? (
                       <span className="flex shrink-0 items-center gap-3">
-                        <button type="button" onClick={() => setConfirmReset(null)} className="h-11 text-white/70 hover:text-white md:h-auto">Keep</button>
+                        <button type="button" onClick={() => setConfirmReset(null)} className="h-11 text-white/70 hover:text-white md:h-auto">{tt("Keep")}</button>
                         <button
                           type="button"
                           disabled={busy !== null}
                           onClick={() => void post({ action: "reset-override", path: o.path }, "reset").then(() => setConfirmReset(null))}
                           className="h-11 font-medium text-red-300 hover:text-red-200 md:h-auto"
                         >
-                          {busy === "reset" ? "Resetting" : "Reset"}
+                          {busy === "reset" ? tt("Resetting") : tt("Reset")}
                         </button>
                       </span>
                     ) : (
-                      <InlineButton onClick={() => setConfirmReset(o.path)}>Reset to Storelib&apos;s version</InlineButton>
+                      <InlineButton onClick={() => setConfirmReset(o.path)}>{tt("Reset to Storelib's version")}</InlineButton>
                     )}
                   </li>
                 )
@@ -481,15 +482,15 @@ export function GitHubSyncPanel({
         {/* Which way changes travel: two switches, named as the two directions they are. */}
         <div className="mt-5 divide-y divide-white/[0.07] border-y border-white/[0.07]">
           <SyncRow
-            title="Builder to GitHub"
-            detail="Code you save here is committed, and the whole theme on Publish"
+            title={tt("Builder to GitHub")}
+            detail={tt("Code you save here is committed, and the whole theme on Publish")}
             on={link.pushOnSave}
             busy={busy === "settings"}
             onChange={(v) => void post({ action: "settings", pushOnSave: v }, "settings")}
           />
           <SyncRow
-            title="GitHub to builder"
-            detail="Every push to the branch arrives as a draft"
+            title={tt("GitHub to builder")}
+            detail={tt("Every push to the branch arrives as a draft")}
             on={link.pullOnPush}
             busy={busy === "settings"}
             onChange={(v) => void post({ action: "settings", pullOnPush: v }, "settings")}
@@ -498,10 +499,10 @@ export function GitHubSyncPanel({
 
         {/* Working with an AI on it: the repository is the whole theme, and its AGENTS.md tells the tool the rest. */}
         <div className="mt-6">
-          <p className="text-[13px] font-medium text-white/50">Use it with an AI</p>
+          <p className="text-[13px] font-medium text-white/50">{tt("Use it with an AI")}</p>
           <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-[13.5px] leading-relaxed text-white/70">
             <li>
-              Open {link.repo} in{" "}
+              {tt("Open {repo} in", { repo: link.repo })}{" "}
               {AI_TOOLS.map((t, i) => (
                 <span key={t.name}>
                   {i > 0 && " or "}
@@ -510,21 +511,21 @@ export function GitHubSyncPanel({
               ))}
               .
             </li>
-            <li>Ask for a change, such as &ldquo;make the hero taller&rdquo;. It reads AGENTS.md first.</li>
-            <li>When it pushes to <span className="font-mono">{link.branch}</span>, the change shows here as a draft within seconds.</li>
+            <li>{tt("Ask for a change, such as “make the hero taller”. It reads AGENTS.md first.")}</li>
+            <li>{tt("When it pushes to")} <span className="font-mono">{link.branch}</span>{tt(", the change shows here as a draft within seconds.")}</li>
           </ol>
         </div>
 
         {/* What went each way, lately. */}
         {status.events.length > 0 && (
           <div className="mt-6">
-            <p className="text-[13px] font-medium text-white/50">Recent</p>
+            <p className="text-[13px] font-medium text-white/50">{tt("Recent")}</p>
             <ul className="mt-1.5 divide-y divide-white/[0.05]">
               {status.events.map((ev) => (
                 <li key={ev.id} className="flex items-center gap-3 py-2 text-[13px]">
                   <span
                     className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${ev.ok ? "bg-white/[0.06] text-white/60" : "bg-red-500/15 text-red-300"}`}
-                    aria-label={ev.direction === "to_github" ? "To GitHub" : "From GitHub"}
+                    aria-label={ev.direction === "to_github" ? tt("To GitHub") : tt("From GitHub")}
                   >
                     {ev.direction === "to_github" ? <ArrowUpFromLine className="h-3.5 w-3.5" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
                   </span>
@@ -547,15 +548,15 @@ export function GitHubSyncPanel({
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13.5px] md:text-[13px]">
-          <InlineButton onClick={() => void post({ action: "change-repo" }, "reuse")}>Change repository</InlineButton>
+          <InlineButton onClick={() => void post({ action: "change-repo" }, "reuse")}>{tt("Change repository")}</InlineButton>
           {confirmDisconnect ? (
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-white/60">Disconnect GitHub? The repository stays as it is.</span>
-              <button type="button" onClick={() => setConfirmDisconnect(false)} className="h-11 text-white/70 hover:text-white md:h-auto">Keep</button>
-              <button type="button" onClick={() => void disconnect()} className="h-11 font-medium text-red-300 hover:text-red-200 md:h-auto">Disconnect</button>
+              <span className="text-white/60">{tt("Disconnect GitHub? The repository stays as it is.")}</span>
+              <button type="button" onClick={() => setConfirmDisconnect(false)} className="h-11 text-white/70 hover:text-white md:h-auto">{tt("Keep")}</button>
+              <button type="button" onClick={() => void disconnect()} className="h-11 font-medium text-red-300 hover:text-red-200 md:h-auto">{tt("Disconnect")}</button>
             </span>
           ) : (
-            <InlineButton onClick={() => setConfirmDisconnect(true)}>Disconnect</InlineButton>
+            <InlineButton onClick={() => setConfirmDisconnect(true)}>{tt("Disconnect")}</InlineButton>
           )}
         </div>
       </>
@@ -566,7 +567,7 @@ export function GitHubSyncPanel({
       id="github"
       mark={<GitHubMark className="h-5 w-5" />}
       name="GitHub"
-      badge={recommended ? "Recommended" : undefined}
+      badge={recommended ? tt("Recommended") : undefined}
       featured={recommended}
       tone={line.tone}
       status={line.status}

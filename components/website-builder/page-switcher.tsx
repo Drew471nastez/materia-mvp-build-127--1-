@@ -7,6 +7,7 @@ import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
 import { OverlayRail } from "@/components/storefront/overlay-scroll"
 import { PAGE_SEARCH_FROM, PRODUCTS_LISTED, groupPages, pageGroupOf, pageMatches, type PageGroupKey } from "@/lib/website-builder/page-groups"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -336,7 +337,7 @@ export function PageList({
                 }}
                 className={cn("rounded-md bg-[#e5484d] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-[#d43b40]", touch ? "h-10" : "h-7")}
               >
-                Delete
+                {tt("Delete")}
               </button>
               <button
                 type="button"
@@ -346,7 +347,7 @@ export function PageList({
                 }}
                 className={cn("rounded-md px-2.5 text-[12px] transition-colors", touch ? "h-10" : "h-7", tone === "dark" ? "text-white/60 hover:text-white" : "text-[#6b7280] hover:text-[#1a1a2e]")}
               >
-                Keep
+                {tt("Keep")}
               </button>
             </div>
           ) : (
@@ -367,7 +368,7 @@ export function PageList({
                 touch ? "h-11" : "h-8 opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100",
                 skin.trash,
               )}
-              aria-label={`Delete ${p.name}`}
+              aria-label={tt("Delete {name}", { name: p.name })}
             >
               <Trash2 className="h-4 w-4" strokeWidth={1.75} />
             </button>
@@ -407,7 +408,7 @@ export function PageList({
         onClick={() => setAllProducts(true)}
         className={cn(rowClass(false, indented), "font-medium", tone === "dark" ? "text-white/60" : "text-[#6b7280]")}
       >
-        Show all {n} products
+        {tt("Show all {n} products", { n })}
       </button>
     </li>
   )
@@ -434,8 +435,8 @@ export function PageList({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") rowsIn()[0]?.click()
                 }}
-                placeholder="Search pages"
-                aria-label="Search pages"
+                placeholder={tt("Search pages")}
+                aria-label={tt("Search pages")}
                 className={cn(
                   "w-full rounded-lg border border-[#e5e7eb] bg-white pl-9 pr-9 focus:border-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-black/5 [&::-webkit-search-cancel-button]:hidden",
                   touch ? "h-11 text-[16px]" : "h-9 text-[14px]",
@@ -449,7 +450,7 @@ export function PageList({
                     setQuery("")
                     searchRef.current?.focus()
                   }}
-                  aria-label="Clear the search"
+                  aria-label={tt("Clear the search")}
                   className={cn("absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]", touch ? "h-10 w-10" : "h-7 w-7")}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -468,8 +469,8 @@ export function PageList({
               onKeyDown={(e) => {
                 if (e.key === "Enter") rowsIn()[0]?.click()
               }}
-              placeholder="Search pages"
-              aria-label="Search pages"
+              placeholder={tt("Search pages")}
+              aria-label={tt("Search pages")}
               className={cn("min-w-0 flex-1 bg-transparent text-[14px] outline-none", skin.input)}
             />
             {query && (
@@ -480,7 +481,7 @@ export function PageList({
                   searchRef.current?.focus()
                 }}
                 className="rounded p-0.5 text-white/50 transition-colors hover:text-white"
-                aria-label="Clear the search"
+                aria-label={tt("Clear the search")}
               >
                 <X className="h-4 w-4" strokeWidth={2} />
               </button>
@@ -525,7 +526,7 @@ export function PageList({
               className={cn("-mr-2 flex items-center gap-1 rounded-md px-2 text-[13px] font-medium", touch ? "h-11" : "h-7", skin.action)}
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-              Create page
+              {tt("Create page")}
             </button>
           )
           if (collapsible) {
@@ -586,7 +587,7 @@ export function PageList({
           )
         })}
         {groups.length === 0 && (
-          <p className={cn("px-3 py-8 text-center text-[14px]", skin.empty)}>No page matches “{query.trim()}”</p>
+          <p className={cn("px-3 py-8 text-center text-[14px]", skin.empty)}>{tt("No page matches “{value}”", { value: query.trim() })}</p>
         )}
       </div>
       {!light && <OverlayRail scrollerRef={scrollRef} tone="dark" />}
@@ -602,7 +603,7 @@ export function PageList({
             className={cn("flex h-10 w-full items-center gap-1.5 rounded-lg px-3 text-left text-[14px] font-medium transition-colors", skin.action)}
           >
             <Plus className="h-4 w-4 shrink-0" strokeWidth={2} />
-            Create page
+            {tt("Create page")}
           </button>
         </div>
       )}
@@ -712,7 +713,7 @@ export function PageSwitcher({
           onClick={onReload}
           disabled={disabled}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-          aria-label="Reload preview"
+          aria-label={tt("Reload preview")}
         >
           <RefreshCw className={cn("h-3.5 w-3.5", reloading && "animate-spin")} strokeWidth={2} />
         </button>
@@ -727,7 +728,7 @@ export function PageSwitcher({
           className="flex h-full min-w-0 flex-1 items-center gap-2 pl-1 text-[12.5px] font-medium text-white"
         >
           <span className="min-w-0 flex-1 truncate text-center">
-            {current === "product" && currentProduct ? currentProduct : (currentPage?.name ?? "Page")}
+            {current === "product" && currentProduct ? currentProduct : (currentPage?.name ?? tt("Page"))}
           </span>
           <ChevronDown
             className={cn("h-4 w-4 shrink-0 text-white/60 transition-transform duration-200", open && "rotate-180")}
@@ -749,7 +750,7 @@ export function PageSwitcher({
           gap={8}
           panelRef={menuRef}
           role="dialog"
-          aria-label="Pages"
+          aria-label={tt("Pages")}
           data-state={open ? "open" : "closed"}
           className="wb-pages-menu flex w-[280px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1f1f1f] text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]"
         >

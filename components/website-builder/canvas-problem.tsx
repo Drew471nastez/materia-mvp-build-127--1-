@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * WHEN THE CANVAS CANNOT SHOW THE PAGE, IT SAYS SO, with the one thing to do
@@ -36,7 +37,7 @@ export function CanvasProblem({
           disabled={busy}
           className="mt-4 h-9 rounded-lg bg-[#1a1a2e] px-4 text-[13.5px] font-medium text-white transition-[opacity,scale] duration-150 hover:opacity-90 active:scale-[0.97] disabled:opacity-60"
         >
-          {busy ? "Trying again" : "Try again"}
+          {busy ? tt("Trying again") : tt("Try again")}
         </button>
       </div>
     </div>
@@ -102,7 +103,7 @@ export function CompatCanvasWaiting() {
     <div data-canvas-placeholder="up" aria-busy className="relative w-full overflow-hidden bg-white" style={{ height: "max(320px, 100cqh)" }}>
       <PageOutline />
       {slow ? (
-        <CanvasProblem kind="code" title="This is taking longer than usual" body="The editor is still loading your theme." onRetry={() => window.location.reload()} />
+        <CanvasProblem kind="code" title={tt("This is taking longer than usual")} body={tt("The editor is still loading your theme.")} onRetry={() => window.location.reload()} />
       ) : null}
     </div>
   )

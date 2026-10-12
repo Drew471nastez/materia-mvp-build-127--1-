@@ -20,6 +20,8 @@
  */
 import { dayHeading, itemsLabel, startOfDay, type Order } from "./order-view"
 import { reasonLabel } from "@/lib/store/reasons"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export type TimelineTone = "success" | "attention" | "critical" | "neutral" | "upcoming"
 
@@ -73,20 +75,20 @@ export interface StripeStep {
   status: string
 }
 
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const money = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
 const formatMoney = (cents: number) => money.format((cents || 0) / 100)
 
 /** "Visa •••• 4242", "PayPal", "No payment needed". Null when nothing says. */
 export function paymentMethodOf(order: Order): string | null {
   const line = order.lines[0]
-  if (order.totalCents === 0) return "No payment needed"
+  if (order.totalCents === 0) return tt("No payment needed")
   if (line.card_brand) {
     const brand = line.card_brand.replace(/^./, (c) => c.toUpperCase())
     return line.card_last4 ? `${brand} •••• ${line.card_last4}` : brand
   }
-  if (line.payment_method === "paypal") return line.paypal_email ? `PayPal, ${line.paypal_email}` : "PayPal"
+  if (line.payment_method === "paypal") return line.paypal_email ? tt("PayPal, {paypal_email}", { paypal_email: line.paypal_email }) : "PayPal"
   if (line.payment_method && line.payment_method !== "card") return line.payment_method.replace(/_/g, " ")
-  return line.stripe_payment_intent_id ? "Card" : null
+  return line.stripe_payment_intent_id ? tt("Card") : null
 }
 
 /** The Stripe steps the timeline shows. The rest it already knows from the order itself. */
@@ -100,19 +102,19 @@ function tidy(text: string | undefined): string | undefined {
 export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe: StripeStep[] = []): TimelineEvent[] {
   const events: TimelineEvent[] = []
   const who = order.customerName || order.customerEmail
-  const where = order.source === "website" ? " on your website" : order.source === "storelib" ? " on Storelib" : ""
-  events.push({ id: "placed", at: order.createdAt, text: `${who ? `${who} placed` : "Placed"} this order${where}`, tone: "neutral", glyph: "placed" })
+  const where = order.source === "website" ? tt(" on your website") : order.source === "storelib" ? tt(" on Storelib") : ""
+  events.push({ id: "placed", at: order.createdAt, text: tt("{value} this order{where}", { value: who ? tt("{who} placed", { who }) : tt("Placed"), where }), tone: "neutral", glyph: "placed" })
 
   if (order.payment === "failed") {
-    events.push({ id: "failed", at: order.createdAt, text: "The payment failed", tone: "critical", glyph: "failed" })
+    events.push({ id: "failed", at: order.createdAt, text: tt("The payment failed"), tone: "critical", glyph: "failed" })
   } else if (order.payment === "pending") {
-    events.push({ id: "pending", at: order.createdAt, text: "Waiting for the payment to go through", tone: "attention", glyph: "pending" })
+    events.push({ id: "pending", at: order.createdAt, text: tt("Waiting for the payment to go through"), tone: "attention", glyph: "pending" })
   } else {
     const method = paymentMethodOf(order)
     events.push({
       id: "paid",
       at: order.createdAt,
-      text: order.totalCents > 0 ? `${formatMoney(order.totalCents)} paid` : "Free order, nothing to pay",
+      text: order.totalCents > 0 ? tt("{amount} paid", { amount: formatMoney(order.totalCents) }) : tt("Free order, nothing to pay"),
       detail: order.totalCents > 0 && method ? method : undefined,
       tone: "success",
       glyph: "paid",
@@ -123,7 +125,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
   const digitalItems = order.lines.filter((l) => l.product?.type !== "physical").reduce((n, l) => n + Math.max(1, l.quantity ?? 1), 0)
   const given = order.shipping ? order.lines.some((l) => l.product?.type !== "physical" && (l.status === "completed" || l.status === "refunded")) : order.fulfillment === "fulfilled"
   if (given && digitalItems > 0) {
-    events.push({ id: "access", at: order.createdAt, text: `Access given to ${itemsLabel(order.shipping ? digitalItems : order.itemCount)}`, tone: "success", glyph: "access" })
+    events.push({ id: "access", at: order.createdAt, text: tt("Access given to {name}", { name: itemsLabel(order.shipping ? digitalItems : order.itemCount) }), tone: "success", glyph: "access" })
   }
 
   for (const line of order.lines) {
@@ -132,7 +134,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
       events.push({
         id: `mail-${line.id}`,
         at: line.buyer_notified_at,
-        text: `Receipt emailed to ${line.buyer_email || "the buyer"}`,
+        text: tt("Receipt emailed to {value}", { value: line.buyer_email || tt("the buyer") }),
         detail: product ?? undefined,
         tone: "success",
         glyph: "mail",
@@ -141,7 +143,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
       events.push({
         id: `mail-${line.id}`,
         at: null,
-        text: "The receipt email did not arrive",
+        text: tt("The receipt email did not arrive"),
         detail: tidy(line.buyer_email_last_error || undefined),
         tone: "critical",
         glyph: "mail-failed",
@@ -154,7 +156,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
       events.push({
         id: `refund-${line.id}`,
         at: line.refunded_at || null,
-        text: `${formatMoney(cents)} refunded${product ? ` for ${product}` : ""}`,
+        text: tt("{amount} refunded{value}", { amount: formatMoney(cents), value: product ? tt(" for {product}", { product }) : "" }),
         detail: line.refund_reason ? reasonLabel(line.refund_reason, "refund") : undefined,
         tone: "critical",
         glyph: "refund",
@@ -168,10 +170,10 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
         id: `activity-${a.id}`,
         at: a.at,
         text: a.failed
-          ? "Receipt could not be sent again"
+          ? tt("Receipt could not be sent again")
           : a.by === "creator"
-            ? "You sent the receipt again"
-            : "The buyer asked for the receipt again",
+            ? tt("You sent the receipt again")
+            : tt("The buyer asked for the receipt again"),
         tone: a.failed ? "critical" : "neutral",
         glyph: a.failed ? "mail-failed" : "resent",
       })
@@ -179,7 +181,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
       events.push({
         id: `activity-${a.id}`,
         at: a.at,
-        text: a.by === "creator" ? "You changed the customer's email" : "The buyer changed their email",
+        text: a.by === "creator" ? tt("You changed the customer's email") : tt("The buyer changed their email"),
         tone: "neutral",
         glyph: "email-changed",
       })
@@ -192,7 +194,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
     events.push({
       id: `stripe-${step.id}`,
       at: step.timestamp,
-      text: step.id === "funds_available" ? (done ? "Available for cash out" : "Available for cash out soon") : step.label,
+      text: step.id === "funds_available" ? (done ? tt("Available for cash out") : tt("Available for cash out soon")) : step.label,
       detail: step.id === "funds_available" && !done ? tidy(step.description) : undefined,
       tone: done ? "success" : "upcoming",
       glyph: step.id === "funds_available" ? "funds" : "payout",
@@ -261,14 +263,14 @@ export function physicalEvents(p: PhysicalHistory): TimelineEvent[] {
     events.push({
       id: `ship-${s.id}`,
       at: s.shippedAt ?? s.createdAt,
-      text: p.pickup ? `${count(n)} ready for pickup` : `${count(n)} shipped`,
-      detail: p.pickup ? undefined : tracking || "No tracking number",
-      link: !p.pickup && s.trackingUrl ? { href: s.trackingUrl, label: "Track" } : undefined,
+      text: p.pickup ? tt("{count} ready for pickup", { count: count(n) }) : tt("{count} shipped", { count: count(n) }),
+      detail: p.pickup ? undefined : tracking || tt("No tracking number"),
+      link: !p.pickup && s.trackingUrl ? { href: s.trackingUrl, label: tt("Track") } : undefined,
       tone: "success",
       glyph: "shipped",
     })
     if (s.status === "delivered" && s.deliveredAt) {
-      events.push({ id: `delivered-${s.id}`, at: s.deliveredAt, text: p.pickup ? `${count(n)} picked up` : `${count(n)} delivered`, tone: "success", glyph: "delivered" })
+      events.push({ id: `delivered-${s.id}`, at: s.deliveredAt, text: p.pickup ? tt("{count} picked up", { count: count(n) }) : tt("{count} delivered", { count: count(n) }), tone: "success", glyph: "delivered" })
     }
   }
   for (const e of p.events) {
@@ -315,11 +317,11 @@ export function groupTimeline(events: TimelineEvent[], now: number, timeZone: st
     const dayKey = Number.isFinite(t) ? String(startOfDay(t, timeZone)) : groups.at(-1)?.key ?? "earlier"
     const last = groups.at(-1)
     if (last && last.key === dayKey) last.events.push(e)
-    else groups.push({ key: dayKey, day: e.at ? dayHeading(e.at, now, timeZone) : "Earlier", upcoming: false, events: [e] })
+    else groups.push({ key: dayKey, day: e.at ? dayHeading(e.at, now, timeZone) : tt("Earlier"), upcoming: false, events: [e] })
   }
   if (next.length > 0) {
     next.sort((a, b) => (a.at ? Date.parse(a.at) : Infinity) - (b.at ? Date.parse(b.at) : Infinity))
-    groups.push({ key: "next", day: "Next", upcoming: true, events: next })
+    groups.push({ key: "next", day: tt("Next"), upcoming: true, events: next })
   }
   return groups
 }
@@ -328,8 +330,8 @@ export function groupTimeline(events: TimelineEvent[], now: number, timeZone: st
 export function relativeTime(iso: string, now: number): string | null {
   const diff = now - Date.parse(iso)
   if (!Number.isFinite(diff) || diff < 0) return null
-  if (diff < 60_000) return "Just now"
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min ago`
-  if (diff < 24 * 3_600_000) return `${Math.floor(diff / 3_600_000)} h ago`
+  if (diff < 60_000) return tt("Just now")
+  if (diff < 3_600_000) return tt("{value} min ago", { value: Math.floor(diff / 60_000) })
+  if (diff < 24 * 3_600_000) return tt("{value} h ago", { value: Math.floor(diff / 3_600_000) })
   return null
 }

@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -131,7 +132,7 @@ export function LeaveConfirm({
   const shownReason = open ? reason : kept
   const lines = leaveLines(shownReason)
   const offerSave = !!onSave && canSaveBeforeLeaving(shownReason)
-  const title = offerSave ? "Save changes before leaving?" : "Leave without saving?"
+  const title = offerSave ? tt("Save changes before leaving?") : tt("Leave without saving?")
 
   const save = async () => {
     if (!onSave || saving) return
@@ -152,7 +153,7 @@ export function LeaveConfirm({
         ))}
         {failed && (
           <li role="alert" className="text-[#b42318]">
-            Could not save. Try again, or discard.
+            {tt("Could not save. Try again, or discard.")}
           </li>
         )}
       </ul>
@@ -172,7 +173,7 @@ export function LeaveConfirm({
         )}
       >
         {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-        {saving ? "Saving" : "Save"}
+        {saving ? tt("Saving") : tt("Save")}
       </button>
     ) : null
 
@@ -198,7 +199,7 @@ export function LeaveConfirm({
               data-leave-discard=""
               className="h-12 w-full rounded-xl border border-[#f1d5d1] bg-white text-[15.5px] font-medium text-[#b42318] transition-colors active:bg-[#fef2f2] disabled:opacity-40"
             >
-              Discard changes
+              {tt("Discard changes")}
             </button>
             <button
               type="button"
@@ -207,7 +208,7 @@ export function LeaveConfirm({
               data-leave-cancel=""
               className="h-12 w-full rounded-xl text-[15.5px] font-medium text-[#374151] transition-colors active:bg-[#f1f2f4] disabled:opacity-40"
             >
-              Keep editing
+              {tt("Keep editing")}
             </button>
           </div>
         </div>
@@ -264,7 +265,7 @@ export function LeaveConfirm({
             data-leave-discard=""
             className="h-10 rounded-xl px-3.5 text-[14px] font-medium text-[#b42318] transition-colors hover:bg-[#fef2f2] disabled:opacity-40"
           >
-            Discard
+            {tt("Discard")}
           </button>
           <span className="flex-1" />
           <button
@@ -275,7 +276,7 @@ export function LeaveConfirm({
             data-leave-cancel=""
             className="h-10 rounded-xl border border-[#e5e7eb] bg-white px-4 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] disabled:opacity-40"
           >
-            Keep editing
+            {tt("Keep editing")}
           </button>
           {saveButton(false)}
         </div>

@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 type Door = "ai" | "template" | "blank" | null
 
@@ -87,7 +88,7 @@ export function NewSiteFlow() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Could not create the site.")
+        setError(typeof data.error === "string" ? data.error : tt("Could not create the site."))
         return
       }
       /**
@@ -102,16 +103,16 @@ export function NewSiteFlow() {
       const brief = payload.prompt?.trim()
       router.push(brief ? `/sites/${data.site.id}?brief=${encodeURIComponent(brief)}` : `/sites/${data.site.id}`)
     } catch {
-      setError("Could not reach the server. Check your connection and try again.")
+      setError(tt("Could not reach the server. Check your connection and try again."))
     } finally {
       setBusy(false)
     }
   }
 
   const doors: Array<{ id: Exclude<Door, null>; icon: typeof Sparkles; title: string; detail: string }> = [
-    { id: "ai", icon: Sparkles, title: "Start with AI", detail: "Describe it and Storelib writes the code." },
-    { id: "template", icon: LayoutTemplate, title: "Choose a template", detail: "Start from a finished design." },
-    { id: "blank", icon: FileCode, title: "Blank site", detail: "An empty React project." },
+    { id: "ai", icon: Sparkles, title: tt("Start with AI"), detail: tt("Describe it and Storelib writes the code.") },
+    { id: "template", icon: LayoutTemplate, title: tt("Choose a template"), detail: tt("Start from a finished design.") },
+    { id: "blank", icon: FileCode, title: tt("Blank site"), detail: tt("An empty React project.") },
   ]
 
   return (
@@ -121,10 +122,10 @@ export function NewSiteFlow() {
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Sites
+        {tt("Sites")}
       </SmartLink>
 
-      <h1 className="text-xl font-semibold tracking-tight">Create your site</h1>
+      <h1 className="text-xl font-semibold tracking-tight">{tt("Create your site")}</h1>
 
       <div className="mt-6 grid gap-2 sm:grid-cols-3">
         {doors.map((d) => (
@@ -147,19 +148,19 @@ export function NewSiteFlow() {
       {door === "ai" && (
         <div className="mt-6 space-y-5 rounded-[10px] border border-border p-4">
           <div className="space-y-2">
-            <Label htmlFor="ns-brief">What are you building?</Label>
+            <Label htmlFor="ns-brief">{tt("What are you building?")}</Label>
             <Textarea
               id="ns-brief"
               rows={3}
               value={brief}
               maxLength={2000}
               onChange={(e) => setBrief(e.target.value)}
-              placeholder="Build a minimal website for a personal trainer in Bucharest selling online coaching."
+              placeholder={tt("Build a minimal website for a personal trainer in Bucharest selling online coaching.")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Website type</Label>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">{tt("Website type")}</Label>
             <div className="flex flex-wrap gap-1.5">
               {WEBSITE_TYPES.map((t) => (
                 <Chip key={t} active={type === t} onClick={() => setType(type === t ? null : t)}>
@@ -170,7 +171,7 @@ export function NewSiteFlow() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Main goal</Label>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">{tt("Main goal")}</Label>
             <div className="flex flex-wrap gap-1.5">
               {GOALS.map((g) => (
                 <Chip key={g} active={goal === g} onClick={() => setGoal(goal === g ? null : g)}>
@@ -181,13 +182,13 @@ export function NewSiteFlow() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ns-name">Site name</Label>
+            <Label htmlFor="ns-name">{tt("Site name")}</Label>
             <Input
               id="ns-name"
               value={name}
               maxLength={60}
               onChange={(e) => setName(e.target.value)}
-              placeholder="My site"
+              placeholder={tt("My site")}
             />
           </div>
 
@@ -200,14 +201,14 @@ export function NewSiteFlow() {
           */}
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
-              Creates the project and opens the editor. Generation runs from the chat there.
+              {tt("Creates the project and opens the editor. Generation runs from the chat there.")}
             </p>
             <Button
               onClick={() => create({ name: name.trim() || "My site", prompt: composeBrief(brief, type, goal) })}
               disabled={busy || !brief.trim()}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create site
+              {tt("Create site")}
             </Button>
           </div>
         </div>
@@ -215,10 +216,9 @@ export function NewSiteFlow() {
 
       {door === "template" && (
         <div className="mt-6 rounded-[10px] border border-dashed border-border p-8 text-center">
-          <p className="text-sm font-medium">Templates are not ready yet</p>
+          <p className="text-sm font-medium">{tt("Templates are not ready yet")}</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            They are real starter projects rather than presets, and they come after the editor. Start
-            blank or with AI for now.
+            {tt("They are real starter projects rather than presets, and they come after the editor. Start blank or with AI for now.")}
           </p>
         </div>
       )}
@@ -226,20 +226,20 @@ export function NewSiteFlow() {
       {door === "blank" && (
         <div className="mt-6 space-y-4 rounded-[10px] border border-border p-4">
           <div className="space-y-2">
-            <Label htmlFor="ns-blank-name">Site name</Label>
+            <Label htmlFor="ns-blank-name">{tt("Site name")}</Label>
             <Input
               id="ns-blank-name"
               value={name}
               maxLength={60}
               onChange={(e) => setName(e.target.value)}
-              placeholder="My site"
+              placeholder={tt("My site")}
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end">
             <Button onClick={() => create({ name: name.trim() || "My site" })} disabled={busy || !name.trim()}>
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create site
+              {tt("Create site")}
             </Button>
           </div>
         </div>

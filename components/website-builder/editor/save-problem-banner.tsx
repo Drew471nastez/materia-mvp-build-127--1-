@@ -8,8 +8,9 @@
  */
 import { X } from "lucide-react"
 import type { SaveAction, SaveProblem } from "@/lib/website-builder/save-problem"
+import { tt } from "@/lib/i18n/text"
 
-const LABEL: Record<SaveAction, string> = { retry: "Try again", reload: "Reload", signin: "Sign in", undo: "Undo", back: "Websites" }
+const LABEL: Record<SaveAction, string> = { get retry() { return tt("Try again") }, get reload() { return tt("Reload") }, get signin() { return tt("Sign in") }, get undo() { return tt("Undo") }, get back() { return tt("Websites") } }
 
 export function SaveProblemBanner({ problem, onAction, onClose }: { problem: SaveProblem | null; onAction: (a: SaveAction) => void; onClose: () => void }) {
   if (!problem) return null
@@ -33,7 +34,7 @@ export function SaveProblemBanner({ problem, onAction, onClose }: { problem: Sav
       </button>
       <button
         type="button"
-        aria-label="Dismiss"
+        aria-label={tt("Dismiss")}
         onClick={onClose}
         className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] outline-none transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
       >

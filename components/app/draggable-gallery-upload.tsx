@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Plus, X, AlertCircle, GripVertical } from "lucide-react"
 import Image from "next/image"
+import { tt } from "@/lib/i18n/text"
 
 interface DraggableGalleryUploadProps {
   folder: string
@@ -34,7 +35,7 @@ export function DraggableGalleryUpload({
   const handleUpload = useCallback(
     async (files: FileList) => {
       if (value.length + files.length > maxImages) {
-        setError(`Maximum ${maxImages} images allowed`)
+        setError(tt("Maximum {maxImages} images allowed", { maxImages }))
         return
       }
 
@@ -52,7 +53,7 @@ export function DraggableGalleryUpload({
           // Validate
           if (!file.type.startsWith("image/")) continue
           if (file.size > maxSizeMB * 1024 * 1024) {
-            setError(`${file.name} exceeds ${maxSizeMB}MB limit`)
+            setError(tt("{name} exceeds {maxSizeMB}MB limit", { name: file.name, maxSizeMB }))
             continue
           }
 
@@ -80,7 +81,7 @@ export function DraggableGalleryUpload({
 
         onChange([...value, ...newUrls])
       } catch (err) {
-        setError("Failed to upload images")
+        setError(tt("Failed to upload images"))
       } finally {
         setUploading(false)
         setProgress(0)
@@ -236,7 +237,7 @@ export function DraggableGalleryUpload({
               touchAction: 'none', // Prevent default touch behaviors during drag
             }}
           >
-            <Image src={url || "/placeholder.svg"} alt={`Gallery image ${index + 1}`} fill className="object-cover" />
+            <Image src={url || "/placeholder.svg"} alt={tt("Gallery image {value}", { value: index + 1 })} fill className="object-cover" />
 
             {/* Drag handle overlay */}
             <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
@@ -281,7 +282,7 @@ export function DraggableGalleryUpload({
             ) : (
               <>
                 <Plus className="h-6 w-6 text-muted-foreground" />
-                <span className="mt-1 text-xs text-muted-foreground">Add</span>
+                <span className="mt-1 text-xs text-muted-foreground">{tt("Add")}</span>
               </>
             )}
           </button>
@@ -306,7 +307,7 @@ export function DraggableGalleryUpload({
       )}
 
       <p className="text-xs text-muted-foreground">
-        {value.length}/{maxImages} images - Drag to reorder
+        {tt("{length}/{maxImages} images - Drag to reorder", { length: value.length, maxImages })}
       </p>
     </div>
   )

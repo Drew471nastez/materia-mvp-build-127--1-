@@ -34,6 +34,7 @@
  *           as before.
  */
 import type { Category } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 export interface PanelItem {
   id: string
@@ -65,31 +66,31 @@ export function panelOrder<T extends PanelItem>(items: readonly T[]): T[] {
 
 /** The browser-made to-dos (lib/notifications/unread-state.ts), by id. */
 const SETUP_LABELS: Record<string, string> = {
-  "payment-setup": "Payments",
+  get "payment-setup"() { return tt("Payments") },
   "onepage-setup": "OnePage",
 }
 
 /** Rows written before the engine, and by the review and sale code, by their type. */
 const TYPE_LABELS: Record<string, string> = {
-  new_review: "Reviews",
-  new_sale: "Sales",
-  new_subscriber: "Subscribers",
-  payout: "Payouts",
-  message: "Messages",
-  opportunity: "Opportunities",
-  action: "To do",
-  announcement: "Updates",
-  update: "Updates",
+  get new_review() { return tt("Reviews") },
+  get new_sale() { return tt("Sales") },
+  get new_subscriber() { return tt("Subscribers") },
+  get payout() { return tt("Payouts") },
+  get message() { return tt("Messages") },
+  get opportunity() { return tt("Opportunities") },
+  get action() { return tt("To do") },
+  get announcement() { return tt("Updates") },
+  get update() { return tt("Updates") },
 }
 
 /** An engine row that somehow carries no area, by how much it matters. */
 const CATEGORY_LABELS: Record<Category, string> = {
-  critical: "Account",
-  problem: "Account",
-  next_step: "Getting started",
-  opportunity: "Opportunities",
-  milestone: "Milestone",
-  update: "Updates",
+  get critical() { return tt("Account") },
+  get problem() { return tt("Account") },
+  get next_step() { return tt("Getting started") },
+  get opportunity() { return tt("Opportunities") },
+  get milestone() { return tt("Milestone") },
+  get update() { return tt("Updates") },
 }
 
 /**
@@ -106,7 +107,7 @@ export function labelOf(n: { id: string; type: string; category?: Category | nul
   const byType = TYPE_LABELS[n.type]
   if (byType) return byType
   if (n.category && CATEGORY_LABELS[n.category]) return CATEGORY_LABELS[n.category]
-  return "Updates"
+  return tt("Updates")
 }
 
 export type Tone = "critical" | "problem" | null

@@ -32,6 +32,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { cleanDatetime } from "@/lib/storelib-theme/values"
 import { TEXT_BUTTON } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 const pad = (n: number) => String(n).padStart(2, "0")
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -61,13 +62,13 @@ export function datetimeFromNow(date: string, time: string, now: number): string
   const mins = Math.round(Math.abs(diff) / 60_000)
   const hours = Math.floor(mins / 60)
   const days = Math.floor(hours / 24)
-  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`
+  const plural = (n: number, w: string) => tt("{n} {w}{n, plural, one {} other {s}}", { n, w })
   const span =
     days >= 1 ? (hours % 24 && days < 7 ? `${plural(days, "day")}, ${plural(hours % 24, "hour")}` : plural(days, "day"))
     : hours >= 1 ? plural(hours, "hour")
     : mins >= 1 ? plural(mins, "minute")
-    : "less than a minute"
-  return diff >= 0 ? `in ${span}` : `${span} ago`
+    : tt("less than a minute")
+  return diff >= 0 ? tt("in {span}", { span }) : tt("{span} ago", { span })
 }
 
 export function DateTimeControl({
@@ -95,11 +96,11 @@ export function DateTimeControl({
   const write = (d: string, t: string) => onChange(d ? `${d}T${t || "00:00"}${zone}` : "")
   const keepTime = time || "23:59"
   const shortcuts: { label: string; date: () => string }[] = [
-    { label: "1 day", date: () => ymd(new Date(Date.now() + 86_400_000)) },
-    { label: "3 days", date: () => ymd(new Date(Date.now() + 3 * 86_400_000)) },
-    { label: "1 week", date: () => ymd(new Date(Date.now() + 7 * 86_400_000)) },
+    { label: tt("1 day"), date: () => ymd(new Date(Date.now() + 86_400_000)) },
+    { label: tt("3 days"), date: () => ymd(new Date(Date.now() + 3 * 86_400_000)) },
+    { label: tt("1 week"), date: () => ymd(new Date(Date.now() + 7 * 86_400_000)) },
     {
-      label: "Month end",
+      label: tt("Month end"),
       date: () => {
         const d = new Date()
         return ymd(new Date(d.getFullYear(), d.getMonth() + 1, 0))
@@ -117,25 +118,25 @@ export function DateTimeControl({
         <div className="relative px-3 py-2.5 pr-14" aria-live="polite" data-datetime-summary="">
           {date && (
             <button type="button" className={cn(TEXT_BUTTON, "absolute right-1.5 top-1.5")} onClick={() => onChange("")} data-datetime-clear="">
-              Clear
+              {tt("Clear")}
             </button>
           )}
           {date ? (
             <>
               <p className="text-[13px] font-medium text-foreground max-sm:text-[15px]">{datetimeInWords(date, time)}</p>
               <p className={cn("mt-0.5 text-[12px] max-sm:text-[13px]", past ? "text-[#b45309]" : "text-muted-foreground")}>
-                {past ? `Already passed, ${datetimeFromNow(date, time, now)}` : datetimeFromNow(date, time, now)}
+                {past ? tt("Already passed, {date}", { date: datetimeFromNow(date, time, now) }) : datetimeFromNow(date, time, now)}
               </p>
             </>
           ) : (
-            <p className="text-[13px] text-muted-foreground max-sm:text-[15px]">No date set yet</p>
+            <p className="text-[13px] text-muted-foreground max-sm:text-[15px]">{tt("No date set yet")}</p>
           )}
         </div>
         <div className="grid grid-cols-2 gap-1.5 border-t border-border bg-[#fafafa] p-1.5 dark:bg-white/[0.02]">
           <label className="relative block">
             <input
               type="date"
-              aria-label={label ? `${label}: date` : "Date"}
+              aria-label={label ? `${label}: date` : tt("Date")}
               data-datetime-date=""
               className={field}
               value={date}
@@ -145,7 +146,7 @@ export function DateTimeControl({
           <label className="relative block">
             <input
               type="time"
-              aria-label={label ? `${label}: time` : "Time"}
+              aria-label={label ? `${label}: time` : tt("Time")}
               data-datetime-time=""
               className={field}
               value={time}

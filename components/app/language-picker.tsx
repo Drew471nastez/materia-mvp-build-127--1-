@@ -16,6 +16,7 @@ import { ChoiceDialog } from "@/components/ui/choice-list"
 import { useLanguage, type LanguageCode } from "@/lib/i18n"
 import { appLanguageChoices } from "@/lib/i18n/app-languages"
 import { useLocale } from "@/components/locale-provider"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * The account menu's Language: chosen and applied at once. It sets the
@@ -31,10 +32,10 @@ export function AppLanguageModal({ open, onOpenChange }: { open: boolean; onOpen
       open={open}
       onOpenChange={onOpenChange}
       name="language"
-      title="Language"
+      title={tt("Language")}
       choices={choices}
       value={language}
-      placeholder="Search languages"
+      placeholder={tt("Search languages")}
       onPick={(code) => {
         setLanguage(code as LanguageCode)
         if (locale.languages.some((l) => l.code === code)) locale.setLanguage(code as never)

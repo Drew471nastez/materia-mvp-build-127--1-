@@ -20,6 +20,8 @@
 import { getFeeDescription } from "./fee-calculator"
 import { siteLimits, type SitePlan } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export type PlanId = "free" | "growth" | "pro"
 export type OfferedPlanId = "free" | "growth"
@@ -108,19 +110,19 @@ export function planHighlights(id: PlanId): string[] {
  * The rest name things every plan has, and tests/pricing-plans.test.ts ties
  * each of those to the code that provides it.
  */
-const websitesLine = (id: PlanId) => `${siteLimits(id as SitePlan).maxSites} websites, ${siteLimits(id as SitePlan).maxPages} pages each`
-const storageLine = (id: PlanId) => `${formatBytes(PLAN_LIMITS[id].storageQuotaBytes)} of file storage`
-const aiEditsLine = (id: PlanId) => `${siteLimits(id as SitePlan).aiEditsPerMonth} AI edits a month`
+const websitesLine = (id: PlanId) => tt("{maxSites} websites, {maxPages} pages each", { maxSites: siteLimits(id as SitePlan).maxSites, maxPages: siteLimits(id as SitePlan).maxPages })
+const storageLine = (id: PlanId) => tt("{storageQuotaBytes} of file storage", { storageQuotaBytes: formatBytes(PLAN_LIMITS[id].storageQuotaBytes) })
+const aiEditsLine = (id: PlanId) => tt("{aiEditsPerMonth} AI edits a month", { aiEditsPerMonth: siteLimits(id as SitePlan).aiEditsPerMonth })
 
 /** What Free includes, in the order a seller weighs it. */
 function freeFeatures(): string[] {
   return [
     feeLine("free"),
-    "Unlimited digital products and courses",
-    `A creator page and ${siteLimits("free").maxSites} websites`,
-    "Payouts to your bank through Stripe",
-    "Email your buyers and subscribers",
-    "Sales and visitor analytics",
+    tt("Unlimited digital products and courses"),
+    tt("A creator page and {maxSites} websites", { maxSites: siteLimits("free").maxSites }),
+    tt("Payouts to your bank through Stripe"),
+    tt("Email your buyers and subscribers"),
+    tt("Sales and visitor analytics"),
     storageLine("free"),
   ]
 }
@@ -136,7 +138,7 @@ function freeExcluded(): string[] {
 /** What Pro adds, after everything Free has. */
 function proFeatures(): string[] {
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
-  const lines = ["Everything in Free", feeLine(PRO_CHECKOUT_PLAN_ID)]
+  const lines = [tt("Everything in Free"), feeLine(PRO_CHECKOUT_PLAN_ID)]
   if (pro.customDomain) lines.push("Your own domain")
   if (pro.removeBranding) lines.push("No Storelib branding")
   lines.push(websitesLine(PRO_CHECKOUT_PLAN_ID), storageLine(PRO_CHECKOUT_PLAN_ID), aiEditsLine(PRO_CHECKOUT_PLAN_ID))
@@ -173,13 +175,13 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     price: formatPlanPrice(0),
     period: "forever",
     /* "Start here" read as a place to stay: Free is the basics, and Pro has everything. */
-    pill: "Basics",
-    priceNote: "No monthly fee",
-    summary: "Open your store and start selling today.",
+    get pill() { return tt("Basics") },
+    get priceNote() { return tt("No monthly fee") },
+    get summary() { return tt("Open your store and start selling today.") },
     features: freeFeatures(),
     excluded: freeExcluded(),
     /* Free has no checkout: signing up asks for no card. */
-    note: "No card needed",
+    get note() { return tt("No card needed") },
   },
   {
     id: PRO_CHECKOUT_PLAN_ID,
@@ -187,14 +189,14 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     priceCents: PRO_PRICE_CENTS,
     price: formatPlanPrice(PRO_PRICE_CENTS),
     period: "/month",
-    pill: "Everything included",
-    priceNote: "per month",
-    summary: "Keep more of every sale.",
+    get pill() { return tt("Everything included") },
+    get priceNote() { return tt("per month") },
+    get summary() { return tt("Keep more of every sale.") },
     features: proFeatures(),
     excluded: [],
     /* A monthly Stripe subscription, cancelled from Billing
        (app/api/billing/subscription/cancel). */
-    note: "Billed monthly. Cancel anytime.",
+    get note() { return tt("Billed monthly. Cancel anytime.") },
   },
 ]
 
@@ -207,8 +209,8 @@ export function pricedFor(plan: OfferedPlan, interval: BillingInterval): Pick<Of
   if (interval === "monthly" || plan.priceCents === 0) return { price: plan.price, priceNote: plan.priceNote, note: plan.note }
   return {
     price: formatPlanPrice(PRO_YEARLY_MONTHLY_CENTS),
-    priceNote: "per month, billed yearly",
-    note: YEARLY_BILLING_LIVE ? `${formatPlanPrice(PRO_YEARLY_TOTAL_CENTS)} once a year. Cancel anytime.` : "Yearly opens soon. Pay monthly for now.",
+    priceNote: tt("per month, billed yearly"),
+    note: YEARLY_BILLING_LIVE ? tt("{amount} once a year. Cancel anytime.", { amount: formatPlanPrice(PRO_YEARLY_TOTAL_CENTS) }) : tt("Yearly opens soon. Pay monthly for now."),
   }
 }
 
@@ -249,32 +251,32 @@ export function planComparison(): ComparisonSection[] {
   const fee = (id: PlanId) => getFeeDescription(id).replace(" per transaction", "")
   return [
     {
-      title: "Selling",
+      title: tt("Selling"),
       rows: [
-        { label: "Fee per sale", free: fee("free"), pro: fee(PRO_CHECKOUT_PLAN_ID) },
-        { label: "Digital products and courses", free: "Unlimited", pro: "Unlimited" },
-        { label: "Payouts to your bank through Stripe", free: true, pro: true },
-        { label: "Email your buyers and subscribers", free: true, pro: true },
-        { label: "Sales and visitor analytics", free: true, pro: true },
+        { label: tt("Fee per sale"), free: fee("free"), pro: fee(PRO_CHECKOUT_PLAN_ID) },
+        { label: tt("Digital products and courses"), free: tt("Unlimited"), pro: tt("Unlimited") },
+        { label: tt("Payouts to your bank through Stripe"), free: true, pro: true },
+        { label: tt("Email your buyers and subscribers"), free: true, pro: true },
+        { label: tt("Sales and visitor analytics"), free: true, pro: true },
       ],
     },
     {
-      title: "Websites",
+      title: tt("Websites"),
       rows: [
-        { label: "Websites", free: String(free.maxSites), pro: String(pro.maxSites) },
-        { label: "Pages per website", free: String(free.maxPages), pro: String(pro.maxPages) },
-        { label: "Your own domain", free: free.customDomain, pro: pro.customDomain },
-        { label: "No Storelib branding", free: free.removeBranding, pro: pro.removeBranding },
-        { label: "Premium templates", free: free.premiumTemplates, pro: pro.premiumTemplates },
-        { label: "AI edits a month", free: String(free.aiEditsPerMonth), pro: String(pro.aiEditsPerMonth) },
+        { label: tt("Websites"), free: String(free.maxSites), pro: String(pro.maxSites) },
+        { label: tt("Pages per website"), free: String(free.maxPages), pro: String(pro.maxPages) },
+        { label: tt("Your own domain"), free: free.customDomain, pro: pro.customDomain },
+        { label: tt("No Storelib branding"), free: free.removeBranding, pro: pro.removeBranding },
+        { label: tt("Premium templates"), free: free.premiumTemplates, pro: pro.premiumTemplates },
+        { label: tt("AI edits a month"), free: String(free.aiEditsPerMonth), pro: String(pro.aiEditsPerMonth) },
       ],
     },
     {
-      title: "Your account",
+      title: tt("Your account"),
       rows: [
-        { label: "File storage", free: storage("free"), pro: storage(PRO_CHECKOUT_PLAN_ID) },
-        { label: "Creator page and OnePage", free: true, pro: true },
-        { label: "Verified badge", free: false, pro: true },
+        { label: tt("File storage"), free: storage("free"), pro: storage(PRO_CHECKOUT_PLAN_ID) },
+        { label: tt("Creator page and OnePage"), free: true, pro: true },
+        { label: tt("Verified badge"), free: false, pro: true },
       ],
     },
   ]
@@ -296,32 +298,32 @@ export function planQuestions(): { q: string; a: string }[] {
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
   return [
     {
-      q: "How do I decide which plan is best for me?",
-      a: `Free opens your store with no monthly fee, so you can start selling today. Pro is for when your store is earning: a lower fee on every sale (${proFee} instead of ${freeFee}), your own domain, no Storelib branding, and room for ${pro.maxSites} websites.`,
+      q: tt("How do I decide which plan is best for me?"),
+      a: tt("Free opens your store with no monthly fee, so you can start selling today. Pro is for when your store is earning: a lower fee on every sale ({proFee} instead of {freeFee}), your own domain, no Storelib branding, and room for {maxSites} websites.", { proFee, freeFee, maxSites: pro.maxSites }),
     },
     ...(breakEven
       ? [
           {
-            q: "When does Pro pay for itself?",
-            a: `Pro costs ${proPrice} a month and takes ${Math.round(saved * 1000) / 10}% less of every sale. Once you sell about $${breakEven.toLocaleString("en-US")} a month, the lower fee alone covers the plan, and everything past that is yours.`,
+            q: tt("When does Pro pay for itself?"),
+            a: tt("Pro costs {proPrice} a month and takes {value}% less of every sale. Once you sell about ${value2} a month, the lower fee alone covers the plan, and everything past that is yours.", { proPrice, value: Math.round(saved * 1000) / 10, value2: breakEven.toLocaleString(appLocale()) }),
           },
         ]
       : []),
     {
-      q: "What fees are taken from a sale?",
-      a: `Storelib's fee for your plan (${freeFee} on Free, ${proFee} on Pro), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.`,
+      q: tt("What fees are taken from a sale?"),
+      a: tt("Storelib's fee for your plan ({freeFee} on Free, {proFee} on Pro), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.", { freeFee, proFee }),
     },
     {
-      q: "How do I change or cancel my plan?",
-      a: "From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, Pro stays active until the end of the period you paid for, then your account moves to Free.",
+      q: tt("How do I change or cancel my plan?"),
+      a: tt("From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, Pro stays active until the end of the period you paid for, then your account moves to Free."),
     },
     {
-      q: "What happens when I move back to Free?",
-      a: "Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only Pro has, like your own domain and hidden branding, stop at the end of your paid period.",
+      q: tt("What happens when I move back to Free?"),
+      a: tt("Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only Pro has, like your own domain and hidden branding, stop at the end of your paid period."),
     },
     {
-      q: "Do I need a card to start?",
-      a: "No. Free asks for no card. You only add one when you upgrade to Pro.",
+      q: tt("Do I need a card to start?"),
+      a: tt("No. Free asks for no card. You only add one when you upgrade to Pro."),
     },
   ]
 }

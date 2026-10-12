@@ -30,6 +30,7 @@ import type { EditorLesson, EditorModule, EditorTree } from "@/lib/courses/types
 import { secondaryDepth } from "./editor-buttons"
 import { SWITCH_GROUP, SwitchRow } from "./editor-controls"
 import { useConfirm } from "./confirm-sheet"
+import { tt } from "@/lib/i18n/text"
 
 const TOOL =
   "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] disabled:pointer-events-none disabled:opacity-35 sm:h-8 sm:w-8 [-webkit-tap-highlight-color:transparent]"
@@ -42,9 +43,9 @@ type Uploading = { percent: number; name: string; sent: number; total: number; r
 
 function bytes(n: number | null): string {
   if (!n) return ""
-  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`
-  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(n < 10 * 1024 ** 2 ? 1 : 0)} MB`
-  return `${(n / 1024 ** 3).toFixed(1)} GB`
+  if (n < 1024 * 1024) return tt("{value} KB", { value: Math.max(1, Math.round(n / 1024)) })
+  if (n < 1024 ** 3) return tt("{value} MB", { value: (n / 1024 ** 2).toFixed(n < 10 * 1024 ** 2 ? 1 : 0) })
+  return tt("{value} GB", { value: (n / 1024 ** 3).toFixed(1) })
 }
 
 export interface CourseEditorProps {
@@ -109,7 +110,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
         setTree(next)
         return next
       } catch (e) {
-        notify(e instanceof Error ? e.message : "That did not save. Try again.")
+        notify(e instanceof Error ? e.message : tt("That did not save. Try again."))
         return null
       } finally {
         setBusy(false)
@@ -140,7 +141,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
         if (seconds) next = await manageCourse({ action: "update-lesson", productId: id, lessonId, durationSeconds: seconds }).catch(() => next)
         setTree(next)
       } catch (e) {
-        if (!(e instanceof UploadStopped)) notify(e instanceof Error ? e.message : "The upload did not finish. Try again.")
+        if (!(e instanceof UploadStopped)) notify(e instanceof Error ? e.message : tt("The upload did not finish. Try again."))
       } finally {
         setUploads((u) => {
           const rest = { ...u }
@@ -153,7 +154,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
   )
 
   const addModule = async () => {
-    const next = await act({ action: "add-module", title: `Module ${(tree?.modules.length ?? 0) + 1}` })
+    const next = await act({ action: "add-module", title: tt("Module {value}", { value: (tree?.modules.length ?? 0) + 1 }) })
     const last = next?.modules[next.modules.length - 1]
     if (last?.lessons[0]) setOpenId(last.lessons[0].id)
   }
@@ -161,7 +162,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
   if (!tree) {
     return (
       <div className="flex items-center gap-2 py-6 text-[14px] text-[#6b7280]">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading lessons
+        <Loader2 className="h-4 w-4 animate-spin" /> {tt("Loading lessons")}
       </div>
     )
   }
@@ -172,11 +173,11 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
     <div data-course-editor className="space-y-3">
       {tree.modules.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-gray-200 px-4 py-7 text-center">
-          <p className="text-[14px] font-medium text-[#1a1a2e]">No lessons yet</p>
-          <p className="mx-auto mt-1 max-w-[340px] text-[13px] text-[#6b7280]">Lessons sit in modules. Start with one module; you can add more and reorder them later.</p>
+          <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No lessons yet")}</p>
+          <p className="mx-auto mt-1 max-w-[340px] text-[13px] text-[#6b7280]">{tt("Lessons sit in modules. Start with one module; you can add more and reorder them later.")}</p>
           <button type="button" onClick={addModule} disabled={busy} className={cn(SMALL, "mt-3")}>
             <Plus className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-            Add a module
+            {tt("Add a module")}
           </button>
         </div>
       ) : null}
@@ -201,7 +202,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
       {tree.modules.length > 0 ? (
         <button type="button" onClick={addModule} disabled={busy} className={SMALL} data-add-module>
           <Plus className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-          Add module
+          {tt("Add module")}
         </button>
       ) : null}
       {confirmSheet}
@@ -258,15 +259,15 @@ function ModuleBlock(props: {
             else setName(m.title)
           }}
           onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
-          aria-label="Module name"
+          aria-label={tt("Module name")}
           className="min-h-10 min-w-0 flex-1 rounded-lg bg-transparent px-2 py-1.5 text-[16px] font-semibold sm:min-h-0 text-[#1a1a2e] outline-none focus:bg-white focus:ring-2 focus:ring-[#8b5cf6]/20 sm:text-sm"
         />
         {modules.length > 1 ? (
           <>
-            <button type="button" className={TOOL} disabled={index === 0 || props.busy} onClick={() => move(-1)} aria-label={`Move ${m.title} up`}>
+            <button type="button" className={TOOL} disabled={index === 0 || props.busy} onClick={() => move(-1)} aria-label={tt("Move {title} up", { title: m.title })}>
               <ArrowUp className="h-4 w-4" />
             </button>
-            <button type="button" className={TOOL} disabled={index === modules.length - 1 || props.busy} onClick={() => move(1)} aria-label={`Move ${m.title} down`}>
+            <button type="button" className={TOOL} disabled={index === modules.length - 1 || props.busy} onClick={() => move(1)} aria-label={tt("Move {title} down", { title: m.title })}>
               <ArrowDown className="h-4 w-4" />
             </button>
           </>
@@ -274,15 +275,15 @@ function ModuleBlock(props: {
         <button
           type="button"
           className={cn(TOOL, "hover:text-[#dc2626]")}
-          aria-label={`Delete ${m.title}`}
+          aria-label={tt("Delete {title}", { title: m.title })}
           onClick={async () => {
             const yes =
               m.lessons.length === 0 ||
               (await props.ask({
-                title: `Delete ${m.title}?`,
-                body: `Its ${m.lessons.length} ${m.lessons.length === 1 ? "lesson" : "lessons"}, their videos and files go too, and buyers lose them.`,
-                confirm: "Delete module",
-                cancel: "Keep it",
+                title: tt("Delete {title}?", { title: m.title }),
+                body: tt("Its {length, plural, one {# lesson} other {# lessons}}, their videos and files go too, and buyers lose them.", { length: m.lessons.length }),
+                confirm: tt("Delete module"),
+                cancel: tt("Keep it"),
                 tone: "critical",
               }))
             if (yes) void act({ action: "delete-module", moduleId: m.id })
@@ -318,7 +319,7 @@ function ModuleBlock(props: {
           disabled={props.busy}
           className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] sm:h-9 hover:bg-[#f4f5f7] hover:text-[#1a1a2e]"
           onClick={async () => {
-            const next = await act({ action: "add-lesson", moduleId: m.id, title: `Lesson ${m.lessons.length + 1}` })
+            const next = await act({ action: "add-lesson", moduleId: m.id, title: tt("Lesson {value}", { value: m.lessons.length + 1 }) })
             const mod = next?.modules.find((x) => x.id === m.id)
             const added = mod?.lessons[mod.lessons.length - 1]
             if (added) props.setOpenId(added.id)
@@ -326,7 +327,7 @@ function ModuleBlock(props: {
           data-add-lesson
         >
           <Plus className="h-3.5 w-3.5" />
-          Add lesson
+          {tt("Add lesson")}
         </button>
       </div>
     </section>
@@ -350,7 +351,7 @@ function LessonRow(props: {
   const { lesson: l, act } = props
   const videoUp = props.uploads[`${l.id}:video:`]
   const external = externalVideo(l.externalUrl)
-  const what = videoUp ? (videoUp.retrying ? "Reconnecting" : `Uploading ${videoUp.percent}%`) : l.video ? "Video" : external ? (external.provider === "youtube" ? "YouTube" : "Vimeo") : "Text"
+  const what = videoUp ? (videoUp.retrying ? tt("Reconnecting") : tt("Uploading {percent}%", { percent: videoUp.percent })) : l.video ? tt("Video") : external ? (external.provider === "youtube" ? "YouTube" : "Vimeo") : tt("Text")
   return (
     <li data-lesson={l.id}>
       <button type="button" onClick={props.onToggle} aria-expanded={props.open} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#fafafb] sm:px-4">
@@ -361,7 +362,7 @@ function LessonRow(props: {
             <span>{what}</span>
             {l.durationSeconds ? <span className="tabular-nums">{clock(l.durationSeconds)}</span> : null}
             {l.attachments.length ? <span>{l.attachments.length} {l.attachments.length === 1 ? "file" : "files"}</span> : null}
-            {l.isPreview ? <span className="font-medium text-[#8b5cf6]">Free preview</span> : null}
+            {l.isPreview ? <span className="font-medium text-[#8b5cf6]">{tt("Free preview")}</span> : null}
           </span>
         </span>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-[rotate]", props.open && "rotate-180")} />
@@ -405,7 +406,7 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
     <div className="space-y-4 border-t border-[#f0f1f3] bg-white px-3 pb-4 pt-3 sm:px-4" data-lesson-panel>
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-gray-700" htmlFor={`t-${l.id}`}>
-          Lesson title
+          {tt("Lesson title")}
         </label>
         <input
           id={`t-${l.id}`}
@@ -420,7 +421,7 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
 
       {/* The video: an upload, or a link */}
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-gray-700">Video</p>
+        <p className="text-sm font-medium text-gray-700">{tt("Video")}</p>
         {videoUp ? (
           <Progress up={videoUp} />
         ) : l.video ? (
@@ -430,13 +431,13 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
               <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{l.video.name}</span>
               <span className="text-[12px] text-[#9ca3af]">
                 {bytes(l.video.size)}
-                {l.durationSeconds ? ` · ${clock(l.durationSeconds)}` : ""} · Private, only buyers can watch
+                {l.durationSeconds ? ` · ${clock(l.durationSeconds)}` : ""} · {tt("Private, only buyers can watch")}
               </span>
             </span>
             <button type="button" className={SMALL} onClick={() => videoInput.current?.click()}>
-              Replace
+              {tt("Replace")}
             </button>
-            <button type="button" className={cn(TOOL, "hover:text-[#dc2626]")} aria-label="Remove video" onClick={() => void act({ action: "remove-video", lessonId: l.id })}>
+            <button type="button" className={cn(TOOL, "hover:text-[#dc2626]")} aria-label={tt("Remove video")} onClick={() => void act({ action: "remove-video", lessonId: l.id })}>
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -449,8 +450,8 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
               data-upload-video
             >
               <Upload className="h-5 w-5 text-[#6b7280]" />
-              <span className="text-[14px] font-medium text-[#1a1a2e]">Upload a video</span>
-              <span className="text-[12px] text-[#9ca3af]">MP4, MOV or WebM. Kept private; buyers stream it.</span>
+              <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Upload a video")}</span>
+              <span className="text-[12px] text-[#9ca3af]">{tt("MP4, MOV or WebM. Kept private; buyers stream it.")}</span>
             </button>
             <div className="relative">
               <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
@@ -460,12 +461,12 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
                 onFocus={() => (editing.current = "link")}
                 onBlur={() => save("link")}
                 onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
-                placeholder="Or paste a YouTube or Vimeo link"
+                placeholder={tt("Or paste a YouTube or Vimeo link")}
                 className={cn(FIELD, "h-11 pl-9", badLink && "border-[#fca5a5] focus:border-[#ef4444] focus:ring-[#ef4444]/15")}
                 inputMode="url"
               />
             </div>
-            {badLink ? <p className="text-[12px] text-[#b91c1c]">That is not a YouTube or Vimeo link.</p> : null}
+            {badLink ? <p className="text-[12px] text-[#b91c1c]">{tt("That is not a YouTube or Vimeo link.")}</p> : null}
           </>
         )}
         <input
@@ -483,7 +484,7 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
 
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-gray-700" htmlFor={`n-${l.id}`}>
-          Notes
+          {tt("Notes")}
         </label>
         <textarea
           id={`n-${l.id}`}
@@ -492,17 +493,17 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
           onFocus={() => (editing.current = "notes")}
           onBlur={() => save("notes")}
           rows={4}
-          placeholder="What this lesson covers, links, steps to follow"
+          placeholder={tt("What this lesson covers, links, steps to follow")}
           className={cn(FIELD, "resize-y py-2.5 leading-6")}
         />
       </div>
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-gray-700">Files to download</p>
+          <p className="text-sm font-medium text-gray-700">{tt("Files to download")}</p>
           <button type="button" className={SMALL} onClick={() => fileInput.current?.click()}>
             <Paperclip className="h-3.5 w-3.5 text-[#6b7280]" />
-            Add file
+            {tt("Add file")}
           </button>
         </div>
         {l.attachments.length || fileUps.length ? (
@@ -511,7 +512,7 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
               <li key={a.id} className="flex items-center gap-3 px-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{a.name}</span>
                 <span className="shrink-0 text-[12px] text-[#9ca3af]">{bytes(a.size)}</span>
-                <button type="button" className={cn(TOOL, "hover:text-[#dc2626]")} aria-label={`Remove ${a.name}`} onClick={() => void act({ action: "remove-attachment", attachmentId: a.id })}>
+                <button type="button" className={cn(TOOL, "hover:text-[#dc2626]")} aria-label={tt("Remove {name}", { name: a.name })} onClick={() => void act({ action: "remove-attachment", attachmentId: a.id })}>
                   <X className="h-4 w-4" />
                 </button>
               </li>
@@ -538,8 +539,8 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
 
       <div className={SWITCH_GROUP}>
         <SwitchRow
-          title="Free preview"
-          hint="Anyone can watch this lesson before they buy."
+          title={tt("Free preview")}
+          hint={tt("Anyone can watch this lesson before they buy.")}
           checked={l.isPreview}
           onChange={(next) => void act({ action: "update-lesson", lessonId: l.id, isPreview: next })}
         />
@@ -548,18 +549,18 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {l.video ? (
           captionUp ? (
-            <span className="text-[13px] text-[#6b7280]">Captions {captionUp.percent}%</span>
+            <span className="text-[13px] text-[#6b7280]">{tt("Captions {percent}%", { percent: captionUp.percent })}</span>
           ) : l.captions ? (
             <span className="inline-flex items-center gap-1.5 text-[13px] text-[#4b5563]">
-              <Captions className="h-4 w-4" /> Captions added
+              <Captions className="h-4 w-4" /> {tt("Captions added")}
               <button type="button" className="font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#dc2626]" onClick={() => void act({ action: "remove-captions", lessonId: l.id })}>
-                Remove
+                {tt("Remove")}
               </button>
             </span>
           ) : (
             <button type="button" className={SMALL} onClick={() => captionInput.current?.click()}>
               <Captions className="h-3.5 w-3.5 text-[#6b7280]" />
-              Add captions
+              {tt("Add captions")}
             </button>
           )
         ) : null}
@@ -575,22 +576,22 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
           }}
         />
         <div className="ml-auto flex items-center">
-          <button type="button" className={TOOL} disabled={!props.canUp || props.busy} onClick={() => props.onMove(-1)} aria-label="Move lesson up">
+          <button type="button" className={TOOL} disabled={!props.canUp || props.busy} onClick={() => props.onMove(-1)} aria-label={tt("Move lesson up")}>
             <ArrowUp className="h-4 w-4" />
           </button>
-          <button type="button" className={TOOL} disabled={!props.canDown || props.busy} onClick={() => props.onMove(1)} aria-label="Move lesson down">
+          <button type="button" className={TOOL} disabled={!props.canDown || props.busy} onClick={() => props.onMove(1)} aria-label={tt("Move lesson down")}>
             <ArrowDown className="h-4 w-4" />
           </button>
           <button
             type="button"
             className={cn(TOOL, "hover:text-[#dc2626]")}
-            aria-label="Delete lesson"
+            aria-label={tt("Delete lesson")}
             onClick={async () => {
               const yes = await props.ask({
-                title: `Delete ${l.title}?`,
-                body: "Its video and files go too, and buyers lose the lesson.",
-                confirm: "Delete lesson",
-                cancel: "Keep it",
+                title: tt("Delete {title}?", { title: l.title }),
+                body: tt("Its video and files go too, and buyers lose the lesson."),
+                confirm: tt("Delete lesson"),
+                cancel: tt("Keep it"),
                 tone: "critical",
               })
               if (yes) void act({ action: "delete-lesson", lessonId: l.id })
@@ -613,14 +614,14 @@ function Progress({ up, bare }: { up: Uploading; bare?: boolean }) {
         <span className="flex items-baseline justify-between gap-2">
           <span className="truncate text-[13px] font-medium text-[#1a1a2e]">{name}</span>
           <span className="shrink-0 text-[12px] tabular-nums text-[#6b7280]">
-            {up.retrying ? "Connection lost, trying again" : up.total >= 5 * 1024 * 1024 ? `${bytes(up.sent) || "0 KB"} of ${bytes(up.total)}` : `${percent}%`}
+            {up.retrying ? tt("Connection lost, trying again") : up.total >= 5 * 1024 * 1024 ? tt("{value} of {total}", { value: bytes(up.sent) || "0 KB", total: bytes(up.total) }) : `${percent}%`}
           </span>
         </span>
         <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
           <span className="block h-full rounded-full bg-[#8b5cf6] transition-[width] duration-200" style={{ width: `${percent}%` }} />
         </span>
       </span>
-      <button type="button" className={TOOL} onClick={onStop} aria-label={`Stop uploading ${name}`}>
+      <button type="button" className={TOOL} onClick={onStop} aria-label={tt("Stop uploading {name}", { name })}>
         <X className="h-4 w-4" />
       </button>
     </div>
