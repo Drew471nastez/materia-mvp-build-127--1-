@@ -42,7 +42,7 @@ import { renderAccountPage } from "./render-account"
 import { contactSections } from "@/lib/website-builder/account-pages"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { splitSiteName } from "@/lib/markets/site-name"
-import { languageAlternates, languageChoice, siteLanguages } from "@/lib/markets/live"
+import { languageAlternates, languageChoice, siteLanguages, siteLocalizer } from "@/lib/markets/live"
 import { localizedPath } from "@/lib/markets/locales"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
@@ -106,7 +106,9 @@ export async function siteMetadata(
   // and favicon on a public page — the same leak the body of this page was
   // fixed for. A favicon shows up when it is published, like everything else.
   // The published site is built from published values alone (buildSite).
-  const settings: ThemeSettingsValues = found.site.themeSettings ?? {}
+  /* In another language: its title and description as translated (lib/markets/live.ts). */
+  const localizer = locale ? await siteLocalizer(creator.creatorId, locale) : null
+  const settings: ThemeSettingsValues = localizer ? localizer.theme((found.site.themeSettings ?? {}) as Record<string, unknown>) as ThemeSettingsValues : (found.site.themeSettings ?? {})
   const siteTitle = typeof settings.seo_title === "string" && settings.seo_title.trim()
     ? settings.seo_title.trim()
     : `${defaultHandle} | Storelib`

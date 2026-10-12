@@ -34,6 +34,8 @@ export interface SitemapEntry {
   loc: string
   lastmod?: string
   images?: SitemapImage[]
+  /** The same page in the website's other languages (hreflang, with x-default), lib/markets. */
+  alternates?: { hreflang: string; href: string }[]
 }
 
 /** Google reads at most this many images per page. */
@@ -140,13 +142,16 @@ export function sitemapXml(entries: SitemapEntry[]): string {
       "  <url>",
       `    <loc>${xmlEscape(e.loc)}</loc>`,
       ...(e.lastmod ? [`    <lastmod>${xmlEscape(e.lastmod)}</lastmod>`] : []),
+      ...(e.alternates ?? []).map((a) => `    <xhtml:link rel="alternate" hreflang="${xmlEscape(a.hreflang)}" href="${xmlEscape(a.href)}"/>`),
       ...images,
       "  </url>",
     ].join("\n")
   })
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
+    entries.some((e) => e.alternates?.length)
+      ? '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+      : '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
     ...rows,
     "</urlset>",
     "",
