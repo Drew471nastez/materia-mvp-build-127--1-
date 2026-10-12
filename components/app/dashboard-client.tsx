@@ -74,6 +74,7 @@ import { homeAllTime, homeFigures, homeFromReports, homeQuestion, homeSpans, typ
 import type { Reports } from "@/lib/analytics/reports"
 import { NOW_STEP_MS, askReport, keptAnswer, questionOf, reportNow } from "@/lib/analytics/report-cache"
 import { PhysicalSetupCard } from "@/components/app/home/physical-setup-card"
+import { ReadinessBanner } from "@/components/physical/readiness-banner"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -1359,6 +1360,9 @@ export function DashboardClient({
             </div>
           </div>
         </div>
+
+        {/* Physical products on sale that buyers can't check out with yet (components/physical/readiness-banner). Payments is the banner's own "payouts" announcement, so it is left out here. */}
+        <ReadinessBanner surface="home" className="mb-6" />
 
         {/* Dashboard Banner: what matters now for this store, beside the globe (components/app/home/home-banner) */}
         <div className="mb-8">

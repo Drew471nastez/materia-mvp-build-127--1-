@@ -140,6 +140,9 @@ const STORE = "/app/settings?tab=store"
 const INTEGRATIONS = "/app/settings?tab=integrations"
 const PAYOUTS = "/app/payouts"
 const INVENTORY = "/app/inventory"
+/** What the product editor asks with before a new product is saved (and so published). */
+export const NEW_PRODUCT = "new"
+
 const productHref = (id: string) => `/app/products/${encodeURIComponent(id)}`
 
 /** Rates a buyer can actually be offered with nothing connected: active, and not priced by a carrier (none is connected yet). */
@@ -179,6 +182,9 @@ export function namesOf(titles: string[]): string {
  */
 export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | null } = {}): PhysicalReadiness {
   const products = f.products.map((p) => (opts.asLive && p.id === opts.asLive ? { ...p, live: true } : p))
+  /* "new": a product not saved yet, which saving publishes. Only what is true of the store is asked about it: its price and weight aren't known. */
+  if (opts.asLive === NEW_PRODUCT) products.push({ id: NEW_PRODUCT, title: "This product", live: true, requiresShipping: true, tracked: true, inStock: true, weightGrams: null, priceCents: -1, shippingProfileId: null, locationId: null })
+  const unknown = (p: ReadinessProduct) => p.priceCents < 0
   const live = products.filter((p) => p.live)
   /* What is checked: the products on sale, or before anything is, every physical product (Settings' checklist). */
   const relevant = live.length ? live : products
@@ -215,7 +221,7 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
     }
     const misfit = shipping.filter((p) => {
       const profile = profileOf(f.profiles, p.shippingProfileId)
-      return !!profile && usableRates(profile).length > 0 && !fitsSomeRate(profile, p, f.packageGrams)
+      return !unknown(p) && !!profile && usableRates(profile).length > 0 && !fitsSomeRate(profile, p, f.packageGrams)
     })
     if (misfit.length) {
       items.push({
@@ -258,7 +264,7 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
 
   const weightRates = f.profiles.some((p) => usableRates(p).some((r) => BY_WEIGHT.has(r.kind)))
   if (weightRates) {
-    const light = shipping.filter((p) => !(p.weightGrams && p.weightGrams > 0) && usableRates(profileOf(f.profiles, p.shippingProfileId)).some((r) => BY_WEIGHT.has(r.kind)))
+    const light = shipping.filter((p) => !unknown(p) && !(p.weightGrams && p.weightGrams > 0) && usableRates(profileOf(f.profiles, p.shippingProfileId)).some((r) => BY_WEIGHT.has(r.kind)))
     if (light.length) {
       items.push({
         id: "weights",
@@ -298,7 +304,8 @@ export function physicalReadiness(f: ReadinessFacts, opts: { asLive?: string | n
   return summary(products, items)
 }
 
-function summary(products: ReadinessProduct[], items: ReadinessItem[]): PhysicalReadiness {
+function summary(all: ReadinessProduct[], items: ReadinessItem[]): PhysicalReadiness {
+  const products = all.filter((p) => p.id !== NEW_PRODUCT)
   const blocking = items.filter((i) => i.level === "blocking")
   return {
     physical: products.length,

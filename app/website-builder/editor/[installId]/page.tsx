@@ -3,6 +3,7 @@
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
+import { PhysicalReadinessNotice } from "@/components/website-builder/editor/physical-readiness-notice"
 import { SyncNotice, useSyncStatus, type AgentNote, type SyncConflict } from "@/components/website-builder/github-sync-notice"
 import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
 import { isGitHubName } from "@/lib/agent-access/connection-mark"
@@ -9169,6 +9170,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           onUseTheirs={() => void takeGitHubVersion()}
           onAgentNoteSeen={() => setAgentNote(null)}
         />
+        {/* A site selling physical products buyers can't check out with yet (components/website-builder/editor/physical-readiness-notice). */}
+        <PhysicalReadinessNotice />
       </div>
       {saveProblem ? (
         <div className="pointer-events-none fixed left-0 right-0 z-[99] flex justify-center" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)", zIndex: 101 }}>

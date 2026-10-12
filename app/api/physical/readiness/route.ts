@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server"
 import { isUuid, physicalCaller, physicalJson } from "@/lib/physical/auth"
 import { getPhysicalReadiness, noteReadiness } from "@/lib/physical/readiness-server"
+import { NEW_PRODUCT } from "@/lib/physical/readiness"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -12,7 +13,8 @@ export const dynamic = "force-dynamic"
  * website builder all read this one answer.
  *
  *   ?fresh=1          read now, not the minute old answer (Settings, after a save)
- *   ?product=<id>     that product as if it were already published (the editor, before publishing)
+ *   ?product=<id>     that product as if it were already published (the editor, before publishing);
+ *   ?product=new      a product not saved yet, which saving publishes
  *
  * After the answer goes, the store's recorded state is compared with it and
  * a change is told (lib/physical/readiness-server.ts noteReadiness): the
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const product = url.searchParams.get("product")
-  const asLive = isUuid(product) ? product : null
+  const asLive = isUuid(product) || product === NEW_PRODUCT ? product : null
   const fresh = url.searchParams.get("fresh") === "1"
   const r = await getPhysicalReadiness(c.creatorId, { fresh, asLive }).catch(() => null)
   if (!r) return physicalJson({ error: "Could not check your store right now." }, 503)
