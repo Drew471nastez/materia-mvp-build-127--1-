@@ -160,8 +160,19 @@ const sameDraft = (a: Draft, b: Draft) => COPY_FIELDS.every((f) => a[f] === b[f]
 /* A phone field is 16px, so iOS does not zoom the page into it; 14px from 640px, as every field in Settings. */
 const PHONE_SAFE = "text-[16px] sm:text-[14px]"
 
-export function EmailSheet({ email, shop, saved, ready, onSaved, onClose }: { email: CustomerEmail | null; shop: CustomerEmailsShop; saved: EmailCopy | undefined; ready: boolean; onSaved: (copy: CustomerEmailsCopy) => void; onClose: () => void }) {
+export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSaved, onClose }: { email: CustomerEmail | null; shop: CustomerEmailsShop; saved: EmailCopy | undefined; ready: boolean; onSaved: (copy: CustomerEmailsCopy) => void; onClose: () => void }) {
   const phone = usePhoneWidth()
+  /*
+    CLOSES THE WAY IT OPENED. The sheet slides away for a moment after it is
+    closed; drawn with no email in that moment, it shrank to an empty
+    "Email" box on its way out. The last email stays in it until it is gone.
+  */
+  const kept = React.useRef<CustomerEmail | null>(asked)
+  if (asked) kept.current = asked
+  const email = asked ?? kept.current
+  const keptSaved = React.useRef<EmailCopy | undefined>(savedAsked)
+  if (asked) keptSaved.current = savedAsked
+  const saved = asked ? savedAsked : keptSaved.current
   const id = email?.id
   const editable = !!id && !!DEFAULT_COPY[id]
   const start = React.useMemo(() => draftOf(id, saved), [id, saved])
@@ -170,6 +181,7 @@ export function EmailSheet({ email, shop, saved, ready, onSaved, onClose }: { em
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [savedNote, setSavedNote] = React.useState(false)
+  const [test, setTest] = React.useState<{ state: "sending" } | { state: "sent"; to: string } | { state: "failed"; error: string } | null>(null)
   const last = React.useRef<{ field: CopyField; el: HTMLInputElement | HTMLTextAreaElement } | null>(null)
   const caret = React.useRef<{ el: HTMLInputElement | HTMLTextAreaElement; at: number } | null>(null)
 
@@ -183,6 +195,7 @@ export function EmailSheet({ email, shop, saved, ready, onSaved, onClose }: { em
     if (id) {
       setTab("preview")
       last.current = null
+      setTest(null)
     }
   }, [id])
 
@@ -220,6 +233,14 @@ export function EmailSheet({ email, shop, saved, ready, onSaved, onClose }: { em
     setError(null)
     setSavedNote(true)
     onSaved(r.data.copy)
+  }
+
+  /* The email as it is on screen, words being typed included, to the person's own inbox (app/api/store/emails/test). */
+  const sendTest = async () => {
+    if (!id || test?.state === "sending") return
+    setTest({ state: "sending" })
+    const r = await api<{ sentTo: string }>("/api/store/emails/test", { method: "POST", body: { id, ...(editable && checked?.ok ? { copy: draft } : {}) } })
+    setTest(r.ok ? { state: "sent", to: r.data.sentTo } : { state: "failed", error: r.error })
   }
 
   const reset = () => {
@@ -305,6 +326,9 @@ export function EmailSheet({ email, shop, saved, ready, onSaved, onClose }: { em
       {checked && checked.ok === false ? <Notice>{checked.error}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">The items, totals, tracking and links stay as they are, filled in from each order.</p>
+      <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset}>
+        Reset to default
+      </button>
     </div>
   ) : null
 
@@ -320,23 +344,49 @@ export function EmailSheet({ email, shop, saved, ready, onSaved, onClose }: { em
     </div>
   )
 
-  const footer = editable ? (
+  const testButton = (
+    <button type="button" className={BTN_GHOST} disabled={!id || test?.state === "sending"} onClick={() => void sendTest()} data-email-test="">
+      {test?.state === "sending" ? "Sending" : "Send test"}
+    </button>
+  )
+  const testNote =
+    test?.state === "sent" ? (
+      <span className="truncate text-[13px] text-[#6b7280]" aria-live="polite" data-email-test-note="">
+        Sent to {test.to}
+      </span>
+    ) : test?.state === "failed" ? (
+      <span className="truncate text-[13px] text-[#b42318]" aria-live="polite" data-email-test-note="">
+        {test.error}
+      </span>
+    ) : null
+
+  const footer = (
     <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f2f4] bg-white px-4 py-3 sm:px-5" data-email-footer="">
-      <button type="button" className={BTN_GHOST} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset} data-email-reset="">
-        Reset to default
-      </button>
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-1">
+        {editable ? (
+          <button type="button" className={cn(BTN_GHOST, "hidden sm:inline-flex")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset} data-email-reset="">
+            Reset to default
+          </button>
+        ) : null}
+        {testButton}
+        {testNote ? <span className="hidden min-w-0 sm:inline">{testNote}</span> : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
         {savedNote && !dirty ? (
           <span className="text-[13px] text-[#6b7280]" aria-live="polite">
             Saved
           </span>
         ) : null}
-        <button type="button" className={BTN_PRIMARY} disabled={!dirty || busy || !ready || (checked !== null && checked.ok === false)} onClick={() => void save(draft)} data-email-save="">
-          {busy ? "Saving" : "Save"}
-        </button>
+        {editable ? (
+          <button type="button" className={BTN_PRIMARY} disabled={!dirty || busy || !ready || (checked !== null && checked.ok === false)} onClick={() => void save(draft)} data-email-save="">
+            {busy ? "Saving" : "Save"}
+          </button>
+        ) : null}
       </div>
     </div>
-  ) : null
+  )
+  /* On a phone the note goes on its own line above the bar, and Reset with the fields, so the bar keeps one row. */
+  const phoneTestNote = testNote ? <div className="flex shrink-0 bg-white px-4 pt-2 sm:hidden">{testNote}</div> : null
 
   const header = (
     <div className="flex shrink-0 items-center gap-3 border-b border-[#f1f2f4] px-4 py-3 pr-12 sm:px-5 sm:py-4">
@@ -383,6 +433,7 @@ export function EmailSheet({ email, shop, saved, ready, onSaved, onClose }: { em
             <div className="bg-[#f8f9fa] px-5 py-5 lg:min-h-0 lg:overflow-y-auto">{preview(true)}</div>
           </div>
         )}
+        {phoneTestNote}
         {footer}
       </div>
     </SheetDialog>

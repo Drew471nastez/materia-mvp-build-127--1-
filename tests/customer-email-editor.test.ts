@@ -133,6 +133,13 @@ console.log("\nThe sheet opens at once, as a bottom sheet on a phone\n")
   check("an editor with live preview, Save and Reset to default", /useDeferredValue\(draft\)/.test(panel) && /data-email-save/.test(panel) && /Reset to default/.test(panel))
   check("  placeholders can be added with a tap", /PLACEHOLDERS\.map/.test(panel) && /data-placeholder/.test(panel))
   check("  closing with unsaved words asks first", /Leave without saving your changes/.test(panel))
+  /* Round AD. */
+  check("it closes the way it opened: the last email stays in it while it slides away", /const email = asked \?\? kept\.current/.test(panel) && /const saved = asked \? savedAsked : keptSaved\.current/.test(panel))
+  check("Send test, on every email, with the words on screen", /data-email-test=""/.test(panel) && /\/api\/store\/emails\/test/.test(panel) && /copy: draft/.test(panel))
+  const test = read("app/api/store/emails/test/route.ts")
+  check("  only to the inbox of the person who pressed it, rate limited, marked [Test]", /await shopCaller\(\)/.test(test) && /getUserById\(c\.userId\)/.test(test) && /bucket: "customer-email-test"/.test(test) && /subject: `\[Test\] \$\{mail\.subject\}`/.test(test) && /maskEmail\(to\)/.test(test))
+  check("  drawn by the same template as the real email, with the store's logo", /previewCustomerEmail\(\s*id,/.test(test) && /logoUrl: store\?\.logoUrl/.test(test))
+  check("the receipt email shows the same picture as the receipt page: logo, else website logo, else profile photo", /storeIdentity\(admin, params\.creatorId as string, \{ logoOnly: true \}\)/.test(read("lib/email.tsx")) && /store\.logoFrom === "profile" \? senderPicture\(\{ photoUrl: store\.logoUrl \}\)/.test(read("lib/email.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
