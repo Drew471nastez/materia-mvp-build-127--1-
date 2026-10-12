@@ -92,12 +92,12 @@ console.log("\nGoogle Analytics: what was pasted\n")
   const snippet = `<!-- Google tag (gtag.js) --><script async src="https://www.googletagmanager.com/gtag/js?id=G-C2SD9ZCTXK"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-C2SD9ZCTXK');</script>`
   check("Google's whole snippet: the G- ID inside it, nothing else", JSON.stringify(readGaInput(snippet)) === JSON.stringify({ ok: true, id: "G-C2SD9ZCTXK" }))
   check("  the tag's address too", (readGaInput("https://www.googletagmanager.com/gtag/js?id=G-ABCD1234") as { id: string }).id === "G-ABCD1234")
-  check("  and the settings field keeps only the ID from a snippet", tidyId("ga4", snippet) === "G-C2SD9ZCTXK" && tidyId("ga4", "UA-12345-1") === "bad")
+  check("  Settings reads the snippet for its ID before saving; the server takes exactly an ID", /const found = readGaInput\(next\)/.test(read("components/app/settings/ga-connect.tsx")) && tidyId("ga4", snippet) === "bad" && tidyId("ga4", "G-C2SD9ZCTXK") === "G-C2SD9ZCTXK")
   const said = (v: string) => (readGaInput(v) as { error?: string }).error ?? ""
   check("a Universal Analytics UA- ID is named as switched off, never taken", /Universal Analytics/.test(said("UA-12345678-1")))
   check("  a Google tag GT- ID, an Ads ID, a Tag Manager container, a property number: each named", /GT-/.test(said("GT-ABCDE12")) && /Google Ads/.test(said("AW-123456789")) && /Tag Manager/.test(said("GTM-AB12CD")) && /property or stream/.test(said("123456789")))
   check("  and junk says what an ID looks like", /G-1A2B3C4D5E/.test(said("hello")) && /starts with G-/.test(said("")))
-  check("  code is never kept", tidyId("ga4", "G-ABCD1234');alert(1)//") === "G-ABCD1234" && !String(tidyId("ga4", "G-ABCD1234');alert(1)//")).includes("alert"))
+  check("  code is never kept", tidyId("ga4", "G-ABCD1234');alert(1)//") === "bad" && (readGaInput("G-ABCD1234');alert(1)//") as { id: string }).id === "G-ABCD1234")
   const server = read("lib/store/tracking-server.ts")
   check("  saving says the same words (saveTrackerId)", /tracker === "ga4" \? readGaInput\(value\)/.test(server))
 }

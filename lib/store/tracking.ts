@@ -19,7 +19,7 @@
  * page says so rather than promise a purchase event it can't send.
  */
 
-import { GA_PAGE_JS, gaConsentJs, gaSeenJs, readGaInput, scriptJson, type GaItem } from "./ga"
+import { GA_PAGE_JS, gaConsentJs, gaSeenJs, scriptJson, type GaItem } from "./ga"
 
 export type TrackerId = "ga4" | "gtm" | "google_ads" | "meta_pixel" | "tiktok_pixel" | "pinterest_tag" | "clarity" | "klaviyo" | "omnisend"
 
@@ -151,13 +151,8 @@ export function tidyId(id: TrackerId, typed: unknown): string | null | "bad" {
   const letters = TRACKERS[id].letters ?? "upper"
   const v = letters === "exact" ? bare : letters === "lower" ? bare.toLowerCase() : bare.toUpperCase()
   if (!v) return null
-  if (TRACKERS[id].pattern.test(v)) return v
-  /* Google Analytics: the ID inside the snippet or the tag's address Google shows (lib/store/ga.ts readGaInput). Never code: only the G- ID found is kept. */
-  if (id === "ga4") {
-    const found = readGaInput(typed)
-    return found.ok ? found.id : "bad"
-  }
-  return "bad"
+  /* Exactly an ID. Google's whole snippet is read for its ID in Settings before it is sent (components/app/settings/ga-connect, lib/store/ga.ts readGaInput). */
+  return TRACKERS[id].pattern.test(v) ? v : "bad"
 }
 
 /** What is stored, read back: only IDs of the right shape survive. */
