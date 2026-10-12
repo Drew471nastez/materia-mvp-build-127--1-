@@ -48,6 +48,8 @@ export const PHYSICAL_CATEGORY: HelpCategory = {
   title: "Physical products",
   description: "Sell things you post or hand over: set up your store, shipping, stock and tax, then ship orders, handle returns and get paid.",
   physical: true,
+  /* The topic page opens with the playbook under Start here; Zero to 100 stays the first article of the guide. */
+  start: "playbook",
 }
 
 /** The day every article below was last checked against the product. */
@@ -94,7 +96,7 @@ const ARTICLES: Article[] = [
     keywords: ["start", "getting started", "first sale", "setup", "checklist", "beginner", "guide", "how to sell", "launch", "merch", "physical", "online store", "ecommerce"],
     related: ["how-physical-products-work", "store-details", "shipping-profiles-zones-and-rates", "ship-your-orders"],
     body: [
-      { type: "p", text: "This is the whole journey on one page. Do the steps in this order. Each takes a few minutes, and each links to a longer article if you get stuck." },
+      { type: "p", text: `This is the whole journey on one page. Do the steps in this order. Each takes a few minutes, and each links to a longer article if you get stuck. Want to know what happens once someone orders? Read ${link("playbook", "the playbook")}.` },
       { type: "note", text: "Short on time? Steps 1 to 4 are the ones you can't skip. Without them, buyers can't pay you or can't check out." },
 
       { type: "h", text: "Step 1. Set up payments" },
@@ -188,7 +190,7 @@ const ARTICLES: Article[] = [
           "You get an email when an order comes in. It shows in Orders as Unfulfilled.",
           "Open it. Press Packing slip in the card's menu if you want a list for the box.",
           "Pack it and post it.",
-          "Press Fulfill items, type the tracking number and pick the carrier.",
+          "Press Fulfill items, type the tracking number and pick the carrier. With Shippo or EasyPost connected, you can press Buy a label instead.",
           "Keep Send shipment details to the buyer on and press Fulfill. The buyer gets an email with a Track your package button. Done.",
         ],
       },
@@ -223,6 +225,526 @@ const ARTICLES: Article[] = [
   },
   {
     section: "Getting started",
+    slug: "playbook",
+    title: "The physical products playbook: from setup to the customer's door",
+    summary: "What happens when someone orders from your website, what each setting does, what to connect, and how the parcel reaches their door. In plain words.",
+    keywords: ["playbook", "how it works", "what happens when someone orders", "order to door", "fulfil", "fulfilment", "fulfillment", "setup checklist", "dropshipping", "print on demand", "3pl", "warehouse", "shipstation", "shippo", "easypost", "printful", "printify", "gelato", "cj dropshipping", "tracking", "test order", "start", "overview"],
+    related: ["zero-to-100", "fulfillment-methods", "ship-your-orders", "tracking-and-order-status"],
+    faq: true,
+    howTo: "How to check it all works",
+    body: [
+      { type: "p", text: `This is the whole picture on one page. Read it once before you set anything up. Come back when you're not sure what happens next. Each part links to a longer article. Ready to set up right now? ${link("zero-to-100", "Zero to 100")} walks you through it step by step.` },
+
+      /* ── 1. The big picture ─────────────────────────────────────── */
+      { type: "h", text: "The big picture" },
+      { type: "p", text: "A buyer finds your product on your website, picks a size or color, and pays at checkout. Storelib takes the payment, holds the stock, saves the order and emails you both. You pack it and post it, or a partner like Printful does it for you. The tracking number goes on the order, and the buyer is told when the parcel moves. When it arrives the order is done, and the buyer can still reach you from their order page." },
+      { type: "figure", figure: "order-journey", caption: "One order, from the buyer pressing Pay to the parcel at their door." },
+
+      /* ── 2. The setup checklist ─────────────────────────────────── */
+      { type: "h", text: "The setup checklist" },
+      { type: "p", text: "Twelve things, in this order. Most take two minutes. You can't skip the first four: without them, buyers can't pay you or can't check out." },
+
+      { type: "sub", text: "1. Store details and Business details" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "Your store's name, logo, contact email and phone, the country you're based in, and the legal business behind the store."],
+          ["Why it matters", "Receipts, order emails and checkout show them. Buyers' replies go to your contact email. Many countries ask for your legal name, address and tax number on every receipt."],
+          ["Where", "Settings > Store details."],
+          ["How", "Add a logo, a store name and a contact email, and press Save. Under Business details, press Add business details, fill in your legal name, address and tax number, and press Save."],
+        ],
+      },
+      shot("business-details", "The Business details card filled in: legal name Fern & Clay LLC, the United States, a street address in Portland, and an EIN, with Remove and Save.", "Business details, printed under Sold by on receipts and invoices."),
+      { type: "p", text: `More help: ${link("store-details", "Store details")}.` },
+
+      { type: "sub", text: "2. Payments" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "The account that takes cards, Apple Pay and Google Pay, and pays you out. Storelib uses Stripe for this."],
+          ["Why it matters", "Checkout stays closed until payments are on."],
+          ["Where", "Payouts, in the dashboard menu."],
+          ["How", "Follow Set up payments. Stripe asks for your details, maybe a photo of your ID, and your bank account. Payouts tells you when it's ready."],
+        ],
+      },
+      shot("payouts-balance", "Payouts once payments are on: Available, Arriving soon and On the way, with a Cash out button.", "Payouts once payments are on, with made up numbers."),
+      { type: "p", text: `More help: ${link("physical-payouts", "Getting paid for physical orders")}.` },
+
+      { type: "sub", text: "3. Locations" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "The places that hold your stock or ship your orders: your home, a studio, a warehouse, or a partner who ships for you."],
+          ["Why it matters", "Every order goes to a location. Its stock goes down there, and return emails give the default location's address."],
+          ["Where", "Settings > Locations."],
+          ["How", "Your first location is made when you answer How do you fulfil your physical orders?. Add its full street address. Then choose Who ships the orders?: I do, from here, or A partner: email each order to them, or My own system: send each order to my webhook."],
+        ],
+      },
+      shot("locations-list", "The Locations card with Studio, marked Default and Local pickup, a print partner that gets orders by email, and a Printful location.", "Three locations: your own studio and two partners."),
+      { type: "p", text: `More help: ${link("locations", "Locations")}.` },
+
+      { type: "sub", text: "4. Shipping zones and rates" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "Where you ship and what it costs. A zone is a group of countries or states. A rate is an option inside it, like Standard for $6."],
+          ["Why it matters", "A buyer can only pay when their address is in a zone, with a rate that fits the cart."],
+          ["Where", "Settings > Shipping and delivery."],
+          ["How", "In the General profile, press Add shipping zone, pick the countries and save. Press Add rate, name it, choose the type and the price, and type the delivery time. Shipping everywhere? Add a zone with Rest of world."],
+        ],
+      },
+      shot("shipping-general-profile", "The General profile with a United States zone holding Standard and Express, and a Rest of world zone with a weight based International rate.", "A General profile with two zones."),
+      { type: "p", text: `More help: ${link("shipping-profiles-zones-and-rates", "Set up shipping")}.` },
+
+      { type: "sub", text: "5. Packages" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "The boxes and mailers you ship in, with their size and empty weight."],
+          ["Why it matters", "The default box's weight is added to weight based rates, so buyers pay for the real parcel. When you buy a label, you pick the box and the label is priced for it."],
+          ["Where", "Settings > Shipping and delivery, under Packages."],
+          ["How", "Press Add package, type its size and empty weight, and save. Mark the one you use most as the default."],
+        ],
+      },
+      shot("shipping-packages", "The Packages card with a box called Mug box, marked Default, with its size and empty weight."),
+
+      { type: "sub", text: "6. Taxes" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "The tax added to orders, or the tax already inside your prices."],
+          ["Why it matters", "Storelib charges no tax until you add a region. It never guesses for you."],
+          ["Where", "Settings > Taxes."],
+          ["How", "Turn on Charge tax. Choose Added on top or Included. Press Create region for each place you're registered. Not sure what applies to you? Ask an accountant first."],
+        ],
+      },
+      shot("taxes-settings", "Settings, Taxes: Charge tax on, Added on top chosen, and three tax regions with their rates."),
+      { type: "p", text: `More help: ${link("taxes", "Taxes")}.` },
+
+      { type: "sub", text: "7. Checkout settings" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "What checkout asks for: the name fields, company, phone and address line 2, the email news box, the checkout reminder, signing in, and whether buyers can ask to cancel."],
+          ["Why it matters", "Couriers sometimes need the buyer's phone. The news box decides who may get your marketing emails."],
+          ["Where", "Settings > Checkout."],
+          ["How", "Choose Don't include, Optional or Required for each field. Leave signing in off unless you need it. Every change saves as you make it."],
+        ],
+      },
+      shot("checkout-settings", "Settings, Checkout: Customer accounts, Marketing, Abandoned checkouts and the Customer information fields."),
+      { type: "p", text: `More help: ${link("checkout-settings", "Checkout settings")}.` },
+
+      { type: "sub", text: "8. Customer emails" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "The emails your buyers get at each step: order confirmation, shipping, out for delivery, delivered, refunds, returns and more."],
+          ["Why it matters", "They go by themselves, from your store's name. You never send one by hand."],
+          ["Where", "Settings > Customer emails."],
+          ["How", "Press an email to see it with a sample order. Change the subject, heading, text or button, and press Save. Reset to default puts our words back."],
+        ],
+      },
+      shot("customer-emails", "Settings, Customer emails: the emails grouped under Orders, Shipping, Local pickup, Returns and Checkout, each with when it goes."),
+      { type: "p", text: `More help: ${link("physical-order-emails", "Customer emails")}.` },
+
+      { type: "sub", text: "9. Returns" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "Whether buyers can ask to send items back, for how many days, and the reasons they pick from."],
+          ["Why it matters", "The buyer's order page shows Return items only while returns are on and the window is open."],
+          ["Where", "Settings > Returns and refunds."],
+          ["How", "Leave Accept returns on, set the Return window in days, and press Save. Check the return reasons and the refund reasons."],
+        ],
+      },
+      shot("returns-settings", "Settings, Returns and refunds: Accept returns on, a 30 day Return window, and the lists of return and refund reasons."),
+      { type: "p", text: `More help: ${link("returns-physical", "Returns")}.` },
+
+      { type: "sub", text: "10. A product with variants and stock" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "A physical product, with options like Size and Glaze, and how many you have of each."],
+          ["Why it matters", "Stock stops you selling what you don't have. The weight decides weight based shipping."],
+          ["Where", "Products > New product > Physical product."],
+          ["How", "Add a title, photos and a price. Add options in Variants, then a price and quantity on each row. Type the weight with its packaging. Press Publish."],
+        ],
+      },
+      shot("product-variants", "The Variants card with Size and Glaze, and six variants grouped by size, each with a photo, price and quantity.", "Two options make six variants, each with its own stock."),
+      { type: "p", text: `More help: ${link("create-a-physical-product", "Create a physical product")} and ${link("variants-and-options", "Variants and options")}.` },
+
+      { type: "sub", text: "11. Your website and domain" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "Where physical products are sold: yourname.storelib.com, or your own domain."],
+          ["Why it matters", "Physical products aren't listed on your creator page or Explore. Without a published website, nobody can buy them."],
+          ["Where", "Website, in the dashboard menu. Your own domain is in Settings > Domains."],
+          ["How", "Pick a theme, make it yours and press Publish. With Pro, add your domain in Settings > Domains and copy the records it shows to your domain company."],
+        ],
+      },
+      shot("website-domains", "Website settings, Domains, with a connected domain.", "A connected domain: checkout, sign in and order pages move to it too."),
+      { type: "p", text: `More help: ${link("sell-on-your-website", "Sell on your website")} and ${link("store-domain", "Your own domain")}.` },
+
+      { type: "sub", text: "12. A test order" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "An order you place yourself, on your live website."],
+          ["Why it matters", "It checks everything above at once, the way a buyer sees it."],
+          ["Where", "Your live website, then Orders."],
+          ["How", "Follow How to check it all works, the last part of this page. It takes about ten minutes and costs nothing."],
+        ],
+      },
+
+      /* ── 3. Choose how you fulfil ───────────────────────────────── */
+      { type: "h", text: "Choose how you fulfil" },
+      { type: "p", text: "To fulfil an order is to get it to the buyer. Your store answers this once, in Settings > Shipping and delivery, under How you fulfil orders. Any product can have its own answer. Find the way that sounds like you below. A mix is fine." },
+      shot("fulfil-question", "The question How do you fulfil your physical orders, with seven answers such as I ship orders myself, Print on demand and A mix of these.", "The question Shipping and delivery asks first."),
+
+      { type: "sub", text: "Ship it yourself" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Nothing. If you like, connect Shippo or EasyPost to buy labels, or ShipStation if you print labels there already."],
+          ["When an order comes in", "It shows in Orders as Unfulfilled. You get an email with what to send and where."],
+          ["What you do", "Pack it and post it. Press Fulfill items. Type the tracking number and pick the carrier, or press Buy a label. Keep Send shipment details to the buyer on and press Fulfill."],
+          ["How tracking reaches the buyer", "The buyer gets the Shipping confirmation email with a Track your package button. When Storelib's tracking is on, the parcel is then followed for you, all the way to delivered."],
+        ],
+      },
+      { type: "p", text: `More help: ${link("ship-your-orders", "Ship your orders")}.` },
+
+      { type: "sub", text: "Ship it yourself, with labels from Shippo or EasyPost" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Your Shippo or EasyPost account, with its API key, in Settings > Integrations. A test key buys free sample labels, so you can try it first."],
+          ["When an order comes in", "The same as shipping it yourself."],
+          ["What you do", "In Fulfill items, press Buy a label. Pick the box and check the weight. Press Get rates, pick one and press Buy label. The label opens as a PDF to print."],
+          ["How tracking reaches the buyer", "The label's tracking number goes on the order by itself. The items are marked shipped, and the buyer gets the shipping email."],
+        ],
+      },
+      shot("label-buy", "Fulfill items with Buy a label chosen: the items, From and To addresses, the Mug box package, a total weight of 1.52 kg, USPS rates with their prices, and a Buy label button.", "Buy a label, inside Fulfill items."),
+      { type: "list", items: [
+        "The label is charged to your Shippo or EasyPost account, never to the buyer. Its cost is kept on the order as your cost.",
+        "A label you haven't used can be voided from the shipment's menu with Void label.",
+        "A zone can also offer their live prices at checkout. Add a rate of the type Carrier calculated.",
+      ] },
+
+      { type: "sub", text: "Your own warehouse" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Nothing. Add the warehouse as a location, with Who ships the orders? set to I do, from here."],
+          ["When an order comes in", "The order goes to the warehouse location, and its stock goes down there."],
+          ["What you do", "The same as shipping it yourself. Packing slip, in the Unfulfilled card's menu, prints a list for the box."],
+          ["How tracking reaches the buyer", "The shipping email, then automatic updates when Storelib's tracking is on."],
+        ],
+      },
+
+      { type: "sub", text: "ShipStation" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Your ShipStation API key and API secret, in Settings > Integrations > ShipStation. Storelib becomes one of your stores there."],
+          ["When an order comes in", "Each paid order you ship yourself goes to ShipStation: the items, SKUs and weights, the delivery the buyer chose, and the address. If you cancel it or change the address, ShipStation is updated too."],
+          ["What you do", "Print the label in ShipStation, as you always do."],
+          ["How tracking reaches the buyer", "ShipStation tells Storelib when it ships. The carrier and tracking number land on the order, and the buyer gets the shipping email."],
+        ],
+      },
+      shot("integration-shipstation", "The ShipStation page in Integrations: Connected, orders out with cancellations and new addresses, tracking back as each label ships, and 37 orders sent.", "ShipStation, connected."),
+
+      { type: "sub", text: "Print on demand: Printful, Printify and Gelato" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Printful with a private token, Printify with a personal access token, or Gelato with an API key, in Settings > Integrations. Connecting makes a location with the partner's name."],
+          ["Before the first order", "In each product, choose Print on demand and the partner's location. Printful and Printify find your products by SKU, so give each variant the SKU it has there. Gelato needs a match: press Match products to Gelato, then paste the Gelato product UID and your print file's address."],
+          ["When an order comes in", "It goes to the partner by itself. By default it waits there as a draft for you to approve, so they charge you only then. Turn on Send orders straight to production to skip that."],
+          ["What you do", "Nothing, or approve the draft in their dashboard. An item that can't be sent, with no SKU or no match, is marked on the order for you to send yourself."],
+          ["How tracking reaches the buyer", "When the partner ships, the carrier and tracking number come back to the order. The buyer gets the shipping email from your store."],
+        ],
+      },
+      shot("integration-gelato", "The Gelato page in Integrations: Connected, orders as drafts to approve, the webhook address to paste in Gelato, Send orders straight to production, the shipment method and Match products to Gelato.", "Gelato, connected."),
+      { type: "p", text: `More help: ${link("printful-and-printify", "Printful and Printify")} and ${link("gelato-and-cj-dropshipping", "Gelato and CJ Dropshipping")}.` },
+
+      { type: "sub", text: "Dropshipping with CJ Dropshipping" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Your CJ API key, in Settings > Integrations > CJ Dropshipping. It makes a location called CJ Dropshipping."],
+          ["Before the first order", "In each product, choose Dropshipping and that location. Press Match products to CJ and choose the CJ variant for each of yours. A variant whose SKU is exactly CJ's needs no match."],
+          ["When an order comes in", "It's made in CJ, unpaid, for you to pay there. With Send orders straight to production on, it's paid from your CJ balance at once."],
+          ["What you do", "Pay the order in CJ, unless it's paid for you."],
+          ["How tracking reaches the buyer", "CJ tells Storelib when it ships. The buyer gets the shipping email, then the delivery email. Turn on Keep stock in step with CJ and your stock follows CJ's warehouses."],
+        ],
+      },
+      shot("match-products", "Match products to CJ: one variant matched to a CJ variant with 120 in stock and Keep stock in step with CJ on, and two variants not matched yet, each with a Match button.", "Match products: each of your variants, matched to CJ's."),
+
+      { type: "sub", text: "A supplier by email" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Nothing. Add the supplier as a location, choose A partner: email each order to them, and type their orders email."],
+          ["When an order comes in", "The supplier gets an email with the items, quantities, SKUs and the buyer's address."],
+          ["What you do", "Nothing. If they forget the tracking, add it yourself with Fulfill items."],
+          ["How tracking reaches the buyer", "The email has a link to a short form. The supplier types the carrier and tracking number there. When they save it, the buyer gets the shipping email. The link works for 60 days."],
+        ],
+      },
+
+      { type: "sub", text: "Your own system, by webhook" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "In Settings > Integrations > Your own system (webhook), type your https address and a signing secret of 16 characters or more. Press Send a test to check it. Then set the location's Who ships the orders? to My own system."],
+          ["When an order comes in", "Each paid order is sent to your address as JSON, signed in the X-Storelib-Signature header. A delivery that fails is tried again and shown on the integration."],
+          ["What you do", "Whatever your system does with it."],
+          ["How tracking reaches the buyer", "Your system sends the tracking back the same way, signed with your secret. Later updates for the same number move the shipment on."],
+        ],
+      },
+
+      { type: "sub", text: "A fulfillment center (3PL)" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Add the fulfillment center as a location. Choose how it gets orders: by email, by your own system's webhook, or as a spreadsheet."],
+          ["When an order comes in", "It goes to the center the way you chose. For a spreadsheet, press Download orders on the CSV export card in Settings > Integrations."],
+          ["What you do", "Nothing for email or a webhook. For a spreadsheet, send them the file."],
+          ["How tracking reaches the buyer", "From the email's link, from the webhook, or added by you with Fulfill items."],
+        ],
+      },
+
+      { type: "sub", text: "Local delivery" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Nothing. In Settings > Locations, edit a location and turn on Local delivery. Type the postal codes you cover, the price and a note, like your delivery days."],
+          ["When an order comes in", "Only buyers whose postal code starts with one of yours see Local delivery at checkout, next to shipping."],
+          ["What you do", "Take it to them. Press Fulfill items, with no tracking number, then Mark as delivered when it's handed over."],
+          ["How tracking reaches the buyer", "There's no carrier. The order page and the emails say you bring it yourself, and the buyer gets the Delivered email when you mark it."],
+        ],
+      },
+
+      { type: "sub", text: "Local pickup" },
+      {
+        type: "facts",
+        items: [
+          ["What you connect", "Nothing. In Settings > Locations, turn on Local pickup on a location, with Usually ready in and Pickup instructions."],
+          ["When an order comes in", "The buyer chose Pick up at checkout, so there's no address and nothing to pay for delivery."],
+          ["What you do", "Get it ready and press Mark ready for pickup. When they collect it, press Mark picked up."],
+          ["How tracking reaches the buyer", "Nothing to track. The buyer gets Ready for pickup, with your address and instructions, then Picked up."],
+        ],
+      },
+      shot("order-pickup", "A pickup order with its items to get ready at Studio and a Mark ready for pickup button."),
+      { type: "p", text: `More help: ${link("local-pickup", "Local pickup")}.` },
+
+      { type: "sub", text: "A mix of these" },
+      { type: "p", text: "Most stores end up here. Say Printful prints your hoodies and your mugs ship from your studio. Each product says where it ships from. An order with both shows two cards, one for each sender. Each part gets its own tracking and its own email to the buyer. The order says Partially shipped until both are out." },
+      { type: "figure", figure: "split-order", caption: "One order, two senders: each part is sent and tracked on its own." },
+
+      /* ── 4. What happens when someone orders ────────────────────── */
+      { type: "h", text: "What happens when someone orders" },
+      { type: "p", text: "Here is one order, from the moment the buyer presses Pay to the day it arrives. Most steps need nothing from you." },
+
+      { type: "sub", text: "Step 1. The buyer pays" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "One payment by card, Apple Pay or Google Pay: the items, shipping and any tax together. Then a thank you page on your website."],
+          ["You see", "Nothing yet."],
+          ["You do", "Nothing. Storelib's server works out every price, shipping cost and tax again from your settings, so nothing can be changed on the way."],
+        ],
+      },
+
+      { type: "sub", text: "Step 2. The stock is held" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "Nothing different."],
+          ["You see", "Committed goes up on the Inventory page."],
+          ["You do", "Nothing. From the moment they press Pay, the items are held for them for about 35 minutes, so nobody else can buy the last one. Paid, the items are sold for good. Left unpaid, they go back on sale."],
+        ],
+      },
+
+      { type: "sub", text: "Step 3. The emails go out" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "The Order confirmation email, from your store's name, with your logo, the items, the totals and a View your order button."],
+          ["You see", "A new order email: what was bought, where it goes, how it ships and who sends each item."],
+          ["Your partner sees", "If a partner ships it, the order reaches them now: by email, through their connection, or by your webhook."],
+          ["You do", "Nothing."],
+        ],
+      },
+
+      { type: "sub", text: "Step 4. The order is in Orders" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "Their order page says Confirmed."],
+          ["You see", "The order as Unfulfilled, with a card for each place it ships from, the address, the delivery they paid for and their note."],
+          ["You do", "Read the note. Want a list for the box? Press Packing slip in the card's menu."],
+        ],
+      },
+      shot("order-unfulfilled", "A new order with two items to send from Studio and a Fulfill items button, with the shipping address and the buyer's note.", "A new order, ready to pack."),
+
+      { type: "sub", text: "Step 5. It's sent" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "The Shipping confirmation email, with a Track your package button. Their order page moves to Shipped."],
+          ["You see", "The shipment with its carrier and tracking number. The items leave your shelf, so On hand goes down."],
+          ["You do", "Pack it, then Fulfill items with the tracking number, or Buy a label. When a partner ships it, they do this part."],
+        ],
+      },
+
+      { type: "sub", text: "Step 6. Tracking updates by itself" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "Each scan on their order page, with the place and time, and the estimated delivery day."],
+          ["You see", "Updated automatically on the shipment, with the same scans."],
+          ["You do", "Nothing. When Storelib's tracking is on, every shipment with a tracking number is followed with its carrier through AfterShip or 17TRACK. Over a thousand carriers work, whoever shipped it: you or a partner."],
+        ],
+      },
+      shot("tracking-seller", "A shipment on the order page: USPS with its tracking number, Updated automatically, Out for delivery, the estimated delivery, the carrier's scans, and Mark as delivered.", "What you see: the parcel followed for you."),
+      { type: "list", items: [
+        "Storelib's tracking not on yet? The shipment card says so. Orders keep the statuses you set and the carrier's link, and buyers get the same emails when you change a status.",
+        "To set a status yourself, use the shipment's menu. Pause automatic updates stops it for one package.",
+        "Prefer your own AfterShip or 17TRACK account? In Settings > Integrations > Courier tracking, press Use my own account and add its key.",
+      ] },
+
+      { type: "sub", text: "Step 7. Out for delivery" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "The Out for delivery email, once."],
+          ["You see", "Out for delivery on the order."],
+          ["You do", "Nothing. Without automatic tracking, Mark as out for delivery in the shipment's menu sends the same email."],
+        ],
+      },
+
+      { type: "sub", text: "Step 8. Delivered" },
+      {
+        type: "facts",
+        items: [
+          ["The buyer sees", "The Delivered email. Their order page says Delivered."],
+          ["You see", "Delivered on the order. The return window counts from that day."],
+          ["You do", "Nothing when the carrier or a partner says so. Otherwise press Mark as delivered."],
+        ],
+      },
+
+      { type: "sub", text: "Step 9. The buyer's order page" },
+      {
+        type: "facts",
+        items: [
+          ["What it is", "A private page for this one order. It opens from View your order in any of their emails. Signed in on your website, they find it in their account too."],
+          ["What it shows", "The steps, each package with its tracking, the items and totals, the address, Return items while returns are open, and Need help with this order?."],
+          ["Lost the email?", "On your website, /checkout/track asks for the order number and email, and sends the link again."],
+        ],
+      },
+      shot("tracking-buyer", "The buyer's package card: Out for delivery, the USPS number with a Track package button, Estimated delivery Tue, Oct 13, and the carrier's scans with place and time.", "What the buyer sees on their order page."),
+
+      /* ── 5. After delivery, and when things go wrong ─────────────── */
+      { type: "h", text: "After delivery, and when things go wrong" },
+      { type: "p", text: "Buyers reach you from their order page, under Need help with this order?. They press Contact the shop, pick what it's about, write a few words and add photos if they like. You get an email, and the message shows on the order under Messages from the buyer. Your answer is emailed to them, with a link back to the conversation." },
+      shot("contact-shop", "Need help with this order? on the buyer's page: topics like Change the address, It arrived damaged and I want a refund, a message, Add photos, Send to Fern & Clay, and the shop's email and phone.", "What the buyer sees: Contact the shop."),
+      shot("order-messages", "Messages from the buyer on the order: It arrived damaged, the buyer's two messages with a photo, a reply box, Ask Storelib to step in, Mark resolved and Send to buyer.", "What you see: the conversation on the order."),
+      { type: "note", text: "Replies to these emails don't reach the conversation. Answer on the order, or in Support > From buyers." },
+
+      { type: "sub", text: "What if the buyer has a question?" },
+      { type: "p", text: "It arrives as A question. Answer it on the order, under Messages from the buyer. Press Mark resolved when it's sorted." },
+
+      { type: "sub", text: "What if they want to change the address?" },
+      { type: "p", text: "They pick Change the address and write the new one. While nothing has shipped, press Edit beside the order's Shipping address, type it, and keep Email the buyer the new address on. They get the Order updated email. The country has to stay the same, because shipping and tax were worked out for it. ShipStation gets the new address too. A partner who already has the order needs telling yourself." },
+
+      { type: "sub", text: "What if they want to cancel?" },
+      { type: "p", text: `While the order is Unfulfilled, the buyer can press Cancel order on their page. It only asks you. You get an email, and the order shows Cancel requested. Press Cancel and refund to cancel it and refund it in full, or Keep order to send it after all. To stop these requests, turn off Let buyers ask to cancel in Settings > Checkout. More help: ${link("cancel-a-physical-order", "Cancel an order")}.` },
+
+      { type: "sub", text: "What if they want to send it back?" },
+      { type: "p", text: `While the return window is open, they press Return items and pick the items and a reason. You approve or decline it on the order, with instructions. When the parcel comes back, mark it received and choose what goes back in stock. Then refund. More help: ${link("returns-physical", "Returns")}.` },
+
+      { type: "sub", text: "How do I give the money back?" },
+      { type: "p", text: `Open the order and press Refund in the payment card, or More actions, then Refund. Choose the amount and a reason. The buyer gets the Refund email, and the money goes back to their card. Storelib's fee on the sale isn't returned. More help: ${link("refund-a-physical-order", "Refund an order")}.` },
+
+      { type: "sub", text: "What if the parcel is lost or arrives damaged?" },
+      { type: "p", text: "The buyer picks It hasn't arrived, It arrived damaged, Something is missing or I got the wrong item, often with a photo. Check the tracking first: the carrier may show a photo or a signature. Then reply with what you'll do. Post a new one and put its tracking number in your reply, refund it, or approve a return." },
+
+      { type: "sub", text: "What if the carrier can't deliver it?" },
+      { type: "p", text: "A failed attempt, a carrier exception or a return to sender marks the package as a delivery problem. That happens by itself when Storelib's tracking is on. You can also press Report a delivery problem in the shipment's menu. The buyer gets the Delivery issue email, and their page shows the problem in red. You get an email too, and the order says Delivery problem until the parcel moves again. Contact the buyer, check the address, then send it again or refund." },
+
+      { type: "sub", text: "What if a parcel never shows as delivered?" },
+      { type: "p", text: "A tracked parcel nobody marked delivered still gets a fair return window. It counts from when the parcel should have arrived. After 60 days with no news from the carrier, the order says Delivery not confirmed and you get one email. Check with the carrier or the buyer." },
+
+      { type: "sub", text: "When does Storelib step in?" },
+      { type: "p", text: "When the problem is about the goods or a refund, and you haven't answered for three days, the buyer can press Ask Storelib for help. You can press Ask Storelib to step in at any time. Storelib reads the whole conversation and writes to you both." },
+      shot("case-conversation", "The buyer's conversation page: It arrived damaged, With the store, the buyer's messages with a photo, a reply box, and Ask Storelib for help under it.", "The buyer's side of the conversation, with Ask Storelib for help after three days."),
+
+      { type: "sub", text: "What if the buyer goes to their bank instead?" },
+      { type: "p", text: "That's a dispute, also called a chargeback. Payouts shows it, and Storelib answers the bank for you. Press Add evidence and write what happened: the tracking number, the delivery date and your messages. See [Disputes and chargebacks](/help/orders-and-payouts/disputes)." },
+
+      /* ── 6. Connections at a glance ─────────────────────────────── */
+      { type: "h", text: "Connections at a glance" },
+      { type: "p", text: "Everything you can connect for physical orders lives in Settings > Integrations. A key you save is stored encrypted. Only its last four characters are ever shown again." },
+      {
+        type: "table",
+        head: ["Connection", "What it does", "What goes out", "What comes back"],
+        rows: [
+          ["Courier tracking", "Follows every parcel with its carrier, when Storelib's tracking is on, or with your own AfterShip or 17TRACK key", "The tracking number and carrier, never the buyer's name or address", "Each scan, the estimated delivery, delivered or a problem"],
+          ["Shippo, EasyPost", "Labels from the order page, and live Carrier calculated rates at checkout", "The parcel's size and weight, your location's address, the buyer's name and address", "Rates, the label to print, the tracking number"],
+          ["ShipStation", "Your orders in ShipStation, to print labels there", "Each paid order you ship yourself, with cancellations and new addresses", "The carrier and tracking number"],
+          ["Printful, Printify", "Print each order and post it", "The items by SKU, and the buyer's address", "When it shipped, and the tracking"],
+          ["Gelato", "Print each order near the buyer", "The matched Gelato product, your print file and the address", "When it shipped, and the tracking"],
+          ["CJ Dropshipping", "A supplier ships from its warehouses", "The matched CJ variants and the address", "The tracking, and stock if you turn it on"],
+          ["Supplier by email", "A partner gets each order by email", "The items, SKUs and the address", "Tracking typed into the email's link"],
+          ["Your own system (webhook)", "Each paid order to your https address", "The order, as signed JSON", "Tracking, signed with your secret"],
+          ["CSV export", "Unfulfilled orders as a spreadsheet", "A file you download", "Nothing"],
+          ["Klaviyo, Omnisend", "Your email marketing", "People who said yes to your emails, other buyers as customers only, and every order", "Who unsubscribed"],
+          ["Analytics and ad pixels", "Google Analytics, Tag Manager, Google Ads, Meta, TikTok, Pinterest and Microsoft Clarity on your website", "What their tag sees on your pages. A paid order's number, value and currency", "Nothing"],
+        ],
+      },
+      shot("integration-tracking", "The Courier tracking page in Integrations: Built into Storelib, Your parcels are followed automatically, 7 parcels on the way, and Use my own account.", "Courier tracking, when Storelib's tracking is on."),
+      shot("integration-klaviyo", "The Klaviyo page in Integrations: Connected, the key's last four, the last sync, counts of subscribed, customers and order events, and what goes to and comes from Klaviyo.", "Klaviyo, connected: what flows each way."),
+      shot("integration-shippo", "The Shippo page in Integrations: Connected with a test key, labels bought from Orders, an order, Fulfill items, Buy a label, and 14 labels bought.", "Shippo, connected with a test key."),
+      { type: "p", text: `Some cards say Coming soon. Press Tell me when it's ready on one and you're counted. More help: ${link("integrations", "Integrations")}.` },
+
+      /* ── 7. How to check it all works ───────────────────────────── */
+      { type: "h", text: "How to check it all works" },
+      { type: "p", text: "About ten minutes, and it costs nothing. Card payments in Stripe's test mode, with the card 4242 4242 4242 4242, only work on a Storelib test site, not in your live store. In your live store every card payment is real money. So test with a free order instead: a discount code takes it to zero, and no card is needed." },
+      {
+        type: "steps",
+        items: [
+          "Open Coupons, under Products, and press Create coupon. Give it a code only you know, choose Percentage and type 100.",
+          "Under Shipping and physical products, turn on Free shipping. Turn on Limit uses per customer and leave it at 1. Save.",
+          "Open your live website in a private window and add a product to the cart.",
+          "Press Check out. Type your own email and an address you know. Check the shipping options and prices are the ones you expect.",
+          "Press Add promotion code and type your code. The total goes to zero and the button says Place order. Press it.",
+          "Check your inbox. You should have the Order confirmation, as the buyer, and the new order email, as the seller.",
+          "Open Orders. The order is there as Unfulfilled, with the address and the delivery.",
+          "Press Fulfill items. Type a tracking number, or press Buy a label with a Shippo or EasyPost test key for a free sample label. Press Fulfill.",
+          "Open the Shipping confirmation email. Press Track your package, then View your order to see the buyer's page.",
+          "On that page, open Need help with this order? and send a message. It shows on your order under Messages from the buyer.",
+          "Tidy up. Switch the code off. To put the stock back, press Cancel fulfillment in the shipment's menu, then Cancel order in the Unfulfilled card's menu.",
+        ],
+      },
+      { type: "list", items: [
+        "Want to see the card step work too? Buy something small with your own card, then refund it from the order. Storelib's fee on that sale isn't returned.",
+        "Check the emails without ordering: Settings > Customer emails shows each one with a sample order.",
+      ] },
+      { type: "h", text: "Where to go next" },
+      {
+        type: "list",
+        items: [
+          `${link("zero-to-100", "Zero to 100")}: the setup, step by step.`,
+          `${link("fulfillment-methods", "Who ships it")}: one answer for the store, and one for any product.`,
+          `${link("tracking-and-order-status", "Tracking and the buyer's order page")}.`,
+          `${link("physical-products-questions", "Common questions")}, when something doesn't look right.`,
+        ],
+      },
+    ],
+  },
+  {
+    section: "Getting started",
     slug: "how-physical-products-work",
     title: "How selling physical products works",
     summary: "The whole journey of one order, from the buyer pressing Pay to the parcel arriving, and the words you'll see on the way.",
@@ -239,8 +761,8 @@ const ARTICLES: Article[] = [
           "At checkout they type their address. Storelib shows only the shipping options that work for that address and that cart. If you offer local pickup, they can choose Pick up instead.",
           "They pay. Storelib holds the stock while they pay, so nobody else can buy the last one.",
           "The order shows in Orders as Unfulfilled and you get an email. If a partner ships it, they get the order by email too.",
-          "You pack it and press Fulfill items with the tracking number. The buyer gets an email with a Track your package button.",
-          "When it arrives, press Mark as delivered. Done.",
+          "You pack it and press Fulfill items with the tracking number, or buy a label there. The buyer gets an email with a Track your package button.",
+          "The parcel is followed for you when Storelib's tracking is on, and the order moves to Delivered by itself. Otherwise press Mark as delivered when it arrives. Done.",
         ],
       },
       { type: "h", text: "The words you'll see" },
@@ -259,7 +781,7 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "note", text: "Digital products and courses can share a cart with physical products. The download is ready at once and the physical part ships as normal." },
-      { type: "p", text: `Ready? Follow ${link("zero-to-100", "Zero to 100")} from the top.` },
+      { type: "p", text: `Every way of shipping, every step and what to do when things go wrong: ${link("playbook", "the playbook")}. Ready to set up? Follow ${link("zero-to-100", "Zero to 100")} from the top.` },
     ],
   },
   {
@@ -285,6 +807,8 @@ const ARTICLES: Article[] = [
       { type: "p", text: "Not in one order. They choose Ship or Pick up for the whole cart." },
       { type: "h", text: "How does a buyer find their order again?" },
       { type: "p", text: `Every order email has a link to their order page. Lost the email? On your website, /checkout/track asks for the order number and email and sends the link again. See ${link("tracking-and-order-status", "Tracking and the buyer's order page")}.` },
+      { type: "h", text: "How does a buyer reach me about an order?" },
+      { type: "p", text: "From their order page: Need help with this order?, then Contact the shop. You get an email, and the message shows on the order under Messages from the buyer. Answer there, and your reply is emailed to them." },
       { type: "h", text: "Where did these settings go?" },
       { type: "p", text: "Physical products can be switched off for all of Storelib. When they are, these settings and pages are hidden. Nothing you set up is deleted, and it all comes back when they're on." },
     ],
@@ -974,7 +1498,7 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "p", text: "From then on, every paid order with this product is emailed to that address with the items, quantities, SKUs and the buyer's address. The email has a link where the partner adds the tracking themselves, and the buyer is emailed the moment they do. Partners live in Settings > Locations, so you can change their email there." },
-      { type: "note", text: `Printful, Printify, Gelato and CJ Dropshipping take orders directly once you connect them in Settings > Integrations, and send tracking back. For any other partner, use the email address they give you. See ${link("integrations", "Integrations")}.` },
+      { type: "note", text: `Printful, Printify, Gelato and CJ Dropshipping take orders directly once you connect them in Settings > Integrations, and send tracking back. ShipStation takes the orders you ship yourself. For any other partner, use the email address they give you. What each way looks like from order to door: ${link("playbook", "the playbook")}.` },
       { type: "h", text: "Orders that mix methods" },
       { type: "figure", figure: "split-order", caption: "One order, two senders: each part is sent and tracked on its own." },
       { type: "p", text: "If one order has a hoodie printed on demand and stickers you post yourself, the order page shows two Unfulfilled cards, one per sender. Each gets its own Fulfill items and its own tracking, and the buyer gets an email for each parcel. The order shows Partially shipped until both are out." },
@@ -1234,7 +1758,7 @@ const ARTICLES: Article[] = [
           ["In progress", "You're working on it", "Mark as in progress, in the card's menu (optional)"],
           ["Partially shipped", "Some of it is sent", "You fulfilled part of the order"],
           ["Shipped", "Everything is sent", "You fulfilled every item"],
-          ["Delivered", "Every parcel arrived", "Mark as delivered on each shipment"],
+          ["Delivered", "Every parcel arrived", "On its own when Storelib's tracking or a partner says so, or Mark as delivered on each shipment"],
         ],
       },
       { type: "p", text: `For pickup orders the steps read Ready for pickup and Picked up. See ${link("local-pickup", "Local pickup")}.` },
@@ -1254,6 +1778,9 @@ const ARTICLES: Article[] = [
       shot("order-fulfill-items", "The Fulfill items window: the items with their quantities, a tracking number, the carrier USPS and Send shipment details to the buyer turned on.", "Fulfill items, with tracking."),
       { type: "p", text: "What happens next: the buyer gets a shipping email with a Track your package button, the stock leaves your shelf, and the order moves to Shipped." },
       shot("order-shipped", "A fulfilled shipment: USPS with its tracking number, a Track button, the items, and a Mark as delivered button.", "A sent shipment, with its tracking."),
+      { type: "h", text: "Buy a label instead" },
+      { type: "p", text: "With Shippo or EasyPost connected in Settings > Integrations, Fulfill items has Buy a label next to Add tracking. Pick the box, press Get rates, pick a rate and press Buy label. The label opens to print, the tracking number goes on the shipment by itself, and the buyer gets the shipping email. The label is charged to your Shippo or EasyPost account." },
+      shot("label-buy", "Fulfill items with Buy a label chosen: From and To addresses, the package, the total weight and USPS rates with their prices.", "Buy a label, inside Fulfill items."),
       { type: "h", text: "Sending an order in several parcels" },
       { type: "p", text: "Fulfill what you have now and leave the rest. The order stays Partially shipped, with what's left in the Unfulfilled card. Fulfill the rest later the same way. Each parcel gets its own tracking and its own email." },
       { type: "h", text: "After it's sent" },
@@ -1261,7 +1788,8 @@ const ARTICLES: Article[] = [
         type: "list",
         items: [
           "Fix a typo with Edit tracking in the shipment's menu. Keep Email the buyer the new number on and they're told.",
-          "Mark as in transit and Mark as delivered move the shipment on. The buyer is emailed when it's delivered.",
+          "When Storelib's tracking is on, the shipment moves on by itself as the carrier scans it: in transit, out for delivery, delivered. The buyer is emailed when it's out for delivery and when it's delivered.",
+          "Without it, Mark as in transit, Mark as out for delivery and Mark as delivered in the shipment's menu move it on, with the same emails.",
           "Cancel fulfillment if it never left. Its items go back to unfulfilled and back in stock.",
         ],
       },
@@ -1281,7 +1809,7 @@ const ARTICLES: Article[] = [
     section: "Orders and tracking",
     slug: "tracking-and-order-status",
     title: "Tracking and the buyer's order page",
-    summary: "How tracking links are made, how a partner adds tracking for you, and the order page where buyers follow their parcel.",
+    summary: "How tracking links are made, how parcels are followed for you, how a partner adds tracking, and the order page where buyers follow their parcel.",
     keywords: ["tracking", "track package", "tracking link", "tracking number", "carrier", "order status", "order page", "where is my order", "track your order", "usps", "ups", "fedex", "dhl", "royal mail", "partner tracking"],
     related: ["ship-your-orders", "physical-order-emails", "fulfillment-methods"],
     body: [
@@ -1296,11 +1824,26 @@ const ARTICLES: Article[] = [
           "For any other carrier, choose Other, type its name and paste its tracking link. Without a link, the buyer sees the number on its own.",
         ],
       },
+      { type: "h", text: "Parcels followed for you" },
+      { type: "p", text: "When Storelib's tracking is on, every shipment with a tracking number is followed with its carrier through AfterShip or 17TRACK. That covers over a thousand carriers, whoever shipped it: you, a supplier, or a partner like Printful." },
+      {
+        type: "list",
+        items: [
+          "The shipment moves on by itself: in transit, out for delivery, delivered, or a delivery problem.",
+          "The buyer's order page shows each scan with the place and time, and the estimated delivery.",
+          "Your shipment card says Updated automatically, with the same scans. Pause automatic updates in its menu stops it for one package.",
+          "Delivered uses the carrier's own time, so the return window counts from the day it arrived.",
+          "Have your own AfterShip or 17TRACK account? Add its key in Settings > Integrations > Courier tracking.",
+          "Not on yet? The shipment card says so, and you set each status yourself from the shipment's menu.",
+        ],
+      },
+      shot("tracking-seller", "A shipment on the order page: USPS, Updated automatically, Out for delivery, the estimated delivery and the carrier's scans.", "A parcel followed for you."),
       { type: "h", text: "When a partner ships" },
       { type: "p", text: "A warehouse, supplier or print partner gets each order by email. That email has a link to a short form where they type the carrier and tracking number. When they save it, the items are marked sent and the buyer gets the shipping email straight away. The link works for 60 days." },
       { type: "p", text: `A partner on a webhook (Your own system, in ${link("integrations", "Integrations")}) can send the tracking back the same way, signed with your webhook secret. Later updates for the same number move the shipment on: in transit, out for delivery, delivered.` },
       { type: "h", text: "What the buyer sees" },
       shot("buyer-order-page", "The buyer's order page: Your order is on the way, the steps Confirmed, Processing, Shipped and Delivered, the USPS tracking with a Track package button, then the items and totals.", "The buyer's order page."),
+      shot("tracking-buyer", "The package card on the buyer's order page: Out for delivery, Estimated delivery Tue, Oct 13, and the carrier's scans with place and time.", "With the parcel followed for you, the buyer sees each scan."),
       {
         type: "list",
         items: [
@@ -1317,8 +1860,9 @@ const ARTICLES: Article[] = [
         rows: [
           ["Shipping confirmation", "You fulfill items with Send shipment details to the buyer on"],
           ["Tracking number changed", "You edit the tracking with Email the buyer the new number on"],
-          ["Out for delivery", "A partner's update says it's out for delivery"],
-          ["Delivered", "The shipment is marked delivered"],
+          ["Out for delivery", "The carrier says it's out for delivery, or you mark it"],
+          ["Delivered", "The carrier or a partner says it arrived, or you mark it delivered"],
+          ["Delivery issue", "A failed attempt, an exception or a return to sender, or you report a delivery problem"],
         ],
       },
     ],
@@ -1373,7 +1917,7 @@ const ARTICLES: Article[] = [
         items: [
           "Open Settings and choose Returns and refunds.",
           "Leave Accept returns on. Off, the buyer's order page has no return button.",
-          "Set Return window in days. It counts from delivery, or from shipping when there's no tracking.",
+          "Set Return window in days. It counts from delivery, or from shipping when there's no tracking. A tracked parcel nobody marked delivered counts from when it should have arrived, and the buyer's page says the last day.",
           "Press Save.",
           "Check Return reasons, the choices a buyer picks from, and Refund reasons, the ones you pick from. Add, rename or remove them.",
         ],
@@ -1479,9 +2023,9 @@ const ARTICLES: Article[] = [
           ["Payment failed", "Half an hour after a buyer's bank declines their payment, if they still haven't paid. That cart then gets no checkout reminder."],
           ["Shipping confirmation", "You fulfill items. It has the Track your package button."],
           ["Tracking number changed", "You change the tracking on a shipment that already went out."],
-          ["Out for delivery", "A partner's update says it's out for delivery."],
-          ["Delivered", "It's marked delivered."],
-          ["Delivery issue", "A shipment is marked failed, by you or a partner's update. You get an email too."],
+          ["Out for delivery", "The carrier or a partner says it's out for delivery, or you mark it."],
+          ["Delivered", "The carrier or a partner says it arrived, or you mark it delivered."],
+          ["Delivery issue", "A shipment has a delivery problem: the carrier, a partner's update, or you said so. You get an email too."],
           ["Ready for pickup", "You mark a pickup order ready."],
           ["Picked up", "You mark it collected."],
           ["Order cancelled", "You cancel an order before it ships."],
@@ -1492,7 +2036,7 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "h", text: "Emails to you" },
-      { type: "p", text: `You get an email for each new order (where it goes, how, who fulfils each item, and what to do next), one when a buyer asks to return something or a delivery fails, and a low stock email when something sells down to its line (see ${link("low-stock-alerts", "Low stock alerts")}). Choose what you get in Settings > Notifications.` },
+      { type: "p", text: `You get an email for each new order (where it goes, how, who fulfils each item, and what to do next), one when a buyer writes to you with Contact the shop, asks to cancel or to return something, one when a delivery fails or a parcel is never confirmed delivered, and a low stock email when something sells down to its line (see ${link("low-stock-alerts", "Low stock alerts")}). Choose what you get in Settings > Notifications.` },
       { type: "note", text: "These are order emails. Newsletters and automations are in Emails in the dashboard menu, and only go to people who agreed to hear from you." },
     ],
   },
@@ -1644,6 +2188,8 @@ const ARTICLES: Article[] = [
         "They never get your buyers' names, emails or addresses from Storelib.",
         "Where cookie consent is required, asking for it is up to you.",
       ] },
+      { type: "h", text: "Courier tracking" },
+      { type: "p", text: `Courier tracking is built in. When Storelib's tracking is on, every shipment with a tracking number is followed with its carrier, and the buyer is told when it moves. Its card says whether your parcels are followed. Have your own AfterShip or 17TRACK account? Press Use my own account and add its key. See ${link("tracking-and-order-status", "Tracking")}.` },
       { type: "h", text: "Klaviyo and Omnisend" },
       { type: "p", text: "Connect them with a key on their page, under Subscribers and orders: a Klaviyo private API key and the list your subscribers join, or an Omnisend API key. People who said yes to your emails are subscribed there. Buyers who did not ask are sent as customers, never added to a list. Every sale is sent as an order, with its shipping, cancellation and refund, and anyone who unsubscribes there stops getting your Storelib emails too. Turn on Send what you already have to send your existing subscribers and the last 90 days of orders." },
       { type: "h", text: "Getting orders to whoever ships them" },
@@ -1663,7 +2209,7 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "p", text: "A key you save is stored encrypted and never shown again, only its last four characters." },
-      { type: "p", text: `Setting up Printful or Printify, step by step: ${link("printful-and-printify", "Printful and Printify")}. Gelato and CJ Dropshipping: ${link("gelato-and-cj-dropshipping", "Gelato and CJ Dropshipping")}.` },
+      { type: "p", text: `Setting up Printful or Printify, step by step: ${link("printful-and-printify", "Printful and Printify")}. Gelato and CJ Dropshipping: ${link("gelato-and-cj-dropshipping", "Gelato and CJ Dropshipping")}. What each way of shipping looks like from order to door: ${link("playbook", "the playbook")}.` },
       { type: "h", text: "Check your own webhook with Send a test" },
       {
         type: "steps",
@@ -1726,8 +2272,8 @@ const ARTICLES: Article[] = [
         "If their update can't reach Storelib, Storelib checks them every few hours instead.",
         "Every step is on the order's timeline: sent, shipped, or anything they refused.",
       ] },
-      { type: "h", text: "Coming soon" },
-      { type: "p", text: `Gelato and CJ Dropshipping take orders too: see ${link("gelato-and-cj-dropshipping", "Gelato and CJ Dropshipping")}. A card that says Coming soon can't take orders yet. Press Tell me when it's ready on one and you're counted: the most asked for are built first.` },
+      { type: "h", text: "Other partners" },
+      { type: "p", text: `Gelato and CJ Dropshipping take orders too: see ${link("gelato-and-cj-dropshipping", "Gelato and CJ Dropshipping")}. A card that still says Coming soon can't take orders yet. Press Tell me when it's ready on one and you're counted: the most asked for are built first.` },
     ],
   },
 
@@ -1751,6 +2297,7 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "p", text: "Connecting makes a location named Gelato or CJ Dropshipping in Settings, Locations. In a product, choose Print on demand and the Gelato location, or Dropshipping and the CJ Dropshipping location." },
+      shot("integration-cj", "The CJ Dropshipping page in Integrations: Connected, orders unpaid to pay in CJ, tracking as each parcel ships, Send orders straight to production, Ships from and Shipping method, and Match products to CJ.", "CJ Dropshipping, connected."),
       { type: "h", text: "Match each variant to theirs" },
       { type: "p", text: "Gelato and CJ don't know your SKUs, so you tell Storelib which of their products each variant is. Press Match products on the connected card. Products sold from their location are listed first." },
       { type: "list", items: [
@@ -1838,7 +2385,7 @@ const ARTICLES: Article[] = [
           "Change or cancel your plan in Settings > Plan.",
         ],
       },
-      { type: "note", text: "Carriers charge you for postage the normal way. Storelib doesn't buy labels or postage for you yet." },
+      { type: "note", text: "Storelib doesn't sell postage. Pay your carrier the normal way, or connect Shippo or EasyPost and buy labels from the order page: they charge your account with them." },
     ],
   },
   {

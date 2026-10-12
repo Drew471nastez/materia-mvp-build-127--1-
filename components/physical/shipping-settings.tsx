@@ -243,10 +243,15 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
       {part === "returns" ? <ReturnsPolicy data={data} reload={load} /> : null}
 
       <p className="text-[13px] text-[#6b7280]">
-        New to selling physical products?{" "}
-        <a href="/help/physical-products/zero-to-100" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
-          Read the step by step guide
+        New to selling physical products? See{" "}
+        <a href="/help/physical-products/playbook" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+          what happens when someone orders
         </a>
+        , or{" "}
+        <a href="/help/physical-products/zero-to-100" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+          set up step by step
+        </a>
+        .
       </p>
     </div>
   )

@@ -21,6 +21,7 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
+  "tests/playbook24.test.ts",
   "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",

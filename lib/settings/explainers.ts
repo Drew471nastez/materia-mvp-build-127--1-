@@ -127,7 +127,8 @@ export const EXPLAINERS = {
       "Shipping yourself or from a warehouse: you pack each order and add its tracking. Print on demand, dropshipping, a supplier or a fulfillment center: the order goes to them and they ship it.",
       "A mix is fine. Each location says who ships from it, and each product says which location it ships from.",
     ],
-    guide: "/help/physical-products/fulfillment-methods",
+    /* Every way of fulfilling, from what you connect to how tracking reaches the buyer. */
+    guide: "/help/physical-products/playbook",
   },
   team: {
     title: "How the team works",

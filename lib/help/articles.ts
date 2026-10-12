@@ -733,7 +733,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     body: [
       { type: "list", items: [
         "Your download is on the receipt page linked from your receipt email. If you bought while signed in, it is also in your [Library](/account/library).",
-        "Refunds are decided by the creator who sold the product, following the refund policy on its page. Press Get help with this order on your receipt or order page: it goes to the store, and Storelib can step in if it isn't sorted out. See [Order problems, answered](/help/questions).",
+        "Refunds are decided by the creator who sold the product, following the refund policy on its page. Press Contact the shop, under Need help with this order? on your receipt or order page: it goes to the store, and Storelib can step in if it isn't sorted out. See [Order problems, answered](/help/questions).",
         "If you cannot find the receipt email, check spam, then ask the creator to resend it: they can send it again, or to a corrected address.",
       ] },
       { type: "p", text: "If you cannot reach the creator, email [support@storelib.com](mailto:support@storelib.com) with the product and the email address you paid with." },
