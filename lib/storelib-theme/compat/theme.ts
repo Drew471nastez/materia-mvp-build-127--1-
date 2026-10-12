@@ -348,6 +348,10 @@ export class CompatTheme {
   private locale: O | null
   /** The language of that locale's words ("de" for de.default.json): request.locale. */
   private lang: string
+  /** The language the theme's own default locale file is in (locales/<lang>.default.json). */
+  get language(): string {
+    return this.lang
+  }
   private schemaLocale: O | null
   readonly settingsSchema: O[]
   readonly warnings: string[] = []

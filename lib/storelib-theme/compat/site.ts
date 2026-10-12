@@ -139,6 +139,8 @@ export interface SiteResponse {
   type: string
   body: string | Uint8Array
   headers?: Record<string, string>
+  /** Cookies to set, each a whole Set-Cookie value (the visitor's country and language). */
+  cookies?: string[]
   /** The cart after this request, when it changed. */
   cart?: CartEntry[]
   note?: string
@@ -245,19 +247,17 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       market's currency. A country the website does not list changes nothing.
     */
     const country = typeof req.body?.country_code === "string" ? req.body.country_code.toUpperCase() : null
-    const remember = country && /^[A-Z]{2}$/.test(country) && i18n?.countries?.some((c) => c.code === country)
-      ? { "Set-Cookie": `sl_country=${country}; Path=/; Max-Age=31536000; SameSite=Lax; Secure` }
-      : null
-    if (remember && (!asked || !i18n)) return { ...redirect(back), headers: { ...redirect(back).headers, ...remember } }
-    if (!i18n || !asked) return redirect(back)
-    const chosen = i18n.languages.find((l) => l.toLowerCase() === asked.toLowerCase())
-    if (!chosen) return redirect(back)
+    const cookies: string[] = []
+    if (country && /^[A-Z]{2}$/.test(country) && i18n?.countries?.some((c) => c.code === country)) cookies.push(`sl_country=${country}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`)
+    const chosen = i18n && asked ? i18n.languages.find((l) => l.toLowerCase() === asked.toLowerCase()) : undefined
+    if (!i18n || !chosen) return { ...redirect(back), cookies }
+    /* The language chosen is the visitor's from now on: a market's own language no longer greets them (the proxy's marketLanguageStart). */
+    cookies.push(`sl_lang=${chosen.toLowerCase()}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`)
     const prefixes = i18n.languages.filter((l) => l.toLowerCase() !== i18n.defaultLanguage.toLowerCase()).map((l) => l.toLowerCase())
     const m = back.match(/^\/([a-z]{2,3}(?:-[a-z0-9]{2,8})*)(\/.*)?$/i)
     const bare = m && prefixes.includes(m[1].toLowerCase()) ? (m[2] || "/") : back
     const root = localeRoot(i18n, chosen)
-    const to = redirect(root ? `${root}${bare === "/" ? "" : bare}` : bare)
-    return remember ? { ...to, headers: { ...to.headers, ...remember } } : to
+    return { ...redirect(root ? `${root}${bare === "/" ? "" : bare}` : bare), cookies }
   }
 
   /* ── products as data ── */

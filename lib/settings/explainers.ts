@@ -9,7 +9,7 @@
  * component. Pure, so the tests read it.
  */
 
-export type ExplainerArt = "shipping" | "locations" | "taxes" | "returns" | "checkout" | "channels" | "integrations" | "packages" | "fulfilment" | "team" | "store" | "reasons"
+export type ExplainerArt = "shipping" | "locations" | "taxes" | "returns" | "checkout" | "channels" | "integrations" | "packages" | "fulfilment" | "team" | "store" | "reasons" | "languages" | "markets"
 
 export interface Explainer {
   title: string
@@ -148,6 +148,25 @@ export const EXPLAINERS = {
       "Business details put your legal name, address and tax number on every receipt and invoice.",
     ],
     guide: "/help/physical-products/store-details",
+  },
+  languages: {
+    title: "How languages work",
+    art: "languages",
+    lines: [
+      "Your website stays at its own address in your default language. Every other language gets the same pages under its code: yourstore.com/fr, yourstore.com/fr/products/mug.",
+      "Visitors switch with the language selector. On a Storelib theme it sits under the footer by itself. On a theme you imported from Shopify it is the theme's own selector, turned on in the editor (Show language, usually in the header or footer).",
+      "Nobody is moved by their browser's language. A market can start its countries in its own language on their first visit, and after that the visitor's choice wins.",
+      "Only approved translations show, and only once a language is published. Anything not translated yet shows in your default language, never blank.",
+    ],
+  },
+  markets: {
+    title: "How markets and currencies work",
+    art: "markets",
+    lines: [
+      "A market is a group of countries. Give it a currency and its visitors see your prices converted at the day's European Central Bank rate, with the rounding you pick.",
+      "Visitors are matched by the country they browse from, and can change it with the currency or country selector. Their choice is remembered.",
+      "Checkout charges what your store's prices are in, and says so next to the total, so a converted price is always shown as an estimate.",
+    ],
   },
 } satisfies Record<string, Explainer>
 

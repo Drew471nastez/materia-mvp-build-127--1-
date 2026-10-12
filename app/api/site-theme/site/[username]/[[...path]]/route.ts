@@ -123,7 +123,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const locale = token ? null : (req.headers.get(SITE_LOCALE_HEADER) || null)
   /* And in the visitor's market's currency, when their country is in one that shows its own (the proxy's visitorMarket). */
   const market = token ? null : (req.headers.get(SITE_MARKET_HEADER) || null)
-  found = { ...found, site: await localizeCompatSite(found.site, locale, market) }
+  /* The visitor's country, for the theme's own country selector: the one they picked (sl_country), else where they are. */
+  const picked = req.headers.get("cookie")?.match(/(?:^|;\s*)sl_country=([A-Za-z]{2})(?:;|$)/)?.[1] ?? null
+  const seen = req.headers.get("x-vercel-ip-country")
+  const visitorCountry = picked ?? (seen && /^[A-Za-z]{2}$/.test(seen) ? seen : null)
+  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry) }
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note } = readCartCookie(cookie)
@@ -185,10 +189,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         },
   })
   const headers = new Headers(out.headers ?? {})
-  /* A redirect the theme's page makes (Add to cart, a sign in) stays in the page's language. */
+  for (const c of out.cookies ?? []) headers.append("Set-Cookie", c)
+  /* A redirect the theme's page makes (Add to cart, a sign in) stays in the page's language; the language selector's own answer (/localization) is the language chosen, already. */
   const where = headers.get("Location")
   const root = localeRoot(found.site.i18n)
-  if (where && root && where.startsWith("/") && !where.startsWith("//") && !where.startsWith(`${root}/`) && where !== root && !/^\/(?:api|checkout|receipt)(?:[/?#]|$)/.test(where)) headers.set("Location", `${root}${where === "/" ? "" : where}`)
+  if (where && root && sitePath !== "/localization" && where.startsWith("/") && !where.startsWith("//") && !where.startsWith(`${root}/`) && where !== root && !/^\/(?:api|checkout|receipt)(?:[/?#]|$)/.test(where)) headers.set("Location", `${root}${where === "/" ? "" : where}`)
   headers.set("Content-Type", out.type)
   headers.set("X-Robots-Tag", token ? "noindex" : "all")
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */

@@ -106,7 +106,7 @@ async function main() {
     const script = linkLanguageScript("fr", "en", ["en", "fr"])
     check("a page in French keeps its links in French (the theme's menus and cart drawer too)", /data-storelib-language/.test(script) && script.includes('"p":"fr"') && linkLanguageScript("en", "en", ["en", "fr"]) === "")
     const route = read("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-    check("the theme's handler puts the site in the page's language for that request only, never on a preview", /const locale = token \? null : \(req\.headers\.get\(SITE_LOCALE_HEADER\) \|\| null\)/.test(route) && /localizeCompatSite\(found\.site, locale, market\)/.test(route))
+    check("the theme's handler puts the site in the page's language for that request only, never on a preview", /const locale = token \? null : \(req\.headers\.get\(SITE_LOCALE_HEADER\) \|\| null\)/.test(route) && /localizeCompatSite\(found\.site, locale, market, visitorCountry\)/.test(route))
     const proxy = read("proxy.ts")
     check("  the language named in a header only the proxy sets", /headers\.delete\(SITE_LOCALE_HEADER\)/.test(proxy) && /if \(locale\) headers\.set\(SITE_LOCALE_HEADER, locale\)/.test(proxy))
     check("Translate reads an imported theme's texts too", /if \(compatOf\(themeValues\)\)/.test(read("lib/markets/server.ts")))
@@ -132,10 +132,19 @@ async function main() {
     check("  and a page in a market's currency is never kept by a shared cache", /private, no-cache/.test(proxy) && /!\(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\)/.test(proxy))
     const compat = read("lib/markets/compat.ts")
     check("an imported theme's prices, shop currency and money format follow the market; the store's otherwise", /moneyFormat: moneyFormatFor\(pricing\.currency/.test(compat) && /price: shown\(settings\.price\)/.test(compat) && /: site\.shop,/.test(compat))
-    check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /countryList\(langs\.markets, base\)/.test(compat) && /sl_country=\$\{country\}/.test(read("lib/storelib-theme/compat/site.ts")))
+    check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /const countries = countryList\(marketsFor, base\)/.test(compat) && /sl_country=\$\{country\}/.test(read("lib/storelib-theme/compat/site.ts")))
     check("and every cart says what the card is charged in, before anyone pays", /chargeNoteScript\(note\)/.test(compat) && /currencyNote=\{currencyNote\}/.test(read("app/checkout/site/page.tsx")) && /data-currency-note/.test(read("app/checkout/site/site-checkout.tsx")) && /data-currency-note/.test(read("components/website-builder/theme/language-switch.tsx")))
     check("a builder theme's product block converts the same way, never a pay what you want amount", /pricingFor\(product\.display\.market/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /!product\.pay_what_you_want/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
     check("the chosen country is in the cookie policy", /name: "sl_country"/.test(read("lib/consent/consent.ts")))
+    /* Round AD: the theme's own selector shows, picks the visitor's country, and a market's language greets its visitors once. */
+    check("  the selector has every country even before Markets is saved, and starts on the visitor's own", /if \(!langs\.saved\) \{[\s\S]{0,300}countries,/.test(compat) && /wanted && \(!inMarket \|\| inMarket\.countries\.includes\(wanted\)\)/.test(compat) && /x-vercel-ip-country/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
+    {
+      const proxy = read("proxy.ts")
+      check("a market's own language greets its visitors once, never a crawler, a script or checkout", /async function marketLanguageStart/.test(proxy) && /request\.cookies\.get\("sl_lang"\)/.test(proxy) && /CRAWLER\.test/.test(proxy) && /NEVER_STARTED = \/\^\\\/\(\?:checkout\|cart\|account/.test(proxy) && (proxy.match(/await marketLanguageStart\(request, /g) ?? []).length === 3)
+      check("  and picking a language is remembered, on both kinds of theme", /sl_lang=\$\{chosen\.toLowerCase\(\)\}/.test(read("lib/storelib-theme/compat/site.ts")) && /document\.cookie = `sl_lang=/.test(read("components/website-builder/theme/language-switch.tsx")) && /name: "sl_lang"/.test(read("lib/consent/consent.ts")))
+      check("  choosing the default language from /fr is not sent back to /fr", /sitePath !== "\/localization"/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
+      check("Languages and Markets each say how they work", /<Card title="Languages" help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /<Card title="Markets" help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
+    }
   }
 
   console.log("\nOne place for a website's language\n")

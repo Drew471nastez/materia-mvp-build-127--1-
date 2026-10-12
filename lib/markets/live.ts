@@ -50,6 +50,8 @@ export interface SiteLanguages {
   others: string[]
   /** The active markets that show their own currency (the home market never does). */
   markets: LiveMarket[]
+  /** The home market's first country: the one a visitor whose country is unknown starts in. */
+  homeCountry?: string | null
 }
 
 const NONE: SiteLanguages = { saved: false, defaultLanguage: "en", others: [], markets: [] }
@@ -69,13 +71,15 @@ async function readLanguages(creatorId: string): Promise<SiteLanguages> {
     if (code && code !== def && (l as { published?: unknown }).published === true && !others.includes(code)) others.push(code)
   }
   const markets: LiveMarket[] = []
+  let homeCountry: string | null = null
   for (const m of Array.isArray(row.markets) ? (row.markets as Record<string, unknown>[]) : []) {
+    if (m?.primary === true && Array.isArray(m.countries)) homeCountry = (m.countries as unknown[]).find((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c)) ?? null
     const currency = currencyCode(m?.currency)
     if (!m || m.primary === true || m.active === false || !currency || typeof m.id !== "string") continue
     const countries = (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c))
     markets.push({ id: m.id, name: typeof m.name === "string" ? m.name : m.id, countries, currency, primary: false, rounding: (["none", "whole", "nine_nine"].includes(String(m.rounding)) ? m.rounding : "none") as PriceRounding, adjustBps: Number(m.adjustBps) || 0 })
   }
-  return { saved: true, defaultLanguage: def, others, markets }
+  return { saved: true, defaultLanguage: def, others, markets, homeCountry }
 }
 
 /** The market a country's visitors see prices in, when it shows its own currency (lib/markets/model marketForCountry, active markets only). */

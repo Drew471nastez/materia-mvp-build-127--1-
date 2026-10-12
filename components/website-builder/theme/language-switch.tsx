@@ -8,8 +8,9 @@
  * published language (Settings › Markets and languages): each language named
  * in its own words ("Français", "Deutsch"), and choosing one opens the same
  * page in it (/fr/products/mug). The choice is the visitor's: nothing is
- * redirected by the browser's language, and the address keeps it (no
- * cookie: the address is the whole choice).
+ * redirected by the browser's language, and the address keeps it. The one
+ * thing remembered (sl_lang) is that they chose, so a market's own language
+ * (proxy.ts marketLanguageStart) greets a visitor only before they do.
  *
  * On a page in another language than the website's own, every link to
  * another page of the website keeps the language: /about becomes /fr/about.
@@ -99,6 +100,12 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
   if (!hasLanguages && !currency) return null
   const go = (code: string) => {
     if (code === choice.code) return
+    /* The visitor's language from now on: a market's own no longer greets them (proxy.ts marketLanguageStart). */
+    try {
+      document.cookie = `sl_lang=${encodeURIComponent(code.toLowerCase())}; Path=/; Max-Age=31536000; SameSite=Lax`
+    } catch {
+      /* Cookies off: the address still carries the language. */
+    }
     const { pathname, search, hash } = window.location
     window.location.assign(`${localizedPath(bare(pathname, codes), code, choice.defaultLanguage)}${search}${hash}`)
   }
