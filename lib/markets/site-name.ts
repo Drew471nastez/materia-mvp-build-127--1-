@@ -53,7 +53,8 @@ export function splitSiteName(segment: string): { name: string; locale: string |
 }
 
 /** The pages drawn in a language: the website's own pages, products, collections and search. The rest (cart, account, checkout, files) are the same in every language. */
-const PAGE_IN_LANGUAGE = /^\/(?:(?:products|collections)(?:\/[^/]+)?|search|(?!(?:cart|account|checkout|wishlist|password|receipt|review|preview|api|robots\.txt|sitemap\.xml)(?:\/|$))[^/.]+)?\/?$/i
+/* Round AE: the cart, the wishlist and the account (sign in included) in the website's languages too; signing out and an order's own page are not pages to draw. */
+const PAGE_IN_LANGUAGE = /^\/(?:(?:products|collections)(?:\/[^/]+)?|search|cart|wishlist|account(?:\/login)?|(?!(?:cart|account|checkout|wishlist|password|receipt|review|preview|api|robots\.txt|sitemap\.xml)(?:\/|$))[^/.]+)?\/?$/i
 
 /**
  * Where the proxy sends an address of a built website that starts with one
