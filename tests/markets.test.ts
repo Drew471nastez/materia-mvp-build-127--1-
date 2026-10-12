@@ -223,9 +223,9 @@ console.log("\nThis round: Translate waits for the language, flags, and the stor
   check("  a language's flag: its region when the tag names one, else its usual country",
     languageCountry("pt-BR") === "BR" && languageCountry("fr") === "FR" && languageCountry("zh-Hant") === "TW" && languageCountry("zh-Hans") === "CN" && languageCountry("xx") === null)
   check("a store's own checkout charges in the store's currency when payments are set up for it",
-    storeChargeCurrency("EUR") === "eur" && storeChargeCurrency("gbp") === "gbp" && storeChargeCurrency("CHF") === "chf")
+    storeChargeCurrency("EUR") === "eur" && storeChargeCurrency("gbp") === "gbp" && storeChargeCurrency("JPY") === "jpy")
   const platform = process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "usd" ? "usd" : "ron"
-  check("  and the platform's for one it is not (or nothing set)", storeChargeCurrency("XYZ") === platform && storeChargeCurrency(null) === platform)
+  check("  and the platform's for one it is not (or nothing set)", storeChargeCurrency("XYZ") === platform && storeChargeCurrency("CHF") === platform && storeChargeCurrency(null) === platform)
   check("  the website's basket, its physical checkout and the old cart route all use it",
     /storeChargeCurrencyFor\(admin, site\.creatorId\)/.test(read("app/api/checkout/site/route.ts")) &&
     /storeChargeCurrencyFor\(admin, creatorId\)/.test(read("app/api/checkout/cart/route.ts")) &&
