@@ -43,6 +43,15 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 
 /** Host-only, httpOnly: set by the route below, read by the tracker. */
 export const OWN_MARKER_COOKIE = "sl_own"
+/**
+ * The same MARK, for every site on Storelib's own domain (<name>.storelib.com),
+ * set by the app while the creator uses it (app/api/analytics/own/token). So
+ * the app opens such a site at its plain address, with no hop through
+ * /api/analytics/own whose address the browser showed first. A connected
+ * domain can't share a cookie with storelib.com, and keeps the hop.
+ * Its own name, so it never stands in for a host's own marker.
+ */
+export const OWN_MARKER_DOMAIN_COOKIE = "sl_own_d"
 /** What the link carries, and what the route reads it from. */
 export const OWN_MARKER_PARAM = "t"
 

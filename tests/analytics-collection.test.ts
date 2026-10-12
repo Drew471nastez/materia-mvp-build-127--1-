@@ -17,7 +17,7 @@ import { join } from "node:path"
 
 import { FakeSupabase, type Row } from "./fake-supabase"
 import { collect, type CollectDeps, type CollectKind, type CollectOutcome } from "../lib/analytics/collect"
-import { OWN_MARKER_COOKIE, marksOwner, ownLink, ownReturnPath, readOwnToken, signOwnHandoff, signOwnMarker } from "../lib/analytics/own-marker"
+import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE, marksOwner, ownLink, ownReturnPath, readOwnToken, signOwnHandoff, signOwnMarker } from "../lib/analytics/own-marker"
 import { clearPropertyCache } from "../lib/analytics/property"
 import { forgetSent, pageKeyOf, schedulePageView, skipReason, watchOutboundLinks } from "../lib/analytics/page-tracker"
 import { ALLOWED_EVENT_TYPES, EVENT, normalizeLinkUrl, normalizePath, splitDays, sumDailyRows } from "../lib/analytics/events"
@@ -400,6 +400,21 @@ async function main() {
       cookies: { [OWN_MARKER_COOKIE]: String(otherMarker) },
     })
     check("  another creator's marker is somebody else's, and their visit is counted", otherMarked.recorded, otherMarked.reason)
+
+    /* The owner: "when I go to the address it first shows me /api/analytics/own?t=..., then the actual address." Sites on Storelib's own domain are marked from the app, so they open plain. */
+    const domainMarked = await ask(db, {
+      body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-d1", visitorId: "own-vd1" }, ip: "203.0.113.31",
+      cookies: { [OWN_MARKER_DOMAIN_COOKIE]: String(signOwnMarker(ANA, db.clock)) },
+    })
+    check("the mark the app sets for every storelib.com site leaves the creator out too", !domainMarked.recorded && domainMarked.reason === "own", domainMarked.reason)
+    const domainOther = await ask(db, {
+      body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-d2", visitorId: "own-vd2" }, ip: "203.0.113.32",
+      cookies: { [OWN_MARKER_DOMAIN_COOKIE]: String(signOwnMarker(BEE, db.clock)) },
+    })
+    check("  and another creator's is no mark for this one", domainOther.recorded, domainOther.reason)
+    const tokenRoute = read("app/api/analytics/own/token/route.ts")
+    check("  set by the token route on storelib.com only, for the whole domain, unreadable by a page", /OWN_MARKER_DOMAIN_COOKIE\}=\$\{encodeURIComponent\(mark!\)\}`, `Domain=\$\{main\}`/.test(tokenRoute) && /"HttpOnly"/.test(tokenRoute) && /host === main \|\| host === `www\.\$\{main\}`/.test(tokenRoute) && /!main\.includes\("localhost"\)/.test(tokenRoute))
+    check("  and the app opens a site under that domain at its plain address, a connected domain through the hop as before", /if \(sitesDomain && !isNativeApp\(\) && url\.hostname\.toLowerCase\(\)\.endsWith\(`\.\$\{sitesDomain\}`\)\) return plain/.test(read("lib/analytics/own-site.ts")))
 
     const stale = await ask(db, {
       body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s4", visitorId: "own-v4" }, ip: "203.0.113.24",
