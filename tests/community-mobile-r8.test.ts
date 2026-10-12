@@ -71,7 +71,8 @@ async function main() {
     const vb = code("components/community/member/visible-box.ts")
     check("the hook keeps the full height per width and remembers a resize for the visit", /export function noteFixedBox\(layoutH: number\)/.test(vb) && /if \(keys && fullBox\.h - layoutH > RESIZED_MIN_PX\) resizedOnce = true/.test(vb) && /fullH: box\.fullH,\s*resizes: box\.resizes,/.test(vb))
     check("and reads the keyboard again after it has risen", /window\.setTimeout\(\(\) => run\(\), 320\)/.test(vb) && /window\.setTimeout\(\(\) => run\(\), 700\)/.test(vb))
-    check("the readout says it", /web view resizes \$\{facts\.resizes \? "yes" : "no"\}/.test(read("components/community/member/post-fullscreen.tsx")))
+    /* Round 25: the readout reads the sheet's own numbers, the room it asked for and the room it made. */
+    check("the readout says it", /room asked \$\{/.test(read("components/community/member/post-fullscreen.tsx")) && /room under \$\{sheet \? getComputedStyle\(sheet\)\.paddingBottom/.test(read("components/community/member/post-fullscreen.tsx")))
   }
 
   console.log("\nCOMPOSER: New post's sheet and the feed behind it")
@@ -89,7 +90,8 @@ async function main() {
   {
     const s = code("components/community/member/search.tsx")
     const z = Number(/export const SEARCH_SCREEN_Z = (\d+)/.exec(s)?.[1] ?? 0)
-    const post = Number(/fixed inset-0 z-\[(\d+)\]" data-post-fullscreen/.exec(code("components/community/member/post-fullscreen.tsx"))?.[1] ?? 0)
+    /* Round 25: the post is the builder's sheet at POST_SHEET_Z. */
+    const post = Number(/export const POST_SHEET_Z = (\d+)/.exec(code("components/community/member/post-fullscreen.tsx"))?.[1] ?? 0)
     const lifted = Number(/html\[data-tabs-over\] \[data-buyer-tab-bar\] \{\s*z-index: (\d+);/.exec(read("app/globals.css"))?.[1] ?? 0)
     check("the screen is drawn over the post and the tab bar lifted over it", z > post && z > lifted && post === 130, { z, post, lifted })
     check("under the composer's leave dialog and the picture viewer", z < 150 && z < 160, z)

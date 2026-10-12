@@ -34,6 +34,7 @@ import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
 import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
+import { GaConnect } from "@/components/app/settings/ga-connect"
 import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
 import { APP_STATE_LABEL, essentialIds, essentialsProgress, storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
@@ -791,6 +792,9 @@ function IntegrationPage({
                 <ReviewsAppPanel onChanged={(st) => onApp("storelib_reviews", st.enabled)} />
               ) : item.kind === "app" && item.appId === "courier_tracking" ? (
                 <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
+              ) : item.kind === "tracker" && item.trackerId === "ga4" ? (
+                /* Google Analytics: pasted, checked with a live hit, then "Receiving data" with the last event's time. */
+                <GaConnect value={tracking?.ga4 ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.kind === "tracker" && item.trackerId ? (
                 <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.providerId && providerInfo(item.providerId) ? (

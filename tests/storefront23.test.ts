@@ -340,7 +340,9 @@ async function main() {
     check("12 held across the locations that ship, held to 2 per order with the id", withId.get(SMALL)?.maxQuantity === 2 && without.get(SMALL)?.maxQuantity === 12, [withId.get(SMALL), without.get(SMALL)])
     const loader = read("lib/website-builder/compat-site.ts")
     check("compat-site reads stock with the product's id, and the cart's room with Limit sales", /physicalStock\(admin, \{ creator_id: creatorId, \.\.\.\(product as Record<string, unknown>\), id: productId \}, list\)/.test(loader) && /orderLimits\(admin, \[card\.id\]\)/.test(loader))
-    check("the stock is read even when the number is hidden; only `left` waits on the setting", /showLeft \? \{ left: s\.left \} : \{\}/.test(loader) && /compatStock\(admin, creator\.creatorId, card, siteCommerce/.test(loader))
+    /* Round 25: the page's facts are read by lib/storelib-theme/compat/product-facts-server.ts and merged by product-facts.ts (tests/variants25.test.ts drives both). */
+    const facts = read("lib/storelib-theme/compat/product-facts.ts")
+    check("the stock is read even when the number is hidden; only `left` waits on the setting", /if \(facts\.showLeft\) out\.left = f\.left/.test(facts) && /pageFactsFor\(admin, creator\.creatorId, card\.id, siteCommerce\(settings as Record<string, unknown>\)\.showStockLeft\)/.test(loader))
     check("the cart's room is handed to the theme's site", /stock: physical \? \(productId\) => cartStock\(/.test(loader))
   }
 
@@ -400,8 +402,9 @@ async function main() {
     check("the product page's product is read again when the builder comes back into view", /THE PRODUCT THE PRODUCT PAGE SHOWS, READ AGAIN/.test(editor) && /fetch\(`\/api\/website-builder\/products\?id=\$\{encodeURIComponent\(id\)\}`, \{ cache: "no-store" \}\)/.test(editor))
     check("only its _product_data changes, so nothing becomes unsaved", /return \{ \.\.\.sec, settings: \{ \.\.\.s, _product_data: fresh \} \}/.test(editor) && !/setIsDirty\(true\)[^\n]*_product_data: fresh/.test(editor))
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
-    check("an imported theme's canvas reads the product page's stock and pickup from the storefront's route, again on coming back", /fetch\(`\/api\/physical\/storefront\/product\?productId=\$\{encodeURIComponent\(card\.id\)\}`/.test(canvas) && /document\.addEventListener\("visibilitychange", again\)/.test(canvas) && /withStock\(found, stock\.variants, showLeft\)/.test(canvas))
-    check("  and shows Only N left only when Website settings › Commerce does", /const showLeft = siteCommerce\(settings\)\.showStockLeft/.test(canvas) && /\.\.\.\(showLeft \? \{ left: s\.left \} : \{\}\), max: s\.max, pickup: s\.pickup/.test(canvas))
+    /* Round 25: the canvas reads the very facts the live loader reads (the builder's products route, ?facts=1), not the buy box's route. */
+    check("an imported theme's canvas reads the product page's stock and pickup as the live site does, again on coming back", /fetch\(`\/api\/website-builder\/products\?id=\$\{encodeURIComponent\(card\.id\)\}&facts=1`/.test(canvas) && /document\.addEventListener\("visibilitychange", again\)/.test(canvas) && /withPageFacts\(found as unknown as \{ id: string; settings: Record<string, unknown> \}, \{ \.\.\.stock\.facts, showLeft \}\)/.test(canvas))
+    check("  and shows Only N left only when Website settings › Commerce does", /const showLeft = siteCommerce\(settings\)\.showStockLeft/.test(canvas) && /if \(facts\.showLeft\) out\.left = f\.left/.test(read("lib/storelib-theme/compat/product-facts.ts")))
     const route = read("app/api/physical/storefront/product/route.ts")
     check("the storefront's product route says each option's pickup points beside the buy box's delivery promise (F23)", /pickup: \(pickups as Record<string, unknown\[\]>\)\[v\.id\] \?\? \[\]/.test(route) && /productDelivery\(db, p\.creator_id, p\.id\)/.test(route) && /delivery: promise \? \{ \.\.\.promise, lines: deliveryPromiseLines\(promise\) \} : null/.test(route))
     check("and the route draws it the way the live page does", /productSectionData\(createAdminClient\(\), product as ProductSectionRow, \{ files: true \}\)/.test(read("app/api/website-builder/products/route.ts")))

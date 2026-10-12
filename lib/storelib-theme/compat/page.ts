@@ -152,7 +152,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
     layout, no head, nothing added: a script reads it as markup or JSON.
   */
   const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : opts.content === undefined ? theme.templateLayout(page.template, page.suffix) : undefined
-  if (layout === "none" && opts.content === undefined) return { html: theme.finish(content), errors, ctx }
+  if (layout === "none" && opts.content === undefined) return { html: withoutVendorTraces(theme.finish(content)), errors, ctx }
   const js = opts.scripts ? theme.javascriptBundle() : ""
   const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`
   let html = theme.renderDocument(ctx, content, { extraHead: head, extraBodyEnd: tail, layout })
@@ -160,13 +160,48 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   html = html.replace(/<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*href=["']https:\/\/fonts\.googleapis\.com[^>]*>|<link\b[^>]*href=["']https:\/\/fonts\.googleapis\.com[^"']*["'][^>]*rel=["']?preload["']?[^>]*>/gi, "")
   if (!opts.scripts) html = withoutScripts(html)
   else html = withShopifyModules(html)
-  return { html, errors, ctx }
+  return { html: withoutVendorTraces(html), errors, ctx }
+}
+
+/**
+ * NOTHING ON THE PAGE NAMES THE PLATFORM THE THEME CAME FROM. A theme's
+ * own source carries notes for its developers ("<!-- BEGIN app block:
+ * shopify://… -->", a stylesheet's "keep in sync with header.liquid"), a
+ * head that warms a connection to Shopify's font host, now and then a
+ * generator tag. A visitor who opens the page's source sees none of them:
+ * those notes and links are left out of what is served. The theme's own
+ * class names and scripts stay as they are, since its styles and code
+ * read them.
+ */
+const VENDOR = /shopify|liquid/i
+export function withoutVendorTraces(html: string): string {
+  if (!VENDOR.test(html)) return html
+  return html.replace(/<(script|style|textarea)\b([^>]*)>([\s\S]*?)<\/\1\s*>|<!--([\s\S]*?)-->|<link\b[^>]*>|<meta\b[^>]*>/gi, (m, tag: string | undefined, attrs: string | undefined, body: string | undefined, comment: string | undefined) => {
+    if (comment !== undefined) return VENDOR.test(comment) && !/^(storelib|sl-)/.test(comment) ? "" : m
+    if (!tag) {
+      /* A connection warmed to Shopify's hosts, or a generator tag naming it. */
+      if (/^<link/i.test(m)) return /\brel=["']?(preconnect|dns-prefetch)\b/i.test(m) && /href=["'][^"']*shopify/i.test(m) ? "" : m
+      return /\bname=["']?generator\b/i.test(m) && VENDOR.test(m) ? "" : m
+    }
+    if (!body || !VENDOR.test(body)) return m
+    const t = tag.toLowerCase()
+    if (t === "style") return `<style${attrs}>${body.replace(/\/\*[\s\S]*?\*\//g, (c) => (VENDOR.test(c) ? "" : c))}</style>`
+    /* A script's own notes, only where a note is plainly one: a whole line. Its strings and code are never touched. */
+    if (t === "script" && !/type=["']?(application\/(ld\+)?json|text\/template)/i.test(attrs ?? "")) {
+      const cleaned = body
+        .replace(/^([ \t]*)\/\*[\s\S]*?\*\/[ \t]*$/gm, (c) => (VENDOR.test(c) ? "" : c))
+        .replace(/^[ \t]*\/\/.*$/gm, (c) => (VENDOR.test(c) ? "" : c))
+      return `<script${attrs}>${cleaned}</script>`
+    }
+    return m
+  })
 }
 
 /** One section, wrapped as on Shopify, for the section rendering API and for the builder's live edits. */
 export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection, index = 0, group?: string): { html: string; errors: string[] } {
   /* An Overlay group section is drawn as a section of the theme's group it came from. */
-  return theme.renderSection(ctx, instanceOf(section), index, section.group === "overlay" ? section.slot || "overlay-group" : group)
+  const r = theme.renderSection(ctx, instanceOf(section), index, section.group === "overlay" ? section.slot || "overlay-group" : group)
+  return { ...r, html: withoutVendorTraces(r.html) }
 }
 
 /**

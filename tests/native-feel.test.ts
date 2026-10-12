@@ -196,7 +196,7 @@ check(
    * the floor padded half a screen of white over a real keyboard.
    */
   /* Round 17: an optional keyboardRoom is asked first, where it is given; the floor otherwise. */
-  /const keyboard = keyboardFor\(seen, (keyboardRoomRef\.current\?\.\(\) \?\? )?readPublishedKeyboardInset\(\)\)/.test(sheet)
+  /(const|let) keyboard = keyboardFor\(seen, (keyboardRoomRef\.current\?\.\(\) \?\? )?readPublishedKeyboardInset\(\)\)/.test(sheet)
     && /from "@\/lib\/ui\/keyboard-safe-sheet"/.test(sheet),
 )
 check(
@@ -238,7 +238,7 @@ check(
 )
 check(
   "and the keyboard is read once into a name both uses share",
-  /const keyboard = keyboardFor\(seen, /.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet) && /setVisibleTop\(panned\)/.test(sheet),
+  /(const|let) keyboard = keyboardFor\(seen, /.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet) && /setVisibleTop\(panned\)/.test(sheet),
 )
 
 

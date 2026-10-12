@@ -167,6 +167,7 @@ export function PageList({
   className,
   collapsible = false,
   boxed = false,
+  onIntent,
 }: {
   pages: SwitcherPage[]
   current: string
@@ -189,6 +190,8 @@ export function PageList({
   collapsible?: boolean
   /** Each group a bordered box of rows, the sidebar's look. */
   boxed?: boolean
+  /** The pointer rests on a page's row (or the keyboard is on it): the page can be read before the press (round 25). */
+  onIntent?: (key: string) => void
 }) {
   const skin = SKIN[tone]
   const [query, setQuery] = useState("")
@@ -315,6 +318,8 @@ export function PageList({
           type="button"
           data-page-row={p.key}
           aria-current={active ? "page" : undefined}
+          onPointerEnter={onIntent && !active ? (e) => { if (e.pointerType === "mouse") onIntent(p.key) } : undefined}
+          onFocus={onIntent && !active ? () => onIntent(p.key) : undefined}
           onClick={() => choose(() => onSelect(p.key))}
           className={rowClass(active, indented)}
         >
@@ -635,6 +640,7 @@ export function PageSwitcher({
   products = [],
   currentProduct = null,
   onSelectProduct,
+  onIntent,
 }: {
   pages: SwitcherPage[]
   current: string
@@ -650,6 +656,8 @@ export function PageSwitcher({
   /** The product currently standing in for the product page, by title. */
   currentProduct?: string | null
   onSelectProduct?: (id: string) => void
+  /** A page's row under the pointer (PageList onIntent). */
+  onIntent?: (key: string) => void
 }) {
   const [open, setOpen] = useState(false)
   /** In the page while open, and for as long as its close takes. */
@@ -766,6 +774,7 @@ export function PageSwitcher({
               onSelectProduct={onSelectProduct}
               onCreate={onCreate}
               onDelete={onDelete}
+              onIntent={onIntent}
               collapsible
               autoFocus
               onDone={() => {

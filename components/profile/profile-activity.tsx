@@ -33,6 +33,7 @@
  * On a creator's page it is drawn in the page's scheme (tone "storefront":
  * the design tokens storefront-chrome rebinds there).
  */
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { Loader2, Star } from "lucide-react"
@@ -89,8 +90,7 @@ function Thumb({ src, title, tone }: { src: string | null; title: string; tone: 
   return (
     <span className={cn("relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border text-[15px] font-semibold", LOOK[tone].thumb)}>
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <SoftImg src={src} width={44} className="h-full w-full object-cover" />
       ) : (
         <span aria-hidden>{(title.trim()[0] || "·").toUpperCase()}</span>
       )}

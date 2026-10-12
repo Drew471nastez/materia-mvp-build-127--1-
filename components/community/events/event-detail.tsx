@@ -26,6 +26,7 @@
  * free event, plus a quiet line saying what was paid and, inside the refund
  * window, Give up my seat. A free event's page is exactly as it was.
  */
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
@@ -224,13 +225,10 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
               <StorelibVideo communityId={event.communityId} videoId={event.replayVideoId} poster={event.coverUrl} title={`${event.title} replay`} eager />
             </div>
           ) : event.coverUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={event.coverUrl}
-              alt=""
-              className="mb-5 aspect-[16/9] w-full max-w-[640px] rounded-2xl border border-[#e4e7ec]/80 object-cover lg:max-w-none"
-              data-event-cover
-            />
+            /* The box first, on a quiet grey; the picture at this screen's size, once decoded (round 25, components/ui/soft-img.tsx). */
+            <div className="relative mb-5 aspect-[16/9] w-full max-w-[640px] overflow-hidden rounded-2xl border border-[#e4e7ec]/80 bg-[#f1f2f4] lg:max-w-none" data-event-cover>
+              <SoftImg src={event.coverUrl} width={760} sizes="(min-width: 1024px) 760px, (min-width: 640px) 640px, 100vw" eager className="absolute inset-0 h-full w-full object-cover" />
+            </div>
           ) : null}
 
           <p className="flex flex-wrap items-center gap-x-2 text-[13px] font-medium text-[#6b7280]">

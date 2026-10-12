@@ -1363,7 +1363,8 @@ section("Switching pages does not lose or misfile work")
        * AWAITED, so the write lands while `currentPage` and `sections` still
        * agree about which page they describe.
        */
-      return /await saveDraft\(\{ quiet: true \}\)/.test(body) && /if \(isDirty && !saving/.test(body)
+      /* Round 25 (tests/builder25.test.ts): started as the switch starts, beside the read of the next page, and awaited before the next page is put in. */
+      return /const leavingDirty = isDirty && !saving/.test(body) && /leavingDirty \? saveDraft\(\{ quiet: true \}\)/.test(body) && /const \[loaded, homeHF, savedOk\] = await Promise\.all\(\[[\s\S]*?saved,\s*\]\)/.test(body)
     })(),
   )
 

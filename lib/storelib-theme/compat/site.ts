@@ -32,7 +32,7 @@
 import { escapeHtml, handleize } from "./filters"
 import type { CardLike, CollectionLike, MenuLinkLike, CartLineLike, SiteI18n } from "./objects"
 import { localeRoot } from "./objects"
-import { cartObject, productObject } from "./objects"
+import { cartObject, productObject, shopifyJson } from "./objects"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
@@ -727,14 +727,25 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
   const reviewsFor = async (p: { id: string; title: string } | null) => (site.reviews ? await site.reviews(p).catch(() => null) : null)
   if (path === "/" || path === "") return at("home", { title: site.shop.name, reviews: await reviewsFor(null) })
 
-  const product = path.match(/^(?:\/collections\/[^/]+)?\/products\/([^/]+)$/)
-  if (product) {
-    const card = await findProduct(site, product[1])
+  /*
+    /variants/<id>: Shopify's address of one variant, the product's page on
+    that variant. Dawn's pickup block asks it for its section
+    (`/variants/<id>/?section_id=pickup-availability`) on every choice; a
+    404 there drew "Couldn't load pickup availability" under the buttons.
+  */
+  const variantPath = path.match(/^\/variants\/([^/]+)\/?$/)
+  const product = variantPath ? null : path.match(/^(?:\/collections\/[^/]+)?\/products\/([^/]+)$/)
+  if (variantPath || product) {
+    const owner = variantPath ? site.products.find((p) => Array.isArray(p.settings.variants) && (p.settings.variants as O[]).some((v) => v.id === variantPath[1])) : null
+    const card = variantPath ? (owner ? await findProduct(site, String(owner.settings.slug ?? "") || owner.id) : null) : await findProduct(site, product![1])
     if (!card) return null
+    if (variantPath) req = { ...req, query: new URLSearchParams([...req.query.entries(), ["variant", variantPath[1]]]) }
+    /* `?variant=` names one; else the values a picker sent, which may make no variant at all (then the theme says Unavailable, as on Shopify). */
+    const selectedValues = req.query.get("variant") ? null : optionValuesAsked(card, req.query.get("option_values"))
     const selectedVariantId = req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values"))
     /* Its SEO title, when its creator wrote one, is the theme's page_title and the tab, as on Shopify. */
     const seoTitle = typeof card.settings.seo_title === "string" && card.settings.seo_title.trim() ? card.settings.seo_title.trim() : undefined
-    const route = at("product", { product: card, selectedVariantId, title: seoTitle ?? String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) }, undefined, seoTitle)
+    const route = at("product", { product: card, selectedVariantId, selectedValues, title: seoTitle ?? String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) }, undefined, seoTitle)
     /* Signed in and already theirs: said at the foot of the page, with the way to the downloads. */
     const owned = route && req.account?.customer && req.owned ? await req.owned(card.id).catch(() => null) : null
     if (route && owned) {
@@ -886,22 +897,33 @@ async function findProduct(site: SiteData, handle: string): Promise<(CardLike & 
 }
 
 /**
- * `?option_values=0-1,1-0`: the variant a set of option values names, by the
- * ids `product.options_with_values` gives each value. What a theme's option
- * picker asks for when a visitor chooses Large.
+ * `?option_values=1001,2000`: the values a theme's picker sends when a
+ * visitor chooses one (Dawn's and Horizon's `data-option-value-id`), by the
+ * ids `product.options_with_values` gives each value (objects.ts
+ * optionValueId). An older page's `0-1` form is read too. The values, one
+ * per option, null where none was named.
  */
-export function variantForOptionValues(card: CardLike, raw: string | null): string | null {
+export function optionValuesAsked(card: CardLike, raw: string | null): (string | null)[] | null {
   if (!raw) return null
   const p = productObject(card)
-  const wanted: string[] = []
-  for (const id of raw.split(",")) {
-    const [pos, vi] = id.split("-").map(Number)
-    const option = ((p.options_with_values as O[]) ?? [])[pos]
-    const value = ((option?.values as O[]) ?? [])[vi]
+  const options = (p.options_with_values as O[]) ?? []
+  const wanted: (string | null)[] = options.map(() => null)
+  for (const id of raw.split(",").slice(0, 3)) {
+    const pair = id.trim().match(/^(\d+)-(\d+)$/)
+    const n = Number(id)
+    const [pos, vi] = pair ? [Number(pair[1]), Number(pair[2])] : Number.isFinite(n) && n >= 1000 ? [Math.floor(n / 1000) - 1, n % 1000] : [-1, -1]
+    const value = ((options[pos]?.values as O[]) ?? [])[vi]
     if (value) wanted[pos] = String(value.name)
   }
-  const variants = (p.variants as O[]) ?? []
-  const match = variants.find((v) => wanted.every((w, i) => w === undefined || (v.options as string[])[i] === w))
+  return wanted.some((w) => w !== null) ? wanted : null
+}
+
+/** The variant a set of option values names, or null when no variant has them all. */
+export function variantForOptionValues(card: CardLike, raw: string | null): string | null {
+  const wanted = optionValuesAsked(card, raw)
+  if (!wanted) return null
+  const variants = (productObject(card).variants as O[]) ?? []
+  const match = variants.find((v) => wanted.every((w, i) => w === null || (v.options as string[])[i] === w))
   return match ? String(match.id) : null
 }
 
@@ -974,13 +996,14 @@ function plain(v: unknown, depth = 0): unknown {
 
 /** /products/<handle>.js, as Shopify's Ajax API writes a product. */
 export function productJson(p: O): O {
-  const variants = ((p.variants as O[]) ?? []).map((v) => ({
+  /* Each variant as Shopify's Ajax API writes it: the same record as `variant | json` (objects.ts), with its picture's id for a gallery script. */
+  const variants = ((p.variants as O[]) ?? []).map((v) => shopifyJson(v) ?? ({
     id: v.id, title: v.title, option1: v.option1, option2: v.option2, option3: v.option3, options: v.options,
     price: v.price, compare_at_price: v.compare_at_price, available: v.available, sku: v.sku, requires_shipping: v.requires_shipping,
     featured_image: v.featured_image ? { id: (v.featured_image as O).id, src: (v.featured_image as O).src, position: (v.featured_image as O).position } : null, name: v.name, public_title: v.title === "Default Title" ? null : v.title,
     /* The variant's photo among the product's media, by id: what a theme's gallery script switches to. */
     featured_media: v.featured_media ? { id: (v.featured_media as O).id, media_type: "image", src: (v.featured_media as O).src, position: (v.featured_media as O).position, preview_image: { src: (v.featured_media as O).src } } : null,
-  }))
+  } as O))
   const images = ((p.images as O[]) ?? []).map((i) => i.src)
   return {
     id: p.id, title: p.title, handle: p.handle, description: p.description, url: p.url, vendor: p.vendor, type: p.type, tags: p.tags,
@@ -1083,7 +1106,7 @@ function lineJson(i: O): O {
   return {
     id: i.variant_id, key: i.key, quantity: i.quantity, title: i.title, price: i.price, original_price: i.price, discounted_price: i.price,
     line_price: i.line_price, original_line_price: i.line_price, final_price: i.price, final_line_price: i.line_price, total_discount: 0, discounts: [],
-    properties: i.properties ?? {}, product_id: i.product_id, variant_id: i.variant_id, sku: "", vendor: "", url: i.url, image, featured_image: image ? { url: image, alt: String(product.title ?? "") } : null,
+    properties: i.properties ?? {}, product_id: i.product_id, variant_id: i.variant_id, sku: i.sku ?? "", vendor: "", url: i.url, image, featured_image: image ? { url: image, alt: String(product.title ?? "") } : null,
     handle: product.handle, requires_shipping: i.requires_shipping, product_title: product.title, product_description: "", product_type: product.type,
     variant_title: variant.title === "Default Title" ? null : variant.title, variant_options: variant.options ?? [], options_with_values: plain(i.options_with_values),
     gift_card: false, has_components: false, quantity_rule: { min: 1, max: null, increment: 1 },

@@ -139,17 +139,18 @@ async function main() {
   {
     check("the composer, the picture viewer, a search screen, Settings and a page layer cover it",
       (["composer", "viewer", "search", "screen", "page", "phone-page"] as const).every((k) => LAYER_KINDS[k].covers))
-    check("an opened post does not: the bar stays over it", !LAYER_KINDS.post.covers && LAYER_KINDS.post.barOver)
+    /* Round 25: an opened post is the website builder's bottom sheet on a phone and covers the bar, as the composer does. */
+    check("an opened post covers it too since round 25 (a bottom sheet over the whole app)", LAYER_KINDS.post.covers && !LAYER_KINDS.post.barOver)
     check("a sheet or a dialog neither covers nor lifts it", !LAYER_KINDS.sheet.covers && !LAYER_KINDS.sheet.barOver)
     resetLayers()
     let told = 0
     const off = subscribeLayers(() => told++)
     const post = openLayer("post")
-    check("5  a post open: the bar is lifted over it, on <html> for the stylesheet", tabBarLayers().over && !tabBarLayers().covered && html.hasAttribute("data-tabs-over") && told === 1)
+    check("5  a post open: the bar is covered, on <html> for the stylesheet", tabBarLayers().covered && !tabBarLayers().over && html.hasAttribute("data-tabs-covered") && told === 1)
     const edit = openLayer("composer")
     check("   Edit post over the post: the composer covers the bar, which is no longer lifted", tabBarLayers().covered && !tabBarLayers().over && !html.hasAttribute("data-tabs-over") && html.hasAttribute("data-tabs-covered"))
     edit()
-    check("   the composer closes: lifted over the post again", tabBarLayers().over && !html.hasAttribute("data-tabs-covered"))
+    check("   the composer closes: still covered by the post", tabBarLayers().covered && !tabBarLayers().over && html.hasAttribute("data-tabs-covered"))
     post()
     check("   the post closes: nothing over the bar, nothing on <html>", !tabBarLayers().over && !html.hasAttribute("data-tabs-over") && !html.hasAttribute("data-tabs-covered"))
     off()
@@ -214,7 +215,7 @@ async function main() {
     check("nothing is fetched ahead for Search, Create post, or the navigator's feed; the account page is", /tab\.key === "search" \|\| tab\.key === "compose" \|\| i === current \|\| \(navHere && tab\.key === "home"\)/.test(bar))
     /* Round 18 (the owner: "a calmer, cleaner swap"): still one slot on opacity and scale only, but one glyph after the other, never both at once (tests/nav18.test.ts). */
     check("the switch is calm: Library and Create post are one slot (one key), the two glyphs change on opacity and scale only",
-      /key=\{tab\.key === "compose" \? "library" : tab\.key\}/.test(bar) && /opacity: here \? 1 : 0,\s*scale: here \? "1" : String\(SWAP_IN_FROM\),/.test(bar))
+      /key=\{tab\.key === "compose" \? "library" : tab\.key\}/.test(bar) && /opacity: here \? 1 : 0,/.test(bar) && !/scale: here/.test(bar))
     check("a tab between the community and the account swaps in one piece only when the address really crosses", /const crosses = !!communityOf\(href\) !== !!communityOf\(pathname\)/.test(bar))
     check("Home outside a community is Discover in the mode it was left in (no flip between products and communities)",
       tabs.discoverHomeHref("communities") === "/explore?type=communities" && tabs.discoverHomeHref(null) === "/explore"

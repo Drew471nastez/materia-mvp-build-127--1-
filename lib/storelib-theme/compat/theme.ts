@@ -252,6 +252,8 @@ export interface CompatPage {
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   product?: CardLike & { descriptionHtml?: string } | null
   selectedVariantId?: string | null
+  /** The option values a theme's picker asked for (`?option_values=`), which may make no variant (lib/storelib-theme/compat/site.ts optionValuesAsked). */
+  selectedValues?: (string | null)[] | null
   collection?: CollectionLike | null
   cart?: CartLineLike[]
   /** The cart's note and attributes (`cart.note`, `cart.attributes` in Liquid): a theme's order notes and gift message fields read them back. */
@@ -575,7 +577,7 @@ export class CompatTheme {
     const currency = page.shop.currency ?? "USD"
     const moneyFormat = page.shop.moneyFormat ?? "${{amount}}"
 
-    const productObj = page.product ? productObject(page.product, { descriptionHtml: page.product.descriptionHtml, selectedVariantId: page.selectedVariantId }) : null
+    const productObj = page.product ? productObject(page.product, { descriptionHtml: page.product.descriptionHtml, selectedVariantId: page.selectedVariantId, selectedValues: page.selectedValues }) : null
     const collections: O = {}
     for (const c of page.collections) collections[c.handle] = collectionByHandle(res, c.handle)
     const allCard: CollectionLike = { id: "all", title: "Products", handle: "all", url: "/collections/all", products: page.products, products_count: page.products.length }

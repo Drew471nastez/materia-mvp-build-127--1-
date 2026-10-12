@@ -14,7 +14,7 @@
  * finished) and who made it. Picking a creator from a row filters to them.
  */
 
-import Image from "next/image"
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { BookOpen, Check, ChevronDown, Play } from "lucide-react"
@@ -143,7 +143,7 @@ function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => 
       <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
         <Link href={href} className="relative aspect-video w-[112px] shrink-0 overflow-hidden rounded-lg bg-[#f1f1f4] sm:w-[168px]" tabIndex={-1} aria-hidden>
           {course.thumbnailUrl ? (
-            <Image src={course.thumbnailUrl} alt="" fill sizes="(min-width: 640px) 168px, 112px" className="object-cover" />
+            <SoftImg src={course.thumbnailUrl} width={168} sizes="(min-width: 640px) 168px, 112px" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             <span className="flex h-full w-full items-center justify-center">
               <BookOpen className="h-6 w-6 text-[#c4c6cc]" />

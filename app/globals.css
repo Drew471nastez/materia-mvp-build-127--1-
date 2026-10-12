@@ -476,14 +476,17 @@ html.capacitor body {
     animation: none;
   }
   /* And as it shows: no scroll anchoring (it nudged the page 16px and the restore
-     pulled it back, a visible jump), and a short fade from most of the way there. */
+     pulled it back, a visible jump). A return put back before its first frame
+     is simply there; only one that was held out of sight for painted frames
+     comes in on a short fade from most of the way there (round 25,
+     lib/explore/use-explore-scroll.ts reveal). */
   html.explore-scroll-settling {
     overflow-anchor: none;
   }
   html.explore-scroll-settling body {
     overflow-anchor: none;
   }
-  html.explore-scroll-settling:not(.explore-scroll-restoring) .explore-ground {
+  html.explore-scroll-revealing:not(.explore-scroll-restoring) .explore-ground {
     animation: explore-return 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   @keyframes explore-return {
@@ -491,7 +494,7 @@ html.capacitor body {
     to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
-    html.explore-scroll-settling .explore-ground {
+    html.explore-scroll-revealing .explore-ground {
       animation: none;
     }
   }
@@ -2908,6 +2911,19 @@ html.keyboard-open [data-community-shell]:not([data-post-over]):not([data-sheet-
 }
 html.keyboard-open [data-community-shell]:not([data-post-over]):not([data-sheet-over]) [data-community-body] {
   min-height: 0 !important;
+}
+
+/* ROUND 25: NOTHING OF THE COMMUNITY UNDER A TYPED IN POST. While a field in
+   an opened post has the keyboard (post-fullscreen.tsx marks <html>
+   data-post-typing and clips the community away below the sheet's top edge),
+   the page's own ground is white. The sheet is white to the screen's foot and
+   a sheet's height past it already; this is for whatever a platform does that
+   no number says (an iOS web view panned further than it reports): a gap
+   between the comment box and the keys can then only ever show white, never
+   the feed. */
+html[data-post-typing],
+html[data-post-typing] body {
+  background-color: #fff !important;
 }
 
 /* ── Scroll-margin for inputs: prevent content sliding under the fixed header ──
@@ -8090,6 +8106,23 @@ html.elastic-scroll:not(.switch-arriving) {
 }
 @media (prefers-reduced-motion: reduce) {
   .page-land {
+    animation: none;
+  }
+}
+
+/* ARRIVING AT THE LIBRARY (round 25, the owner: "entering it should be smooth, not abrupt"). `.page-land` rises from
+   nothing, and at 4x CPU its first frame was the header over an empty page: a blank frame between the profile and the
+   library. The library lands the way its own pills land their screens (lib/ui/pill-switch.ts landContent): from most of
+   the way there, on opacity alone, so no frame is empty and nothing fixed inside it is moved. */
+@keyframes library-land {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+.library-land {
+  animation: library-land 200ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-land {
     animation: none;
   }
 }

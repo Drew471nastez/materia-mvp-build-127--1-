@@ -76,6 +76,47 @@ export function seedCommunities(query: string, page: CommunitiesPage) {
  */
 export function keepMoreCommunities(query: string, page: CommunitiesPage) {
   remember(query, page)
+  keepForDocument(query, page)
+}
+
+/*
+  AND FOR A PAGE THE BROWSER LOADS AGAIN (round 25). Memory lasts as long as
+  the document: a community opened, then Explore reached again by a Back
+  that loaded the whole page (the browser let its copy go), found the first
+  page alone. The longer lists are kept in the tab's sessionStorage too, the
+  last few questions only, and put back by the grid before its first paint
+  on such a return (restoreKeptCommunities).
+*/
+const KEPT_KEY = "explore-communities-more"
+const KEPT_QUESTIONS = 4
+
+function keepForDocument(query: string, page: CommunitiesPage) {
+  try {
+    const raw = sessionStorage.getItem(KEPT_KEY)
+    const kept = (raw ? JSON.parse(raw) : {}) as Record<string, CommunitiesPage>
+    delete kept[query]
+    kept[query] = { items: page.items, next: page.next, broadened: page.broadened }
+    const all = Object.keys(kept)
+    for (const q of all.slice(0, Math.max(0, all.length - KEPT_QUESTIONS))) delete kept[q]
+    sessionStorage.setItem(KEPT_KEY, JSON.stringify(kept))
+  } catch {
+    /* Private mode, or storage that is full: the way back shows the first page, as before. */
+  }
+}
+
+/** The longer list kept for this question in the tab, put back into memory; null when there is none longer than what memory has. */
+export function restoreKeptCommunities(query: string): CommunitiesPage | null {
+  try {
+    const raw = sessionStorage.getItem(KEPT_KEY)
+    const page = raw ? ((JSON.parse(raw) as Record<string, CommunitiesPage>)[query] ?? null) : null
+    if (!page || !Array.isArray(page.items)) return null
+    const have = cache.get(query)
+    if (have && have.items.length >= page.items.length) return null
+    remember(query, page)
+    return page
+  } catch {
+    return null
+  }
 }
 
 /** More than the first page has been read for this question (keepMoreCommunities): asking again would take the visitor's list away from them. */

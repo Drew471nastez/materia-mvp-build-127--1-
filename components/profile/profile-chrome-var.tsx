@@ -45,28 +45,51 @@ export function stickyChromeHeight(doc: Document = document): number {
   return measure(community)
 }
 
+/** The value last written, so the same number is never written twice: a write on <html> restyles the whole page. */
+let written: string | null = null
+function write(px: number) {
+  const v = `${px}px`
+  if (v === written && document.documentElement.style.getPropertyValue(PROFILE_CHROME_VAR) === v) return
+  written = v
+  document.documentElement.style.setProperty(PROFILE_CHROME_VAR, v)
+}
+
+/*
+  ROUND 25 (the owner: "switching Home and Profile: snappier, smooth"). This measured the bar in the effect that runs as
+  the profile arrives, again on the next frame and at 120ms, each read forcing the arriving page's style and layout
+  (traced at 4x CPU: 29ms on Profile's arrival). The first read now waits a frame after the page is painted, the bar's
+  own size changes come from its ResizeObserver (which costs no forced layout), and the number is written only when it
+  changed. The later reads stay for a bar that arrives late.
+*/
 export function ProfileChromeVar() {
   useEffect(() => {
     let watching: Element | null = null
     let observer: ResizeObserver | null = null
     const apply = () => {
-      document.documentElement.style.setProperty(PROFILE_CHROME_VAR, `${stickyChromeHeight()}px`)
+      write(stickyChromeHeight())
       const bar =
         document.getElementById("platform-header-root") ??
         document.querySelector<HTMLElement>("[data-account-community-chrome] [data-community-top]")
       if (bar && bar !== watching && typeof ResizeObserver !== "undefined") {
         observer?.disconnect()
+        let first = true
         observer = new ResizeObserver(() => {
-          document.documentElement.style.setProperty(PROFILE_CHROME_VAR, `${stickyChromeHeight()}px`)
+          /* The first call is the observe itself, for a size apply() has just read. */
+          if (first) {
+            first = false
+            return
+          }
+          write(stickyChromeHeight())
         })
         observer.observe(bar)
         watching = bar
       }
     }
-    apply()
-    /* The bar's own arrival: the next frame, then a few moments, rather than a poll that never stops. */
-    const frame = requestAnimationFrame(apply)
-    const timers = [120, 500, 1500].map((ms) => window.setTimeout(apply, ms))
+    /* After the arriving frame is painted: two frames, so the read never lands inside the arrival. */
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(apply)
+    })
+    const timers = [500, 1500].map((ms) => window.setTimeout(apply, ms))
     window.addEventListener("resize", apply)
     window.addEventListener("orientationchange", apply)
     return () => {

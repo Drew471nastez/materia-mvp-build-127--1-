@@ -317,7 +317,8 @@ async function main() {
     const creator = code("app/(marketing)/u/[username]/page.tsx")
     const person = code("app/(marketing)/member/[username]/page.tsx")
     check("both full pages read ?back= through communityBackTarget and hand it to the bar", /communityBackTarget\(back\)/.test(creator) && /fallback=\{backTarget \?\? undefined\}/.test(creator) && /communityBackTarget\(back\)/.test(person) && /backTarget,/.test(person) && /fallback=\{extras\.backTarget \?\? undefined\}/.test(read("components/profile/member-profile-page.tsx")))
-    check("the subscribe bar stays off the page, so nothing sits above the bar under the clock", /showsSubscribeBar\(\)/.test(creator) && !/<LiveSubscribeBar|<SubscribeBar/.test(creator))
+    /* Round 25: a creator page opened on its own has its newsletter bar again (the owner: "the top bars of the creator pages are missing"); from a community it is still the slim bar alone, so nothing sits above it under the clock (lib/storefront/subscribe-bar-visibility.ts). */
+    check("from a community the subscribe bar stays off the page, so nothing sits above the bar under the clock", /showsSubscribeBar\(\{ creatorPage: true, fromCommunity: cameFromCommunity\(/.test(creator) && /\{newsletterBar && \(/.test(creator) && /\{!embedded && !newsletterBar \? \(/.test(creator))
     check("arriving from a community is a push; from elsewhere it is not", arrivesFromCommunity("/community/clay", "") && arrivesFromCommunity(null, "?from=community&back=x") && !arrivesFromCommunity("/explore", "") && !arrivesFromCommunity(null, ""))
     const arrival = code("components/profile/profile-arrival.tsx")
     check("  the push is translate and opacity only, and the cover is shown once decode() says it is whole", /translate: `\$\{ARRIVAL_SHIFT_PX\}px 0`/.test(arrival) && !new RegExp(["trans", "form"].join("")).test(arrival) && /img\.decode\(\)\.then\(show, show\)/.test(arrival) && /img\.complete && img\.naturalWidth > 0\) return/.test(arrival))
@@ -328,7 +329,7 @@ async function main() {
   {
     const cover = code("components/profile/decoded-cover.tsx")
     const view = code("components/community/member/member-profile.tsx")
-    check("the band's height is fixed before anything loads (taller since round 18)", /h-\[160px\] bg-\[#eceef1\] sm:h-\[208px\]/.test(view))
+    check("the band's height is fixed before anything loads (taller since rounds 18 and 25)", /h-\[184px\] bg-\[#eceef1\] sm:h-\[236px\]/.test(view))
     check("the picture goes in only once decoded, and a picture decoded before is there on the first frame with no fade", /img\.decode\(\)\.then\(ok, ok\)/.test(cover) && /DECODED\.has\(src\) \? "now" : null/.test(cover) && /if \(!shown\) return null/.test(cover) && /shown !== "fade"/.test(cover))
   }
 

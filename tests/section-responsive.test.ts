@@ -1608,7 +1608,7 @@ check(
     // Set once on mount, never from the render: an inline `visibility` that
     // followed `open` hid the sheet in the same commit that asked it to
     // slide down, so every raised sheet vanished instead of closing.
-    /sheet\.style\.visibility = peekHeight === 0 && !openRef\.current \? "hidden" : "visible"/.test(sheetSrc) &&
+    /sheet\.style\.visibility = peekHeight === 0 && !openRef\.current (&& !primedWaiting\.current )?\? "hidden" : "visible"/.test(sheetSrc) &&
     !/visibility: peekHeight === 0 && !open/.test(sheetSrc) &&
     /settleVisibility\(nowOpen, ms\)/.test(sheetSrc) &&
     /willChange: "opacity"/.test(sheetSrc),
@@ -2538,7 +2538,7 @@ check(
      */
     /* `held` is `dragging` or a release still settling; see tests/sheet-rest.test.ts. */
     /const held = dragging \|\| settle\.current\.active/.test(sheetSrc) &&
-    /const renderY = held \? drag\.current\.currentY : open \? settledY : closedY/.test(sheetSrc) &&
+    /const renderY = (waiting \? settledY : )?held \? drag\.current\.currentY : open \? settledY : closedY/.test(sheetSrc) &&
     /*
       The invariant is the `dragging ? "none"` half: while a finger is on the
       sheet there is no transition at all, so the imperative per-frame write

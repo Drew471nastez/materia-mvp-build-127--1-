@@ -1,0 +1,32 @@
+{%- comment -%}
+  The sticky add to cart a bought theme pins to the foot of a product page:
+  the variant's picture, the title, a select of every variant with its
+  price (a sold out one disabled), the quantity and Add to Cart. It follows
+  the main picker and moves it (product-variants.js).
+{%- endcomment -%}
+{%- if product -%}
+  {%- liquid
+    assign current_variant = product.selected_or_first_available_variant
+    assign image = current_variant.featured_image | default: product.featured_image
+  -%}
+  <div class="sticky-atc" data-sticky-atc>
+    {%- if image -%}<img class="sticky-atc__image" src="{{ image | image_url: width: 120 }}" alt="{{ image.alt | escape }}" width="48" height="48" data-sticky-image>{%- endif -%}
+    <p class="sticky-atc__title">{{ product.title }}</p>
+    {%- form 'product', product, id: 'sticky-atc-form', class: 'sticky-atc__form' -%}
+      {%- unless product.has_only_default_variant -%}
+        <select name="id" class="sticky-atc__select" data-sticky-select aria-label="Choose an option">
+          {%- for variant in product.variants -%}
+            <option value="{{ variant.id }}"{% if variant.id == current_variant.id %} selected{% endif %}{% unless variant.available %} disabled{% endunless %}>{{ variant.title }} - {{ variant.price | money }}</option>
+          {%- endfor -%}
+        </select>
+      {%- else -%}
+        <input type="hidden" name="id" value="{{ current_variant.id }}">
+      {%- endunless -%}
+      <input class="sticky-atc__qty" type="number" name="quantity" value="1" min="1">
+      <button type="submit" name="add" class="sticky-atc__add"{% unless current_variant.available %} disabled{% endunless %}>Add to Cart</button>
+    {%- endform -%}
+  </div>
+{%- endif -%}
+{% schema %}
+{ "name": "Sticky add to cart", "settings": [] }
+{% endschema %}

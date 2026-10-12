@@ -347,7 +347,7 @@ function main() {
   check(
     "the website builder's sheet reads its keyboard through visibleKeyboard, and the floor only where nothing was reported",
     /visibleKeyboard\(\{ layoutHeight: box/.test(read("components/website-builder/mobile-editor-sheet.tsx")) &&
-      /* Round 17: an optional keyboardRoom is asked first, where it is given (the community's composer); the floor otherwise. */ /const keyboard = keyboardFor\(seen, (keyboardRoomRef\.current\?\.\(\) \?\? )?readPublishedKeyboardInset\(\)\)/.test(read("components/website-builder/mobile-editor-sheet.tsx")) &&
+      /* Round 17: an optional keyboardRoom is asked first, where it is given (the community's composer); the floor otherwise. */ /(const|let) keyboard = keyboardFor\(seen, (keyboardRoomRef\.current\?\.\(\) \?\? )?readPublishedKeyboardInset\(\)\)/.test(read("components/website-builder/mobile-editor-sheet.tsx")) &&
       /import \{ readPublishedKeyboardInset \} from "@\/lib\/ui\/keyboard-safe-sheet"/.test(read("components/website-builder/mobile-editor-sheet.tsx")),
   )
   check(

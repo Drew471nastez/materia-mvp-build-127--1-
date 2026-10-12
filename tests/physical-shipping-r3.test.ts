@@ -220,7 +220,9 @@ async function main() {
     check("Website settings › Commerce › On this website: four controls, written through the editor", ["show_stock_left", "low_stock_text", "free_shipping_bar", "free_shipping_threshold", "cart_returns_note"].every((k) => ws.includes(`ctx.onSettingChange("${k}"`)) && /\{physical \? <OnThisWebsite ctx=\{ctx\} \/> : null\}/.test(ws))
     const compat = read("lib/website-builder/compat-site.ts")
     const objects = read("lib/storelib-theme/compat/objects.ts")
-    check("imported themes: real stock as Shopify's inventory fields, hidden when the website hides it", /compatStock\(admin, creator\.creatorId, card, siteCommerce\(settings as Record<string, unknown>\)\.showStockLeft\)/.test(compat) && /showLeft \? \{ left: s\.left \} : \{\}/.test(compat) && /inventory_management: typeof v\.left === "number" \? "shopify" : null/.test(objects) && /inventory_quantity: typeof v\.left === "number" \? v\.left/.test(objects))
+    /* Round 25: read once for the page (lib/storelib-theme/compat/product-facts*.ts), a count said at or under the store's low stock line (tests/variants25.test.ts drives it). */
+    const facts = read("lib/storelib-theme/compat/product-facts.ts")
+    check("imported themes: real stock as Shopify's inventory fields, hidden when the website hides it", /pageFactsFor\(admin, creator\.creatorId, card\.id, siteCommerce\(settings as Record<string, unknown>\)\.showStockLeft\)/.test(compat) && /if \(facts\.showLeft\) out\.left = f\.left/.test(facts) && /management: !available \? "shopify" : few !== null \? "shopify" : null/.test(objects) && /inventory_quantity: stock\.quantity/.test(objects))
     check("  and the refund policy (shop.refund_policy, /policies/refund-policy) ends with the store's returns", /handle === "refund-policy" && returnFacts \? `\$\{body\}\$\{returnFacts\}` : body/.test(compat))
   }
 

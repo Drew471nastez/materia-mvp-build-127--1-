@@ -30,9 +30,10 @@
  *                 over the page it returns to, which comes from a third of
  *                 the way left.
  *   COMPUTER      no slide across a wide window: the old page fades out
- *                 quickly as it moves 24px the way it goes, and only then the
- *                 new one fades in from the other side, so the two are never
- *                 seen through each other.
+ *                 quickly, and only then the new one fades in, so the two are
+ *                 never seen through each other. Neither moves (round 25, the
+ *                 owner on a computer: pages coming "from left/right" read as
+ *                 a glitch there; they shifted 24px each way before).
  *
  * <html> carries data-page-motion ("push" or "pop") while the copy moves,
  * and arrivalMotion() tells the page that lands in that same commit which way
@@ -53,8 +54,8 @@ export const PAGE_POP_MS = 320
 export const PAGE_MOTION_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /** How far the page underneath travels, as a share of the width: iOS moves it about a third. */
 export const PAGE_UNDER_SHIFT = 0.3
-/** On a computer: the short move both pages make, and how long the old one takes to fade. */
-export const PAGE_WIDE_SHIFT_PX = 24
+/** On a computer: how far the pages move (none, round 25: a fade only), and how long the old one takes to fade. */
+export const PAGE_WIDE_SHIFT_PX = 0
 export const PAGE_WIDE_FADE_MS = 150
 /** On a computer the page coming waits this share of its move before it shows, so the two are never seen through each other. */
 export const PAGE_WIDE_HOLD = 0.3
