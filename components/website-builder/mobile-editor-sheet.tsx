@@ -245,6 +245,15 @@ function paintedY(el: HTMLElement): number | null {
   }
 }
 
+/** A field that brings a keyboard has the focus (anywhere on the page). */
+function typableFocus(): boolean {
+  if (typeof document === "undefined") return false
+  const t = document.activeElement as HTMLElement | null
+  if (!t || t === document.body) return false
+  if (t.isContentEditable || t.tagName === "TEXTAREA") return true
+  return t.tagName === "INPUT" && /^(text|search|url|tel|email|password|number)$/.test(((t as HTMLInputElement).type || "text").toLowerCase())
+}
+
 function prefersReducedMotion(): boolean {
   try {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -501,7 +510,28 @@ type Props = {
   holdPage?: "overflow" | "scroll"
   /** The sheet's own stacking order, over a layer that is not the builder's (the backdrop sits one under it). */
   zIndex?: number
+  /**
+   * PREPARED BEFORE IT MOVES (round 25, the community's opened post and New
+   * post). Mounted closed, a primed sheet is drawn at the stop it will open
+   * to, unseen (PRIMED_OPACITY) and untouchable, so what is in it is laid
+   * out, painted and rastered while the page gets it ready. The first open
+   * then starts from below the screen as any open does, and its first moving
+   * frame has nothing new to draw. Not for a sheet with a peek, nor with
+   * `fadeOnMove`.
+   */
+  primed?: boolean
+  /**
+   * Told when a move the page asked for (an open, a close) has landed, and
+   * when a release a finger made has: `open` is where it came to rest. For a
+   * page that has to know the sheet is down before it takes it out.
+   */
+  onMoved?: (open: boolean) => void
+  /** The dialog's accessible name. */
+  label?: string
 }
+
+/** A primed sheet's opacity while it waits: under half a level of any colour on any screen, but not 0 (an opacity of 0 is not rastered). */
+export const PRIMED_OPACITY = 0.0015
 
 /**
  * ===========================================================================
@@ -540,9 +570,18 @@ export function MobileEditorSheet({
   keyboardRoom,
   holdPage = "overflow",
   zIndex,
+  primed = false,
+  onMoved,
+  label,
 }: Props) {
+  const onMovedRef = React.useRef(onMoved)
+  onMovedRef.current = onMoved
+  /** A primed sheet that has not opened yet (see `primed`). */
+  const primedWaiting = React.useRef(primed)
   const keyboardRoomRef = React.useRef(keyboardRoom)
   keyboardRoomRef.current = keyboardRoom
+  /** A keyboard reading put off until a close has landed (see measureViewport). */
+  const closingRead = React.useRef(0)
   const composerKeys = keyboardMode === "composer"
   const sheetRef = React.useRef<HTMLDivElement>(null)
   /** The grab bar. A touch that starts here is a drag and needs no arbitration. */
@@ -822,8 +861,32 @@ export function MobileEditorSheet({
         : { inset: 0, top: 0, reported: false, zoomed: false }
       /* The published floor only where the platform said nothing at all, and
          never a toolbar or a pinch taken for a keyboard: see `keyboardFor`. */
-      const keyboard = keyboardFor(seen, keyboardRoomRef.current?.() ?? readPublishedKeyboardInset())
-      const panned = seen.top
+      let keyboard = keyboardFor(seen, keyboardRoomRef.current?.() ?? readPublishedKeyboardInset())
+      let panned = seen.top
+      if (keyboardRoomRef.current) {
+        /*
+          ROUND 25, A SHEET THAT MAKES ITS ROOM IN THE FOCUS (keyboardRoom: the
+          community's opened post and New post).
+          CLOSING, NOTHING INSIDE MOVES. A keyboard going down while the sheet
+          slides away relaid its content (the room under the toolbar or the
+          comment box gone in the middle of the move). Read again once the
+          move is over, when nothing of it is on screen.
+          NO FIELD, NO KEYBOARD. A field let go of with nothing typable taking
+          the focus is the keyboard leaving, and iOS reports that only once it
+          has gone: the room goes now, with the keys, rather than a quarter
+          second later as a jump.
+        */
+        const wait = motionUntil.current - performance.now()
+        if (!openRef.current && wait > 0) {
+          window.clearTimeout(closingRead.current)
+          closingRead.current = window.setTimeout(update, wait + 20)
+          return
+        }
+        if (!typableFocus()) {
+          keyboard = 0
+          panned = 0
+        }
+      }
       setKeyboardInset(keyboard)
       setVisibleTop(panned)
       const active = document.activeElement
@@ -878,6 +941,7 @@ export function MobileEditorSheet({
     vv?.addEventListener("scroll", update)
     return () => {
       if (frame) cancelAnimationFrame(frame)
+      window.clearTimeout(closingRead.current)
       window.removeEventListener("resize", update)
       vv?.removeEventListener("resize", update)
       if (kbvv && kbvv !== vv) {
@@ -1410,6 +1474,39 @@ export function MobileEditorSheet({
   const motionMs = (ms: number) => (prefersReducedMotion() ? Math.min(ms, REDUCED_MOTION_MS) : ms)
 
   /**
+   * A MOVE THE PAGE ASKED FOR HAS LANDED (onMoved): the sheet's own
+   * `transitionend` for its move, with a timer behind it for a move that
+   * never runs (a tab in the background). A newer move takes the place of an
+   * older one's word.
+   */
+  const landing = React.useRef<null | (() => void)>(null)
+  const landed = (nowOpen: boolean, ms: number) => {
+    landing.current?.()
+    landing.current = null
+    if (!onMovedRef.current) return
+    const sheet = sheetRef.current
+    let told = false
+    const tell = () => {
+      if (told) return
+      told = true
+      stop()
+      onMovedRef.current?.(nowOpen)
+    }
+    const onEnd = (e: TransitionEvent) => {
+      if (e.target === sheet && e.propertyName === "transform") tell()
+    }
+    const timer = window.setTimeout(tell, ms + 60)
+    const stop = () => {
+      sheet?.removeEventListener("transitionend", onEnd)
+      window.clearTimeout(timer)
+      if (landing.current === stop) landing.current = null
+    }
+    sheet?.addEventListener("transitionend", onEnd)
+    landing.current = stop
+  }
+  React.useEffect(() => () => landing.current?.(), [])
+
+  /**
    * ═══════════════════════════════════════════════════════════════════════════
    *  THE PAGE HEARS ABOUT A RELEASE WHEN THE SHEET HAS ARRIVED
    * ═══════════════════════════════════════════════════════════════════════════
@@ -1457,6 +1554,7 @@ export function MobileEditorSheet({
     /* Where it came to rest, so the next render draws it there. */
     setRestIndex(nowOpen ? index : null)
     if (nowOpen !== openRef.current) onOpenChangeRef.current(nowOpen)
+    onMovedRef.current?.(nowOpen)
     setSettleTick((n) => n + 1)
   }
 
@@ -1618,7 +1716,7 @@ export function MobileEditorSheet({
   React.useEffect(() => {
     const sheet = sheetRef.current
     if (!sheet) return
-    sheet.style.visibility = peekHeight === 0 && !openRef.current ? "hidden" : "visible"
+    sheet.style.visibility = peekHeight === 0 && !openRef.current && !primedWaiting.current ? "hidden" : "visible"
     if (fadeOnMove) sheet.style.opacity = openRef.current ? "1" : "0"
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted])
@@ -1703,6 +1801,26 @@ export function MobileEditorSheet({
    */
   React.useEffect(() => {
     if (drag.current.active) return
+    if (primedWaiting.current) {
+      const sheet = sheetRef.current
+      /* Primed and waiting: it stays drawn at its stop, unseen, until the page opens it. */
+      if (!open || !sheet) {
+        drag.current.currentY = settledY
+        return
+      }
+      /*
+        THE FIRST OPEN OF A PRIMED SHEET: put below the screen and made solid in
+        one go (unseen: it is off the screen), read back so that is where the
+        move starts, then the open below as for any sheet.
+      */
+      primedWaiting.current = false
+      sheet.style.transition = "none"
+      sheet.style.transform = `translateY(${closedY}px)`
+      sheet.style.opacity = ""
+      sheet.style.pointerEvents = ""
+      drag.current.currentY = closedY
+      void sheet.getBoundingClientRect()
+    }
     if (settle.current.active) {
       if (open === settle.current.openAtStart) return
       finishSettle(false)
@@ -1718,6 +1836,7 @@ export function MobileEditorSheet({
     applyTransformNow(target)
     settleOverlay(open)
     fadeSheet(open, ms)
+    landed(open, ms)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, settledY, closedY, settleTick])
 
@@ -1750,12 +1869,24 @@ export function MobileEditorSheet({
     // No real previous height is a first layout, not a resize.
     if (!sheet || prev === null || prev <= 0 || prev === height) return
     if (drag.current.active || settle.current.active || !openRef.current) return
-    if (performance.now() < motionUntil.current || typeof sheet.animate !== "function") return
+    /*
+      ROUND 25: A SECOND RESIZE WHILE THE FIRST STILL MOVES picks up from where
+      the first has got to. It was refused (the first one's own time counted as
+      "a move running") and the height simply jumped, or, once allowed, it
+      started again from the resting place: either way the sheet's top edge
+      leapt by the difference, whenever a keyboard was reported in more than
+      one step (the keys, the bar above them, a pan). Now the top edge is held
+      exactly where it is drawn and carried on from there.
+    */
+    const resizing = !!resizeMove.current && resizeMove.current.playState === "running"
+    if ((performance.now() < motionUntil.current && !resizing) || typeof sheet.animate !== "function") return
     const y = drag.current.currentY
+    const drawn = resizing ? paintedY(sheet) : null
+    const from = (drawn ?? y) + height - prev
     const ms = motionMs(KEYBOARD_MS)
     stopResizeMove()
     resizeMove.current = sheet.animate(
-      [{ transform: `translateY(${y + height - prev}px)` }, { transform: `translateY(${y}px)` }],
+      [{ transform: `translateY(${from}px)` }, { transform: `translateY(${y}px)` }],
       { duration: ms, easing: SNAP_EASING },
     )
     motionUntil.current = performance.now() + ms
@@ -1806,6 +1937,8 @@ export function MobileEditorSheet({
     }
     motionUntil.current = 0
     stopResizeMove()
+    /* The move a finger caught has not landed: the release will say where it does. */
+    landing.current?.()
     /* A settle in progress is paused, not dropped: `endDrag` either replaces
        it with a new one or picks it back up. */
     settle.current.stop?.()
@@ -2298,7 +2431,9 @@ export function MobileEditorSheet({
   const held = dragging || settle.current.active
   const renderOpen = settle.current.active ? settle.current.nowOpen : open
   const closedOffset = offsets[offsets.length - 1] ?? 0
-  const renderY = held ? drag.current.currentY : open ? settledY : closedY
+  /* Primed and not yet opened: drawn at its stop, unseen (see `primed`); the open effect takes it from there. */
+  const waiting = primedWaiting.current
+  const renderY = waiting ? settledY : held ? drag.current.currentY : open ? settledY : closedY
 
   const renderOpacity = dragging
     ? closedOffset > 0
@@ -2363,6 +2498,7 @@ export function MobileEditorSheet({
         ref={sheetRef}
         role="dialog"
         aria-modal={open}
+        aria-label={label}
         /**
          * CapacitorBounceGuard cancels touchmove at a scroller's boundary to
          * stop WKWebView rubber-banding, and it opts out of anything carrying
@@ -2433,6 +2569,8 @@ export function MobileEditorSheet({
            * The grab bar is the exception, below.
            */
           touchAction: "pan-y",
+          /* Primed and waiting: painted, never seen or touched (see `primed`). */
+          ...(primed ? { opacity: waiting ? PRIMED_OPACITY : undefined, pointerEvents: waiting ? ("none" as const) : undefined } : null),
         }}
       >
         {/* THE GRAB BAR PANS NOTHING. A touch here is a drag and nothing
