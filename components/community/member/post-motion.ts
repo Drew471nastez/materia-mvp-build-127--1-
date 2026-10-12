@@ -6,9 +6,9 @@
  * no DOM and no React, so tests/communities-post15.test.ts and
  * tests/communities-post16.test.ts hold them as they are written.
  *
- * ROUND 17: the opened post grows out of its card and shrinks back into it
- * (post-morph.ts, drawn by post-stage.ts); its close order is post-morph.ts
- * morphCloseSteps and its keyboard keyboard-plan.ts. What follows here that
+ * ROUND 25: the opened post is the website builder's bottom sheet
+ * (post-fullscreen.tsx); round 17's morph (post-morph.ts, post-stage.ts) is
+ * gone. What follows here that
  * is still used: the pull's and the edge swipe's numbers, the back button,
  * feedRestore, closedByBrowserSwipe and the iPhone keyboard table.
  * closeSteps, postBox and dimFor are round 16's, kept as written for its

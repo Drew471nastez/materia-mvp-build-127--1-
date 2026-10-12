@@ -37,10 +37,9 @@ import { useLayoutEffect, useSyncExternalStore } from "react"
  *                    page layer, Settings over the profile: drawn over the bar, which stays exactly where
  *                    it is underneath, never slid away, so it is simply there
  *                    the moment the layer has gone.
- *   bar over it      an opened post: Instagram's model. The bar stays on
- *                    screen over the post (the comment box sits above it and
- *                    rides the keyboard), lifted over the post's own z while
- *                    the post is open and nothing covering is.
+ *   bar over it      (no kind since round 25.) An opened post was
+ *                    Instagram's model, the bar lifted over it; it is a
+ *                    bottom sheet now and covers the bar like the composer.
  *   neither          a sheet or a dialog: over the bar by its own z, and the
  *                    bar is left as it is.
  *
@@ -57,7 +56,7 @@ export type LayerKind =
   | "composer"
   /** The picture and video viewer. */
   | "viewer"
-  /** An opened post: the bar stays over it. */
+  /** An opened post (a bottom sheet on a phone): drawn over the bar. */
   | "post"
   /** The site's search screen and a community's. */
   | "search"
@@ -80,7 +79,8 @@ export const LAYER_KINDS: Record<LayerKind, KindRule> = {
   "phone-page": { covers: true, barOver: false, htmlClass: "has-phone-page-layer" },
   composer: { covers: true, barOver: false },
   viewer: { covers: true, barOver: false },
-  post: { covers: false, barOver: true },
+  /* Round 25: an opened post is the website builder's bottom sheet on a phone, over the whole app as New post is. */
+  post: { covers: true, barOver: false },
   search: { covers: true, barOver: false },
   sheet: { covers: false, barOver: false },
   screen: { covers: true, barOver: false },
