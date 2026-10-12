@@ -29,7 +29,8 @@ import { AppTopCorners } from "@/components/app/app-top-corners"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
 import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
-import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
+import { BusinessSwitcher, type BusinessRow, type TeamStoreRow } from "@/components/app/business-switcher"
+import { memberSees, type MemberRole } from "@/lib/team/roles"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
@@ -97,6 +98,10 @@ interface SidebarProps {
   businesses?: BusinessRow[]
   /** The platform switch for communities (lib/communities/flag.ts), read by the layout: the Community row shows only while it is on. */
   communitiesEnabled?: boolean
+  /** Working in someone else's store as a team member (lib/team): only the rows that role can open are drawn. */
+  teamRole?: MemberRole | null
+  /** The stores this account is on as a team member, for the account menu's switcher. */
+  teamStores?: TeamStoreRow[]
 }
 
 type NotificationsHandle = { open: () => void; toggle: () => void }
@@ -135,7 +140,7 @@ let settingsWarmedAt = 0
 
 const COMMUNITY_SETTINGS_PATH = /^\/app\/community\/[^/]+\/settings(\/|$)/
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false, teamRole = null, teamStores = [] }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
@@ -385,6 +390,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         : {}),
     })
   }
+
+  /*
+    A TEAM MEMBER SEES THE STORE THEIR ROLE OPENS, AND NOTHING ELSE. The rows
+    a role does not have are not drawn (lib/team/roles memberSees); the pages
+    behind them say so too (components/app/team-bar), and the server refuses
+    their routes either way (lib/team/server creatorFor).
+  */
+  const navItems: NavItemData[] = teamRole
+    ? mainNavItems
+        .filter((item) => memberSees(teamRole, item.href))
+        .map((item) => (item.children ? { ...item, children: item.children.filter((c) => memberSees(teamRole, c.href)) } : item))
+    : mainNavItems
 
   // Expandable groups (parent nav items with children).
   // Always collapsed on mount — user opens manually via the chevron. No
@@ -667,9 +684,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             >
               <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
                 {/* The business you are in first, one row that opens to the other and New business. */}
-                {businesses.length > 0 && (
+                {(businesses.length > 0 || teamStores.length > 0) && (
                   <>
-                    <BusinessSwitcher businesses={businesses} variant="dropdown" currentAvatar={avatarSrc} open={headerProfileOpen} onNavigate={() => setHeaderProfileOpen(false)} />
+                    <BusinessSwitcher businesses={businesses} teamStores={teamStores} variant="dropdown" currentAvatar={avatarSrc} open={headerProfileOpen} onNavigate={() => setHeaderProfileOpen(false)} />
                     <div className="my-1 h-px bg-neutral-100" />
                   </>
                 )}
@@ -789,7 +806,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       */}
       <MobileMenuPage
         open={mobileMenuOpen}
-        items={mainNavItems}
+        items={navItems}
         expandedGroups={expandedGroups}
         onToggle={toggleGroup}
         onNavigate={(href) => {
@@ -861,6 +878,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               trigger and the sheet and nothing else in this sidebar. */}
           <MobileAccountMenu
             businesses={businesses}
+            teamStores={teamStores}
             avatarSrc={avatarSrc}
             userDisplayName={userDisplayName}
             settingsLabel={t("nav.settings")}
@@ -979,7 +997,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           what the jumping and the flashing were.
         */}
         <DesktopSidebarContent
-          items={mainNavItems}
+          items={navItems}
           expandedGroups={expandedGroups}
           onToggle={toggleGroup}
           onNavigate={(href) => {

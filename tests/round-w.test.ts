@@ -119,7 +119,8 @@ console.log("\nIntegrations")
   const ui = read("components/app/settings/integrations-directory.tsx")
   /* The mark has its own file now (components/app/settings/integration-mark), shared with the provider cards and /admin. */
   const markFile = read("components/app/settings/integration-mark.tsx")
-  check("Storelib's own carry Storelib's real mark, on light grey", /<StorelibLogo size=\{badge\}/.test(markFile) && !/>S<\/span>/.test(ui + markFile) && !/violet/.test(ui + markFile))
+  /* Changed on purpose (round I4, the owner: "I don't like the Storelib integration icons at all... they look very cheap and AI-like"): one tile set, a tint and a single line glyph, no drawing and no logo badge. Still no S tile and no violet. */
+  check("Storelib's own are one tile set: a tint and one white line glyph", /function StorelibTile/.test(markFile) && /strokeWidth=\{size < 28 \? 2\.1 : 1\.75\}/.test(markFile) && !/StorelibLogo/.test(markFile) && !/>S<\/span>/.test(ui + markFile) && !/violet/.test(ui + markFile))
   check("cards don't lift and pills don't shrink", !/hover:-translate-y/.test(ui) && !/active:scale/.test(ui))
 }
 

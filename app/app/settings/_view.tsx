@@ -1,5 +1,7 @@
 import { SettingsFormNew } from "@/components/app/settings-form-new"
 import { loadSettingsData } from "./_server"
+import { TeamPanel } from "@/components/app/settings/team-panel"
+import { getServerTt } from "@/lib/i18n/server"
 
 /**
  * Settings, drawn as the sheet. Two ways in, one drawing:
@@ -23,6 +25,17 @@ import { loadSettingsData } from "./_server"
 export async function SettingsForm() {
   const data = await loadSettingsData()
   if (!data) return null
+  /* A team member with no store of their own: their Team section, which is all of Settings that is theirs to change here. */
+  if (data.memberOnly) {
+    const { tt } = await getServerTt()
+    return (
+      <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6" data-settings-member-only="">
+        <h1 className="mb-1 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Team")}</h1>
+        <p className="mb-5 text-[14px] text-[#6b7280]">{tt("The stores you help run.")}</p>
+        <TeamPanel />
+      </div>
+    )
+  }
   return (
     <div>
       <SettingsFormNew
@@ -36,6 +49,7 @@ export async function SettingsForm() {
         newsletter={data.newsletter}
         otherStores={data.otherStores}
         paymentsProvider={data.paymentsProvider}
+        teamActing={data.teamActing}
         initialTab="general"
       />
     </div>

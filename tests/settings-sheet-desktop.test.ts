@@ -83,7 +83,8 @@ console.log("\nEvery integration has its mark\n")
 {
   const mark = read("components/app/settings/integration-mark.tsx")
   /* Storelib's own drawings, by the ids they are keyed on. */
-  const art = new Set([...mark.slice(mark.indexOf("const BUILT_IN_ART"), mark.indexOf("export const hasBuiltInArt")).matchAll(/^  "?([a-z-]+)"?: \(/gm)].map((m) => m[1]))
+  /* Round I4: Storelib's own are tiles now (STORELIB_TILES), keyed the same way. */
+  const art = new Set([...mark.slice(mark.indexOf("const STORELIB_TILES"), mark.indexOf("export const hasBuiltInArt")).matchAll(/^  "?([a-z-]+)"?: \{/gm)].map((m) => m[1]))
   check("Storelib's four built in ones are drawn", ["manual", "supplier-email", "custom-webhook", "csv"].every((id) => art.has(id)), [...art])
   const missing = INTEGRATIONS.filter((i) => !art.has(i.id) && !i.logo).map((i) => i.id)
   check("every catalog entry has a logo or Storelib's drawing", missing.length === 0, missing)

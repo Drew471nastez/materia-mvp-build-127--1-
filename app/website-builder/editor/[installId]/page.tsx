@@ -3864,31 +3864,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       storeMenusRef.current = { available: true, synced: JSON.stringify(cleanMenus((loadedSettings as Record<string, unknown>).menus)) }
     }
 
-    // Prefill default page title with "{creator username} | Storelib" on
-    // load. We always derive the canonical "{handle} | Storelib" string
-    // and use it when:
-    //   • `seo_title` is missing / empty, OR
-    //   • `seo_title` is still one of the stale auto-generated defaults
-    //     we've shipped before ("My Store | Storelib", "{install name} |
-    //     Storelib"). This lets every existing theme pick up the correct
-    //     platform handle without overriding anything the user has
-    //     manually typed.
+    /*
+      NO MADE UP SITE TITLE. This filled an empty one with "{username} |
+      Storelib", so a new site's tab and search result named Storelib and a
+      handle rather than the store. An empty site title now means the
+      store's name, on the live page and in SEO & Social's preview alike
+      (lib/website-builder/tab-title.ts). Two titles this used to write
+      before that, which nobody typed, are cleared to the same; whatever a
+      creator saved is left as they saved it.
+    */
     {
-      const handle = (typeof data.username === "string" && data.username.trim())
-        ? data.username.trim()
-        : (typeof loadedSettings.brand_name === "string" && loadedSettings.brand_name.trim()
-            ? loadedSettings.brand_name.trim()
-            : (inst.name || "My Store"))
-      const canonical = `${handle} | Storelib`
       const current = typeof loadedSettings.seo_title === "string" ? loadedSettings.seo_title.trim() : ""
-      const staleDefaults = new Set([
-        "",
-        "My Store | Storelib",
-        `${inst.name} | Storelib`,
-      ])
-      if (staleDefaults.has(current)) {
-        loadedSettings.seo_title = canonical
-      }
+      /* "{username} | Storelib" (and the site's own handle) is the one this wrote most: the same old default, cleared too. */
+      const madeUp = [inst.name, data.username, data.siteHandle].filter((v): v is string => typeof v === "string" && !!v).map((v) => `${v} | Storelib`.toLowerCase())
+      if (current === "My Store | Storelib" || madeUp.includes(current.toLowerCase())) loadedSettings.seo_title = ""
     }
 
     // Load sections for current page. If not on home, fetch home's
@@ -9081,6 +9070,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onEditPage={(pageKey) => handlePageChange(pageKey as PageKey)}
         websiteUrl={websiteUrl}
         websiteUrlDisplay={websiteUrlDisplay}
+        storeName={creatorFacts?.storeName}
+        displayName={creatorFacts?.name}
         /* A new name on Storelib is a new address for the site, shown at once. */
         onAddressChanged={(handle) => setSiteHandle(handle && handle !== username.toLowerCase() ? handle : null)}
         live={install?.status === "published"}

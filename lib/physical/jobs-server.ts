@@ -20,6 +20,7 @@ import type net from "node:net"
 import { after } from "next/server"
 import { publicLookup, publicUrlProblem } from "@/lib/api/public-fetch"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { resolveCreatorIdentity, resolveSellerEmail } from "@/lib/email"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { Db } from "./auth"
@@ -520,7 +521,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "email.held", message: `An email to the buyer was held: this order already sent ${BUYER_EMAILS_PER_ORDER_PER_DAY} today.`, key: `email_held:${co.id}:${new Date().toISOString().slice(0, 13)}` })
     return
   }
-  const [identity, store, zone] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id), creatorTimeZone(db, co.creator_id)])
+  const [identity, store, zone, look] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id), creatorTimeZone(db, co.creator_id), loadBrand(db, co.creator_id).catch(() => null)])
   /* When it was placed, in the store's own time zone, on every email about it. */
   const orderDate = orderDateText(co.paid_at ?? co.created_at ?? null, zone) || null
   const shopName = store.name || identity.fromName || "Storelib"
@@ -529,7 +530,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   /* On the store's own website when it has one (the one the order was placed on first), else storelib.com: ./order-link.ts. */
   const orderUrl = await orderPageUrl(db, co)
   /* The store's logo and ways to reach it, on every email; "Get help" goes to the order page's help form. */
-  const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, helpUrl: `${orderUrl}#get-help`, legal: legalOf(store) }
+  const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, helpUrl: `${orderUrl}#get-help`, legal: legalOf(store), accent: look?.accent ?? null }
   let mail: { subject: string; html: string; text: string }
   /* Settings › Customer emails: the store's own words for this one, if it changed any (lib/emails/customer-custom.ts). */
   const saved = await loadCustomerEmailCopy(db, co.creator_id)

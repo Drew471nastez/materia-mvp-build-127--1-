@@ -3,6 +3,7 @@ import { shopCaller } from "@/lib/physical/auth"
 import { previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,10 +19,11 @@ export async function GET(request: Request) {
   if (c instanceof NextResponse) return c
   const id = new URL(request.url).searchParams.get("id") ?? ""
   const db = c.db
-  const [identity, store, { data: creator }] = await Promise.all([
+  const [identity, store, { data: creator }, look] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
+    loadBrand(db, c.creatorId).catch(() => null),
   ])
   /* The same store the sent email signs with: its name, logo, contact and website (lib/store/identity-server.ts). */
   const mail = previewCustomerEmail(id, {
@@ -31,6 +33,7 @@ export async function GET(request: Request) {
     logoUrl: store?.logoUrl ?? null,
     phone: store?.phone ?? null,
     currency: (creator?.payout_currency as string | null) || "USD",
+    accent: look?.accent ?? null,
   })
   if (!mail) return NextResponse.json({ error: "That email was not found." }, { status: 404 })
   return NextResponse.json({ subject: mail.subject, html: mail.html }, { headers: { "Cache-Control": "no-store" } })

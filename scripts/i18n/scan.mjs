@@ -96,6 +96,9 @@ export const LIB_SCOPE = [
   /^lib\/custom-domains\/dns-help\.ts$/,
   /^lib\/support\/(cases|tickets)\.ts$/,
   /^lib\/contacts\/contact-source\.ts$/,
+  /^lib\/team\/roles\.ts$/,
+  /^lib\/rich-text\/policy\.ts$/,
+  /^lib\/net\/request\.ts$/,
 ]
 
 export function inLibScope(rel) {

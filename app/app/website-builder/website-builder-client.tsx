@@ -106,6 +106,7 @@ import {
   type IncomingKind,
 } from "./incoming"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 export interface WebsiteSummary {
   id: string
@@ -1867,8 +1868,8 @@ export function WebsiteBuilderClient({
             <AlertDialogTitle>{tt("Publish “{name}”?", { name: publishing?.name })}</AlertDialogTitle>
             <AlertDialogDescription>
               {live
-                ? <>{tt("It replaces “{name}” at", { name: live.name })} <span className="font-medium text-foreground">{siteDisplay}</span>{tt(". Nothing is deleted.")}</>
-                : <>{tt("It goes live at")} <span className="font-medium text-foreground">{siteDisplay}</span>.</>}
+                ? <Rich text={tt("It replaces “{name}” at {site}. Nothing is deleted.", { name: live.name })} parts={{ site: <span className="font-medium text-foreground">{siteDisplay}</span> }} />
+                : <Rich text={tt("It goes live at {site}.")} parts={{ site: <span className="font-medium text-foreground">{siteDisplay}</span> }} />}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

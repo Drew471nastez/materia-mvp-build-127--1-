@@ -22,8 +22,7 @@ import { maskEmail } from "@/lib/privacy/mask-email"
 import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
-import { STORELIB_EMAIL_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
-import { emailButton } from "@/lib/mail-document"
+import { buyerRefundEmail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -516,6 +515,7 @@ async function receiptEmailModel(
       buttonLabel: v.state === "open" && hasFiles ? "Download your files" : "View your receipt",
       supportEmail: params.supportEmail,
       orderIds: v.items.map((i) => i.orderId),
+      accent: brand?.accent ?? null,
     }
   }
 
@@ -535,6 +535,7 @@ async function receiptEmailModel(
     link: params.receiptLink,
     buttonLabel: "View your receipt",
     supportEmail: params.supportEmail,
+    accent: brand?.accent ?? null,
   }
 }
 
@@ -1300,105 +1301,6 @@ export interface SendLeadMagnetEmailParams {
   customBody?: string
 }
 
-function leadMagnetEmailHtml(params: {
-  productTitle: string
-  downloadLink: string
-  supportEmail: string
-  footerBrand: string
-  customHeading?: string
-  customBody?: string
-  sellerName?: string
-}) {
-  const productTitle = safeText(params.productTitle)
-  const downloadLink = params.downloadLink
-  const supportEmail = params.supportEmail
-  const footerBrand = safeText(params.footerBrand)
-  const heading = params.customHeading ? safeText(params.customHeading) : "Thank you for joining!"
-  const bodyText = params.customBody ? safeText(params.customBody) : `Thanks for subscribing! As promised, here's your free digital download: <strong>${productTitle}</strong>`
-  const sellerName = safeName(params.sellerName) || footerBrand
-  const sellerInitial = sellerName.charAt(0).toUpperCase()
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <title>Your download is ready</title>
-</head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
-              <!-- Seller Avatar Letter -->
-              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);display:inline-block;text-align:center;line-height:56px;font-size:24px;font-weight:700;color:#fff;margin-bottom:16px;">${sellerInitial}</div>
-              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">${heading}</h1>
-              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Here's your free download from ${sellerName}</p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:34px 34px 12px;">
-              <p style="margin:0 0 18px 0;font-size:15px;color:#374151;line-height:1.55;">
-                ${bodyText}
-              </p>
-
-              <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:18px;margin:0 0 22px 0;">
-                <tr>
-                  <td>
-                    <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Your Download</p>
-                    <p style="margin:0;font-size:18px;font-weight:800;color:#111827;">${productTitle}</p>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" style="width:100%;margin:0 0 18px 0;">
-                <tr>
-                  <td align="center">
-                    ${emailButton({ href: downloadLink, label: "Download now", fill: "#7c3aed", padding: "14px 26px", radius: 10, text: "font-size:15px;font-weight:800;", align: "center" })}
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">If the button doesn't work, copy this link:</p>
-              <p style="margin:0 0 24px 0;font-size:12px;color:#7c3aed;word-break:break-all;">${downloadLink}</p>
-
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
-
-              <p style="margin:0;font-size:12px;color:#6b7280;text-align:center;line-height:1.5;">
-                Need help? Contact <a href="mailto:${supportEmail}" style="color:#7c3aed;text-decoration:none;">${supportEmail}</a>
-              </p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} ${footerBrand}
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-}
-
-function leadMagnetEmailText(params: { productTitle: string; downloadLink: string }) {
-  const productTitle = safeText(params.productTitle)
-  const downloadLink = params.downloadLink
-
-  return `Thank you for joining!
-
-Thanks for subscribing! As promised, here's your free digital download: "${productTitle}"
-
-Download: ${downloadLink}
-
-If you need help, reply to this email.`
-}
-
 export async function sendLeadMagnetEmail(
   admin: any,
   params: SendLeadMagnetEmailParams,
@@ -1423,7 +1325,16 @@ export async function sendLeadMagnetEmail(
   const replyTo = identity?.replyTo || DEFAULT_SUPPORT
 
   const customerEmail = normalizeEmail(recipientEmail)
-  const subject = customSubject || `Your download is ready - ${safeText(productTitle)}`
+  const lead = leadMagnetEmail({
+    sellerName: fromName,
+    productTitle,
+    downloadLink: productFileUrl,
+    supportEmail: replyTo,
+    customSubject,
+    customHeading,
+    customBody,
+  })
+  const subject = lead.subject
   const fromHeader = buildFromHeaderLocal(fromName)
 
   console.log("[email] 📧 Sending lead magnet email:", {
@@ -1440,16 +1351,8 @@ export async function sendLeadMagnetEmail(
           to: customerEmail,
           replyTo,
           subject,
-          html: leadMagnetEmailHtml({
-            productTitle,
-            downloadLink: productFileUrl,
-            supportEmail: replyTo,
-            footerBrand: fromName,
-            customHeading,
-            customBody,
-            sellerName: fromName,
-          }),
-          text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
+          html: lead.html,
+          text: lead.text,
         })
 
         if (!response.success) {
@@ -1485,132 +1388,6 @@ export interface SendReviewNotificationParams {
   baseUrl?: string
   /** The review, so the button opens it in the seller's Reviews list, where they can answer it. */
   reviewId?: string
-}
-
-function reviewNotificationEmailHtml(params: {
-  productTitle: string
-  reviewerName: string
-  reviewRating: number
-  reviewContent: string
-  productLink: string
-  footerBrand: string
-}) {
-  const productTitle = safeText(params.productTitle)
-  const reviewerName = safeName(params.reviewerName) || "A customer"
-  const reviewRating = params.reviewRating
-  const reviewContent = safeText(params.reviewContent)
-  const productLink = params.productLink
-  const footerBrand = safeText(params.footerBrand)
-
-  // Generate star rating display
-  const stars = "★".repeat(reviewRating) + "☆".repeat(5 - reviewRating)
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <title>New Review on ${productTitle}</title>
-</head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="padding:44px 36px 30px;text-align:center;background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-              <div style="font-size:48px;margin-bottom:12px;">⭐</div>
-              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">New Review!</h1>
-              <p style="margin:12px 0 0 0;font-size:17px;color:rgba(255,255,255,0.95);font-weight:500;">Someone left a review on your product</p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:34px 34px 12px;">
-              <!-- Product Info -->
-              <table role="presentation" style="width:100%;background:#f9fafb;border-radius:10px;padding:20px;margin:0 0 20px 0;">
-                <tr>
-                  <td>
-                    <p style="margin:0 0 6px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">Product</p>
-                    <p style="margin:0;font-size:18px;font-weight:700;color:#111827;">${productTitle}</p>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Review Card -->
-              <table role="presentation" style="width:100%;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin:0 0 24px 0;">
-                <tr>
-                  <td style="padding:20px;">
-                    <!-- Rating -->
-                    <div style="margin-bottom:12px;">
-                      <span style="font-size:24px;color:#f59e0b;letter-spacing:2px;">${stars}</span>
-                      <span style="margin-left:8px;font-size:14px;color:#6b7280;">(${reviewRating}/5)</span>
-                    </div>
-
-                    <!-- Reviewer -->
-                    <p style="margin:0 0 12px 0;font-size:14px;color:#6b7280;">
-                      <strong style="color:#111827;">${reviewerName}</strong> wrote:
-                    </p>
-
-                    <!-- Review Content -->
-                    <div style="background:#f9fafb;border-left:4px solid #f59e0b;padding:16px;border-radius:0 8px 8px 0;">
-                      <p style="margin:0;font-size:15px;color:#374151;line-height:1.6;font-style:italic;">
-                        "${reviewContent}"
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" style="width:100%;margin:0 0 8px 0;">
-                <tr>
-                  <td align="center">
-                    ${emailButton({ href: productLink, label: "Read and reply", fill: "#1a1a2e", padding: "14px 28px", radius: 10, text: "font-size:15px;font-weight:700;", align: "center" })}
-                  </td>
-                </tr>
-              </table>
-
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 18px 0;" />
-              <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.5;">
-                Great reviews help build trust with potential customers!
-              </p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:18px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} Storelib
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-}
-
-function reviewNotificationEmailText(params: {
-  productTitle: string
-  reviewerName: string
-  reviewRating: number
-  reviewContent: string
-  productLink: string
-}) {
-  const stars = "★".repeat(params.reviewRating) + "☆".repeat(5 - params.reviewRating)
-
-  return `New Review on "${safeText(params.productTitle)}"!
-
-${stars} (${params.reviewRating}/5)
-
-${safeName(params.reviewerName) || "A customer"} wrote:
-
-"${safeText(params.reviewContent)}"
-
-Read and reply: ${params.productLink}
-
-Great reviews help build trust with potential customers!
-- Storelib`
 }
 
 export async function sendReviewNotificationEmail(
@@ -1656,7 +1433,8 @@ export async function sendReviewNotificationEmail(
   const productLink = params.reviewId
     ? buildUrl(`/app/reviews?review=${encodeURIComponent(params.reviewId)}`, baseUrl)
     : buildUrl(`/p/${encodeURIComponent(productSlug)}#testimonials`, baseUrl)
-  const subject = `New ${reviewRating} star review on "${safeText(productTitle)}"`
+  const notice = reviewNoticeEmail({ productTitle, reviewerName, rating: reviewRating, content: reviewContent, link: productLink })
+  const subject = notice.subject
   const fromHeader = buildFromHeaderLocal(PLATFORM_BRAND_NAME)
 
   console.log("[email] 📧 Attempting to send review notification:", {
@@ -1672,21 +1450,8 @@ export async function sendReviewNotificationEmail(
           to: finalSellerEmail,
           replyTo,
           subject,
-          html: reviewNotificationEmailHtml({
-            productTitle,
-            reviewerName,
-            reviewRating,
-            reviewContent,
-            productLink,
-            footerBrand: PLATFORM_BRAND_NAME,
-          }),
-          text: reviewNotificationEmailText({
-            productTitle,
-            reviewerName,
-            reviewRating,
-            reviewContent,
-            productLink,
-          }),
+          html: notice.html,
+          text: notice.text,
         })
 
         if (!response.success) {
@@ -1944,11 +1709,6 @@ interface SendRefundEmailsParams {
   sellerAvatarUrl?: string
 }
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return name.slice(0, 2).toUpperCase()
-}
 
 export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<void> {
   const { buyerEmail, sellerEmail, sellerContactEmail, productTitle, refundAmount, currency, orderId, reason, storeName, orderDate, sellerAvatarUrl } = params
@@ -1966,9 +1726,8 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
 
   const orderDateFormatted = orderDate
     ? new Date(orderDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : "N/A"
+    : "Not known"
 
-  const sellerInitials = getInitials(storeName || "ST")
   const escapedStoreName = safeText(storeName || "Store")
   const escapedProduct = safeText(productTitle)
   const shortOrderId = `#${orderId.slice(0, 8).toUpperCase()}`
@@ -1977,10 +1736,10 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
 
   /* The seller's one picture (lib/email-campaigns/sender senderPicture, read by the caller), https only
      and sized for the inbox; the initials when there is none, never a broken image. */
-  const sellerAvatarSrc = emailImageSrc(sellerAvatarUrl, 32)
-  const sellerAvatarHtml = sellerAvatarSrc
-    ? `<td style="width:32px;height:32px;border-radius:8px;overflow:hidden;"><img src="${escapeHtml(sellerAvatarSrc)}" alt="${escapeHtml(escapedStoreName)}" width="32" height="32" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;border:0;" /></td>`
-    : `<td style="width:32px;height:32px;background:#e8e5e0;border-radius:8px;text-align:center;vertical-align:middle;font-weight:700;font-size:13px;color:#888;">${sellerInitials}</td>`
+  const sellerAvatarSrc = emailImageSrc(sellerAvatarUrl, 36)
+  const facts = { storeName: escapedStoreName, productTitle: escapedProduct, amount: formattedAmount, orderDate: orderDateFormatted, refundDate: refundDateFormatted, reason, orderRef: shortOrderId }
+  const buyerMail = buyerRefundEmail({ ...facts, contactEmail, sellerPictureUrl: sellerAvatarSrc })
+  const sellerMail = sellerRefundEmail({ ...facts, buyerEmail: buyerEmail ?? null, payoutsUrl: `${baseUrl}/dashboard/payouts` })
 
   // Send buyer refund confirmation
   if (buyerEmail) {
@@ -1991,150 +1750,9 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             to: buyerEmail,
             from: buildFromHeader(escapedStoreName),
             replyTo: contactEmail,
-            subject: `Your ${formattedAmount} refund for ${escapedProduct} has been processed`,
-            html: `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Refund Confirmation</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
-    <tr>
-      <td align="center">
-        <!-- Email Card -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
-
-          <!-- Header -->
-          <tr>
-            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;text-align:center;">
-              <!-- Seller Avatar + Name (centered) -->
-              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:24px;">
-                <tr>
-                  ${sellerAvatarHtml}
-                  <td style="padding-left:10px;vertical-align:middle;">
-                    <span style="font-size:13.5px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${escapedStoreName}</span>
-                  </td>
-                </tr>
-              </table>
-              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">Your refund has been processed</h1>
-              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">We've issued a full refund for your recent purchase. No further action is needed on your end.</p>
-            </td>
-          </tr>
-
-          <!-- Refund Amount Hero -->
-          <tr>
-            <td style="padding:32px 36px;text-align:center;background:#fafaf8;border-bottom:1px solid #eeedea;">
-              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#16a34a;">Refund Amount</p>
-              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#1a1a1a;line-height:1;">${formattedAmount}</p>
-              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
-                <tr>
-                  <td style="background:#dcfce7;color:#15803d;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
-                    &#10003; Processed
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Refund Details -->
-          <tr>
-            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
-              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Refund Details</p>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Product</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${escapedProduct}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Order date</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${orderDateFormatted}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Refund date</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${refundDateFormatted}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Reason</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${safeText(reason)}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:500;">Order ID</td>
-                  <td style="padding:13px 18px;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;font-family:monospace;">${shortOrderId}</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Notices -->
-          <tr>
-            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
-              <!-- Timeline notice -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:10px;">
-                <tr>
-                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
-                    <span style="font-size:16px;color:#d97706;">&#9200;</span>
-                  </td>
-                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#92400e;">
-                    Please allow <strong style="color:#78350f;">5–10 business days</strong> for the refund to appear on your statement. Timing depends on your bank or card issuer.
-                  </td>
-                </tr>
-              </table>
-              <!-- Access notice -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
-                <tr>
-                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
-                    <span style="font-size:16px;color:#999;">&#9432;</span>
-                  </td>
-                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
-                    Access to this product's download links has been revoked as part of this refund.
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Support CTA -->
-          <tr>
-            <td style="padding:28px 36px;text-align:center;">
-              <p style="margin:0 0 16px;font-size:13.5px;color:#888;line-height:1.6;">Have questions about this refund?</p>
-              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
-                <tr>
-                  <td bgcolor="#1a1a1a" style="background:#1a1a1a;border-radius:10px;mso-padding-alt:12px 30px;">
-                    <a href="mailto:${contactEmail}" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">Contact ${escapedStoreName}</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
-              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
-                This email was sent by ${PLATFORM_BRAND_NAME} on behalf of ${escapedStoreName}.<br>
-                You received this because you made a purchase on storelib.com.
-              </p>
-              <p style="margin:0;font-size:11.5px;color:#aaa;">
-                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
-                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
-                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
-                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
-                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
-                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
-                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`,
-            text: `Your refund has been processed\n\nWe've issued a full refund for your recent purchase from ${escapedStoreName}.\n\nRefund Amount: ${formattedAmount} (Processed)\n\nRefund Details:\n- Product: ${escapedProduct}\n- Order date: ${orderDateFormatted}\n- Refund date: ${refundDateFormatted}\n- Reason: ${reason}\n- Order ID: ${shortOrderId}\n\nPlease allow 5-10 business days for the refund to appear on your statement.\n\nHave questions? Contact ${escapedStoreName} at ${contactEmail}\n\nThis email was sent by ${PLATFORM_BRAND_NAME} on behalf of ${escapedStoreName}.`,
+            subject: buyerMail.subject,
+            html: buyerMail.html,
+            text: buyerMail.text,
           }),
         MAX_RETRIES,
         "buyer refund email"
@@ -2154,175 +1772,9 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             to: sellerEmail,
             from: buildFromHeader(PLATFORM_BRAND_NAME),
             replyTo: DEFAULT_SUPPORT,
-            subject: `Refund issued: ${formattedAmount} for ${escapedProduct}`,
-            html: `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
-  <title>Refund Issued</title>
-  <style>
-    :root { color-scheme: light only; }
-    u + .body .storelib-logo { /* Gmail dark mode */ }
-    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo {
-      filter: none !important;
-      -webkit-filter: none !important;
-    }
-    @media (prefers-color-scheme: dark) {
-      .storelib-logo {
-        filter: none !important;
-        -webkit-filter: none !important;
-      }
-    }
-  </style>
-</head>
-<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
-    <tr>
-      <td align="center">
-        <!-- Email Card -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
-
-          <!-- Header -->
-          <tr>
-            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
-              <!-- Storelib Logo -->
-              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-                <tr>
-                  <td style="vertical-align:middle;"><img src="${storelibAssetUrl(STORELIB_EMAIL_LOGO)}" alt="${PLATFORM_BRAND_NAME}" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:7px;box-shadow:${STORELIB_LOGO_SHADOW};" class="storelib-logo" /></td>
-                  <td style="padding-left:14px;vertical-align:middle;">
-                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
-                  </td>
-                </tr>
-              </table>
-              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">A refund has been issued</h1>
-              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">A refund was processed for one of your orders. This amount will be deducted from your next payout.</p>
-            </td>
-          </tr>
-
-          <!-- Refund Amount Hero -->
-          <tr>
-            <td style="padding:32px 36px;text-align:center;background:#fef8f8;border-bottom:1px solid #eeedea;">
-              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#dc2626;">Refund Amount</p>
-              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#dc2626;line-height:1;">-${formattedAmount}</p>
-              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
-                <tr>
-                  <td style="background:#fee2e2;color:#b91c1c;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
-                    Deducted from payout
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Refund Details -->
-          <tr>
-            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
-              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Refund Details</p>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Product</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${escapedProduct}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Customer</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${buyerEmail || "N/A"}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Order date</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${orderDateFormatted}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Refund date</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${refundDateFormatted}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Reason</td>
-                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${safeText(reason)}</td>
-                </tr>
-                <tr>
-                  <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:500;">Order ID</td>
-                  <td style="padding:13px 18px;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;font-family:monospace;">${shortOrderId}</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Notices -->
-          <tr>
-            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
-              <!-- Payout notice -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fef8f8;border:1px solid #fecaca;border-radius:12px;margin-bottom:10px;">
-                <tr>
-                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
-                    <span style="font-size:16px;color:#dc2626;">&#9888;</span>
-                  </td>
-                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#991b1b;">
-                    <strong style="color:#7f1d1d;">${formattedAmount}</strong> will be deducted from your next payout. If no future payout covers the amount, it may be debited from your bank account.
-                  </td>
-                </tr>
-              </table>
-              <!-- Dashboard notice -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
-                <tr>
-                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
-                    <span style="font-size:16px;color:#999;">&#9432;</span>
-                  </td>
-                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
-                    You can view full refund details and payout impact in your Payouts dashboard.
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Dashboard CTA -->
-          <tr>
-            <td style="padding:28px 36px;text-align:center;">
-              <p style="margin:0 0 16px;font-size:13.5px;color:#888;line-height:1.6;">Review this refund in your dashboard</p>
-              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
-                <tr>
-                  <td bgcolor="#1a1a1a" style="background:#1a1a1a;border-radius:10px;mso-padding-alt:12px 30px;">
-                    <a href="${baseUrl}/dashboard/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
-              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
-                <tr>
-                  <td><img src="${storelibAssetUrl(STORELIB_EMAIL_LOGO)}" alt="${PLATFORM_BRAND_NAME}" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:7px;box-shadow:${STORELIB_LOGO_SHADOW};" class="storelib-logo" /></td>
-                </tr>
-              </table>
-              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
-                This is an automated notification from ${PLATFORM_BRAND_NAME}.<br>
-                You received this because a refund was issued on your store.
-              </p>
-              <p style="margin:0;font-size:11.5px;color:#aaa;">
-                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
-                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
-                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
-                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
-                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
-                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
-                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`,
-            text: `Refund Issued\n\nA refund of ${formattedAmount} has been issued for "${escapedProduct}".\n\nRefund Details:\n- Product: ${escapedProduct}\n- Customer: ${buyerEmail || "N/A"}\n- Order date: ${orderDateFormatted}\n- Refund date: ${refundDateFormatted}\n- Reason: ${reason}\n- Order ID: ${shortOrderId}\n\n${formattedAmount} will be deducted from your next payout.\n\nView details: ${baseUrl}/dashboard/payouts\n\n${PLATFORM_BRAND_NAME}`,
+            subject: sellerMail.subject,
+            html: sellerMail.html,
+            text: sellerMail.text,
           }),
         MAX_RETRIES,
         "seller refund email"

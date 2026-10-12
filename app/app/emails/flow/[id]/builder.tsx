@@ -83,6 +83,7 @@ import { PreviewLayer } from "@/components/email/compose/preview-layer"
 import type { PreviewMode } from "@/components/email/compose/email-preview"
 import { FlowTopBar, StepMark, backButton } from "../flow-parts"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface StepStats {
@@ -1218,7 +1219,7 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
       </div>
       <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5">
         <p className="min-w-0 text-[12px] text-[#4b5563]">
-          {props.accountEmail ? <>{tt("Send this one to")} <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span>{tt(", as it is now.")}</> : tt("Your account has no email address for a test.")}
+          {props.accountEmail ? <Rich text={tt("Send this one to {email}, as it is now.")} parts={{ email: <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span> }} /> : tt("Your account has no email address for a test.")}
         </p>
         <button type="button" className={PANEL_BUTTON} disabled={testing || !props.accountEmail} onClick={() => void test()}>
           {testing ? tt("Sending") : tt("Send test")}

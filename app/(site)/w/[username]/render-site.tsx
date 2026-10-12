@@ -35,6 +35,7 @@ import { pageSeoOf } from "@/lib/website-builder/page-seo"
 import { builtSiteIndexable, websiteIndexable } from "@/lib/seo/indexing"
 import { creatorAvatar, siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
+import { siteStoreName, siteTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
@@ -61,6 +62,11 @@ export async function siteMetadata(
   pageKey = "home",
   /** Set when this is the preview route, which has the token in its path. */
   previewToken: string | null = null,
+  /**
+   * What the page is, when its key does not say: a collection's name, the
+   * words searched for, the cart, page 2 of a list (lib/website-builder/tab-title.ts).
+   */
+  tab?: { page?: TabPage; pageNumber?: number },
 ): Promise<Metadata> {
   /* "andrew~fr": the website in French (lib/markets/site-name.ts). */
   const { name: username, locale, market } = splitSiteName(segment)
@@ -71,7 +77,27 @@ export async function siteMetadata(
    * the answer is the same either way, and it keeps a lookup out of here.
    */
   if (previewToken !== null || previewTokenFrom(paramsToSearch(searchParams)) !== null) {
-    return { title: "Preview", robots: { index: false, follow: false } }
+    /*
+      THE PREVIEW'S TAB IS THE PAGE'S. It said "Preview | Storelib" on every
+      page, so a creator checking their draft could not check its tab. With a
+      good link it is the draft's own title by the live rule (tab-title.ts);
+      with anything else, "Preview" as before.
+    */
+    const draft = previewToken !== null ? await previewInstall(username, previewToken).catch(() => null) : null
+    const [creator, shop] = draft?.preview ? await Promise.all([creatorByName(username), publishedShopByName(username).catch(() => null)]) : [null, null]
+    if (draft?.preview && creator) {
+      const s = draft.themeSettings as Record<string, unknown>
+      const store = siteStoreName({ brandName: s.brand_name, storeName: shop?.kind === "site" ? shop.site.profile?.storeName : null, displayName: creator.displayName, handle: creator.slug || username })
+      const own = pageSeoOf(s, pageKey)
+      const title = siteTabTitle({
+        page: pageKey === "home" ? { kind: "home" } : pageKey === "404" ? { kind: "not-found" } : { kind: "page", name: pageTitleFromKey(pageKey) },
+        storeName: store,
+        siteTitle: typeof s.seo_title === "string" ? s.seo_title : null,
+        ownTitle: own.title,
+      })
+      return { title: { absolute: title }, robots: { index: false, follow: false } }
+    }
+    return { title: { absolute: "Preview" }, robots: { index: false, follow: false } }
   }
 
   /**
@@ -92,13 +118,11 @@ export async function siteMetadata(
   if (!creator) return { title: "Not Found" }
   const found = await publishedShopByName(username)
 
-  // Default format: "{username} | Storelib" — prefer the creator's platform
-  // username/slug over the brand_name so the tab title matches the URL.
   const defaultHandle = creator.slug || username || creator.displayName || "Storelib"
 
   /* Nothing published: the page says so, and is not a page to index. */
   if (found.kind !== "site") {
-    return { title: { absolute: `${defaultHandle} | Storelib` }, robots: { index: false, follow: true } }
+    return { title: { absolute: siteStoreName({ displayName: creator.displayName, handle: defaultHandle }) }, robots: { index: false, follow: true } }
   }
 
   // PUBLISHED ONLY. This fell back to `draft_settings` "so a freshly uploaded
@@ -109,21 +133,25 @@ export async function siteMetadata(
   /* In another language: its title and description as translated (lib/markets/live.ts). */
   const localizer = locale ? await siteLocalizer(creator.creatorId, locale) : null
   const settings: ThemeSettingsValues = localizer ? localizer.theme((found.site.themeSettings ?? {}) as Record<string, unknown>) as ThemeSettingsValues : (found.site.themeSettings ?? {})
-  const siteTitle = typeof settings.seo_title === "string" && settings.seo_title.trim()
-    ? settings.seo_title.trim()
-    : `${defaultHandle} | Storelib`
-  const brand = typeof settings.brand_name === "string" && settings.brand_name
-    ? settings.brand_name
-    : defaultHandle
+  /* The store's name as the site says it: its brand name, else Store details', else the person's (lib/website-builder/tab-title.ts). */
+  const brand = siteStoreName({ brandName: settings.brand_name, storeName: found.site.profile?.storeName, displayName: creator.displayName, handle: defaultHandle })
   /**
    * A sub-page says which page it is first. The site's own SEO title is one
    * title for the whole site, and using it unchanged on five pages gives a
    * visitor five identical tabs and a search engine five identical results.
+   * One rule for every page, the one SEO & Social previews: tab-title.ts.
    */
   /* A page's own title and description, when its creator gave it one in
      Pages & Navigation: lib/website-builder/page-seo.ts. */
   const own = pageSeoOf(settings as Record<string, unknown>, pageKey)
-  const rawTitle = own.title ?? (pageKey === "home" ? siteTitle : `${pageTitleFromKey(pageKey)} | ${brand}`)
+  const rawTitle = siteTabTitle({
+    page: tab?.page ?? (pageKey === "home" ? { kind: "home" } : pageKey === "404" ? { kind: "not-found" } : { kind: "page", name: pageTitleFromKey(pageKey) }),
+    storeName: brand,
+    siteTitle: typeof settings.seo_title === "string" ? settings.seo_title : null,
+    /* A collection's, a search's or the cart's title is the thing it shows, never one set for the page. */
+    ownTitle: tab?.page ? null : own.title,
+    pageNumber: tab?.pageNumber,
+  })
   const description = own.description ?? (typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
     : `Visit ${brand}'s website on Storelib`)

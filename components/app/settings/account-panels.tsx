@@ -12,6 +12,7 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { WebPushError, disableWebPush, enableWebPush, readWebPush, type WebPushState } from "@/lib/push/web-client"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 /**
@@ -884,7 +885,7 @@ export function EmailChangeFlow({
       <div className="py-4" data-email-change="done">
         <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Email changed")}</p>
         <p className="mt-1 text-[13px] leading-[1.45] text-[#6b7280]">
-          {tt("You now sign in with")} <span className="font-medium text-[#1a1a2e]">{newEmail.trim().toLowerCase()}</span>{tt(". We told your old address too.")}
+          <Rich text={tt("You now sign in with {email}. We told your old address too.")} parts={{ email: <span className="font-medium text-[#1a1a2e]">{newEmail.trim().toLowerCase()}</span> }} />
         </p>
       </div>
     )
@@ -894,7 +895,7 @@ export function EmailChangeFlow({
     return (
       <form onSubmit={send} className="space-y-4" data-email-change="input" noValidate>
         <p className="text-[13px] leading-[1.45] text-[#6b7280]">
-          {tt("We send a code to the new address and one to")} <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>{tt(". Both are needed.")}
+          <Rich text={tt("We send a code to the new address and one to {email}. Both are needed.")} parts={{ email: <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> }} />
         </p>
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-medium text-[#374151]">{tt("New email")}</span>

@@ -55,6 +55,7 @@ import { CoverField, GalleryEditor } from "./gallery-editor"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
 
 const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can"] }[] = [
@@ -1191,7 +1192,7 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
         }
       >
         <p className="text-[14px] leading-relaxed text-[#4b5563]">
-          {tt("Type")} <span className="font-semibold text-[#1a1a2e]">{head.name}</span> {tt("to delete it.")}
+          <Rich text={tt("Type {name} to delete it.")} parts={{ name: <span className="font-semibold text-[#1a1a2e]">{head.name}</span> }} />
         </p>
         <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label={tt("Community name")} autoComplete="off" className={cn(field, "mt-3 h-11 sm:h-10")} />
         {error ? (

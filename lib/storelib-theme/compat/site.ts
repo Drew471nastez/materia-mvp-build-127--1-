@@ -36,7 +36,7 @@ import { cartObject, productObject } from "./objects"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
-import { groupSections } from "./theme"
+import { defaultPageTitle, groupSections } from "./theme"
 import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
@@ -48,6 +48,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
+import { siteTabTitle, withTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
 import { ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
 
@@ -340,7 +341,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
   const out = route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html
-  return pageHtml(withBodyStart(out, shop.bodyStart), path, route.status ?? 200)
+  /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
+  return pageHtml(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), path, route.status ?? 200)
 }
 
 /** The same page in every language of the website, for search engines (hreflang, x-default the website's own). */
@@ -419,6 +421,34 @@ interface Route {
   head?: string
   /** Put at the end of this page's body only: "You already own this" on a product the visitor owns (owned-banner.ts). */
   bodyEnd?: string
+  /** The page's own SEO title, set by its creator: the tab says exactly that (tabTitleOf). */
+  ownTitle?: string
+}
+
+/**
+ * THE TAB OF AN IMPORTED THEME'S PAGE, as a Storelib theme's says it: the
+ * site title on home, "<page> | <store>" elsewhere, a page's or product's
+ * own SEO title exactly (lib/website-builder/tab-title.ts).
+ */
+export function tabTitleOf(site: Pick<SiteData, "shop" | "seo">, page: CompatPage, ownTitle?: string | null): string {
+  const t = page.template
+  const home = t === "index" || t === "password"
+  const name = page.title || page.pageObject?.title || defaultPageTitle(page)
+  const tab: TabPage = home
+    ? { kind: "home" }
+    : t === "product" ? { kind: "product", name: String(page.product?.settings?.title ?? "") || name }
+    : t === "collection" ? { kind: "collection", name: page.collection?.title || name }
+    : t === "search" ? { kind: "search", query: page.search?.terms ?? "" }
+    : t === "cart" ? { kind: "cart" }
+    : t === "404" ? { kind: "not-found" }
+    : { kind: "page", name }
+  return siteTabTitle({
+    page: tab,
+    storeName: page.shop?.name || site.shop.name,
+    siteTitle: home ? site.seo?.("home")?.title ?? null : null,
+    ownTitle: home ? null : ownTitle,
+    pageNumber: Number(page.query?.page ?? 1) || 1,
+  })
 }
 
 const attr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
@@ -679,7 +709,7 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
   /* The visitor's account, on this host in the theme (accountPage); the wishlist, Storelib's own page in the theme's header and footer (accountShell). */
   if ((path === "/account" || path.startsWith("/account/")) && path !== "/account/logout") return accountPage(site, req, path)
   if (path === "/wishlist") return accountShell(site, req, path)
-  const at = (key: string, extra: Partial<CompatPage> = {}, status?: number): Route | null => {
+  const at = (key: string, extra: Partial<CompatPage> = {}, status?: number, productTitle?: string): Route | null => {
     const sections = sectionsOf(site, key)
     if (!sections) return null
     const { template, suffix } = templateOfPage(key)
@@ -688,8 +718,10 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const told: Partial<CompatPage> = { ...(seo?.title ? { title: seo.title } : {}), ...(seo?.description ? { description: seo.description } : {}) }
     const head = seoHead(seo)
     const alternate = viewOf(site, req, template, sections)
-    if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra, ...told }), sections: alternate.sections, status, head }
-    return { page: basePage(site, req, { template, suffix, path, ...extra, ...told }), sections, status, head }
+    /* A product's own SEO title (Products), else the page's (Website settings), said exactly in the tab. */
+    const ownTitle = productTitle ?? seo?.title
+    if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra, ...told }), sections: alternate.sections, status, head, ownTitle }
+    return { page: basePage(site, req, { template, suffix, path, ...extra, ...told }), sections, status, head, ownTitle }
   }
   /* Storelib Reviews, for the page's Storelib Reviews section and the app blocks a theme kept (./storelib-reviews.ts). Never stops a page. */
   const reviewsFor = async (p: { id: string; title: string } | null) => (site.reviews ? await site.reviews(p).catch(() => null) : null)
@@ -700,7 +732,9 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const card = await findProduct(site, product[1])
     if (!card) return null
     const selectedVariantId = req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values"))
-    const route = at("product", { product: card, selectedVariantId, title: String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) })
+    /* Its SEO title, when its creator wrote one, is the theme's page_title and the tab, as on Shopify. */
+    const seoTitle = typeof card.settings.seo_title === "string" && card.settings.seo_title.trim() ? card.settings.seo_title.trim() : undefined
+    const route = at("product", { product: card, selectedVariantId, title: seoTitle ?? String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) }, undefined, seoTitle)
     /* Signed in and already theirs: said at the foot of the page, with the way to the downloads. */
     const owned = route && req.account?.customer && req.owned ? await req.owned(card.id).catch(() => null) : null
     if (route && owned) {
@@ -802,7 +836,7 @@ async function notFound(site: SiteData, req: SiteRequest): Promise<SiteResponse>
   const many = req.query.get("sections")
   if (one) return sectionsAnswer(site, page, sections, [one], false)
   if (many) return sectionsAnswer(site, page, sections, many.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5), true)
-  return html(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, 404)
+  return html(withTabTitle(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, tabTitleOf(site, page)), 404)
 }
 
 /**

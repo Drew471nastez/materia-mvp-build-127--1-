@@ -52,6 +52,7 @@ import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-
 import { Code, CommandBlock, Keycap, Step, Steps } from "@/components/website-builder/setup-steps"
 import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 interface Connection {
@@ -298,7 +299,7 @@ function SetupSteps({ tool, agents }: { tool: AgentTool; agents: AgentConnection
         </p>
         {tool === "claude" && fresh && (
           <p className="mt-1 text-[13px] leading-relaxed text-white/45">
-            {tt("Added Storelib before? Run")} <Code>{CLAUDE_REMOVE_OLD}</Code> {tt("first.")}
+            <Rich text={tt("Added Storelib before? Run {command} first.")} parts={{ command: <Code>{CLAUDE_REMOVE_OLD}</Code> }} />
           </p>
         )}
       </Step>
@@ -306,7 +307,7 @@ function SetupSteps({ tool, agents }: { tool: AgentTool; agents: AgentConnection
       {next && (
         <Step n={3} title={tt("Start {name} and ask for a change", { name: TOOLS[tool].name })} muted={!fresh}>
           <p className="text-[14px] text-white/65">
-            {tt("Type")} <Code>{next.start}</Code>{tt(", press {enter}, then ask:", { enter })}
+            <Rich text={tt("Type {command}, press {enter}, then ask:", { enter })} parts={{ command: <Code>{next.start}</Code> }} />
           </p>
           <p className="mt-2 text-[15.5px] leading-snug text-white">&ldquo;{FIRST_ASK}&rdquo;</p>
         </Step>

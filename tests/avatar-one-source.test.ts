@@ -260,8 +260,8 @@ async function main() {
   check("the row for the business you are in draws the header's photo, so it changes with it",
     /* The business you are in is its own row at the top of the switcher now (one row that opens to the rest), drawn from `current`. */
     /src=\{currentAvatar !== undefined \? currentAvatar \|\| null : current\.avatarUrl\}/.test(switcher) && /const current = businesses\.find\(\(b\) => b\.current\)/.test(switcher) &&
-      /<BusinessSwitcher businesses=\{businesses\} variant="dropdown" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/sidebar.tsx")) &&
-      /<BusinessSwitcher businesses=\{businesses\} variant="sheet" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/mobile-account-menu.tsx")))
+      /<BusinessSwitcher businesses=\{businesses\}( teamStores=\{teamStores\})? variant="dropdown" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/sidebar.tsx")) &&
+      /<BusinessSwitcher businesses=\{businesses\}( teamStores=\{teamStores\})? variant="sheet" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/mobile-account-menu.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

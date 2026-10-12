@@ -83,6 +83,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "sites",
   "store",
   "store-builder",
+  /* A team invite opened: /team/join (app/team/join). */
+  "team",
   "terms",
   "u",
   "unsubscribe",

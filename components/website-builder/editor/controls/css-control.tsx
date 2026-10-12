@@ -12,6 +12,7 @@ import { useMemo } from "react"
 import { CUSTOM_CSS_MAX, cleanCustomCss } from "@/lib/storelib-theme/custom-css"
 import { PROBLEM } from "./styles"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /** Rules to start from: each one line of intent and the CSS that does it. */
 const CSS_EXAMPLES: { label: string; css: string }[] = [
@@ -33,7 +34,7 @@ export function CssControl({ value, onChange, placeholder, label }: { value: str
       <div className="space-y-1 text-[11.5px] leading-[1.5] text-muted-foreground" data-css-help="">
         <p>{tt("Applies to every page of your website, after the theme's own styles, so it wins.")}</p>
         <p>
-          {tt("One kind of section: start the rule with")} <code className="rounded bg-muted px-1 font-mono text-[11px] text-foreground">{"[data-section-type=\"hero\"]"}</code>{tt(". Your own coded sections keep their own styles unless you target them.")}
+          <Rich text={tt("One kind of section: start the rule with {selector}. Your own coded sections keep their own styles unless you target them.")} parts={{ selector: <code className="rounded bg-muted px-1 font-mono text-[11px] text-foreground">{"[data-section-type=\"hero\"]"}</code> }} />
         </p>
       </div>
       <div className="flex flex-wrap gap-1.5" data-css-examples="">

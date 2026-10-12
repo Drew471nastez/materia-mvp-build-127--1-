@@ -25,9 +25,11 @@ export function TeamAreaClosed({ area, store, role }: { area: TeamArea; store: s
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4 py-12">
       <div className="w-full max-w-[440px] rounded-2xl border border-[#e5e7eb]/60 bg-white px-6 py-8 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <p className="text-[17px] font-semibold text-[#1a1a2e]">{AREA_WORD[area] ?? tt("This")} {tt("is the owner's for now")}</p>
+        <p className="text-[17px] font-semibold text-[#1a1a2e]">{tt("{area} is the owner's for now", { area: AREA_WORD[area] ?? tt("This") })}</p>
         <p className="mt-2 text-[14px] leading-[21px] text-[#6b7280]">
-          {tt("You're working in {store}", { store })}{role ? tt(" as {role}", { role: ROLE_LABEL[role] }) : ""}{tt(". Team members work in Orders today; the rest of the store stays with its owner.")}
+          {role
+            ? tt("You're working in {store} as {role}. Team members work in Orders today; the rest of the store stays with its owner.", { store, role: ROLE_LABEL[role] })
+            : tt("You're working in {store}. Team members work in Orders today; the rest of the store stays with its owner.", { store })}
         </p>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link href="/app/orders" className="inline-flex items-center justify-center rounded-xl bg-[#1a1a2e] px-4 py-2.5 text-[14px] font-semibold text-white">

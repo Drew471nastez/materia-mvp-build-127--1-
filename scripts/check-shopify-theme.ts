@@ -960,6 +960,9 @@ async function run(zipPath: string) {
         const m = await visit(path)
         check(`${path} draws`, (m.sections > 0 || m.classic) && errors.length === 0, `${m.sections || (m.classic ? "classic" : 0)} sections, ${errors.length} script errors${errors[0] ? `: ${errors[0]}` : ""}`)
         check(`${path} no sideways scroll`, m.overflow <= 1, `${m.overflow}px`)
+        /* Round I: the tab says what Website settings previews, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
+        const tab = ({ "/": "Linen & Co", "/collections/all": "Products | Linen & Co", "/collections/summer?sort_by=price-descending": "Summer | Linen & Co", "/search?q=linen": "Search: linen | Linen & Co", "/pages/contact": "Contact | Linen & Co", "/no-such-page": "Page not found | Linen & Co" } as Record<string, string>)[path]
+        check(`${path} browser tab reads "${tab}"`, m.title === tab, m.title)
         if (path === "/" || path === "/collections/all") {
           const ic = await icons()
           /* A classic theme draws its icons from an icon font (Timber), so it may have no svg at all: then there is nothing to break. */

@@ -7,6 +7,7 @@ import { MAX_CODE_ATTEMPTS, codeMatches, newCode, wrongCodeMessage } from "@/lib
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { deleteAccount, deletionBlockers } from "@/lib/account/delete-account"
 import { ownerAddress } from "@/lib/businesses/email-alias"
+import { platformEmail } from "@/lib/emails/layout"
 import { businessGroup, sessionFor } from "@/lib/businesses/server"
 
 export const runtime = "nodejs"
@@ -82,38 +83,15 @@ export async function POST(request: Request) {
           const result = await sendEmail({
             from: "Storelib <noreply@storelib.com>",
             to: ownerAddress(user.email) || user.email!,
-            subject: "Confirm account deletion",
-            html: `
-              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; color: #dc2626;">Account Deletion Request</h1>
-                <p style="color: #666; margin-bottom: 24px;">
-                  You have requested to permanently delete your Storelib account. This action cannot be undone.
-                </p>
-
-                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center;">
-                  <p style="margin: 0 0 8px 0; color: #dc2626; font-size: 14px;">Your verification code:</p>
-                  <div style="font-size: 32px; font-weight: 700; letter-spacing: 0.1em; color: #dc2626;">
-                    ${verificationCode}
-                  </div>
-                  <p style="margin: 16px 0 0 0; color: #999; font-size: 12px;">
-                    This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes
-                  </p>
-                </div>
-
-                <p style="color: #666; font-size: 14px;">
-                  If you didn't request this, please ignore this email and secure your account immediately.
-                </p>
-              </div>
-            `,
-            text: `Account Deletion Request
-
-You have requested to permanently delete your Storelib account. This action cannot be undone.
-
-Your verification code: ${verificationCode}
-
-This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.
-
-If you didn't request this, please ignore this email and secure your account immediately.`,
+            ...platformEmail({
+              subject: "Confirm account deletion",
+              heading: "Confirm account deletion",
+              label: "Security notice",
+              labelColor: "#b91c1c",
+              paragraphs: ["You asked to permanently delete your Storelib account. This can't be undone. Enter this code to confirm."],
+              code: { value: verificationCode, caption: `It expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.` },
+              note: "If you didn't ask for this, ignore this email and change your password.",
+            }),
           })
 
           if (!result.success) {

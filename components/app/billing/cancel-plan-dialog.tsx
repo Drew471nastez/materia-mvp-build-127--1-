@@ -26,6 +26,7 @@ import { CANCEL_NOTE_MAX, CANCEL_REASONS, type CancelReason } from "@/lib/billin
 import { planComparison } from "@/lib/billing/plans"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export function usePhone(): boolean {
@@ -107,7 +108,7 @@ export function CancelPlanDialog({
           <p className="mt-2 text-[14px] leading-relaxed text-[#4b5563]" data-cancel-until="">
             {until ? (
               <>
-                {tt("{planName} stays on until", { planName })} <span className="font-semibold text-[#1a1a2e]">{until}</span>{tt(", the end of the period you paid for. Then your account moves to Free and nothing more is charged.")}
+                <Rich text={tt("{planName} stays on until {until}, the end of the period you paid for. Then your account moves to Free and nothing more is charged.", { planName })} parts={{ until: <span className="font-semibold text-[#1a1a2e]">{until}</span> }} />
               </>
             ) : (
               <>{tt("{planName} stays on until the end of the period you paid for. Then your account moves to Free and nothing more is charged.", { planName })}</>

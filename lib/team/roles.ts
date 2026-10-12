@@ -15,6 +15,7 @@
  * Billing, payouts, the team itself and deleting the store are the owner's
  * and nobody else's, whatever role is given (lib/settings/explainers "team").
  */
+import { tt } from "@/lib/i18n/text"
 
 export type TeamRole = "owner" | "manager" | "staff"
 /** The roles an owner can give. The owner is the account, never an invite. */
@@ -75,12 +76,26 @@ export function isMemberRole(v: unknown): v is MemberRole {
   return v === "manager" || v === "staff"
 }
 
-export const ROLE_LABEL: Record<TeamRole, string> = { owner: "Owner", manager: "Manager", staff: "Staff" }
+export const ROLE_LABEL: Record<TeamRole, string> = { get owner() { return tt("Owner") }, get manager() { return tt("Manager") }, get staff() { return tt("Staff") } }
 /** What each role can do now (OPEN_TO_TEAM), in the words the Team page uses. */
 export const ROLE_SUMMARY: Record<MemberRole, string> = {
-  manager: "Orders: fulfil, ship, handle returns and send receipts",
-  staff: "Products, the website and content, once they open to the team",
+  get manager() { return tt("Orders: fulfil, ship, handle returns and send receipts") },
+  get staff() { return tt("Products, the website and content, once they open to the team") },
 }
+
+/**
+ * What a role can do today, in the words the invite page and the Team page
+ * use: a short list, then what stays with the owner. Only what is open to
+ * the team (OPEN_TO_TEAM) is listed as something they can do.
+ */
+/* The invite page (/team/join) reads these; it is outside the dashboard and its language. i18n-ignore-start */
+export const ROLE_CAN: Record<MemberRole, readonly string[]> = {
+  manager: ["See and search every order", "Fulfil and ship orders, buy labels", "Handle returns and order notes", "Send receipts and invoices, export orders"],
+  staff: ["Products, the website and content, once they open to the team"],
+}
+/** What stays with the owner, whatever the role. */
+export const OWNER_KEEPS = "Refunds, payouts, billing, products, the website, the team and deleting the store stay with the owner."
+/* i18n-ignore-end */
 
 /** People an owner can invite besides themselves: three on Free. */
 export const FREE_SEATS = 3
@@ -91,6 +106,16 @@ export function seatLimit(pro: boolean): number {
 
 /** How long an invite link works. */
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+/** How soon the same invite can be sent again: a double press, or an impatient one, is not a second email. */
+export const RESEND_COOLDOWN_MS = 60 * 1000
+
+/** Seconds until an invite sent at `invitedAt` can be sent again (0: now). */
+export function resendWait(invitedAt: string | null | undefined, now = Date.now()): number {
+  const at = invitedAt ? Date.parse(invitedAt) : NaN
+  if (!Number.isFinite(at)) return 0
+  return Math.max(0, Math.ceil((at + RESEND_COOLDOWN_MS - now) / 1000))
+}
 
 /** An email as the team keeps it: trimmed and lower case, or null when it is not one. */
 export function teamEmail(v: unknown): string | null {
@@ -138,4 +163,10 @@ export function roleHome(_role: MemberRole): string {
   // Orders is the one area open to the team (OPEN_TO_TEAM), and only a role
   // that has it can be given (invitable), so every member starts there.
   return "/app/orders"
+}
+
+/** Whether a member's dashboard shows a link to this address: a part of the store their role has and that is open to the team. */
+export function memberSees(role: MemberRole, href: string): boolean {
+  const area = areaOfPath(href.split(/[?#]/)[0])
+  return area !== null && memberCan(role, area)
 }

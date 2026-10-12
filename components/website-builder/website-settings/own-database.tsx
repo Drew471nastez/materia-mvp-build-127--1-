@@ -7,6 +7,7 @@ import { OWN_DB_KEY, OWN_DB_URL, checkDatabaseUrl, checkPublicKey, ownDatabase }
 import { Card, GOES_LIVE, Row, buttonClass, inputClass, primaryButtonClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /**
  * ===========================================================================
@@ -110,7 +111,7 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
         }
         hint={
           connected
-            ? <>{tt("Connected to")} <span className="text-white/70">{new URL(connected.url).hostname}</span>{tt(". Sections that use a database can read and save to it.")}</>
+            ? <Rich text={tt("Connected to {host}. Sections that use a database can read and save to it.")} parts={{ host: <span className="text-white/70">{new URL(connected.url).hostname}</span> }} />
             : <>{tt("For sections you write that read or save your own data, like a waitlist or a guestbook. Your project’s security rules decide what they can reach.")}</>
         }
         inline

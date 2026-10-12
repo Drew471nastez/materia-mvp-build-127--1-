@@ -5,7 +5,10 @@ import { Check, Loader2 } from "lucide-react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { SITE_LANGUAGES, siteLanguage } from "@/lib/website-builder/site-language"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
-import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
+import { siteTabTitle } from "@/lib/website-builder/tab-title"
+import { siteIconUrl } from "@/lib/website-builder/site-icon"
+import { storeNameFor } from "./seo"
+import { AddressValue, Badge, BrowserTabPreview, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -45,6 +48,8 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
   /* The site's favicon, or an imported theme's own when the site has none yet (lib/website-builder/favicon-sync.ts). */
   const favicon = faviconOf(ctx.settings as Record<string, unknown>) || undefined
   const language = siteLanguage(ctx.settings) ?? ""
+  /* The home page's tab, as the live site writes it (lib/website-builder/tab-title.ts). */
+  const homeTitle = siteTabTitle({ page: { kind: "home" }, storeName: storeNameFor(ctx), siteTitle: typeof ctx.settings.seo_title === "string" ? ctx.settings.seo_title : "" })
 
   return (
     <>
@@ -86,15 +91,18 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
         </Row>
       </Card>
 
-      <Card footer={tt(GOES_LIVE)}>
+      <Card footer={GOES_LIVE}>
         <Row label={tt("Favicon")} hint={tt("The small icon in a browser tab. A square picture, 64 × 64 or larger.")} stack>
-          <div className="dark max-w-[220px]">
+          {/* A small tile, its actions, and the tab it ends up in, on one row (image-picker.tsx, layout "icon"). */}
+          <div className="dark">
             <WbImagePicker
               value={favicon}
               onChange={(url) => ctx.onSettingChange("favicon_url", url ?? "")}
               aspectRatio="favicon"
+              layout="icon"
               folder="logos"
               library={false}
+              aside={<BrowserTabPreview icon={favicon || siteIconUrl(ctx.settings as Record<string, unknown>, ctx.header ? [ctx.header] : []) || undefined} title={homeTitle} />}
             />
           </div>
         </Row>

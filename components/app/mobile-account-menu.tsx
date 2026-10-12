@@ -10,7 +10,7 @@ import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { isNativeApp } from "@/lib/native-bridge"
 import { openStorelibPage } from "@/lib/navigation/cross-section"
-import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow } from "@/components/app/business-switcher"
+import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow, type TeamStoreRow } from "@/components/app/business-switcher"
 import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
 import { tt } from "@/lib/i18n/text"
 
@@ -30,9 +30,11 @@ import { tt } from "@/lib/i18n/text"
  * a page the size of the dashboard and count what else renders.
  */
 const NO_BUSINESSES: BusinessRow[] = []
+const NO_TEAM_STORES: TeamStoreRow[] = []
 
 export const MobileAccountMenu = memo(function MobileAccountMenu({
   businesses = NO_BUSINESSES,
+  teamStores = NO_TEAM_STORES,
   avatarSrc,
   userDisplayName,
   settingsLabel,
@@ -44,6 +46,8 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
 }: {
   /** Every business of the login (up to lib/businesses/rules MAX_BUSINESSES), else this one alone: the switcher at the top of the sheet. */
   businesses?: BusinessRow[]
+  /** The stores this login is on as a team member, under its businesses (lib/team). */
+  teamStores?: TeamStoreRow[]
   avatarSrc: string | undefined
   userDisplayName: string
   settingsLabel: string
@@ -178,9 +182,9 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     >
       <div className="px-3 pb-3">
         {/* With the businesses known, they head the sheet (the current one checked); before, the account alone. */}
-        {businesses.length > 0 ? (
+        {businesses.length > 0 || teamStores.length > 0 ? (
           <>
-            <BusinessSwitcher businesses={businesses} variant="sheet" currentAvatar={avatarSrc} open={mobileProfileDropdownOpen} onNavigate={closeMobileProfile} />
+            <BusinessSwitcher businesses={businesses} teamStores={teamStores} variant="sheet" currentAvatar={avatarSrc} open={mobileProfileDropdownOpen} onNavigate={closeMobileProfile} />
             <div className="my-1.5 h-px bg-neutral-100" />
           </>
         ) : (

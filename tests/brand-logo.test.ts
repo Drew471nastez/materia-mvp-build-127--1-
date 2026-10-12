@@ -186,8 +186,8 @@ function main() {
   const ALLOWED = new Set([
     "lib/brand/logo.ts",
     COMPONENT,
-    "lib/email.tsx",
-    "lib/notify/templates/layout.ts",
+    /* Every email draws the logo through the one shared layout. */
+    "lib/emails/layout.ts",
     "lib/unsubscribe-card.ts",
     "app/app/products/products-client.tsx",
     "components/store-builder/dynamic-favicon.tsx",
@@ -264,7 +264,7 @@ function main() {
   check("the absolute form is always the live host", storelibAssetUrl(STORELIB_EMAIL_LOGO) === "https://storelib.com/images/brand/storelib-logo-email-v2.png")
   check("and Google's logo is the PNG on it", storelibLogoUrl() === "https://storelib.com/images/brand/storelib-logo-v2.png")
 
-  for (const file of ["lib/email.tsx", "lib/notify/templates/layout.ts"]) {
+  for (const file of ["lib/emails/layout.ts"]) {
     const src = read(file)
     const tags = src.match(/<img[^>]*(storelibAssetUrl\(STORELIB_EMAIL_LOGO\)|EMAIL_LOGO_URL)[^>]*>/g) ?? []
     check(`${file}: the email logo is the PNG from storelib.com`, tags.length > 0 && /storelibAssetUrl\(STORELIB_EMAIL_LOGO\)/.test(src), tags.length)

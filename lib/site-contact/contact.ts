@@ -49,6 +49,7 @@
  * kept in /app yet.
  */
 
+import { platformEmail } from "@/lib/emails/layout"
 import { v4 as uuidv4 } from "uuid"
 import { inboxAddress, sellerInbox, type LoginEmail } from "@/lib/seller-inbox"
 
@@ -349,9 +350,6 @@ export async function creatorInbox(db: Db, creatorId: string, sectionId: string 
 
 /* ─── The email to the creator ─────────────────────────────────────────── */
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
-}
 
 export interface CreatorEmail {
   subject: string
@@ -380,26 +378,19 @@ export function creatorEmail(input: {
   const subject = line(msg.subject ? `${lead}: ${msg.subject}` : lead, 180)
   const where = input.site ? `${input.site}${msg.page === "home" ? "" : `/${msg.page}`}` : `your website, ${msg.page} page`
   const consent = msg.consent ? "Asked to get news from you, and was added to your Subscribers." : "Did not ask for news. Kept in your contacts as somebody who wrote."
-  const paragraphs = escapeHtml(msg.message)
-    .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 14px;white-space:normal">${p.replace(/\n/g, "<br>")}</p>`)
-    .join("")
-  const row = (label: string, value: string) =>
-    `<tr><td style="padding:3px 16px 3px 0;color:#6b7280;vertical-align:top;white-space:nowrap">${escapeHtml(label)}</td><td style="padding:3px 0;color:#1a1a2e">${escapeHtml(value)}</td></tr>`
-  const html = [
-    `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1a1a2e;max-width:560px">`,
-    `<p style="margin:0 0 18px;color:#6b7280">A message from the contact form on ${escapeHtml(input.store)}. Reply to this email to answer ${escapeHtml(who)}.</p>`,
-    `<table role="presentation" style="border-collapse:collapse;margin:0 0 18px;font-size:14px">`,
-    msg.name ? row("Name", msg.name) : "",
-    row("Email", msg.email),
-    msg.subject ? row("Subject", msg.subject) : "",
-    row("Sent from", where),
-    `</table>`,
-    `<div style="border-top:1px solid #e5e7eb;padding-top:16px">${paragraphs}</div>`,
-    input.messageUrl ? `<p style="margin:18px 0 0;font-size:14px"><a href="${escapeHtml(input.messageUrl)}" style="color:#1a1a2e;font-weight:600">Open in Messages</a></p>` : "",
-    `<p style="margin:18px 0 0;font-size:13px;color:#6b7280">${escapeHtml(consent)} <a href="${escapeHtml(input.contactUrl)}" style="color:#1a1a2e">See them in Emails</a></p>`,
-    `</div>`,
-  ].join("")
+  /* Drawn in the one Storelib layout (lib/emails/layout.ts); the visitor's words quoted, every value escaped there. */
+  const html = platformEmail({
+    subject,
+    preview: msg.message.replace(/\s+/g, " ").slice(0, 140),
+    heading: `${who} sent you a message`,
+    paragraphs: [`From the contact form on ${input.store}. Reply to this email to answer ${who}.`],
+    facts: [...(msg.name ? [{ label: "Name", value: msg.name }] : []), { label: "Email", value: msg.email }, ...(msg.subject ? [{ label: "Subject", value: msg.subject }] : []), { label: "Sent from", value: where }],
+    quote: { text: msg.message },
+    action: input.messageUrl ? { label: "Open in Messages", url: input.messageUrl } : null,
+    fallback: false,
+    secondary: { label: "See them in Emails", url: input.contactUrl },
+    note: consent,
+  }).html
   const text = [
     `A message from the contact form on ${input.store}. Reply to this email to answer ${who}.`,
     "",

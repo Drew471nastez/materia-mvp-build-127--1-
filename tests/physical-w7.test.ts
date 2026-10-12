@@ -181,7 +181,8 @@ async function main() {
     const url = "https://storelib.com/reset-password?code=abc_DEF-123"
     const m = resetPasswordEmail({ resetUrl: url, minutes: 60 })
     check("the link, in the button and as text, and when it stops working", m.html.includes(`href="${url}"`) && m.text.includes(url) && /works once, for 1 hour/.test(m.text))
-    check("Storelib's own layout: the logo, ink button, no blue, no title case", /alt="Storelib"/.test(m.html) && /#1a1a2e/.test(m.html) && !/#2563eb/.test(m.html) && !/Reset Password/.test(m.html) && m.subject === "Reset your Storelib password")
+    /* The shared layout's header: the mark (alt left empty, the name is written beside it) and the name. */
+    check("Storelib's own layout: the logo, ink button, no blue, no title case", /src="https:\/\/storelib\.com\/images\/brand\/storelib-logo-email-v2\.png" alt=""/.test(m.html) && />Storelib<\/td>/.test(m.html) && /#1a1a2e/.test(m.html) && !/#2563eb/.test(m.html) && !/Reset Password/.test(m.html) && m.subject === "Reset your Storelib password")
     for (const p of ["app/api/auth/request-password-reset/route.ts", "app/api/auth/reset-password/route.ts"]) {
       const src = read(p)
       check(`${p}: the shared email, transactional`, /resetPasswordEmail\(\{ resetUrl, minutes: 60 \}\)/.test(src) && /transactional: true/.test(src) && /https:\/\/storelib\.com\/reset-password\?code=/.test(src))

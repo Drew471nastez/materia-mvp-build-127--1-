@@ -22,6 +22,7 @@ import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in
 import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
+import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 
 /**
@@ -117,6 +118,11 @@ function LoginFormContent() {
   useNativeScrollLock()
   const router = useRouter()
   const searchParams = useSearchParams()
+  /* On the way back to a team invite (app/team/join): the invited email, filled in and kept, since no other account can accept it. */
+  const inviteEmail = inviteEmailFrom(searchParams)
+  useEffect(() => {
+    if (inviteEmail) setEmail(inviteEmail)
+  }, [inviteEmail])
 
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
@@ -750,7 +756,7 @@ function LoginFormContent() {
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
           {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
-          <p className="mb-8 text-[15px] text-neutral-500">{carry.intent ? "Log in, then set up your shop." : "Log in to your account"}</p>
+          <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Log in as ${inviteEmail} to accept the team invite.` : carry.intent ? "Log in, then set up your shop." : "Log in to your account"}</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
@@ -761,8 +767,10 @@ function LoginFormContent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                readOnly={!!inviteEmail}
+                aria-readonly={inviteEmail ? true : undefined}
                 autoComplete="email"
-                className="h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0"
+                className={`h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0${inviteEmail ? " text-neutral-600" : ""}`}
               />
             </div>
 

@@ -68,7 +68,7 @@ export const WAIT_MS = {
 
 export class RequestTimeout extends Error {
   constructor(url: string, ms: number) {
-    super(`${url.split("?")[0]} took longer than ${Math.round(ms / 1000)}s`)
+    super(`${url.split("?")[0]} took longer than ${Math.round(ms / 1000)}s`) // i18n-ignore: for the log
     this.name = "RequestTimeout"
   }
 }

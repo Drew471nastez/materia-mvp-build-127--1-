@@ -94,6 +94,7 @@ const PROOFS: [string, RegExp][] = [
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
   // Sign-up and password recovery: the caller has no session yet, by definition.
+  "team/join/switch/route.ts": "Use another account on a team invite: signs the browser's own session out (POST from Storelib's own page only) and sends it to sign in as the invited email; it reads only the invite the link's token names, nothing else",
   "auth/account-origin/route.ts": "answers how an email address signed up, before there is a session",
   "payouts-sheet/route.ts": "the apps' browser sheet has no session: the caller is a thirty minute HMAC link signed for one creator by the signed-in /api/payments/app-sheet, checked and the creator re-read before an Account Session is opened, rate limited",
   "site-theme/site/[username]/[[...path]]/route.ts": "an imported Shopify theme's own pages, which every visitor of its website sees; it draws only what the proxy sealed for this name on this host (siteSealed), and the service read is the site's own published tracking IDs for its pages (round AD)",

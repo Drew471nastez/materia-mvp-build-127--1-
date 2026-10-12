@@ -60,7 +60,7 @@ console.log("\nWhat is read")
 console.log("\nWhere it is used")
 {
   const render = read("app/(site)/w/[username]/render-site.tsx")
-  check("the live page's title and description come from the page first", /const own = pageSeoOf\(settings as Record<string, unknown>, pageKey\)/.test(render) && /own\.title \?\?/.test(render) && /own\.description \?\?/.test(render))
+  check("the live page's title and description come from the page first", /const own = pageSeoOf\(settings as Record<string, unknown>, pageKey\)/.test(render) && /* Round I: through the one tab rule (lib/website-builder/tab-title.ts). */ /ownTitle: tab\?\.page \? null : own\.title/.test(render) && /own\.description \?\?/.test(render))
   check("and a hidden page says noindex", /own\.hidden \? \{ robots: \{ index: false, follow: true \} \}/.test(render))
   const data = read("lib/website-builder/site-seo-data.ts")
   check("the sitemap leaves out a hidden page", /hiddenPages\(site\.themeSettings/.test(data) && /filter\(\(k\) => !hidden\.has\(k\)\)/.test(data))

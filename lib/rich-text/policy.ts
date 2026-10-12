@@ -396,7 +396,7 @@ export function byteLength(value: string): number {
 export function descriptionTooLong(html: string, say: (source: string, vars?: Vars) => string = tt): string | null {
   const bytes = byteLength(html)
   if (bytes <= MAX_DESCRIPTION_BYTES) return null
-  const kb = (n: number) => `${Math.ceil(n / 1024)} KB`
+  const kb = (n: number) => `${Math.ceil(n / 1024)} KB` // i18n-ignore: a size
   const inline = /<img[^>]+src="data:/i.test(html)
   const vars = { size: kb(bytes), limit: kb(MAX_DESCRIPTION_BYTES) }
   return inline

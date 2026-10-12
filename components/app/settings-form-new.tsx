@@ -70,6 +70,7 @@ import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
 import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
 import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
@@ -239,6 +240,8 @@ interface SettingsFormProps {
   otherStores?: number
   /** Who pays this creator (lib/payments/service providerFor). Airwallex draws Storelib Payments' hub in the Payments tab. */
   paymentsProvider?: "stripe" | "airwallex"
+  /** Working in another store as a team member (lib/team): only the account's own sections, never this account's store dressed as the one they work in. */
+  teamActing?: boolean
   initialTab?: TabId
 }
 
@@ -370,7 +373,7 @@ function DesktopSettingsModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, paymentsProvider = "stripe", initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, paymentsProvider = "stripe", teamActing = false, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
@@ -444,7 +447,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const physicalCommerce = usePhysicalCommerceEnabled()
   const searchParams = useSearchParams()
   const addressTab = tabFromAddress(searchParams?.get("tab") ?? null, searchParams?.get("section") ?? null)
-  const allowed = (tab: string | null): tab is TabId => !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce)
+  const allowed = (tab: string | null): tab is TabId =>
+    !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce) && (!teamActing || TABS.find((x) => x.id === tab)?.group === "account")
   const [activeTab, setActiveTab] = useState<TabId>(() => (allowed(addressTab) ? addressTab : TAB_IDS.includes(initialTab) && allowed(initialTab) ? initialTab : "general"))
   /*
     BELOW 1024px, PILLS (round V, the owner: "like it was before, the whole
@@ -455,7 +459,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   */
   /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
   /* Every store refunds; only a store with physical products takes returns, so without them the section is Refunds. */
-  const shownTabs = TABS.filter((tab) => !COMMERCE_TABS.has(tab.id) || physicalCommerce).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: tt("Refunds"), line: tt("Why you refund") } : tab))
+  const shownTabs = TABS.filter((tab) => (!COMMERCE_TABS.has(tab.id) || physicalCommerce) && (!teamActing || tab.group === "account")).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: tt("Refunds"), line: tt("Why you refund") } : tab))
   /* Each section's own name, from the one list (a name missing from a chain of cases used to fall through to "Domains"). */
   const labelOf = (id: TabId): string =>
     id === "general" ? t("settings.general") === "General" ? tt("Profile") : t("settings.general") :
@@ -2404,7 +2408,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               </div>
             </div>
             <p className="text-[13px] text-[#6b7280]">
-              {tt("We'll send a verification code to")} <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> {tt("to confirm this action.")}
+              <Rich text={tt("We'll send a verification code to {email} to confirm this action.")} parts={{ email: <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> }} />
             </p>
             {deleteError && <p className="text-[13px] text-white bg-[#1a1a2e] p-3 rounded-xl">{deleteError}</p>}
             <div className="flex gap-3">

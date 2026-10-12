@@ -21,6 +21,7 @@ import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 const TABS = [
@@ -929,7 +930,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
           {isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                {tt("Your cancellation will be reversed and you'll continue on the")} <span className="font-semibold text-[#7c3aed]">{planName}</span> {tt("plan at")} <span className="font-semibold text-[#7c3aed]">{tt("{amount}/month", { amount: formatPlanPrice(priceCents) })}</span>.
+                <Rich text={tt("Your cancellation will be reversed and you'll continue on the {plan} plan at {price}.")} parts={{ plan: <span className="font-semibold text-[#7c3aed]">{planName}</span>, price: <span className="font-semibold text-[#7c3aed]">{tt("{amount}/month", { amount: formatPlanPrice(priceCents) })}</span> }} />
               </p>
             </div>
           )}
@@ -937,7 +938,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
           {isUpgrade && !isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                {tt("You'll be charged")} <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> {tt("today for the remaining time in your current billing cycle.")}
+                <Rich text={tt("You'll be charged {amount} today for the remaining time in your current billing cycle.")} parts={{ amount: <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> }} />
               </p>
               {nextChargeText && <p className="text-[13px] text-[#6b7280]">{nextChargeText}</p>}
             </div>

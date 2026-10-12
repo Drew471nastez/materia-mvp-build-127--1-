@@ -22,6 +22,7 @@ import { useLocale } from "@/components/locale-provider"
 import { alreadyRegisteredHint, classifyOAuthError, type SignInMethod } from "@/lib/auth/oauth-errors"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
+import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
 import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
@@ -82,6 +83,8 @@ function SignUpFormContent() {
   const claim = searchParams.get("claim")
   const receiptToken = searchParams.get("receiptToken")
   const prefilledEmail = searchParams.get("email")
+  /* On the way back to a team invite (app/team/join): the invited email is kept, since no other account can accept it. */
+  const inviteEmail = inviteEmailFrom(searchParams)
   // Get redirect URL from search params (for returning to receipt page after signup)
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
@@ -608,7 +611,7 @@ function SignUpFormContent() {
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.signup_title")}</h1>
           {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
-          <p className="mb-8 text-[15px] text-neutral-500">{t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
+          <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Create your account as ${inviteEmail} to accept the team invite.` : t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
@@ -619,8 +622,10 @@ function SignUpFormContent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                readOnly={!!inviteEmail}
+                aria-readonly={inviteEmail ? true : undefined}
                 autoComplete="email"
-                className="h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0"
+                className={`h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0${inviteEmail ? " text-neutral-600" : ""}`}
               />
             </div>
 

@@ -55,6 +55,8 @@ export interface CustomerEmailsShop {
   logoUrl: string | null
   phone: string | null
   currency: string
+  /** The store's accent, for the button in each preview (lib/emails/layout.ts uses it when it reads on white). */
+  accent?: string | null
 }
 export interface CustomerEmailsData {
   shop: CustomerEmailsShop

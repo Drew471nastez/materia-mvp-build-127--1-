@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { customerEmailCopyReady, loadCustomerEmailCopy, saveCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { CUSTOMER_EMAILS } from "@/lib/emails/customer-catalog"
 import { recordActivity } from "@/lib/activity/log-server"
@@ -22,12 +23,13 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [identity, store, { data: creator }, copy, ready] = await Promise.all([
+  const [identity, store, { data: creator }, copy, ready, look] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
     loadCustomerEmailCopy(db, c.creatorId),
     customerEmailCopyReady(db, c.creatorId).catch(() => false),
+    loadBrand(db, c.creatorId).catch(() => null),
   ])
   return physicalJson({
     shop: {
@@ -37,6 +39,7 @@ export async function GET() {
       logoUrl: store?.logoUrl ?? null,
       phone: store?.phone ?? null,
       currency: (creator?.payout_currency as string | null) || "USD",
+      accent: look?.accent ?? null,
     },
     copy,
     ready,

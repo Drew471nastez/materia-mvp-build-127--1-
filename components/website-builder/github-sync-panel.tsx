@@ -32,6 +32,7 @@ import { Step, Steps } from "@/components/website-builder/setup-steps"
 import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
 import { buttonClass, primaryButtonClass } from "@/components/website-builder/website-settings/parts"
 import { tt, msg } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 interface Link {
   account: string
@@ -285,7 +286,7 @@ export function GitHubSyncPanel({
   const picker = status && link ? (
     <div>
       <p className="text-[14px] text-white/60">
-        {tt("Connected to")} <span className="text-white">{link.account || "GitHub"}</span>{tt(". Pick the repository for this website.")}
+        <Rich text={tt("Connected to {account}. Pick the repository for this website.")} parts={{ account: <span className="text-white">{link.account || "GitHub"}</span> }} />
       </p>
       {status.reposError ? (
         <p className="mt-3 text-[14px] text-red-300">{status.reposError}</p>
@@ -512,7 +513,7 @@ export function GitHubSyncPanel({
               .
             </li>
             <li>{tt("Ask for a change, such as “make the hero taller”. It reads AGENTS.md first.")}</li>
-            <li>{tt("When it pushes to")} <span className="font-mono">{link.branch}</span>{tt(", the change shows here as a draft within seconds.")}</li>
+            <li><Rich text={tt("When it pushes to {branch}, the change shows here as a draft within seconds.")} parts={{ branch: <span className="font-mono">{link.branch}</span> }} /></li>
           </ol>
         </div>
 

@@ -62,6 +62,7 @@ import {
   fieldInput,
 } from "@/components/onepage/editor-kit"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
@@ -3007,7 +3008,7 @@ function ThemeSection() {
             </div>
 
             <p className="text-sm text-muted-foreground text-center">
-              {tt("This wallpaper option requires a")} <strong>{tt("Classic")}</strong> {tt("profile image layout.")}
+              <Rich text={tt("This wallpaper option requires a {layout} profile image layout.")} parts={{ layout: <strong>{tt("Classic")}</strong> }} />
             </p>
 
             <div className="space-y-2">
@@ -3831,7 +3832,7 @@ function WallpaperSection() {
             </div>
 
             <p className="text-sm text-muted-foreground text-center">
-              {tt("This wallpaper option requires a")} <strong>{tt("Classic")}</strong> {tt("profile image layout.")}
+              <Rich text={tt("This wallpaper option requires a {layout} profile image layout.")} parts={{ layout: <strong>{tt("Classic")}</strong> }} />
             </p>
 
             <div className="space-y-2">

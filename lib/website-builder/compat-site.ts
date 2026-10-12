@@ -354,9 +354,12 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       /* The description, and the product's own questions for `product.metafields.storelib.faqs` (lib/storelib-theme/compat/objects.ts); the description alone on a database without them. */
       const readDescription = async () => {
         const read = (cols: string) => admin.from("products").select(cols).eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
-        let { data, error } = await read("description, faqs")
+        /* Its SEO title too: an imported theme's page_title and the tab say it, as a Storelib theme's product page does (lib/website-builder/tab-title.ts). */
+        let { data, error } = await read("description, faqs, seo_title")
+        if (error) ({ data, error } = await read("description, faqs"))
         if (error) ({ data, error } = await read("description"))
-        return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "", faqs: productFaqs((data as { faqs?: unknown } | null)?.faqs) }
+        const seoTitle = (data as { seo_title?: unknown } | null)?.seo_title
+        return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "", faqs: productFaqs((data as { faqs?: unknown } | null)?.faqs), seoTitle: typeof seoTitle === "string" ? seoTitle.trim().replace(/ \| Storelib$/i, "") : "" }
       }
       const found = draft ? await readDescription() : await heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null)
       const raw = found?.text ?? ""
@@ -370,7 +373,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const withStock = delivery && Object.keys(delivery.pickup).length && Array.isArray(stocked.settings.variants)
         ? { ...stocked, settings: { ...stocked.settings, variants: (stocked.settings.variants as unknown as Record<string, unknown>[]).map((v) => ({ ...v, pickup: delivery.pickup[String(v.id)] ?? [] })) } }
         : stocked
-      return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [] } }
+      return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}) } }
     },
     /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
     reviews: async (p) => (await import("@/lib/reviews/storefront-server")).storefrontReviews(creator.creatorId, p) as unknown as Promise<Record<string, unknown>>,

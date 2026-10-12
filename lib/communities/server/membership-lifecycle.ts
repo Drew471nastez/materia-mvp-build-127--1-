@@ -41,6 +41,7 @@ import "server-only"
  * with a stubbed Stripe (tests/communities-membership13.test.ts); the
  * defaults load the real ones only when called.
  */
+import { identity, platformEmail } from "@/lib/emails/layout"
 import { grantsAccess } from "@/lib/memberships/state"
 import type { MembershipRow } from "@/lib/memberships/server"
 import type { CommunityRow } from "../types"
@@ -928,24 +929,18 @@ export function contactEmail(m: { communityName: string; senderName: string; sen
   const subject = headerSafe(`${community}: ${m.subject}`).slice(0, 180)
   const fromName = headerSafe(`${who} via Storelib`).replace(/[<>"]/g, "")
   const preview = headerSafe(m.message).slice(0, 110)
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>${escape(subject)}</title></head><body style="margin:0;background:#f5f6f8;font-family:Inter,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
-<div style="display:none;font-size:1px;color:#f5f6f8;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escape(preview)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;"><tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e7ec;border-radius:16px;">
-<tr><td style="padding:28px 28px 8px;">
-<p style="margin:0;font-size:13px;color:#6b7280;">${escape(community)} · a message from a member</p>
-<h1 style="margin:6px 0 0;font-size:20px;line-height:1.3;font-weight:700;color:#1a1a2e;">${escape(m.subject)}</h1>
-<p style="margin:6px 0 0;font-size:14px;color:#4b5563;">From ${escape(who)}</p>
-</td></tr>
-<tr><td style="padding:16px 28px 0;">
-<div style="border-left:3px solid #d5d9e0;padding:4px 0 4px 14px;font-size:15px;line-height:1.6;color:#1a1a2e;white-space:pre-wrap;word-break:break-word;">${escape(m.message)}</div>
-</td></tr>
-<tr><td style="padding:20px 28px 28px;font-size:14px;line-height:1.55;color:#4b5563;">
-Reply to this email and it goes to ${escape(m.senderEmail)}. <a href="${escape(m.link)}" style="color:#1a1a2e;font-weight:600;">Open your members</a>
-</td></tr>
-</table>
-<p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">Sent from the contact form in ${escape(community)} on Storelib.</p>
-</td></tr></table></body></html>`
+  const { html } = platformEmail({
+    subject,
+    preview,
+    label: `${community} · a message from a member`,
+    heading: headerSafe(m.subject) || "A message from a member",
+    paragraphs: [`From ${who}`],
+    quote: { text: m.message },
+    closing: [{ html: `Reply to this email and it goes to ${identity(m.senderEmail)}.`, text: `Reply to this email and it goes to ${m.senderEmail}.` }],
+    action: { label: "Open your members", url: m.link },
+    fallback: false,
+    reason: `Sent from the contact form in ${community} on Storelib.`,
+  })
   const text = [`${who} wrote to you from ${community}:`, "", `Subject: ${headerSafe(m.subject)}`, "", m.message, "", `Reply to this email and it goes to ${m.senderEmail}.`, `Open your members: ${m.link}`].join("\n")
   return { subject, fromName, html, text }
 }
