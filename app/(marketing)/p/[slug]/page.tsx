@@ -77,6 +77,7 @@ import { shownCustomFields } from "@/lib/products/custom-fields"
 import { productPageTone } from "@/lib/store-builder/product-page-tone"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import { imagesOnly } from "@/lib/media/video"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 /*
   WHAT'S INCLUDED, ONE PLAIN MARK A LINE. It used to pick a picture for each
@@ -348,7 +349,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
    * the page logged-out, so the catch here keeps that exact behaviour rather
    * than turning an auth blip into an unhandled rejection.
    */
-  const userPromise = supabase.auth.getUser().catch(() => ({ data: { user: null } }))
+  const userPromise = currentUserForRequest().then((c) => ({ data: { user: c.user } })).catch(() => ({ data: { user: null } }))
 
   const variantsPromise = cachedVariants(product.id)
 

@@ -36,6 +36,7 @@ import { CartReturnsNote } from "./theme/shop-commerce"
 import { useChargeNote, useMoney, useStorefront, useWord } from "./theme/storefront-context"
 import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { useBackFromCache } from "@/hooks/use-back-from-cache"
 
 export interface CartPalette {
   bg: string
@@ -64,6 +65,8 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
   const w = useWord()
   const [busy, setBusy] = useState(false)
+  /* Back from the payment page, restored from the browser's cache: not still on its way there. */
+  useBackFromCache(() => setBusy(false))
   const [error, setError] = useState<string | null>(null)
   const [dropped, setDropped] = useState<string[]>([])
 

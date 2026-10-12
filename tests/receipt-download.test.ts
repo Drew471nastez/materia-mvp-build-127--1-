@@ -395,7 +395,7 @@ function main() {
   check("an old access link compares its token in constant time", /sameSecret\(order\.access_token, input\.accessToken\)/.test(read("lib/receipts/legacy-link.ts")))
   check(
     "payment state comes from Stripe, not from the query string",
-    /stripe\.checkout\.sessions\.retrieve\(sessionId\)/.test(read("app/purchase/success/page.tsx")) &&
+    /stripe\.checkout\.sessions\.retrieve\(sessionId[,)]/.test(read("app/purchase/success/page.tsx")) &&
       !/searchParams\.get\("(paid|status|emailSent)"\)/.test(view),
   )
   check("the checkout-only receipt component is gone", !existsSync(join(process.cwd(), "app/checkout/receipt/checkout-receipt-client.tsx")))

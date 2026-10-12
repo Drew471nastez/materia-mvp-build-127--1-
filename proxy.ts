@@ -1,7 +1,7 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
 import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { createServerClient } from "@supabase/ssr"
-import { readCurrentUser, shouldSendToLogin } from "@/lib/auth/current-user"
+import { readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
@@ -2049,8 +2049,15 @@ export async function proxy(request: NextRequest) {
     headers below (the app's Stripe frame policy among them) still go on
     this response: the start now lands in this same document.
   */
-  const current: Awaited<ReturnType<typeof readCurrentUser>> =
-    request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : await readCurrentUser(supabase)
+  /*
+    VERIFIED, WITHOUT A ROUND TRIP WHERE IT CAN BE. readVerifiedSession
+    (lib/auth/current-user.ts) checks the token's signature with Supabase's
+    public keys, kept per instance, instead of asking Supabase Auth on every
+    page, prefetch and /api call; a project on the shared secret falls back
+    to getUser() exactly as before.
+  */
+  const current: Awaited<ReturnType<typeof readVerifiedSession>> =
+    request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : await readVerifiedSession(supabase, supabaseUrl)
 
   if (current.state === "indeterminate" && request.nextUrl.pathname !== "/native-start") {
     console.warn(`[proxy] auth undetermined on ${request.nextUrl.pathname}: ${current.reason}`)

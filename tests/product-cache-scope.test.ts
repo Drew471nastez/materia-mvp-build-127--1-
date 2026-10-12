@@ -113,7 +113,7 @@ for (const table of ["entitlements", "orders"]) {
 
 check(
   "the product page still asks who is looking",
-  /supabase\.auth\.getUser\(\)/.test(pageSrc),
+  /supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(pageSrc),
   PAGE,
 )
 

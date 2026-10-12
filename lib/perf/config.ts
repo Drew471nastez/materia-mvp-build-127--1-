@@ -154,6 +154,21 @@ export const STEPS = {
   "/step/checkout/ready": { area: "checkout", label: "Payment form ready", good: 2500, poor: 5000 },
   "/step/checkout/intent": { area: "checkout", label: "Payment started (intent)", good: 1000, poor: 3000 },
   "/step/checkout/confirm": { area: "checkout", label: "Payment confirmed", good: 3000, poor: 8000 },
+  /*
+    Every request made through lib/net/request.ts, by the area of the page that made it: how long it took, and each one
+    that did not end in an answer, with why (timeout, offline, network, server, slow: answered after SLOW_REQUEST_MS).
+    A screen that "keeps processing" is one of these with the code timeout.
+  */
+  "/step/net/app": { area: "app", label: "Requests", good: 1000, poor: 4000 },
+  "/step/net/builder": { area: "builder", label: "Requests", good: 1000, poor: 4000 },
+  "/step/net/explore": { area: "explore", label: "Requests", good: 1000, poor: 4000 },
+  "/step/net/community": { area: "community", label: "Requests", good: 1000, poor: 4000 },
+  "/step/net/creator": { area: "creator", label: "Requests", good: 1000, poor: 4000 },
+  "/step/net/product": { area: "product", label: "Requests", good: 1000, poor: 4000 },
+  "/step/net/checkout": { area: "checkout", label: "Requests", good: 1000, poor: 4000 },
+  "/step/net/sites": { area: "sites", label: "Requests", good: 1000, poor: 4000 },
 } as const satisfies Record<string, { area: Area; label: string; good: number; poor: number }>
 export type StepRoute = keyof typeof STEPS
 export const STEP_ROUTES = Object.keys(STEPS) as StepRoute[]
+/** An answer slower than this is also counted as a failure, with the code `slow`: it worked, and somebody waited. */
+export const SLOW_REQUEST_MS = 5_000

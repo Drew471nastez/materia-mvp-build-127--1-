@@ -8,6 +8,10 @@ import { useRouter } from "next/navigation"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { usePressPending } from "@/lib/navigation/press-pending"
 import { carryTouches } from "@/lib/attribution/browser"
+import { fetchWithDeadline } from "@/lib/net/request"
+
+/** How long Buy waits on "have you bought this already?" before it shows. A hung check used to mean the product could not be bought at all. */
+const PURCHASE_CHECK_MS = 6_000
 
 interface SmartBuyButtonProps {
   productId: string
@@ -105,9 +109,9 @@ export function SmartBuyButton({
         }
 
         // 3. API fallback for logged-in users
-        const res = await fetch(`/api/purchases/check?productId=${productId}`, {
+        const res = await fetchWithDeadline(`/api/purchases/check?productId=${productId}`, {
           credentials: "include",
-        })
+        }, PURCHASE_CHECK_MS)
 
         if (res.ok) {
           const data = await res.json()

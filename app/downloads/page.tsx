@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { receiptTokenForLegacyLink } from "@/lib/receipts/legacy-link"
 import { LinkNotValid } from "@/components/receipt/link-not-valid"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default async function DownloadsPage({ searchParams }: { searchParams: Pr
     const supabase = await createClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
     userId = user?.id ?? null
   } catch {
     /* A guest following an email link. */

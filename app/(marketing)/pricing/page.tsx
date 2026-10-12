@@ -1,5 +1,6 @@
 import { PricingPageClient } from "./pricing-client"
 import { createClient } from "@/lib/supabase/server"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 export default async function PricingPage({
   searchParams,
@@ -8,7 +9,7 @@ export default async function PricingPage({
 }) {
   const params = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
 
   return (
     <PricingPageClient

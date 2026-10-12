@@ -60,6 +60,7 @@ import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { HtmlClass } from "@/components/platform/html-class"
 import { OwnedNote, SiteOwned } from "./owned"
 import { AccessLink } from "../parts/access-link"
+import { FAIL_COPY, WAIT_MS, requestJson } from "@/lib/net/request"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -126,15 +127,11 @@ function remember(key: string, value: string) {
   }
 }
 
+/** Bounded (lib/net/request.ts WAIT_MS.pay). A failure to answer throws, as a dropped connection always did, so the callers' own error paths apply. */
 async function call<T>(body: Record<string, unknown>): Promise<{ ok: boolean; status: number; data: T & { error?: string; field?: string; code?: string; free?: boolean } }> {
-  const res = await fetch("/api/checkout/site", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) })
-  let data = {} as T & { error?: string; field?: string; code?: string; free?: boolean }
-  try {
-    data = await res.json()
-  } catch {
-    /* an empty answer is an error with no words of its own */
-  }
-  return { ok: res.ok, status: res.status, data }
+  const r = await requestJson<T & { error?: string; field?: string; code?: string; free?: boolean }>("/api/checkout/site", { method: "POST", json: body, credentials: "same-origin", timeoutMs: WAIT_MS.pay })
+  if (r.status === 0) throw Object.assign(new Error(FAIL_COPY[r.kind ?? "network"]), { kind: r.kind })
+  return { ok: r.ok, status: r.status, data: r.data }
 }
 
 function bringIntoView(el: HTMLElement, focus = false) {

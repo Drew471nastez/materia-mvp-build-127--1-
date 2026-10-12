@@ -17,6 +17,7 @@
  * progress simply jumps to the end.
  */
 import { createClient } from "@/lib/supabase/client"
+import { watchUploadStall } from "@/lib/net/request"
 
 export interface UploadOptions {
   /** Seconds, as supabase-js takes it. */
@@ -37,6 +38,9 @@ function viaXhr(url: string, token: string, file: Blob, o: UploadOptions): Promi
     const xhr = new XMLHttpRequest()
     const onAbort = () => xhr.abort()
     o.signal?.addEventListener("abort", onAbort, { once: true })
+    /* No bytes moving for a while is a dead connection, which leaves the request pending with no error at all (lib/net/request). */
+    let stalled = false
+    xhr.addEventListener("loadend", watchUploadStall(xhr, () => (stalled = true)))
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable && event.total > 0) o.onProgress?.(Math.round((event.loaded / event.total) * 100))
     })
@@ -58,7 +62,8 @@ function viaXhr(url: string, token: string, file: Blob, o: UploadOptions): Promi
     })
     xhr.addEventListener("abort", () => {
       o.signal?.removeEventListener("abort", onAbort)
-      reject(new Error(o.signal?.aborted ? "Upload stopped" : "network"))
+      /* A stall is not "network": retrying the whole file the other way on a dead line would only stall again. */
+      reject(new Error(o.signal?.aborted ? "Upload stopped" : stalled ? "The upload stopped moving. Check your connection and try again." : "network"))
     })
     xhr.open("POST", url)
     xhr.setRequestHeader("Authorization", `Bearer ${token}`)
