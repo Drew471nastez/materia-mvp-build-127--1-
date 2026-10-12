@@ -352,7 +352,8 @@ async function main() {
     check("shipping address and method", h.includes("Shipping address") && h.includes("Bucharest") && h.includes("Shipping method") && h.includes("Standard") && h.includes("3 to 5 business days"))
     check("the order page link and Get help", h.includes(`/checkout/physical/order/${TOKEN}`) && h.includes("#get-help"))
     check("Reply-To is the store's contact email (Store details), the one its footer shows", c.replyTo === "hello@astrid.test" && h.includes("mailto:hello@astrid.test"))
-    check("the legal line names the store and why the email came", /data-legal=""[^>]*>Astrid Studio<br>You&#39;re getting this email because of your order with Astrid Studio\.|data-legal=""[^>]*>Astrid Studio<br>You're getting this email because of your order with Astrid Studio\./.test(h) || (h.includes('data-legal=""') && h.includes("because of your order with Astrid Studio")))
+    /* The footer of the shared layout (lib/emails/layout.ts): why it came, then the legal line, the store's name when it gave no business details. */
+    check("the legal line names the store and why the email came", /class="e-foot"[^>]*>You&#39;re getting this email because of your order with Astrid Studio\.<\/p>\s*<p class="e-foot"[^>]*>(Sold by )?Astrid Studio<\/p>/.test(h), h.match(/getting this email[\s\S]{0,400}/)?.[0])
     check("the business behind the store is read from Store details' business details (storeIdentity legal)", legalOf({ legal: { name: "Astrid SRL", lines: ["Strada Lipscani 12", "Bucharest"], taxId: "RO123", taxIdLabel: "VAT number" } })?.taxIdLabel === "VAT number" && legalOf({ legal: null }) === null)
     const vdb = new FakeDb()
     seed(vdb)
@@ -411,7 +412,8 @@ async function main() {
   {
     const all = [...ALL_IDS.map((id) => sentFor[id])]
     check("a whole document: doctype, language, charset, viewport, the subject as its title", all.every((m) => /^<!DOCTYPE html>/i.test(m.html) && /<html lang="en"/.test(m.html) && /<meta charset="utf-8">/.test(m.html) && /<meta name="viewport"/.test(m.html)))
-    check("light only for Apple Mail, with every surface's colour as bgcolor too (the apps that invert, invert all of it)", all.every((m) => /<meta name="color-scheme" content="light only">/.test(m.html) && /bgcolor="#ffffff"/.test(m.html) && /bgcolor="#f8f9fa"/.test(m.html)))
+    /* White page, no grey frame, and a dark palette of its own (lib/emails/layout.ts), so Apple Mail and Outlook.com draw it dark on purpose. */
+    check("a white page with its colour as bgcolor too, and its own dark palette", all.every((m) => /<meta name="color-scheme" content="light dark">/.test(m.html) && /bgcolor="#ffffff"/.test(m.html) && !/bgcolor="#f8f9fa"/.test(m.html) && /prefers-color-scheme: dark/.test(m.html) && /\[data-ogsc\]/.test(m.html)))
     check("tables for layout, a fixed width for Outlook on Windows, buttons Outlook paints", all.every((m) => /role="presentation"/.test(m.html) && /<!--\[if mso\]><table role="presentation" width="560"/.test(m.html) && /bgcolor="#1a1a2e"/.test(m.html)))
     check("no script, no linked stylesheet, every element styled inline", all.every((m) => !/<script/i.test(m.html) && !/<link[^>]+stylesheet/i.test(m.html) && (m.html.match(/style="/g) ?? []).length > 30))
     check("a preview line for the inbox", all.every((m) => /display:none;font-size:1px/.test(m.html)))

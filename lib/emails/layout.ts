@@ -255,7 +255,7 @@ export interface EmailKit {
   /** Label and value rows. */
   facts(rows: EmailFact[], opts?: { below?: number; labelWidth?: string }): string
   /** One thing the email is about: a picture, a name and a line under it, in a light box. */
-  media(m: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean }): string
+  media(m: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean; accentTile?: boolean }): string
   /** Order lines: picture, title, detail and amount. */
   items(lines: EmailItem[], opts?: { below?: number; ruleTop?: boolean; pictures?: boolean }): string
   /** Money rows under the items, the strong one set off by a line. */
@@ -352,7 +352,7 @@ export function emailKit(sender: EmailSender): EmailKit {
       const radius = m.round ? px / 2 : 10
       const pic = src
         ? `<img class="e-thumb" src="${esc(src)}" alt="${esc(m.title)}" width="${px}" height="${px}" style="display:block;width:${px}px;height:${px}px;object-fit:cover;border:0;border-radius:${radius}px;background-color:${K.line};">`
-        : tile(m.title, px, radius, t)
+        : tile(m.title, px, radius, m.accentTile ? t : null)
       const sub = m.subtitle ? `<p class="e-muted" style="${P(14, 20, K.muted, "margin:2px 0 0 0;")}">${esc(m.subtitle)}</p>` : ""
       return row(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;">
@@ -729,7 +729,7 @@ export interface PlatformEmailInput {
   label?: string | null
   labelColor?: string
   /** Optional: something the email is about (a store, a product), drawn as a small card under the heading. */
-  media?: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean } | null
+  media?: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean; accentTile?: boolean } | null
   /**
    * The words. A string is a plain paragraph; { html, text } is a paragraph
    * with trusted markup (an identity() address, a bold name) and its plain

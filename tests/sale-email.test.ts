@@ -99,7 +99,7 @@ async function main() {
     check("total, fee and what the seller receives", e.text.includes("Total paid: $29.00\nStorelib fee: −$1.45\nYou receive: $27.55"))
     check("customer name, email, country by name, payment", e.text.includes("Name: Sam Rivera\nEmail: sam@example.com\nCountry: Portugal\nPayment: Visa ending in 4242"))
     check("no subtotal row for one line with nothing taken off", !e.text.includes("Subtotal"))
-    check("a View order button to the order", e.html.includes(`href="${BASE}/app/orders?order=ord-1"`) && /class="sn-btn"[\s\S]*?View order/.test(e.html) && e.text.includes(`View order:\n${BASE}/app/orders?order=ord-1`))
+    check("a View order button to the order", e.html.includes(`href="${BASE}/app/orders?order=ord-1"`) && /class="e-btn[^"]*"[\s\S]*?View order/.test(e.html) && e.text.includes(`View order:\n${BASE}/app/orders?order=ord-1`))
     check("a quiet Reply to the customer mailto", e.html.includes('href="mailto:sam@example.com?subject=Your%20order%20%231042"') && e.text.includes("Reply to the customer: sam@example.com"))
     check("no greeting: an order notice opens with its heading", !/Hi (there|\w+),/.test(e.text))
     check("the footer carries the settings and unsubscribe links", e.text.includes("Notification settings: ") && e.text.includes("Unsubscribe: "))
@@ -218,7 +218,7 @@ async function main() {
       const form = sent[0]
       check("from Storelib, reply to support, to the creator", /^Storelib <.+@.+>$/.test(String(form.get("from"))) && form.get("h:Reply-To") === "support@storelib.com" && form.get("to") === "ana@example.com", [form.get("from"), form.get("h:Reply-To"), form.get("to")])
       check("subject, plain text part and the new_sale tag", form.get("subject") === "You sold Brand Workbook and 1 more for $62.10" && String(form.get("text")).includes("Order #1003") && form.getAll("o:tag").includes("new_sale"), form.get("subject"))
-      check("the HTML is the Storelib layout", String(form.get("html")).includes("You made a sale") && String(form.get("html")).includes("max-width:600px"))
+      check("the HTML is the Storelib layout", String(form.get("html")).includes("You made a sale") && String(form.get("html")).includes("max-width:560px"))
       check("the log says sent and both lines are marked told", db.tables.email_logs.filter((l: any) => l.status === "sent").map((l: any) => l.order_id).sort().join() === "b-1,b-2" && db.tables.orders.filter((o: any) => o.seller_notified_at).length === 2)
       const r2 = await sendSellerNotificationEmail(db, { ...params, orderId: "b-2" })
       check("the second line's call sends nothing: the basket was one email", r2.success && sent.length === 1)

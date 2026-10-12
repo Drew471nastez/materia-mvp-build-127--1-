@@ -48,6 +48,7 @@ import {
   sumMoney,
   DENY_MESSAGES,
 } from "@/lib/receipts/rules"
+import { buyerReceiptEmailHtml } from "@/lib/receipts/email"
 
 let passed = 0
 let failed = 0
@@ -410,12 +411,19 @@ function main() {
   /* The receipt's drawing moved to lib/receipts/email.ts, pure, so it can be drawn in a test; lib/email.tsx sends it. */
   const receiptEmail = read("lib/receipts/email.ts")
   const tpl = receiptEmail.slice(receiptEmail.indexOf("export function buyerReceiptEmailHtml"), receiptEmail.indexOf("export function buyerReceiptEmailText"))
-  check("titles, variants and names are escaped", /escapeHtml\(safeText\(it\.title\)\)/.test(tpl) && /escapeHtml\(safeText\(it\.variantName\)\)/.test(tpl))
-  check("the link is escaped too", /const link = escapeHtml\(m\.link\)/.test(tpl))
+  /* Drawn by the shared layout (lib/emails/layout.ts), which escapes every value: checked by drawing one with markup in it. */
+  const hostile = buyerReceiptEmailHtml({
+    firstName: "<b>Al</b>", sellerName: "Shop <i>x</i>", orderNumber: "#1", dateText: "today",
+    items: [{ title: "Pack <script>1</script>", variantName: "<u>v</u>", amountText: "$1.00", note: null }],
+    subtotalText: null, tipText: null, totalText: "$1.00", refundedText: null,
+    link: 'https://storelib.com/receipt/a"onmouseover="x', buttonLabel: "Open", supportEmail: "a@b.co",
+  })
+  check("titles, variants and names are escaped", !/<script>|<u>v|<b>Al|<i>x/.test(hostile) && hostile.includes("Pack &lt;script&gt;1&lt;/script&gt;") && hostile.includes("&lt;u&gt;v&lt;/u&gt;"))
+  check("the link is escaped too", !/"onmouseover="/.test(hostile) && hostile.includes("a&quot;onmouseover=&quot;x"))
   check("escapeHtml escapes quotes as well as brackets", /\.replace\(\/"\/g, "&quot;"\)/.test(email))
   check("no gradient and no em dash in the receipt email", !/gradient/.test(tpl) && !/—/.test(tpl))
   check("it lists every line of the payment from the receipt loader", /loadReceiptByToken\(admin, params\.receiptToken\)/.test(email))
-  check("it shows the order number and the total", /Order \$\{escapeHtml\(m\.orderNumber\)\}/.test(tpl) && /sumRow\("Total"/.test(tpl))
+  check("it shows the order number and the total", /Order \$\{m\.orderNumber\}/.test(tpl) && /\{ label: "Total", value: m\.totalText, strong: true \}/.test(tpl) && /Order #1 ·/.test(hostile) && />\$1\.00</.test(hostile))
   const sender = email.slice(email.indexOf("export async function sendBuyerDownloadEmail"), email.indexOf("export async function sendSellerNotificationEmail"))
   check("the buyer's address is never logged in full", !/console\.(log|error)\([^)]*customerEmail\b(?!\))/.test(sender.replace(/maskEmail\(customerEmail\)/g, "")))
 

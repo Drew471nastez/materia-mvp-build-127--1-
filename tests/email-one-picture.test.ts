@@ -111,7 +111,8 @@ console.log("\nEvery email reads the one rule")
   const email = read("lib/email.tsx")
   /* Changed on purpose: a logo set in Settings › Store details goes first on receipts, then the same rule. */
   check("the receipt's picture is the rule's", /senderPicture\(\{ photoUrl: photo, logoUrl: brand\?\.logoUrl \}\)/.test(email) && /sellerPicture: pictureOf\(brand\?\.avatarUrl \?\? v\.seller\.avatarUrl\)/.test(email))
-  check("the refund email sizes and escapes the picture it is handed", /const sellerAvatarSrc = emailImageSrc\(sellerAvatarUrl, 32\)/.test(email) && /src="\$\{escapeHtml\(sellerAvatarSrc\)\}"/.test(email))
+  /* The refund email is drawn by lib/emails/notices.ts in the shared layout, which escapes every address it draws. */
+  check("the refund email sizes the picture it is handed and passes it to the layout", /const sellerAvatarSrc = emailImageSrc\(sellerAvatarUrl, 36\)/.test(email) && /sellerPictureUrl: sellerAvatarSrc/.test(email))
   const refundRoute = read("app/api/stripe/refund/route.ts")
   check("a creator's refund no longer falls back to the copy in creators.avatar_url", !/creator\.avatar_url/.test(refundRoute) && /senderPicture\(/.test(refundRoute))
   check("and the other two refund paths pass the same picture", /senderPicture\(/.test(read("lib/stripe/refund-sync.ts")) && /senderPicture\(/.test(read("app/api/admin/orders/refund/route.ts")))
@@ -142,20 +143,22 @@ console.log("\nThe receipt")
   const text = buyerReceiptEmailText(model)
   const imgs = pictures(html)
 
-  const thumb = imgs.find((i) => i.includes("rc-thumb")) ?? ""
-  check("a product's thumbnail is drawn with width, height and its name as alt", /width="64"/.test(thumb) && /height="64"/.test(thumb) && /alt="Autumn preset pack"/.test(thumb), thumb)
+  /* Drawn by the shared layout (lib/emails/layout.ts): 56px thumbnails, fetched at 3x. */
+  const thumb = imgs.find((i) => i.includes("e-thumb")) ?? ""
+  check("a product's thumbnail is drawn with width, height and its name as alt", /width="56"/.test(thumb) && /height="56"/.test(thumb) && /alt="Autumn preset pack"/.test(thumb), thumb)
   check("sized for the inbox, absolute https", thumb.includes(`src="${APP_ORIGIN}/api/email/img?u=${encodeURIComponent("https://abc.supabase.co/storage/v1/object/public/products/p1/cover.jpg")}&amp;w=192"`), thumb)
-  check("with a hairline border, a soft shadow and a small radius", /border:1px solid #e6e8ec/.test(thumb) && /box-shadow:0 1px 2px/.test(thumb) && /border-radius:10px/.test(thumb))
-  check("a product with no thumbnail gets a tile with its first letter, not a broken picture", /class="rc-tile"[^>]*>N<\/td>/.test(html) && imgs.filter((i) => i.includes("rc-thumb")).length === 1)
+  check("with a hairline border and a small radius", /border:1px solid #e5e7eb/.test(thumb) && /border-radius:10px/.test(thumb))
+  check("a product with no thumbnail gets a tile with its first letter, not a broken picture", /class="e-tile"[^>]*>N<\/td>/.test(html) && imgs.filter((i) => i.includes("e-thumb")).length === 1)
   check("each product's name is there, escaped", html.includes(">Autumn preset pack<") && html.includes("Night &lt;sky&gt; guide") && !html.includes("<sky>"))
-  const avatar = imgs.find((i) => i.includes("rc-avatar")) ?? ""
-  check("the creator's photo, 40 by 40, with alt, sized", /width="40"/.test(avatar) && /height="40"/.test(avatar) && /alt="Luca Dragoste"/.test(avatar) && /api\/email\/img\?u=[^"]*&amp;w=128"/.test(avatar), avatar)
+  const avatar = imgs.find((i) => i.includes("e-avatar")) ?? ""
+  /* Beside the name, so its alt is empty: a reader hears the name once. */
+  check("the creator's photo, 36 by 36, round, sized, beside the name", /width="36"/.test(avatar) && /height="36"/.test(avatar) && /alt=""/.test(avatar) && /border-radius:18px/.test(avatar) && /api\/email\/img\?u=[^"]*&amp;w=128"/.test(avatar) && />Luca Dragoste<\/td>/.test(html), avatar)
   check("and it is the only picture of the creator: no logo beside it", !html.includes(LOGO) && imgs.length === 2)
   check("the Download button is a filled cell with the link, and Outlook gets a roundrect",
-    /<td class="rc-btn"[^>]*bgcolor="#1a1a2e"/.test(html) && /<a class="rc-btn-a" href="https:\/\/storelib\.com\/receipt\/tok_123"[^>]*>Download your files<\/a>/.test(html) && /<v:roundrect[^>]*href="https:\/\/storelib\.com\/receipt\/tok_123"/.test(html))
-  check("with a little depth: a top highlight and a soft shadow under it", /class="rc-btn"[^>]*box-shadow:inset 0 1px 0 rgba\(255,255,255,0\.16\),0 1px 2px/.test(html))
-  check("fluid to 600px, with a fixed table only for Outlook", /max-width:600px/.test(html) && /<!--\[if mso\]><table role="presentation" width="600"/.test(html))
-  check("one column on a phone: the price under the name, the button full width", /@media only screen and \(max-width:480px\)\{[^}]*\}?[\s\S]*\.rc-amount\{display:none!important;\}/.test(html) && /\.rc-amount-under\{display:block!important;/.test(html) && /\.rc-btn-wrap\{width:100%!important;\}/.test(html))
+    /<td class="e-btn[^"]*"[^>]*bgcolor="#1a1a2e"/.test(html) && /<a class="e-btn-a[^"]*" href="https:\/\/storelib\.com\/receipt\/tok_123"[^>]*>Download your files<\/a>/.test(html) && /<v:roundrect[^>]*href="https:\/\/storelib\.com\/receipt\/tok_123"/.test(html))
+  check("flat, with 10px corners, no shadow to go muddy in dark mode", /class="e-btn[^"]*"[^>]*border-radius:10px;/.test(html) && !/class="e-btn[^"]*"[^>]*box-shadow/.test(html))
+  check("fluid to 560px, with a fixed table only for Outlook", /max-width:560px/.test(html) && /<!--\[if mso\]><table role="presentation" width="560"/.test(html))
+  check("on a phone the price keeps its line and the button is full width", /white-space:nowrap;">\$29\.00</.test(html) && /@media only screen and \(max-width:480px\)\{[\s\S]*\.e-btn-wrap\{width:100%!important;\}/.test(html))
   check("dark mode is declared and styled", /name="color-scheme" content="light dark"/.test(html) && /prefers-color-scheme: dark/.test(html) && /\[data-ogsc\]/.test(html))
   check("the viewport meta is there", /<meta name="viewport" content="width=device-width,initial-scale=1">/.test(html))
   check("every picture has alt text and an https source", imgs.every((i) => /\balt="/.test(i) && /\bsrc="https:\/\//.test(i)), imgs)
@@ -166,7 +169,7 @@ console.log("\nThe receipt")
   check("the text part lists the products and the link", text.includes("Autumn preset pack (Lightroom): $29.00") && text.includes("Download your files: https://storelib.com/receipt/tok_123"))
 
   const bare = buyerReceiptEmailHtml({ ...model, sellerPicture: null })
-  check("a creator with no picture gets their initial, no image", /class="rc-tile"[^>]*>L<\/td>/.test(bare) && !pictures(bare).some((i) => i.includes("rc-avatar")))
+  check("a creator with no picture gets their initial, no image", /class="e-tile-accent"[^>]*>L<\/td>/.test(bare) && !pictures(bare).some((i) => i.includes("e-avatar")))
   const logo = buyerReceiptEmailHtml({ ...model, sellerPicture: senderPicture({ logoUrl: LOGO }) })
   check("a creator with only a logo gets the logo, not cut round", logo.includes(`src="${LOGO}"`) && !/src="https:\/\/cdn\.example\.com\/ld-logo\.png"[^>]*border-radius/.test(logo))
 

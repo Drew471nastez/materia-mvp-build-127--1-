@@ -36,7 +36,7 @@ export function teamInviteEmail(v: TeamInviteEmailInput): { subject: string; htm
     subject,
     preview: `${opener} The link works for ${days} days.`,
     heading: `Join ${store}`,
-    media: { title: store, subtitle: `${role} · ${ROLE_SUMMARY[v.role]}`, imageUrl: v.storeImageUrl ?? null, round: true },
+    media: { title: store, subtitle: `${role} · ${ROLE_SUMMARY[v.role]}`, imageUrl: v.storeImageUrl ?? null, round: true, accentTile: true },
     paragraphs: [
       opener,
       {

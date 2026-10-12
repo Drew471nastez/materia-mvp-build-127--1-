@@ -285,7 +285,8 @@ function pure() {
   check("what the buyer typed arrives as text, not markup",
     !/<script>|<b>Brand/.test(mail.html) && /&lt;script&gt;/.test(mail.html) && /&lt;b&gt;Brand Kit&lt;\/b&gt;/.test(mail.html))
   check("the email says Reply reaches the buyer and links the order",
-    /Reply to this email and it goes to ghita@example\.com/.test(mail.html) && /href="https:\/\/storelib\.com\/app\/orders\/1"/.test(mail.html) && /Open the order: https/.test(mail.text))
+    /* The address is split with spans so Gmail leaves it as text (lib/emails/layout.ts identity). */
+    /Reply to this email and it goes to <span[^>]*>ghita<span[^>]*>@<\/span>example<span[^>]*>\.<\/span>com<\/span>/.test(mail.html) && /href="https:\/\/storelib\.com\/app\/orders\/1"/.test(mail.html) && /Open the order: https/.test(mail.text))
   check("a message is tidied: no control characters, no runs of blank lines",
     cleanMessage("  a\u0000b\r\n\n\n\n\nc  ") === "ab\n\nc" && cleanMessage(42) === "")
 }

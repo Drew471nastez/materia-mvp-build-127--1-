@@ -147,7 +147,7 @@ console.log("\nReceipts and orders\n")
   const view = read("app/receipt/[token]/receipt-view.tsx")
   check("the receipt page shows Tax, or Including tax", /<Row label=(?:"Tax"|\{receipt\.taxLabel \|\| "Tax"\}) value=\{money\(receipt\.taxCents \?\? 0\)\} \/>/.test(view) && /<Row label=(?:"Including tax"|\{includedTaxLabel\(receipt\.taxLabel\)\})/.test(view) && /<Row label="Total"/.test(view))
   const mail = read("lib/receipts/email.ts")
-  check("the receipt email too", /sumRow\(taxName\(m\), m\.taxText\)/.test(mail) && /sumRow\(includedName\(m\), m\.taxText\)/.test(mail) && /\|\| "Tax"/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
+  check("the receipt email too", /\{ label: taxName\(m\), value: m\.taxText \}/.test(mail) && /\{ label: includedName\(m\), value: m\.taxText \}/.test(mail) && /\|\| "Tax"/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
   const [sale] = groupOrders([
     { id: "o1", product_id: "p1", amount_cents: 5831, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:00Z", stripe_session_id: "cs_1", tax_cents: 931, tax_included: false },
     { id: "o2", product_id: "p2", amount_cents: 1050, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:01Z", stripe_session_id: "cs_1", tax_cents: 50, tax_included: false },

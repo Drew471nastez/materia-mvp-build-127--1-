@@ -14,7 +14,7 @@
  *   the unsubscribe link appears only when one is given, and never on a
  *   security email
  *   customer emails never link into /app
- *   the HTML has the viewport meta and the 600px container; the text part
+ *   the HTML has the viewport meta and the 560px container; the text part
  *   carries the action address
  */
 import { NOTIFICATION_TYPES, type NotificationType, type TemplateContext } from "../lib/notify/types"
@@ -105,12 +105,12 @@ function main() {
       const bangs = (e.subject + "\n" + e.preview + "\n" + e.text).split("!").length - 1
       check(`${tag} exclamation marks only where allowed`, EXCLAIM_OK.includes(type) ? e.subject.split("!").length - 1 <= 1 : bangs === 0, bangs)
       check(`${tag} html has the viewport meta`, e.html.includes('<meta name="viewport" content="width=device-width,initial-scale=1">'))
-      check(`${tag} html has a 600px fluid container`, /width:100%;max-width:600px/.test(e.html))
+      check(`${tag} html has a 560px fluid container (the shared layout)`, /width:100%;max-width:560px/.test(e.html))
       check(`${tag} html has the color-scheme meta and a hidden preheader`, e.html.includes('name="color-scheme"') && e.html.includes("display:none;font-size:1px"))
       check(`${tag} every image has alt text`, (e.html.match(/<img\b[^>]*>/g) || []).every((img) => /\balt="/.test(img)))
       const hrefs = [...e.html.matchAll(/href="([^"]*)"/g)].map((m) => m[1].replace(/&amp;/g, "&"))
       check(`${tag} every link goes to Storelib`, hrefs.every((h) => h.startsWith(`${BASE}/`)), hrefs.filter((h) => !h.startsWith(`${BASE}/`)))
-      const btn = e.html.match(/class="sn-btn"[\s\S]*?href="([^"]*)"/)
+      const btn = e.html.match(/class="e-btn[^"]*"[\s\S]*?href="([^"]*)"/)
       if (btn) {
         const url = btn[1].replace(/&amp;/g, "&")
         check(`${tag} plain text has the action address`, e.text.includes(url), url)
@@ -190,10 +190,10 @@ function main() {
   check("the stars are five links, each opening the receipt at that rating", [1, 2, 3, 4, 5].every((n) => ask.html.includes(`${BASE}/receipt/rt_abc?rate=${n}#review`) && ask.text.includes(`${BASE}/receipt/rt_abc?rate=${n}#review`)))
   check("the product card carries the picture with the title as its alt text", /<img[^>]*alt="Lightroom Presets Vol 2"/.test(ask.html) && /src="https:\/\//.test(ask.html))
   check("the card names the creator under the title", ask.html.includes("by Ana Lopez") && ask.text.includes("by Ana Lopez"))
-  check("one button, near black", (ask.html.match(/class="sn-btn"/g) ?? []).length === 1 && ask.html.includes('bgcolor="#1a1a2e"'))
+  check("one button, near black", (ask.html.match(/<td class="e-btn[" ]/g) ?? []).length === 1 && ask.html.includes('bgcolor="#1a1a2e"'))
   check("the footer link says it turns review emails off", ask.text.includes(`Turn off review emails: ${ctxUnsub.unsubscribeUrl}`) && !ask.text.includes("Unsubscribe:"))
   const noPicture = renderEmail("REVIEW_REQUEST", { ...FULL, productImage: "http://cdn.example.com/x.png" }, ctx)
-  check("a picture that is not https is left out, and the letter tile is drawn", !/<img[^>]*alt="Lightroom/.test(noPicture.html) && noPicture.html.includes('class="sn-tile"'))
+  check("a picture that is not https is left out, and the letter tile is drawn", !/<img[^>]*alt="Lightroom/.test(noPicture.html) && noPicture.html.includes('class="e-tile"'))
 
   /* No purple anywhere in a notification email: the owner's rule for the whole product. */
   for (const type of NOTIFICATION_TYPES) {
