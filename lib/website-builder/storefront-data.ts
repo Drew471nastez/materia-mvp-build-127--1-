@@ -16,6 +16,7 @@
  * storefront-data-server.ts, which is server only.
  */
 import { cleanCustomFields } from "@/lib/products/custom-fields"
+import { productFaqs, productFaqsHtml } from "@/lib/products/product-faqs"
 import { cleanMenus, type Menu, type MenuLink } from "@/lib/storelib-theme/values"
 import { SOURCE_TARGETS, fillSources, type DynamicContext } from "@/lib/storelib-theme/dynamic"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
@@ -228,6 +229,8 @@ export interface ProductRowLike {
   gallery_urls?: string[] | null
   whats_included?: string[] | null
   custom_fields?: unknown
+  /** The product editor's FAQ card (lib/products/product-faqs.ts). */
+  faqs?: unknown
 }
 
 /**
@@ -255,6 +258,11 @@ export function productFacts(row: ProductRowLike | null | undefined): NonNullabl
     includes: (row.whats_included ?? []).filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim()),
     /* Its custom fields by name, plain words: {{ product.fields.material }} (lib/products/custom-fields.ts). */
     fields: cleanCustomFields(row.custom_fields),
+    /* Its own questions: `product.faqs` in a template, and the "Product FAQ" source as rich text. */
+    ...(() => {
+      const faqs = productFaqs(row.faqs)
+      return { faqs, faqs_html: productFaqsHtml(faqs) }
+    })(),
   }
 }
 

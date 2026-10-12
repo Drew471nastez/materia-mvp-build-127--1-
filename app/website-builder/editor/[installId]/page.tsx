@@ -3362,7 +3362,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // ── New: Sidebar mode, page browser, product/collection pages ──
   const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
   const [pageBrowserOpen, setPageBrowserOpen] = useState(false)
-  const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
+  const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[]; faqs?: unknown }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
   /** The id of the product the product page is showing: an imported theme's canvas draws exactly this one, not the shop's first. */
@@ -4113,6 +4113,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           description: p.description || "",
           whats_included: p.whats_included ?? [],
           gallery_urls: p.gallery_urls ?? [],
+          faqs: p.faqs ?? null,
         })))
       }
     } catch {}
@@ -7748,7 +7749,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (currentPage !== "product") return null
     const p = (selectedProductId ? products.find((x) => x.id === selectedProductId) : undefined) ?? products.find((x) => x.title === selectedProductPage) ?? products[0]
     return p
-      ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included })
+      ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included, faqs: p.faqs })
       : null
   }, [currentPage, products, selectedProductPage, selectedProductId])
   const canvasDynamic = useMemo(
