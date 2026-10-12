@@ -123,8 +123,9 @@ async function fixtureSite(): Promise<SiteData> {
   /* The fixture's product page with its picker and sticky bar (templates/product.variants.json), as the product template. */
   zip.file("templates/product.json", readFileSync(join(dir, "templates", "product.variants.json")))
   const r = await convertShopifyTheme(zip)
-  if (!r.ok) throw new Error(r.error)
-  const t = r.theme
+  /* Read through casts: the push runner compiles without strict, where `ok` does not narrow. */
+  if (!r.ok) throw new Error((r as { error: string }).error)
+  const t = (r as { theme: Extract<typeof r, { ok: true }>["theme"] }).theme
   const theme = themeOfInstall(t.files, t.settings, { assetUrl: (n) => `/a/${encodeURIComponent(n)}`, assetText: (n) => t.files[`shopify/assets/${n}`] ?? null })
   const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections])) as SiteData["pages"]
   return { creatorId: "c", theme, pages, products: [sleeve(), shirt()] as never, collections: [], menus: {}, shop: { name: "Solara", currency: "USD", moneyFormat: "${{amount}}" }, host: "solara.test" }
@@ -325,7 +326,8 @@ async function main() {
     empty.file("sections/x.liquid", "<p>x</p>")
     empty.file("config/settings_schema.json", "[]")
     const refused = await convertShopifyTheme(empty)
-    check("a theme the import refuses is told without Shopify or Liquid", refused.ok === false && !/shopify|liquid/i.test(refused.error), refused.ok === false ? refused.error : "")
+    const why = refused.ok === false ? (refused as { error: string }).error : ""
+    check("a theme the import refuses is told without Shopify or Liquid", refused.ok === false && !/shopify|liquid/i.test(why), why)
     const convert = read("lib/storelib-theme/shopify/convert.ts")
     const said = [...convert.matchAll(/(?:report\.(?:note|skip)\([^,]+,|error: )\s*(`[^`]*`|"[^"]*")/g)].map((m) => m[1])
     check("no import message names Shopify or Liquid", said.length > 20 && said.every((x) => !/shopify|liquid/i.test(x.replace(/\$\{[^}]*\}/g, ""))), said.filter((x) => /shopify|liquid/i.test(x.replace(/\$\{[^}]*\}/g, ""))))
