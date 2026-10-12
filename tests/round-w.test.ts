@@ -112,7 +112,8 @@ console.log("\nIntegrations")
 {
   const n = (c: string) => INTEGRATIONS.filter((i) => i.category === c).length
   check("three more shipping tools, two more dropshippers, one more print on demand, one more analytics, two more ad pixels", ["aftership", "easyship", "sendcloud", "bigbuy", "dropified", "prodigi", "hotjar", "snapchat-pixel", "reddit-pixel"].every((id) => INTEGRATIONS.some((i) => i.id === id)), { shipping: n("shipping"), drop: n("dropshipping") })
-  check("the new ones are listed, never shown as installed", INTEGRATIONS.filter((i) => ["aftership", "hotjar", "snapchat-pixel"].includes(i.id)).every((i) => i.kind === "listed" && i.comingSoon))
+  /* AfterShip works since round 24: a store's own account for courier tracking (lib/physical/tracking), so it is an app page now, not a listed one. */
+  check("the new ones are listed, never shown as installed", INTEGRATIONS.filter((i) => ["hotjar", "snapchat-pixel"].includes(i.id)).every((i) => i.kind === "listed" && i.comingSoon) && INTEGRATIONS.find((i) => i.id === "aftership")?.appId === "courier_tracking")
   check("every logo a card points at is a real file", INTEGRATIONS.every((i) => !i.logo || existsSync(join(process.cwd(), "public", i.logo))), INTEGRATIONS.filter((i) => i.logo && !existsSync(join(process.cwd(), "public", i.logo))).map((i) => i.logo))
   const ui = read("components/app/settings/integrations-directory.tsx")
   /* The mark has its own file now (components/app/settings/integration-mark), shared with the provider cards and /admin. */

@@ -42,6 +42,8 @@ import { reasonLabel } from "@/lib/store/reasons"
 import { useReasons } from "@/lib/store/use-reasons"
 import { copyText } from "@/lib/platform/copy-text"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { TRACKING_LABEL, isTrackingStatus } from "@/lib/physical/tracking/labels"
+import { TrackingTimeline, estimatedDay } from "./tracking-timeline"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/app/orders/order-parts"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet } from "./ui"
 
@@ -74,6 +76,9 @@ export interface PhysicalShipment {
   createdAt: string
   locationId: string | null
   items: { orderId: string; quantity: number }[]
+  /** The carrier's scans and state when Storelib follows the parcel (lib/physical/tracking); mode off when tracking is not set up yet. */
+  checkpoints?: { at: string; status: string; message: string; location: string | null }[]
+  tracking?: { mode: "auto" | "paused" | "off"; status: string | null; estimatedDelivery: string | null; checkedAt: string | null; providerName: string | null; error: string | null }
 }
 interface ReturnRec {
   id: string
@@ -353,6 +358,9 @@ export function PhysicalFulfillment({
               ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "failed") ? [{ label: "Mark as in transit", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, "Marked as in transit") }] : []),
               ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "in_transit" || s.status === "failed") ? [{ label: "Mark as out for delivery", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "out_for_delivery" }, "Marked as out for delivery. The buyer was emailed.") }] : []),
               ...(!pickup && !delivered && s.status !== "failed" ? [{ label: "Report a delivery problem", icon: <X className="h-4 w-4" />, onClick: () => { if (window.confirm("Mark this package as having a delivery problem? The buyer sees it on their order page.")) void run({ action: "shipment", fulfillmentId: s.id, status: "failed" }, "Marked as a delivery problem") } }] : []),
+              /* Courier tracking moves this shipment by itself; the seller can stop that for this one parcel and set it by hand. */
+              ...(!pickup && !delivered && s.tracking?.mode === "auto" ? [{ label: "Pause automatic updates", icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: false }, "Automatic updates paused for this package") }] : []),
+              ...(!pickup && !delivered && s.tracking?.mode === "paused" ? [{ label: "Resume automatic updates", icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: true }, "Automatic updates on again") }] : []),
               ...(returnable ? [{ label: "Start return", icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
               { label: "Packing slip", icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, s.items.map((i) => ({ ...order.lines.find((l) => l.orderId === i.orderId)!, quantity: i.quantity, fulfilled: 0 })).filter((l) => l.title)) },
               ...(!delivered
@@ -372,6 +380,7 @@ export function PhysicalFulfillment({
           <section key={s.id} className={cn(card, "min-w-0", cancelled && "opacity-60")} data-shipment={s.status}>
             <CardTop badge={badge} count={items} sub={[number(s), s.shippedAt ? dateTime(s.shippedAt) : null, locName(s.locationId)].filter(Boolean).join(" · ")} menu={menu.length ? <CardMenu title={number(s)} items={menu} /> : null} />
             {!pickup && !cancelled ? <TrackingRow shipment={s} transit={problem ? null : transit} onAdd={() => setDialog({ tracking: s })} onNotice={onNotice} /> : null}
+            {!pickup && !cancelled && s.tracking ? <CarrierUpdates shipment={s} /> : null}
             {/* What the buyer reads on their order page and in the Delivery problem email, said here in the shop's words, with the next step. */}
             {problem ? (
               <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
@@ -503,6 +512,46 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
           <ExternalLink className="h-3 w-3" />
         </a>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * What the carrier says about the parcel (lib/physical/tracking): its state, the estimated delivery and its scans,
+ * Updated automatically while Storelib follows it; paused, or not set up yet, said plainly, with the statuses still the
+ * seller's to set from the menu.
+ */
+function CarrierUpdates({ shipment: s }: { shipment: PhysicalShipment }) {
+  const t = s.tracking!
+  const delivered = s.status === "delivered"
+  const said = t.status && isTrackingStatus(t.status) ? TRACKING_LABEL[t.status].label : null
+  const eta = delivered ? null : estimatedDay(t.estimatedDelivery)
+  const checked = t.checkedAt ? dateTime(t.checkedAt) : null
+  if (t.mode === "off") {
+    if (delivered) return null
+    return (
+      <p className="mx-4 mt-2 text-[12px] leading-[17px] text-[#6b7280]" data-tracking-mode="off">
+        Automatic updates turn on when Storelib's tracking is set up. Until then, set the status from the menu.
+      </p>
+    )
+  }
+  return (
+    <div className="mx-4 mt-2" data-tracking-mode={t.mode}>
+      <p className="flex flex-wrap items-center gap-x-1.5 text-[12px] leading-[17px] text-[#6b7280]">
+        {t.mode === "auto" ? (
+          <span className="inline-flex items-center gap-1 font-medium text-[#166534]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#16a34a]" />
+            Updated automatically
+          </span>
+        ) : (
+          <span className="font-medium text-[#92400e]">Automatic updates paused</span>
+        )}
+        {said ? <span>· {said}</span> : t.mode === "auto" && !checked ? <span>· Checking with the carrier</span> : null}
+        {eta ? <span>· Estimated delivery {eta}</span> : null}
+        {checked && t.mode === "auto" && !delivered ? <span className="text-[#9ca3af]">· Checked {checked}</span> : null}
+      </p>
+      {t.error && t.mode === "auto" && !delivered ? <p className="mt-1 text-[12px] leading-[17px] text-[#92400e]">The carrier couldn't be read last time: {t.error} Storelib tries again.</p> : null}
+      {s.checkpoints && s.checkpoints.length > 0 ? <TrackingTimeline checkpoints={s.checkpoints} size="seller" className="mt-2 rounded-lg border border-[#f0f1f3] px-3 py-2.5" /> : null}
     </div>
   )
 }

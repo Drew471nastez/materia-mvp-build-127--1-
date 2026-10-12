@@ -32,6 +32,7 @@ import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/
 import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
+import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
 
 type Filter = "all" | "installed" | IntegrationCategory
 
@@ -541,6 +542,8 @@ function IntegrationPage({
                 </div>
               ) : item.kind === "app" && item.appId === "storelib_reviews" ? (
                 <ReviewsAppPanel onChanged={(st) => onApp("storelib_reviews", st.enabled)} />
+              ) : item.kind === "app" && item.appId === "courier_tracking" ? (
+                <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
               ) : item.kind === "tracker" && item.trackerId ? (
                 <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.providerId && providerInfo(item.providerId) ? (

@@ -163,7 +163,7 @@ async function main() {
       shipmentStatusFor("in_transit") === "in_transit" && shipmentStatusFor("out_for_delivery") === "out_for_delivery" && shipmentStatusFor("available_for_pickup") === "out_for_delivery" && shipmentStatusFor("delivered") === "delivered" && shipmentStatusFor("attempt_failed") === "failed" && shipmentStatusFor("exception") === "failed" && shipmentStatusFor("returned") === "failed" && shipmentStatusFor("info_received") === null && shipmentStatusFor("pending") === null,
     )
     check("delivered, returned and expired are the end; nothing more is asked", isFinal("delivered") && isFinal("returned") && isFinal("expired") && !isFinal("exception") && !isFinal("in_transit"))
-    check("the buyer reads a problem in plain words, with the carrier's own", problemText("attempt_failed", "Receiver not home") === "The carrier tried to deliver it: Receiver not home" && /going back to the shop/.test(problemText("returned", null) ?? "") && problemText("in_transit", "x") === null)
+    check("the buyer reads a problem in plain words, with the carrier's own", problemText("attempt_failed", "Receiver not home") === "The carrier tried to deliver it: Receiver not home" && /back to the shop/.test(problemText("returned", null) ?? "") && problemText("in_transit", "x") === null)
     check("every state has a label for both pages", Object.values(TRACKING_LABEL).every((l) => l.label.length > 0) && TRACKING_LABEL.returned.label === "Returned to sender")
     const a = { at: "2026-10-10T08:15:30Z", status: "in_transit" as const, message: "Departed facility", location: "Louisville, KY" }
     check("the same scan makes the same id, whatever the seconds or the case; a different one differs", checkpointId(a) === checkpointId({ ...a, at: "2026-10-10T08:15:59Z", message: "DEPARTED FACILITY " }) && checkpointId(a) !== checkpointId({ ...a, location: "Memphis, TN" }))
@@ -429,9 +429,10 @@ async function main() {
     const cron = read("app/api/cron/physical/route.ts")
     check("/api/cron/physical runs the tracking sweep inside its time", /runTrackingSweep\(db/.test(cron) && /budgetMs/.test(cron))
     const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
-    check("the buyer's page shows the scans with place and time, and the estimated delivery", /data-tracking-checkpoints/.test(view) && /Estimated delivery/.test(view) && /checkpoints/.test(read("app/checkout/physical/order/[token]/page.tsx")))
+    const timeline = read("components/physical/tracking-timeline.tsx")
+    check("the buyer's page shows the scans with place and time, and the estimated delivery", /data-tracking-checkpoints/.test(timeline) && /c\.location, when\(c\.at\)/.test(timeline) && /<TrackingTimeline/.test(view) && /Estimated delivery/.test(view) && /checkpoints/.test(read("app/checkout/physical/order/[token]/page.tsx")))
     const panel = read("components/physical/order-panel.tsx")
-    check("the seller's order page shows the scans, Updated automatically, and Pause automatic updates", /data-tracking-checkpoints/.test(panel) && /Updated automatically/.test(panel) && /Pause automatic updates/.test(panel) && /Mark as delivered/.test(panel))
+    check("the seller's order page shows the scans, Updated automatically, and Pause automatic updates", /<TrackingTimeline/.test(panel) && /Updated automatically/.test(panel) && /Pause automatic updates/.test(panel) && /Mark as delivered/.test(panel))
     check("  and says when tracking is not set up yet", /Automatic updates turn on when Storelib's tracking is set up/.test(panel))
     const status = read("lib/admin/commerce-status.ts")
     check("/admin/physical-commerce reads the tracking status from real data", /platformTrackingState/.test(status) && /tracking_checked_at/.test(status) && /Automatic updates turn on when Storelib's tracking is set up/.test(read("app/admin/physical-commerce/commerce-docs-admin.tsx")))

@@ -657,6 +657,19 @@ export const COMMERCE_DOCS: DocSection[] = [
         creators: [{ label: "Orders › the order › the shipment's menu › Report a delivery problem", href: "/app/orders" }, SETTINGS("emails", "Customer emails › Delivery problem")],
         check: ["On a shipped test order press Report a delivery problem: the buyer gets the email, the order page shows the problem, and the Orders list says Delivery problem.", "Press Mark as in transit: the list and the order page move on."],
       },
+      {
+        id: "courier-tracking",
+        name: "Automatic courier tracking",
+        does: "Every shipment with a tracking number (the seller's, or one Printful, Printify or another partner sent) is followed with the carrier through AfterShip or 17TRACK, so over a thousand carriers work. /api/cron/physical registers new numbers and reads open parcels when their next look is due (every 1 to 24 hours by age, stopped once delivered, returned, expired or 60 days after shipping); the aggregator's webhook (/api/tracking/webhooks/<aftership or 17track>/<token>) pushes changes, checked by signature and read back from its API. The shipment moves on by itself (in transit, out for delivery, delivered, a delivery problem for a failed attempt, an exception or a return to sender), through the same code as the seller's buttons, so Out for delivery, Delivered and Delivery issue are emailed once each and the seller is emailed about problems. Delivered takes the carrier's time, so the return window counts from it. Both order pages show each scan with place and time and the estimated delivery; the seller's says Updated automatically and can pause it per package. With no key set, nothing is asked and shipments keep the seller's statuses and the carrier's link.",
+        stored: "fulfillments.tracking_* and estimated_delivery_at (part 160), the scans on fulfillment_events (external_id trk:...), a store's own key in commerce_tracking_accounts (sealed)",
+        buyers: [{ label: "The order page's package card: scans, Estimated delivery, Returned to sender" }],
+        creators: [{ label: "Orders › the order › the shipment card: Updated automatically, Pause automatic updates", href: "/app/orders" }, SETTINGS("integrations", "Integrations › Courier tracking (own AfterShip or 17TRACK key)")],
+        check: [
+          "In /admin/physical-commerce, Courier tracking reads Configured (AFTERSHIP_API_KEY and AFTERSHIP_WEBHOOK_SECRET, or SEVENTEENTRACK_API_KEY, set in the environment; TRACKING_PROVIDER picks one when both are).",
+          "In the aggregator's dashboard, point the webhook at https://storelib.com/api/tracking/webhooks/aftership/platform.<token> (the token comes from trackingWebhookUrl in lib/physical/tracking/provider.ts).",
+          "Ship a test order with a real tracking number: within ten minutes the shipment card says Updated automatically and shows the carrier's scans, and the buyer's order page shows them with the estimated delivery.",
+        ],
+      },
     ],
   },
   {

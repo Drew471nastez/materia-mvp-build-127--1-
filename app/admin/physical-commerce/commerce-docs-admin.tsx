@@ -201,6 +201,27 @@ const LiveStatus = React.memo(function LiveStatus() {
               <StatusRow label="Last order email sent">{s.email.lastSentAt ? <span className="text-[13px] text-[#c9c9d1]">{when(s.email.lastSentAt)}</span> : <span className="text-[13px] text-[#6b6b76]">No data</span>}</StatusRow>
             </Group>
 
+            {s.tracking ? (
+              <Group title="Courier tracking">
+                <StatusRow
+                  label={`Tracking aggregator${s.tracking.provider ? ` (${s.tracking.provider})` : ""}`}
+                  sub={
+                    s.tracking.configured
+                      ? `Every store's parcels are followed. Webhooks ${s.tracking.webhooks ? "verified (AfterShip secret set, or 17TRACK)" : "off: AFTERSHIP_WEBHOOK_SECRET not set, so parcels are only polled"}.${s.tracking.chosen ? ` TRACKING_PROVIDER=${s.tracking.chosen}.` : ""}`
+                      : "Automatic updates turn on when Storelib's tracking is set up: set AFTERSHIP_API_KEY (and AFTERSHIP_WEBHOOK_SECRET) or SEVENTEENTRACK_API_KEY. Until then shipments keep the seller's own statuses and the carrier's link."
+                  }
+                >
+                  {s.tracking.configured ? <Mark tone="good">Configured</Mark> : <Mark tone="bad">Not configured</Mark>}
+                </StatusRow>
+                <StatusRow label="Parcels followed now" sub={s.tracking.reason ?? (s.tracking.failing ? `${s.tracking.failing} could not be read last time; each is tried again with backoff.` : undefined)}>
+                  <span className="text-[13px] text-[#c9c9d1]">{s.tracking.following === null ? "No data" : `${s.tracking.following}${s.tracking.ownAccounts ? ` · ${s.tracking.ownAccounts} ${s.tracking.ownAccounts === 1 ? "store" : "stores"} with their own account` : ""}`}</span>
+                </StatusRow>
+                <StatusRow label="Read in the last 24 hours">
+                  <span className="text-[13px] text-[#c9c9d1]">{s.tracking.checked24h === null ? "No data" : `${s.tracking.checked24h}${s.tracking.lastCheckedAt ? `, last ${when(s.tracking.lastCheckedAt)}` : ""}`}</span>
+                </StatusRow>
+              </Group>
+            ) : null}
+
             <Group title="Stripe">
               <StatusRow
                 label="Keys"

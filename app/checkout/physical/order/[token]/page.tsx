@@ -77,7 +77,20 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         shipments: order.shipments
           .filter((s) => s.status !== "cancelled")
           /* Its updates, oldest first, as statuses only: the seller's own notes stay on their side. */
-          .map((s) => ({ id: s.id, status: s.status, carrier: s.carrier, trackingNumber: s.trackingNumber, trackingUrl: s.trackingUrl, shippedAt: s.shippedAt, deliveredAt: s.deliveredAt, items: s.items, updates: [...s.events].reverse().map((e) => ({ status: e.status, at: e.occurredAt })) })),
+          .map((s) => ({
+            id: s.id,
+            status: s.status,
+            carrier: s.carrier,
+            trackingNumber: s.trackingNumber,
+            trackingUrl: s.trackingUrl,
+            shippedAt: s.shippedAt,
+            deliveredAt: s.deliveredAt,
+            items: s.items,
+            updates: [...s.events].reverse().map((e) => ({ status: e.status, at: e.occurredAt })),
+            /* The carrier's own scans and its estimate (lib/physical/tracking), when Storelib follows the parcel. */
+            checkpoints: s.checkpoints ?? [],
+            tracking: s.tracking ? { status: s.tracking.status, estimatedDelivery: s.tracking.estimatedDelivery, auto: s.tracking.mode === "auto" } : null,
+          })),
         returns: order.returns.map((r) => ({ id: r.id, status: r.status, createdAt: r.createdAt, reason: r.reasonLabel || reasonLabel(r.reason, "return", reasons) })),
         returnPolicy: settings.returnsEnabled ? { days: settings.returnWindowDays, endsAt: window.endsAt, open: window.open } : null,
       }}

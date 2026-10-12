@@ -53,7 +53,7 @@ export interface Integration {
   physical: boolean
   kind: "tracker" | "commerce" | "listed" | "app"
   /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
-  appId?: "storelib_reviews"
+  appId?: "storelib_reviews" | "courier_tracking"
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
@@ -263,7 +263,6 @@ function fromProvider(p: ProviderInfo): Integration {
  * order they are built in follows what stores ask for.
  */
 const LISTED: { id: string; name: string; category: IntegrationCategory; physical: boolean; summary: string; about: string; docsUrl: string; logo?: string }[] = [
-  { id: "aftership", name: "AfterShip", category: "shipping", physical: true, logo: "/integrations/aftership.svg", summary: "A branded tracking page and delivery updates for every parcel.", about: "AfterShip would follow each shipment across carriers and send your buyers branded delivery updates and a tracking page.", docsUrl: "https://www.aftership.com/docs" },
   { id: "easyship", logo: "/integrations/easyship.png", name: "Easyship", category: "shipping", physical: true, summary: "Compare carriers and print discounted labels, with duties shown at checkout.", about: "Easyship would compare rates from many carriers, print labels at its discounted prices and work out duties and taxes for orders going abroad.", docsUrl: "https://developers.easyship.com/" },
   { id: "sendcloud", logo: "/integrations/sendcloud.jpg", name: "Sendcloud", category: "shipping", physical: true, summary: "Labels from European carriers, shipping rules and a returns portal.", about: "Sendcloud would print labels from European carriers in bulk, apply your shipping rules and give buyers a returns portal.", docsUrl: "https://api.sendcloud.dev/" },
   { id: "bigbuy", logo: "/integrations/bigbuy.png", name: "BigBuy", category: "dropshipping", physical: true, summary: "A European wholesaler that ships from Spain, fast across the EU.", about: "BigBuy would supply products from its warehouse in Spain and ship your orders across Europe under your store's name.", docsUrl: "https://api.bigbuy.eu/" },
@@ -340,7 +339,65 @@ const STORELIB_APPS: Integration[] = [
   },
 ]
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)]
+/**
+ * COURIER TRACKING (lib/physical/tracking): built into Storelib for every
+ * store that ships, with Storelib's own tracking account. AfterShip is also
+ * listed under its own name, because that is what stores search for: its page
+ * is the same panel, where a store can follow its parcels with its own
+ * AfterShip (or 17TRACK) account instead.
+ */
+const TRACKING_ABOUT = [
+  "Every shipment with a tracking number is followed with the carrier, whoever ships it: you, a supplier, or a partner like Printful or Printify. Over a thousand carriers work, found from the number when you don't pick one.",
+  "The order moves on by itself: in transit, out for delivery, delivered, or a delivery problem. Your buyer's order page shows each scan with where and when, and the estimated delivery. They get the Out for delivery, Delivered and Delivery issue emails once each, and you get an email when a parcel runs into a problem.",
+  "Delivered uses the carrier's own time, so the return window counts from the day the parcel arrived. You can still set any status yourself, and pause automatic updates on one package from its menu.",
+]
+const TRACKING_DATA = [
+  "Sent to the tracking service: the tracking number, the carrier when you picked one, and the order's id. Never the buyer's name, address or email.",
+  "Back from it: where the parcel is, each scan with its place and time, and the estimated delivery.",
+  "With your own AfterShip or 17TRACK account, your key is encrypted on Storelib's servers and never shown again, only its last four characters.",
+]
+const TRACKING_APPS: Integration[] = [
+  {
+    id: "courier-tracking",
+    name: "Courier tracking",
+    category: "shipping",
+    logo: null,
+    builtIn: true,
+    physical: true,
+    kind: "app",
+    appId: "courier_tracking",
+    summary: "Every parcel followed with its carrier, and your buyers told when it moves.",
+    about: TRACKING_ABOUT,
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Carriers", value: "Over 1,000, through AfterShip or 17TRACK" },
+      { label: "Emails", value: "Out for delivery, Delivered, Delivery issue" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: TRACKING_DATA,
+  },
+  {
+    id: "aftership",
+    name: "AfterShip",
+    category: "shipping",
+    logo: "/integrations/aftership.svg",
+    builtIn: false,
+    physical: true,
+    kind: "app",
+    appId: "courier_tracking",
+    summary: "Follow your parcels with your own AfterShip account.",
+    about: ["Storelib already follows every parcel for you (Courier tracking). If you have your own AfterShip account, add its API key here and your parcels are followed there instead, with your AfterShip carriers and settings.", ...TRACKING_ABOUT.slice(1)],
+    glance: [
+      { label: "Works with", value: "Physical products" },
+      { label: "You add", value: "An API key, and a webhook secret for instant updates" },
+      { label: "Price", value: "Free on Storelib; AfterShip's own pricing applies" },
+    ],
+    data: TRACKING_DATA,
+    docsUrl: "https://www.aftership.com/docs/tracking",
+  },
+]
+
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)]
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"
