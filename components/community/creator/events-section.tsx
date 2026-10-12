@@ -34,6 +34,7 @@ import { AccessEditor } from "./access-editor"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { Dialog, Empty, FilterTabs, ListCard, Notice, PicturePick, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
+import { appTimeZone } from "@/lib/i18n/format"
 
 interface Draft {
   id: string | null
@@ -62,9 +63,10 @@ interface Draft {
   refundPolicy: string
 }
 
+/** The creator's time zone: the one chosen in Settings, else the device's. */
 function browserZone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    return appTimeZone()
   } catch {
     return "UTC"
   }

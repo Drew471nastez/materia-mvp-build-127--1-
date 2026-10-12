@@ -93,6 +93,31 @@ export function formatTime(value: DateInput, options: Intl.DateTimeFormatOptions
   return formatDateTime(value, options)
 }
 
+/** The wall clock in a zone at an instant: { y, m (0-11), d, h, min }. */
+export function wallClockIn(at: number, zone: string = appTimeZone()): { y: number; m: number; d: number; h: number; min: number } {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(at))
+    const g = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0)
+    return { y: g("year"), m: g("month") - 1, d: g("day"), h: g("hour") % 24, min: g("minute") }
+  } catch {
+    const d = new Date(at)
+    return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate(), h: d.getUTCHours(), min: d.getUTCMinutes() }
+  }
+}
+
+/** The instant a wall clock time happens in a zone: 9:00 on 12 Oct in Europe/Warsaw. */
+export function instantAt(y: number, m: number, d: number, h: number, min = 0, zone: string = appTimeZone()): Date {
+  const want = Date.UTC(y, m, d, h, min)
+  let guess = want
+  for (let i = 0; i < 3; i++) {
+    const w = wallClockIn(guess, zone)
+    const seen = Date.UTC(w.y, w.m, w.d, w.h, w.min)
+    if (seen === want) break
+    guess += want - seen
+  }
+  return new Date(guess)
+}
+
 /** Options for Date#toLocale*String: the creator's zone unless one is given. */
 export function zoned(options: Intl.DateTimeFormatOptions = {}): Intl.DateTimeFormatOptions {
   return { timeZone: appTimeZone(), ...options }

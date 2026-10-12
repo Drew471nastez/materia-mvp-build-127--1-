@@ -59,7 +59,7 @@ import { useMedia } from "./format-bar"
 import { SendStatus } from "./send-status"
 import { afterLayerMove } from "@/components/app/page-layer"
 import { tt } from "@/lib/i18n/text"
-import { appLocale, zoned } from "@/lib/i18n/format"
+import { appLocale, appTimeZone, instantAt, wallClockIn, zoned } from "@/lib/i18n/format"
 
 export interface ComposerProps {
   campaignId: string | null
@@ -1110,26 +1110,27 @@ function Row({
 /* ─── Scheduling: a day, and a whole hour, because the queue runs on the hour ─── */
 
 function ScheduleDialog({ open, onClose, busy, error, onSchedule }: { open: boolean; onClose: () => void; busy: boolean; error: string | null; onSchedule: (d: Date) => void }) {
-  const tz = React.useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  /* The creator's time zone (Settings), not the device's: "9:00" is 9:00 where they said they are. */
+  const tz = React.useMemo(() => appTimeZone(), [])
   const next = React.useMemo(() => {
-    const d = new Date()
-    d.setMinutes(0, 0, 0)
-    d.setHours(d.getHours() + (open ? 2 : 2))
-    return d
-  }, [open])
-  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-  const [day, setDay] = React.useState(ymd(next))
-  const [hour, setHour] = React.useState(next.getHours())
+    /* Two hours on, on the hour; worked out again each time the dialog opens. */
+    const w = wallClockIn(Date.now() + (open ? 2 : 2) * 3_600_000, tz)
+    return { ...w, min: 0 }
+  }, [open, tz])
+  const ymdOf = (w: { y: number; m: number; d: number }) => `${w.y}-${String(w.m + 1).padStart(2, "0")}-${String(w.d).padStart(2, "0")}`
+  const [day, setDay] = React.useState(ymdOf(next))
+  const [hour, setHour] = React.useState(next.h)
   React.useEffect(() => {
     if (open) {
-      setDay(ymd(next))
-      setHour(next.getHours())
+      setDay(ymdOf(next))
+      setHour(next.h)
     }
   }, [open, next])
   const [y, m, d] = day.split("-").map(Number)
-  const at = new Date(y, (m || 1) - 1, d || 1, hour, 0, 0, 0)
+  const at = instantAt(y, (m || 1) - 1, d || 1, hour, 0, tz)
   const past = at.getTime() < Date.now() + 5 * 60_000
-  const hours = Array.from({ length: 24 }, (_, h) => ({ h, label: new Date(2000, 0, 1, h).toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" })) }))
+  /* Hours as the wall clock says them, in the dashboard's language: "9:00 AM", "09:00". */
+  const hours = Array.from({ length: 24 }, (_, h) => ({ h, label: new Date(Date.UTC(2000, 0, 1, h)).toLocaleTimeString(appLocale(), { hour: "numeric", minute: "2-digit", timeZone: "UTC" }) }))
   const field = "h-11 w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] sm:h-9 sm:text-[14px]"
   return (
     <ComposeDialog
@@ -1150,7 +1151,7 @@ function ScheduleDialog({ open, onClose, busy, error, onSchedule }: { open: bool
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5">
           <span className="text-[13px] font-medium text-[#1a1a2e]">{tt("Day")}</span>
-          <input type="date" className={field} value={day} min={ymd(new Date())} onChange={(e) => setDay(e.target.value)} />
+          <input type="date" className={field} value={day} min={ymdOf(wallClockIn(Date.now(), tz))} onChange={(e) => setDay(e.target.value)} />
         </label>
         <label className="grid gap-1.5">
           <span className="text-[13px] font-medium text-[#1a1a2e]">{tt("Time")}</span>
