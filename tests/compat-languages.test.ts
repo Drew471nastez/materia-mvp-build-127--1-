@@ -143,7 +143,7 @@ async function main() {
       check("a market's own language greets its visitors once, never a crawler, a script or checkout", /async function marketLanguageStart/.test(proxy) && /request\.cookies\.get\("sl_lang"\)/.test(proxy) && /CRAWLER\.test/.test(proxy) && /NEVER_STARTED = \/\^\\\/\(\?:checkout\|cart\|account/.test(proxy) && (proxy.match(/await marketLanguageStart\(request, /g) ?? []).length === 3)
       check("  and picking a language is remembered, on both kinds of theme", /sl_lang=\$\{chosen\.toLowerCase\(\)\}/.test(read("lib/storelib-theme/compat/site.ts")) && /document\.cookie = `sl_lang=/.test(read("components/website-builder/theme/language-switch.tsx")) && /name: "sl_lang"/.test(read("lib/consent/consent.ts")))
       check("  choosing the default language from /fr is not sent back to /fr", /sitePath !== "\/localization"/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
-      check("Languages and Markets each say how they work", /<Card title="Languages" help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /<Card title="Markets" help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
+      check("Languages and Markets each say how they work", /* Changed on purpose (round AE). */ /title="Languages"\s*help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /title="Markets"\s*help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
     }
   }
 
@@ -155,7 +155,18 @@ async function main() {
     check("a saved default language is the page's lang, with no switch for one language", /if \(!langs\.saved\) return undefined/.test(live) && /if \(!hasLanguages && !currency\) return null/.test(read("components/website-builder/theme/language-switch.tsx")))
   }
 
-  console.log(`\n${passed} passed, ${failed} failed\n`)
+  console.log("\nRound AE: Markets and languages made easy\n")
+{
+  const panel = read("components/app/settings/markets-panel.tsx")
+  check("every change saves as it is made, and a refusal puts the page back", /const commit = \(next: Localization\)/.test(panel) && /setDraft\(savedRef\.current\)/.test(panel) && !/data-markets-save/.test(panel))
+  check("a language is added from a searchable list and opens straight into Translate", /function LanguagePicker/.test(panel) && /setTranslating\(code\)/.test(panel))
+  check("  published is a switch on its row and in Translate", /onCheckedChange=\{\(v\) => setPublished\(l\.code, v\)\}/.test(panel) && /data-translate-publish/.test(read("components/app/settings/translate-sheet.tsx")))
+  check("a market's countries go in a region at a time, or searched", /REGIONS\.map/.test(panel) && /data-market-chosen/.test(panel) && read("lib/markets/regions.ts").includes('id: "eu"'))
+  check("AI translates everything in one press, batch after batch", /for \(let round = 0; round < 12; round\+\+\)/.test(read("components/app/settings/translate-sheet.tsx")))
+  check("rates are fetched when the owner opens Markets and there are none fresh", /refreshRates\(c\.db\)/.test(read("app/api/store/markets/route.ts")))
+}
+
+console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)
 }
 main()
