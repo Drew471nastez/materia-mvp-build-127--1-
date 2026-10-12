@@ -36,6 +36,7 @@
 
 import Link from "next/link"
 import { isPlainClick, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
+import type * as React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 /*
@@ -177,7 +178,8 @@ const ICON_STROKE = 1.5
 const REST_WEIGHT = 470
 const ACTIVE_WEIGHT = 575
 
-export type NavChild = { href: string; label: string }
+/** `thumb`: a small picture before the label (an installed integration's logo). */
+export type NavChild = { href: string; label: string; thumb?: React.ReactNode }
 
 export type NavItemData = {
   href: string
@@ -576,7 +578,8 @@ function SubNavItem({
       className={cn(ROW, "h-[34px] text-[13px]")}
       style={rowStyle(active, hovered)}
     >
-      <span className="whitespace-nowrap">{child.label}</span>
+      {child.thumb ? <span className="-ml-0.5 flex shrink-0 items-center">{child.thumb}</span> : null}
+      <span className="min-w-0 truncate whitespace-nowrap">{child.label}</span>
     </Link>
   )
 }

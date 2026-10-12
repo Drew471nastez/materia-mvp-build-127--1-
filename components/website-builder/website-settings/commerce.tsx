@@ -82,7 +82,7 @@ export function CommerceSettings({ ctx }: { ctx: SettingsContext }) {
 
       <Card title="Integrations">
         <Row label="Analytics and pixels" hint={trackersHint()}>
-          {door("/app/settings?tab=integrations", "Integrations")}
+          {door("/app/integrations", "Integrations")}
         </Row>
         <Row label="Customer emails" hint="The order confirmation and every update a buyer gets from your store.">
           {door("/app/settings?tab=emails", "Customer emails")}

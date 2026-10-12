@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
  * The integrations a store has installed, for the app's sidebar: a pixel
  * with its ID saved, a provider with a key or an address saved (not the
  * built in ones, which every store has), and not hidden from /admin.
- * Names and pages only.
+ * Names, logos (the small file the sidebar shows beside each) and pages only.
  */
 export async function GET() {
   const c = await shopCaller()
@@ -37,6 +37,6 @@ export async function GET() {
     /* A Coming soon provider with a key kept from before is not installed: it does nothing. */
     if (i.kind === "commerce" && !i.builtIn && !i.comingSoon) return providers.some((p) => p.provider === i.providerId && p.status !== "disconnected")
     return false
-  }).map((i) => ({ id: i.id, name: i.name, needsAttention: i.kind === "commerce" && providers.some((p) => p.provider === i.providerId && p.status === "error") }))
+  }).map((i) => ({ id: i.id, name: i.name, logo: i.logo ?? null, needsAttention: i.kind === "commerce" && providers.some((p) => p.provider === i.providerId && p.status === "error") }))
   return physicalJson({ installed }, 200)
 }

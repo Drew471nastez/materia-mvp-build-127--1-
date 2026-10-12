@@ -196,7 +196,8 @@ function MobileSubNavItem({
       className={cn(ROW, "h-11 text-[14.5px]")}
       style={rowStyle(active, pressed)}
     >
-      <span>{child.label}</span>
+      {child.thumb ? <span className="-ml-0.5 flex shrink-0 items-center">{child.thumb}</span> : null}
+      <span className="min-w-0 truncate">{child.label}</span>
     </Link>
   )
 }
