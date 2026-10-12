@@ -147,12 +147,13 @@ function MetricsStrip({ metrics, comparable }: { metrics: MetricReading[]; compa
             <div
               key={reading.key}
               className={cn(
-                "flex min-w-[150px] flex-1 shrink-0 flex-col justify-between px-4 pb-2 pt-3",
+                /* At least 150px, and as wide as its figure: "257,00 USD Nowe" is longer than "$257.00 New". */
+                "flex flex-[1_0_150px] flex-col justify-between px-4 pb-2 pt-3",
                 i > 0 && "border-l border-[#eef0f2]",
               )}
             >
               <HelpLabel label={meta.label} description={meta.help} className="text-[12px] font-medium text-[#4b5563]" />
-              <div className="mt-1 flex h-6 items-baseline gap-2">
+              <div className="mt-1 flex h-6 items-baseline gap-2 whitespace-nowrap">
                 <span className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]">
                   {meta.money ? formatMoney(reading.value) : Math.round(reading.value).toLocaleString(appLocale())}
                 </span>

@@ -7516,6 +7516,7 @@ const words: Record<string, string> = {
  "e.g. Basic, Pro, Enterprise": "z. B. Basic, Pro, Enterprise",
  "e.g. Refunds are only available for unused products. Contact support within the refund period.": "z. B. Erstattungen nur für unbenutzte Produkte. Melde dich innerhalb der Frist beim Support.",
  "edited": "bearbeitet",
+ "emails::Delivered": "Zugestellt",
  "ends with": "endet mit",
  "ends {date}": "endet am {date}",
  "ends {hint}": "endet auf {hint}",

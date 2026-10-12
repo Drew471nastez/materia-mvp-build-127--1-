@@ -10,7 +10,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { outstanding, wentOut, type CampaignStatus, type RecipientCounts } from "@/lib/email-campaigns/state"
 import { buttonPrimary, buttonSecondary, card } from "./ui"
-import { tt } from "@/lib/i18n/text"
+import { tt, ttx } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
 const n = (v: number) => v.toLocaleString(appLocale())
@@ -56,7 +56,7 @@ export function SendStatus({
   const rows: { label: string; value: number; tone?: "critical" }[] = c
     ? [
         { label: tt("Sent"), value: out },
-        ...(c.delivered ? [{ label: tt("Delivered"), value: c.delivered }] : []),
+        ...(c.delivered ? [{ label: ttx("emails", "Delivered"), value: c.delivered }] : []),
         ...(c.bounced ? [{ label: tt("Bounced"), value: c.bounced, tone: "critical" as const }] : []),
         ...(c.failed ? [{ label: tt("Not sent"), value: c.failed, tone: "critical" as const }] : []),
         ...(c.unknown ? [{ label: tt("May not have arrived"), value: c.unknown }] : []),

@@ -32,7 +32,7 @@ import { STATUS_LABEL, readStatus, type CampaignStatus } from "@/lib/email-campa
 import { cn } from "@/lib/utils"
 import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { loadReport, reportKey, type EmailReport } from "./emails-data"
-import { tt } from "@/lib/i18n/text"
+import { tt, ttx } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface EmailSeed {
@@ -299,7 +299,7 @@ function Performance({ report, className }: { report: EmailReport; className?: s
   const cells: { label: string; help: string; value: string; note?: string }[] = [
     { label: tt("Sent"), help: tt("Emails the email service accepted for delivery."), value: n(s.sent), note: s.waiting ? tt("{waiting} waiting", { waiting: n(s.waiting) }) : undefined },
     {
-      label: tt("Delivered"),
+      label: ttx("emails", "Delivered"),
       help: tt("Emails the receiving mail server confirmed. Reported by the email service a little after sending."),
       value: reported ? n(s.delivered) : "–",
       note: reported ? pct(s.delivered, s.sent) : tt("no reports yet"),
