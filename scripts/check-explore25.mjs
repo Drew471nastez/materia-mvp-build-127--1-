@@ -74,8 +74,17 @@ async function open(browser, view, path, { signedIn = false, waitFor } = {}) {
   return p
 }
 
-/* A link in the middle of the window, away from the bars. */
-const linkInView = (p, sel) =>
+/* A link in the middle of the window, away from the bars; the page is moved on a little until one is (a tall card on a phone). */
+async function linkInView(p, sel) {
+  for (let i = 0; i < 6; i++) {
+    const found = await linkInViewOnce(p, sel)
+    if (found) return found
+    await p.evaluate(() => window.scrollBy(0, 160))
+    await sleep(400)
+  }
+  return null
+}
+const linkInViewOnce = (p, sel) =>
   p.evaluate((sel) => {
     const a = [...document.querySelectorAll(sel)].filter((a) => {
       const r = a.getBoundingClientRect()
@@ -150,7 +159,7 @@ async function product(browser, view) {
     expect(!!card, `${view.name}: a card under the finger at 2000`, card)
     if (!card) { await p.__ctx.close(); continue }
     await press(p, view, card.x, card.y)
-    await p.waitForFunction(() => location.pathname.startsWith("/p/"), { timeout: LONG })
+    await p.waitForFunction(() => !location.pathname.startsWith("/explore"), { timeout: LONG })
     await sleep(2500)
     const control = back === "in-app" ? await p.evaluate(() => { const el = [...document.querySelectorAll("[data-discover-breadcrumb]")].find((e) => e.getBoundingClientRect().width > 0); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }) : null
     const film = await filmBack(p, view, {
@@ -180,7 +189,7 @@ async function results(browser, view) {
   const card = await linkInView(p, '[data-product-card] a[href*="layout=discover"]')
   if (!card) { expect(false, `${view.name}: a card in the results`); await p.__ctx.close(); return }
   await press(p, view, card.x, card.y)
-  await p.waitForFunction(() => location.pathname.startsWith("/p/"), { timeout: LONG })
+  await p.waitForFunction(() => !location.pathname.startsWith("/explore"), { timeout: LONG })
   await sleep(2500)
   const film = await filmBack(p, view, { watch: card.href, nth: card.nth, until: "/explore?q=product", label: `results-${view.name}`, act: () => p.evaluate(() => history.back()) })
   judgeReturn(film, card, view, "Back to the results")
@@ -226,7 +235,7 @@ async function category(browser, view) {
   const card = await linkInView(p, '[data-product-card] a[href*="layout=discover"]')
   if (!card) { expect(false, `${view.name}: a card on page two`); await p.__ctx.close(); return }
   await press(p, view, card.x, card.y)
-  await p.waitForFunction(() => location.pathname.startsWith("/p/"), { timeout: LONG })
+  await p.waitForFunction(() => !location.pathname.startsWith("/explore"), { timeout: LONG })
   await sleep(2500)
   const film = await filmBack(p, view, { watch: card.href, nth: card.nth, until: "/explore/design", label: `category-${view.name}`, act: () => p.evaluate(() => history.back()) })
   judgeReturn(film, card, view, "Back to page two of a category")

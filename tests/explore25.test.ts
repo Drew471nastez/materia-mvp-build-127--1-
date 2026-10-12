@@ -241,13 +241,13 @@ async function main() {
     {
       /* The boot script's popstate listener: the first on the window, so it hears a Back before the router does. */
       const added: string[] = []
-      let pop: (() => void) | null = null
-      const win: Record<string, unknown> = { addEventListener: (t: string, f: () => void) => { added.push(t); if (t === "popstate") pop = f } }
+      const heard: { pop?: () => void } = {}
+      const win: Record<string, unknown> = { addEventListener: (t: string, f: () => void) => { added.push(t); if (t === "popstate") heard.pop = f } }
       const loc = { pathname: "/p/x", search: "" }
       new Function("location", "performance", "sessionStorage", "document", "window", "setTimeout", EXPLORE_SCROLL_BOOT_SCRIPT)(loc, { getEntriesByType: () => [] }, { getItem: () => null }, { documentElement: { classList: { add() {}, remove() {} } } }, win, () => 0)
       loc.pathname = "/explore"
       loc.search = "?type=communities"
-      pop?.()
+      heard.pop?.()
       const counted = win.__explorePop as { seq: number; to: string }
       check("the boot script numbers every Back and says where it went", added[0] === "popstate" && counted.seq === 1 && counted.to === "/explore?type=communities", counted)
     }
