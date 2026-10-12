@@ -136,7 +136,7 @@ console.log("\nThe physical product editor")
   const parsed = parseSuggestRequest(JSON.stringify({ title: "Mug", kind: "physical" }), { storageOrigin: "https://x.supabase.co", creatorId: "c" })
   check("the suggestion route is told which list", parsed.ok && parsed.input.kind === "physical")
   const ed = read("app/app/products/new/product-editor.tsx")
-  check("What's included is a download's, hidden for a thing that ships", /hidden=\{productType === "physical"\}\s*>\s*<div>\s*<div className="flex items-center gap-1.5">\s*<h2 className=\{CARD_TITLE\}>What's Included/.test(ed) && /productType === "physical" \? \[\] : whatsIncluded/.test(ed))
+  check("What's included is a download's, hidden for a thing that ships", /hidden=\{productType === "physical"\}\s*>\s*<div>\s*<div className="flex items-center gap-1.5">\s*<h2 className=\{CARD_TITLE\}>What('|&apos;)s Included/.test(ed) && /productType === "physical" \? \[\] : whatsIncluded/.test(ed))
   /* Round 20: a product not live yet is kept as a draft on the way (no title or photo asked for), and the third way out says what it does (tests/product20.test.ts). */
   check("settings links in the editor stay in the app and ask Save draft and go, Leave without saving, Stay", /openSettings=\{openSettings\}/.test(ed) && /alt: "Leave without saving"/.test(ed) && /confirm: "Save draft and go"/.test(ed) && /router\.push\(href\)/.test(ed))
   const cards = read("components/physical/product-cards.tsx")

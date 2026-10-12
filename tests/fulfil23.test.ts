@@ -276,7 +276,7 @@ async function main() {
     const ui = read("components/physical/shipping-settings.tsx")
     check('"Custom shipping profile Reload": the hidden Reload button beside it is gone', !/>\s*Reload\s*</.test(ui) && !/className="sr-only" onClick=\{reload\}/.test(ui))
     check("the location form has local delivery (codes, price, minimum, free over, note) and pickup hours", /label="Local delivery"/.test(ui) && /label="Postal codes"/.test(ui) && /label="Minimum order"/.test(ui) && /label="Opening hours"/.test(ui) && /localDelivery/.test(ui))
-    check("the empty shipping warning says buyers can't check out without a rate", /Buyers can't check out a physical product until it has a rate for their address/.test(ui))
+    check("the empty shipping warning says buyers can't check out without a rate", /Buyers can('|&apos;)t check out a physical product until it has a rate for their address/.test(ui))
     const ok = readLocation({ name: "Studio", kind: "home", country: "RO", pickupHours: "Mon to Fri 9 to 5", localDelivery: { enabled: true, codes: "400, 401", priceCents: 500, minOrderCents: 2000, freeOverCents: null, note: "Evenings" } })
     check("a location's local delivery and hours are read apart from the location", ok.ok && ok.extra.local_delivery_enabled === true && JSON.stringify(ok.extra.local_delivery_codes) === '["400","401"]' && ok.extra.pickup_hours === "Mon to Fri 9 to 5" && !("local_delivery_enabled" in ok.row))
     const noCodes = readLocation({ name: "Studio", kind: "home", country: "RO", localDelivery: { enabled: true, codes: "" } })
