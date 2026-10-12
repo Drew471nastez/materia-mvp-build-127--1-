@@ -45,7 +45,7 @@ export const MEMBER_COVER_FADE_MS = 180
 /** A hue from a name, so a person with no photo and no cover keeps one colour of their own everywhere. */
 export function nameHue(name: string): number {
   let h = 0
-  for (const ch of name || "?") h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  for (const ch of name || "member") h = (h * 31 + ch.charCodeAt(0)) >>> 0
   return h % 360
 }
 
