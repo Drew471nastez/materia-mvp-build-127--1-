@@ -28,15 +28,24 @@
  *
  * Before SQL part 125 has run there is no grid (the server sends none), and
  * the card is the standing and the facts.
+ *
+ * ROUND 25, THE OWNER: "the activity area has too much text: simplify (keep
+ * the 12-month board, level name, points, joined, posts, comments as compact
+ * stats); restyle the activity board in Storelib's look with subtle purple
+ * accents for activity cells". So the standing is one line (the level's name
+ * by its number, the points across from it) with no "points to the next
+ * level" sentence and no progress bar; the facts stay three compact numbers;
+ * the grid's own words are its title and, when a square is pressed, what that
+ * day held, in the title row (no Less/More, no sentence under the grid). The
+ * squares are the /app accent (#8b5cf6) in four fixed steps over a cool grey,
+ * the one place on the profile with colour; the rest stays ink on white.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { TIME_ZONE_COOKIE, rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
 import {
   boardSummary,
-  boardTally,
   boardWeeks,
   cellLabel,
-  levelProgress,
   type ActivityGrid,
   type BoardCell,
   type MemberBoard,
@@ -57,8 +66,8 @@ export const DAY_LABELS_PX = 26
  * stylesheet has to carry them.
  */
 const BOARD_CSS = `
-[data-activity-board]{--ab-0:#eef0f3;--ab-1:rgba(26,26,46,.2);--ab-2:rgba(26,26,46,.42);--ab-3:rgba(26,26,46,.66);--ab-4:#1a1a2e;--ab-ring:#1a1a2e;--ab-track:#eef0f3}
-[data-community-theme="dark"] [data-activity-board]{--ab-0:#242833;--ab-1:rgba(244,245,247,.2);--ab-2:rgba(244,245,247,.4);--ab-3:rgba(244,245,247,.64);--ab-4:#f4f5f7;--ab-ring:#f4f5f7;--ab-track:#242833}
+[data-activity-board]{--ab-0:#eff0f3;--ab-1:rgba(139,92,246,.2);--ab-2:rgba(139,92,246,.42);--ab-3:rgba(139,92,246,.7);--ab-4:#7c3aed;--ab-ring:#1a1a2e;--ab-track:#eef0f3}
+[data-community-theme="dark"] [data-activity-board]{--ab-0:#242833;--ab-1:rgba(167,139,250,.24);--ab-2:rgba(167,139,250,.46);--ab-3:rgba(167,139,250,.72);--ab-4:#a78bfa;--ab-ring:#f4f5f7;--ab-track:#242833}
 [data-activity-cell]{background:var(--ab-0);transition:box-shadow 120ms ease-out}
 [data-activity-cell="1"]{background:var(--ab-1)}[data-activity-cell="2"]{background:var(--ab-2)}[data-activity-cell="3"]{background:var(--ab-3)}[data-activity-cell="4"]{background:var(--ab-4)}
 [data-activity-cell][data-picked]{box-shadow:0 0 0 1.5px var(--ab-ring)}
@@ -80,40 +89,19 @@ const monthYear = (iso: string | null) => {
 /* ── Standing ─────────────────────────────────────────────────────────── */
 
 function Standing({ s }: { s: MemberStanding }) {
-  const progress = levelProgress(s)
-  const toNext = s.next ? Math.max(0, s.next.minPoints - s.points) : 0
   return (
-    <div className="px-4 pb-3.5 pt-4 sm:px-5" data-activity-standing="">
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-[15px] font-semibold tabular-nums text-white" aria-hidden>
-          {s.level}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]" data-activity-level="">
-            Level {s.level}
-            {s.name ? <span className="font-medium text-[#6b7280]"> · {s.name}</span> : null}
-          </p>
-          <p className="mt-0.5 truncate text-[13px] leading-5 text-[#6b7280]" data-activity-next="">
-            {s.next ? `${compact(toNext)} ${toNext === 1 ? "point" : "points"} to level ${s.next.level}${s.next.name ? ` · ${s.next.name}` : ""}` : "The top level here"}
-          </p>
-        </div>
-        <p className="shrink-0 text-right text-[16px] font-semibold leading-5 tabular-nums text-[#1a1a2e]" data-activity-points="">
-          {compact(s.points)}
-          <span className="mt-0.5 block text-[12px] font-medium leading-4 text-[#8a8f98]">{s.points === 1 ? "point" : "points"}</span>
-        </p>
-      </div>
-      <div
-        className="mt-3 h-[5px] overflow-hidden rounded-full"
-        style={{ background: "var(--ab-track)" }}
-        role="progressbar"
-        aria-label={s.next ? `Progress to level ${s.next.level}` : "Top level"}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(progress * 100)}
-        data-activity-progress=""
-      >
-        <span className="block h-full origin-left rounded-full" style={{ background: "var(--ab-4)", scale: `${progress} 1` }} />
-      </div>
+    <div className="flex items-center gap-3 px-4 py-3 sm:px-5" data-activity-standing="">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-[14px] font-semibold tabular-nums text-white" aria-hidden>
+        {s.level}
+      </span>
+      <p className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]" data-activity-level="">
+        {s.name || `Level ${s.level}`}
+        {s.name ? <span className="font-medium text-[#8a8f98]"> · Level {s.level}</span> : null}
+      </p>
+      <p className="shrink-0 text-[15px] font-semibold leading-5 tabular-nums text-[#1a1a2e]" data-activity-points="">
+        {compact(s.points)}
+        <span className="font-medium text-[#8a8f98]"> {s.points === 1 ? "point" : "points"}</span>
+      </p>
     </div>
   )
 }
@@ -130,7 +118,7 @@ function Facts({ board }: { board: MemberBoard }) {
   return (
     <dl className="grid" style={{ gridTemplateColumns: `repeat(${facts.length}, minmax(0, 1fr))` }} data-activity-facts="">
       {facts.map((f, i) => (
-        <div key={f.key} className={cn("flex min-w-0 flex-col-reverse items-center px-2 py-3", i ? "border-l border-[#eceef1]" : "")} data-activity-fact={f.key}>
+        <div key={f.key} className={cn("flex min-w-0 flex-col-reverse items-center px-2 py-2.5", i ? "border-l border-[#eceef1]" : "")} data-activity-fact={f.key}>
           <dt className="truncate text-[12px] leading-4 text-[#6b7280]">{f.label}</dt>
           <dd className="truncate text-[15px] font-semibold leading-5 tabular-nums text-[#1a1a2e]">{f.value}</dd>
         </div>
@@ -179,7 +167,6 @@ function Days({ grid }: { grid: ActivityGrid }) {
     return day && byDay.has(day) ? day : null
   }
   const shown = picked ? byDay.get(picked) : null
-  const line = shown ? cellLabel(shown, grid.today) : boardTally(grid)
 
   /* Arrow keys walk the days once the grid has focus: a day either side, a week up or down the row. */
   const onKey = (e: React.KeyboardEvent) => {
@@ -192,16 +179,21 @@ function Days({ grid }: { grid: ActivityGrid }) {
   }
 
   return (
-    <div className="px-4 pb-4 pt-3.5 sm:px-5" data-activity-grid="">
-      <div className="mb-2.5 flex items-center justify-between gap-3">
-        <p className="text-[13px] font-medium leading-5 text-[#1a1a2e]">Last 12 months</p>
-        <span className="flex shrink-0 items-center gap-[3px] text-[11px] leading-none text-[#8a8f98]" aria-hidden data-activity-legend="">
-          <span className="mr-1">Less</span>
-          {[0, 1, 2, 3, 4].map((s) => (
-            <span key={s} className="block h-[10px] w-[10px] rounded-[2.5px]" data-activity-cell={s} />
-          ))}
-          <span className="ml-1">More</span>
-        </span>
+    <div className="px-4 pb-3.5 pt-3 sm:px-5" data-activity-grid="">
+      {/* One line: the title, and across from it the shades, or what the pressed day held, in the same place (nothing moves). */}
+      <div className="mb-2 flex h-5 items-center justify-between gap-3">
+        <p className="shrink-0 text-[13px] font-medium leading-5 text-[#1a1a2e]">Last 12 months</p>
+        {shown ? (
+          <p className="min-w-0 truncate text-right text-[12.5px] leading-5 text-[#6b7280]" aria-live="polite" data-activity-line="">
+            {cellLabel(shown, grid.today)}
+          </p>
+        ) : (
+          <span className="flex shrink-0 items-center gap-[3px]" aria-hidden data-activity-legend="">
+            {[0, 1, 2, 3, 4].map((s) => (
+              <span key={s} className="block h-[10px] w-[10px] rounded-[2.5px]" data-activity-cell={s} />
+            ))}
+          </span>
+        )}
       </div>
       <div className="flex">
         {/* The day names, on the rows they name: the month row's height, then the squares'. */}
@@ -267,9 +259,6 @@ function Days({ grid }: { grid: ActivityGrid }) {
           ))}
         </div>
       </div>
-      <p className="mt-2.5 min-w-0 truncate text-[12.5px] leading-5 text-[#6b7280]" aria-live="polite" data-activity-line="">
-        {line}
-      </p>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { ChevronLeft, ExternalLink, FileText, Loader2, Mail, Package, Receipt, Store } from "lucide-react"
@@ -113,8 +114,7 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
       <header className="flex items-start gap-4">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04] sm:h-24 sm:w-24">
           {data.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
+            <SoftImg src={data.thumbnailUrl} width={96} sizes="(min-width: 640px) 96px, 80px" eager className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-[#9ca3af]">
               <Package className="h-6 w-6" aria-hidden />

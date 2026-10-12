@@ -25,6 +25,13 @@
  *                is taller, the photo bigger and it opens in the creator
  *                page's viewer, and Visit page is a push there and a pop
  *                back (useFullPage below).
+ *   ROUND 25     the owner, again: the band a bit taller, their level on
+ *                their photo (the leaderboard's mark, large), their bio up
+ *                to four lines, and the cover and words from their Storelib
+ *                page when their own profile has none (the loader's
+ *                pageLookOf). The board is simpler (activity-board.tsx). A
+ *                creator's profile shows their posts first and the board
+ *                under them, reached with Show more.
  *   SOMEBODY     their posts in this community that I may read here, newest
  *                first, a page at a time as the list nears its end.
  *   ME           NOT HERE ANY MORE (round 16). The owner: "I didn't mean for
@@ -56,6 +63,8 @@ import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { armPageMotion, holdPageMotion, takeArmedMotion } from "@/lib/navigation/page-push"
 import { coverCropStyle } from "@/lib/images/cover-crop"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { coverFileWidth } from "@/lib/images/cover-file"
+import { SoftImg } from "@/components/ui/soft-img"
 import { relativeTime } from "@/lib/communities/format"
 import { openPost } from "@/lib/communities/client/open-post"
 import { useCommunityNavigator } from "@/lib/communities/client/navigator"
@@ -73,6 +82,7 @@ import type { ConfirmState } from "./dialogs"
 import { ConfirmSheet } from "./report-confirm"
 import { MemberAvatar } from "./member-avatar"
 import { ActivityBoard } from "./activity-board"
+import { LevelBadge } from "./level-badge"
 import { RoleBadge } from "./role-badge"
 import { toast } from "./toast"
 import { ICON_BTN } from "./ui"
@@ -119,6 +129,16 @@ function useNow(serverNow: number): number {
 }
 
 /* ── The head ─────────────────────────────────────────────────────────── */
+
+/** The place's column, the widest the band is ever drawn. */
+const COLUMN_PX = 680
+
+/** The cover at this screen's size (lib/images/cover-file.ts); asked for only in the browser, where DecodedCover draws it. */
+function coverFile(url: string): string {
+  if (typeof window === "undefined") return optimizedImageUrl(url, COLUMN_PX)
+  /* optimizedImageUrl doubles what it is given for a 2x screen: half the file width asked for. */
+  return optimizedImageUrl(url, coverFileWidth(window.innerWidth, window.devicePixelRatio || 1, COLUMN_PX) / 2)
+}
 
 /** The router's "full" prefetch (the whole page, not only up to its loading screen), as shell-frame.tsx asks. */
 const FULL = "full" as never
@@ -169,8 +189,9 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
   })
   /* The board says when they joined and their level; without one (an older answer) the line under the name still does. */
   const joined = data.board ? null : monthYear(person.joinedAt)
-  const level = data.board ? null : person.level
-  const cover = person.coverUrl ? optimizedImageUrl(person.coverUrl, 900) : null
+  const cover = person.coverUrl ? coverFile(person.coverUrl) : null
+  /* Their level on their photo (round 25), where the community counts points: the board's standing, else the member row's. */
+  const badge = data.board ? data.board.standing?.level ?? null : person.level && person.level > 1 ? person.level : null
   const pageHref = person.pageHref ? fullPageHref(person.pageHref, community.slug, profileRef) : null
   const ahead = useFullPage(pageHref)
   const head = useRef<HTMLElement | null>(null)
@@ -188,10 +209,10 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
     <header ref={head} className={cn(CARD, "overflow-hidden")} data-member-profile-head="">
       {/*
         THE BAND'S HEIGHT IS DRAWN FIRST: the picture fills a box that already exists, so nothing under it moves when it
-        comes. Round 18 (item 10): taller, with a picture 160px on a phone and 208px wider up, and the plain band 96px and
-        112px, so the photo straddles a band rather than a strip.
+        comes. Round 18 (item 10): taller, so the photo straddles a band rather than a strip. Round 25, the owner: "a bit
+        taller" again: a picture 184px on a phone and 236px wider up, the plain band 112px and 128px.
       */}
-      <div className={cn("relative w-full overflow-hidden", cover ? "h-[160px] bg-[#eceef1] sm:h-[208px]" : "h-[96px] bg-[#f3f4f6] sm:h-[112px]")} data-member-profile-cover={cover ? "image" : "plain"}>
+      <div className={cn("relative w-full overflow-hidden", cover ? "h-[184px] bg-[#eceef1] sm:h-[236px]" : "h-[112px] bg-[#f3f4f6] sm:h-[128px]")} data-member-profile-cover={cover ? "image" : "plain"}>
         {cover ? <DecodedCover src={cover} style={coverCropStyle(person.coverCrop)} /> : null}
       </div>
       <div className="relative px-4 pb-5 sm:px-6">
@@ -200,6 +221,7 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
           <AvatarLightbox src={person.avatarUrl} name={person.name}>
             <span className="relative inline-flex shrink-0 rounded-full bg-white p-[3px] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" data-member-profile-avatar="">
               <MemberAvatar src={person.avatarUrl} name={person.name} size={112} sizedByClass className="h-[96px] w-[96px] sm:h-[112px] sm:w-[112px]" />
+              {badge ? <LevelBadge level={badge} size="lg" data-member-profile-level="" /> : null}
             </span>
           </AvatarLightbox>
         </div>
@@ -210,12 +232,6 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
           </h1>
           <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13.5px] leading-5 text-[#6b7280]" data-member-profile-meta="">
             {person.username ? <span className="truncate">@{person.username}</span> : null}
-            {level && level > 1 ? (
-              <>
-                <span aria-hidden className="text-[#c4c8cf]">·</span>
-                <span className="whitespace-nowrap">Level {level}</span>
-              </>
-            ) : null}
             {joined ? (
               <>
                 <span aria-hidden className="text-[#c4c8cf]">·</span>
@@ -229,7 +245,7 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
             </p>
           ) : null}
           {person.bio ? (
-            <p className="mt-2.5 line-clamp-3 whitespace-pre-line text-[14.5px] leading-[1.5] text-[#374151] [overflow-wrap:anywhere]" data-member-profile-bio="">
+            <p className="mt-2.5 line-clamp-4 whitespace-pre-line text-[14.5px] leading-[1.5] text-[#374151] [overflow-wrap:anywhere]" data-member-profile-bio="">
               {person.bio}
             </p>
           ) : null}
@@ -355,8 +371,7 @@ function PostRow({
         {post.imageUrl ? (
           /* The thumbnail's box is there before the picture: 64px, never a jump. */
           <span className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f1f2f4]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={optimizedImageUrl(post.imageUrl, 128)} alt="" width={64} height={64} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+            <SoftImg src={post.imageUrl} width={64} height={64} className="h-full w-full object-cover" />
           </span>
         ) : null}
       </Link>
@@ -426,6 +441,7 @@ function PostList({
   showCommunity,
   now,
   empty,
+  byButton = false,
 }: {
   page: ProfilePostsPage
   community: MemberProfilePlaceProps["community"]
@@ -433,6 +449,8 @@ function PostList({
   showCommunity: boolean
   now: number
   empty: React.ReactNode
+  /** Something comes after the list (a creator's board): the next page waits for Show more, so it can be reached. */
+  byButton?: boolean
 }) {
   const { posts, setPosts, next, state, more } = usePostPages(page, community.id, profileRef)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
@@ -441,13 +459,13 @@ function PostList({
   /* The next page is asked for as the list nears its end, never on a press the person has to make. */
   useEffect(() => {
     const el = end.current
-    if (!el || !next || typeof IntersectionObserver === "undefined") return
+    if (byButton || !el || !next || typeof IntersectionObserver === "undefined") return
     const io = new IntersectionObserver((seen) => {
       if (seen.some((s) => s.isIntersecting)) void more()
     }, { rootMargin: `0px 0px ${AHEAD_PX}px 0px` })
     io.observe(el)
     return () => io.disconnect()
-  }, [next, more])
+  }, [next, more, byButton])
 
   const remove = (post: ProfilePostView, row: HTMLElement | null) =>
     setConfirm({
@@ -495,6 +513,13 @@ function PostList({
         <p className="py-4 text-center text-[13px] text-[#6b7280]" data-profile-posts-loading="">
           Loading more posts
         </p>
+      ) : null}
+      {byButton && next && state !== "error" ? (
+        <div className="flex justify-center pt-3">
+          <button type="button" onClick={() => void more()} disabled={state !== "idle"} aria-busy={state !== "idle" || undefined} className={SECONDARY} data-profile-posts-more="">
+            Show more
+          </button>
+        </div>
       ) : null}
       {state === "error" ? (
         <div className="flex justify-center py-4">
@@ -570,10 +595,18 @@ export function MemberProfilePlace({ community, viewer, profileRef, data }: Memb
 
   const first = data.person.name.split(/\s+/)[0] || data.person.name
   const signedIn = viewer.signedIn ?? !!viewer.userId
+  /*
+    A CREATOR'S PROFILE READS POSTS FIRST (round 25, the owner: "on a creator's profile, the activity section goes BELOW the
+    posts section"). Somebody with a store, or the one who runs this community, is visited for what they post; a member's
+    profile keeps their activity under the head. Below a list, the board is reached by paging with Show more rather than
+    by a list that keeps growing under the finger.
+  */
+  const postsFirst = !!data.board && (data.person.hasStorefront || data.person.role === "owner")
+  const board = data.board ? <ActivityBoard board={data.board} name={data.person.name} /> : null
   return (
-    <section className="mx-auto flex w-full max-w-[680px] flex-col gap-4 py-2" data-member-profile-place="person" aria-label={`${data.person.name}'s profile`}>
+    <section className="mx-auto flex w-full max-w-[680px] flex-col gap-4 py-2" data-member-profile-place="person" data-profile-order={postsFirst ? "posts-first" : "board-first"} aria-label={`${data.person.name}'s profile`}>
       <ProfileHead data={data} community={community} profileRef={profileRef} signedIn={signedIn} />
-      {data.board ? <ActivityBoard board={data.board} name={data.person.name} /> : null}
+      {postsFirst ? null : board}
       <div data-profile-panel="posts">
         <h2 className="mb-2.5 px-1 text-[15px] font-semibold text-[#1a1a2e]">Posts in {community.name}</h2>
         <PostList
@@ -582,9 +615,11 @@ export function MemberProfilePlace({ community, viewer, profileRef, data }: Memb
           profileRef={profileRef}
           showCommunity={false}
           now={now}
+          byButton={postsFirst}
           empty={<p className="text-[14px] text-[#6b7280]">{first} has not posted here yet.</p>}
         />
       </div>
+      {postsFirst ? board : null}
     </section>
   )
 }
