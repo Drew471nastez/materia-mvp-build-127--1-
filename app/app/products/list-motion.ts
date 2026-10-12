@@ -87,7 +87,7 @@ export function shootList(section: HTMLElement | null): ListShot | null {
     const r = el.getBoundingClientRect()
     rows.set(el.dataset.row as string, { top: r.top - base.top, left: r.left - base.left, width: r.width, height: r.height })
   }
-  const columns = Array.from(section.querySelectorAll<HTMLElement>(tt("thead th"))).map((th) => th.getBoundingClientRect().width)
+  const columns = Array.from(section.querySelectorAll<HTMLElement>("thead th")).map((th) => th.getBoundingClientRect().width)
   return { rows, height: base.height, footer: footerTop(section, base), columns }
 }
 

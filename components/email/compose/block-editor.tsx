@@ -402,7 +402,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                     <div className="h-px bg-[#e5e7eb]" />
                   </div>
                 ) : b.type === "spacer" ? (
-                  <div className="flex items-center justify-center rounded-md border border-dashed border-[#e3e4e8] text-[12px] font-medium text-[#9ca3af]" style={{ height: b.size, fontFamily: tt("Inter, system-ui, sans-serif") }}>
+                  <div className="flex items-center justify-center rounded-md border border-dashed border-[#e3e4e8] text-[12px] font-medium text-[#9ca3af]" style={{ height: b.size, fontFamily: "Inter, system-ui, sans-serif" }}>
                     {tt("Space")}
                   </div>
                 ) : null}
@@ -546,7 +546,7 @@ function Shell({
           </div>
         </div>
       )}
-      {issue ? <p className="-mt-2 mb-3 text-[12px] text-[#b42318]" style={{ fontFamily: tt("Inter, system-ui, sans-serif") }}>{issue}</p> : null}
+      {issue ? <p className="-mt-2 mb-3 text-[12px] text-[#b42318]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>{issue}</p> : null}
       {panel ? <div className="mb-5 [font-family:Inter,system-ui,sans-serif] [&_*]:[font-family:inherit]">{panel}</div> : null}
     </div>
   )
@@ -602,7 +602,7 @@ function ImageView({ block, uploading, onDropFile, onUpload }: { block: ImageBlo
           if (f) onDropFile(f)
         }}
         className={cn("mb-4 flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-6 text-center", over ? "border-[#1a1a2e]/40 bg-[#f4f5f7]" : "border-[#d5d7dd] bg-[#fafbfb]")}
-        style={{ fontFamily: tt("Inter, system-ui, sans-serif") }}
+        style={{ fontFamily: "Inter, system-ui, sans-serif" }}
       >
         <button type="button" className={buttonSecondary} onClick={onUpload}>
           {tt("Upload an image")}
@@ -623,7 +623,7 @@ function ImageView({ block, uploading, onDropFile, onUpload }: { block: ImageBlo
 function ProductView({ block, theme }: { block: Block & { type: "product" }; theme: EmailTheme }) {
   if (!block.productId) {
     return (
-      <div className="mb-5 flex min-h-[96px] items-center justify-center rounded-xl border border-dashed border-[#d5d7dd] bg-[#fafbfb] px-4 text-[13px] leading-5 text-[#6b7280]" style={{ fontFamily: tt("Inter, system-ui, sans-serif") }}>
+      <div className="mb-5 flex min-h-[96px] items-center justify-center rounded-xl border border-dashed border-[#d5d7dd] bg-[#fafbfb] px-4 text-[13px] leading-5 text-[#6b7280]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
         {tt("Choose a product in the settings below")}
       </div>
     )

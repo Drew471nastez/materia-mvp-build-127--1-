@@ -1073,7 +1073,7 @@ export function TypographyPanel({
                 <span
                   className="w-10 shrink-0 text-center truncate"
                   style={{
-                    fontFamily: tt("{family}, ui-sans-serif, system-ui, sans-serif", { family }),
+                    fontFamily: `${family}, ui-sans-serif, system-ui, sans-serif`,
                     fontWeight: Number(st.weight),
                     fontSize: Math.min(22, Math.max(12, st.size.desktop / 2.2)),
                     textTransform: st.transform,

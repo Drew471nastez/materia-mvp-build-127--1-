@@ -355,7 +355,7 @@ export function parseTyped(text: string): Ymd | null {
     return isYmd(v) ? v : null
   }
   /* Words: "January 1, 2025", "1 de enero de 2025", "1. Januar 2025", "1 stycznia 2025". */
-  const tokens = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,]/g, " ").split(" ").filter((w) => w && !/^(de|di|del|of|the)$/.test(w))
+  const tokens = (t as string).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,]/g, " ").split(" ").filter((w) => w && !/^(de|di|del|of|the)$/.test(w))
   const year = tokens.find((w) => /^\d{4}$/.test(w))
   const day = tokens.find((w) => /^\d{1,2}$/.test(w))
   const word = tokens.find((w) => /^\p{L}{3,}$/u.test(w))

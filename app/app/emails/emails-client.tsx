@@ -130,7 +130,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const [period, setPeriod] = React.useState<RangeValue>(() => resolveValue({ preset: "last_30_days" }, today, "last_30_days"))
   const periodKey = `${period.preset}:${period.start}:${period.end}`
   const rangeQuery = React.useMemo(() => {
-    if (period.preset === "all_time") return tt("timeRange=all")
+    if (period.preset === "all_time") return "timeRange=all"
     const b = boundsOf(period, timeZone, Date.now())
     return `start=${encodeURIComponent(new Date(b.start).toISOString())}&end=${encodeURIComponent(new Date(b.end).toISOString())}`
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -368,7 +368,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const onCampaignIntent = (c: CampaignRow) => {
     if (tab === "drafts") {
       router.prefetch(`/app/emails/edit/${c.id}`)
-      prefetch(campaignKey(c.id), () => fetch(`/api/email/campaigns/${c.id}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(tt("not ok"))))), 5_000)
+      prefetch(campaignKey(c.id), () => fetch(`/api/email/campaigns/${c.id}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("not ok")))), 5_000)
     } else {
       prefetch(reportKey(c.id), () => loadReport(c.id), 15_000)
     }

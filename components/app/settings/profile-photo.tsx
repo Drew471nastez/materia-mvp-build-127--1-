@@ -45,7 +45,7 @@ async function squareOf(file: File): Promise<Blob> {
   canvas.width = out
   canvas.height = out
   const ctx = canvas.getContext("2d")
-  if (!ctx) throw new Error(tt("no canvas"))
+  if (!ctx) throw new Error("no canvas")
   ctx.imageSmoothingQuality = "high"
   /* A white ground, so a transparent PNG does not turn black as a JPEG. */
   ctx.fillStyle = "#ffffff"
@@ -53,7 +53,7 @@ async function squareOf(file: File): Promise<Blob> {
   ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, out, out)
   bitmap.close?.()
   return await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(tt("no blob")))), "image/jpeg", 0.9),
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no blob"))), "image/jpeg", 0.9),
   )
 }
 

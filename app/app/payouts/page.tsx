@@ -60,7 +60,7 @@ export default async function PayoutsPage() {
             <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
           </PaneBar>
           <div className="mx-auto max-w-[1200px] app-gutter pb-8">
-            <Suspense fallback={<PayoutsWaiting />}>{PayoutsBody({ creator, paymentsReady })}</Suspense>
+            <Suspense fallback={<PayoutsWaiting label={tt("Loading payouts")} />}>{PayoutsBody({ creator, paymentsReady })}</Suspense>
           </div>
         </>
       ) : (
@@ -99,10 +99,9 @@ export default async function PayoutsPage() {
  * card with its figure, the period and the plot, and the list card with its
  * toolbar and rows.
  */
-async function PayoutsWaiting() {
-  const { tt } = await getServerTt()
+function PayoutsWaiting({ label }: { label: string }) {
   return (
-    <Shimmer className="space-y-4 pt-2" label={tt("Loading payouts")}>
+    <Shimmer className="space-y-4 pt-2" label={label}>
       <div className={WAIT_CARD}>
         <div className="flex h-10 items-center justify-between pl-4 pr-3.5 pt-1">
           <ShimmerBlock className="h-3 w-16 rounded-full" />

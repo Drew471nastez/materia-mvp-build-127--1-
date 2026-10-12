@@ -111,7 +111,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
   free: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
     blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
-    get filter() { return tt("brightness(0.7) contrast(0.94) brightness(0.95)") },
+    filter: "brightness(0.7) contrast(0.94) brightness(0.95)",
     ground: "bg-[#151516]",
     fade: "from-[#0b0b0c]/85",
     grain: 0.2,
@@ -122,7 +122,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
   growth: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    get filter() { return tt("brightness(0.42) contrast(0.9)") },
+    filter: "brightness(0.42) contrast(0.9)",
     ground: "bg-[#1d1270]",
     fade: "from-[#130b55]/85",
     grain: 0.2,

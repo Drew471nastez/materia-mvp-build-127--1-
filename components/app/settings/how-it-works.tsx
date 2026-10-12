@@ -206,17 +206,17 @@ function Art({ art }: { art: ExplainerArt }) {
             <Bar x={12} y={38} w={100} />
             <Bar x={12} y={52} w={80} />
             <rect x="12" y="70" width="44" height="16" rx="8" fill={PAPER} stroke={INK} strokeWidth="1.3" />
-            <text x="34" y="81.5" textAnchor="middle" fontSize="9" fontFamily={tt("system-ui, sans-serif")} fill={INK}>{tt("EN")}</text>
+            <text x="34" y="81.5" textAnchor="middle" fontSize="9" fontFamily={"system-ui, sans-serif"} fill={INK}>{"EN"}</text>
           </Card>
           <path d="M190 75 H222" stroke={INK} strokeWidth="1.6" strokeDasharray="4 5" strokeLinecap="round" />
           <path d="M216 69 L224 75 L216 81" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           <Card x={232} y={26} w={140} h={98}>
             <rect x="0" y="0" width="140" height="22" rx="10" fill={SOFT} />
-            <text x="12" y="15" fontSize="9" fontFamily={tt("system-ui, sans-serif")} fill="#6b7280">{"/fr"}</text>
+            <text x="12" y="15" fontSize="9" fontFamily={"system-ui, sans-serif"} fill="#6b7280">{"/fr"}</text>
             <Bar x={12} y={38} w={100} dark />
             <Bar x={12} y={52} w={80} />
             <rect x="12" y="70" width="44" height="16" rx="8" fill={INK} />
-            <text x="34" y="81.5" textAnchor="middle" fontSize="9" fontFamily={tt("system-ui, sans-serif")} fill={PAPER}>{tt("FR")}</text>
+            <text x="34" y="81.5" textAnchor="middle" fontSize="9" fontFamily={"system-ui, sans-serif"} fill={PAPER}>{"FR"}</text>
           </Card>
         </Frame>
       )
@@ -230,7 +230,7 @@ function Art({ art }: { art: ExplainerArt }) {
           <path d="M200 69 L208 75 L200 81" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           <Card x={218} y={36} w={150} h={78}>
             <Bar x={14} y={14} w={54} />
-            <text x="14" y="50" fontSize="20" fontWeight="600" fontFamily={tt("system-ui, sans-serif")} fill={INK}>44,50 €</text>
+            <text x="14" y="50" fontSize="20" fontWeight="600" fontFamily={"system-ui, sans-serif"} fill={INK}>44,50 €</text>
             <Bar x={14} y={60} w={86} />
           </Card>
         </Frame>

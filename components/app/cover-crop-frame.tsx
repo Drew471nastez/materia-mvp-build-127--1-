@@ -529,7 +529,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
         /* The one element on the sheet that keeps every touch for itself. */
         touchAction: editable ? "none" : undefined,
         /* Nothing inside can change the size of anything outside. */
-        contain: tt("layout paint"),
+        contain: "layout paint",
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
       }}

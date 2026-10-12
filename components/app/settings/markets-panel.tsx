@@ -41,7 +41,7 @@ import type { Localization, Market } from "@/lib/markets/model"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
-import { tt } from "@/lib/i18n/text"
+import { activeLocale, tt } from "@/lib/i18n/text"
 
 const PATH = "/api/store/markets"
 
@@ -154,7 +154,7 @@ export function MarketsPanel() {
               >
                 {[...new Set([draft.defaultLanguage, ...SITE_LANGUAGE_CODES])].map((c) => (
                   <option key={c} value={c}>
-                    {languageName(c, "en")}
+                    {languageName(c, activeLocale())}
                   </option>
                 ))}
               </select>
@@ -176,14 +176,14 @@ export function MarketsPanel() {
                 </button>
                 <label className="flex items-center gap-2 pl-1 text-[12.5px] font-medium text-[#4b5563]">
                   <span>{tt("Published")}</span>
-                  <Switch checked={l.published} onCheckedChange={(v) => setPublished(l.code, v)} aria-label={tt("Publish {name}", { name: languageName(l.code, "en") })} />
+                  <Switch checked={l.published} onCheckedChange={(v) => setPublished(l.code, v)} aria-label={tt("Publish {name}", { name: languageName(l.code, activeLocale()) })} />
                 </label>
                 <button
                   type="button"
-                  aria-label={tt("Remove {name}", { name: languageName(l.code, "en") })}
+                  aria-label={tt("Remove {name}", { name: languageName(l.code, activeLocale()) })}
                   className={cn(BTN_GHOST, "w-9 px-0 text-[#6b7280]")}
                   onClick={() => {
-                    if (!window.confirm(tt("Remove {name}? Its translations are kept, in case you add it again.", { name: languageName(l.code, "en") }))) return
+                    if (!window.confirm(tt("Remove {name}? Its translations are kept, in case you add it again.", { name: languageName(l.code, activeLocale()) }))) return
                     commit({ ...draft, languages: draft.languages.filter((x) => x.code !== l.code), markets: draft.markets.map((m) => (m.language === l.code ? { ...m, language: null } : m)) })
                   }}
                 >
@@ -221,7 +221,7 @@ export function MarketsPanel() {
                     {m.primary ? tt("Everywhere else") : m.countries.length === 0 ? tt("No countries yet") : m.countries.length <= 3 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}
                     {" · "}
                     {m.currency ?? data.baseCurrency}
-                    {m.language ? ` · ${languageName(m.language, "en")}` : ""}
+                    {m.language ? ` · ${languageName(m.language, activeLocale())}` : ""}
                   </span>
                 </span>
                 <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
@@ -302,7 +302,7 @@ function LanguagePicker({ open, options, onClose, onPick }: { open: boolean; opt
     if (open) setQuery("")
   }, [open])
   const q = query.trim().toLowerCase()
-  const shown = options.filter((c) => !q || languageName(c, "en").toLowerCase().includes(q) || languageName(c).toLowerCase().includes(q) || c.toLowerCase() === q)
+  const shown = options.filter((c) => !q || languageName(c, activeLocale()).toLowerCase().includes(q) || languageName(c, "en").toLowerCase().includes(q) || languageName(c).toLowerCase().includes(q) || c.toLowerCase() === q)
   return (
     <Modal open={open} onClose={onClose} title={tt("Add a language")}>
       <div className="space-y-3" data-language-picker="">
@@ -317,7 +317,7 @@ function LanguagePicker({ open, options, onClose, onPick }: { open: boolean; opt
               <button type="button" onClick={() => onPick(c)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#f8f9fa] active:bg-[#f3f4f6]" data-pick-language={c}>
                 <LanguageBadge code={c} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageName(c, "en")}</span>
+                  <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageName(c, activeLocale())}</span>
                   <span className="block truncate text-[12.5px] text-[#6b7280]">{languageName(c)}</span>
                 </span>
                 <Plus aria-hidden className="h-4 w-4 text-[#9ca3af]" />
@@ -501,12 +501,12 @@ function MarketEditor({
             </Field>
             <Field label={tt("Language")} hint={tt("What its visitors see first.")}>
               <SelectInput value={m.language ?? ""} onChange={(v) => setM({ ...m, language: v || null })}>
-                <option value="">{tt("{name} (default)", { name: languageName(localization.defaultLanguage, "en") })}</option>
+                <option value="">{tt("{name} (default)", { name: languageName(localization.defaultLanguage, activeLocale()) })}</option>
                 {languages
                   .filter((l) => l !== localization.defaultLanguage)
                   .map((l) => (
                     <option key={l} value={l}>
-                      {languageName(l, "en")}
+                      {languageName(l, activeLocale())}
                     </option>
                   ))}
               </SelectInput>

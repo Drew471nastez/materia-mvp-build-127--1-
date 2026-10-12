@@ -70,7 +70,7 @@ function holesFor(box: DOMRect, panels: DOMRect[]): string | undefined {
   const o = 2
   const outer = `M${-o} ${-o}H${box.width + o}V${box.height + o}H${-o}Z`
   const cut = holes.map((h) => `M${h.left - box.left} ${h.top - box.top}H${h.right - box.left}V${h.bottom - box.top}H${h.left - box.left}Z`).join("")
-  return tt("path(evenodd, \"{outer}{cut}\")", { outer, cut })
+  return `path(evenodd, "${outer}${cut}")`
 }
 
 function overlaps(a: DOMRect, panels: DOMRect[]): boolean {

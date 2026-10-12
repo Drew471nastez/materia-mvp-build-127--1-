@@ -1267,11 +1267,11 @@ export function BottomSheet({
           {header}
         </div>
         {fill ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain" style={{ touchAction: "pan-x pan-y", contain: tt("layout paint") }}>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain" style={{ touchAction: "pan-x pan-y", contain: "layout paint" }}>
             {shownRef.current}
           </div>
         ) : (
-          <div ref={bodyRef} data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y", contain: tt("layout paint") }}>
+          <div ref={bodyRef} data-sheet-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y", contain: "layout paint" }}>
             {shownRef.current}
           </div>
         )}

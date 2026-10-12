@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils"
 import { BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, Pill, api } from "@/components/physical/ui"
 import { Switch } from "@/components/ui/switch"
 import { languageName } from "@/lib/markets/locales"
-import { tt } from "@/lib/i18n/text"
+import { activeLocale, tt } from "@/lib/i18n/text"
 
 type Status = "missing" | "outdated" | "draft" | "done"
 interface Item {
@@ -146,7 +146,7 @@ export function TranslateSheet({ locale, defaultLanguage, published = false, onP
     setNote(total ? tt("{total} drafted. Read them, then approve.", { total }) : tt("Nothing left to draft."))
   }
 
-  const name = locale ? languageName(locale, "en") : ""
+  const name = locale ? languageName(locale, activeLocale()) : ""
   const shownGroups = (data?.groups ?? [])
     .map((g) => ({ ...g, items: g.items.filter((i) => filter === "all" || i.status !== "done" || i.key in edits) }))
     .filter((g) => g.items.length)
@@ -189,7 +189,7 @@ export function TranslateSheet({ locale, defaultLanguage, published = false, onP
                   <span className="font-medium text-[#1a1a2e]">
                     {tt("{done} of {total} translated", { done: data.progress.done, total: data.progress.total })}
                   </span>
-                  <span className="text-[#6b7280]">{tt("The rest shows in {name}", { name: languageName(defaultLanguage, "en") })}</span>
+                  <span className="text-[#6b7280]">{tt("The rest shows in {name}", { name: languageName(defaultLanguage, activeLocale()) })}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
                   <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${Math.round((data.progress.done / data.progress.total) * 100)}%` }} />

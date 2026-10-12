@@ -1009,7 +1009,7 @@ export function MobileNavPill({
                  note by PRESS_FILL); emptied instantly on the frame it
                  changes slot, then filled back over the ink's own curve,
                  which outranks the press's instant while the filling lasts. */
-              transition: `${NO_TRAVEL}, ${LIFT_EASE}, transform 0s, opacity 220ms ease-out, ${arriving || (slide.pressed && !filling) ? PRESS_ON : tt("background-color {inkEase}, box-shadow {inkEase2}", { inkEase: INK_EASE, inkEase2: INK_EASE })}`,
+              transition: `${NO_TRAVEL}, ${LIFT_EASE}, transform 0s, opacity 220ms ease-out, ${arriving || (slide.pressed && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
               willChange: "translate, scale, transform",
             }}
           >

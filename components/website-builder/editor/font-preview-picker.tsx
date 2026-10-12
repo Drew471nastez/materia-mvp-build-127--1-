@@ -48,7 +48,7 @@ const familyOf = (value: string) => {
 }
 const faceOf = (value: string) => {
   const family = familyOf(value)
-  return family ? tt("\"{value}\", ui-sans-serif, system-ui, sans-serif", { value: family.replace(/"/g, "") }) : undefined
+  return family ? `"${family.replace(/"/g, "")}", ui-sans-serif, system-ui, sans-serif` : undefined
 }
 
 let previewsLoaded = false

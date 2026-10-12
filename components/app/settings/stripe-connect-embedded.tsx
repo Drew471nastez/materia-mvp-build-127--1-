@@ -62,7 +62,7 @@ function sealsStripeFrames(): boolean {
 const APPEARANCE = {
   overlays: "dialog" as const,
   variables: {
-    get fontFamily() { return tt("Inter, system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif") },
+    fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     fontSizeBase: "15px",
     colorPrimary: "#1a1a2e",
     colorBackground: "#ffffff",

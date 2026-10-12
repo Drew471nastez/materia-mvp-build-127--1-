@@ -388,7 +388,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           ) : (
             <div className="relative aspect-[1200/630] bg-[#f3f4f6]" data-og-generated="">
               <ScaledCard>
-                <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily={tt("Inter, system-ui, sans-serif")} />
+                <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily={"Inter, system-ui, sans-serif"} />
               </ScaledCard>
             </div>
           )}
@@ -444,7 +444,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
                     )
                   ) : choice.id === "card" ? (
                     <ScaledCard>
-                      <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily={tt("Inter, system-ui, sans-serif")} />
+                      <ShareCardArt card={image.card} avatarSrc={image.card.avatarUrl} backgroundSrc={image.card.background.imageUrl} fontFamily={"Inter, system-ui, sans-serif"} />
                     </ScaledCard>
                   ) : image.customUrl ? (
                     <img src={image.customUrl} alt="" draggable={false} className="h-full w-full object-cover" style={{ objectPosition: `${image.focal.x}% ${image.focal.y}%` }} />
@@ -523,7 +523,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
       {/* ON GOOGLE: the page's picture and address, the title in link blue, the description under it. */}
       <figure className="space-y-2" data-search-preview="">
         <figcaption className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Google</figcaption>
-        <div className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]" style={{ fontFamily: tt("Arial, system-ui, sans-serif") }}>
+        <div className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]" style={{ fontFamily: "Arial, system-ui, sans-serif" }}>
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#ecedef] bg-[#f1f3f4] text-[11px] font-semibold text-[#4d5156]">
               {image.card.avatarUrl ? <img src={image.card.avatarUrl} alt="" className="h-full w-full object-cover" /> : image.card.initials.slice(0, 1)}
