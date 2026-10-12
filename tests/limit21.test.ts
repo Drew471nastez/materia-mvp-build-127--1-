@@ -31,6 +31,7 @@ import { priceCart } from "../lib/checkout/pricing"
 import { productSectionData } from "../lib/products/product-section-data"
 import { initialForm, snapshotOf, snapshotOfForm, type LoadedProduct } from "../app/app/products/new/editor-form"
 import { packItems } from "../lib/checkout/cart-items"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -38,7 +39,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 type Row = Record<string, unknown>
 type Rpc = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>

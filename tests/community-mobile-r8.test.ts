@@ -27,6 +27,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { RESIZED_MIN_PX, boxFootOnScreen, keyboardPlan, webViewResized, type KeyboardFacts } from "@/components/community/member/keyboard-plan"
 import { openLayer, resetLayers } from "@/lib/ui/layers"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -39,7 +40,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 async function main() {

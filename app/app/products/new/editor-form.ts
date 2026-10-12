@@ -94,7 +94,11 @@ export const COURSE_FAQS: FAQItem[] = [
 ]
 
 /** The default lines in the dashboard's language: a new product is written in its creator's. */
-const said = (lines: readonly string[]): string[] => lines.map((line) => tt(line))
+const said = (lines: readonly string[]): string[] => {
+  const out = lines.map((line) => tt(line))
+  /* In English the words are the list's own, so the list itself is kept (callers compare the defaults by identity). */
+  return out.every((line, i) => line === lines[i]) ? (lines as string[]) : out
+}
 
 function sameList<T>(a: T[], b: T[], key: (x: T) => string): boolean {
   return a.length === b.length && a.every((x, i) => key(x) === key(b[i]))

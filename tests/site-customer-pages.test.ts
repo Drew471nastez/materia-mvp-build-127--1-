@@ -50,6 +50,7 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { publicAccess, readSiteAccess, saveSiteAccess } from "@/lib/site-password/store"
 import { enterPassword, ownerHandOff, passwordNotice, spendOwnerPass } from "@/lib/site-password/enter"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 process.env.SITE_ACCOUNT_SECRET = "test-secret-for-site-customer-pages-0123456789"
 
@@ -61,7 +62,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   else { failed++; failures.push(label); process.stdout.write(`  FAIL  ${label}${detail === undefined ? "" : `\n        ${typeof detail === "string" ? detail.slice(0, 600) : JSON.stringify(detail).slice(0, 600)}`}\n`) }
 }
 function section(title: string) { process.stdout.write(`\n${title}\n`) }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 /* Two creators, side by side, and two customers each. */

@@ -56,6 +56,7 @@ import { reconcileAccess } from "@/lib/communities/server/membership"
 import { actOnMember, mayUndo, memberActionNeeds, MEMBER_ACTIONS, UNDO_ACTIONS } from "@/lib/communities/server/moderation"
 import { viewerContext } from "@/lib/communities/server/context"
 import type { MemberRow } from "@/lib/communities/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -70,7 +71,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 /** An answer read whole, whichever way it went (the suites compile without strict narrowing). */
 type Any = { ok: boolean; state?: string; status?: number; error?: string; message?: string; url?: string; already?: boolean; member?: MemberRow | null }
 const A = (a: unknown) => a as Any

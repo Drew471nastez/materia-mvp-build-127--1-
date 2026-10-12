@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { paymentsSetupErrorMessage } from "@/lib/payments/stripe/setup-errors"
 import { parsePersonal, personalFields, personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { accountSessionComponents } from "@/lib/payments/stripe/session-components"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -70,27 +71,27 @@ check(
 )
 check("an older Stripe-run account gets no platform-only features", JSON.stringify(accountSessionComponents("onboarding", false)) === JSON.stringify({ account_onboarding: { enabled: true, features: {} } }))
 
-const steps = readFileSync("lib/payments/stripe/onboarding-steps.ts", "utf8")
+const steps = untt(readFileSync("lib/payments/stripe/onboarding-steps.ts", "utf8"), "lib/payments/stripe/onboarding-steps.ts")
 check("payout currency is not hardcoded", !/\b(EUR|RON|USD|GBP)\b/.test(steps))
 
-const ui = readFileSync("components/app/settings/storelib-payments-settings.tsx", "utf8")
-const flow = readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8")
-const collection = readFileSync("lib/payments/stripe/setup-collection.ts", "utf8")
-const read = (path: string) => readFileSync(path, "utf8")
+const ui = untt(readFileSync("components/app/settings/storelib-payments-settings.tsx", "utf8"), "components/app/settings/storelib-payments-settings.tsx")
+const flow = untt(readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8"), "components/app/settings/payments-setup-flow.tsx")
+const collection = untt(readFileSync("lib/payments/stripe/setup-collection.ts", "utf8"), "lib/payments/stripe/setup-collection.ts")
+const read = (path: string) => untt(readFileSync(path, "utf8"), path)
 /*
   Setup does not render this any more (see below), and nothing else does
   either. It is kept, with its rules, because Stripe can still force an
   embedded form on the web one day, and a half-remembered one would be worse
   than this. Nothing in the phone app may reach it.
 */
-const embedded = readFileSync("components/app/settings/stripe-connect-embedded.tsx", "utf8")
-const connect = readFileSync("lib/payments/stripe/connect.ts", "utf8")
-const route = readFileSync("app/api/payments/[action]/route.ts", "utf8")
-const overview = readFileSync("lib/payments/stripe/overview.ts", "utf8")
+const embedded = untt(readFileSync("components/app/settings/stripe-connect-embedded.tsx", "utf8"), "components/app/settings/stripe-connect-embedded.tsx")
+const connect = untt(readFileSync("lib/payments/stripe/connect.ts", "utf8"), "lib/payments/stripe/connect.ts")
+const route = untt(readFileSync("app/api/payments/[action]/route.ts", "utf8"), "app/api/payments/[action]/route.ts")
+const overview = untt(readFileSync("lib/payments/stripe/overview.ts", "utf8"), "lib/payments/stripe/overview.ts")
 check("the card holds no bank or identity fields", !/iban|routing|accountNumber|passport/i.test(ui))
 /* The owner, October 2026: "like Gumroad, our own component, don't embed Stripe's setup". Storelib's own form, asking only what Stripe lists for the account. */
-const own = readFileSync("lib/payments/stripe/own-form.ts", "utf8")
-const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
+const own = untt(readFileSync("lib/payments/stripe/own-form.ts", "utf8"), "lib/payments/stripe/own-form.ts")
+const rules = untt(readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8"), "lib/payments/stripe/own-form-rules.ts")
 /*
   Setup is Storelib's own form from end to end, for an individual and for a
   business alike. There was a step that handed the rarer fields to Stripe's
@@ -122,7 +123,7 @@ check("Verify ID is always step two until Stripe holds an ID", /if \(!needs\.fie
 check("  and nothing from eventually_due is ever asked", !/eventually_due/.test(own.replace(/\/\*[\s\S]*?\*\//g, "").split("export async function detailsForm")[0] ?? "") && /scope === "all" \? \(req\?\.eventually_due \?\? \[\]\) : \[\]/.test(rules))
 check("no 'How are you selling', no Business option, no 'contact support' line in setup", !/How are you selling/.test(flow) && !/data-account-kind/.test(flow) && !/Stripe also needs something this form does not cover/.test(flow))
 check("'Checking your ID' only after an ID really went in this setup", /idSent\.current \? "id" : "details"/.test(flow) && /left\?\.needs\.given\?\.includes\("document"\) && step === 2\) idSent\.current = true/.test(flow))
-check("  and Stripe's identity check may start as soon as the document is listed", /eventually_due/.test(readFileSync("lib/payments/stripe/identity.ts", "utf8").split("function documentDue")[1]?.split("\n}\n")[0] ?? ""))
+check("  and Stripe's identity check may start as soon as the document is listed", /eventually_due/.test(untt(readFileSync("lib/payments/stripe/identity.ts", "utf8"), "lib/payments/stripe/identity.ts").split("function documentDue")[1]?.split("\n}\n")[0] ?? ""))
 check("the stepper shows Verify ID from the start when it is ahead, and the end screen says what it is checking", /useState\(!!data\.idAhead\)/.test(flow) && /what === "id" \? "Checking your ID" : "Checking your details"/.test(flow))
 check("  and a Stripe ask that arrives on the checking screen goes to the step, not to a 'not finished' wall", /if \(mode === "setup" && now === "more"\) \{\s*\n\s*setEnding\(null\)\s*\n\s*go\(1\)/.test(flow))
 check("a step is answered from the write Stripe just acknowledged, not another read", /return viewOf\(creator, saved\)/.test(own) && !/await syncStripeAccount\(creator\.id, "creator"\)\.catch\(\(\) => undefined\)\s*\n\s*return detailsForm/.test(own))
@@ -151,7 +152,7 @@ check("  the next step reads the overview the write returned, with no second syn
 check("  the checking screen waits with them instead of promising days", /function Outcome\([\s\S]*?"Checking your ID"/.test(flow) && !/line:[^\n]*business days/.test(flow))
 check("    and it asks again while it is open, becoming active by itself", /outcome !== "checking"\) return[\s\S]*?post<Overview>\("refresh"/.test(flow) && /onChecked/.test(flow))
 /* The owner, October 2026: Stripe does not take the photo we send. Verify ID is Stripe's own embedded check, on this page, and it never leaves for Stripe's site. */
-const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
+const idClient = untt(readFileSync("lib/payments/identity-client.ts", "utf8"), "lib/payments/identity-client.ts")
 check("Stripe's hosted page still exists, and the step does not open it", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
 check("  setup is Stripe's embedded form, on this page", /data-id-embed/.test(flow) && /stripe_onboarding/.test(flow) && /stripe_management/.test(flow) && /StripeConnectEmbedded/.test(flow))
 check("  it does not ask what kind of seller you are, or for a live selfie, an extra address document, or a bank-ownership file", /business_type",[\s\S]{0,500}?"individual\.verification\.proof_of_liveness",\s*"individual\.verification\.additional_document",\s*"documents\.bank_account_ownership_verification"/.test(flow + collection))
@@ -166,7 +167,7 @@ check("in the apps setup opens Stripe's embed on /payouts-sheet in the system br
 check("  the sheet's page is signed in by a link in its #fragment, for one creator, checked again on the server", /payouts-sheet#f=\$\{form\}&t=/.test(read("app/api/payments/[action]/route.ts")) && /verifySheetLink\(body\.token\)/.test(read("app/api/payouts-sheet/route.ts")) && /row\.user_id !== link\.u/.test(read("app/api/payouts-sheet/route.ts")) && /replaceState/.test(read("app/payouts-sheet/payouts-sheet.tsx")))
 check("  a browser keeps the page it had", /<Panel open=\{open\} phone=\{phone\} onClose=\{onClose\} label=\{title\}>\s*\{bar\}\s*\{content\}/.test(flow))
 check("  Stripe is not asked for the website, the industry or what is sold", /"business_profile\.url",\s*"business_profile\.mcc",\s*"business_profile\.product_description"/.test(collection))
-check("  and the account has them before the form is drawn", /fill\.business_profile = \{/.test(readFileSync("lib/payments/stripe/connect.ts", "utf8")) && /if \(!account\.business_type\) fill\.business_type = "individual"/.test(readFileSync("lib/payments/stripe/connect.ts", "utf8")))
+check("  and the account has them before the form is drawn", /fill\.business_profile = \{/.test(untt(readFileSync("lib/payments/stripe/connect.ts", "utf8"), "lib/payments/stripe/connect.ts")) && /if \(!account\.business_type\) fill\.business_type = "individual"/.test(untt(readFileSync("lib/payments/stripe/connect.ts", "utf8"), "lib/payments/stripe/connect.ts")))
 check("  payouts on: the done screen for a moment, then the sheet closes back to Storelib", /if \(!sheet \|\| !open \|\| ending !== "done"\) return[\s\S]{0,120}finishRef\.current\(\)/.test(flow))
 check("  a pull inside Stripe's form never closes the sheet", /data-payments-setup-panel="sheet" data-sheet-no-drag=""/.test(flow))
 /*
@@ -180,8 +181,8 @@ check("  a pull inside Stripe's form never closes the sheet", /data-payments-set
   really there, probed once and remembered, and every refusal falls through
   to Connect without a word to the creator.
 */
-const verifyWords = readFileSync("lib/payments/verify-id.ts", "utf8")
-const hosted = readFileSync("lib/payments/stripe/hosted-verification.ts", "utf8")
+const verifyWords = untt(readFileSync("lib/payments/verify-id.ts", "utf8"), "lib/payments/verify-id.ts")
+const hosted = untt(readFileSync("lib/payments/stripe/hosted-verification.ts", "utf8"), "lib/payments/stripe/hosted-verification.ts")
 check("Verify ID runs through Connect's own hosted verification", /stripe\.accountLinks\.create\(/.test(hosted) && /collection_options: \{ fields: "currently_due"/.test(hosted) && /account\.details_submitted \? "account_update" : "account_onboarding"/.test(hosted))
 check("  and it comes back to Storelib, on the step that is left", /return_url: where\.returnUrl/.test(hosted) && /refresh_url: where\.refreshUrl/.test(hosted) && /\/app\/payouts\?setup=1/.test(route))
 check("  Stripe Identity is tried first and falls through quietly when it is not there", /verifyWay\(\{ identityOn: await identityOnForPlatform\(\) \}\) === "identity"/.test(hosted) && /way: "connect"/.test(hosted))
@@ -195,7 +196,7 @@ check("  and no Stripe word or code can reach a creator through it", /account_no
   surfaced. What Stripe refused was ours: options.document.require_live_capture
   on a related_person session, which Stripe's own example does not send.
 */
-const identitySrc = readFileSync("lib/payments/stripe/identity.ts", "utf8")
+const identitySrc = untt(readFileSync("lib/payments/stripe/identity.ts", "utf8"), "lib/payments/stripe/identity.ts")
 /* The code only: the comments name the parameter that caused this, on purpose. */
 const identityCode = identitySrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")
 check("the session is created exactly as Stripe documents it: type, related_person, no options", /type: "document",[\s\S]{0,160}related_person: \{ account: account\.id, person: personId \}/.test(identityCode) && !/require_live_capture/.test(identityCode))
@@ -223,9 +224,9 @@ check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-
   /* The panel is drawn above the layer a phone sheet uses, so the country
      list has to be told to come out higher still or it opens behind it and
      the field looks dead. */
-  const sheet = readFileSync("components/ui/bottom-sheet.tsx", "utf8")
-  const picker = readFileSync("components/app/settings/country-picker.tsx", "utf8")
-  const list = readFileSync("components/ui/choice-list.tsx", "utf8")
+  const sheet = untt(readFileSync("components/ui/bottom-sheet.tsx", "utf8"), "components/ui/bottom-sheet.tsx")
+  const picker = untt(readFileSync("components/app/settings/country-picker.tsx", "utf8"), "components/app/settings/country-picker.tsx")
+  const list = untt(readFileSync("components/ui/choice-list.tsx", "utf8"), "components/ui/choice-list.tsx")
   check(
     "the country list opens above the setup panel on a phone",
     /const PANEL_Z = 1000/.test(flow) && /const SHEET_Z = PANEL_Z \+ 10/.test(flow) && /sheetZIndex=\{SHEET_Z\}/.test(flow),
@@ -246,7 +247,7 @@ check(
 {
   /* The app gets its own, much narrower frame-src: Stripe's embedded forms
      have to be in it, and Stripe.js's controller iframe has to stay out. */
-  const native = readFileSync("proxy.ts", "utf8").match(/"Content-Security-Policy",\s*\n([\s\S]*?)\n\s*\)/)?.[1] ?? ""
+  const native = untt(readFileSync("proxy.ts", "utf8"), "proxy.ts").match(/"Content-Security-Policy",\s*\n([\s\S]*?)\n\s*\)/)?.[1] ?? ""
   check(
     "the app's frame rules let Stripe's embedded forms load",
     /"frame-src 'self'"/.test(native) && /https:\/\/connect-js\.stripe\.com/.test(native),
@@ -255,7 +256,7 @@ check(
   check(
     "a frame that does navigate stays in the app",
     /* Round 7 added Storelib's own hosts to the list (tests/native-app-links.test.ts); Stripe's three are still first. */
-    /allowNavigation: \[\s*'js\.stripe\.com',\s*'hooks\.stripe\.com',\s*'connect-js\.stripe\.com',/.test(readFileSync("capacitor.config.ts", "utf8")),
+    /allowNavigation: \[\s*'js\.stripe\.com',\s*'hooks\.stripe\.com',\s*'connect-js\.stripe\.com',/.test(untt(readFileSync("capacitor.config.ts", "utf8"), "capacitor.config.ts")),
   )
 }
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))
@@ -265,10 +266,10 @@ check("the embed uses the server key", embedded.includes("publishableKey") && !e
 check("session secrets are not stored or logged", !/localStorage|sessionStorage|console\./.test(embedded) && !/console\.[a-z]+\([^)]*client_secret/.test(connect))
 check("the overview reads status from Stripe", /syncStripeAccountFull\(/.test(overview) && /paymentsStatus/.test(overview))
 
-const payouts = readFileSync("app/app/payouts/payouts-client.tsx", "utf8")
-const payoutsPage = readFileSync("app/app/payouts/page.tsx", "utf8")
-const accountLink = readFileSync("app/api/stripe/account-link/route.ts", "utf8")
-const connectStart = readFileSync("app/api/stripe/connect/start/route.ts", "utf8")
+const payouts = untt(readFileSync("app/app/payouts/payouts-client.tsx", "utf8"), "app/app/payouts/payouts-client.tsx")
+const payoutsPage = untt(readFileSync("app/app/payouts/page.tsx", "utf8"), "app/app/payouts/page.tsx")
+const accountLink = untt(readFileSync("app/api/stripe/account-link/route.ts", "utf8"), "app/api/stripe/account-link/route.ts")
+const connectStart = untt(readFileSync("app/api/stripe/connect/start/route.ts", "utf8"), "app/api/stripe/connect/start/route.ts")
 check("payouts does not open an account link", !/\/api\/stripe\/account-link/.test(payouts) && !/Could not open Stripe/.test(payouts))
 check("an unfinished payouts page is only the setup card", /if \(!paymentsReady\)/.test(payouts) && /paymentsReady \? \(/.test(payoutsPage))
 check("the page does not request an Express dashboard link", !/createLoginLink/.test(payoutsPage))

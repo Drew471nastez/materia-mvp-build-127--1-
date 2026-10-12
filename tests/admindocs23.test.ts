@@ -30,6 +30,7 @@ import { CUSTOMER_EMAILS } from "@/lib/emails/customer-catalog"
 import { PHYSICAL_ARTICLES } from "@/lib/help/physical-articles"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { CARRIER_LIST } from "@/lib/physical/carriers"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -46,7 +47,7 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 
 /* ── 1. The shape: ids, anchors, nothing empty ─────────────────────────── */
 

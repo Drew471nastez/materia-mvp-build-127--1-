@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { NAV_MAX_DEPTH, describeLink, moveNavBlock, navBlockHref, navBlocksToItems, navTreeOrder, nestMenuLink, nestNavBlock, nestTargetOf, unnestNavBlock, type NavBlock } from "@/lib/website-builder/nav-links"
+import { untt } from "./i18n-source"
 
 
 let passed = 0
@@ -20,7 +21,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail)}`}`)
 }
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 console.log("\nWhere a row says it goes\n")
 const targets = [

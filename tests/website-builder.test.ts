@@ -64,6 +64,7 @@ import { LIBRARY_FULL_CODE, isLibraryFullError, keptWithinLimit } from "@/lib/we
 import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE, importPathFor, importSizeProblem, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
 import { STALL_MS, sendWithProgress } from "@/app/app/website-builder/incoming"
 import { connectedTools, toolNames } from "@/lib/agent-access/connection-mark"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -82,7 +83,7 @@ function check(name: string, ok: boolean, detail?: string) {
 function section(title: string) {
   console.log(`\n${title}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 /**
  * The built website's own renderer. `/w/[username]/page.tsx` is the front
  * page and `/w/[username]/[page]/page.tsx` is every other page of the site;
@@ -442,7 +443,7 @@ section("The page")
   check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
     !/ThemeCoverPair|ThemePhoneCover/.test(client) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="block h-full w-full" \/>/.test(client) &&
       /<WebsiteCover install=\{i\} preparing=\{!!preparing\[i\.id\]\} \/>/.test(client))
-  check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
+  check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\$?\{(live\.name|name)\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
     // The file is a .storelib-theme package now, so the two labels name the
     // thing rather than the container; the actions are the same ones.
@@ -1005,9 +1006,9 @@ section("Add Section is derived from the files, one card per preset")
   /* "'Created by you' should be called 'Created' only." */
   check("a creator's own section is filed under its own heading, called Created", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created")
 
-  const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editorSrc = untt(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
   /* Add a section lives in its own module: components/website-builder/editor/section-library.tsx. */
-  const librarySrc = readFileSync(join(process.cwd(), "components/website-builder/editor/section-library.tsx"), "utf8")
+  const librarySrc = untt(readFileSync(join(process.cwd(), "components/website-builder/editor/section-library.tsx"), "utf8"), "components/website-builder/editor/section-library.tsx")
   // The entries are built once, in a memo, rather than per render of the list.
   check("the library draws one card per preset, named after the preset", /const entries = useMemo<LibraryEntry\[\]>/.test(librarySrc) && /title: name,/.test(librarySrc))
   /**

@@ -17,6 +17,7 @@
  *
  * Run with:  npm run test:push
  */
+import { untt } from "./i18n-source"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -40,7 +41,7 @@ function check(name: string, ok: boolean, detail = "") {
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
 const section = (name: string) => console.log(`\n${name}`)
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const g = globalThis as unknown as Record<string, unknown>
 const setGlobal = (key: string, value: unknown) => Object.defineProperty(globalThis, key, { value, configurable: true, writable: true })
 

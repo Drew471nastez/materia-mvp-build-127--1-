@@ -10,6 +10,7 @@ import { join } from "node:path"
 import { TRACKERS, TRACKER_HOSTS, TRACKER_ORDER, readTracking, tidyId, trackingTags } from "@/lib/store/tracking"
 import { INTEGRATIONS, integrationById, searchIntegrations, visibleIntegrations } from "@/lib/integrations/catalog"
 import { CONTENT_SECURITY_POLICY } from "@/lib/security/csp"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -18,7 +19,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 console.log("\nAn ID, never code\n")
 {

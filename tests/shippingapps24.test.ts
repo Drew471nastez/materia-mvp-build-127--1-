@@ -39,6 +39,7 @@ import { CARRIER_TIMEOUT_MS, forgetCarrierQuotes, liveCarrierQuotes, pickCarrier
 import { formatMinor, toMinor } from "@/lib/integrations/shipping/money"
 import { quoteDelivery } from "@/lib/physical/rates"
 import type { ShippingProfile } from "@/lib/physical/types"
+import { untt } from "./i18n-source"
 
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key-for-shipping-apps-0123456789"
 process.env.NEXT_PUBLIC_MAIN_DOMAIN = "storelib.com"
@@ -50,7 +51,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 500)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /* ── the three APIs, stubbed ─────────────────────────────────────────── */
 

@@ -41,6 +41,7 @@ import {
 } from "@/lib/onepage/seo"
 import { checkSettingsPatch } from "@/lib/onepage/settings-rules"
 import { imageInfo } from "@/lib/onepage/share-image"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -348,7 +349,7 @@ async function routes() {
 
 function sources() {
   console.log("\nThe SQL and the editor")
-  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+  const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
   const sql = read("supabase/sql/run-now/57_onepage_share_image.sql")
   const lines = sql.trimEnd().split("\n")
   check("part 57: a header, then one statement per line", lines[0].startsWith("/* ") && lines[0].endsWith(" */") && lines.slice(1).every((l) => /^(DO \$\$ .* END \$\$;|notify pgrst, 'reload schema';)$/.test(l)))

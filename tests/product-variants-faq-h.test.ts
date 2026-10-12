@@ -22,6 +22,7 @@ import { productFacts, dynamicContext } from "@/lib/website-builder/storefront-d
 import { fillSources, DYNAMIC_SOURCES } from "@/lib/storelib-theme/dynamic"
 import { FAQ_SEEDED, withProductBlocks, withProductFaq, mainProductSection } from "@/lib/website-builder/product-page"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -30,7 +31,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 type O = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 console.log("\nA photo for each variant: smooth in the editor")

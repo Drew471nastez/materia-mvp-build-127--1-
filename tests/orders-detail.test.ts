@@ -23,6 +23,7 @@ import { groupOrders, type OrderRow } from "../lib/orders/order-view"
 import { groupTimeline, orderEvents, relativeTime, paymentMethodOf } from "../lib/orders/timeline"
 import { signOrderLink, verifyOrderLink, LINK_TTL_MS } from "../lib/orders/signed-link"
 import { canEmailAccess, cleanEmail, isOrderId, ownedOrderLines } from "../lib/orders/owned"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -37,7 +38,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : ` (${JSON.stringify(detail)})`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 function row(id: string, at: string, extra: Partial<OrderRow> = {}): OrderRow {
@@ -396,7 +397,7 @@ async function main() {
   }
 
     {
-    const inv = readFileSync(join(process.cwd(), "app/api/invoice/route.ts"), "utf8")
+    const inv = untt(readFileSync(join(process.cwd(), "app/api/invoice/route.ts"), "utf8"), "app/api/invoice/route.ts")
     check("the invoice never adds the tip on top of what was charged",
       /const total = lines\.reduce\(\(n, l\) => n \+ \(l\.amount_cents \|\| 0\), 0\)/.test(inv) && !/subtotal \+ tip/.test(inv)
         && /const whole = line\.amount_cents \|\| 0/.test(inv))

@@ -32,10 +32,14 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { cleanDatetime } from "@/lib/storelib-theme/values"
 import { TEXT_BUTTON } from "./styles"
-import { tt } from "@/lib/i18n/text"
+import { activeLanguage, tt } from "@/lib/i18n/text"
 import { formatDate } from "@/lib/i18n/format"
 
 const pad = (n: number) => String(n).padStart(2, "0")
+/* i18n-ignore-start: English only; other languages go through Intl. */
+const EN_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+/* i18n-ignore-end */
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
 
@@ -49,9 +53,10 @@ export function normaliseDatetime(value: unknown): string {
 export function datetimeInWords(date: string, time: string): string {
   const [y, m, d] = date.split("-").map(Number)
   if (!y || !m || !d) return ""
-  /* In the dashboard's language; UTC on both sides, so no zone moves the day. */
-  const day = formatDate(Date.UTC(y, m - 1, d, 12), { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
-  return `${day}${time ? ` · ${time}` : ""}`
+  const at = time ? ` · ${time}` : ""
+  /* English as it always read, "Sat, 14 Mar 2026"; another language by Intl. UTC on both sides, so no zone moves the day. */
+  if (activeLanguage() === "en") return `${EN_DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}, ${d} ${EN_MONTHS[m - 1]} ${y}${at}`
+  return `${formatDate(Date.UTC(y, m - 1, d, 12), { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}${at}`
 }
 
 /** "in 5 days, 4 hours", "in 40 minutes", "2 days ago": on this device's clock, so roughly. */

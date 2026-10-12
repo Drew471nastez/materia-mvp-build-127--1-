@@ -43,6 +43,7 @@ import { seoFacts, sharePreviewable } from "@/lib/communities/server/public"
 import { standingOf } from "@/components/community/public/library-list"
 import { communityShareUrl, shareLinkLine, splitShareUrl, staffInviteLine } from "@/components/community/member/invite-sheet"
 import { SQL_PARTS } from "@/lib/admin/sql-parts.generated"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -57,7 +58,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 /* Code without its comments, so a check reads what runs. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 

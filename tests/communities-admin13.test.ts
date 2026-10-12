@@ -51,6 +51,7 @@ import { churnRate, inviteLabel, loadMoneyAndGrowth } from "@/lib/communities/se
 import { duplicateCommunity, loadPolicies, savePolicies } from "@/lib/communities/server/creator-policies"
 import { settingsTabOf, systemReportKind } from "@/components/community/creator/logic"
 import type { CommunityRow } from "@/lib/communities/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -63,7 +64,7 @@ function check(name: string, ok: boolean, detail?: string) {
     console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 const UID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`

@@ -48,6 +48,7 @@ import { emailIdForJob } from "@/lib/emails/customer-custom"
 import { returnFactsHtml } from "@/lib/website-builder/site-commerce"
 import { lowStockLine } from "@/lib/physical/storefront-stock"
 import type { Location, ShippingProfile, ShippingRate } from "@/lib/physical/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -57,7 +58,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 500)}`}`)
 }
 const section = (t: string) => console.log(`\n${t}\n`)
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const SHOP = "5b1c0000-0000-4000-8000-000000000001"
 const HOODIE = "5b1c0000-0000-4000-8000-0000000000a1"

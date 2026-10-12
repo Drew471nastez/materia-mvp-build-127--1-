@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { dockGeometry, DOCK_GAP, DOCK_PAD, PILL_WIDTH } from "../lib/website-builder/ask-dock"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -25,7 +26,7 @@ function check(name: string, ok: boolean, detail = "") {
   if (ok) { passed++; console.log(`  ok    ${name}`) }
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const section = (name: string) => console.log(`\n${name}`)
 
 const editor = read("app/website-builder/editor/[installId]/page.tsx")

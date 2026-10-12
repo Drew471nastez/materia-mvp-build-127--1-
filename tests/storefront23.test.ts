@@ -41,6 +41,7 @@ import { productDelivery, shopFacts } from "../lib/physical/storefront-facts"
 import { physicalStock } from "../lib/physical/storefront-stock"
 import { domainAddress, sendsToDomain } from "../lib/custom-domains/subdomain-redirect"
 import { freeShippingLine, returnsLine } from "../lib/website-builder/site-commerce"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -53,7 +54,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 600)}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /* ── The fixture, with a product and a cart section written as Dawn's ───── */
 

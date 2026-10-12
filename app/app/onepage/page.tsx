@@ -95,7 +95,7 @@ export default async function OnePageEditorPage() {
   */
   if (creatorError) {
     console.error("[OnePage] Creator fetch error:", creatorError)
-    if (!pageRead.data) throw new Error("The creator could not be read") // i18n-ignore: for the log; error.tsx shows its own words
+    if (!pageRead.data) throw new Error("The creator could not be read")
   } else if (!creator) redirect("/onboarding")
 
   // Extract social data from creator (may be null if columns don't exist)
@@ -118,7 +118,7 @@ export default async function OnePageEditorPage() {
   const fetchError = pageRead.error
   if (fetchError) {
     console.error("[OnePage] OnePage fetch error:", fetchError)
-    throw new Error("The OnePage could not be read") // i18n-ignore: for the log
+    throw new Error("The OnePage could not be read")
   }
 
   /**
@@ -267,7 +267,7 @@ export default async function OnePageEditorPage() {
   /* Neither there nor made: an error with a Try again, not an editor that waits for ever on a page it will never get. */
   if (!onepage) {
     console.error("[OnePage] The OnePage could not be made")
-    throw new Error("The OnePage could not be made") // i18n-ignore: for the log
+    throw new Error("The OnePage could not be made")
   }
 
   return <OnePageEditor initialOnePage={onepage as OnePage} />

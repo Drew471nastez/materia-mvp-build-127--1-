@@ -21,6 +21,7 @@ import { TAX_REGION_RULES, basketTax, checkoutTaxFor, digitalTax } from "@/lib/t
 import { lineTotalCents, packItems, unpackItems } from "@/lib/checkout/cart-items"
 import { invoiceForOrder, type OrderRow } from "@/lib/checkout/invoice"
 import { groupOrders } from "@/lib/orders/order-view"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -29,7 +30,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const RO = { id: "r-ro", country: "RO", region: null, name: "VAT", rateBps: 1900 }
 const US_CA = { id: "r-ca", country: "US", region: "CA", name: "Sales tax", rateBps: 725 }

@@ -9,6 +9,7 @@
  * two-line component, which threw exactly the production message without
  * the guard and nothing with it.
  */
+import { untt } from "./i18n-source"
 import { installDomGuard } from "@/lib/ui/dom-guard"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -112,17 +113,17 @@ console.log("\nWith the guard")
 
 console.log("\nIt is in place before the app starts")
 {
-  const inst = readFileSync(join(process.cwd(), "instrumentation-client.ts"), "utf8")
+  const inst = untt(readFileSync(join(process.cwd(), "instrumentation-client.ts"), "utf8"), "instrumentation-client.ts")
   const at = inst.indexOf("guardDomAgainstTranslators()")
   check("instrumentation-client installs it first", at > 0 && at < inst.indexOf("watchRouterStarts()"))
-  check("the app is not opted out of translation to get there", !/translate="no"|notranslate/.test(readFileSync(join(process.cwd(), "app/layout.tsx"), "utf8")))
+  check("the app is not opted out of translation to get there", !/translate="no"|notranslate/.test(untt(readFileSync(join(process.cwd(), "app/layout.tsx"), "utf8"), "app/layout.tsx")))
 }
 
 console.log("\nThe Products list keeps a changing word as the only child of its element")
 {
-  const list = readFileSync(join(process.cwd(), "app/app/products/products-client.tsx"), "utf8")
+  const list = untt(readFileSync(join(process.cwd(), "app/app/products/products-client.tsx"), "utf8"), "app/app/products/products-client.tsx")
   check("the view's name", /<span>\{viewLabel\}<\/span>/.test(list))
-  check("the footer's count is one string", /\{`\$\{from \+ 1\}\\u2013\$\{from \+ pageProducts\.length\} of /.test(list) && !/&ndash;\{from/.test(list))
+  check("the footer's count is one string", (/\{`\$\{from \+ 1\}\\u2013\$\{from \+ pageProducts\.length\} of /.test(list) || /\{from \+ 1\}–\{from \+ pageProducts\.length\} of \{/.test(list) /* one tt() message: still one string */) && !/&ndash;\{from/.test(list))
   check("the delete button's word, on both sides", /<span>\{deleteKind === "archive" \? "Archiving" : "Deleting"\}<\/span>/.test(list) && /<span>\{deleteQuestion\(productToDelete\.title, deleteKind\)\.confirm\}<\/span>/.test(list))
   check("a status word", /<span>\{label\}<\/span>/.test(list))
 }

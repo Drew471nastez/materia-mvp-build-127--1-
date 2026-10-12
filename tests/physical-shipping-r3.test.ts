@@ -25,6 +25,7 @@ import { readZonePlaces, zoneClash } from "@/lib/physical/config-server"
 import { lowStock, lowStockThreshold } from "@/lib/products/product-page-model"
 import { DEFAULT_LOW_STOCK_TEXT, freeShippingLine, returnFactsHtml, returnsLine, siteCommerce } from "@/lib/website-builder/site-commerce"
 import type { ShippingProfile, ShippingRate, ShippingZone } from "@/lib/physical/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -33,7 +34,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 let n = 0
 const rate = (r: Partial<ShippingRate>): ShippingRate => ({ id: `r${++n}`, zoneId: "z", name: "Standard", kind: "flat", priceCents: 500, minValue: null, maxValue: null, tiers: [], freeOverCents: null, minDays: null, maxDays: null, active: true, position: n, ...r })

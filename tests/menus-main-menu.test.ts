@@ -16,6 +16,7 @@ import { siteMenus } from "@/lib/website-builder/storefront-data"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -25,7 +26,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 400)}`}`)
 }
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 const header: SectionInstance = {
   id: "h",

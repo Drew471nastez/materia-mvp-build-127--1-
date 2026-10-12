@@ -25,6 +25,7 @@
  * Run with:  npm run test:push
  */
 
+import { untt } from "./i18n-source"
 import { existsSync, readFileSync } from "node:fs"
 import { monotonePath } from "@/components/app/morph-lines"
 import { join } from "node:path"
@@ -62,15 +63,15 @@ function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
 }
 
-const ANALYTICS = stripComments(readFileSync(join(root, "components/app/analytics-chart.tsx"), "utf8"))
-const DASHBOARD = stripComments(readFileSync(join(root, "components/app/dashboard-client.tsx"), "utf8"))
-const PAGE = stripComments(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"))
+const ANALYTICS = stripComments(untt(readFileSync(join(root, "components/app/analytics-chart.tsx"), "utf8"), "components/app/analytics-chart.tsx"))
+const DASHBOARD = stripComments(untt(readFileSync(join(root, "components/app/dashboard-client.tsx"), "utf8"), "components/app/dashboard-client.tsx"))
+const PAGE = stripComments(untt(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"), "app/app/analytics/analytics-client.tsx"))
 /** The one layer every trend chart is read through: the crosshair, the dots, the readout and the gesture. */
-const SCRUB = stripComments(readFileSync(join(root, "components/app/chart-scrub.tsx"), "utf8"))
+const SCRUB = stripComments(untt(readFileSync(join(root, "components/app/chart-scrub.tsx"), "utf8"), "components/app/chart-scrub.tsx"))
 /** The lines of both trend charts, and how one becomes the next. */
-const LINES = stripComments(readFileSync(join(root, "components/app/morph-lines.tsx"), "utf8"))
-const MORPH = stripComments(readFileSync(join(root, "components/app/chart-morph.tsx"), "utf8"))
-const CSS = readFileSync(join(root, "app/globals.css"), "utf8")
+const LINES = stripComments(untt(readFileSync(join(root, "components/app/morph-lines.tsx"), "utf8"), "components/app/morph-lines.tsx"))
+const MORPH = stripComments(untt(readFileSync(join(root, "components/app/chart-morph.tsx"), "utf8"), "components/app/chart-morph.tsx"))
+const CSS = untt(readFileSync(join(root, "app/globals.css"), "utf8"), "app/globals.css")
 
 /** Both charts, so a fix applied to one and not the other cannot pass. */
 const CHARTS: [string, string][] = [
@@ -87,8 +88,8 @@ const CHARTS: [string, string][] = [
  * and "Every chart reads one layer" holds that nothing reads a pointer any
  * other way.
  */
-const REPORTS = stripComments(readFileSync(join(root, "app/app/analytics/analytics-reports.tsx"), "utf8"))
-const FEEL_PROBE = readFileSync(join(root, "scripts/check-chart-feel.mjs"), "utf8")
+const REPORTS = stripComments(untt(readFileSync(join(root, "app/app/analytics/analytics-reports.tsx"), "utf8"), "app/app/analytics/analytics-reports.tsx"))
+const FEEL_PROBE = untt(readFileSync(join(root, "scripts/check-chart-feel.mjs"), "utf8"), "scripts/check-chart-feel.mjs")
 
 // ===========================================================================
 section("Nothing is drawn that is not seen")
@@ -482,7 +483,7 @@ section("Switching the place redraws once, not twice")
  * answered; it is the chart that waits.
  */
 {
-  const page = stripComments(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"))
+  const page = stripComments(untt(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"), "app/app/analytics/analytics-client.tsx"))
   /*
     Changed on purpose: there is no Store and One page switch any more. Every
     place (All, the creator page, the OnePage, a website) is drawn with the
@@ -520,7 +521,7 @@ section("One bottom sheet, and the finger moves it")
 {
   /* Comments stripped: the file explains what `setDragY` did and why it is
      gone, and a guard reading raw source matches the explanation. */
-  const sheet = stripComments(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8"))
+  const sheet = stripComments(untt(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8"), "components/ui/bottom-sheet.tsx"))
   check(
     "the drag listeners are native and non-passive",
     /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(sheet) &&
@@ -560,9 +561,9 @@ section("One bottom sheet, and the finger moves it")
     /* The builder sheet's own arithmetic (components/website-builder/sheet-gestures): where the release would carry it, at the speed of the finger's last 100ms, a finger held still before lifting counting as still. */
     /releaseVelocity\(samplesRef\.current, eventTime\(e\)\)/.test(sheet) && /snapTarget\(\{ offsets: stops, current, velocity: v/.test(sheet),
   )
-  const sidebar = readFileSync(join(root, "components/app/sidebar.tsx"), "utf8")
+  const sidebar = untt(readFileSync(join(root, "components/app/sidebar.tsx"), "utf8"), "components/app/sidebar.tsx")
   /* The phone's account trigger and its sheet are their own file, mounted by the sidebar. */
-  const accountMenu = readFileSync(join(root, "components/app/mobile-account-menu.tsx"), "utf8")
+  const accountMenu = untt(readFileSync(join(root, "components/app/mobile-account-menu.tsx"), "utf8"), "components/app/mobile-account-menu.tsx")
   check(
     "and the account menu uses it instead of a dropdown",
     /<BottomSheet\n\s*isOpen=\{mobileProfileDropdownOpen\}/.test(accountMenu) &&

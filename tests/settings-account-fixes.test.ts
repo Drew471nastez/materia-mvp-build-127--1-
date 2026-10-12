@@ -20,6 +20,7 @@
  *
  * Run with:  npm run test:push
  */
+import { untt } from "./i18n-source"
 import { readFileSync } from "node:fs"
 import { readCode } from "./_source"
 import { copyProviderAvatar, profileAvatar } from "../lib/account/avatar"
@@ -129,13 +130,13 @@ console.log("\n3. Notifications on this browser")
   check("the row shows the message for each state and the error's own words", /state === "blocked" \? NOTIFICATION_WORDS\.blocked/.test(panels) && /e instanceof WebPushError \? e\.message/.test(panels) && /data-notifications-error/.test(panels))
   check("and is still not drawn in the native apps", /state === "unsupported" && document\.documentElement\.classList\.contains\("capacitor"\)\)\) return null/.test(panels))
 
-  const migration = readFileSync("supabase/migrations/20261001_browser_push_and_time_zone.sql", "utf8")
-  const part = readFileSync("supabase/sql/run-now/23_browser_push_and_time_zone.sql", "utf8")
+  const migration = untt(readFileSync("supabase/migrations/20261001_browser_push_and_time_zone.sql", "utf8"))
+  const part = untt(readFileSync("supabase/sql/run-now/23_browser_push_and_time_zone.sql", "utf8"))
   for (const [name, sql] of [["the migration", migration], ["run-now 22", part]] as const) {
     check(`${name}: every platform check is replaced by one that takes 'web'`, /pg_get_constraintdef\(oid\) ilike '%platform%'/.test(sql) && /check \(platform in \('ios', 'android', 'web'\)\)/.test(sql))
     check(`${name}: the token index and profiles.timezone`, /create unique index if not exists push_tokens_token_idx on public\.push_tokens \(token\)/.test(sql) && /add column if not exists timezone text/.test(sql))
   }
-  check("run-now 22 is one statement per line, listed in the README", part.trim().split("\n").every((l) => l.startsWith("/*") || l.trim().endsWith(";")) && readFileSync("supabase/sql/run-now/README.md", "utf8").includes("23_browser_push_and_time_zone.sql"))
+  check("run-now 22 is one statement per line, listed in the README", part.trim().split("\n").every((l) => l.startsWith("/*") || l.trim().endsWith(";")) && untt(readFileSync("supabase/sql/run-now/README.md", "utf8")).includes("23_browser_push_and_time_zone.sql"))
 }
 
 console.log("\n4. Tooltips are never cut off")
@@ -152,11 +153,11 @@ console.log("\n4. Tooltips are never cut off")
 console.log("\n5. The language picker")
 {
   /* lib/i18n/translations.ts is not compiled here (it carries duplicate keys tsc refuses), so its languages are read from its text. */
-  const words = readFileSync("lib/i18n/translations.ts", "utf8")
+  const words = untt(readFileSync("lib/i18n/translations.ts", "utf8"), "lib/i18n/translations.ts")
   const translated = [...words.matchAll(/^  ([a-zA-Z-]+|"[a-zA-Z-]+"): \{/gm)].map((m) => m[1].replace(/"/g, ""))
   const langs = readCode("lib/i18n/app-languages.ts")
-  check("only languages with words are offered", /LANGUAGES\.filter\(\(l\) => l\.code in translations\)/.test(langs) && translated.join(",") === "en,es,fr,de", translated.join(","))
-  check("each by its own name with the English name under it", /new Intl\.DisplayNames\(\["en"\], \{ type: "language" \}\)/.test(langs) && /label: l\.name/.test(langs) && /detail: english/.test(langs))
+  check("only languages with words are offered", /LANGUAGES\.filter\(\(l\) => l\.code in translations\)/.test(langs) && translated.join(",") === "en,es,fr,de,pt-BR,it,pl", translated.join(","))
+  check("each by its own name with its name in the dashboard's language under it", /new Intl\.DisplayNames\(\[locale\], \{ type: "language" \}\)/.test(langs) && /const local = nameIn\(here, l\.code\) \?\? english/.test(langs) && /label: l\.name/.test(langs) && /detail: !local \|\| same \? undefined : local/.test(langs))
   const de = { value: "de", label: "Deutsch", detail: "German", keywords: "German de" }
   const es = { value: "es", label: "Español", detail: "Spanish", keywords: "Spanish es" }
   check("search finds a language by its English name, and without its accents", matches(de, "germ") && matches(es, "espanol") && !matches(de, "spanish"))

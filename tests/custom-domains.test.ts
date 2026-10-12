@@ -34,6 +34,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { DomainsPanel, type DomainItem } from "@/components/app/settings/domains-panel"
 import { stripComments } from "./_source"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -42,7 +43,7 @@ function check(name: string, ok: boolean, detail = "") {
   if (ok) { passed++; console.log(`  ok    ${name}`) }
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 console.log("\nWhat was typed, as a hostname")

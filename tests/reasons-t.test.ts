@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { DEFAULT_REFUND_REASONS, DEFAULT_RETURN_REASONS, FALLBACK_REASON, acceptedReason, freeValue, readReason, reasonLabel, valueFromLabel } from "@/lib/store/reasons"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -15,7 +16,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 console.log("\nThe lists\n")
 {

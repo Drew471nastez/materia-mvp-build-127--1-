@@ -73,7 +73,7 @@ export function keyLine(c: Pick<Connection, "last_used_at" | "expires_at" | "exp
   const until = c.expired
     ? tt("Expired. Make a new key")
     : c.expires_at
-      ? tt("Works until {date}", { date: new Date(c.expires_at).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })) })
+      ? tt("Works until {date}", { date: new Date(c.expires_at).toLocaleDateString(appLocale().startsWith("en") ? "en-GB" : appLocale(), zoned({ day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })) })
       : null
   return [used, until, c.access === "read" ? tt("Read only") : null].filter(Boolean).join(" · ")
 }

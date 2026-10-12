@@ -24,6 +24,7 @@ import { hsvFromHex, hsvToHex, isNearWhite, normalizeHex, pushRecent, readRecent
 import { from12, isoFromWall, timeLabel, to12, wallFromIso, zoneLabel, zoneOffset } from "@/lib/onepage/schedule"
 import { WALLPAPER_PATTERNS, isPatternId, patternInk, patternStyle, noiseOpacity } from "@/lib/onepage/wallpaper"
 import { fontStack, ONEPAGE_FONTS } from "@/lib/onepage/fonts"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -33,7 +34,7 @@ function check(name: string, ok: boolean, detail = "") {
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
 function section(t: string) { console.log(`\n${t}`) }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 function main() {
   section("Colour")

@@ -18,6 +18,7 @@ import { parseEcbDaily } from "@/lib/markets/fx-server"
 import { sitemapXml } from "@/lib/website-builder/site-seo"
 import { localizedHref } from "@/components/website-builder/theme/language-switch"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -26,7 +27,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 console.log("\nLanguages and their addresses\n")
 {

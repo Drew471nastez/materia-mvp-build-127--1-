@@ -29,6 +29,7 @@
 
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -49,7 +50,7 @@ function section(title: string) {
 }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 /** Without comments: the ones here quote what was removed. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
@@ -206,7 +207,7 @@ check(
   "and it no longer carries a route-level skeleton",
   (() => {
     try {
-      readFileSync(join(root, "app/app/settings/billing/loading.tsx"), "utf8")
+      untt(readFileSync(join(root, "app/app/settings/billing/loading.tsx"), "utf8"), "app/app/settings/billing/loading.tsx")
       return false
     } catch {
       return true
@@ -276,7 +277,7 @@ section("Upgrade opens and closes")
     "and its 69-line skeleton is gone, so the previous screen simply stays until this one is ready",
     (() => {
       try {
-        readFileSync(join(root, "app/app/settings/billing/upgrade/loading.tsx"), "utf8")
+        untt(readFileSync(join(root, "app/app/settings/billing/upgrade/loading.tsx"), "utf8"), "app/app/settings/billing/upgrade/loading.tsx")
         return false
       } catch {
         return true

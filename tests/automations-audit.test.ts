@@ -16,6 +16,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -30,7 +31,7 @@ function check(name: string, ok: boolean, detail = "") {
     console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const duplicate = read("app/api/automations/flows/[id]/duplicate/route.ts")
 const preview = read("app/api/automations/flows/[id]/preview/route.ts")

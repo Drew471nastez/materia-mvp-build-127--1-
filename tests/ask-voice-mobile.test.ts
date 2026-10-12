@@ -26,6 +26,7 @@
  *
  * Run with:  npm run test:push
  */
+import { untt } from "./i18n-source"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -48,7 +49,7 @@ function check(name: string, ok: boolean, detail = "") {
 const section = (name: string) => console.log(`\n${name}`)
 
 
-const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8")
+const read = (path: string) => untt(readFileSync(join(process.cwd(), path), "utf8"), path)
 const voice = read("components/website-builder/ask-voice.ts")
 const sounds = read("lib/website-builder/ask-sounds.ts")
 const route = read("app/api/website-builder/transcribe/route.ts")

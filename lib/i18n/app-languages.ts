@@ -1,7 +1,8 @@
 /**
  * The dashboard's languages, as the pickers show them
  * (components/app/language-picker): only the ones lib/i18n has words for,
- * each by its own name with the English name under it ("Deutsch", German).
+ * each by its own name with its name in the dashboard's language under it
+ * ("Deutsch", German; "Deutsch", alemán).
  *
  * Settings listed fourteen, and ten of them (日本語, 한국어, Português, ...)
  * had no translations: choosing one changed nothing, which reads as broken.

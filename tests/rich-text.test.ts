@@ -38,6 +38,7 @@ import {
   toEditorHtml,
 } from "@/lib/rich-text/html"
 import { MAX_DESCRIPTION_BYTES, descriptionTooLong, normaliseTypedHref, safeHref } from "@/lib/rich-text/policy"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -53,7 +54,7 @@ function check(label: string, ok: boolean, detail?: string) {
   }
 }
 const section = (title: string) => console.log(`\n${title}`)
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /** Anything that could run, fetch through CSS, or frame another site. */
 const DANGEROUS = /<script|<style|<svg|<math|<form|<object|<embed\b|<button|<input|<meta|<base|<link|\son[a-z]+\s*=|javascript:|vbscript:|data:text|expression\(|url\(|position:\s*fixed/i
@@ -224,7 +225,7 @@ section("A save is capped, and only for somebody signed in")
   const action = read("app/app/products/new/description-action.ts")
   const body = action.slice(action.indexOf("export async function cleanDescription"))
   check("the server action refuses too much before it parses anything",
-    /const tooLong = descriptionTooLong\(html\)\s*\n\s*if \(tooLong\) return \{ ok: false, error: tooLong \}/.test(body) && body.indexOf("descriptionTooLong(") < body.indexOf("sanitizeDescription("))
+    /const tooLong = descriptionTooLong\(html(, tt)?\)\s*\n\s*if \(tooLong\) return \{ ok: false, error: tooLong \}/.test(body) && body.indexOf("descriptionTooLong(") < body.indexOf("sanitizeDescription("))
   check("and refuses anybody not signed in",
     /auth\.getUser\(\)/.test(body) && /if \(!user\) return \{ ok: false/.test(body) && body.indexOf("!user") < body.indexOf("sanitizeDescription("))
   check("it answers rather than throws, so the editor can show why", /Promise<CleanedDescription>/.test(action))
@@ -380,7 +381,7 @@ console.log("\nA picture's size, shape and place")
   check("the page draws a placed picture as a block, left, centre or right, as the field does",
     /\.storelib-prose img\[data-align\] \{ display: block; \}/.test(css) && /\.storelib-prose img\[data-align="center"\] \{ margin-left: auto; margin-right: auto; \}/.test(css)
       && /\.storelib-prose img\[data-align="right"\] \{ margin-left: auto; margin-right: 0; \}/.test(css))
-  const editor = readFileSync(join(process.cwd(), "components/app/rich-text-editor.tsx"), "utf8")
+  const editor = untt(readFileSync(join(process.cwd(), "components/app/rich-text-editor.tsx"), "utf8"), "components/app/rich-text-editor.tsx")
   check("the field has an Emoji control, and no blue focus ring", /emoji: \{ label: "Emoji", icon: Smile \}/.test(editor) && !/ring-ring/.test(editor) && !/focus:border-ring/.test(editor))
 }
 
