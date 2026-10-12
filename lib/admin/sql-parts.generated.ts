@@ -127,5 +127,9 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "150", file: "150_products_sales_limit.sql", sha256: "0ccb84e7c42b7e1e7e8abd3ac09bf139b1d9f233f1b406594962db46509eac18" },
   { part: "153", file: "153_store_business_and_tax_names.sql", sha256: "5d22c6d35ab107846df5d617b477ea419082cdac4c83fcdd0fb7d5a24d7abcb4" },
   { part: "154", file: "154_local_delivery_and_pickup_hours.sql", sha256: "3d3eceb865c91ddbab84277fe420c41a9ba8a2c87b2a1389dddd0ef6204f8fc2" },
+  { part: "160", file: "160_courier_tracking.sql", sha256: "f08bc042674e33a9447a2173ad8d7ab099863c209b16ff05f8d66721e07ad4e2" },
+  { part: "161", file: "161_marketing_sync.sql", sha256: "26216965ff281ff80206377c69109afdc43aa5dd8c040f791a05bfe149e3c380" },
+  { part: "162", file: "162_partner_variant_links.sql", sha256: "66112769cbeba7a1f5656a8223d4b161f87b3d101ca9808ed3db7428c416e205" },
+  { part: "163", file: "163_shipping_labels_and_shipstation.sql", sha256: "6f9ebfd4c2ce1edbf996aae5eec4959afb25af0de7db86d0f0a318349605d7fc" },
   { part: "164", file: "164_buyer_contact_and_cart_attributes.sql", sha256: "63b61f7aec70533a994c268b7e42e8a1947e4bc9a995cadbeb7f4b12620272cf" },
 ]

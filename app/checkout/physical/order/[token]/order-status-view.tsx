@@ -10,6 +10,8 @@ import { deliveryEstimate } from "@/lib/physical/rates"
 import { orderNumber, shipmentLabel } from "@/lib/physical/status"
 import type { ShipmentStatus } from "@/lib/physical/types"
 import type { BuyerCancelState } from "@/lib/physical/buyer-cancel"
+import { TRACKING_LABEL, isTrackingStatus } from "@/lib/physical/tracking/labels"
+import { TrackingTimeline, estimatedDay } from "@/components/physical/tracking-timeline"
 
 interface Props {
   token: string
@@ -37,7 +39,20 @@ interface Props {
     totals: { subtotal: number; discount: number; shipping: number; tax: number; taxIncluded: boolean; taxLabel?: string; total: number; refunded: number; currency?: string }
     lines: { orderId: string; title: string; variantName: string | null; imageUrl: string | null; quantity: number; cents: number; type: string; receiptToken: string | null; returnable: number }[]
     /** Each shipment's updates (`updates`, oldest first): shipped, in transit, out for delivery, delivered, a delivery problem. */
-    shipments: { id: string; status: string; carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: string | null; deliveredAt: string | null; items: { orderId: string; quantity: number }[]; updates?: { status: string; at: string }[] }[]
+    shipments: {
+      id: string
+      status: string
+      carrier: string | null
+      trackingNumber: string | null
+      trackingUrl: string | null
+      shippedAt: string | null
+      deliveredAt: string | null
+      items: { orderId: string; quantity: number }[]
+      updates?: { status: string; at: string }[]
+      /** The carrier's scans, newest first, and its state and estimate, when Storelib follows the parcel (lib/physical/tracking). */
+      checkpoints?: { at: string; status: string; message: string; location: string | null }[]
+      tracking?: { status: string | null; estimatedDelivery: string | null; auto: boolean } | null
+    }[]
     returns: { id: string; status: string; createdAt: string; reason?: string | null }[]
     /** Settings > Returns and refunds, for this order: absent when the shop doesn't take returns. */
     returnPolicy?: { days: number; endsAt: string | null; open: boolean; started?: boolean; assumed?: boolean } | null
@@ -117,6 +132,8 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
   const pickup = order.pickup
+  /* The carrier's estimate for the parcel still on its way that arrives last. */
+  const arrives = estimatedDay(order.shipments.filter((s) => s.status !== "delivered").map((s) => s.tracking?.estimatedDelivery).filter((t): t is string => !!t).sort().pop() ?? null)
   const steps = order.cancelled
     ? []
     : needsShipping
@@ -124,7 +141,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
           { label: "Confirmed", done: true, when: day(order.createdAt) },
           { label: "Processing", done: order.processing || shipped, when: "" },
           { label: pickup ? "Ready for pickup" : "Shipped", done: shipped, when: day(order.shipments.find((s) => s.shippedAt)?.shippedAt ?? null) },
-          { label: pickup ? "Picked up" : "Delivered", done: delivered, when: day(order.shipments.find((s) => s.deliveredAt)?.deliveredAt ?? null) },
+          { label: pickup ? "Picked up" : "Delivered", done: delivered, when: delivered ? day(order.shipments.find((s) => s.deliveredAt)?.deliveredAt ?? null) : arrives ? `Est. ${arrives}` : "" },
         ]
       : [{ label: "Confirmed", done: true, when: day(order.createdAt) }]
   const first = order.name?.split(/\s+/)[0]
@@ -206,6 +223,10 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
         {pickup ? null : order.shipments.map((s, i) => {
           const problem = s.status === "failed"
           const updates = buyerUpdates(s)
+          /* What the carrier said last, when it says more than the status: ready to collect, a delivery attempt, returned to sender. */
+          const carrierSaid = s.tracking?.status && isTrackingStatus(s.tracking.status) && s.status !== "delivered" && ["available_for_pickup", "attempt_failed", "returned"].includes(s.tracking.status) ? TRACKING_LABEL[s.tracking.status].label : null
+          const eta = s.status !== "delivered" ? estimatedDay(s.tracking?.estimatedDelivery) : null
+          const checkpoints = local ? [] : (s.checkpoints ?? [])
           return (
             <section key={s.id} className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6" data-shipment-status={s.status}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -215,7 +236,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
                   </span>
                   <div className="min-w-0">
                     <p className="text-[15px] font-semibold text-[#1a1a2e]">
-                      {local ? localLabel(s.status) : (shipmentLabel(s.status as ShipmentStatus, false)?.label ?? "Shipped")}
+                      {local ? localLabel(s.status) : (carrierSaid ?? shipmentLabel(s.status as ShipmentStatus, false)?.label ?? "Shipped")}
                       {order.shipments.length > 1 ? <span className="font-normal text-[#6b7280]"> · Package {i + 1} of {order.shipments.length}</span> : null}
                     </p>
                     <p className="text-[13px] text-[#6b7280]">{local ? "Delivered by the shop" : [s.carrier, s.trackingNumber].filter(Boolean).join(" ") || "Tracking not added yet"}</p>
@@ -228,8 +249,19 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
                   </a>
                 ) : null}
               </div>
-              {problem ? <p className="mt-3 rounded-lg bg-[#fef3f2] px-3 py-2 text-[13.5px] leading-5 text-[#b42318]">The carrier reported a problem delivering this package. {shop.name} will be in touch, or reply to your order email.</p> : null}
-              {updates.length > 1 ? (
+              {eta && !problem ? (
+                <p className="mt-3 text-[14px] text-[#1a1a2e]" data-estimated-delivery="">
+                  <span className="text-[#6b7280]">Estimated delivery</span> <span className="font-medium">{eta}</span>
+                </p>
+              ) : null}
+              {problem ? (
+                <p className="mt-3 rounded-lg bg-[#fef3f2] px-3 py-2 text-[13.5px] leading-5 text-[#b42318]">
+                  {s.tracking?.status === "returned" ? "The carrier is sending this package back to the shop." : s.tracking?.status === "attempt_failed" ? "The carrier tried to deliver this package and couldn't." : "The carrier reported a problem delivering this package."} {shop.name} will be in touch, or reply to your order email.
+                </p>
+              ) : null}
+              {checkpoints.length > 0 ? (
+                <TrackingTimeline checkpoints={checkpoints} className="mt-4 border-t border-[#eef0f2] pt-3" />
+              ) : updates.length > 1 ? (
                 <ol className="mt-4 space-y-2 border-t border-[#eef0f2] pt-3" data-shipment-updates="">
                   {updates.map((u, j) => (
                     <li key={`${u.status}:${u.at}`} className="flex items-baseline justify-between gap-3 text-[13.5px]">

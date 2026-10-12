@@ -6,7 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { runJobs } from "@/lib/physical/jobs-server"
 import { cancelStaleSitePayments } from "@/lib/checkout/site-payment-sweep"
-import { closeUnconfirmedDeliveries } from "@/lib/physical/unconfirmed-delivery-server"
+import { runTrackingSweep } from "@/lib/physical/tracking/sync-server"
+import { scheduleMarketingSyncs } from "@/lib/integrations/marketing/sync-server"
 
 /**
  * GET /api/cron/physical
@@ -19,7 +20,10 @@ import { closeUnconfirmedDeliveries } from "@/lib/physical/unconfirmed-delivery-
  * left open past their holds are cancelled (lib/checkout/site-payment-sweep),
  * also while physical commerce is switched off in /admin, when the rest
  * does nothing. Before supabase/sql/run-now/78_physical_commerce.sql it
- * answers { available: false }. Protected by CRON_SECRET.
+ * answers { available: false }. Then open parcels whose next look is due
+ * are read from the tracking aggregator and their shipments moved on
+ * (lib/physical/tracking/sync-server.ts); nothing is asked when tracking is
+ * not set up. Protected by CRON_SECRET.
  */
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -35,17 +39,26 @@ async function runJob(request: Request) {
   const started = Date.now()
   const { data: expired, error } = await db.rpc("physical_expire_holds", { p_limit: 200 })
   if (error && (error.code === "PGRST202" || error.code === "42883")) return NextResponse.json({ available: false }, { headers: { "Cache-Control": "no-store" } })
+  /* Klaviyo and Omnisend: a sync per connected store each quarter hour, run by the loop below with the rest (lib/integrations/marketing/sync-server.ts). */
+  const marketing = await scheduleMarketingSyncs(db).catch(() => 0)
   let jobs = { done: 0, failed: 0 }
   for (let round = 0; round < 5 && Date.now() - started < 40_000; round++) {
     const ran = await runJobs(db, 25)
     jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
     if (ran.done + ran.failed < 25) break
   }
-  /* Tracked parcels never marked delivered 60 days after shipping: closed as delivery not confirmed, the seller told once (lib/physical/unconfirmed-delivery-server.ts). */
-  const unconfirmed = Date.now() - started < 45_000 ? await closeUnconfirmedDeliveries(db).catch(() => ({ closed: 0 })) : { closed: 0 }
+  /* Courier tracking: the parcels due a look, inside what is left of the run. The emails it queues go out on the next run, or now when time allows. */
+  const tracking = await runTrackingSweep(db, { limit: 40, budgetMs: Math.max(0, 48_000 - (Date.now() - started)) }).catch((e) => {
+    console.error("[cron/physical] tracking:", e instanceof Error ? e.message : e)
+    return null
+  })
+  if (tracking?.moved && Date.now() - started < 50_000) {
+    const ran = await runJobs(db, 25)
+    jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
+  }
   const ms = Date.now() - started
-  console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, ${unconfirmed.closed} deliveries not confirmed, ${ms}ms`)
-  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, unconfirmed: unconfirmed.closed, ms }, { headers: { "Cache-Control": "no-store" } })
+  console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, tracking ${tracking ? `${tracking.checked} read ${tracking.moved} moved` : "failed"}, ${ms}ms`)
+  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, marketing, tracking, ms }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function GET(request: Request) {

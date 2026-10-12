@@ -56,6 +56,16 @@ const BUILT_IN_ART: Record<string, React.ReactNode> = {
       <path d="m12 7.2 1.15 2.33 2.57.37-1.86 1.81.44 2.56L12 13.06l-2.3 1.21.44-2.56-1.86-1.81 2.57-.37z" />
     </>
   ),
+  /* Courier tracking: a route from a parcel to a map pin. */
+  "courier-tracking": (
+    <>
+      <path d="M3.5 13.5 8 11.2l4.5 2.3V19L8 21.3 3.5 19z" />
+      <path d="M3.5 13.5 8 15.8l4.5-2.3M8 15.8v5.5" />
+      <path d="M17.5 10.5s3.5-3.4 3.5-6a3.5 3.5 0 0 0-7 0c0 2.6 3.5 6 3.5 6z" />
+      <circle cx="17.5" cy="4.6" r="1" />
+      <path d="M14.5 13.5c1.5.6 2.6 1.6 3 3" strokeDasharray="1.5 2" />
+    </>
+  ),
 }
 
 /** Has a drawing of Storelib's own. */

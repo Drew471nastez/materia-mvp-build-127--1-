@@ -24,9 +24,8 @@ import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleas
 import { readMethod, sellerNextStep } from "./fulfillment"
 import { CANCEL_DECLINED, CANCEL_REQUESTED, buyerCancelState, cleanCancelReason, openCancelRequest } from "./buyer-cancel"
 import { normaliseTrackingNumber } from "./carriers"
+import { trackingAvailable, trackingNumberChanged } from "./tracking/accounts-server"
 import { cleanNote } from "./notes"
-import { lineProperties } from "./cart-link"
-import { cartAttributes } from "@/lib/checkout/site-checkout"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
@@ -52,8 +51,6 @@ export interface OrderLine {
   fulfilled: number
   returned: number
   receiptToken: string | null
-  /** The buyer's words for this line from an imported theme's product form (`properties[Engraving]`), or null. */
-  properties?: Record<string, string> | null
 }
 
 export interface Shipment {
@@ -69,9 +66,14 @@ export interface Shipment {
   deliveredAt: string | null
   createdAt: string
   items: { orderId: string; quantity: number }[]
-  /** Tracked and never marked delivered 60 days after shipping (SQL part 164; ./unconfirmed-delivery-server.ts). */
-  unconfirmedAt?: string | null
   events: { status: string; message: string | null; occurredAt: string }[]
+  /** The carrier's own scans, newest first (lib/physical/tracking): kept apart from the shipment's status changes above. */
+  checkpoints?: { at: string; status: string; message: string; location: string | null }[]
+  /**
+   * Courier tracking (lib/physical/tracking, part 160): `mode` auto when Storelib follows this parcel
+   * with the carrier, paused when the seller stopped that for it, off when no tracking is set up yet.
+   */
+  tracking?: { mode: "auto" | "paused" | "off"; status: string | null; estimatedDelivery: string | null; checkedAt: string | null; providerName: string | null; error: string | null }
 }
 
 export interface ReturnRecord {
@@ -123,8 +125,6 @@ export interface PhysicalOrder {
   processingAt: string | null
   deliveredAt: string | null
   buyerNote: string | null
-  /** An imported theme's cart attributes (SQL part 164): a gift message, a delivery date. Empty when none. */
-  cartAttributes: Record<string, string>
   merchantNote: string | null
   receiptToken: string
   paidAt: string | null
@@ -156,7 +156,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
   const rIds = ((returns ?? []) as { id: string }[]).map((r) => r.id)
   const [{ data: fItems }, { data: fEvents }, { data: rItems }] = await Promise.all([
     fIds.length ? db.from("fulfillment_items").select("fulfillment_id, order_id, quantity").in("fulfillment_id", fIds) : Promise.resolve({ data: [] }),
-    fIds.length ? db.from("fulfillment_events").select("fulfillment_id, status, message, occurred_at").in("fulfillment_id", fIds).order("occurred_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    fIds.length ? db.from("fulfillment_events").select("fulfillment_id, status, message, location, external_id, occurred_at").in("fulfillment_id", fIds).order("occurred_at", { ascending: false }) : Promise.resolve({ data: [] }),
     rIds.length ? db.from("commerce_return_items").select("id, return_id, order_id, quantity, restock, restocked_quantity, condition").in("return_id", rIds) : Promise.resolve({ data: [] }),
   ])
   const liveF = new Set(((fulfillments ?? []) as { id: string; status: string }[]).filter((f) => f.status !== "cancelled").map((f) => f.id))
@@ -192,12 +192,19 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       fulfilled: fulfilledOf.get(o.id) ?? 0,
       returned: returnedOf.get(o.id) ?? 0,
       receiptToken: o.receipt_token ?? null,
-      properties: lineProperties(s.properties) ?? null,
     }
   })
   const refunded = lines.reduce((n, l) => n + l.refundedCents, 0)
   const eventsByF = new Map<string, Shipment["events"]>()
-  for (const e of (fEvents ?? []) as { fulfillment_id: string; status: string; message: string | null; occurred_at: string }[]) {
+  const checkpointsByF = new Map<string, NonNullable<Shipment["checkpoints"]>>()
+  for (const e of (fEvents ?? []) as { fulfillment_id: string; status: string; message: string | null; location?: string | null; external_id?: string | null; occurred_at: string }[]) {
+    /* A carrier's scan (lib/physical/tracking): its own list, never read as a status change. */
+    if (typeof e.external_id === "string" && e.external_id.startsWith("trk:")) {
+      const cps = checkpointsByF.get(e.fulfillment_id) ?? []
+      cps.push({ at: e.occurred_at, status: e.status, message: e.message ?? "", location: e.location ?? null })
+      checkpointsByF.set(e.fulfillment_id, cps)
+      continue
+    }
     const list = eventsByF.get(e.fulfillment_id) ?? []
     list.push({ status: e.status, message: e.message, occurredAt: e.occurred_at })
     eventsByF.set(e.fulfillment_id, list)
@@ -208,6 +215,8 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     list.push({ orderId: i.order_id, quantity: i.quantity })
     itemsByF.set(i.fulfillment_id, list)
   }
+  const tracked = ((fulfillments ?? []) as Record<string, any>[]).some((f) => f.tracking_number && f.provider !== "pickup")
+  const follow = tracked ? await trackingAvailable(db, co.creator_id).catch(() => ({ on: false, providerName: null })) : { on: false, providerName: null }
   const itemsByR = new Map<string, ReturnRecord["items"]>()
   for (const i of (rItems ?? []) as Record<string, any>[]) {
     const list = itemsByR.get(i.return_id) ?? []
@@ -247,7 +256,6 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     processingAt: co.processing_at ?? null,
     deliveredAt: co.delivered_at ?? null,
     buyerNote: co.buyer_note,
-    cartAttributes: cartAttributes(co.cart_attributes) ?? {},
     merchantNote: co.merchant_note,
     receiptToken: co.receipt_token,
     paidAt: co.paid_at,
@@ -269,7 +277,18 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       createdAt: f.created_at,
       items: itemsByF.get(f.id) ?? [],
       events: eventsByF.get(f.id) ?? [],
-      unconfirmedAt: f.delivery_unconfirmed_at ?? null,
+      checkpoints: checkpointsByF.get(f.id) ?? [],
+      tracking:
+        f.tracking_number && f.provider !== "pickup"
+          ? {
+              mode: !follow.on ? "off" : f.tracking_auto === false ? "paused" : "auto",
+              status: typeof f.tracking_status === "string" ? f.tracking_status : null,
+              estimatedDelivery: f.status === "delivered" ? null : (f.estimated_delivery_at ?? null),
+              checkedAt: f.tracking_checked_at ?? null,
+              providerName: follow.providerName,
+              error: typeof f.tracking_error === "string" ? f.tracking_error : null,
+            }
+          : undefined,
     })),
     returns: ((returns ?? []) as Record<string, any>[]).map((r) => ({
       id: r.id,
@@ -307,7 +326,8 @@ async function restate(db: Db, creatorId: string, checkoutId: string): Promise<P
   const ret = order.returns.some((r) => r.status === "requested") && !order.returns.some((r) => r.status === "received" || r.status === "completed") ? "requested" : returnStatusOf(progress, openReturns)
   const patch: Record<string, unknown> = { fulfillment_status: fulfillment, return_status: ret, updated_at: new Date().toISOString() }
   if (fulfillment === "fulfilled") patch.fulfilled_at = new Date().toISOString()
-  if (fulfillment === "delivered" && !order.deliveredAt) patch.delivered_at = new Date().toISOString()
+  /* When the last parcel arrived: the carrier's own time when it said (lib/physical/tracking), else now. */
+  if (fulfillment === "delivered" && !order.deliveredAt) patch.delivered_at = live.map((sh) => sh.deliveredAt).filter((t): t is string => !!t).sort().pop() ?? new Date().toISOString()
   if (order.status === "refunded" || order.status === "partially_refunded") {
     patch.status = order.status
     patch.refunded_cents = order.refundedCents
@@ -418,7 +438,17 @@ export async function updateShipment(
   db: Db,
   creatorId: string,
   fulfillmentId: string,
-  input: { status?: unknown; carrier?: unknown; trackingNumber?: unknown; trackingUrl?: unknown; notifyBuyer?: boolean; partner?: { name: string } },
+  input: {
+    status?: unknown
+    carrier?: unknown
+    trackingNumber?: unknown
+    trackingUrl?: unknown
+    notifyBuyer?: boolean
+    partner?: { name: string }
+    /** Courier tracking (lib/physical/tracking): what went wrong, for the Delivery issue email, and when the carrier says it arrived. */
+    problem?: string | null
+    deliveredAt?: string | null
+  },
 ): Promise<Outcome> {
   const { data: f } = await db.from("fulfillments").select("*").eq("id", fulfillmentId).eq("creator_id", creatorId).maybeSingle()
   if (!f) return { ok: false, error: "Shipment not found.", status: 404 }
@@ -437,7 +467,10 @@ export async function updateShipment(
   if (to) {
     if (!canMoveShipment(f.status, to)) return { ok: false, error: "A shipment can't go back to that status." }
     patch.status = to
-    if (to === "delivered") patch.delivered_at = new Date().toISOString()
+    if (to === "delivered") {
+      const said = typeof input.deliveredAt === "string" ? Date.parse(input.deliveredAt) : NaN
+      patch.delivered_at = Number.isFinite(said) && said <= Date.now() ? new Date(said).toISOString() : new Date().toISOString()
+    }
     if (to === "cancelled") patch.cancelled_at = new Date().toISOString()
   }
   const { error } = await db.from("fulfillments").update(patch).eq("id", fulfillmentId).eq("creator_id", creatorId)
@@ -462,16 +495,22 @@ export async function updateShipment(
         to === "delivered"
           ? f.provider === "pickup"
             ? "Picked up by the buyer"
-            : "Marked as delivered"
+            : input.partner
+              ? `Delivered, from ${input.partner.name}`
+              : "Marked as delivered"
           : to === "cancelled"
             ? "Shipment cancelled, items back to unfulfilled"
-            : to
-              ? `Shipment ${to.replace(/_/g, " ")}`
+            : to === "failed" && input.problem
+              ? `Delivery problem: ${String(input.problem).slice(0, 200)}`
+              : to
+                ? `Shipment ${to.replace(/_/g, " ")}`
               : "Tracking updated",
       actor: input.partner ? "webhook" : "creator",
-      ...(to === "failed" && input.notifyBuyer === false ? { detail: { notifyBuyer: false } } : {}),
+      ...(to === "failed" && (input.notifyBuyer === false || input.problem) ? { detail: { ...(input.notifyBuyer === false ? { notifyBuyer: false } : {}), ...(input.problem ? { problem: String(input.problem).slice(0, 200) } : {}) } } : {}),
     })
   }
+  /* A new number is followed again from the start (lib/physical/tracking). Quiet before part 160. */
+  if (trackingChanged && patch.tracking_number !== f.tracking_number) await trackingNumberChanged(db, fulfillmentId).catch(() => undefined)
   if (input.notifyBuyer !== false && f.notify_buyer !== false) {
     if (to === "delivered" || to === "out_for_delivery") await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, to)
     /*

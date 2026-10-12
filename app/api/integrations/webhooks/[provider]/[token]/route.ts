@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic"
 
 /**
  * ===========================================================================
- *  PRINTFUL AND PRINTIFY SAY A PARCEL MOVED
+ *  PRINTFUL, PRINTIFY, GELATO AND CJ SAY A PARCEL (OR CJ'S STOCK) MOVED
  * ===========================================================================
- * POST /api/integrations/webhooks/<printful|printify>/<creator>.<token>
+ * POST /api/integrations/webhooks/<printful|printify|gelato|cj_dropshipping>/<creator>.<token>
  *
  * Registered with the provider when the seller connects it
  * (lib/integrations/fulfilment/forward-server.ts afterConnect). Three checks
@@ -21,10 +21,12 @@ export const dynamic = "force-dynamic"
  *   the address   the token is an HMAC only Storelib can make for that
  *                 store and that provider
  *   the body      Printify's X-Pfy-Signature, sha256 HMAC of the raw body
- *                 with the secret made when it was connected (Printful does
- *                 not sign its webhooks, so it rests on the other two)
+ *                 with the secret made when it was connected (Printful,
+ *                 Gelato and CJ's order and stock messages are not signed,
+ *                 so they rest on the other two)
  *   the provider  the order is read back from the provider with the
- *                 seller's own key; the body only says which order to read
+ *                 seller's own key; the body only says which order (or for
+ *                 CJ's stock, which variants) to read
  *
  * 2xx when it was handled or is not ours to handle, so the provider stops
  * retrying; 503 when the provider could not be read, so it tries again.
