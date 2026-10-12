@@ -295,7 +295,7 @@ async function main() {
   const confirmCounts = paid.map((x) => j.net.to(x.buyer_email).filter((m) => /confirmed/i.test(m.subject) && m.subject.includes(String(x.id).replace(/-/g, "").slice(0, 8).toUpperCase())).length)
   check(`each of the ${paid.length} paid orders sent its buyer exactly one confirmation`, confirmCounts.every((n) => n === 1), paid.map((x, i) => [x.buyer_email, confirmCounts[i]]))
   const sellerMail = j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t)))
-  const saleMails = sellerMail.filter((m) => /sale|order/i.test(m.subject) && !/cancel|disput|refund|return|problem|stock/i.test(m.subject))
+  const saleMails = sellerMail.filter((m) => /^(New order|Pickup order|Your first sale|You sold)/.test(m.subject))
   check(`the seller got one new order email per paid order (${paid.length})`, saleMails.length === paid.length, { got: saleMails.length, subjects: saleMails.map((m) => m.subject), paid: paid.map((x) => [x.buyer_email, x.status]) })
   const dupes = new Map<string, number>()
   for (const m of j.net.mails) dupes.set(`${m.to.join()}|${m.subject}`, (dupes.get(`${m.to.join()}|${m.subject}`) ?? 0) + 1)
@@ -577,7 +577,7 @@ async function website(j: Journey, c: Ctx) {
   const tooMany = await ask("POST", "/cart/add.js", { id: c.vId("Blue"), quantity: 2 }, true)
   const sold = await ask("POST", "/cart/add.js", { id: c.vId("Sand"), quantity: 1 }, true)
   check("cart/add: two Blue mugs in; two more refused (3 per order); Sand refused", add.status === 200 && tooMany.status === 422 && sold.status === 422 && state.cart.reduce((n: number, l: any) => n + l.q, 0) === 2, { add: add.status, tooMany: [tooMany.status, String(tooMany.body).slice(0, 200)], sold: sold.status, cart: state.cart })
-  const go = await ask("POST", "/cart", { "updates[]": "2", note: "Leave it with the neighbour, please", checkout: "" })
+  const go = await ask("POST", "/cart", { "updates[]": "2", note: "Leave it with the neighbour, please", "attributes[Gift message]": "Happy birthday, Ana", checkout: "" })
   const to = new URL(go.headers?.Location ?? "/", `https://${host}`)
   const { readSiteCheckoutParams } = await import("@/lib/checkout/site-checkout")
   const params = readSiteCheckoutParams(to.searchParams)
@@ -592,7 +592,7 @@ async function website(j: Journey, c: Ctx) {
   const intent = await j.call("POST /api/checkout/site", {
     host,
     headers: buyerHeaders,
-    body: { action: "intent", items, email: "web@example.com", firstName: "Wanda", lastName: "Web", address: { line1: "Str. Web 5", city: "Cluj-Napoca", postalCode: "400100", country: "RO", phone: "+40 744 999 000" }, phone: "+40 744 999 000", agreedToTerms: true, deliveryOptionId: option, buyerNote: params.note, clientKey: "site-key-web-123456", paymentMethods: ["card"] },
+    body: { action: "intent", items, cartAttributes: params.attributes, email: "web@example.com", firstName: "Wanda", lastName: "Web", address: { line1: "Str. Web 5", city: "Cluj-Napoca", postalCode: "400100", country: "RO", phone: "+40 744 999 000" }, phone: "+40 744 999 000", agreedToTerms: true, deliveryOptionId: option, buyerNote: params.note, clientKey: "site-key-web-123456", paymentMethods: ["card"] },
   })
   const pi = intent.json?.paymentIntentId as string | undefined
   const siteCo = j.rows("commerce_checkouts").find((x) => x.client_key === "site-key-web-123456")
@@ -613,6 +613,8 @@ async function website(j: Journey, c: Ctx) {
   check("the buyer gets one confirmation, whose order link opens on the website", mail.filter((m) => /confirmed/i.test(m.subject)).length === 1 && mail.some((m) => m.html.includes(`https://${host}/`)), { subjects: mail.map((m) => m.subject), links: mail[0]?.html.match(/href="https:\/\/[^"]+"/g)?.slice(0, 6) })
   const so = await j.call(`GET /api/physical/orders/${siteCo.id}`, { as: c.seller })
   check("the seller's order page shows the cart note from the website", so.json?.order?.buyerNote === "Leave it with the neighbour, please", so.json?.order?.buyerNote)
+  const sellerNew = j.net.mails.find((m) => m.to.some((x) => /anaceramics|maker@/.test(x)) && /New order/.test(m.subject) && m.html.includes("Leave it with the neighbour"))
+  check("the theme cart's attribute (Gift message) rides the checkout link, is kept on the order, shown on the seller's order page and in the new order email", params.attributes?.["Gift message"] === "Happy birthday, Ana" && j.rows("commerce_checkouts").find((x) => x.id === siteCo.id)?.cart_attributes?.["Gift message"] === "Happy birthday, Ana" && so.json?.order?.cartAttributes?.["Gift message"] === "Happy birthday, Ana" && !!sellerNew && sellerNew.html.includes("Happy birthday, Ana"), { params: params.attributes, kept: j.rows("commerce_checkouts").find((x) => x.id === siteCo.id)?.cart_attributes, page: so.json?.order?.cartAttributes, mail: !!sellerNew })
 }
 
 /** The edges: the Storelib theme's own product block, a download in a shipped order, a payment after the hold expired, an address change, a shipment cancelled, a refund made in Stripe's dashboard, a dispute won. */
@@ -735,12 +737,61 @@ async function round24(j: Journey, c: Ctx) {
   const win = returnWindow({ ...lo!, pickup: false }, 30)
   check("the return window counts 30 days from the carrier's delivery, two days ago", !!win.endsAt && Math.abs(Date.parse(win.endsAt) - (Date.parse(deliveredAt) + 30 * 86_400_000)) < 86_400_000 && /Out for delivery|Delivered/i.test(page), { win, deliveredAt })
 
+  section("33. The buyer contacts the shop; the seller answers; Storelib after three days")
+  const help = await j.call("POST /api/order-help", { headers: { "x-forwarded-for": "198.51.100.231" }, body: { kind: "physical", token: t.co!.receipt_token, reason: "question", message: "Can you send it in a gift box, please?" } })
+  const caseId = help.json?.id as string | undefined
+  const k = help.json?.link ? new URL(help.json.link).searchParams.get("k") ?? "" : ""
+  await j.cron()
+  const toShop = j.net.mails.filter((m) => m.to.some((x) => /anaceramics|maker@/.test(x)) && /gift box|message|question/i.test(`${m.subject} ${m.html}`) && m.html.includes("gift box"))
+  check("Contact the shop from the order page: a case opened, the seller emailed once with the message and the order's #100x", help.status === 200 && !!caseId && toShop.length === 1 && /#10\d\d/.test(`${toShop[0]?.subject} ${toShop[0]?.html}`), { help: help.json, mails: toShop.map((m) => m.subject) })
+  const cases = await j.call("GET /api/store/cases", { as: seller })
+  const reply = caseId ? await j.call(`POST /api/store/cases/${caseId}`, { as: seller, body: { action: "reply", body: "Of course, it will go in a gift box." } }) : null
+  await j.cron()
+  const toBuyer = j.net.to("tracked@example.com").filter((m) => m.html.includes("gift box"))
+  check("the seller sees the case in their list and answers it; the buyer is emailed the answer once, with their own reference only", cases.status === 200 && JSON.stringify(cases.json).includes(String(caseId)) && reply?.status === 200 && toBuyer.length === 1 && !/#10\d\d/.test(`${toBuyer[0]?.subject} ${toBuyer[0]?.text}`), { cases: cases.status, reply: reply?.json?.error, buyer: toBuyer.map((m) => m.subject) })
+  const thread = caseId ? await j.call(`GET /api/order-help/${caseId}?k=${encodeURIComponent(k)}`) : null
+  check("the buyer's case page shows both messages and offers no Storelib escalation for a question", thread?.status === 200 && (thread?.json?.messages ?? []).length === 2 && thread?.json?.escalation?.can === false, thread?.json)
+  const lost = await j.call("POST /api/order-help", { headers: { "x-forwarded-for": "198.51.100.232" }, body: { kind: "physical", token: t.co!.receipt_token, reason: "damaged", message: "The handle arrived broken off the mug." } })
+  const lostId = lost.json?.id as string
+  const lk = lost.json?.link ? new URL(lost.json.link).searchParams.get("k") ?? "" : ""
+  const early = await j.call(`POST /api/order-help/${lostId}`, { body: { action: "escalate", k: lk } })
+  for (const m of j.rows("order_case_messages").filter((x) => x.case_id === lostId)) m.created_at = new Date(Date.now() - 4 * 86_400_000).toISOString()
+  const esc = await j.call(`POST /api/order-help/${lostId}`, { body: { action: "escalate", k: lk, body: "No answer for four days." } })
+  await j.cron()
+  const storelib = j.net.mails.filter((m) => m.to.some((x) => /support@storelib\.com/.test(x)) && /asked Storelib to step in/.test(m.subject))
+  check("a damaged item unanswered: the buyer can't ask Storelib in at once, can after three days; Storelib support is emailed once and the case reads with Storelib", early.status === 409 && esc.status === 200 && esc.json?.case?.status === "storelib" && storelib.length === 1, { early: early.json, esc: esc.json?.case ?? esc.json, storelib: storelib.map((m) => [m.to, m.subject]), row: j.rows("order_cases").find((x) => x.id === lostId), msgs: j.rows("order_case_messages").filter((x) => x.case_id === lostId) })
+
+  section("34. Sixty days on, a tracked parcel nobody saw delivered")
+  const u = await buy(j, c, { email: "unconfirmed@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  const uLine = j.rows("orders").find((o) => o.checkout_id === u.co!.id)!
+  await j.call(`POST /api/physical/orders/${u.co!.id}`, { as: seller, body: { action: "fulfil", items: [{ orderId: uLine.id, quantity: 1 }], carrier: "DHL", trackingNumber: "JD014600009999990002" } })
+  const uf = j.rows("fulfillments").find((f) => f.checkout_id === u.co!.id)!
+  uf.shipped_at = new Date(Date.now() - 61 * 86_400_000).toISOString()
+  uf.tracking_last_event_at = new Date(Date.now() - 50 * 86_400_000).toISOString()
+  uf.tracking_status = "in_transit"
+  const { closeUnconfirmedDeliveries } = await import("@/lib/physical/unconfirmed-delivery-server")
+  await j.cron()
+  const again60 = await closeUnconfirmedDeliveries(createAdminClient())
+  const lo60 = await loadOrder(createAdminClient(), { creatorId: c.creatorId, checkoutId: u.co!.id })
+  const win60 = returnWindow({ ...lo60!, pickup: false }, 30)
+  const ret60 = await j.call(`POST /api/physical/order-status/${u.co!.receipt_token}/return`, { headers: { "x-forwarded-for": "198.51.100.233" }, body: { items: [{ orderId: uLine.id, quantity: 1 }], reason: "other" } })
+  check("the 60 day pass marks it delivery not confirmed (once, on the timeline), the seller is told, and the return window has ended", !!uf.delivery_unconfirmed_at && again60.closed === 0 && j.rows("commerce_order_events").filter((e) => e.checkout_id === u.co!.id && /unconfirmed/.test(e.kind)).length === 1 && win60.open === false && ret60.status === 400, { at: uf.delivery_unconfirmed_at, again: again60, win60, ret: ret60.json, events: j.rows("commerce_order_events").filter((e) => e.checkout_id === u.co!.id).map((e) => e.kind) })
+  const p1 = await buy(j, c, { email: "moving@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  const pLine = j.rows("orders").find((o) => o.checkout_id === p1.co!.id)!
+  await j.call(`POST /api/physical/orders/${p1.co!.id}`, { as: seller, body: { action: "fulfil", items: [{ orderId: pLine.id, quantity: 1 }], carrier: "DHL", trackingNumber: "JD014600009999990003" } })
+  const pf2 = j.rows("fulfillments").find((f) => f.checkout_id === p1.co!.id)!
+  pf2.shipped_at = new Date(Date.now() - 61 * 86_400_000).toISOString()
+  pf2.tracking_last_event_at = new Date(Date.now() - 2 * 86_400_000).toISOString()
+  pf2.tracking_status = "in_transit"
+  await closeUnconfirmedDeliveries(createAdminClient())
+  check("a parcel tracking saw move two days ago is left alone", !pf2.delivery_unconfirmed_at, { at: pf2.delivery_unconfirmed_at })
+
   section("32. One order number for the seller, the reference for the buyer")
   const sellerMail = j.net.mails.filter((m) => m.to.some((x) => /anaceramics|maker@/.test(x)))
   const aboutOrders = sellerMail.filter((m) => /order/i.test(m.subject) && !/your first sale/i.test(m.subject))
   const hex = aboutOrders.filter((m) => /#[0-9A-F]{8}\b/.test(m.subject) && !/#10\d\d/.test(m.subject))
   check("every seller email about an order names it #100x, as the Orders page does", aboutOrders.length > 5 && hex.length === 0, { hex: hex.map((m) => m.subject), all: aboutOrders.map((m) => m.subject).slice(0, 12) })
-  const buyerMail = j.net.mails.filter((m) => !m.to.some((x) => /anaceramics|maker@/.test(x)))
+  const buyerMail = j.net.mails.filter((m) => !m.to.some((x) => /anaceramics|maker@|support@storelib\.com/.test(x)))
   const seq = buyerMail.filter((m) => /#10\d\d\b/.test(`${m.subject} ${m.text}`))
   check("buyers only ever see their reference (#XXXXXXXX), never the seller's #100x", seq.length === 0, seq.map((m) => [m.to, m.subject]))
 }

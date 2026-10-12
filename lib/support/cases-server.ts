@@ -29,7 +29,7 @@ import { SUPPORT_EMAIL } from "@/lib/help/articles"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { storeIdentity, type StoreIdentity } from "@/lib/store/identity-server"
 import { sellerOrderNumber, sellerOrderNumbers } from "@/lib/orders/order-number-server"
-import { CASE_REASON_LABELS, CASE_STATUSES, REASONS_SINCE_164, buyerEscalation, caseLink, statusAfterMessage, type CaseAuthor, type CaseMessage, type CasePhotoRef, type CaseReason, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
+import { CASE_REASON_LABELS, CASE_STATUSES, ESCALATABLE, REASONS_SINCE_164, buyerEscalation, caseLink, statusAfterMessage, type CaseAuthor, type CaseMessage, type CasePhotoRef, type CaseReason, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
 import { keepCasePhotos, refsOf, removeCasePhotos, signCasePhotos, type IncomingPhoto } from "@/lib/support/case-photos-server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,6 +166,16 @@ export async function openCase(db: Db, order: FoundOrder, input: { reason: CaseR
     const words = open.reason === input.reason ? input.message : `${CASE_REASON_LABELS[input.reason]}:\n${input.message}`
     const kept = await keepCasePhotos(db, open.id, input.photos ?? [])
     if (kept.ok === false) return { ok: false, error: kept.error, status: 400 }
+    /*
+      A problem Storelib can step in on (it arrived damaged, never came, a
+      refund) joining a case opened for a question: the case is about the
+      problem now. Kept under the question, the buyer could never ask
+      Storelib in about it while the case stayed open.
+    */
+    if (ESCALATABLE.has(input.reason) && !ESCALATABLE.has(open.reason as CaseReason)) {
+      const { error: moveError } = await db.from("order_cases").update({ reason: input.reason }).eq("id", open.id)
+      if (!moveError) open.reason = input.reason
+    }
     const r = await addMessage(db, open as CaseRow, "buyer", words, { origin, photos: kept.refs })
     if (r.ok === false) return r
     return { ok: true, id: open.id, link: caseLink(origin, open.id, orderCaseSecret(open.id)), existing: true, photosNotKept: kept.notKept || r.photosDropped }
@@ -398,7 +408,7 @@ async function act(db: Db, row: CaseRow, who: "buyer" | "store", action: { kind:
   if (error) return failed("escalate", error, "That could not be sent.")
   const store = await storeFor(db, row)
   const said = action.body ?? "(no message with it)"
-  await Promise.all([emailStorelib({ ...row, escalated: true, escalated_by: who }, store, who, said, true), who === "buyer" ? emailStoreNewMessage(row, store, `The buyer asked Storelib to step in.${action.body ? `\n\n${action.body}` : ""}`, false) : emailBuyerReply(row, store, "store", `${store?.name ?? "The store"} asked Storelib to help with this case. Storelib will write to you both here.${action.body ? `\n\n${action.body}` : ""}`, origin, "storelib")])
+  await Promise.all([emailStorelib({ ...row, escalated: true, escalated_by: who }, store, who, said, true), who === "buyer" ? emailStoreNewMessage(row, store, `The buyer asked Storelib to step in.${action.body ? `\n\n${action.body}` : ""}`, false, "buyer", 0, "The buyer asked Storelib to help with") : emailBuyerReply(row, store, "store", `${store?.name ?? "The store"} asked Storelib to help with this case. Storelib will write to you both here.${action.body ? `\n\n${action.body}` : ""}`, origin, "storelib")])
   return { ok: true }
 }
 
@@ -455,12 +465,13 @@ async function emailBuyerReply(row: CaseRow, store: StoreIdentity | null, from: 
   }
 }
 
-async function emailStoreNewMessage(row: CaseRow, store: StoreCtx | null, body: string, first: boolean, from: "buyer" | "storelib" = "buyer", photos = 0): Promise<void> {
+async function emailStoreNewMessage(row: CaseRow, store: StoreCtx | null, body: string, first: boolean, from: "buyer" | "storelib" = "buyer", photos = 0, asked?: string): Promise<void> {
   try {
     const to = store?.email
     if (!to) return
     const name = sellerOrderName(row, store)
-    const subject = first ? `A buyer needs help with ${name}` : from === "storelib" ? `Storelib wrote about ${name}` : `The buyer replied about ${name}`
+    /* Its own subject when the buyer asks Storelib in, so it never reads as a second copy of their last message. */
+    const subject = asked ? `${asked} ${name}` : first ? `A buyer needs help with ${name}` : from === "storelib" ? `Storelib wrote about ${name}` : `The buyer replied about ${name}`
     const facts = `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">${escapeHtml(CASE_REASON_LABELS[row.reason])} · ${escapeHtml(row.buyer_name || row.buyer_email)}${buyerRefFact(row, store)}</p>`
     const withPhotos = photos > 0 ? `<p style="margin:0 0 12px;font-size:13px;color:#6b7280">${photos === 1 ? "1 photo" : `${photos} photos`} with this message. Open the case to see ${photos === 1 ? "it" : "them"}.</p>` : ""
     await sendMailgunOnce({ to, subject, html: shell(null, subject, facts + paragraphs(body) + withPhotos, { href: appUrl(`/app/support?case=${row.id}`), label: first ? "Answer the buyer" : "Open the case" }, "Answer from the case within three days. A reply to this email reaches the buyer but is not kept on the case, and a problem with what the buyer received or a refund left unanswered for three days can be taken to Storelib."), replyTo: from === "buyer" ? row.buyer_email : undefined, tags: ["order-case", "order-case-store"] })
