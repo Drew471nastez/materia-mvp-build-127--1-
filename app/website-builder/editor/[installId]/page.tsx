@@ -17,7 +17,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
-  Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
+  Palette, ShoppingBag, ShoppingCart, Share2, Cookie, Languages,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
@@ -168,6 +168,10 @@ import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builde
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
+import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
+import { PreviewLanguageSwitch } from "@/components/website-builder/preview-language-switch"
+import { localizeCards, localizeMenus, localizeSections } from "@/lib/markets/translate"
+import { languageName } from "@/lib/markets/locales"
 import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
@@ -7946,9 +7950,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   )
   /* Storelib Reviews: a page with a review section draws the store's reviews, or samples (components/website-builder/use-canvas-reviews.ts). */
   const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_")), previewedProduct?.id ?? null)
+  /*
+    THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
+    the page switcher): the approved translations laid over the page, its
+    menus and its products, as /fr draws them on the website. Drawn only;
+    what is edited and saved is always the website's own language.
+  */
+  const previewLang = usePreviewLanguage(installId)
+  const previewMap = previewLang.map
+  const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
+  const catalogCardsShown = useMemo(() => localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true }), [catalogCardsForCanvas, previewMap])
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsForCanvas, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
-    [canvasDynamic, catalogCardsForCanvas, canvasMenus, builderCommunities, builderCollections, canvasReviews],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
+    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderCollections, canvasReviews],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
@@ -7958,6 +7972,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       templateForPage(currentPage),
     ),
     [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
+  )
+  /* The page in the language previewed: the text settings with an approved translation, read with the same schemas the website reads. */
+  const drawnShown = useMemo(
+    () =>
+      previewMap
+        ? localizeSections(
+            drawnSections,
+            previewMap,
+            (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
+            (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields,
+            { approvedOnly: true },
+          )
+        : drawnSections,
+    [drawnSections, previewMap, storelibSources, librarySchemas],
+  )
+  const shopCardsShown = useMemo(() => localizeCards(shopCards, previewMap, { approvedOnly: true }), [shopCards, previewMap])
+  const compatLanguage = useMemo(
+    () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
+    [previewLang.locale, previewLang.defaultLanguage, previewLang.languages, previewMap],
   )
 
   /**
@@ -8575,10 +8608,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     handleUndo,
     handleRedo,
     requestExit,
+    previewIn: (code: string) => previewLang.setLocale(code),
   }
   const actionCalls = useRef(calls)
   actionCalls.current = calls
   const inCode = previewMode === "code"
+  const previewLangs = previewLang.languages
+  const previewLocaleShown = previewLang.locale ?? previewLang.defaultLanguage
   const actionItems = useMemo<ActionMenuItem[]>(() => {
     return [
       {
@@ -8602,6 +8638,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         icon: <SlidersHorizontal className="h-4 w-4" />,
         onClick: () => actionCalls.current.openSettings(),
       },
+      /* A phone's way to the canvas's language (the desktop's is the button beside the page switcher): the next one, round. */
+      ...(isMobileView && previewLangs.length > 1
+        ? (() => {
+            const now = previewLangs.indexOf(previewLocaleShown)
+            const next = previewLangs[(now + 1) % previewLangs.length]
+            return [{
+              label: `Preview in ${languageName(next, "en")}`,
+              icon: <Languages className="h-4 w-4" />,
+              onClick: () => actionCalls.current.previewIn(next),
+            }]
+          })()
+        : []),
       {
         label: "Connect Claude Code or Codex",
         icon: <Plug className="h-4 w-4" />,
@@ -8642,7 +8690,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         separatorBefore: !websiteUrl,
       },
     ]
-  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl])
+  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, previewLangs, previewLocaleShown])
   /**
    * The three dots. 32px drawn, and on a phone a 44px press area around it
    * (an invisible band, so the bar does not move). It presses in the way the
@@ -8967,6 +9015,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <TooltipContent side="bottom">{fullView ? "Exit full screen" : "Full screen"}</TooltipContent>
             </Tooltip>
           )}
+
+          {/* The language the canvas is drawn in, for a website with more than one. */}
+          {!isMobileView && <PreviewLanguageSwitch lang={previewLang} />}
 
           {!isMobileView && (
           <PageSwitcher
@@ -10148,13 +10199,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   dataReady={liveCardsRead}
                   siteUrl={websiteUrl}
                   warm={compatWarm}
+                  language={compatLanguage}
                 />
               ) : (
               <EditorCanvasPage
                 theme={canvasThemeSettings}
                 sources={storelibSources}
                 pageTemplate={templateForPage(currentPage)}
-                sections={drawnSections}
+                sections={drawnShown}
                 storefrontData={canvasData}
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
@@ -10183,8 +10235,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  * by clicking a link to it.
                  */
                 onCreateMissingPage={createMissingPage}
-                shopCards={shopCards}
+                shopCards={shopCardsShown}
                 installId={installId}
+                words={previewLang.words}
               />
               )}
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
@@ -10784,6 +10837,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   shopCards,
   installId,
   storefrontData: canvasStorefrontData,
+  words,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -10822,6 +10876,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   installId: string
   /** The shop's own facts, the same the live site draws with: lib/website-builder/storefront-data.ts. */
   storefrontData?: import("@/lib/storelib-theme/types").StorefrontData
+  /** The shop's own words in the language previewed (lib/markets/ui-words.ts). */
+  words?: Record<string, string>
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
@@ -10854,7 +10910,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
-  const storefront = useMemo(() => ({ inEditor: true, installId }), [installId])
+  const storefront = useMemo(() => ({ inEditor: true, installId, words }), [installId, words])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
   const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
   return (

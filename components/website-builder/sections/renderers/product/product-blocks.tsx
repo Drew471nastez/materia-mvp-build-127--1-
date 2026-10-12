@@ -50,7 +50,7 @@ import {
 } from "@/lib/products/product-page-model"
 import { deliveryLine, pickupLine } from "@/lib/physical/delivery-lines"
 import { DynamicIcon, type SectionPalette } from "../../_shared"
-import { useStorefront } from "../../../theme/storefront-context"
+import { useStorefront, useWord } from "../../../theme/storefront-context"
 
 /* ── What every block is handed ───────────────────────────────────────────── */
 
@@ -419,6 +419,12 @@ function Quantity({ s, ctx }: { s: S; ctx: ProductCtx }) {
 }
 
 function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  /* A label left as the English default is the shop's own word, in the page's language (lib/markets/ui-words.ts); one the store wrote is translated with its section. */
+  const w = useWord()
+  const label = (value: unknown, english: string, word: Parameters<typeof w>[0]) => {
+    const own = str(value, english)
+    return own.trim() === english ? w(word) : own
+  }
   const { facts, buy } = ctx
   const free = !facts.payWhatYouWant && facts.priceCents === 0
   /* Nothing to collect on a free product, so no basket to put it in: one button straight to the download. */
@@ -433,7 +439,7 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const disabled = ctx.inert || !ctx.canBuy || !!buy.unavailable
   /* In the editor the buttons do nothing but are drawn as a visitor sees them: faded only when a visitor would find them so. */
   const faded = !ctx.canBuy || !!buy.unavailable
-  const blocked = buy.unavailable ?? (soldOut ? "Sold out" : null)
+  const blocked = buy.unavailable ?? (soldOut ? w("sold_out") : null)
   /* Already theirs: no second purchase, the way to the files instead (Gumroad's "View content"). */
   if (buy.owned) {
     return (
@@ -464,7 +470,7 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
           style={{ height: h, minHeight: h, borderColor: outline, color: outline, background: "transparent", ...ctx.buttonRadius }}
           data-add-to-cart=""
         >
-          {blocked ?? (buy.added ? "Added to cart" : str(s.add_label, "Add to cart"))}
+          {blocked ?? (buy.added ? w("added_to_cart") : label(s.add_label, "Add to cart", "add_to_cart"))}
         </button>
       ) : null}
       {showBuy ? (
@@ -476,7 +482,7 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
           style={{ height: h, minHeight: h, background: fill, color: text, border: `2px solid ${fill}`, ...ctx.buttonRadius }}
           data-buy-now=""
         >
-          {blocked ?? (free ? str(s.free_label, "Get it free") : str(s.buy_label, "Buy now"))}
+          {blocked ?? (free ? label(s.free_label, "Get it free", "get_it_free") : label(s.buy_label, "Buy now", "buy_now"))}
         </button>
       ) : null}
     </div>

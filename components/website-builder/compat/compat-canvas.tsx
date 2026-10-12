@@ -39,6 +39,9 @@ import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 import { shopImageName } from "@/lib/website-builder/picture-address"
+import { compatFields } from "@/lib/markets/compat-fields"
+import { localizeMenus, localizeRecord, localizeSections, type TranslationMap } from "@/lib/markets/translate"
+import { localePrefix } from "@/lib/markets/locales"
 
 /** A product card with each option's stock and pickup points, the way the live site's loader hands them to the theme. */
 function withStock(card: ProductCard, variants: Record<string, { left: number | null; max: number | null; pickup: unknown[] }>, showLeft: boolean): ProductCard {
@@ -112,6 +115,13 @@ export interface CompatCanvasProps {
    * below).
    */
   warm?: { pageKey: string; sections: StoredSection[] } | null
+  /**
+   * The language the builder previews the website in (use-preview-language.ts):
+   * its approved translations laid over the sections, menus and products, and
+   * the theme's own words for it, as /fr draws it on the website. Absent, the
+   * website's own language.
+   */
+  language?: { locale: string; defaultLanguage: string; languages: string[]; map: TranslationMap | null } | null
 }
 
 /*
@@ -190,8 +200,27 @@ export { loadCompatFiles }
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
 
+/** A product in the language previewed: its title and description, as lib/markets/compat.ts lays them over on the website. */
+function inLanguage(card: ProductCard, map: TranslationMap): ProductCard {
+  const c = card as ProductCard & { descriptionHtml?: string }
+  const opts = { approvedOnly: true }
+  const settings = localizeRecord(c.settings as unknown as Record<string, unknown>, `product:${c.id}`, ["title", "description"], map, opts)
+  const html = c.descriptionHtml !== undefined ? (localizeRecord({ description: c.descriptionHtml }, `product:${c.id}`, ["description"], map, opts).description as string) : undefined
+  if (settings === (c.settings as unknown) && html === c.descriptionHtml) return card
+  return { ...c, settings, ...(html !== undefined ? { descriptionHtml: html } : {}) } as unknown as ProductCard
+}
+
+/** A link in the previewed language's page (/fr/products/x), as the builder names the page (/products/x). */
+function withoutLanguage(href: string, lang: string): string {
+  if (!lang) return href
+  const prefix = `/${localePrefix(lang)}`
+  if (!href.startsWith("/")) return href
+  if (href === prefix) return "/"
+  return href.startsWith(`${prefix}/`) || href.startsWith(`${prefix}?`) || href.startsWith(`${prefix}#`) ? href.slice(prefix.length) || "/" : href
+}
+
 export function CompatCanvas(props: CompatCanvasProps) {
-  const { installId, sources, pageKey, products, collections, menus, shopName } = props
+  const { installId, sources, pageKey, collections, shopName } = props
   /*
     A THEME SETTING UNDER A FINGER IS DRAWN TOO. A slider or a colour in
     Theme settings writes its values to the live layer while the finger is
@@ -202,9 +231,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
     changed none of them, the first change 264ms after release.
   */
   const settings = useLiveTheme(props.theme as unknown as ThemeSettingsValues) as unknown as Record<string, unknown>
-  const catalog = props.catalog
   /* A slider under a finger: its section is drawn again with each value, before the editor commits it (lib/website-builder/live-settings.ts). */
-  const sections = useLiveSections(props.sections as unknown as SectionInstance[]) as unknown as StoredSection[]
+  const ownSections = useLiveSections(props.sections as unknown as SectionInstance[]) as unknown as StoredSection[]
+  const language = props.language ?? null
+  const langCode = language?.locale ?? ""
   const box = useRef<HTMLDivElement | null>(null)
   const [compatFiles, setCompatFiles] = useState<Record<string, string> | null>(null)
   const [height, setHeight] = useState(800)
@@ -246,9 +276,22 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => ro.disconnect()
   }, [])
 
+  /* The theme's own words in the language previewed (its locales/fr.json), for `| t`: read once per language. */
+  const [langFiles, setLangFiles] = useState<{ lang: string; files: Record<string, string> } | null>(null)
+  useEffect(() => {
+    if (!langCode || langFiles?.lang === langCode) return
+    let live = true
+    fetch(`/api/website-builder/themes/${installId}/files?compat-locale=${encodeURIComponent(langCode)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ files?: Record<string, string> }>) : { files: {} }))
+      .then((d) => { if (live) setLangFiles({ lang: langCode, files: d.files ?? {} }) })
+      .catch(() => { if (live) setLangFiles({ lang: langCode, files: {} }) })
+    return () => { live = false }
+  }, [installId, langCode, langFiles?.lang])
+  const wordsFiles = langCode && langFiles?.lang === langCode ? langFiles.files : null
+
   /* Not before the install's own .storelib files are in (sourcesReady): the page is drawn from them. */
   const sourcesReady = props.sourcesReady !== false
-  const rows = useMemo(() => (compatFiles && sourcesReady ? { ...sources, ...compatFiles } : null), [sources, compatFiles, sourcesReady])
+  const rows = useMemo(() => (compatFiles && sourcesReady ? { ...sources, ...compatFiles, ...(wordsFiles ?? {}) } : null), [sources, compatFiles, sourcesReady, wordsFiles])
   const compatTheme = useMemo(() => {
     if (!rows) return null
     const media = assetAddresses(rows)
@@ -267,6 +310,22 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
   }, [rows, settings, installId])
   const themeUnreadable = !!rows && !compatTheme
+
+  /*
+    IN THE LANGUAGE PREVIEWED: the same overlay the website draws /fr with
+    (lib/markets/compat.ts localizeCompatSite), read with the theme's own
+    schemas. What has no approved translation stays as written.
+  */
+  const map = language?.map ?? null
+  const fields = useMemo(() => (compatTheme && map ? compatFields(compatTheme) : null), [compatTheme, map])
+  const sections = useMemo(
+    () => (fields && map ? (localizeSections(ownSections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true }) as unknown as StoredSection[]) : ownSections),
+    [ownSections, fields, map],
+  )
+  const products = useMemo(() => (map ? props.products.map((c) => inLanguage(c, map)) : props.products), [props.products, map])
+  const catalog = useMemo(() => (map && props.catalog ? props.catalog.map((c) => inLanguage(c, map)) : props.catalog), [props.catalog, map])
+  const menus = useMemo(() => (map ? localizeMenus(props.menus as never, map, { approvedOnly: true }) as CompatCanvasProps["menus"] : props.menus), [props.menus, map])
+  const i18n = useMemo(() => (language ? { locale: language.locale, defaultLanguage: language.defaultLanguage, languages: language.languages } : undefined), [language?.locale, language?.defaultLanguage, language?.languages.join(",")])
 
   /*
     BY WHAT THEY HOLD, NOT BY WHICH OBJECT. The editor makes its menus again
@@ -342,6 +401,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       menus,
       pageKeys: pageKeys ? [...pageKeys] : undefined,
       shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
+      i18n,
       /* The builder's own cart (canvasCarts), so the cart page and a drawer drawn again show what was added. */
       cart: cartLines({ products }, canvasCarts.get(installId)?.cart ?? []),
       /* A product page is drawn about the product opened, a collection page about the first collection, as Shopify's editor does. */
@@ -352,7 +412,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const page = useMemo((): CompatPage => pageFor(pageKey, productId), [pageKey, dataKey, productId, stockKey])
+  const page = useMemo((): CompatPage => pageFor(pageKey, productId), [pageKey, dataKey, productId, stockKey, i18n])
   const pageRef = useRef(page)
   pageRef.current = page
 
@@ -391,7 +451,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKeyFor = (pageKey: string, productId: string | null, account: string | null) => `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}:${account ?? ""}`
+  const docKeyFor = (pageKey: string, productId: string | null, account: string | null) => `${installId}:${langCode}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}:${account ?? ""}`
   const docKey = docKeyFor(pageKey, productId, accountPath)
   /* What a page drawn now is drawn with besides its sections (themeId, above). */
   const stamp = `${themeId(compatTheme)}|${dataKey}|${stockKey}|${props.siteUrl ?? ""}`
@@ -399,7 +459,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   stampRef.current = stamp
   const canvasSite = (): SiteData => {
     const { products, catalog, collections, menus } = dataRef.current
-    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true }
+    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true, i18n }
   }
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
@@ -517,14 +577,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (!warm || !compatTheme || !paintedRef.current || warm.pageKey === pageKey || warm.pageKey === "product") return
     const key = docKeyFor(warm.pageKey, null, null)
     if (slotsRef.current.some((x) => x.key === key)) return
-    if (keptRef.current.some((x) => x.key === key && x.stamp === stampRef.current && holds(x, warm.sections))) return
+    /* In the language previewed, as the page in front is (`sections`, above). */
+    const list = fields && map ? (localizeSections(warm.sections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true }) as unknown as StoredSection[]) : warm.sections
+    if (keptRef.current.some((x) => x.key === key && x.stamp === stampRef.current && holds(x, list))) return
     let html: string
     try {
-      html = draw(warm.sections, pageFor(warm.pageKey, null))
+      html = draw(list, pageFor(warm.pageKey, null))
     } catch {
       return
     }
-    keep({ n: ++counter.current, key, page: `${warm.pageKey}|`, html, shape: docShape(html), drawnFrom: new Map(warm.sections.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: false, ahead: true })
+    keep({ n: ++counter.current, key, page: `${warm.pageKey}|`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: false, ahead: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warm, compatTheme])
 
@@ -759,6 +821,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   onSelect.current = props.onSelect
   const onNavigate = useRef(props.onNavigate)
   onNavigate.current = props.onNavigate
+  /* The language previewed: its links carry /fr, and the builder's pages are named without it. */
+  const langRef = useRef(langCode)
+  langRef.current = langCode
   const onLiveOnly = useRef(props.onLiveOnly)
   onLiveOnly.current = props.onLiveOnly
   const onIntent = useRef(props.onIntent)
@@ -784,6 +849,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       shop: current.shop,
       host: "",
       designMode: true,
+      i18n,
     }
     const id = m.id
     const state = canvasCarts.get(installId) ?? { cart: [], note: "" }
@@ -968,6 +1034,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       } else if (m.type === "navigate" && isFront) {
         const n = m as { href?: string; chrome?: boolean }
         if (typeof n.href !== "string") return
+        n.href = withoutLanguage(n.href, langRef.current)
         const to = n.href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
         if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
           /* As any link in the page: from the header and footer always, from the page itself while the inspector is off. */
@@ -979,7 +1046,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         if (onNavigate.current?.(n.href, n.chrome === true) === true) setLeavingFrom(slot.n)
       } else if (m.type === "intent" && isFront) {
         const h = (m as { href?: unknown }).href
-        if (typeof h === "string") onIntent.current?.(h)
+        if (typeof h === "string") onIntent.current?.(withoutLanguage(h, langRef.current))
       } else if (m.type === "box" && isFront) {
         const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
         setGhost(typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null)
