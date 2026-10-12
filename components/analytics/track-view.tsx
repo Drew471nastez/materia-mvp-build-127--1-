@@ -12,7 +12,8 @@ import {
   getLanguage,
   getAttributionForTracking,
 } from "@/lib/analytics-utils"
-import { schedulePageView, watchOutboundLinks } from "@/lib/analytics/page-tracker"
+import { schedulePageView, skipReason, watchOutboundLinks } from "@/lib/analytics/page-tracker"
+import { pixelEvent } from "@/lib/analytics/pixels"
 
 interface TrackViewProps {
   /**
@@ -91,6 +92,18 @@ export function TrackView({ creatorId, productId, links = true }: TrackViewProps
     }
     /* The path is the page: a new one is a new view. */
   }, [creatorId, productId, pathname])
+
+  /* A product page, told to the store's own Google Analytics and pixels too, once they have loaded (lib/analytics/pixels.ts). */
+  useEffect(() => {
+    if (!productId || typeof window === "undefined" || skipReason(window)) return
+    const go = () => pixelEvent(window, "view_item", productId)
+    if (document.readyState === "complete") {
+      const t = window.setTimeout(go, 0)
+      return () => window.clearTimeout(t)
+    }
+    window.addEventListener("load", go, { once: true })
+    return () => window.removeEventListener("load", go)
+  }, [productId, pathname])
 
   useEffect(() => {
     if (!links || !creatorId || typeof window === "undefined") return

@@ -1,4 +1,5 @@
 import { hasConsent } from "@/lib/consent/client"
+import { pixelEvent } from "@/lib/analytics/pixels"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer } from "@/lib/analytics/sources"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { send, skipReason } from "@/lib/analytics/page-tracker"
@@ -163,6 +164,8 @@ export function trackFunnelStep(
   sentSteps.add(key)
   /* A browser driven by a script is not a buyer (lib/analytics/page-tracker). */
   if (skipReason(window) === "automated") return Promise.resolve()
+  /* The store's own Google Analytics and pixels hear the same step (lib/analytics/pixels.ts). */
+  pixelEvent(window, eventType === "buy_click" ? "add_to_cart" : "begin_checkout", productId)
   return send(window, "/api/track-event", {
     eventType,
     creatorId,

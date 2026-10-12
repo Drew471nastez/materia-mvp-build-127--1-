@@ -27,6 +27,11 @@ import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
 import { formFields } from "@/lib/storelib-theme/compat/form-fields"
 import { timed } from "@/lib/perf/server-timing"
+import { compatTrackScript, compatTrackingTags } from "@/lib/storelib-theme/compat/track-script"
+import { publishedTracking } from "@/lib/store/tracking-server"
+import { trackingTags } from "@/lib/store/tracking"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { getMainDomain } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -202,7 +207,24 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "")}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
   }
   if (req.method === "HEAD") return new NextResponse(null, { status: out.status, headers })
-  const body = typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart])
+  /*
+    COUNTED, AND THE STORE'S OWN ANALYTICS ON IT: a page of the live website
+    (never a preview) gets Storelib's tracker and the store's Google
+    Analytics and pixels, as every page of a builder website does
+    (lib/storelib-theme/compat/track-script.ts).
+  */
+  let html = typeof out.body === "string" ? out.body : null
+  if (html && !token && page && out.status === 200 && /text\/html/i.test(out.type) && /<\/body>/i.test(html)) {
+    const handleAt = sitePath.match(/^\/products\/([^/]+)\/?$/)?.[1]
+    const [stored, product] = await Promise.all([
+      publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null),
+      handleAt && found.site.product ? found.site.product(decodeURIComponent(handleAt)).catch(() => null) : Promise.resolve(null),
+    ])
+    const tags = compatTrackingTags(trackingTags(stored)) + compatTrackScript({ creatorId: found.site.creatorId, productId: product?.id ?? null, mainDomain: getMainDomain() })
+    const at = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
+    html = `${html.slice(0, at)}${tags}${html.slice(at)}`
+  }
+  const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))
   return new NextResponse(body, { status: out.status, headers })
 }
 
