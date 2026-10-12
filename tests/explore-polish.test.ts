@@ -121,7 +121,8 @@ async function main() {
     b.history.replaceState({ __NA: true }, "", "/explore")
     const seenInTheEffect = mod.exploreScrollRestoreActive()
     check("a Back is seen while rendering", seenWhileRendering === true)
-    check("and is gone by the layout effect (why the old effect held Explore hidden and never let go)", seenInTheEffect === false)
+    /* Round 25 (tests/explore25): the Back is now kept until Explore acts on it, so the layout effect still knows it too. */
+    check("and is still known by the layout effect, after the router's own history write", seenInTheEffect === true)
     check("so the render's reading decides, and the place is put back", mod.decideExploreRestore(true) === 1200)
 
     b.location.pathname = "/explore/design"

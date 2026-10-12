@@ -123,6 +123,34 @@ let backTraversal = false
  * page that is going.
  */
 let traversalTo: string | null = null
+/** The Backs the boot script has numbered (window.__explorePop) that are already acted on, or overtaken by a push. */
+let seenPop = 0
+
+function bootPop(): { seq: number; to: string | null } | null {
+  try {
+    const pop = (window as { __explorePop?: { seq?: unknown; to?: unknown } }).__explorePop
+    return pop && typeof pop.seq === "number" ? { seq: pop.seq, to: typeof pop.to === "string" ? pop.to : null } : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Where a Back or Forward that nothing has acted on yet went, or null. The
+ * boot script's count first (it hears a Back before the router does); this
+ * module's own listener for a page without it.
+ */
+function pendingTraversal(): string | null {
+  const pop = bootPop()
+  if (pop && pop.seq > seenPop && pop.to) return pop.to
+  return traversalTo
+}
+
+/** The Back is acted on, or a push has overtaken it. */
+function settleTraversal() {
+  traversalTo = null
+  seenPop = bootPop()?.seq ?? seenPop
+}
 /** The document's own arrival (a reload, or a back that loaded the page again) is honoured once, not on every later visit in the tab. */
 let documentArrivalUsed = false
 
@@ -134,30 +162,34 @@ if (typeof window !== "undefined") {
   } catch {
     /* no timing entry: the arrival rule below simply finds nothing */
   }
+  /* A Back from before this code was loaded is not one of Explore's: Explore had not been shown in this document. */
+  seenPop = bootPop()?.seq ?? 0
   /*
-    IN THE CAPTURE PHASE, SO IT IS HEARD BEFORE THE ROUTER (round 25). This is
-    why Back to Explore landed at the top on the live site while every probe
-    against `next dev` passed. The router's own popstate listener (Next's
-    app-router.js) was added when the app started, this one only when
-    Explore's code first loaded, so the router heard each Back first; and it
-    starts its update inside the popstate event, which React 19 renders and
-    commits synchronously there and then (so the browser can restore the
-    scroll). Explore was drawn, and its layout effect asked whether this was
-    a return, before this listener had said so: no, so the top. Measured on
-    a production build, at 1440: first frame back at 0, not 2000. A capture
-    listener on the window runs before every listener added without one,
-    whenever it was added.
+    HEARD TOO LATE ON ITS OWN (round 25). This is why Back to Explore landed
+    at the top on the live site while every probe against `next dev` passed.
+    The router's popstate listener (Next's app-router.js) was added when the
+    app started, this one only when Explore's code first loaded, so the
+    router heard each Back first; and it starts its update inside the
+    popstate event, which React 19 renders and commits there and then. Explore
+    was drawn, and asked whether this was a return, before this listener had
+    run: no, so the top (a production build at 1440: first frame back at 0,
+    not 2000). A capture listener does not help: Chromium runs a window's
+    popstate listeners in the order they were added. So the Back is read
+    from the boot script's listener in <head>, the first on the window
+    (pendingTraversal); this one stays for a page without it.
   */
   window.addEventListener("popstate", () => {
-    backTraversal = true
     documentArrivalUsed = true
+    /* The boot script has it, and heard it first; marking it here, after the router's commit, would mark a Back Explore has already acted on. */
+    if (bootPop()) return
+    backTraversal = true
     /*
       NO CLOCK ON IT. It had one (1.5s), and a Back whose page took longer to come (the router drawing Explore's loading
       screen first, then Explore once its data was in) reached an Explore that no longer knew it was a return: it landed at
       the top. It lasts until Explore acts on it, the next Back or Forward, or a push.
     */
     traversalTo = exploreAddressKey()
-  }, { capture: true })
+  })
   /*
     A PAGE BROUGHT BACK WHOLE FROM THE BROWSER'S CACHE IS ALREADY WHERE IT
     WAS: its DOM and its scroll come back with it, and no React render or
@@ -174,7 +206,7 @@ if (typeof window !== "undefined") {
   const { pushState, replaceState } = history
   history.pushState = function (...args) {
     clearTraversal()
-    traversalTo = null
+    settleTraversal()
     /* A page pushed after the document's first one is a visit by a link, never the document's own arrival. */
     documentArrivalUsed = true
     return pushState.apply(this, args)
@@ -225,7 +257,7 @@ function documentArrivedByHistory(): boolean {
  * Pure reads, nothing consumed, so it is safe to call while rendering.
  */
 function arrivingByHistory(): boolean {
-  if (backTraversal) return true
+  if (backTraversal || pendingTraversal() === exploreAddressKey()) return true
   return documentArrivedByHistory() && peekRestorePending()
 }
 
@@ -236,7 +268,7 @@ function arrivingByHistory(): boolean {
  */
 export function exploreReturning(): boolean {
   if (typeof window === "undefined") return false
-  return backTraversal || (traversalTo !== null && traversalTo === exploreAddressKey())
+  return backTraversal || pendingTraversal() === exploreAddressKey()
 }
 
 /** This document was loaded by a reload or a Back or Forward that nothing has acted on yet: state is put back from a layout effect, never while hydrating. */
@@ -268,10 +300,10 @@ export function decideExploreRestore(cameBack: boolean): number | null {
   /* The boot script (explore-scroll-boot) already holds for a document arrival: that is an arrival too. */
   const held = document.documentElement.classList.contains(HOLD_CLASS)
   /* A Back or Forward to this very address that the render did not see (the router wrote the entry first). */
-  const traversed = traversalTo !== null && traversalTo === exploreAddressKey()
+  const traversed = pendingTraversal() === exploreAddressKey()
   documentArrivalUsed = true
   backTraversal = false
-  traversalTo = null
+  settleTraversal()
   clearRestorePending()
   if (!cameBack && !traversed && !byDocument && !held) return null
   /* A return, at the top or not: it is drawn as it was left, so the landing fade of a new visit is not played on it. */
@@ -426,7 +458,7 @@ function restoreScrollPosition(target: number, onDone?: () => void): () => void 
  */
 export function saveExploreScrollNow(): void {
   if (typeof window === "undefined" || !isExploreSurface(window.location.pathname)) return
-  if (traversalTo === exploreAddressKey()) return
+  if (pendingTraversal() === exploreAddressKey()) return
   writeScroll(window.scrollY)
   try {
     sessionStorage.setItem(RESTORE_PENDING_KEY, "1")
@@ -498,8 +530,8 @@ export function useExploreScrollRestore(): void {
     if (drawnAddress.current === address) return
     drawnAddress.current = address
     if (!isExploreSurface(window.location.pathname)) return
-    if (traversalTo === null || traversalTo !== address) return
-    traversalTo = null
+    if (pendingTraversal() !== address) return
+    settleTraversal()
     backTraversal = false
     setSettling(true)
     const target = readSavedScroll()
@@ -519,7 +551,7 @@ export function useExploreScrollRestore(): void {
       next entry's, the page under it not yet), and not once the address is
       another page's (the scroll then belongs to that page).
     */
-    const mine = () => !restoringRef.current && traversalTo !== exploreAddressKey() && window.location.pathname === path
+    const mine = () => !restoringRef.current && pendingTraversal() !== exploreAddressKey() && window.location.pathname === path
 
     let frame = 0
     const write = () => {

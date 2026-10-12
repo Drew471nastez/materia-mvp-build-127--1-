@@ -175,15 +175,35 @@ async function main() {
     check("with the API, the entry first", keys()[0].startsWith("#") && keys()[1] === "/explore?type=communities", keys())
   }
 
+  console.log("\n2b. A Back the boot script heard first")
+  {
+    b.history.pushState({}, "", "/explore?type=communities")
+    ;(b.window as { scrollY: number }).scrollY = 4800
+    scroll.saveExploreScrollNow()
+    b.history.pushState({}, "", "/community/club-1")
+    /* As on the live site: the boot script counts the Back, the router commits Explore inside the event, this module's listener has not run yet. */
+    b.window.__explorePop = { seq: 1, to: null }
+    const nav = b.window.navigation
+    b.location.pathname = "/explore"
+    b.location.search = "?type=communities"
+    b.window.__explorePop = { seq: 2, to: "/explore?type=communities" }
+    delete b.window.navigation
+    check("the render already knows it is a return", scroll.exploreReturning() === true)
+    check("and the layout effect puts the place back from it", scroll.decideExploreRestore(false) === 4800)
+    check("once acted on, it is not a return again", scroll.exploreReturning() === false && scroll.decideExploreRestore(false) === null)
+    b.window.navigation = nav
+  }
+
   console.log("\n3. Nothing is written for a page that is going")
   {
     const src = readCode("lib/explore/use-explore-scroll.ts")
-    check("no write while a Back or Forward is on its way, while restoring, or once the address is another page's", /const mine = \(\) => !restoringRef\.current && traversalTo !== exploreAddressKey\(\) && window\.location\.pathname === path/.test(src))
+    check("no write while a Back or Forward is on its way, while restoring, or once the address is another page's", /const mine = \(\) => !restoringRef\.current && pendingTraversal\(\) !== exploreAddressKey\(\) && window\.location\.pathname === path/.test(src))
     check("the write and the leave both ask it", /const write = \(\) => \{\s*frame = 0\s*if \(!mine\(\)\) return/.test(src) && /const handleLeave = \(\) => \{[\s\S]{0,120}if \(!mine\(\)\) return/.test(src))
     check("a press that leaves (a card, a creator, a community, a search) keeps the place at that moment", /document\.addEventListener\("click", handleLeave, true\)/.test(src) && /document\.addEventListener\("submit", handleLeave, true\)/.test(src))
-    check("a Back between two addresses of the same mounted page is put back before paint", /useLayoutEffect\(\(\) => \{\s*if \(drawnAddress\.current === address\) return/.test(src) && /if \(traversalTo === null \|\| traversalTo !== address\) return/.test(src))
-    check("the Back is heard before the router's own listener, which commits Explore inside the popstate event (React 19)", /\}, \{ capture: true \}\)/.test(src) && /window\.addEventListener\("popstate", \(\) => \{\s*backTraversal = true/.test(src))
-    check("a push clears the pending Back", /history\.pushState = function \(\.\.\.args\) \{\s*clearTraversal\(\)\s*traversalTo = null/.test(src))
+    check("a Back between two addresses of the same mounted page is put back before paint", /useLayoutEffect\(\(\) => \{\s*if \(drawnAddress\.current === address\) return/.test(src) && /if \(pendingTraversal\(\) !== address\) return\s*settleTraversal\(\)/.test(src))
+    check("the Back is read from the boot script's count first (it hears a Back before the router, which commits Explore inside the event)", /const pop = bootPop\(\)\s*if \(pop && pop\.seq > seenPop && pop\.to\) return pop\.to\s*return traversalTo/.test(src))
+    check("and this module's own late listener stands down when the boot script is there", /if \(bootPop\(\)\) return\s*backTraversal = true/.test(src))
+    check("a push clears the pending Back", /history\.pushState = function \(\.\.\.args\) \{\s*clearTraversal\(\)\s*settleTraversal\(\)/.test(src))
     check("the oldest places are let go", /MAX_PLACES = 60/.test(src))
     check("a Back is known until Explore acts on it, however long its page takes (no clock on it)", !/traversalTimer/.test(src))
   }
@@ -218,6 +238,19 @@ async function main() {
     check("the entry's own place first", boot("/explore", store, "k9").scrolled === 1500)
     check("else the address with its query", boot("/explore?q=prints", store, null).scrolled === 700)
     check("and Explore itself by its address", boot("/explore", store, "k1").scrolled === 400)
+    {
+      /* The boot script's popstate listener: the first on the window, so it hears a Back before the router does. */
+      const added: string[] = []
+      let pop: (() => void) | null = null
+      const win: Record<string, unknown> = { addEventListener: (t: string, f: () => void) => { added.push(t); if (t === "popstate") pop = f } }
+      const loc = { pathname: "/p/x", search: "" }
+      new Function("location", "performance", "sessionStorage", "document", "window", "setTimeout", EXPLORE_SCROLL_BOOT_SCRIPT)(loc, { getEntriesByType: () => [] }, { getItem: () => null }, { documentElement: { classList: { add() {}, remove() {} } } }, win, () => 0)
+      loc.pathname = "/explore"
+      loc.search = "?type=communities"
+      pop?.()
+      const counted = win.__explorePop as { seq: number; to: string }
+      check("the boot script numbers every Back and says where it went", added[0] === "popstate" && counted.seq === 1 && counted.to === "/explore?type=communities", counted)
+    }
     check("the script still parses on its own", (() => { try { new Function(EXPLORE_SCROLL_BOOT_SCRIPT); return true } catch { return false } })())
   }
 
