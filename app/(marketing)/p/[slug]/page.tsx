@@ -44,6 +44,7 @@ import { DiscoverBackBreadcrumb } from "@/components/product/discover-back-bread
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DownloadButton } from "@/components/download-button"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { SectionRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import { ProductAboutSection } from "@/components/store-builder/unified-section-renderer"
@@ -1815,6 +1816,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
         />
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
+      <StoreTracking creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon
           avatarUrl={creatorAvatarUrl}
           faviconUrl={productPageConfig?.headerSettings?.faviconUrl}
@@ -1993,6 +1995,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
       />
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
+      <StoreTracking creatorId={product.creator_id} productId={product.id} />
       {creatorAvatarPreload && (
         <link rel="preload" as="image" href={creatorAvatarPreload} fetchPriority="high" />
       )}

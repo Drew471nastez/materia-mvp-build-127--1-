@@ -9,6 +9,9 @@ import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { ShopBar } from "../../../parts/shop-bar"
 import { money } from "../../../parts/ui"
 import { ClearCart } from "./clear-cart"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { gaItem, type GaItem } from "@/lib/store/ga"
+import { storeCurrencyFor } from "@/lib/store/ga-server"
 
 export const dynamic = "force-dynamic"
 
@@ -32,6 +35,8 @@ interface Summary {
   taxCents: number
   shipTo: string | null
   receipt: string
+  /** For the store's Google Analytics purchase: the order's own id (never the token, which is a credential) and what was bought. */
+  ga: { id: string; items: GaItem[]; currency: string | null }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,11 +47,11 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
   try {
     const { data: co, error } = await db
       .from("commerce_checkouts")
-      .select("creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method")
+      .select("id, creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method, currency")
       .eq("receipt_token", token)
       .maybeSingle()
     if (error || !co || co.creator_id !== creatorId || co.status !== "paid") return null
-    const lines = (Array.isArray(co.lines) ? co.lines : []) as { title: string; variant_name: string | null; image_url: string | null; quantity: number; unit_cents: number; discount_cents: number }[]
+    const lines = (Array.isArray(co.lines) ? co.lines : []) as { product_id?: string; type?: string; title: string; variant_name: string | null; image_url: string | null; quantity: number; unit_cents: number; discount_cents: number }[]
     const address = co.shipping_address as { line1?: string; city?: string; country?: string } | null
     const pickup = co.pickup as { name?: string } | null
     return {
@@ -58,6 +63,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
       taxCents: co.shipping_rate?.tax_included ? 0 : co.tax_cents ?? 0,
       shipTo: co.delivery_method === "pickup" ? `Pick up at ${pickup?.name ?? "the shop"}` : address ? [address.line1, address.city].filter(Boolean).join(", ") : null,
       receipt: `/checkout/physical/order/${encodeURIComponent(token)}`,
+      ga: { id: String(co.id), items: lines.map((l) => gaItem({ id: l.product_id ?? "", title: l.title, priceCents: l.unit_cents, quantity: l.quantity, variant: l.variant_name, kind: l.type === "physical" ? "physical" : "digital" })).filter((i): i is GaItem => !!i), currency: typeof co.currency === "string" ? co.currency : null },
     }
   } catch {
     return null
@@ -68,7 +74,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
 async function basketOrder(db: Db, creatorId: string, token: string): Promise<Summary | null> {
   const { data: first } = await db
     .from("orders")
-    .select("id, stripe_session_id, buyer_email, buyer_first_name, amount_cents, product:products(creator_id)")
+    .select("id, product_id, stripe_session_id, buyer_email, buyer_first_name, amount_cents, quantity, product:products(creator_id, title)")
     .eq("receipt_token", token)
     .maybeSingle()
   const product = Array.isArray(first?.product) ? first.product[0] : first?.product
@@ -77,7 +83,7 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
   if (first.stripe_session_id) {
     const { data } = await db
       .from("orders")
-      .select("id, amount_cents, quantity, product_snapshot, variant:product_variants(name), product:products(title, thumbnail_url)")
+      .select("id, product_id, amount_cents, quantity, product_snapshot, variant:product_variants(name), product:products(title, thumbnail_url)")
       .eq("stripe_session_id", first.stripe_session_id)
       .eq("buyer_email", first.buyer_email)
       .order("created_at", { ascending: true })
@@ -99,6 +105,11 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
     taxCents: 0,
     shipTo: null,
     receipt: `/receipt/${encodeURIComponent(token)}`,
+    ga: {
+      id: String(first.id),
+      items: rows.map((r, i) => gaItem({ id: String(r.product_id ?? ""), title: lines[i]?.title, priceCents: Math.round((Number(r.amount_cents) || 0) / Math.max(1, Number(r.quantity) || 1)), quantity: Number(r.quantity) || 1, variant: lines[i]?.variantName, kind: "digital" })).filter((x): x is GaItem => !!x),
+      currency: null,
+    },
   }
 }
 
@@ -125,6 +136,8 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
   return (
     <div data-page="checkout-thanks" className="min-h-dvh bg-[#f8f9fa]">
       {sp.cart === "1" ? <ClearCart shopId={site.creatorId} /> : null}
+      {/* The store's own Google Analytics and pixels hear the purchase, once per order in this browser (lib/store/tracking.ts purchaseTags). */}
+      <StoreTracking creatorId={site.creatorId} purchase={{ id: order.ga.id, valueCents: order.totalCents, currency: order.ga.currency ?? (await storeCurrencyFor(site.creatorId)), quantity: order.lines.reduce((n, l) => n + l.quantity, 0), items: order.ga.items }} />
       <ShopBar brand={brand} backTo={null} shopUrl={shopUrl} />
       <main className="mx-auto w-full max-w-[560px] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
         <div className="checkout-enter">

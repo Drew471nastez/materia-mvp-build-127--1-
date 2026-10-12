@@ -16,6 +16,9 @@ import { keptPhoto } from "@/lib/account/identity"
 import { isReservedWord } from "@/lib/reserved-words"
 import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { CreatorLanguage } from "@/components/storefront/creator-language"
+import { creatorPageLanguage } from "@/lib/markets/creator-page-language"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { loadCommunityBlocks } from "@/lib/communities/server/blocks"
@@ -156,7 +159,7 @@ export const dynamic = "force-dynamic"
 
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string; from?: string; back?: string }>
+  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string; from?: string; back?: string; lang?: string }>
 }
 
 export async function generateMetadata({ params }: StorefrontPageProps) {
@@ -357,7 +360,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
 export default async function StorefrontPage({ params, searchParams }: StorefrontPageProps) {
   const { username } = await params
-  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam, from, back } = await searchParams
+  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam, from, back, lang } = await searchParams
   /**
    * Inside /creator-page this page IS the editor, so the controls that
    * would take somebody to the editor have nowhere to go, and links into /app
@@ -655,7 +658,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
   const offPage = catalogue && catalogue.length ? await offPagePromise : new Set<string>()
-  const products = catalogue ? withoutCommunityProducts(catalogue).filter((p: { id: string }) => !offPage.has(p.id)) : catalogue
+  /* In the visitor's language when the store published it: approved translations of each product laid over (lib/markets/creator-page-language). */
+  const pageLanguage = embedded ? null : await creatorPageLanguage(creator.id, typeof lang === "string" ? lang : null).catch(() => null)
+  const products = catalogue ? withoutCommunityProducts(catalogue).filter((p: { id: string }) => !offPage.has(p.id)).map((p) => (pageLanguage ? (pageLanguage.product(p as unknown as Record<string, unknown>) as unknown as typeof p) : p)) : catalogue
   const communityCards = await communitiesPromise
   const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`
 
@@ -1330,6 +1335,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           {/* In the workspace's canvas, a product link has to stay framable. */}
           {embedded && <EmbeddedNavigation />}
         <TrackView type="store" creatorId={creator.id} />
+        {/* The store's own Google Analytics and pixels (Settings › Integrations), as on its website; never in the editor's canvas. */}
+        {!embedded && <StoreTracking creatorId={creator.id} />}
 
         {newsletterBar && (
           /**
@@ -1660,6 +1667,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         })()}
 
         <SafeRegion name="footer">
+          {pageLanguage ? <CreatorLanguage code={pageLanguage.code} defaultLanguage={pageLanguage.defaultLanguage} languages={pageLanguage.languages} suggest={pageLanguage.suggest} /> : null}
           <SellerFooter surface={storefrontFooterSurface(chrome)} />
         </SafeRegion>
       </div>
@@ -1709,6 +1717,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <DynamicFavicon avatarUrl={profile.avatar_url} />
         <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />
+        {/* The store's own Google Analytics and pixels (Settings › Integrations), as on its website; never in the editor's canvas. */}
+        {!embedded && <StoreTracking creatorId={creator.id} />}
 
       {newsletterBar && (
         <SubscribeBar
@@ -1880,6 +1890,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         }
       />
 
+      {pageLanguage ? <CreatorLanguage code={pageLanguage.code} defaultLanguage={pageLanguage.defaultLanguage} languages={pageLanguage.languages} suggest={pageLanguage.suggest} /> : null}
       <SellerFooter />
     </div>
     </>

@@ -6,6 +6,8 @@ import { DEFAULT_LOW_STOCK_TEXT, siteCommerce } from "@/lib/website-builder/site
 import { trackersHint } from "@/lib/store/tracking"
 import { Card, GOES_LIVE, PageTitle, Row, Toggle, buttonClass, inputClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { api } from "@/components/physical/ui"
+import { gaStanding, type GaStatusView } from "@/components/app/settings/ga-connect"
 
 /**
  * What selling on this website means, and the door to each part of it.
@@ -81,7 +83,15 @@ export function CommerceSettings({ ctx }: { ctx: SettingsContext }) {
       </Card>
 
       <Card title="Integrations">
-        <Row label="Analytics and pixels" hint={trackersHint()}>
+        <Row
+          label={
+            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+              Analytics and pixels
+              <GaBadge />
+            </span>
+          }
+          hint={trackersHint()}
+        >
           {door("/app/integrations", "Integrations")}
         </Row>
         <Row label="Customer emails" hint="The order confirmation and every update a buyer gets from your store.">
@@ -149,5 +159,33 @@ function OnThisWebsite({ ctx }: { ctx: SettingsContext }) {
         <Toggle checked={c.cartReturnsNote} onChange={(on) => ctx.onSettingChange("cart_returns_note", on)} label="Return policy in the cart" />
       </Row>
     </Card>
+  )
+}
+
+/**
+ * Google Analytics, in one small mark beside the row: Receiving data,
+ * Connected or Waiting for data (components/app/settings/ga-connect), read
+ * once when the page opens. Nothing when it is not connected. Only here, in
+ * the owner's settings: never on the website itself.
+ */
+const GA_DOT = { green: "bg-[#16a34a]", amber: "bg-[#d97706]", gray: "bg-[#9ca3af]", red: "bg-[#dc2626]" } as const
+function GaBadge() {
+  const [ga, setGa] = useState<GaStatusView | null>(null)
+  useEffect(() => {
+    let live = true
+    void api<{ ga: GaStatusView | null }>("/api/store/integrations").then((r) => {
+      if (live && r.ok) setGa(r.data.ga)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  if (!ga?.id) return null
+  const s = gaStanding(ga)
+  return (
+    <span data-ga-badge={s.label.toLowerCase().replace(/\s+/g, "-")} className="inline-flex h-5 items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.06] px-2 text-[11.5px] font-medium leading-none text-white/75">
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${GA_DOT[s.tone]}`} />
+      Google Analytics · {s.label}
+    </span>
   )
 }

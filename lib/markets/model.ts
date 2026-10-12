@@ -62,6 +62,13 @@ export interface Localization {
   defaultLanguage: string
   languages: SiteLanguage[]
   markets: Market[]
+  /**
+   * Show visitors their own language (lib/markets/visitor-language.ts): a
+   * first visit opens in the published language the browser asks for, or
+   * offers the nearest one. Off unless the store turns it on. Kept in
+   * store_localization.visitor_language (SQL part 173).
+   */
+  visitorLanguage?: boolean
 }
 
 export const MAX_LANGUAGES = 20
@@ -131,7 +138,7 @@ export function validateLocalization(input: unknown, opts: { baseCurrency: strin
   home.adjustBps = 0
   home.rounding = "none"
   home.active = true
-  return { ok: true, value: { defaultLanguage, languages, markets } }
+  return { ok: true, value: { defaultLanguage, languages, markets, visitorLanguage: raw.visitorLanguage === true } }
 }
 
 /** Every language a visitor can open: the default first, then the published ones. */
