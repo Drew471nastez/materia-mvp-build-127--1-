@@ -17,8 +17,8 @@ import {
   type HelpArticle,
 } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
-import { ArticleBody, Breadcrumbs, ContactSupport, HELP_READING, OnThisPage } from "@/components/help/help-parts"
-import { HelpSearch } from "@/components/help/help-search"
+import { ArticleBody, Breadcrumbs, ContactSupport, OnThisPage } from "@/components/help/help-parts"
+import { HELP_WIDTH, HelpHero } from "@/components/help/help-hero"
 import { TocSpy } from "@/components/help/toc-spy"
 import { cn } from "@/lib/utils"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -67,12 +67,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 const dateLabel = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })
 
 /**
- * ONE ARTICLE. Its title and the one line that says what it's about, then
- * the article in a single reading column. Beside it on a wide screen, the
- * article's own contents (kept in view, the heading being read marked) and
- * the other articles in its group; on a phone the contents fold under the
- * title. At the end: the article before and after it in the topic, what to
- * read next, and how to reach a person.
+ * ONE ARTICLE. Under the band: where you are, then the title, the one line
+ * that says what it is about, and when it was updated, in a single reading
+ * column. Beside it on a wide screen, the article's own contents, kept in
+ * view with the heading being read marked: a plain list on one line, never
+ * a box of its own that scrolls. On a phone the contents fold under the
+ * title. At the end: before and after it in the topic, the rest of its
+ * group, what to read next, and how to reach a person.
  */
 export default async function HelpArticlePage({ params }: PageProps) {
   const { category: categorySlug, article: slug } = await params
@@ -86,27 +87,25 @@ export default async function HelpArticlePage({ params }: PageProps) {
   const { previous, next } = helpNeighbours(article)
   const related = helpRelated(article)
   const own = helpSectionsIn(category.slug).find((g) => g.articles.some((a) => a.slug === article.slug))
+  const siblings = own ? own.articles.filter((a) => a.slug !== article.slug) : []
 
   return (
     <div className="bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(helpArticleJsonLd(article, category)) }} />
-      <header className="border-b border-[#eceef1] bg-[#f8f9fa]">
-        <div className={`${HELP_READING} flex flex-col gap-4 py-5 sm:py-6 lg:flex-row lg:items-center lg:justify-between`}>
-          <Breadcrumbs items={[{ label: "Help Center", href: "/help" }, { label: category.title, href: `/help/${category.slug}` }]} />
-          <div className="w-full lg:max-w-[320px]">
-            <HelpSearch size="compact" />
-          </div>
-        </div>
-      </header>
+      <HelpHero />
 
-      <div className={`${HELP_READING} grid gap-10 pb-16 pt-8 sm:pt-12 lg:grid-cols-[minmax(0,1fr)_232px] lg:gap-14`}>
-        <article className="min-w-0 max-w-[40rem]" data-help-article="">
-          {article.section ? <p className="mb-2 text-[13px] font-medium text-[#6b7280]">{article.section}</p> : null}
-          <h1 className="text-[28px] font-bold leading-[1.18] tracking-[-0.02em] text-[#1a1a2e] sm:text-[36px]">{article.title}</h1>
+      <div className={`${HELP_WIDTH} pt-6 sm:pt-8`}>
+        <Breadcrumbs items={[{ label: "All topics", href: "/help" }, { label: category.title, href: `/help/${category.slug}` }, { label: article.title }]} />
+      </div>
+
+      <div className={`${HELP_WIDTH} grid gap-10 pb-16 pt-8 sm:pt-10 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-16`}>
+        <article className="min-w-0 max-w-[42rem]" data-help-article="">
+          {article.section ? <p className="mb-2 text-[13px] font-medium text-[#6d28d9]">{article.section}</p> : null}
+          <h1 className="text-[28px] font-bold leading-[1.18] tracking-[-0.02em] text-[#1a1a2e] sm:text-[38px]">{article.title}</h1>
           <p className="mt-4 text-[17px] leading-relaxed text-[#4b5563] sm:text-[18px]" data-help-summary="">
             {article.summary}
           </p>
-          <p className="mt-4 text-[13px] text-[#6b7280]" data-help-meta="">
+          <p className="mt-4 text-[13.5px] text-[#6b7280]" data-help-meta="">
             {article.updated ? (
               <>
                 Updated <time dateTime={article.updated}>{dateLabel(article.updated)}</time>
@@ -122,7 +121,7 @@ export default async function HelpArticlePage({ params }: PageProps) {
               <OnThisPage items={toc} variant="inline" />
             </div>
           ) : null}
-          <div className="mt-8 border-t border-[#eceef1] pt-8 sm:mt-10 sm:pt-10">
+          <div className="mt-8 sm:mt-10">
             <ArticleBody blocks={article.body} />
           </div>
 
@@ -133,26 +132,24 @@ export default async function HelpArticlePage({ params }: PageProps) {
             </nav>
           ) : null}
 
+          {siblings.length > 0 ? (
+            <section aria-labelledby="more-in-topic" className="mt-12" data-help-more="">
+              <h2 id="more-in-topic" className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">
+                More in {own?.title ?? category.title}
+              </h2>
+              <ArticleRows articles={siblings.slice(0, 6)} />
+              <Link href={`/help/${category.slug}`} className="mt-3 inline-block text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
+                All {category.title.toLowerCase()} articles
+              </Link>
+            </section>
+          ) : null}
+
           {related.length > 0 ? (
             <section aria-labelledby="related-articles" className="mt-12" data-help-related="">
               <h2 id="related-articles" className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">
                 Related articles
               </h2>
-              <ul className="mt-3 divide-y divide-[#f0f0f2] border-y border-[#f0f0f2]">
-                {related.map((r) => (
-                  <li key={r.slug}>
-                    <Link href={helpArticlePath(r)} className="group flex items-center justify-between gap-4 py-3.5">
-                      <span className="min-w-0">
-                        <span className="block text-[15px] font-medium text-[#1a1a2e] group-hover:underline group-hover:decoration-[#1a1a2e]/30 group-hover:underline-offset-2">{r.title}</span>
-                        <span className="mt-0.5 block text-[13.5px] leading-snug text-[#6b7280]">{r.summary}</span>
-                      </span>
-                      <span aria-hidden className="shrink-0 text-[#9ca3af] transition-[translate] group-hover:translate-x-0.5">
-                        &rarr;
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <ArticleRows articles={related} withSummary />
             </section>
           ) : null}
 
@@ -162,40 +159,34 @@ export default async function HelpArticlePage({ params }: PageProps) {
         </article>
 
         <aside className="hidden lg:block">
-          <div className="sticky top-24 max-h-[calc(100vh-7rem)] space-y-8 overflow-y-auto pb-4">
+          <div className="sticky top-24">
             <OnThisPage items={toc} variant="side" />
-            {own ? (
-              <nav aria-label={`More in ${own.title ?? category.title}`}>
-                <h2 className="mb-2 text-[13px] font-semibold text-[#1a1a2e]">{own.title ?? category.title}</h2>
-                <ul className="-mx-2.5 space-y-0.5">
-                  {own.articles.map((a) => {
-                    const current = a.slug === article.slug
-                    return (
-                      <li key={a.slug}>
-                        <Link
-                          href={helpArticlePath(a)}
-                          aria-current={current ? "page" : undefined}
-                          className={cn(
-                            "block rounded-lg px-2.5 py-1.5 text-[13.5px] leading-snug transition-colors",
-                            current ? "bg-[#f1f2f4] font-medium text-[#1a1a2e]" : "text-[#6b7280] hover:bg-[#f8f9fa] hover:text-[#1a1a2e]",
-                          )}
-                        >
-                          {a.title}
-                        </Link>
-                      </li>
-                    )
-                  })}
-                </ul>
-                <Link href={`/help/${category.slug}`} className="mt-3 inline-block text-[13.5px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
-                  All {category.title.toLowerCase()} articles
-                </Link>
-              </nav>
-            ) : null}
           </div>
         </aside>
       </div>
       <TocSpy />
     </div>
+  )
+}
+
+/** Articles as rows in one card, each with its arrow. */
+function ArticleRows({ articles, withSummary = false }: { articles: HelpArticle[]; withSummary?: boolean }) {
+  return (
+    <ul className="mt-3 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
+      {articles.map((r) => (
+        <li key={r.slug}>
+          <Link href={helpArticlePath(r)} className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-[#fafafb]">
+            <span className="min-w-0">
+              <span className="block text-[15px] font-medium leading-snug text-[#1a1a2e]">{r.title}</span>
+              {withSummary ? <span className="mt-0.5 block text-[13.5px] leading-snug text-[#6b7280]">{r.summary}</span> : null}
+            </span>
+            <span aria-hidden className="shrink-0 text-[#c4c7cd] transition-[translate,color] group-hover:translate-x-0.5 group-hover:text-[#6b7280]">
+              &rarr;
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }
 
