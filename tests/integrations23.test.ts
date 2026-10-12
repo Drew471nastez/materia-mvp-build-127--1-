@@ -143,7 +143,8 @@ console.log("\nEvery integration on the list is real or says Coming soon\n")
     }
     if (i.kind === "listed") check(`${i.name}: Coming soon`, i.comingSoon === true)
   }
-  check("Printful and Printify are the providers that connect", PROVIDERS.filter((p) => p.availability === "connect").map((p) => p.id).sort().join(",") === "printful,printify")
+  /* Changed on purpose (round 24, G24): Gelato and CJ Dropshipping take orders too (tests/partners24.test.ts). */
+  check("Printful, Printify, Gelato and CJ Dropshipping are the providers that connect", PROVIDERS.filter((p) => p.availability === "connect").map((p) => p.id).sort().join(",") === "cj_dropshipping,gelato,printful,printify")
   check("the physical ones leave the list while physical commerce is off", visibleIntegrations(false).every((i) => !i.physical))
   console.log(`\n    ${report.join("\n    ")}\n`)
 }
@@ -231,7 +232,8 @@ console.log("\nComing soon providers take no key\n")
 {
   const db = freshDb()
   reset([])
-  for (const id of ["shippo", "easypost", "shipstation", "gelato", "cj_dropshipping"]) {
+  /* Changed on purpose (round 24, G24): Gelato and CJ Dropshipping connect now (tests/partners24.test.ts); the shipping apps are still checked here while they are Coming soon. */
+  for (const id of ["shippo", "easypost", "shipstation"].filter((x) => PROVIDERS.find((p) => p.id === x)?.availability === "needs_setup")) {
     const r = await saveIntegration(db, CREATOR, id, { apiKey: "shippo_live_0123456789" })
     check(`${id}: refused with Coming soon, nothing called`, r.ok === false && /isn't connected to Storelib yet/.test((r as any).error) && calls.length === 0)
   }

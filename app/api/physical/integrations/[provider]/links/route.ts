@@ -21,25 +21,19 @@ export const dynamic = "force-dynamic"
  *
  * The owner only. Saves ask the partner, so they are rate limited.
  */
-async function caller(params: Promise<{ provider: string }>) {
-  const c = await physicalCaller()
-  if (c instanceof NextResponse) return { c: null, res: c, provider: "" }
-  const { provider } = await params
-  if (!isLinkedProvider(provider)) return { c: null, res: physicalJson({ error: "Not found." }, 404), provider }
-  return { c, res: null, provider }
-}
-
 export async function GET(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
-  const { c, res, provider } = await caller(params)
-  if (!c) return res
+  const c = await physicalCaller()
+  if (c instanceof NextResponse) return c
+  const { provider } = await params
   if (!isLinkedProvider(provider)) return physicalJson({ error: "Not found." }, 404)
   const out = await loadLinkRows(c.db, c.creatorId, provider)
   return out.ok ? physicalJson({ rows: out.rows, locationId: out.locationId }) : physicalJson({ error: out.error }, 400)
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ provider: string }> }) {
-  const { c, res, provider } = await caller(params)
-  if (!c) return res
+  const c = await physicalCaller()
+  if (c instanceof NextResponse) return c
+  const { provider } = await params
   if (!isLinkedProvider(provider)) return physicalJson({ error: "Not found." }, 404)
   const limited = await rateLimit({ bucket: "partner-link-save", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 40, seconds: 60 }, { limit: 2000, seconds: 86400 }] })
   if (limited) return limited
@@ -52,8 +46,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ prov
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
-  const { c, res, provider } = await caller(params)
-  if (!c) return res
+  const c = await physicalCaller()
+  if (c instanceof NextResponse) return c
+  const { provider } = await params
   if (provider !== "cj_dropshipping") return physicalJson({ error: "Stock comes from CJ Dropshipping only." }, 404)
   const limited = await rateLimit({ bucket: "partner-stock-sync", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 6, seconds: 60 }, { limit: 200, seconds: 86400 }] })
   if (limited) return limited

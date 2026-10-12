@@ -16,7 +16,7 @@ export const realStockDeps: StockDeps = {
   },
   adjust: async (db, a) => {
     const r = await applyInventory(db, { creatorId: a.creatorId, variantId: a.variantId, locationId: a.locationId, onHand: a.delta, reason: "provider_sync", refType: "provider", refId: null, key: a.key, actor: "system", note: "Stock from CJ Dropshipping" })
-    return r.ok ? { ok: true } : { ok: false, error: r.error }
+    return "error" in r ? { ok: false, error: r.error } : { ok: true }
   },
   now: () => Date.now(),
 }

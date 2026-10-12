@@ -95,7 +95,7 @@ async function cj<T>(path: string, init: { method?: "GET" | "POST" | "PATCH"; to
     const said = providerMessage(env) ?? `code ${code}`
     if (code === 1600200 || code === 1600201 || /too (many|much|frequent)|rate limit|qps/i.test(said)) throw new ProviderError(`${NAME} is busy right now. Storelib tries again shortly.`, 429, true)
     if ((code >= 1600001 && code <= 1600099) || /access.?token|apikey|api key|unauthori[sz]ed|authentication/i.test(said)) throw new CjAuthError(`${NAME} no longer accepts the saved key. Connect it again in Settings › Integrations.`, 401, false)
-    if (code >= 1600500 || /system (error|busy)|internal/i.test(said)) throw new ProviderError(`${NAME} had a problem. Storelib tries again shortly.`, 502, true)
+    if (/system (error|busy|exception)|internal (server )?error|service unavailable|timeout/i.test(said)) throw new ProviderError(`${NAME} had a problem. Storelib tries again shortly.`, 502, true)
     throw new ProviderError(`${NAME}: ${said}`, 422, false)
   }
   return env?.data as T
