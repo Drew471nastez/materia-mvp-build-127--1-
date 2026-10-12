@@ -352,6 +352,9 @@ export async function buyLabel(
   if (!shipmentId || !rateId) return { ok: false, error: "Choose a rate." }
   const cred = await connectedKey(db, creatorId, api.id)
   if (!cred) return { ok: false, error: `Connect ${api.name} in Settings › Integrations first.` }
+  /* Bought already (a second press, a retried request): that label, and nothing asked of the provider. */
+  const { data: was } = await db.from("shipping_labels").select("*").eq("creator_id", creatorId).eq("provider", api.id).eq("provider_shipment_id", shipmentId).maybeSingle()
+  if (was && was.status !== "buying") return { ok: true, order: await deps.loadOrder(db, { creatorId, checkoutId }), label: labelView(was) }
   const order = await deps.loadOrder(db, { creatorId, checkoutId })
   const no = canShip(order)
   if (no) return { ok: false, error: no }
@@ -425,7 +428,7 @@ export async function buyLabel(
     key: `label:${label.id}`,
     locationId: input.locationId,
   })
-  if (!shipped.ok) {
+  if (shipped.ok === false) {
     /* The label is bought and kept: print it, or void it, from the order. */
     return { ok: false, error: `The label was bought but the items could not be marked shipped: ${shipped.error} Print it from the order, or void it there.`, label }
   }

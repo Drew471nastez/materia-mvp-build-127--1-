@@ -231,7 +231,8 @@ console.log("\nComing soon providers take no key\n")
 {
   const db = freshDb()
   reset([])
-  for (const id of ["shippo", "easypost", "shipstation", "gelato", "cj_dropshipping"]) {
+  /* Changed on purpose (round 24, L24): Shippo, EasyPost and ShipStation connect now (lib/integrations/shipping, tests/shippingapps24). */
+  for (const id of ["gelato", "cj_dropshipping"]) {
     const r = await saveIntegration(db, CREATOR, id, { apiKey: "shippo_live_0123456789" })
     check(`${id}: refused with Coming soon, nothing called`, r.ok === false && /isn't connected to Storelib yet/.test((r as any).error) && calls.length === 0)
   }
