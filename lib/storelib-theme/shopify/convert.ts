@@ -1108,7 +1108,8 @@ function settingsPanel(schema: unknown, current: Record<string, unknown>, tr: (v
         const schemes = current[group] && typeof current[group] === "object" ? Object.keys(current[group] as Tree) : []
         const definition = Array.isArray((raw as Tree).definition) ? ((raw as Tree).definition as Tree[]) : []
         schemes.forEach((scheme, n) => {
-          settings.push({ type: "header", id: `scheme_${n + 1}_hdr`, label: humanise(scheme) })
+          /* Named as Shopify's editor names them, never by their key ("scheme-0302a2b1-…"). */
+          settings.push({ type: "header", id: `scheme_${n + 1}_hdr`, label: `Scheme ${n + 1}` })
           definition.forEach((d, j) => {
             const clean = cleanSetting(d, i * 1000 + j, job)
             if (!clean || clean.type === "header" || clean.type === "paragraph") return

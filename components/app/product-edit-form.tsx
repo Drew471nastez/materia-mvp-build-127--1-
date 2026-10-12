@@ -49,7 +49,7 @@ import type { Product, DigitalAsset } from "@/lib/types"
 import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
-import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { DescriptionField as DescriptionRichEditor } from "@/components/store-builder/description-field"
 import { getProductShareUrl } from "@/lib/url-helpers"
 
 interface ProductEditFormProps {

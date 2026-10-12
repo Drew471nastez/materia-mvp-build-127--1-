@@ -106,12 +106,15 @@ async function main() {
     check("a country the shop doesn't ship to: no options, the reason given", fr.ok === true && fr.quote.delivery.ok === false && !!fr.quote.delivery.error && fr.quote.delivery.options.length === 0, fr.ok ? fr.quote.delivery : fr)
   }
 
-  section("NOT SHIPPED: \"This product is shipped\" off, or a row written without it")
+  /* Changed on purpose (the owner: "customers can reach payment without entering a shipping address... prevent this from ever happening again"): a row that says not shipped is shipped all the same. */
+  section("NEVER WITHOUT AN ADDRESS: a row that says not shipped, or was written without it")
   {
     const hand = await shippedQuote(shop({ requiresShipping: false }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: M, quantity: 1 }] }, null)
-    check("no address is asked, and it is still a physical order with - / +", hand.ok === true && !hand.quote.requiresShipping && hand.quote.physical === true && hand.quote.lines[0].maxQuantity === 3, hand)
+    check("the address and the delivery are asked all the same, with - / +", hand.ok === true && hand.quote.requiresShipping === true && hand.quote.lines[0].requiresShipping === true && hand.quote.lines[0].maxQuantity === 3, hand)
+    const ro = await shippedQuote(shop({ requiresShipping: false }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: M, quantity: 1 }], country: "RO" }, null)
+    check("  and priced with its shipping", ro.ok === true && ro.quote.delivery.options.length > 0 && ro.quote.totals.shippingCents >= 0, ro.ok ? ro.quote.delivery : ro)
     const sql = readFileSync(join(process.cwd(), "supabase/sql/run-now/161_physical_products_ship_by_default.sql"), "utf8")
-    check("part 161: a physical product ships by default, as every reader already assumes; no rows changed", /ALTER TABLE public\.products ALTER COLUMN requires_shipping SET DEFAULT true;/.test(sql) && !/^UPDATE/im.test(sql) && sql.trim().split("\n").every((l) => l.trim().endsWith(";") || l.trim().endsWith("*/")))
+    check("part 161: a physical product ships by default", /ALTER TABLE public\.products ALTER COLUMN requires_shipping SET DEFAULT true;/.test(sql) && sql.trim().split("\n").every((l) => l.trim().endsWith(";") || l.trim().endsWith("*/")))
   }
 
   section("LIMIT and SHORT")
