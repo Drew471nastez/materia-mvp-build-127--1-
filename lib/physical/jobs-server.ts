@@ -44,8 +44,10 @@ import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/no
 import { EMAIL_REPLY_TO } from "@/lib/mail"
 import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
 import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-server"
+import { runMarketingJob } from "@/lib/integrations/marketing/sync-server"
+import { realMarketingDeps } from "@/lib/integrations/marketing/deps-server"
 
-export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
+export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email" | "marketing_sync"
 
 export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<void> {
   const { data, error } = await db
@@ -351,6 +353,9 @@ async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any>
       return forwardToProvider(db, job.payload, realForwardDeps)
     case "tracking_sync":
       return syncProviderTracking(db, job.payload, realForwardDeps)
+    /* Klaviyo and Omnisend: subscribers, order events, unsubscribes back (lib/integrations/marketing/sync-server.ts). */
+    case "marketing_sync":
+      return runMarketingJob(db, job.payload, realMarketingDeps)
     default:
       throw new Error("This kind of job is not available yet.")
   }
