@@ -23,6 +23,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react"
 import { pricingFor, type StorefrontDisplay } from "@/lib/markets/pricing"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
 import { uiWord, type UiWord } from "@/lib/markets/ui-words"
+import { shopMoney } from "@/lib/store/shop-money"
 
 export interface Storefront {
   /** The creator whose site this is. Absent in the editor's canvas. */
@@ -80,8 +81,8 @@ export function useWord(): (word: UiWord) => string {
   return (word) => uiWord(words, word)
 }
 
-/** The store's price as written on its website ("$48.00"), the shape every Storelib theme's cart used. */
-const ownMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
+/** The store's price as written on its website ("$48.00", "RON 48.00"), the shape every Storelib theme's cart used (lib/store/shop-money.ts). */
+const ownMoney = (cents: number) => shopMoney(cents)
 
 /**
  * An amount of the cart in the visitor's market's currency when the page

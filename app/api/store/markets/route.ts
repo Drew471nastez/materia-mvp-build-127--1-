@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { recordActivity } from "@/lib/activity/log-server"
-import { storeCurrencyOf } from "@/lib/store/currency"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { localizationOf, saveLocalization } from "@/lib/markets/server"
 import { latestRates, refreshRates } from "@/lib/markets/fx-server"
@@ -17,11 +17,9 @@ export const dynamic = "force-dynamic"
  * whether today's exchange rates are in (a market shows converted prices
  * only while they are).
  */
-async function base(c: { db: any; creatorId: string }) {
-  /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
-  const db = c.db
-  const { data } = await db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
-  return storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency)
+/* The currency the store's prices are in and charged in (lib/store/shop-money.ts), not its payout currency: what a market converts from. */
+async function base(_c: { db: unknown; creatorId: string }) {
+  return SHOP_CURRENCY
 }
 
 let lastFetch = 0

@@ -24,6 +24,7 @@ import type { SectionInstance } from "./types"
 import { SITE_DISALLOW, xmlEscape } from "@/lib/seo/indexing"
 import { sameAsUrls } from "@/lib/seo/structured-data"
 import { THEME_SETTINGS_GROUPS } from "./theme-settings-schema"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 export interface SitemapImage {
   loc: string
@@ -242,7 +243,7 @@ export function productJsonLd(p: {
             "@type": "Offer",
             url: p.url,
             price,
-            priceCurrency: "USD",
+            priceCurrency: SHOP_CURRENCY,
             availability: p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
             seller: { "@type": "Organization", name: p.seller },
           },

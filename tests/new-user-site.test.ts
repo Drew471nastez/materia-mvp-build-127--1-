@@ -20,6 +20,7 @@
  *
  *   npx tsx tests/new-user-site.test.ts
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fakeDb } from "./_fake-db"

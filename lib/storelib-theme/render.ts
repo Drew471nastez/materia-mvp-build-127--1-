@@ -22,6 +22,7 @@ import { engineHtml, renderTemplate, stripDocumentMarkup, type CompiledTemplate 
 import { applySettingMarks } from "./storelib/marks"
 import { MAX_BLOCK_DEPTH, type CompiledBlock, type CompiledSection, type ContentForRequest, type RenderContext, type SectionInstanceData, type StorefrontData } from "./types"
 import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 export interface RenderInput {
   compiled: CompiledSection
@@ -75,7 +76,8 @@ export interface Rendered {
  * code is added here, to every price the page was handed, once per list.
  * Off, the lists go through untouched.
  */
-const SHOP_CURRENCY_CODE = "USD"
+/* The store's currency (lib/store/shop-money.ts): a price written "RON 48.00" names it already, and is left as it is. */
+const SHOP_CURRENCY_CODE = SHOP_CURRENCY
 const coded = new WeakMap<object, unknown>()
 
 function withCode(price: unknown): unknown {

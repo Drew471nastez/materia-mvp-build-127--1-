@@ -23,6 +23,7 @@ import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { buyerRefundEmail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -520,7 +521,8 @@ async function receiptEmailModel(
   }
 
   const amount = Number(params.fallback.amountCents) || 0
-  const amountText = amount === 0 ? "Free" : formatMoney(amount, "USD", "en-US")
+  /* The receipt could not be read: the amount in the store's own currency, what it was charged in (lib/store/shop-money.ts), never dollars over lei. */
+  const amountText = amount === 0 ? "Free" : formatMoney(amount, SHOP_CURRENCY, "en-US")
   return {
     firstName: params.buyerFirstName,
     sellerName: params.sellerName,

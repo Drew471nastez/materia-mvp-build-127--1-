@@ -62,12 +62,13 @@ import { offChannel } from "@/lib/store/channel-filter"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { imagesOnly, isPosterName, isVideoUrl } from "@/lib/media/video"
 import { plainDescription } from "@/lib/products/plain-description"
+import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
 
-/** Every price on Storelib is charged in US dollars. */
-export const SHOP_CURRENCY = "USD"
+/** The currency every store's prices are in and charged in (lib/store/shop-money.ts): not always dollars. */
+export { SHOP_CURRENCY }
 
 /** One option of a product, as a section reads it. */
 export interface ProductVariantCard {
@@ -155,7 +156,7 @@ export interface ProductPageData extends ProductCard {
 /** `price_cents` is USD cents. One place, so every section agrees. */
 export function formatPrice(cents: number | null | undefined): string {
   if (typeof cents !== "number" || !Number.isFinite(cents) || cents <= 0) return ""
-  return `$${(cents / 100).toFixed(2)}`
+  return shopMoney(cents)
 }
 
 /** Never more than this, whatever a section asks for. */

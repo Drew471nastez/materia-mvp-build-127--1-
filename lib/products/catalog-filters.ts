@@ -27,6 +27,7 @@
  */
 
 import { isColorOption, swatchColor } from "./product-page-model"
+import { shopAmount } from "@/lib/store/shop-money"
 
 /** The fields of a product card this reads. */
 export interface FilterableCard {
@@ -363,7 +364,7 @@ export function catalogFilters(
 
   const chips: { label: string; url: string }[] = []
   if (query.priceMin !== null || query.priceMax !== null) {
-    const label = query.priceMin !== null && query.priceMax !== null ? `$${query.priceMin} to $${query.priceMax}` : query.priceMin !== null ? `From $${query.priceMin}` : `Up to $${query.priceMax}`
+    const label = query.priceMin !== null && query.priceMax !== null ? `${shopAmount(query.priceMin)} to ${shopAmount(query.priceMax)}` : query.priceMin !== null ? `From ${shopAmount(query.priceMin)}` : `Up to ${shopAmount(query.priceMax!)}`
     chips.push({ label, url: href({ ...query, priceMin: null, priceMax: null }) })
   }
   if (query.available) chips.push({ label: "In stock", url: href({ ...query, available: false }) })

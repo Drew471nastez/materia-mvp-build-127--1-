@@ -43,7 +43,8 @@ import {
   useDrawerPresence,
   useFocusTrap,
 } from "./drawer-frame"
-import { useStorefront } from "./theme/storefront-context"
+import { useMoney, useStorefront } from "./theme/storefront-context"
+import { priceCentsFrom } from "@/lib/website-builder/storefront-hooks"
 
 export interface SearchHit {
   id: string
@@ -158,6 +159,10 @@ function SearchModalInner({
   positionClass: string
   frameStyle: CSSProperties
 }) {
+  /* A result's price as the cards on the page show it: the visitor's market's currency when the page converts, else the store's as the search wrote it. */
+  const money = useMoney()
+  const converting = !!useStorefront().display
+  const shownPrice = (text: string) => (converting && priceCentsFrom(text) > 0 ? `${money(priceCentsFrom(text))}${/\/month$/.test(text) ? "/month" : ""}` : text)
   const { q, setQ, hits, total, asked, answered } = useLiveSearch(open)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -298,7 +303,7 @@ function SearchModalInner({
                             ) : null}
                           </span>
                           <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{h.title}</span>
-                          {h.price && <span className="shrink-0 text-[14px] tabular-nums" style={{ opacity: 0.7 }}>{h.price}</span>}
+                          {h.price && <span className="shrink-0 text-[14px] tabular-nums" style={{ opacity: 0.7 }}>{shownPrice(h.price)}</span>}
                         </a>
                       </li>
                     ))}

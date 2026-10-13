@@ -35,6 +35,7 @@ import type { FxRates } from "@/lib/markets/money"
 import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { imagesOnly, isPosterName } from "@/lib/media/video"
+import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
 
 /* ── The product, as the section receives it ─────────────────────────────── */
 
@@ -269,7 +270,7 @@ export function swatchColor(value: string): string | null {
 /* ── Price ────────────────────────────────────────────────────────────────── */
 
 /** The shop's currency, as every card and checkout states it (lib/website-builder/shop-products.ts SHOP_CURRENCY). */
-export const PRODUCT_CURRENCY_CODE = "USD"
+export const PRODUCT_CURRENCY_CODE = SHOP_CURRENCY
 
 /**
  * `price_cents` as the shop prints a price. One place, so every block agrees,
@@ -279,9 +280,9 @@ export const PRODUCT_CURRENCY_CODE = "USD"
  * codes, which the cards already followed: "$48.00 USD".
  */
 export function money(cents: number, opts: { code?: boolean } = {}): string {
-  const v = Math.max(0, Math.round(Number(cents) || 0)) / 100
-  const text = `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  return opts.code ? `${text} ${PRODUCT_CURRENCY_CODE}` : text
+  const text = shopMoney(Math.max(0, Math.round(Number(cents) || 0)), { grouping: true })
+  /* "RON 48.00" already names its currency: the code is added once, to "$48.00". */
+  return opts.code && !text.includes(PRODUCT_CURRENCY_CODE) ? `${text} ${PRODUCT_CURRENCY_CODE}` : text
 }
 
 /** The highest amount a buyer may name: the same ceiling checkout holds (MAX_PWYW_CENTS). */

@@ -20,6 +20,9 @@ import { ensureSiteWalletDomain } from "@/lib/custom-domains/stripe-pmd"
 import { SiteCheckout, SiteProblem } from "./site-checkout"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
+import { pricingFor } from "@/lib/markets/pricing"
+import { cachedRates } from "@/lib/markets/fx-server"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 export const dynamic = "force-dynamic"
 
@@ -116,7 +119,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   })()
   const noteRead = siteLanguages(site.creatorId)
     .then((langs) => marketOfCountry(langs, visitorCountry))
-    .then((m) => (m ? chargeNote(m.currency, platformChargeCurrencyUpper()) : null))
+    /* Only when the pages really showed that currency: rates fresh and the market's currency one they convert to (the same test as the cards, pricingFor). */
+    .then(async (m) => (m && pricingFor(m, SHOP_CURRENCY, await cachedRates().catch(() => null)) ? chargeNote(m.currency, platformChargeCurrencyUpper()) : null))
     .catch(() => null)
   const [brand, config, buyer, ready, answer, currencyNote] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */

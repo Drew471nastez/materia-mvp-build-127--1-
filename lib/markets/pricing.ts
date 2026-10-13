@@ -47,6 +47,24 @@ export interface StorefrontDisplay {
   note: string | null
 }
 
+/**
+ * A price read off a page that shows a market's currency ("44,50 €" in a
+ * section's own add-to-cart button, as hundredths: priceCentsFrom), back in
+ * the store's currency, which is what a cart line keeps and converts again
+ * to show. Without this the cart converted an already converted price. The
+ * market's adjustment is taken off; its rounding cannot be, so the line
+ * shows within a cent of the card. Null when the page shows the store's own.
+ */
+export function storeCentsFromShown(shownCents: number, display: StorefrontDisplay | null | undefined): number | null {
+  if (!display || !Number.isFinite(shownCents) || !pricingFor(display.market, display.base, display.fx)) return null
+  const shownMinor = Math.round((shownCents / 100) * 10 ** minorUnits(display.market.currency!))
+  const back = convertMinor(shownMinor, display.market.currency!, display.base, display.fx)
+  if (back === null) return null
+  const adjusted = back / (1 + (display.market.adjustBps ?? 0) / 10_000)
+  /* "Cents" as a cart line counts them: hundredths of the store currency's major unit. */
+  return Math.round((adjusted / 10 ** minorUnits(display.base)) * 100)
+}
+
 /** The conversion for a market, or null when it shows the store's own prices (no currency of its own, the same currency, or no fresh rates). */
 export function pricingFor(market: MarketPrice | null | undefined, base: string, fx: FxRates | null | undefined, now = Date.now()): Pricing | null {
   if (!market || !market.currency || market.currency === base) return null

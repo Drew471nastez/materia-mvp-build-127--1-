@@ -19,6 +19,7 @@
  *   the product data API, the product page, and checkout's way back to the
  *   creator's own site, which is never an open redirect.
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {

@@ -33,7 +33,8 @@ import {
 } from "@/lib/website-builder/storefront-hooks"
 import { useSiteCart, lineKey } from "../site-cart"
 import { drawerCheckout } from "@/lib/website-builder/cart-checkout"
-import { useMoney } from "../theme/storefront-context"
+import { useMoney, useStorefront } from "../theme/storefront-context"
+import { storeCentsFromShown } from "@/lib/markets/pricing"
 import { useDrawerHost } from "../site-drawer-host"
 import { buttonRadiusStyle, sectionColors } from "./_shared"
 import { HeaderCartDrawer, HeaderMobileNavDrawer } from "./renderers/HeaderSection"
@@ -86,6 +87,8 @@ export function useStorefrontHooks({
   const cart = useSiteCart()
   /* The cart's amounts as the product cards show them (the visitor's market's currency, or the store's). */
   const money = useMoney()
+  /* The market's currency the page shows, if any: a button's printed price is in it (storeCentsFromShown). */
+  const display = useStorefront().display
   /* A section with a cart panel of its own draws that, never the built-in drawer as well. */
   const hostsCart = useDrawerHost(cart.setOpen, section.id, flags.cart && !flags.cartPanel)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -191,7 +194,9 @@ export function useStorefrontHooks({
     if (el.hasAttribute(H.addToCart)) {
       const line = addToCartLine((name) => el.getAttribute(name))
       if (!line) return true
-      cart.add(line)
+      /* Printed in the market's currency on this page: kept in the store's, as every other line is, so the cart does not convert it twice. */
+      const own = storeCentsFromShown(line.priceCents, display)
+      cart.add(own === null ? line : { ...line, priceCents: own })
       if (flags.cartPanel) {
         /* Its own panel opens, not the built-in drawer the add would open. */
         cart.setOpen(false)

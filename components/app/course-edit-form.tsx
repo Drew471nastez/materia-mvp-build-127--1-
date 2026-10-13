@@ -17,6 +17,7 @@ import { ArrowLeft, Trash2 } from "lucide-react"
 import Link from "next/link"
 import type { Product } from "@/lib/types"
 import { tt } from "@/lib/i18n/text"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 interface CourseEditFormProps {
   product: Product
@@ -131,7 +132,7 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="price">{tt("Price (USD)")}</Label>
+              <Label htmlFor="price">{tt("Price ({currency})", { currency: SHOP_CURRENCY })}</Label>
               <Input
                 id="price"
                 type="number"

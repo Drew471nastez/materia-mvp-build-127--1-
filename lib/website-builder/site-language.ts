@@ -13,6 +13,7 @@
  * A fixed list, not free text. The value ends up in an attribute on every
  * page of the site, and a list is the simplest way to know it is a language.
  */
+import { isRtl } from "@/lib/markets/locales"
 
 export const SITE_LANGUAGES = [
   { code: "en", label: "English", locale: "en_US" },
@@ -50,7 +51,8 @@ export function siteLocale(theme: Record<string, unknown> | null | undefined): s
   return code ? BY_CODE.get(code)?.locale : undefined
 }
 
-/** Arabic is written right to left; the page should be too. */
+/** Arabic, Hebrew, Persian and Urdu are written right to left; the page should be too (lib/markets/locales isRtl, the one list). */
 export function siteDirection(theme: Record<string, unknown> | null | undefined): "rtl" | undefined {
-  return siteLanguage(theme) === "ar" ? "rtl" : undefined
+  const code = siteLanguage(theme)
+  return code && isRtl(code) ? "rtl" : undefined
 }

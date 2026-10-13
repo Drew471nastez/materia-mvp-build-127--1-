@@ -12,11 +12,12 @@
  *   show_stock_left           "Only 3 left" on product pages        on
  *   low_stock_text            the words, {count} for the number     "Only {count} left"
  *   free_shipping_bar         the banner over the header            off
- *   free_shipping_threshold   its amount in dollars; empty or 0:
+ *   free_shipping_threshold   its amount in the store's currency; empty or 0:
  *                             the amount from the shipping rates
  *   cart_returns_note         the return window and a link to the
  *                             refund policy, beside Check out       off
  */
+import { shopMoney } from "@/lib/store/shop-money"
 
 export const DEFAULT_LOW_STOCK_TEXT = "Only {count} left"
 
@@ -48,7 +49,7 @@ export function freeShippingLine(subtotalCents: number, fromCents: number | null
   if (fromCents === 0) return { text: "Free shipping on every order", progress: 1 }
   const left = Math.max(0, fromCents - Math.max(0, subtotalCents))
   if (left === 0) return { text: "You have earned free shipping", progress: 1 }
-  return { text: `Spend $${(left / 100).toFixed(2)} more for free shipping`, progress: Math.max(0, Math.min(1, subtotalCents / fromCents)) }
+  return { text: `Spend ${shopMoney(left)} more for free shipping`, progress: Math.max(0, Math.min(1, subtotalCents / fromCents)) }
 }
 
 /** The cart's returns line. Null when returns are off or the shop never set them. */

@@ -467,6 +467,28 @@ export function ThemePage({
    */
   const rootRef = useRef<HTMLDivElement | null>(null)
   useSiteMotion(rootRef, theme, sections, storefront?.inEditor === true)
+  /* The page's language and its direction (right to left for Arabic, Hebrew, Persian, Urdu: lib/markets/locales dirOf). */
+  const pageLang = storefront?.language?.code ?? siteLanguage(theme as Record<string, unknown>)
+  const pageDir = storefront?.language ? dirOf(storefront.language.code) : siteDirection(theme as Record<string, unknown>)
+  /*
+    ON THE WHOLE DOCUMENT, on a live page: the cart drawer, the phone menu
+    and search are drawn at the end of <body>, outside the theme root, and
+    read their direction from <html>, which said lang="en" and nothing else.
+    Never in the editor, whose document is the editor's.
+  */
+  useEffect(() => {
+    if (storefront?.inEditor || typeof document === "undefined") return
+    const html = document.documentElement
+    const before = { lang: html.getAttribute("lang"), dir: html.getAttribute("dir") }
+    if (pageLang) html.setAttribute("lang", pageLang)
+    html.setAttribute("dir", pageDir ?? "ltr")
+    return () => {
+      if (before.lang === null) html.removeAttribute("lang")
+      else html.setAttribute("lang", before.lang)
+      if (before.dir === null) html.removeAttribute("dir")
+      else html.setAttribute("dir", before.dir)
+    }
+  }, [pageLang, pageDir, storefront?.inEditor])
 
   const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>, sectionFamilies(sections))
   /**
@@ -524,8 +546,8 @@ export function ThemePage({
       data-cart-type={themeCartType(theme)}
       /* Website Settings › General › Language. Absent until one is chosen,
          so the document's own `lang` stands. */
-      lang={storefront?.language?.code ?? siteLanguage(theme as Record<string, unknown>)}
-      dir={storefront?.language ? dirOf(storefront.language.code) : siteDirection(theme as Record<string, unknown>)}
+      lang={pageLang}
+      dir={pageDir}
       className={className}
       /*
         A WIDTH CONTAINER, on the live page and in the canvas alike. The

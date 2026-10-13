@@ -14,6 +14,7 @@
  *
  *   NODE_OPTIONS="--conditions=react-server" npx tsx tests/physical-shipping-r3.test.ts
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { freeShippingFrom, partOfCountry, pickOption, quoteDelivery, ratePrice, zoneFor, type QuoteLine } from "@/lib/physical/rates"

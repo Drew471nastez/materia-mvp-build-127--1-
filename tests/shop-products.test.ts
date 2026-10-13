@@ -18,6 +18,7 @@
  * on `creator_id`, which would have put every creator's catalogue on every
  * creator's website.
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { MAX_SHOP_PRODUCTS, formatPrice, shopProducts, toCard } from "@/lib/website-builder/shop-products"

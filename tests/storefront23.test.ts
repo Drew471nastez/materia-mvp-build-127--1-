@@ -26,6 +26,7 @@
  *   DOMAINS           the Storelib address sends a page visit to the
  *                     website's live primary domain, and nothing else
  */
+import "./_usd"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import JSZip from "jszip"

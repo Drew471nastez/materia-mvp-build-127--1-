@@ -208,10 +208,12 @@ export async function languageChoice(creatorId: string, locale: string | null | 
   const code = (locale && all.find((l) => l.toLowerCase() === locale.toLowerCase())) || langs.defaultLanguage
   /* The currencies a visitor can see prices in: the store's own, and each market's that has fresh rates. */
   const pricing = await marketPricing(creatorId, market, SHOP_CURRENCY)
-  const fresh = langs.markets.length ? fxFresh(await cachedRates().catch(() => null)) : false
+  const rates = langs.markets.length ? await cachedRates().catch(() => null) : null
+  const fresh = langs.markets.length ? fxFresh(rates) : false
   const charge = platformChargeCurrencyUpper()
+  /* A market whose currency has no rate today is not offered: picked, it would show the store's prices and snap back to home. */
   const currencies = fresh && langs.markets.length
-    ? [{ id: "home", label: SHOP_CURRENCY, country: "home" }, ...langs.markets.filter((m) => m.countries.length).map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))]
+    ? [{ id: "home", label: SHOP_CURRENCY, country: "home" }, ...langs.markets.filter((m) => m.countries.length && pricingFor(m, SHOP_CURRENCY, rates)).map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))]
     : []
   return {
     code,

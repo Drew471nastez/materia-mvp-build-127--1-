@@ -38,7 +38,9 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const found = HANDLE.test(handle) ? await publishedShopByName(splitSiteName(segment).name).catch(() => null) : null
   const inIt = found?.kind === "site" ? await collectionMembers(found.site.creatorId, handle).catch(() => null) : null
   const name = inIt?.collection.title?.trim()
-  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page) } : undefined)
+  /* Its own address for search engines, in each language: every collection used to name the collections index as its canonical. */
+  const path = HANDLE.test(handle) ? `/collections/${handle}` : undefined
+  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page), path } : { path })
 }
 
 /**

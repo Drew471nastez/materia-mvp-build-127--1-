@@ -52,6 +52,7 @@ import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-uploa
 import { DescriptionField as DescriptionRichEditor } from "@/components/store-builder/description-field"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { tt, msg } from "@/lib/i18n/text"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 interface ProductEditFormProps {
   product: Product & {
@@ -465,7 +466,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="price">{tt("Price (USD)")}</Label>
+                <Label htmlFor="price">{tt("Price ({currency})", { currency: SHOP_CURRENCY })}</Label>
                 <Input
                   id="price"
                   type="number"

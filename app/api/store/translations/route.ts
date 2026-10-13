@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { recordActivity } from "@/lib/activity/log-server"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { storeCurrencyOf } from "@/lib/store/currency"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
@@ -24,10 +24,7 @@ export const dynamic = "force-dynamic"
  * team members yet). Only a language the website has may be read or written.
  */
 async function storeLanguages(c: { db: any; creatorId: string }) {
-  /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
-  const db = c.db
-  const { data } = await db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
-  const loc = await localizationOf(c.db, c.creatorId, storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency))
+  const loc = await localizationOf(c.db, c.creatorId, SHOP_CURRENCY)
   return { ready: loc.ready, loc: loc.value, languages: editorLanguages(loc.value) }
 }
 

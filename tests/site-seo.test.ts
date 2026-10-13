@@ -7,6 +7,7 @@
  * had no sitemap of its own. Held here: what the site's own files say, what
  * the sitemap lists, and that the proxy and the pages are wired to them.
  */
+import "./_usd"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import {

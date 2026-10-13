@@ -28,6 +28,7 @@
  *   A BASKET WAS SEVERAL RECEIPTS, and /checkout/receipt showed "Free" for
  *   every paid order, reading a total_cents column that does not exist.
  */
+import "./_usd"
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import {

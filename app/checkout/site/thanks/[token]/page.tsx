@@ -8,6 +8,7 @@ import { siteOfHost } from "@/lib/checkout/site-checkout-server"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { ShopBar } from "../../../parts/shop-bar"
 import { money } from "../../../parts/ui"
+import { currencyCode, formatMinor } from "@/lib/markets/money"
 import { ClearCart } from "./clear-cart"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaItem, type GaItem } from "@/lib/store/ga"
@@ -135,6 +136,9 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
   if (!order) notFound()
   const shopUrl = `${site.origin}/`
   const ships = order.shippingCents !== null
+  /* In the currency the order was charged in (the checkout's own), as the receipt and the order page write it. */
+  const orderCurrency = currencyCode(order.ga.currency)
+  const shown = (cents: number) => (orderCurrency ? formatMinor(cents, orderCurrency, "en-US") : money(cents))
 
   return (
     <div data-page="checkout-thanks" className="min-h-dvh bg-[#f8f9fa]">
@@ -172,7 +176,7 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
                     {l.variantName ? <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{l.variantName}</p> : null}
                     <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Qty {l.quantity}</p>
                   </div>
-                  <p className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{l.cents === 0 ? "Free" : money(l.cents)}</p>
+                  <p className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{l.cents === 0 ? "Free" : shown(l.cents)}</p>
                 </li>
               ))}
             </ul>
@@ -180,24 +184,24 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
               {ships ? (
                 <div className="flex justify-between gap-4">
                   <dt className="text-[#6b7280]">Shipping</dt>
-                  <dd className="tabular-nums text-[#6b7280]">{order.shippingCents === 0 ? "Free" : money(order.shippingCents ?? 0)}</dd>
+                  <dd className="tabular-nums text-[#6b7280]">{order.shippingCents === 0 ? "Free" : shown(order.shippingCents ?? 0)}</dd>
                 </div>
               ) : null}
               {order.taxCents > 0 ? (
                 <div className="flex justify-between gap-4">
                   <dt className="text-[#6b7280]">Tax</dt>
-                  <dd className="tabular-nums text-[#6b7280]">{money(order.taxCents)}</dd>
+                  <dd className="tabular-nums text-[#6b7280]">{shown(order.taxCents)}</dd>
                 </div>
               ) : null}
               <div className="flex items-baseline justify-between gap-4 pt-1">
                 <dt className="text-[15px] font-semibold text-[#1a1a2e]">Total</dt>
-                <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(order.totalCents)}</dd>
+                <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{shown(order.totalCents)}</dd>
               </div>
             </dl>
             {order.shipTo ? <p className="mt-4 text-[13.5px] text-[#4b5563]">{order.shipTo}</p> : null}
             {order.cashWhen ? (
               <p data-cash-payment="" className="mt-3 rounded-[8px] bg-[#f8f9fa] px-3.5 py-2.5 text-[14px] leading-5 text-[#4b5563]">
-                {order.cashWhen === "picked up" ? `Pay ${money(order.totalCents)} in cash when you pick it up.` : `Pay ${money(order.totalCents)} in cash when it's delivered.`}
+                {order.cashWhen === "picked up" ? `Pay ${shown(order.totalCents)} in cash when you pick it up.` : `Pay ${shown(order.totalCents)} in cash when it's delivered.`}
               </p>
             ) : null}
           </section>

@@ -425,7 +425,7 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
   // "index" for the front page, `page.<key>` for the rest: the name a
   // section reads as `page.template` and writes `allowed_templates` against.
   const template = templateForPage(pageKey)
-  const { sections, data } = await dressPage({ ...site, themeSettings }, linked, products, productCount, template, pageTitleFromKey(pageKey))
+  const { sections, data } = await dressPage({ ...site, themeSettings }, linked, products, productCount, template, pageTitleFromKey(pageKey), undefined, { cached: true, localizer })
   /* `shop.name` falls back to Store details' store name, then the creator's
      public name, when the theme has none set: lib/storelib-theme/globals.ts.
      Nothing per visitor here. */
@@ -480,12 +480,12 @@ export async function dressPage(
    * held in a cache anybody else reads, so its picked products are read
    * directly. Everything published is cached with the shop.
    */
-  opts: { cached: boolean; localizer?: { collection<T extends { id?: unknown }>(c: T): T } | null } = { cached: true },
+  opts: { cached: boolean; localizer?: { collection<T extends { id?: unknown }>(c: T): T; cards<T extends ProductCard>(list: T[]): T[] } | null } = { cached: true },
 ): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
   const missing = missingReferences(productReferences(sections, schemaOf), products)
   const read = () => pickedProducts(createAdminClient() as never, site.creatorId, missing)
-  const picked = missing.ids.length || missing.slugs.length
+  const pickedRead = missing.ids.length || missing.slugs.length
     ? opts.cached
       ? await unstable_cache(
           read,
@@ -494,6 +494,8 @@ export async function dressPage(
         )()
       : await read()
     : []
+  /* In the page's language and the visitor's currency, as the shop's own cards around them are: a picked product used to show untranslated, in the store's currency, beside converted ones. */
+  const picked = opts.localizer && pickedRead.length ? opts.localizer.cards(pickedRead) : pickedRead
   const { siteOrigin } = await import("@/lib/website-builder/site-seo-data")
   const siteUrl = await siteOrigin(site.creatorId, site.displayName).catch(() => "")
   const dynamic = dynamicContext({

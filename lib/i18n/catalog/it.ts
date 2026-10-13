@@ -4683,6 +4683,7 @@ const words: Record<string, string> = {
  "Previous year": "Anno precedente",
  "Price": "Prezzo",
  "Price (USD)": "Prezzo (USD)",
+ "Price ({currency})": "Prezzo ({currency})",
  "Price a ticket": "Imposta il prezzo del biglietto",
  "Price adjustment": "Adeguamento prezzo",
  "Price events and refund tickets": "Prezza gli eventi e rimborsa i biglietti",
