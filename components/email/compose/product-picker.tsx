@@ -13,6 +13,7 @@ import { pickerSurface, usePhone } from "@/components/app/date-range-picker"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { inputClass } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 export interface PickedProduct {
   id: string
@@ -44,7 +45,7 @@ function useProducts(creatorId: string | null, open: boolean) {
       .then(({ data, error: e }: { data: unknown; error: unknown }) => {
         if (!live) return
         if (e) {
-          setError("Could not load your products. Try again.")
+          setError(tt("Could not load your products. Try again."))
           return
         }
         const list = (data ?? []) as PickedProduct[]
@@ -66,15 +67,15 @@ function List({ creatorId, open, onPick, compact }: { creatorId: string | null; 
     <div className={compact ? "px-2 pb-3" : "p-1.5"}>
       {(products?.length ?? 0) > 8 ? (
         <div className="px-1 pb-2 pt-0.5">
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products" aria-label="Search products" className={inputClass} autoComplete="off" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt("Search products")} aria-label={tt("Search products")} className={inputClass} autoComplete="off" />
         </div>
       ) : null}
       {error ? <p className="px-3 py-6 text-center text-[13px] text-[#b42318]">{error}</p> : null}
-      {!error && products === null ? <p className="px-3 py-6 text-center text-[13px] text-[#6b7280]">Loading your products</p> : null}
+      {!error && products === null ? <p className="px-3 py-6 text-center text-[13px] text-[#6b7280]">{tt("Loading your products")}</p> : null}
       {products && products.length === 0 ? (
-        <p className="px-3 py-6 text-center text-[13px] text-[#6b7280]">Publish a product first, then it can go in an email.</p>
+        <p className="px-3 py-6 text-center text-[13px] text-[#6b7280]">{tt("Publish a product first, then it can go in an email.")}</p>
       ) : null}
-      <div role="listbox" aria-label="Products" className={cn(!compact && "max-h-[320px] overflow-y-auto overscroll-contain")}>
+      <div role="listbox" aria-label={tt("Products")} className={cn(!compact && "max-h-[320px] overflow-y-auto overscroll-contain")}>
         {shown.map((p) => (
           <button
             key={p.id}
@@ -121,7 +122,7 @@ export function ProductPicker({
     return (
       <>
         {React.cloneElement(trigger as React.ReactElement<{ onClick?: () => void }>, { onClick: () => onOpenChange(true) })}
-        <BottomSheet isOpen={open} onClose={() => onOpenChange(false)} title="Choose a product" hideFrom="sm">
+        <BottomSheet isOpen={open} onClose={() => onOpenChange(false)} title={tt("Choose a product")} hideFrom="sm">
           <List creatorId={creatorId} open={open} onPick={pick} compact />
         </BottomSheet>
       </>

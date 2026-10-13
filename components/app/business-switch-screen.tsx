@@ -29,6 +29,7 @@ import {
   switchLine,
   type SwitchStep,
 } from "@/lib/businesses/switch-screen"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -295,7 +296,7 @@ function Screen({
               data-switch-retry=""
               className="mt-4 h-10 rounded-full bg-[#1a1a2e] px-5 text-[14px] font-semibold text-white [-webkit-tap-highlight-color:transparent] active:opacity-80"
             >
-              Try again
+              {tt("Try again")}
             </button>
           )}
         </div>
@@ -428,7 +429,7 @@ export function SwitchingScreen({
         setProblem(null)
         go(creating ? "starting" : "opening", { atOnce: true })
       },
-      stall: (retry) => setProblem({ text: creating ? "Your new business did not open" : `${name} did not open`, onRetry: retry }),
+      stall: (retry) => setProblem({ text: creating ? tt("Your new business did not open") : tt("{name} did not open", { name }), onRetry: retry }),
       fail: () => {
         const el = ref.current
         if (!el || reducedMotion() || typeof el.animate !== "function") { onGone(); return }

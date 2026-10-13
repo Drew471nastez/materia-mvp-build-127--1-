@@ -21,6 +21,7 @@ import * as React from "react"
 import { X } from "lucide-react"
 import { blockingItems, recommendedItems, type ReadinessItem } from "@/lib/physical/readiness"
 import { ReadinessLink, useReadiness, useReadinessFor } from "./readiness-client"
+import { tt } from "@/lib/i18n/text"
 
 const CHECKLIST = "/app/settings?tab=shipping"
 
@@ -84,17 +85,17 @@ export function RecommendedLine({ items, onHide, className }: { items: Readiness
       <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[#d1d5db]" />
       {/* A phone has room for the count, not the sentence: the first item's name was cut to a word. */}
       <p className="min-w-0 flex-1 truncate text-[13px] leading-5 text-[#6b7280] sm:hidden">
-        <span className="font-medium text-[#1a1a2e]">{items.length === 1 ? first.title : `${items.length} things worth doing`}</span>
+        <span className="font-medium text-[#1a1a2e]">{items.length === 1 ? first.title : tt("{length} things worth doing", { length: items.length })}</span>
       </p>
       <p className="hidden min-w-0 flex-1 truncate text-[13px] leading-5 text-[#6b7280] sm:block">
-        <span className="font-medium text-[#1a1a2e]">Worth doing for shipping:</span> {first.title.charAt(0).toLowerCase() + first.title.slice(1)}
-        {items.length > 1 ? `, and ${items.length - 1} more` : ""}
+        <span className="font-medium text-[#1a1a2e]">{tt("Worth doing for shipping:")}</span> {first.title.charAt(0).toLowerCase() + first.title.slice(1)}
+        {items.length > 1 ? tt(", and {value} more", { value: items.length - 1 }) : ""}
       </p>
       <ReadinessLink href={items.length > 1 ? CHECKLIST : first.href} className="shrink-0 rounded-lg px-2.5 py-1 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-        {items.length > 1 ? "See all" : first.fix}
+        {items.length > 1 ? tt("See all") : first.fix}
       </ReadinessLink>
       {onHide ? (
-        <button type="button" aria-label="Hide" onClick={onHide} className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]">
+        <button type="button" aria-label={tt("Hide")} onClick={onHide} className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]">
           <X className="h-3.5 w-3.5" />
         </button>
       ) : null}
@@ -105,8 +106,8 @@ export function RecommendedLine({ items, onHide, className }: { items: Readiness
 /** What a banner says, given what is open. Exported for the tests. */
 export function bannerWords(items: ReadinessItem[], draft = false): { title: string; line: string } {
   return {
-    title: draft ? "Buyers won't be able to check out yet" : "Buyers can't check out on your store yet",
-    line: `${items.length} things to fix before your physical products can sell.`,
+    title: draft ? tt("Buyers won't be able to check out yet") : tt("Buyers can't check out on your store yet"),
+    line: tt("{length} things to fix before your physical products can sell.", { length: items.length }),
   }
 }
 

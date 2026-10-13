@@ -30,6 +30,7 @@ import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { acceptLabel, fileBadge, fileFits, inputAccept } from "@/lib/storelib-theme/file-kinds"
 import { cn } from "@/lib/utils"
 import { INPUT, PROBLEM } from "./styles"
+import { tt } from "@/lib/i18n/text"
 
 /** An address a link can point at: https, http, or a path on this site. */
 function isFileAddress(value: string): boolean {
@@ -39,9 +40,9 @@ function isFileAddress(value: string): boolean {
 /** The file's own name from its address, for the line beside its tile. */
 function nameOf(url: string): string {
   try {
-    return decodeURIComponent(new URL(url, "https://x.invalid").pathname.split("/").pop() || "") || "File"
+    return decodeURIComponent(new URL(url, "https://x.invalid").pathname.split("/").pop() || "") || tt("File")
   } catch {
-    return "File"
+    return tt("File")
   }
 }
 
@@ -52,16 +53,16 @@ async function upload(file: File, accept: unknown, onProgress: (pct: number) => 
     body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream", fileSize: file.size, accept }),
   })
   const ticket = (await res.json().catch(() => ({}))) as { signedUrl?: string; publicUrl?: string; path?: string; bucket?: string; error?: string }
-  if (!res.ok || !ticket.signedUrl || !ticket.publicUrl) throw new Error(ticket.error || "Could not start the upload. Try again.")
+  if (!res.ok || !ticket.signedUrl || !ticket.publicUrl) throw new Error(ticket.error || tt("Could not start the upload. Try again."))
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
     })
-    xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("The upload did not finish. Try again."))))
-    xhr.addEventListener("error", () => reject(new Error("The connection dropped during the upload. Try again.")))
-    xhr.addEventListener("timeout", () => reject(new Error("The upload took too long. Try again.")))
+    xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(tt("The upload did not finish. Try again.")))))
+    xhr.addEventListener("error", () => reject(new Error(tt("The connection dropped during the upload. Try again."))))
+    xhr.addEventListener("timeout", () => reject(new Error(tt("The upload took too long. Try again."))))
     xhr.open("PUT", ticket.signedUrl as string)
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     if (anon) {
@@ -116,7 +117,7 @@ export function FilePickerControl({
   const take = async (file: File) => {
     if (uploading) return
     if (!fileFits(file.name, accept)) {
-      toast.error(what === "any file" ? "That kind of file cannot go on a website." : `This setting takes a ${what}.`)
+      toast.error(what === "any file" ? tt("That kind of file cannot go on a website.") : tt("This setting takes a {what}.", { what }))
       return
     }
     setPending(file.name)
@@ -127,7 +128,7 @@ export function FilePickerControl({
       setDraft("")
       commit(url)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "The upload did not finish. Try again.")
+      toast.error(err instanceof Error ? err.message : tt("The upload did not finish. Try again."))
     } finally {
       setProgress(null)
       setPending(null)
@@ -169,7 +170,7 @@ export function FilePickerControl({
           <div className="min-w-0 flex-1">
             <p className="truncate text-[12.5px] font-medium text-foreground" title={name}>{name}</p>
             {uploading ? (
-              <p className="mt-1 text-[11.5px] text-muted-foreground" aria-live="polite">Uploading {progress}%</p>
+              <p className="mt-1 text-[11.5px] text-muted-foreground" aria-live="polite">{tt("Uploading {progress}%", { progress })}</p>
             ) : (
               <div className="mt-1 flex items-center gap-1">
                 <button
@@ -178,7 +179,7 @@ export function FilePickerControl({
                   className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-foreground transition-colors hover:bg-muted max-sm:h-9"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  Replace
+                  {tt("Replace")}
                 </button>
                 <button
                   type="button"
@@ -190,7 +191,7 @@ export function FilePickerControl({
                   className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-sm:h-9"
                 >
                   <Trash2 className="h-3 w-3" />
-                  Remove
+                  {tt("Remove")}
                 </button>
               </div>
             )}
@@ -205,7 +206,7 @@ export function FilePickerControl({
         <div
           role="button"
           tabIndex={0}
-          aria-label={label ? `Add ${label.toLowerCase()}` : "Add file"}
+          aria-label={label ? tt("Add {value}", { value: label.toLowerCase() }) : tt("Add file")}
           data-file-picker="empty"
           onClick={pick}
           onKeyDown={(e) => {
@@ -234,9 +235,9 @@ export function FilePickerControl({
             <UploadCloud className="h-[18px] w-[18px]" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] font-medium text-foreground">Add file</span>
+            <span className="block text-[13px] font-medium text-foreground">{tt("Add file")}</span>
             <span className="block truncate text-[11.5px] text-muted-foreground">
-              {what === "any file" ? "Upload or drop a file" : `Upload or drop a ${what}`}
+              {what === "any file" ? tt("Upload or drop a file") : tt("Upload or drop a {what}", { what })}
             </span>
           </span>
         </div>
@@ -246,11 +247,11 @@ export function FilePickerControl({
         inputMode="url"
         autoComplete="off"
         spellCheck={false}
-        aria-label={label ? `${label} address` : "File address"}
+        aria-label={label ? tt("{label} address", { label }) : tt("File address")}
         aria-invalid={left && unusable}
         data-file-address=""
         className={INPUT}
-        placeholder={placeholder || "Or paste a file link"}
+        placeholder={placeholder || tt("Or paste a file link")}
         value={draft}
         onChange={(e) => {
           const next = e.target.value
@@ -266,7 +267,7 @@ export function FilePickerControl({
       />
       {left && unusable && (
         <p className={PROBLEM} role="alert">
-          A file link starts with https:// or with / for a file on this site.
+          {tt("A file link starts with https:// or with / for a file on this site.")}
         </p>
       )}
       {fileInput}

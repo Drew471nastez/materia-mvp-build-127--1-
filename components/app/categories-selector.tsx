@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Check, Search } from "lucide-react"
 import type { Category } from "@/lib/types"
+import { tt } from "@/lib/i18n/text"
 
 interface CategoriesSelectorProps {
   selectedCategory: string | null
@@ -37,13 +38,13 @@ export function CategoriesSelector({ selectedCategory, onChange }: CategoriesSel
   const selectedCategoryObject = selectedCategory ? categories.find((cat) => cat.id === selectedCategory) : null
 
   if (isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading categories...</div>
+    return <div className="text-sm text-muted-foreground">{tt("Loading categories...")}</div>
   }
 
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        <Label>Selected Category</Label>
+        <Label>{tt("Selected Category")}</Label>
         {selectedCategoryObject ? (
           <div className="flex items-center gap-2">
             <Badge variant="default" className="cursor-pointer" onClick={() => onChange(null)}>
@@ -55,21 +56,21 @@ export function CategoriesSelector({ selectedCategory, onChange }: CategoriesSel
               onClick={() => onChange(null)}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
-              Clear
+              {tt("Clear")}
             </button>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No category selected</p>
+          <p className="text-sm text-muted-foreground">{tt("No category selected")}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="category-search">Browse Categories</Label>
+        <Label htmlFor="category-search">{tt("Browse Categories")}</Label>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="category-search"
-            placeholder="Search categories..."
+            placeholder={tt("Search categories...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -95,7 +96,7 @@ export function CategoriesSelector({ selectedCategory, onChange }: CategoriesSel
               )
             })
           ) : (
-            <p className="text-sm text-muted-foreground">No categories found</p>
+            <p className="text-sm text-muted-foreground">{tt("No categories found")}</p>
           )}
         </div>
       </div>

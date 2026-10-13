@@ -132,9 +132,10 @@ async function main() {
     const boot = code("lib/explore/explore-scroll-boot.ts")
     check("no scroll anchoring while Explore settles (it nudged the page 16px, then the restore pulled it back)", /html\.explore-scroll-settling \{\s*overflow-anchor: none;/.test(css) && /html\.explore-scroll-settling body \{\s*overflow-anchor: none;/.test(css))
     check("a short fade from 0.55, never from nothing", /@keyframes explore-return \{\s*from \{ opacity: 0\.55; \}\s*to \{ opacity: 1; \}/.test(css) && /animation: explore-return 220ms cubic-bezier\(0\.22, 1, 0\.36, 1\) both;/.test(css))
-    check("reduced motion: no fade", /@media \(prefers-reduced-motion: reduce\) \{\s*html\.explore-scroll-settling \.explore-ground \{\s*animation: none;/.test(css))
+    /* Round 25: the fade is the reveal's alone (html.explore-scroll-revealing), for a return that was seen hidden; tests/explore25. */
+    check("reduced motion: no fade", /@media \(prefers-reduced-motion: reduce\) \{\s*html\.explore-scroll-revealing \.explore-ground \{\s*animation: none;/.test(css))
     check("held hidden only while the page is too short to stand at the place", /if \(scrollToSaved\(target\)\) return true\s*\n\s*setExploreHold\(true\)/.test(explore) && /html\.explore-scroll-restoring \.explore-ground \{[^}]*animation: none;/.test(css))
-    check("the fade starts as the page shows, also after a hold", /root\.classList\.remove\(SETTLE_CLASS\)\s*\n\s*void root\.offsetWidth/.test(explore))
+    check("the fade starts as the page shows, also after a hold", /root\.classList\.remove\(REVEAL_CLASS\)\s*\n\s*void root\.offsetWidth/.test(explore))
     check("the settle ends by itself", /EXPLORE_SETTLE_MS = 420/.test(explore))
     const script = boot.match(/= `([\s\S]*)`/)?.[1] ?? ""
     let parses = true

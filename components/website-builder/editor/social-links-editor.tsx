@@ -18,8 +18,9 @@ import { Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SOCIAL_ICONS } from "@/components/website-builder/theme/ThemeSocials"
 import { SOCIAL_PLATFORMS, socialFromInput, socialHref, takesHandle, type SocialKey } from "@/lib/website-builder/social-links"
+import { tt } from "@/lib/i18n/text"
 
-const LABEL: Partial<Record<SocialKey, string>> = { social_twitter: "X (Twitter)" }
+const LABEL: Partial<Record<SocialKey, string>> = { get social_twitter() { return tt("X (Twitter)") } }
 const nameOf = (key: SocialKey, label: string) => LABEL[key] ?? label
 
 export function SocialLinksEditor({
@@ -40,7 +41,7 @@ export function SocialLinksEditor({
   return (
     <div className="space-y-2" data-social-links-editor="">
       {shown.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">No social links yet. Add the platforms you are on and their icons show in your footer.</p>
+        <p className="text-[12px] text-muted-foreground">{tt("No social links yet. Add the platforms you are on and their icons show in your footer.")}</p>
       ) : null}
       {shown.map((key) => {
         const p = SOCIAL_PLATFORMS.find((x) => x.key === key)!
@@ -73,7 +74,7 @@ export function SocialLinksEditor({
               />
               <button
                 type="button"
-                aria-label={`Remove ${nameOf(key, p.label)}`}
+                aria-label={tt("Remove {name}", { name: nameOf(key, p.label) })}
                 onClick={() => {
                   onChange(key, "")
                   setAdding((a) => a.filter((k) => k !== key))
@@ -83,7 +84,7 @@ export function SocialLinksEditor({
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
-            {bad ? <p className="mt-1 text-[11px] text-red-600">That is not a link a visitor can open.</p> : null}
+            {bad ? <p className="mt-1 text-[11px] text-red-600">{tt("That is not a link a visitor can open.")}</p> : null}
           </div>
         )
       })}
@@ -120,7 +121,7 @@ export function SocialLinksEditor({
             <span aria-hidden className="flex h-4 w-4 items-center justify-center rounded-full border border-border">
               <Plus className="h-2.5 w-2.5" strokeWidth={2.5} />
             </span>
-            Add a platform
+            {tt("Add a platform")}
           </button>
         )
       ) : null}

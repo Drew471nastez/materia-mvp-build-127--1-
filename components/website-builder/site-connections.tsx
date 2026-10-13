@@ -42,6 +42,7 @@ import {
   type ConnectionMark,
   type ConnectionsBrief,
 } from "@/lib/agent-access/connection-mark"
+import { tt } from "@/lib/i18n/text"
 
 /* ── The channel ───────────────────────────────────────────────────────── */
 
@@ -218,7 +219,7 @@ export function ConnectionButton({
           ref={buttonRef}
           type="button"
           onClick={onOpen}
-          aria-label={mark.online ? mark.label : "Connections"}
+          aria-label={mark.online ? mark.label : tt("Connections")}
           data-connection={mark.kind}
           data-online={mark.online ? "" : undefined}
           className="relative h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] transition-colors shrink-0 active:scale-90"
@@ -336,12 +337,12 @@ export function LiveChangeNotice({
   /* A push arrives whole, from a person: said as a push, by whom when GitHub says. */
   const pusher = isGitHubName(batch.who) ? batch.who.split("·")[1]?.trim() ?? "" : null
   const title = !working
-    ? `Done, ${batch.count} ${batch.count === 1 ? "change" : "changes"}`
+    ? tt("Done, {count, plural, one {# change} other {# changes}}", { count: batch.count })
     : pusher === null
-      ? `${batch.who} is editing`
+      ? tt("{who} is editing", { who: batch.who })
       : pusher
-        ? `${pusher} pushed to GitHub`
-        : "A push from GitHub"
+        ? tt("{pusher} pushed to GitHub", { pusher })
+        : tt("A push from GitHub")
 
   const body = (
     <div
@@ -377,7 +378,7 @@ export function LiveChangeNotice({
             )}
           </li>
         ))}
-        {hidden > 0 && <li className="px-2 py-1 text-[12px] text-white/45">and {hidden} before</li>}
+        {hidden > 0 && <li className="px-2 py-1 text-[12px] text-white/45">{tt("and {hidden} before", { hidden })}</li>}
       </ul>
       {/* The loading line: a highlight crossing the bottom edge while changes
           keep coming. Moved by transform alone. */}

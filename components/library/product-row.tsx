@@ -1,5 +1,6 @@
 "use client"
 
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { ArrowDownToLine, ChevronDown, ExternalLink, FileText, Loader2, Mail, MoreHorizontal, Package, Receipt, Star } from "lucide-react"
@@ -45,8 +46,7 @@ function Thumb({ item, className }: { item: LibraryItem; className: string }) {
   return (
     <div className={`relative shrink-0 overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04] ${className}`}>
       {item.thumbnailUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
+        <SoftImg src={item.thumbnailUrl} width={72} sizes="(min-width: 640px) 72px, 64px" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center text-[#9ca3af]">
           <Package className="h-5 w-5" aria-hidden />

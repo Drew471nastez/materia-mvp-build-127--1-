@@ -21,6 +21,12 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
+  "tests/community-profile-j1.test.ts",
+  "tests/surfaces25.test.ts",
+  "tests/variants25.test.ts",
+  "tests/topbar25.test.ts",
+  "tests/post25.test.ts",
+  "tests/explore25.test.ts",
   "tests/proxy-auth-speed.test.ts",
   "tests/net-request.test.ts",
   "tests/live-speed-view.test.ts",
@@ -32,6 +38,7 @@ const SUITES = [
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",
+  "tests/builder25.test.ts",
   "tests/help23.test.ts",
   "tests/help-center.test.ts",
   "tests/select22.test.ts",
@@ -452,6 +459,7 @@ const SUITES = [
   "tests/store-settings-t.test.ts",
   "tests/taxes-t.test.ts",
   "tests/markets.test.ts",
+  "tests/visitors25.test.ts",
   "tests/compat-languages.test.ts",
   "tests/analytics-ad.test.ts",
   "tests/tax-settings-wiring.test.ts",
@@ -589,6 +597,8 @@ const SUITES = [
   "tests/marketing24.test.ts",
   "tests/partners24.test.ts",
   "tests/physical-ships-x1.test.ts",
+  /* Round 25 */
+  "tests/i18n25.test.ts",
 ]
 
 /**

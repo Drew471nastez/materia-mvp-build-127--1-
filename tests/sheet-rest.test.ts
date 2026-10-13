@@ -91,7 +91,7 @@ function main() {
   check(
     "the render draws the settled stop",
     /const held = dragging \|\| settle\.current\.active/.test(sheet) &&
-      /const renderY = held \? drag\.current\.currentY : open \? settledY : closedY/.test(sheet),
+      /const renderY = (waiting \? settledY : )?held \? drag\.current\.currentY : open \? settledY : closedY/.test(sheet),
   )
   check(
     "and the effect that moves the sheet reads the same answer",

@@ -31,6 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import { matches, type Choice } from "@/lib/ui/choice-match"
+import { tt } from "@/lib/i18n/text"
 
 export type { Choice }
 
@@ -213,7 +214,7 @@ export function ChoiceSearch({
           }
         }}
         placeholder={placeholder}
-        aria-label={`Search ${label.toLowerCase()}`}
+        aria-label={tt("Search {value}", { value: label.toLowerCase() })}
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
@@ -324,7 +325,7 @@ function ChoiceListBody({
             ]
           : shown.map(row)}
         {shown.length === 0 ? (
-          <p className={cn("px-3 py-3 text-[#6b7280]", compact ? "text-[15px]" : "text-[13px]")}>Nothing matches “{query.trim()}”</p>
+          <p className={cn("px-3 py-3 text-[#6b7280]", compact ? "text-[15px]" : "text-[13px]")}>{tt("Nothing matches “{value}”", { value: query.trim() })}</p>
         ) : null}
       </div>
     </div>
@@ -627,7 +628,7 @@ export function ChoiceDialog({
         <div className="flex h-12 items-center justify-between border-b border-[#eef0f2] pl-4 pr-2">
           <DialogTitle className="text-[15px] font-semibold text-[#1a1a2e]">{title}</DialogTitle>
           <DialogClose
-            aria-label="Close"
+            aria-label={tt("Close")}
             className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
           >
             <X className="h-4 w-4" aria-hidden />

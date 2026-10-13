@@ -21,6 +21,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -36,7 +37,7 @@ function check(label: string, ok: boolean, detail?: string) {
   }
 }
 
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const bar = read("components/navigation/route-loading-bar.tsx")
 const css = read("app/globals.css")
 const layout = read("app/(marketing)/layout.tsx")

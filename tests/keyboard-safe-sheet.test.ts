@@ -49,6 +49,7 @@
  * the focused field to its nearest scrollable ancestor and centres it, which
  * covers the sheet's own inner scroller once the sheet is the right size.
  */
+import { untt } from "./i18n-source"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 
@@ -73,7 +74,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(join(process.cwd(), dir))) {
@@ -346,7 +347,7 @@ function main() {
   check(
     "the website builder's sheet reads its keyboard through visibleKeyboard, and the floor only where nothing was reported",
     /visibleKeyboard\(\{ layoutHeight: box/.test(read("components/website-builder/mobile-editor-sheet.tsx")) &&
-      /* Round 17: an optional keyboardRoom is asked first, where it is given (the community's composer); the floor otherwise. */ /const keyboard = keyboardFor\(seen, (keyboardRoomRef\.current\?\.\(\) \?\? )?readPublishedKeyboardInset\(\)\)/.test(read("components/website-builder/mobile-editor-sheet.tsx")) &&
+      /* Round 17: an optional keyboardRoom is asked first, where it is given (the community's composer); the floor otherwise. */ /(const|let) keyboard = keyboardFor\(seen, (keyboardRoomRef\.current\?\.\(\) \?\? )?readPublishedKeyboardInset\(\)\)/.test(read("components/website-builder/mobile-editor-sheet.tsx")) &&
       /import \{ readPublishedKeyboardInset \} from "@\/lib\/ui\/keyboard-safe-sheet"/.test(read("components/website-builder/mobile-editor-sheet.tsx")),
   )
   check(

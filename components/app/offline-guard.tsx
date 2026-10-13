@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, type ReactNode } from "react"
 import { Wifi, RefreshCw } from "lucide-react"
 import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * OfflineGuard
@@ -76,9 +77,9 @@ export function OfflineGuard({ children }: { children: ReactNode }) {
             <StorelibLogo size={32} unoptimized className="mx-auto mb-3 block" />
           </div>
 
-          <h2 className="text-[20px] font-bold text-gray-900 mb-2 text-center">No internet connection</h2>
+          <h2 className="text-[20px] font-bold text-gray-900 mb-2 text-center">{tt("No internet connection")}</h2>
           <p className="text-sm text-gray-500 text-center max-w-xs mb-8 leading-relaxed">
-            Check your Wi‑Fi or mobile data and try again. Your data is safe.
+            {tt("Check your Wi‑Fi or mobile data and try again. Your data is safe.")}
           </p>
 
           <button
@@ -88,12 +89,12 @@ export function OfflineGuard({ children }: { children: ReactNode }) {
             className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-full text-sm font-medium active:scale-95 transition-transform disabled:opacity-60"
           >
             <RefreshCw className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`} />
-            {isRetrying ? "Checking…" : "Retry"}
+            {isRetrying ? tt("Checking…") : tt("Retry")}
           </button>
 
           {/* Subtle hint that it will auto-reconnect */}
           <p className="text-xs text-gray-400 mt-5 text-center">
-            Will reconnect automatically when you&rsquo;re back online.
+            {tt("Will reconnect automatically when you’re back online.")}
           </p>
         </div>
       )}

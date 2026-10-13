@@ -41,8 +41,10 @@ import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { liveVariant, physicalStock, type StockVariant } from "@/lib/physical/storefront-stock"
 import { orderLimits } from "@/lib/physical/order-limit"
 import { returnFactsHtml, returnsLine, siteCommerce } from "./site-commerce"
-import { productDelivery, shopFacts } from "@/lib/physical/storefront-facts"
+import { shopFacts } from "@/lib/physical/storefront-facts"
 import { productFaqs } from "@/lib/products/product-section-data"
+import { withPageFacts } from "@/lib/storelib-theme/compat/product-facts"
+import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -364,15 +366,18 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const found = draft ? await readDescription() : await heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null)
       const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
-      /* A shipped product's stock, as the native product page reads it: "Only 3 left" in a theme's inventory block (Website settings › Commerce can hide it), and the most the quantity picker may take. */
-      const shipped = physical && card.settings.kind === "physical"
-      const [stocked, delivery] = shipped
-        ? await Promise.all([compatStock(admin, creator.creatorId, card, siteCommerce(settings as Record<string, unknown>).showStockLeft), productDelivery(admin, creator.creatorId, card.id)])
-        : [card, null]
-      /* Where each option can be picked up, for the theme's pickup block (`variant.store_availabilities`). */
-      const withStock = delivery && Object.keys(delivery.pickup).length && Array.isArray(stocked.settings.variants)
-        ? { ...stocked, settings: { ...stocked.settings, variants: (stocked.settings.variants as unknown as Record<string, unknown>[]).map((v) => ({ ...v, pickup: delivery.pickup[String(v.id)] ?? [] })) } }
-        : stocked
+      /*
+        WHAT IS TRUE NOW ABOUT EACH VARIANT, read for this page by the rule
+        Storelib's own product section reads (lib/products/product-section-
+        data.ts): the variants on sale with their option values, sold out,
+        "Only N left" (Website settings › Commerce can hide it, at the store's
+        low stock line), Limit sales, a download's sales limit, Continue
+        selling, the SKU and where each can be picked up. Every picker of the
+        theme's page reads this one card (lib/storelib-theme/compat/
+        product-facts.ts).
+      */
+      const pageFacts = physical || card.settings.kind !== "physical" ? await pageFactsFor(admin, creator.creatorId, card.id, siteCommerce(settings as Record<string, unknown>).showStockLeft) : null
+      const withStock = withPageFacts(card, pageFacts)
       return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}) } }
     },
     /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
@@ -448,40 +453,6 @@ async function storeReturnFacts(admin: ReturnType<typeof createAdminClient>, cre
     return data ? returnFactsHtml({ enabled: data.returns_enabled !== false, windowDays: Number(data.return_window_days ?? 30) }) : ""
   } catch {
     return ""
-  }
-}
-
-/**
- * A product card with its variants' stock: how many are left when that is
- * few (only when Website settings › Commerce shows it), the low stock line,
- * and the most one order may take of each option (its stock held to Limit
- * sales), so Shopify's inventory block (`inventory_management`,
- * `inventory_quantity`) and quantity picker (`quantity_rule.max`) say what
- * Storelib's own product page does. Never throws: a card without stock
- * draws as before.
- */
-async function compatStock<T extends { id: string; settings: Record<string, unknown> }>(admin: ReturnType<typeof createAdminClient>, creatorId: string, card: T, showLeft = true): Promise<T> {
-  try {
-    const read = await readStock(admin, creatorId, card.id)
-    if (!read) return card
-    const { list, stock } = read
-    const cards = Array.isArray(card.settings.variants) ? (card.settings.variants as Record<string, unknown>[]) : []
-    const only = list.length === 1 ? stock.get(list[0].id) : undefined
-    const most = (n: number | undefined) => (typeof n === "number" && n < 999 ? n : null)
-    return {
-      ...card,
-      settings: {
-        ...card.settings,
-        low_stock_at: [...stock.values()][0]?.lowAt ?? null,
-        ...(only ? { ...(showLeft ? { left: only.left } : {}), max: most(only.maxQuantity) } : {}),
-        variants: cards.map((v) => {
-          const s = stock.get(String(v.id))
-          return s ? { ...v, ...(showLeft ? { left: s.left } : {}), max: most(s.maxQuantity) } : v
-        }),
-      },
-    }
-  } catch {
-    return card
   }
 }
 

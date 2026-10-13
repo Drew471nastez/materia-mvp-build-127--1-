@@ -30,6 +30,7 @@ import {
 } from "../lib/nav/buyer-tabs"
 import { isSellerProductPath } from "../lib/url-helpers"
 import { RESERVED_ROOT_SEGMENTS } from "../lib/routes/reserved-segments"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -37,7 +38,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 console.log("\nThe four tabs, in the owner's order")

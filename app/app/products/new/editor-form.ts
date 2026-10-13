@@ -16,6 +16,7 @@
 
 import { fieldRows, type CustomField } from "@/lib/products/custom-fields"
 import { isPosterName, isVideoUrl } from "@/lib/media/video"
+import { tt, msg } from "@/lib/i18n/text"
 
 export interface UploadedFile {
   id?: string
@@ -61,20 +62,20 @@ export interface FAQItem {
 }
 
 /** What a new product starts with: 3 defaults, up to 8 in all. */
-export const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
+export const DEFAULT_WHATS_INCLUDED = [msg("Instant download access"), msg("All included files"), msg("Lifetime access")]
 
 /* A product that ships starts with what a buyer of one asks: when it arrives and what if it doesn't fit. */
 export const PHYSICAL_WHATS_INCLUDED: string[] = []
 
 export const PHYSICAL_FAQS: FAQItem[] = [
-  { id: "physical-1", question: "When will my order arrive?", answer: "You'll see delivery options and times at checkout, and you'll get an email with tracking when it ships.", isDefault: true },
-  { id: "physical-2", question: "Can I return it?", answer: "Returns are set by the shop. You can ask for one from your order page.", isDefault: true },
+  { id: "physical-1", get question() { return tt("When will my order arrive?") }, get answer() { return tt("You'll see delivery options and times at checkout, and you'll get an email with tracking when it ships.") }, isDefault: true },
+  { id: "physical-2", get question() { return tt("Can I return it?") }, get answer() { return tt("Returns are set by the shop. You can ask for one from your order page.") }, isDefault: true },
 ]
 
 export const DEFAULT_FAQS: FAQItem[] = [
-  { id: "default-1", question: "How do I access my purchase?", answer: "After checkout, download immediately on the download page. You'll also receive an email with the download link.", isDefault: true },
-  { id: "default-2", question: "Is there a refund policy?", answer: "Refund policies are set by individual creators. Check product info or contact the seller for details.", isDefault: true },
-  { id: "default-3", question: "How long do I have access?", answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.", isDefault: true },
+  { id: "default-1", get question() { return tt("How do I access my purchase?") }, get answer() { return tt("After checkout, download immediately on the download page. You'll also receive an email with the download link.") }, isDefault: true },
+  { id: "default-2", get question() { return tt("Is there a refund policy?") }, get answer() { return tt("Refund policies are set by individual creators. Check product info or contact the seller for details.") }, isDefault: true },
+  { id: "default-3", get question() { return tt("How long do I have access?") }, get answer() { return tt("You have lifetime access to all purchased content. Once you buy, it's yours forever.") }, isDefault: true },
 ]
 
 /*
@@ -84,13 +85,20 @@ export const DEFAULT_FAQS: FAQItem[] = [
   So a course starts with its own, and a switch between the two kinds swaps
   them while they are still the untouched defaults (swapDefaults).
 */
-export const COURSE_WHATS_INCLUDED = ["Every lesson, to watch at your own pace", "Your place kept in each lesson", "Lifetime access"]
+export const COURSE_WHATS_INCLUDED = [msg("Every lesson, to watch at your own pace"), msg("Your place kept in each lesson"), msg("Lifetime access")]
 
 export const COURSE_FAQS: FAQItem[] = [
-  { id: "default-1", question: "How do I watch the course?", answer: "After checkout the course is in your library. Lessons play in your browser and in the Storelib app, and each one picks up where you left off.", isDefault: true },
+  { id: "default-1", get question() { return tt("How do I watch the course?") }, get answer() { return tt("After checkout the course is in your library. Lessons play in your browser and in the Storelib app, and each one picks up where you left off.") }, isDefault: true },
   DEFAULT_FAQS[1],
-  { id: "default-3", question: "How long do I have access?", answer: "For good. Every lesson stays in your library, including the ones added later.", isDefault: true },
+  { id: "default-3", get question() { return tt("How long do I have access?") }, get answer() { return tt("For good. Every lesson stays in your library, including the ones added later.") }, isDefault: true },
 ]
+
+/** The default lines in the dashboard's language: a new product is written in its creator's. */
+const said = (lines: readonly string[]): string[] => {
+  const out = lines.map((line) => tt(line))
+  /* In English the words are the list's own, so the list itself is kept (callers compare the defaults by identity). */
+  return out.every((line, i) => line === lines[i]) ? (lines as string[]) : out
+}
 
 function sameList<T>(a: T[], b: T[], key: (x: T) => string): boolean {
   return a.length === b.length && a.every((x, i) => key(x) === key(b[i]))
@@ -98,7 +106,7 @@ function sameList<T>(a: T[], b: T[], key: (x: T) => string): boolean {
 
 /** The new product's lists for a kind; for a switch of kind, the other kind's defaults become this one's, and anything the creator wrote stays. */
 export function swapDefaults(kind: "digital" | "course", whatsIncluded: string[], faqs: FAQItem[]): { whatsIncluded: string[]; faqs: FAQItem[] } {
-  const [from, fromFaqs, to, toFaqs] = kind === "course" ? [DEFAULT_WHATS_INCLUDED, DEFAULT_FAQS, COURSE_WHATS_INCLUDED, COURSE_FAQS] : [COURSE_WHATS_INCLUDED, COURSE_FAQS, DEFAULT_WHATS_INCLUDED, DEFAULT_FAQS]
+  const [from, fromFaqs, to, toFaqs] = kind === "course" ? [said(DEFAULT_WHATS_INCLUDED), DEFAULT_FAQS, said(COURSE_WHATS_INCLUDED), COURSE_FAQS] : [said(COURSE_WHATS_INCLUDED), COURSE_FAQS, said(DEFAULT_WHATS_INCLUDED), DEFAULT_FAQS]
   const faqKey = (f: FAQItem) => `${f.question}\n${f.answer}`
   return {
     whatsIncluded: sameList(whatsIncluded, from, (x) => x) ? to : whatsIncluded,
@@ -296,7 +304,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       mediaItems: [],
       digitalFiles: [],
       variants: [],
-      whatsIncluded: course ? COURSE_WHATS_INCLUDED : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : DEFAULT_WHATS_INCLUDED,
+      whatsIncluded: course ? said(COURSE_WHATS_INCLUDED) : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : said(DEFAULT_WHATS_INCLUDED),
       faqs: course ? COURSE_FAQS : startAs === "physical" ? PHYSICAL_FAQS : DEFAULT_FAQS,
       customFields: [],
       limitSalesEnabled: false,
@@ -343,7 +351,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       ...(a.scan_status ? { scan_status: a.scan_status } : {}),
     })),
     variants: variantsOf(variants),
-    whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : DEFAULT_WHATS_INCLUDED,
+    whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : said(DEFAULT_WHATS_INCLUDED),
     faqs,
     customFields: fieldRows(product.custom_fields),
     limitSalesEnabled: typeof loaded.sales?.limit === "number",

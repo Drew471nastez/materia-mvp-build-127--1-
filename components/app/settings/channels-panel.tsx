@@ -17,6 +17,7 @@ import { Globe, Plus, Compass, UserRound, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { MAX_CHANNELS, channelKey, type Channel } from "@/lib/store/channels"
+import { tt } from "@/lib/i18n/text"
 
 type Setup = { channels: Channel[]; defaultKey: string | null; ready: boolean }
 
@@ -44,16 +45,16 @@ export function ChannelsPanel() {
 
   return (
     <div className="space-y-4 sm:space-y-6" data-channels="">
-      {!setup.ready ? <Notice tone="amber">Sales channels need their database update (SQL parts 109 and 111). Until they run, every product is on every channel.</Notice> : null}
+      {!setup.ready ? <Notice tone="amber">{tt("Sales channels need their database update (SQL parts 109 and 111). Until they run, every product is on every channel.")}</Notice> : null}
 
       <Card
-        title="Sales channels"
-        description="Where your products are listed. Take a product off a channel from its own page; its link keeps working."
+        title={tt("Sales channels")}
+        description={tt("Where your products are listed. Take a product off a channel from its own page; its link keeps working.")}
         help="channels"
         action={
           <button type="button" className={cn(BTN_SECONDARY, "gap-1.5")} onClick={() => setEditing("new")} disabled={!setup.ready || setup.channels.length >= MAX_CHANNELS} data-create-channel="">
             <Plus className="h-4 w-4" aria-hidden />
-            Create channel
+            {tt("Create channel")}
           </button>
         }
       >
@@ -69,12 +70,12 @@ export function ChannelsPanel() {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{c.name}</span>
-                    {!own ? <span className="shrink-0 rounded-full bg-[#f3f4f6] px-2 py-0.5 text-[11.5px] font-medium text-[#4b5563]">Built in</span> : null}
-                    {!c.enabled ? <span className="shrink-0 rounded-full bg-[#f3f4f6] px-2 py-0.5 text-[11.5px] font-medium text-[#9ca3af]">Off</span> : null}
+                    {!own ? <span className="shrink-0 rounded-full bg-[#f3f4f6] px-2 py-0.5 text-[11.5px] font-medium text-[#4b5563]">{tt("Built in")}</span> : null}
+                    {!c.enabled ? <span className="shrink-0 rounded-full bg-[#f3f4f6] px-2 py-0.5 text-[11.5px] font-medium text-[#9ca3af]">{tt("Off")}</span> : null}
                   </span>
                   {c.description ? <span className="mt-0.5 block truncate text-[12.5px] text-[#6b7280]">{c.description}</span> : null}
                 </span>
-                <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{c.off ? `${c.off} off` : "All products"}</span>
+                <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{c.off ? tt("{off} off", { off: c.off }) : tt("All products")}</span>
               </>
             )
             return (
@@ -92,8 +93,8 @@ export function ChannelsPanel() {
         </ul>
       </Card>
 
-      <Card title="New products" description="The channels a product starts on when you make it. You can change it on the product.">
-        <Field label="List new products on" htmlFor="channel-default">
+      <Card title={tt("New products")} description={tt("The channels a product starts on when you make it. You can change it on the product.")}>
+        <Field label={tt("List new products on")} htmlFor="channel-default">
           <SelectInput
             id="channel-default"
             value={setup.defaultKey ?? ""}
@@ -109,10 +110,10 @@ export function ChannelsPanel() {
               })
             }}
           >
-            <option value="">Every channel</option>
+            <option value="">{tt("Every channel")}</option>
             {enabled.map((c) => (
               <option key={channelKey(c)} value={channelKey(c)}>
-                {c.name} only
+                {tt("{name} only", { name: c.name })}
               </option>
             ))}
           </SelectInput>
@@ -155,34 +156,34 @@ function ChannelForm({ channel, onClose, send }: { channel: Channel | "new" | nu
     <Modal
       open={!!channel}
       onClose={onClose}
-      title={isNew ? "Create channel" : "Edit channel"}
+      title={isNew ? tt("Create channel") : tt("Edit channel")}
       footer={
         <div className="flex w-full items-center gap-2">
           {!isNew && id ? (
             <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void run("DELETE", { id })}>
-              Remove
+              {tt("Remove")}
             </button>
           ) : null}
           <div className="ml-auto flex gap-2">
             <button type="button" className={BTN_SECONDARY} onClick={onClose} disabled={busy}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" className={BTN_PRIMARY} disabled={busy || !name.trim()} onClick={() => void run(isNew ? "POST" : "PUT", { id, name: name.trim(), description: description.trim() || null, enabled })}>
-              {busy ? "Saving" : isNew ? "Create channel" : "Save"}
+              {busy ? tt("Saving") : isNew ? tt("Create channel") : tt("Save")}
             </button>
           </div>
         </div>
       }
     >
       <div className="space-y-3" data-channel-form="">
-        <Field label="Name" htmlFor="channel-name">
-          <TextInput id="channel-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Saturday market" />
+        <Field label={tt("Name")} htmlFor="channel-name">
+          <TextInput id="channel-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder={tt("Saturday market")} />
         </Field>
-        <Field label="Description" htmlFor="channel-description" hint="Optional. What it's for, for you and your team.">
+        <Field label={tt("Description")} htmlFor="channel-description" hint={tt("Optional. What it's for, for you and your team.")}>
           <TextInput id="channel-description" value={description} maxLength={300} onChange={(e) => setDescription(e.target.value)} />
         </Field>
-        <Toggle label="On" description="Off, it stays on your list and on your products, and isn't offered for new ones." checked={enabled} onChange={setEnabled} />
-        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">A channel of your own is for keeping track: Storelib doesn't show anything there.</p>
+        <Toggle label={tt("On")} description={tt("Off, it stays on your list and on your products, and isn't offered for new ones.")} checked={enabled} onChange={setEnabled} />
+        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("A channel of your own is for keeping track: Storelib doesn't show anything there.")}</p>
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>

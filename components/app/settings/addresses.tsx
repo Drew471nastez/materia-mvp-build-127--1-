@@ -35,6 +35,7 @@ import { openExternal } from "@/lib/native-bridge"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrlDisplay, getWebsiteUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export type SettingsWebsite = { installId: string | null; name: string | null; handle: string | null }
 
@@ -84,8 +85,8 @@ function Row({
           <>
             <button
               type="button"
-              aria-label={`Copy the ${label.toLowerCase()} address`}
-              title={copied ? "Copied" : "Copy"}
+              aria-label={tt("Copy the {value} address", { value: label.toLowerCase() })}
+              title={copied ? tt("Copied") : tt("Copy")}
               onClick={async () => {
                 if (await copyText(url)) {
                   setCopied(true)
@@ -96,7 +97,7 @@ function Row({
             >
               {copied ? <Check className="h-4 w-4 text-[#15803d]" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
             </button>
-            <button type="button" aria-label={`Open the ${label.toLowerCase()}`} title="Open" onClick={() => openExternal(ownOpen(url))} className={ICON_BUTTON}>
+            <button type="button" aria-label={tt("Open the {value}", { value: label.toLowerCase() })} title={tt("Open")} onClick={() => openExternal(ownOpen(url))} className={ICON_BUTTON}>
               <ExternalLink className="h-4 w-4" aria-hidden />
             </button>
           </>
@@ -137,42 +138,42 @@ export function AddressList({
     () =>
       editor
         ? [
-            { label: "Edit website", href: editor },
-            { label: "Domains", href: `${editor}?settings=domains`, separatorBefore: true },
+            { label: tt("Edit website"), href: editor },
+            { label: tt("Domains"), href: `${editor}?settings=domains`, separatorBefore: true },
             { label: "SEO", href: `${editor}?settings=seo` },
-            { label: "Settings", href: `${editor}?settings=general` },
+            { label: tt("Settings"), href: `${editor}?settings=general` },
           ]
         : [],
     [editor],
   )
   return (
     <div data-address-list="" className="divide-y divide-[#f0f1f3] border-t border-[#f0f1f3]">
-      <Row label="Creator page" display={name ? getStoreUrlDisplay(name) : "Choose a username"} url={name ? getStoreShareUrl(name) : null}>
+      <Row label={tt("Creator page")} display={name ? getStoreUrlDisplay(name) : tt("Choose a username")} url={name ? getStoreShareUrl(name) : null}>
         <Link href="/creator-page" className={TEXT_BUTTON}>
-          Edit
+          {tt("Edit")}
         </Link>
       </Row>
-      <Row label="OnePage" display={name ? getLinksUrlDisplay(name) : "Choose a username"} url={name ? getLinksShareUrl(name) : null}>
+      <Row label="OnePage" display={name ? getLinksUrlDisplay(name) : tt("Choose a username")} url={name ? getLinksShareUrl(name) : null}>
         <Link href="/app/onepage" className={TEXT_BUTTON}>
-          Edit
+          {tt("Edit")}
         </Link>
       </Row>
-      <Row label="Website" display={site ? site.display : "Not published yet"} url={site ? site.url : null}>
+      <Row label={tt("Website")} display={site ? site.display : tt("Not published yet")} url={site ? site.url : null}>
         {editor ? (
           <ResponsiveActionMenu
-            title="Website"
+            title={tt("Website")}
             menuWidth="w-48"
             items={siteMenu}
             trigger={
-              <button type="button" data-address-menu="" aria-label="Edit the website" className={TEXT_BUTTON}>
-                Edit
+              <button type="button" data-address-menu="" aria-label={tt("Edit the website")} className={TEXT_BUTTON}>
+                {tt("Edit")}
                 <ChevronDown className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
               </button>
             }
           />
         ) : (
           <Link href="/app/website-builder" className={TEXT_BUTTON}>
-            Set up
+            {tt("Set up")}
           </Link>
         )}
       </Row>

@@ -28,6 +28,7 @@ import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe
 import { getStripePromise } from "@/app/checkout/parts/stripe-loader"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/community/member/ui"
+import { tt } from "@/lib/i18n/text"
 
 type Phase = { kind: "form" } | { kind: "confirming" } | { kind: "done" } | { kind: "error"; message: string }
 
@@ -61,7 +62,7 @@ export function BuyProgram({ className, ...props }: BuyProgramProps) {
     <>
       <button type="button" className={className} onClick={() => setOpen(true)} data-buy-program={props.programId}>
         <Lock className="h-4 w-4" aria-hidden />
-        Buy for {props.priceLabel}
+        {tt("Buy for {priceLabel}", { priceLabel: props.priceLabel })}
       </button>
       <ProgramCheckoutSheet {...props} open={open} onClose={() => setOpen(false)} />
     </>
@@ -88,7 +89,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
     const res = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin" }).catch(() => null)
     const body = (await res?.json().catch(() => null)) as { clientSecret?: string; sessionId?: string; error?: string } | null
     if (!res?.ok || !body?.clientSecret) {
-      const message = body?.error || "The payment form did not load. Try again."
+      const message = body?.error || tt("The payment form did not load. Try again.")
       setPhase({ kind: "error", message })
       throw new Error(message)
     }
@@ -109,7 +110,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
       if (res && res.status !== 409) break
       await new Promise((r) => setTimeout(r, 1200))
     }
-    setPhase({ kind: "error", message: "Your payment went through. The program opens in a moment: refresh the page if it does not." })
+    setPhase({ kind: "error", message: tt("Your payment went through. The program opens in a moment: refresh the page if it does not.") })
     router.refresh()
   }, [base, router])
 
@@ -123,7 +124,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
         if (!busy) onClose()
       }}
       phone={phone}
-      label={`Buy ${title}`}
+      label={tt("Buy {title}", { title })}
       onOpenAutoFocus={(e) => e.preventDefault()}
       className="flex max-h-[min(860px,calc(100dvh-48px))] w-full max-w-[520px] flex-col gap-0 overflow-hidden rounded-2xl p-0"
       sheet={{ height: "calc(var(--vv-h, 100dvh) * 0.92)", maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)", dismissible: !busy, aboveKeyboard: false }}
@@ -132,7 +133,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
         <div className="shrink-0 border-b border-[#eef0f2] px-5 pb-3.5 pt-1 sm:px-6 sm:pt-5">
           <SheetDialogTitle className="truncate pr-8 text-[17px] font-semibold leading-6 text-[#1a1a2e]">{title}</SheetDialogTitle>
           <p className="mt-0.5 truncate text-[13.5px] text-[#6b7280]">
-            <span className="font-semibold tabular-nums text-[#1a1a2e]">{priceLabel}</span> · one payment · in {communityName}
+            <span className="font-semibold tabular-nums text-[#1a1a2e]">{priceLabel}</span> · {tt("one payment · in {communityName}", { communityName })}
           </p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white" data-program-checkout-body>
@@ -140,13 +141,13 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
             <Done title={title} onClose={onClose} />
           ) : phase.kind === "error" ? (
             <div className="px-6 py-10 text-center">
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">That did not work</p>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("That did not work")}</p>
               <p className="mx-auto mt-1 max-w-[320px] text-[14px] leading-6 text-[#6b7280]" role="alert">
                 {phase.message}
               </p>
               <div className="mt-5 flex justify-center gap-2">
                 <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-                  Close
+                  {tt("Close")}
                 </button>
                 <button
                   type="button"
@@ -156,7 +157,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
                     setAttempt((n) => n + 1)
                   }}
                 >
-                  Try again
+                  {tt("Try again")}
                 </button>
               </div>
             </div>
@@ -169,7 +170,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
               ) : null}
               {busy ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-white/85" aria-live="polite">
-                  <p className="text-[14px] font-medium text-[#1a1a2e]">Opening your program</p>
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Opening your program")}</p>
                 </div>
               ) : null}
             </div>
@@ -186,10 +187,10 @@ function Done({ title, onClose }: { title: string; onClose: () => void }) {
       <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#1a1a2e] text-white">
         <Check className="h-6 w-6" strokeWidth={2.5} aria-hidden />
       </span>
-      <p className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">It is yours</p>
-      <p className="mx-auto mt-1 max-w-[320px] text-[14px] leading-6 text-[#6b7280]">{title} is in your Learn now, ready when you are.</p>
+      <p className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">{tt("It is yours")}</p>
+      <p className="mx-auto mt-1 max-w-[320px] text-[14px] leading-6 text-[#6b7280]">{tt("{title} is in your Learn now, ready when you are.", { title })}</p>
       <button type="button" className={`${BTN_PRIMARY} mt-6 h-11 w-full max-w-[280px] sm:h-10`} onClick={onClose}>
-        Start the first lesson
+        {tt("Start the first lesson")}
       </button>
     </div>
   )

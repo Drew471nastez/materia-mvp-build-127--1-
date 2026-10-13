@@ -2,13 +2,18 @@ import { cookies } from "next/headers"
 import { pageUser } from "@/lib/auth/page-user"
 import { DEMO_COOKIE, demoTokenValid } from "@/lib/payouts-demo/gate"
 import { PayoutsDemo, PayoutsDemoGate } from "@/components/app/payouts-demo/payouts-demo"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export const metadata = {
-  title: "Payouts demo",
-  robots: { index: false, follow: false },
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Payouts demo"),
+    robots: { index: false, follow: false },
+  }
 }
 
 /**

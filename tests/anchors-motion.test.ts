@@ -35,6 +35,7 @@ import { LINK_CATEGORIES, linkCategoryOf, linkMenu, sectionLinkTargets, sectionT
 import { editorPageKeyOf, editorPagePath, resolveEditorHref } from "../lib/website-builder/editor-navigation"
 import { themeStylesheet } from "../lib/website-builder/theme-css"
 import type { ThemeSettingsValues } from "../lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -43,7 +44,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label); console.log(`  FAIL  ${label}${detail !== undefined ? `: ${JSON.stringify(detail)}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 /* A landing page as the builder stores it. The pricing section was saved
    with the id "pricing" by an older AI build, which is what "/#pricing"

@@ -22,6 +22,7 @@
  */
 
 import { fieldProblems } from "./merge-fields"
+import { tt } from "@/lib/i18n/text"
 
 export type TriggerType = "new_subscriber" | "purchase" | "first_purchase" | "abandoned_checkout"
 export type WaitUnit = "minutes" | "hours" | "days"
@@ -105,10 +106,10 @@ export interface FlowRecord {
  * agreed to hear from the creator are sent anything, whatever the flow says.
  */
 export const TRIGGERS: Record<TriggerType, { name: string; sentence: string; marketing: boolean; purchase: boolean }> = {
-  new_subscriber: { name: "Joins your list", sentence: "Someone joins your email list", marketing: false, purchase: false },
-  purchase: { name: "Buys a product", sentence: "Someone buys from you", marketing: false, purchase: true },
-  first_purchase: { name: "First order", sentence: "Someone buys from you for the first time", marketing: false, purchase: true },
-  abandoned_checkout: { name: "Leaves checkout", sentence: "Someone starts checkout and does not pay", marketing: true, purchase: false },
+  new_subscriber: { name: "Joins your list", get sentence() { return tt("Someone joins your email list") }, marketing: false, purchase: false },
+  purchase: { name: "Buys a product", get sentence() { return tt("Someone buys from you") }, marketing: false, purchase: true },
+  first_purchase: { name: "First order", get sentence() { return tt("Someone buys from you for the first time") }, marketing: false, purchase: true },
+  abandoned_checkout: { name: "Leaves checkout", get sentence() { return tt("Someone starts checkout and does not pay") }, marketing: true, purchase: false },
 }
 
 /** The order a person meets them in: joining, checkout, a first order, any order. */
@@ -141,10 +142,10 @@ export function audienceOf(trigger: TriggerType, config: TriggerConfig | null | 
 
 /** `phrase` finishes "Continue only if ...". `short` is the check in a list of steps. */
 export const CONDITIONS: Record<ConditionCheck, { label: string; phrase: string; short: string; needsEmailBefore: boolean }> = {
-  no_purchase_since_entry: { label: "Has not bought anything since entering", phrase: "they have not bought anything since entering", short: "only if they have not bought since", needsEmailBefore: false },
-  purchased_since_entry: { label: "Has bought something since entering", phrase: "they have bought something since entering", short: "only if they bought since", needsEmailBefore: false },
-  opened_previous_email: { label: "Opened the email before this", phrase: "they opened the email before this", short: "only if they opened it", needsEmailBefore: true },
-  not_opened_previous_email: { label: "Did not open the email before this", phrase: "they did not open the email before this", short: "only if they did not open it", needsEmailBefore: true },
+  no_purchase_since_entry: { get label() { return tt("Has not bought anything since entering") }, get phrase() { return tt("they have not bought anything since entering") }, get short() { return tt("only if they have not bought since") }, needsEmailBefore: false },
+  purchased_since_entry: { get label() { return tt("Has bought something since entering") }, get phrase() { return tt("they have bought something since entering") }, get short() { return tt("only if they bought since") }, needsEmailBefore: false },
+  opened_previous_email: { get label() { return tt("Opened the email before this") }, get phrase() { return tt("they opened the email before this") }, get short() { return tt("only if they opened it") }, needsEmailBefore: true },
+  not_opened_previous_email: { get label() { return tt("Did not open the email before this") }, get phrase() { return tt("they did not open the email before this") }, get short() { return tt("only if they did not open it") }, needsEmailBefore: true },
 }
 
 export function isConditionCheck(v: unknown): v is ConditionCheck {
@@ -167,8 +168,10 @@ export function waitMs(step: Pick<WaitStep, "config">): number {
 export function waitText(step: Pick<WaitStep, "config">): string {
   const n = step.config.amount
   const unit = step.config.unit
-  const word = unit === "minutes" ? "minute" : unit === "hours" ? "hour" : "day"
-  return `${n} ${word}${n === 1 ? "" : "s"}`
+  /* One whole message per unit, so each language can bend its own word. */
+  if (unit === "minutes") return tt("{n, plural, one {# minute} other {# minutes}}", { n })
+  if (unit === "hours") return tt("{n, plural, one {# hour} other {# hours}}", { n })
+  return tt("{n, plural, one {# day} other {# days}}", { n })
 }
 
 function asUnit(v: unknown): WaitUnit {
@@ -262,10 +265,10 @@ export function entryRule(trigger: TriggerType, config: TriggerConfig | null | u
 }
 
 export function entryText(trigger: TriggerType, rule: EntryRule): string {
-  if (trigger === "first_purchase") return "Their first order only"
-  if (rule.mode === "once") return "Once per person"
-  if (rule.mode === "each") return trigger === "purchase" ? "Every order" : "Every time"
-  return `Again after ${rule.days} day${rule.days === 1 ? "" : "s"}`
+  if (trigger === "first_purchase") return tt("Their first order only")
+  if (rule.mode === "once") return tt("Once per person")
+  if (rule.mode === "each") return trigger === "purchase" ? tt("Every order") : tt("Every time")
+  return tt("Again after {days, plural, one {# day} other {# days}}", { days: rule.days })
 }
 
 /**
@@ -333,33 +336,33 @@ const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g
 export function problemsOf(trigger: string, steps: FlowStep[], opts: { fields?: boolean } = {}): Problem[] {
   const checkFields = opts.fields !== false
   const out: Problem[] = []
-  if (!isTriggerType(trigger)) out.push({ stepId: null, message: "Choose what starts this flow." })
-  if (steps.length === 0) out.push({ stepId: null, message: "Add at least one email." })
-  if (steps.length > MAX_STEPS) out.push({ stepId: null, message: `A flow can have up to ${MAX_STEPS} steps.` })
-  if (steps.length > 0 && !steps.some((s) => s.type === "email")) out.push({ stepId: null, message: "Add at least one email. Without one this flow sends nothing." })
+  if (!isTriggerType(trigger)) out.push({ stepId: null, message: tt("Choose what starts this flow.") })
+  if (steps.length === 0) out.push({ stepId: null, message: tt("Add at least one email.") })
+  if (steps.length > MAX_STEPS) out.push({ stepId: null, message: tt("A flow can have up to {maxSteps} steps.", { maxSteps: MAX_STEPS }) })
+  if (steps.length > 0 && !steps.some((s) => s.type === "email")) out.push({ stepId: null, message: tt("Add at least one email. Without one this flow sends nothing.") })
   steps.forEach((s, i) => {
     if (s.type === "email") {
-      if (!s.config.subject.trim()) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} needs a subject.` })
-      else if (s.config.subject.length > MAX_SUBJECT) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} has a subject over ${MAX_SUBJECT} characters.` })
-      if (!textOf(s.config.body) && !/<img\b/i.test(s.config.body)) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} is empty.` })
-      if (s.config.body.length > MAX_BODY) out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)} is too long to send.` })
+      if (!s.config.subject.trim()) out.push({ stepId: s.id, message: tt("Email {count} needs a subject.", { count: emailNumber(steps, s.id) }) })
+      else if (s.config.subject.length > MAX_SUBJECT) out.push({ stepId: s.id, message: tt("Email {count} has a subject over {maxSubject} characters.", { count: emailNumber(steps, s.id), maxSubject: MAX_SUBJECT }) })
+      if (!textOf(s.config.body) && !/<img\b/i.test(s.config.body)) out.push({ stepId: s.id, message: tt("Email {count} is empty.", { count: emailNumber(steps, s.id) }) })
+      if (s.config.body.length > MAX_BODY) out.push({ stepId: s.id, message: tt("Email {count} is too long to send.", { count: emailNumber(steps, s.id) }) })
       if (checkFields && isTriggerType(trigger)) {
         for (const p of fieldProblems(`${s.config.subject} ${s.config.preview_text ?? ""} ${s.config.body}`, trigger)) {
-          out.push({ stepId: s.id, message: `Email ${emailNumber(steps, s.id)}: ${p}` })
+          out.push({ stepId: s.id, message: tt("Email {count}: {p}", { count: emailNumber(steps, s.id), p }) })
         }
       }
     } else if (s.type === "wait") {
-      if (!(s.config.amount >= 1)) out.push({ stepId: s.id, message: "A wait needs a length of at least 1." })
-      else if (waitMs(s) > MAX_WAIT_DAYS * UNIT_MS.days) out.push({ stepId: s.id, message: `A wait can be up to ${MAX_WAIT_DAYS} days.` })
+      if (!(s.config.amount >= 1)) out.push({ stepId: s.id, message: tt("A wait needs a length of at least 1.") })
+      else if (waitMs(s) > MAX_WAIT_DAYS * UNIT_MS.days) out.push({ stepId: s.id, message: tt("A wait can be up to {maxWaitDays} days.", { maxWaitDays: MAX_WAIT_DAYS }) })
     } else if (s.type === "condition") {
       if (CONDITIONS[s.config.check].needsEmailBefore && !emailBefore(steps, s.id)) {
-        out.push({ stepId: s.id, message: "This check looks at the email before it, and there is none." })
+        out.push({ stepId: s.id, message: tt("This check looks at the email before it, and there is none.") })
       }
-      if (i === steps.length - 1) out.push({ stepId: s.id, message: "A check at the end does nothing. Add an email after it, or remove it." })
+      if (i === steps.length - 1) out.push({ stepId: s.id, message: tt("A check at the end does nothing. Add an email after it, or remove it.") })
     }
   })
   const last = steps[steps.length - 1]
-  if (last && last.type === "wait") out.push({ stepId: last.id, message: "A wait at the end does nothing. Add an email after it, or remove it." })
+  if (last && last.type === "wait") out.push({ stepId: last.id, message: tt("A wait at the end does nothing. Add an email after it, or remove it.") })
   return out
 }
 
@@ -387,9 +390,9 @@ export function timeline(steps: FlowStep[]): Array<{ stepId: string; when: strin
       elapsed += waitMs(s)
       continue
     }
-    const when = elapsed === 0 ? "Right away" : `After ${durationText(elapsed)}`
-    if (s.type === "email") out.push({ stepId: s.id, when, what: `Email: ${s.config.subject.trim() || "No subject yet"}` })
-    else out.push({ stepId: s.id, when, what: `Only if ${CONDITIONS[s.config.check].phrase}` })
+    const when = elapsed === 0 ? tt("Right away") : tt("After {elapsed}", { elapsed: durationText(elapsed) })
+    if (s.type === "email") out.push({ stepId: s.id, when, what: `Email: ${s.config.subject.trim() || tt("No subject yet")}` })
+    else out.push({ stepId: s.id, when, what: tt("Only if {phrase}", { phrase: CONDITIONS[s.config.check].phrase }) })
   }
   return out
 }
@@ -404,15 +407,15 @@ export function durationText(ms: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
   const d = Math.floor(h / 24)
-  if (d > 0) return `${d} day${d === 1 ? "" : "s"} ${h % 24} h`
-  return `${h} h ${m} min`
+  if (d > 0) return tt("{d, plural, one {# day} other {# days}} {value} h", { d, value: h % 24 })
+  return tt("{h} h {m} min", { h, m })
 }
 
 /** The steps as words, in order: "Email, wait 3 days, email". */
 export function stepsText(steps: FlowStep[]): string {
-  const words = steps.map((s) => (s.type === "email" ? "email" : s.type === "wait" ? `wait ${waitText(s)}` : CONDITIONS[s.config.check].short))
+  const words = steps.map((s) => (s.type === "email" ? "email" : s.type === "wait" ? tt("wait {s}", { s: waitText(s) }) : CONDITIONS[s.config.check].short))
   const text = words.join(", ")
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "No steps yet"
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : tt("No steps yet")
 }
 
 /** "2 emails over 3 days", "1 email". */
@@ -420,7 +423,7 @@ export function stepSummary(steps: FlowStep[]): string {
   const emails = steps.filter((s) => s.type === "email").length
   const total = steps.reduce((sum, s) => sum + (s.type === "wait" ? waitMs(s) : 0), 0)
   const e = `${emails} email${emails === 1 ? "" : "s"}`
-  return total > 0 && emails > 1 ? `${e} over ${durationText(total)}` : total > 0 ? `${e} after ${durationText(total)}` : e
+  return total > 0 && emails > 1 ? tt("{e} over {total}", { e, total: durationText(total) }) : total > 0 ? tt("{e} after {total}", { e, total: durationText(total) }) : e
 }
 
 /* ─── New steps ─────────────────────────────────────────────────────── */

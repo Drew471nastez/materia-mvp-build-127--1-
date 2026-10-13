@@ -1545,10 +1545,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="p-3 space-y-1">
-          {/* The bar above the cover, first as it is on the page (lib/storefront/subscribe-bar-visibility.ts): its words, style, sticky and colours. */}
+          {/*
+            THE TOP BAR, FIRST IN THE LIST because it is first on the page: the
+            creator's newsletter bar (lib/storefront/subscribe-bar-visibility.ts).
+            No eye beside it: the page always draws it, so a switch here would
+            be a control that changes nothing.
+          */}
           {currentPageType === "shop" && (
             <div
-              data-section-row="subscribe-bar"
               className={cn(
                 "flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 cursor-pointer transition-all",
                 selectedSectionId === "subscribe-bar"
@@ -1556,6 +1560,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   : "border-transparent hover:bg-muted/50",
               )}
               onClick={() => setSelectedSectionId("subscribe-bar")}
+              data-section-row="subscribe-bar"
             >
               <span
                 className={cn(
@@ -1570,6 +1575,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               <span className="flex-1 text-sm font-medium">Subscribe Bar</span>
             </div>
           )}
+
           {/* Header - shop page */}
           {currentPageType === "shop" && (
             <div

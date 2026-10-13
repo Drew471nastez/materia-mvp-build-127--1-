@@ -63,6 +63,7 @@ import { normaliseTypedHref } from "@/lib/rich-text/policy"
 import { cleanStoredHtml, escapeAttr, escapeText, isBlankHtml } from "@/lib/rich-text/html"
 import type { BlockType } from "@/lib/email-campaigns/blocks"
 import { ScrollRow } from "@/components/app/rich-text/scroll-row"
+import { tt } from "@/lib/i18n/text"
 
 type Mode = "format" | "link" | "insert" | "fields" | "block"
 type Align = "left" | "center" | "right"
@@ -355,7 +356,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
   const applyLink = () => {
     if (!link) return
     const href = normaliseTypedHref(link.url)
-    if (!href) return setLink({ ...link, error: "Enter a web address, an email address or a phone number." })
+    if (!href) return setLink({ ...link, error: tt("Enter a web address, an email address or a phone number.") })
     const root = restore()
     if (!root) return
     const sel = document.getSelection()
@@ -454,28 +455,28 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
 
   const AlignIcon = active.align === "center" ? AlignCenter : active.align === "right" ? AlignRight : AlignLeft
   const tools: Array<{ key: string; label: string; icon: LucideIcon; on?: boolean } | "sep"> = [
-    { key: "h2", label: "Heading", icon: Heading2, on: active.block === "h2" || active.block === "h1" },
-    { key: "h3", label: "Subheading", icon: Heading3, on: active.block === "h3" },
+    { key: "h2", label: tt("Heading"), icon: Heading2, on: active.block === "h2" || active.block === "h1" },
+    { key: "h3", label: tt("Subheading"), icon: Heading3, on: active.block === "h3" },
     "sep",
-    { key: "bold", label: "Bold", icon: Bold, on: active.bold },
-    { key: "italic", label: "Italic", icon: Italic, on: active.italic },
-    { key: "underline", label: "Underline", icon: Underline, on: active.underline },
-    { key: "strike", label: "Strikethrough", icon: Strikethrough, on: active.strike },
+    { key: "bold", label: tt("Bold"), icon: Bold, on: active.bold },
+    { key: "italic", label: tt("Italic"), icon: Italic, on: active.italic },
+    { key: "underline", label: tt("Underline"), icon: Underline, on: active.underline },
+    { key: "strike", label: tt("Strikethrough"), icon: Strikethrough, on: active.strike },
     "sep",
-    { key: "ul", label: "Bulleted list", icon: List, on: active.list === "ul" },
-    { key: "ol", label: "Numbered list", icon: ListOrdered, on: active.list === "ol" },
-    { key: "quote", label: "Quote", icon: Quote, on: active.quote },
+    { key: "ul", label: tt("Bulleted list"), icon: List, on: active.list === "ul" },
+    { key: "ol", label: tt("Numbered list"), icon: ListOrdered, on: active.list === "ol" },
+    { key: "quote", label: tt("Quote"), icon: Quote, on: active.quote },
     "sep",
-    { key: "link", label: "Link", icon: Link2, on: active.link },
+    { key: "link", label: tt("Link"), icon: Link2, on: active.link },
   ]
   const tail: Array<{ key: string; label: string; icon: LucideIcon }> = [
-    { key: "clear", label: "Clear formatting", icon: RemoveFormatting },
-    { key: "undo", label: "Undo", icon: Undo2 },
-    { key: "redo", label: "Redo", icon: Redo2 },
+    { key: "clear", label: tt("Clear formatting"), icon: RemoveFormatting },
+    { key: "undo", label: tt("Undo"), icon: Undo2 },
+    { key: "redo", label: tt("Redo"), icon: Redo2 },
   ]
   const actions = blockId ? blockActions(blockId) : []
 
-  const back = (label = "Back to formatting") => (
+  const back = (label = tt("Back to formatting")) => (
     <button
       type="button"
       aria-label={label}
@@ -494,7 +495,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
   if (mode === "link" && link) {
     row = (
       <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-1 pr-2">
-        {back("Cancel the link")}
+        {back(tt("Cancel the link"))}
         <input
           autoFocus
           value={link.url}
@@ -510,7 +511,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
             }
           }}
           placeholder="example.com/page"
-          aria-label="Link address"
+          aria-label={tt("Link address")}
           aria-invalid={link.error ? true : undefined}
           title={link.error || undefined}
           inputMode="url"
@@ -521,11 +522,11 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
         />
         {link.editing ? (
           <button type="button" className={cn(WORD, "text-[#b42318]")} onMouseDown={keep} onClick={removeLink}>
-            Remove
+            {tt("Remove")}
           </button>
         ) : null}
         <button type="button" className={cn(WORD, "bg-[#1a1a2e] text-white active:bg-[#2a2a40] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#2a2a40]")} onMouseDown={keep} onClick={applyLink}>
-          {link.editing ? "Save" : "Add"}
+          {link.editing ? tt("Save") : tt("Add")}
         </button>
       </div>
     )
@@ -551,7 +552,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
     row = (
       <div className="flex min-w-0 flex-1 items-center px-1">
         {back()}
-        <span className="mr-1 hidden shrink-0 text-[12px] font-medium text-[#6b7280] md:inline">{mode === "insert" ? "Add" : mode === "fields" ? "Fill in" : "This text"}</span>
+        <span className="mr-1 hidden shrink-0 text-[12px] font-medium text-[#6b7280] md:inline">{mode === "insert" ? tt("Add") : mode === "fields" ? tt("Fill in") : tt("This text")}</span>
         <ScrollRow data-bar-strip="" className={STRIP} arrowClassName={ARROW}>
           {items.map((i) => (
             <button key={i.label} type="button" className={cn(WORD, i.danger && "text-[#b42318]")} onMouseDown={keep} onClick={i.run}>
@@ -565,7 +566,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
     row = (
       <>
         <div className="flex shrink-0 items-center border-r border-[#eef0f2] px-1">
-          <button type="button" aria-label="Add a block here" title="Add a block here" className={TOOL} onMouseDown={keep} onClick={() => setMode("insert")} data-bar-add="">
+          <button type="button" aria-label={tt("Add a block here")} title={tt("Add a block here")} className={TOOL} onMouseDown={keep} onClick={() => setMode("insert")} data-bar-add="">
             <Plus aria-hidden className="h-5 w-5 md:h-4 md:w-4" />
           </button>
         </div>
@@ -588,12 +589,12 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
               </button>
             ),
           )}
-          <button type="button" aria-label={`Alignment: ${active.align}`} title="Alignment" className={TOOL} onMouseDown={keep} onClick={cycleAlign} data-bar-align={active.align}>
+          <button type="button" aria-label={`Alignment: ${active.align}`} title={tt("Alignment")} className={TOOL} onMouseDown={keep} onClick={cycleAlign} data-bar-align={active.align}>
             <AlignIcon aria-hidden className="h-[18px] w-[18px] md:h-4 md:w-4" />
           </button>
           {SEP}
-          <button type="button" className={cn(WORD, "px-2.5 text-[#4b5563]")} title="The reader's name or email, filled in for each reader" onMouseDown={keep} onClick={() => setMode("fields")}>
-            Name
+          <button type="button" className={cn(WORD, "px-2.5 text-[#4b5563]")} title={tt("The reader's name or email, filled in for each reader")} onMouseDown={keep} onClick={() => setMode("fields")}>
+            {tt("Name")}
           </button>
           {SEP}
           {tail.map((t) => (
@@ -604,7 +605,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
           {actions.length ? (
             <>
               {SEP}
-              <button type="button" aria-label="Move, copy or delete this text" title="This text" className={TOOL} onMouseDown={keep} onClick={() => setMode("block")}>
+              <button type="button" aria-label={tt("Move, copy or delete this text")} title={tt("This text")} className={TOOL} onMouseDown={keep} onClick={() => setMode("block")}>
                 <MoreHorizontal aria-hidden className="h-5 w-5 md:h-4 md:w-4" />
               </button>
             </>
@@ -614,8 +615,8 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
           <div className="flex shrink-0 items-center border-l border-[#eef0f2] px-1">
             <button
               type="button"
-              aria-label="Done"
-              title="Done"
+              aria-label={tt("Done")}
+              title={tt("Done")}
               className={TOOL}
               onMouseDown={keep}
               onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()}
@@ -633,7 +634,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
     <div
       ref={barRef}
       role="toolbar"
-      aria-label="Formatting"
+      aria-label={tt("Formatting")}
       data-format-bar={phone ? "docked" : "top"}
       data-open={open ? "true" : "false"}
       inert={!open}

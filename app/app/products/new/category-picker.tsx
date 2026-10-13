@@ -41,6 +41,7 @@ import { hapticTap } from "@/lib/native-bridge"
 import { categoryGroupsFor, groupOfCategory, type CategoryKind } from "@/lib/products/category-groups"
 import { searchCategoriesByWords } from "@/lib/products/category-suggest"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -82,7 +83,7 @@ function useCategoryBrowser({ suggested, onPick, kind = "digital" }: { suggested
 
   const rows = useMemo<Row[]>(() => {
     let list: Row[]
-    if (found) list = (found.length ? found : [kind === "physical" ? "Other Physical Product" : "Other"]).map((c) => ({ kind: "option", category: c, detail: groupOfCategory(c) }))
+    if (found) list = (found.length ? found : [kind === "physical" ? tt("Other Physical Product") : tt("Other")]).map((c) => ({ kind: "option", category: c, detail: groupOfCategory(c) }))
     else if (level.group) {
       const group = GROUPS.find((g) => g.name === level.group)
       list = [{ kind: "back" }, ...(group?.categories ?? []).map((c): Row => ({ kind: "option", category: c, detail: null }))]
@@ -214,7 +215,7 @@ export function SuggestedTag({ className }: { className?: string }) {
         className,
       )}
     >
-      Suggested
+      {tt("Suggested")}
     </span>
   )
 }
@@ -259,7 +260,7 @@ function CategoryList({ browser, value, suggested, phone, listId }: { browser: B
       return (
         <div {...props} data-category-back="" className={cn(row, common, "text-[#4b5563]", hot && on, phone && "active:bg-[#f1f2f4]")}>
           <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">Back to All</span>
+          <span className="min-w-0 flex-1 truncate">{tt("Back to All")}</span>
         </div>
       )
     }
@@ -286,13 +287,13 @@ function CategoryList({ browser, value, suggested, phone, listId }: { browser: B
           ref={paneRef}
           id={listId}
           role="listbox"
-          aria-label={level.group ?? "Categories"}
+          aria-label={level.group ?? tt("Categories")}
           data-category-list=""
           className={cn("relative z-[1] h-full overflow-y-auto overscroll-contain bg-white", phone ? "pb-2" : "py-1.5")}
           style={{ touchAction: "pan-y" }}
         >
           {found && found.length === 0 ? (
-            <p className={phone ? "px-4 pb-1 pt-3 text-[14px] text-[#6b7280]" : "px-4 pb-1 pt-1.5 text-[13px] text-[#6b7280]"}>No category matches “{level.query.trim()}”</p>
+            <p className={phone ? "px-4 pb-1 pt-3 text-[14px] text-[#6b7280]" : "px-4 pb-1 pt-1.5 text-[13px] text-[#6b7280]"}>{tt("No category matches “{value}”", { value: level.query.trim() })}</p>
           ) : null}
           {level.group && !found ? (
             <>
@@ -355,13 +356,13 @@ function Chosen({ value, suggested, onClear }: { value: string; suggested: strin
       <span data-category-chip="" className={cn("inline-flex h-8 min-w-0 max-w-[calc(100%-44px)] items-center gap-1.5 rounded-lg px-2.5", CHIP_DEPTH)}>
         <span className="min-w-0 shrink truncate font-medium text-[#1a1a2e]">{value}</span>
         {/* The group, where there is room for it: on a phone the category alone reads whole. */}
-        {group ? <span className="min-w-0 shrink-[2] truncate text-[#6b7280] max-sm:hidden">in {group}</span> : null}
+        {group ? <span className="min-w-0 shrink-[2] truncate text-[#6b7280] max-sm:hidden">{tt("in {group}", { group })}</span> : null}
         {value === suggested ? <SuggestedTag /> : null}
       </span>
       <button
         type="button"
         data-category-clear=""
-        aria-label={`Clear category ${value}`}
+        aria-label={tt("Clear category {value}", { value })}
         onClick={onClear}
         className={cn(
           "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 after:absolute after:-inset-1.5 after:content-[''] hover:bg-[#eef0f2] hover:text-[#1a1a2e] active:bg-[#e9eaed] focus-visible:ring-[3px] focus-visible:ring-[rgba(17,24,39,0.1)] [-webkit-tap-highlight-color:transparent]",
@@ -457,14 +458,14 @@ export const CategoryPicker = React.memo(function CategoryPicker({
       <div data-category-field="">
         <button type="button" data-category-trigger="" aria-haspopup="dialog" aria-expanded={open} onClick={() => show(true)} className={cn(FIELD, "relative flex items-center focus:border-[#d9dbe0] focus:ring-0 focus-visible:border-[#9ca3af] focus-visible:ring-[3px] focus-visible:ring-[rgba(17,24,39,0.06)]")}>
           <Search aria-hidden className="absolute left-3 h-4 w-4 text-[#6b7280]" />
-          <span className="truncate text-[#9ca3af]">Search categories</span>
+          <span className="truncate text-[#9ca3af]">{tt("Search categories")}</span>
         </button>
         {value ? <Chosen value={value} suggested={suggested} onClear={onClear} /> : null}
         {/* Built while the editor is idle and kept between opens (BottomSheet keepMounted): its 37 groups and the search are already styled and laid out, so the tap only slides it up. */}
         <BottomSheet
           isOpen={open}
           onClose={() => show(false)}
-          label="Category"
+          label={tt("Category")}
           aboveKeyboard
           keepMounted
           fill
@@ -472,7 +473,7 @@ export const CategoryPicker = React.memo(function CategoryPicker({
           maxHeight="min(78dvh, 680px)"
           header={
             <div data-category-sheet="" className="px-4 pb-2 pt-2">
-              <p className="pb-3 text-[17px] font-semibold leading-6 text-[#1a1a2e]">Category</p>
+              <p className="pb-3 text-[17px] font-semibold leading-6 text-[#1a1a2e]">{tt("Category")}</p>
               <SheetSearch browser={browser} listId={listId} />
             </div>
           }
@@ -495,7 +496,7 @@ export const CategoryPicker = React.memo(function CategoryPicker({
               role="combobox"
               data-category-search=""
               data-category-trigger=""
-              aria-label="Search categories"
+              aria-label={tt("Search categories")}
               aria-expanded={open}
               aria-controls={open ? listId : undefined}
               aria-autocomplete="list"
@@ -504,7 +505,7 @@ export const CategoryPicker = React.memo(function CategoryPicker({
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              placeholder="Search categories"
+              placeholder={tt("Search categories")}
               value={browser.level.query}
               onFocus={() => show(true)}
               onMouseDown={() => { if (!open) show(true) }}
@@ -522,7 +523,7 @@ export const CategoryPicker = React.memo(function CategoryPicker({
             {browser.level.query ? (
               <button
                 type="button"
-                aria-label="Clear search"
+                aria-label={tt("Clear search")}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { browser.setQuery(""); inputRef.current?.focus() }}
                 className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#6b7280] outline-none hover:text-[#1a1a2e]"
@@ -572,10 +573,10 @@ function SheetSearch({ browser, listId }: { browser: Browser; listId: string }) 
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        aria-label="Search categories"
+        aria-label={tt("Search categories")}
         aria-controls={listId}
         aria-expanded
-        placeholder="Search categories"
+        placeholder={tt("Search categories")}
         value={q}
         onChange={(e) => browser.setQuery(e.target.value)}
         onKeyDown={browser.onKeyDown}
@@ -584,7 +585,7 @@ function SheetSearch({ browser, listId }: { browser: Browser; listId: string }) 
       {q ? (
         <button
           type="button"
-          aria-label="Clear search"
+          aria-label={tt("Clear search")}
           onClick={() => { browser.setQuery(""); ref.current?.focus() }}
           className="relative -mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#6b7280] outline-none after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e]"
         >

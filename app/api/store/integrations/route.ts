@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
-import { loadTracking, saveTrackerId } from "@/lib/store/tracking-server"
+import { loadGaStatus, loadTracking, saveTrackerId } from "@/lib/store/tracking-server"
 import { recordActivity } from "@/lib/activity/log-server"
 import { TRACKERS, type TrackerId } from "@/lib/store/tracking"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
@@ -13,13 +13,16 @@ export const dynamic = "force-dynamic"
  * Settings › Integrations: the analytics and ad pixel IDs on the store's
  * website (lib/store/tracking-server.ts). Every store, the owner alone.
  *
- *   GET                  the IDs saved
+ *   GET                  the IDs saved, and whether Google Analytics is receiving data
  *   PUT  { id, value }   set one (null or "" removes it)
  */
 export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
-  return physicalJson(await loadTracking(c.db, c.creatorId))
+  const loaded = await loadTracking(c.db, c.creatorId)
+  /* Google Analytics: is it receiving data, and when was it last checked (lib/store/tracking-server loadGaStatus). */
+  const ga = loaded.tracking.ga4 ? await loadGaStatus(c.db, c.creatorId, loaded.tracking.ga4).catch(() => null) : null
+  return physicalJson({ ...loaded, ga })
 }
 
 export async function PUT(request: Request) {

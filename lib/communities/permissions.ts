@@ -23,6 +23,7 @@
  * member whose row is active (lib/communities/server/context.ts).
  */
 import type { NotificationKind, NotifyLevel, Role } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 export const ROLE_RANK: Readonly<Record<Role, number>> = { member: 1, moderator: 2, admin: 3, owner: 4 }
 
@@ -110,19 +111,19 @@ export const STAFF_ROLES = ["admin", "moderator"] as const
 export type StaffRole = (typeof STAFF_ROLES)[number]
 
 export const PERMISSION_GROUPS = [
-  { key: "content", label: "Remove, restore, pin and close comments", detail: "On any post or comment by a member ranked below them.", actions: ["moderate_content", "pin", "lock"] },
-  { key: "feature", label: "Feature posts", detail: "Pick the posts shown first on the About page.", actions: ["feature"] },
-  { key: "members", label: "Mute, suspend, ban and remove members", detail: "And approve or decline requests to join.", actions: ["mute", "suspend", "ban", "remove_member", "approve_member"] },
-  { key: "reports", label: "Review reports", detail: "The report queue, held posts and join alarms.", actions: ["review_reports"] },
-  { key: "audit", label: "Read the audit log", detail: "Who did what, and when.", actions: ["view_audit"] },
-  { key: "announce", label: "Post announcements", detail: "And mention everyone at once.", actions: ["announce", "mention_everyone"] },
-  { key: "people", label: "Invite people and change roles", detail: "Invite links, member emails and roles below their own.", actions: ["manage_members", "change_role", "invite"] },
-  { key: "spaces", label: "Manage spaces", detail: "Add, rename, order and archive spaces.", actions: ["manage_spaces"] },
-  { key: "learn", label: "Manage Learn", detail: "Programs, modules and lessons.", actions: ["manage_classroom"] },
-  { key: "events", label: "Manage the calendar", detail: "Add, change and cancel events.", actions: ["manage_events"] },
-  { key: "tickets", label: "Price events and refund tickets", detail: "Set what an event costs, invite people free, and give money back.", actions: ["price_events", "refund_tickets"] },
-  { key: "settings", label: "Change settings", detail: "The page, features, points and levels, and archiving.", actions: ["manage_settings", "manage_gamification", "award_points", "archive"] },
-  { key: "analytics", label: "See analytics", detail: "Members, activity and revenue.", actions: ["view_analytics"] },
+  { key: "content", get label() { return tt("Remove, restore, pin and close comments") }, get detail() { return tt("On any post or comment by a member ranked below them.") }, actions: ["moderate_content", "pin", "lock"] },
+  { key: "feature", get label() { return tt("Feature posts") }, get detail() { return tt("Pick the posts shown first on the About page.") }, actions: ["feature"] },
+  { key: "members", get label() { return tt("Mute, suspend, ban and remove members") }, get detail() { return tt("And approve or decline requests to join.") }, actions: ["mute", "suspend", "ban", "remove_member", "approve_member"] },
+  { key: "reports", get label() { return tt("Review reports") }, get detail() { return tt("The report queue, held posts and join alarms.") }, actions: ["review_reports"] },
+  { key: "audit", get label() { return tt("Read the audit log") }, get detail() { return tt("Who did what, and when.") }, actions: ["view_audit"] },
+  { key: "announce", get label() { return tt("Post announcements") }, get detail() { return tt("And mention everyone at once.") }, actions: ["announce", "mention_everyone"] },
+  { key: "people", get label() { return tt("Invite people and change roles") }, get detail() { return tt("Invite links, member emails and roles below their own.") }, actions: ["manage_members", "change_role", "invite"] },
+  { key: "spaces", get label() { return tt("Manage spaces") }, get detail() { return tt("Add, rename, order and archive spaces.") }, actions: ["manage_spaces"] },
+  { key: "learn", get label() { return tt("Manage Learn") }, get detail() { return tt("Programs, modules and lessons.") }, actions: ["manage_classroom"] },
+  { key: "events", get label() { return tt("Manage the calendar") }, get detail() { return tt("Add, change and cancel events.") }, actions: ["manage_events"] },
+  { key: "tickets", get label() { return tt("Price events and refund tickets") }, get detail() { return tt("Set what an event costs, invite people free, and give money back.") }, actions: ["price_events", "refund_tickets"] },
+  { key: "settings", get label() { return tt("Change settings") }, get detail() { return tt("The page, features, points and levels, and archiving.") }, actions: ["manage_settings", "manage_gamification", "award_points", "archive"] },
+  { key: "analytics", get label() { return tt("See analytics") }, get detail() { return tt("Members, activity and revenue.") }, actions: ["view_analytics"] },
 ] as const satisfies readonly { key: string; label: string; detail: string; actions: readonly CommunityAction[] }[]
 
 export type PermissionKey = (typeof PERMISSION_GROUPS)[number]["key"]

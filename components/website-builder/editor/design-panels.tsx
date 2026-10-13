@@ -62,16 +62,17 @@ import { ColorChip } from "./color-chip"
 import { GRADIENT_PRESETS, GradientEditor } from "./gradient-editor"
 import { Collapse } from "./collapse"
 import { SECTION_ANIMATION_OPTIONS, isChromeType, themeAnimation, type SectionAnimation } from "@/lib/website-builder/section-anchors"
+import { tt } from "@/lib/i18n/text"
 
 /** The theme's animation in the words the section's own choices use. */
 const THEME_MOTION_LABEL: Record<SectionAnimation, string> = {
   none: "none",
   fade: "fade",
-  fade_up: "fade up",
+  get fade_up() { return tt("fade up") },
   zoom: "zoom",
-  slide_left: "from the right",
-  slide_right: "from the left",
-  blur: "blur in",
+  get slide_left() { return tt("from the right") },
+  get slide_right() { return tt("from the left") },
+  get blur() { return tt("blur in") },
   rise: "rise",
 }
 
@@ -182,7 +183,7 @@ function Swatch({ scheme, size = "md" }: { scheme: ColorScheme; size?: "sm" | "m
       )}
       style={{ background: scheme.gradient || scheme.background, color: scheme.heading }}
     >
-      Aa
+      {tt("Aa")}
     </span>
   )
 }
@@ -260,7 +261,7 @@ export function SchemePicker({
         style={{ background: active.gradient || active.background, color: active.heading }}
       >
         <span className="flex items-center gap-2.5 min-w-0">
-          <span className={cn("font-bold", size === "sm" ? "text-[13px]" : "text-[15px]")}>Aa</span>
+          <span className={cn("font-bold", size === "sm" ? "text-[13px]" : "text-[15px]")}>{tt("Aa")}</span>
           <span className={cn("font-medium truncate", size === "sm" ? "text-[12.5px]" : "text-[13px]")}>{active.name}</span>
         </span>
         {/**
@@ -325,7 +326,7 @@ export function SchemePicker({
                   onClick={() => { onChange(key); setOpen(false) }}
                   className="flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2.5 px-3 text-left"
                 >
-                  <span className="text-[15px] font-bold">Aa</span>
+                  <span className="text-[15px] font-bold">{tt("Aa")}</span>
                   <span className="truncate text-[13px] font-medium">{sc.name}</span>
                   {isActive && <Check className="ml-auto h-3.5 w-3.5 shrink-0 opacity-70" />}
                 </button>
@@ -335,7 +336,7 @@ export function SchemePicker({
                     onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(key) }}
                     className="mr-1.5 shrink-0 rounded-md border border-black/10 bg-white/90 px-2.5 py-1 text-[12px] font-medium text-gray-900 shadow-sm transition-colors hover:bg-white"
                   >
-                    Edit
+                    {tt("Edit")}
                   </button>
                 )}
               </div>
@@ -350,11 +351,11 @@ export function SchemePicker({
 // ── Per-section design ───────────────────────────────────────
 
 const OVERRIDE_ROWS: { label: string; keys: SchemeColorKey[] }[] = [
-  { label: "Background", keys: ["background"] },
-  { label: "Text", keys: ["text"] },
-  { label: "Heading", keys: ["heading"] },
-  { label: "Accent", keys: ["accent"] },
-  { label: "Border", keys: ["border"] },
+  { get label() { return tt("Background") }, keys: ["background"] },
+  { get label() { return tt("Text") }, keys: ["text"] },
+  { get label() { return tt("Heading") }, keys: ["heading"] },
+  { get label() { return tt("Accent") }, keys: ["accent"] },
+  { get label() { return tt("Border") }, keys: ["border"] },
 ]
 
 /**
@@ -369,21 +370,21 @@ const OVERRIDE_ROWS: { label: string; keys: SchemeColorKey[] }[] = [
  */
 export const BUTTON_COLOR_GROUPS: { label: string; parts: { key: SchemeColorKey; label: string }[] }[] = [
   {
-    label: "Primary button",
+    get label() { return tt("Primary button") },
     parts: [
-      { key: "primary_button_background", label: "Fill" },
-      { key: "primary_button_text", label: "Text" },
-      { key: "primary_button_hover_background", label: "Hover fill" },
-      { key: "primary_button_hover_text", label: "Hover text" },
+      { key: "primary_button_background", get label() { return tt("Fill") } },
+      { key: "primary_button_text", get label() { return tt("Text") } },
+      { key: "primary_button_hover_background", get label() { return tt("Hover fill") } },
+      { key: "primary_button_hover_text", get label() { return tt("Hover text") } },
     ],
   },
   {
-    label: "Secondary button",
+    get label() { return tt("Secondary button") },
     parts: [
-      { key: "secondary_button_background", label: "Fill" },
-      { key: "secondary_button_text", label: "Text" },
-      { key: "secondary_button_hover_background", label: "Hover fill" },
-      { key: "secondary_button_hover_text", label: "Hover text" },
+      { key: "secondary_button_background", get label() { return tt("Fill") } },
+      { key: "secondary_button_text", get label() { return tt("Text") } },
+      { key: "secondary_button_hover_background", get label() { return tt("Hover fill") } },
+      { key: "secondary_button_hover_text", get label() { return tt("Hover text") } },
     ],
   },
 ]
@@ -431,8 +432,8 @@ function ColorRow({
         <button
           type="button"
           onClick={onReset}
-          aria-label={`Put ${name.toLowerCase()} back to the scheme`}
-          title="Back to scheme"
+          aria-label={tt("Put {value} back to the scheme", { value: name.toLowerCase() })}
+          title={tt("Back to scheme")}
           className="flex h-7 w-7 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-sm:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <RotateCcw className="h-3.5 w-3.5" />
@@ -490,7 +491,7 @@ export function ButtonColorGroup({
         name={`${group.label} ${p.label.toLowerCase()}`}
         own={own}
         shown={shown}
-        hint={auto ? "Auto" : "Scheme"}
+        hint={auto ? tt("Auto") : tt("Scheme")}
         onChange={(c) => onApply(setOverride(settings, p.key, c))}
         onReset={() => onApply(setOverride(settings, p.key, ""))}
       />
@@ -550,7 +551,7 @@ export function SectionColorSetting({
       name={label}
       own={own}
       shown={own || fallback}
-      hint={follows ? "Scheme" : fallback ? "Default" : "Auto"}
+      hint={follows ? tt("Scheme") : fallback ? tt("Default") : tt("Auto")}
       onChange={(c) => onChange(c)}
       onReset={() => onChange(undefined)}
     />
@@ -558,31 +559,31 @@ export function SectionColorSetting({
 }
 
 const HEADING_STYLE_OPTIONS = [
-  { label: "Theme default", value: "" },
-  { label: "Heading 1", value: "h1" },
-  { label: "Heading 2", value: "h2" },
-  { label: "Heading 3", value: "h3" },
-  { label: "Heading 4", value: "h4" },
-  { label: "Custom", value: "custom" },
+  { get label() { return tt("Theme default") }, value: "" },
+  { get label() { return tt("Heading 1") }, value: "h1" },
+  { get label() { return tt("Heading 2") }, value: "h2" },
+  { get label() { return tt("Heading 3") }, value: "h3" },
+  { get label() { return tt("Heading 4") }, value: "h4" },
+  { get label() { return tt("Custom") }, value: "custom" },
 ]
 const BODY_STYLE_OPTIONS = [
-  { label: "Theme default", value: "" },
-  { label: "Body", value: "body" },
-  { label: "Body large", value: "body_large" },
-  { label: "Body small", value: "body_small" },
-  { label: "Custom", value: "custom" },
+  { get label() { return tt("Theme default") }, value: "" },
+  { get label() { return tt("Body") }, value: "body" },
+  { get label() { return tt("Body large") }, value: "body_large" },
+  { get label() { return tt("Body small") }, value: "body_small" },
+  { get label() { return tt("Custom") }, value: "custom" },
 ]
 const WEIGHT_OPTIONS = ["300", "400", "500", "600", "700", "800", "900"].map((w) => ({ label: w, value: w }))
 const FONT_ROLE_OPTIONS: { label: string; value: FontRole }[] = [
-  { label: "Heading font", value: "heading" },
-  { label: "Body font", value: "body" },
-  { label: "Accent font", value: "accent" },
+  { get label() { return tt("Heading font") }, value: "heading" },
+  { get label() { return tt("Body font") }, value: "body" },
+  { get label() { return tt("Accent font") }, value: "accent" },
 ]
 const TRANSFORM_OPTIONS: { label: string; value: TextTransform }[] = [
-  { label: "None", value: "none" },
-  { label: "Uppercase", value: "uppercase" },
-  { label: "Capitalize", value: "capitalize" },
-  { label: "Lowercase", value: "lowercase" },
+  { get label() { return tt("None") }, value: "none" },
+  { get label() { return tt("Uppercase") }, value: "uppercase" },
+  { get label() { return tt("Capitalize") }, value: "capitalize" },
+  { get label() { return tt("Lowercase") }, value: "lowercase" },
 ]
 
 /**
@@ -603,25 +604,25 @@ function TypeStyleFields({
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
-        <Select compact label="Font" value={value.font} onChange={(v) => set({ font: v as FontRole })} options={FONT_ROLE_OPTIONS} />
-        <Select compact label="Weight" value={value.weight} onChange={(v) => set({ weight: v })} options={WEIGHT_OPTIONS} />
+        <Select compact label={tt("Font")} value={value.font} onChange={(v) => set({ font: v as FontRole })} options={FONT_ROLE_OPTIONS} />
+        <Select compact label={tt("Weight")} value={value.weight} onChange={(v) => set({ weight: v })} options={WEIGHT_OPTIONS} />
       </div>
       <div>
-        <p className="text-sm font-medium text-foreground mb-1.5">Size</p>
+        <p className="text-sm font-medium text-foreground mb-1.5">{tt("Size")}</p>
         <div className="grid grid-cols-2 gap-2">
-          <NumberField label="Desktop" unit="px" min={8} max={200} value={value.size.desktop} onChange={(n) => set({ size: { ...value.size, desktop: n } })} />
-          <NumberField label="Phone" unit="px" min={8} max={200} value={value.size.mobile} onChange={(n) => set({ size: { ...value.size, mobile: n } })} />
+          <NumberField label={tt("Desktop")} unit="px" min={8} max={200} value={value.size.desktop} onChange={(n) => set({ size: { ...value.size, desktop: n } })} />
+          <NumberField label={tt("Phone")} unit="px" min={8} max={200} value={value.size.mobile} onChange={(n) => set({ size: { ...value.size, mobile: n } })} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <NumberField label="Line height" step={0.05} min={0.8} max={3} value={value.line_height} onChange={(n) => set({ line_height: n })} />
-        <NumberField label="Letter spacing" unit="px" step={0.1} min={-5} max={20} value={value.letter_spacing} onChange={(n) => set({ letter_spacing: n })} />
+        <NumberField label={tt("Line height")} step={0.05} min={0.8} max={3} value={value.line_height} onChange={(n) => set({ line_height: n })} />
+        <NumberField label={tt("Letter spacing")} unit="px" step={0.1} min={-5} max={20} value={value.letter_spacing} onChange={(n) => set({ letter_spacing: n })} />
       </div>
-      <Select compact label="Transform" value={value.transform} onChange={(v) => set({ transform: v as TextTransform })} options={TRANSFORM_OPTIONS} />
+      <Select compact label={tt("Transform")} value={value.transform} onChange={(v) => set({ transform: v as TextTransform })} options={TRANSFORM_OPTIONS} />
       {!isDefault && (
         <button type="button" onClick={() => onChange({ ...base, size: { ...base.size } })} className="text-[12px] font-medium text-foreground/70 hover:text-foreground flex items-center gap-1">
           <RotateCcw className="h-3 w-3" />
-          Reset style
+          {tt("Reset style")}
         </button>
       )}
     </div>
@@ -682,7 +683,7 @@ export function SectionDesignPanel({
   const animation = typeof s.animation === "string" && SECTION_ANIMATION_OPTIONS.some((o) => o.value === s.animation) ? s.animation : "theme"
   const themeMotion = themeAnimation(asRecord(theme))
   const animationOptions = SECTION_ANIMATION_OPTIONS.map((o) =>
-    o.value === "theme" ? { ...o, label: `Same as theme (${THEME_MOTION_LABEL[themeMotion]})` } : o,
+    o.value === "theme" ? { ...o, label: tt("Same as theme ({themeMotion})", { themeMotion: THEME_MOTION_LABEL[themeMotion] }) } : o,
   )
 
   if (!support.colorScheme && !support.typography && !showAnimation) return null
@@ -691,7 +692,7 @@ export function SectionDesignPanel({
     <div className={cn(!compact && "border-b border-border px-3.5 py-3.5", "space-y-3.5")}>
       {support.colorScheme && (
         <div className="space-y-3">
-          <p className={LABEL}>Color scheme</p>
+          <p className={LABEL}>{tt("Color scheme")}</p>
           <SchemePicker
             value={typeof s.color_scheme === "string" ? s.color_scheme : ""}
             onChange={(key) => onUpdateSetting("color_scheme", key)}
@@ -728,10 +729,10 @@ export function SectionDesignPanel({
                 onClick={() => setCustomizeOpen((o) => !o)}
                 className="w-full flex items-center justify-between gap-2 overflow-hidden px-3 h-11 md:h-9 text-[13px]"
               >
-                <span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors</span>
+                <span className="shrink-0 whitespace-nowrap font-medium text-foreground">{tt("Advanced colors")}</span>
                 <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
                   <span className="truncate">
-                    {overridden > 0 ? `${overridden} customized` : "Using scheme"}
+                    {overridden > 0 ? tt("{overridden} customized", { overridden }) : tt("Using scheme")}
                   </span>
                   <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180")} />
                 </span>
@@ -746,7 +747,7 @@ export function SectionDesignPanel({
                       <>
                         {general.length > 0 && (
                           <div className="pt-2.5" data-color-group="General">
-                            <p className={GROUP_HEADING}>General</p>
+                            <p className={GROUP_HEADING}>{tt("General")}</p>
                             {general.map(({ key, label }) => {
                               const own = effectiveOverride(s, key)
                               return (
@@ -756,7 +757,7 @@ export function SectionDesignPanel({
                                   name={label}
                                   own={own}
                                   shown={own || colors.base[key]}
-                                  hint="Scheme"
+                                  hint={tt("Scheme")}
                                   onChange={(c) => applySettings(setOverride(s, key, c))}
                                   onReset={() => applySettings(setOverride(s, key, ""))}
                                 />
@@ -779,7 +780,7 @@ export function SectionDesignPanel({
                         onClick={() => applySettings(resetOverrides(s))}
                         className="min-h-8 max-sm:min-h-10 px-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        Reset all to scheme
+                        {tt("Reset all to scheme")}
                       </button>
                     </div>
                   )}
@@ -793,14 +794,14 @@ export function SectionDesignPanel({
 
       {support.typography && (
         <div className="space-y-3">
-          <p className={LABEL}>Text</p>
-          <Select label="Heading style" value={headingStyle} onChange={(v) => onUpdateSetting("heading_style", v || undefined)} options={HEADING_STYLE_OPTIONS} />
+          <p className={LABEL}>{tt("Text")}</p>
+          <Select label={tt("Heading style")} value={headingStyle} onChange={(v) => onUpdateSetting("heading_style", v || undefined)} options={HEADING_STYLE_OPTIONS} />
           {headingStyle === "custom" && (
             <div className="rounded-lg border border-border p-3">
               <TypeStyleFields value={customHeading} base={typo.styles.h2} onChange={(next) => onUpdateSetting("custom_heading", stripTypeStyleDefaults(next, DEFAULT_TYPE_STYLES.h2))} />
             </div>
           )}
-          <Select label="Body style" value={bodyStyle} onChange={(v) => onUpdateSetting("body_style", v || undefined)} options={BODY_STYLE_OPTIONS} />
+          <Select label={tt("Body style")} value={bodyStyle} onChange={(v) => onUpdateSetting("body_style", v || undefined)} options={BODY_STYLE_OPTIONS} />
           {bodyStyle === "custom" && (
             <div className="rounded-lg border border-border p-3">
               <TypeStyleFields value={customBody} base={typo.styles.body} onChange={(next) => onUpdateSetting("custom_body", stripTypeStyleDefaults(next, DEFAULT_TYPE_STYLES.body))} />
@@ -811,7 +812,7 @@ export function SectionDesignPanel({
 
       {showAnimation && (
         <div className="space-y-3">
-          <p className={LABEL}>Animation</p>
+          <p className={LABEL}>{tt("Animation")}</p>
           <Select value={animation} onChange={(v) => onUpdateSetting("animation", v === "theme" ? undefined : v)} options={animationOptions} />
         </div>
       )}
@@ -868,7 +869,7 @@ export function ColorsPanel({
   const addScheme = () => {
     const key = `custom_${Date.now().toString(36)}`
     const n = Object.keys(schemes).length + 1
-    updateSetting("color_schemes", { ...own, [key]: stripSchemeDefaults(newSchemeFrom(current, `Scheme ${n}`), DEFAULT_COLOR_SCHEMES[FALLBACK_SCHEME_KEY]) })
+    updateSetting("color_schemes", { ...own, [key]: stripSchemeDefaults(newSchemeFrom(current, tt("Scheme {n}", { n })), DEFAULT_COLOR_SCHEMES[FALLBACK_SCHEME_KEY]) })
     setActive(key)
   }
 
@@ -898,7 +899,7 @@ export function ColorsPanel({
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
         <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        <p className="flex-1">Every section picks one of these schemes. Change a scheme here and every section using it changes with it.</p>
+        <p className="flex-1">{tt("Every section picks one of these schemes. Change a scheme here and every section using it changes with it.")}</p>
       </div>
 
       {/* The schemes */}
@@ -917,13 +918,13 @@ export function ColorsPanel({
             >
               <Swatch scheme={sc} />
               <span className="text-sm font-medium flex-1 text-left truncate">{sc.name}</span>
-              {key === defaultKey && <span className={cn("text-[10px] font-medium uppercase tracking-wider", isActive ? "text-white/70" : "text-muted-foreground")}>Default</span>}
+              {key === defaultKey && <span className={cn("text-[10px] font-medium uppercase tracking-wider", isActive ? "text-white/70" : "text-muted-foreground")}>{tt("Default")}</span>}
             </button>
           )
         })}
         <button type="button" onClick={addScheme} className="w-full h-10 flex items-center gap-2 px-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors">
           <Plus className="h-4 w-4" />
-          Add scheme
+          {tt("Add scheme")}
         </button>
       </div>
 
@@ -937,18 +938,18 @@ export function ColorsPanel({
             type="text"
             className={cn(INPUT, "flex-1 font-medium")}
             value={current.name}
-            aria-label="Scheme name"
+            aria-label={tt("Scheme name")}
             onChange={(e) => save({ ...current, name: e.target.value })}
             onBlur={(e) => { if (!e.target.value.trim()) save({ ...current, name: base.name }) }}
           />
         </div>
         <div className="flex items-center justify-between gap-3 text-[13px] text-foreground">
           <span>
-            Default for new sections
-            <span className="block text-[11px] text-muted-foreground">A section you add starts on this scheme.</span>
+            {tt("Default for new sections")}
+            <span className="block text-[11px] text-muted-foreground">{tt("A section you add starts on this scheme.")}</span>
           </span>
           <SettingSwitch
-            label="Default for new sections"
+            label={tt("Default for new sections")}
             checked={defaultKey === activeKey}
             onChange={(on) => updateSetting("default_color_scheme", on ? activeKey : FALLBACK_SCHEME_KEY)}
           />
@@ -971,11 +972,11 @@ export function ColorsPanel({
         {/* Gradient */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Gradient</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{tt("Gradient")}</p>
             <span className="flex items-center gap-2 text-[12px] text-muted-foreground">
-              Over the background
+              {tt("Over the background")}
               <SettingSwitch
-                label="Gradient over the background"
+                label={tt("Gradient over the background")}
                 checked={!!current.gradient}
                 onChange={(on) => save({ ...current, gradient: on ? GRADIENT_PRESETS[0].value : "" })}
               />
@@ -993,18 +994,18 @@ export function ColorsPanel({
           {isBuiltInScheme(activeKey) ? (
             <button type="button" disabled={!isDirty} onClick={() => save({ ...base })} className="text-[12px] font-medium text-foreground/70 hover:text-foreground disabled:opacity-40 flex items-center gap-1">
               <RotateCcw className="h-3 w-3" />
-              Reset to default
+              {tt("Reset to default")}
             </button>
           ) : confirmDelete ? (
             <span className="flex items-center gap-2 text-[12px]">
-              <span className="text-muted-foreground">Sections on it move to {schemes[defaultKey === activeKey ? FALLBACK_SCHEME_KEY : defaultKey].name}.</span>
-              <button type="button" onClick={deleteScheme} className="font-medium text-red-600 hover:text-red-700">Delete</button>
-              <button type="button" onClick={() => setConfirmDelete(false)} className="font-medium text-muted-foreground hover:text-foreground">Keep</button>
+              <span className="text-muted-foreground">{tt("Sections on it move to {name}.", { name: schemes[defaultKey === activeKey ? FALLBACK_SCHEME_KEY : defaultKey].name })}</span>
+              <button type="button" onClick={deleteScheme} className="font-medium text-red-600 hover:text-red-700">{tt("Delete")}</button>
+              <button type="button" onClick={() => setConfirmDelete(false)} className="font-medium text-muted-foreground hover:text-foreground">{tt("Keep")}</button>
             </span>
           ) : (
             <button type="button" onClick={() => setConfirmDelete(true)} className="text-[12px] font-medium text-foreground/70 hover:text-red-600 flex items-center gap-1">
               <Trash2 className="h-3 w-3" />
-              Delete scheme
+              {tt("Delete scheme")}
             </button>
           )}
         </div>
@@ -1014,10 +1015,10 @@ export function ColorsPanel({
         <div className="border-t border-border pt-3">
           {/* Same row, same three rules, before it is reported too. */}
           <button type="button" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((o) => !o)} className="w-full flex items-center justify-between gap-2 text-sm font-medium text-foreground">
-            <span className="min-w-0 truncate">Page colors</span>
+            <span className="min-w-0 truncate">{tt("Page colors")}</span>
             <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", advancedOpen && "rotate-180")} />
           </button>
-          <p className="text-[11px] text-muted-foreground mt-1">The page behind the sections, the announcement bar and links outside any section.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{tt("The page behind the sections, the announcement bar and links outside any section.")}</p>
           {/* `pt-3` where the list had `mt-3`: the same 12px, inside the height the Collapse measures. */}
           <Collapse open={advancedOpen} onlyVisible innerClassName="space-y-4 pt-3">{advanced}</Collapse>
         </div>
@@ -1057,8 +1058,8 @@ export function TypographyPanel({
       <div className="space-y-4">{fonts}</div>
       <div className="h-px bg-border" />
       <div className="space-y-1">
-        <p className={LABEL}>Text styles</p>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">Sections use these by default. A section can pick a different style for its heading and body, or set its own.</p>
+        <p className={LABEL}>{tt("Text styles")}</p>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">{tt("Sections use these by default. A section can pick a different style for its heading and body, or set its own.")}</p>
       </div>
       <div className="space-y-1">
         {TYPE_STYLE_KEYS.map((key) => {
@@ -1078,12 +1079,12 @@ export function TypographyPanel({
                     textTransform: st.transform,
                   }}
                 >
-                  Aa
+                  {tt("Aa")}
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium text-foreground">{TYPE_STYLE_LABELS[key]}</span>
                   <span className="block text-[11px] text-muted-foreground truncate">
-                    {family} {st.weight} · {st.size.desktop}/{st.size.mobile}px · {st.line_height}
+                    {`${family} ${st.weight} · ${st.size.desktop}/${st.size.mobile}px · ${st.line_height}`}
                   </span>
                 </span>
                 {changed && <span className="h-1.5 w-1.5 rounded-full bg-[#8b5cf6] shrink-0" />}

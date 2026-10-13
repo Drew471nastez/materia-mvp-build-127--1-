@@ -29,10 +29,18 @@
  *   POP (phone)   the page leaving slides off to the right with a soft edge
  *                 over the page it returns to, which comes from a third of
  *                 the way left.
- *   COMPUTER      no slide across a wide window: the old page fades out
- *                 quickly as it moves 24px the way it goes, and only then the
- *                 new one fades in from the other side, so the two are never
- *                 seen through each other.
+ *   COMPUTER      no slide and no blank (round J, the owner: "When I click
+ *                 Visit page, I don't like that slide animation taking me
+ *                 there. Get rid of it, fully."). The old page stays where it
+ *                 is, fully drawn, until the new page is in the document and
+ *                 painted under it (its loading screen does not count), then
+ *                 the copy goes in a 100ms fade with nothing moving. Before,
+ *                 the copy faded out at once, so a page that came after its
+ *                 loading screen showed the plain loading colour for a dozen
+ *                 frames, and then came in sliding 28px from the right
+ *                 (components/profile/profile-arrival.tsx). A page that never
+ *                 comes is never waited on for more than WIDE_HOLD_CAP_MS.
+ *                 The same for the way back.
  *
  * <html> carries data-page-motion ("push" or "pop") while the copy moves,
  * and arrivalMotion() tells the page that lands in that same commit which way
@@ -53,11 +61,11 @@ export const PAGE_POP_MS = 320
 export const PAGE_MOTION_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /** How far the page underneath travels, as a share of the width: iOS moves it about a third. */
 export const PAGE_UNDER_SHIFT = 0.3
-/** On a computer: the short move both pages make, and how long the old one takes to fade. */
-export const PAGE_WIDE_SHIFT_PX = 24
-export const PAGE_WIDE_FADE_MS = 150
-/** On a computer the page coming waits this share of its move before it shows, so the two are never seen through each other. */
-export const PAGE_WIDE_HOLD = 0.3
+/** On a computer: how far the pages move (none), and how long the old page's copy takes to go once the new one is painted. */
+export const PAGE_WIDE_SHIFT_PX = 0
+export const PAGE_WIDE_FADE_MS = 100
+/** On a computer the old page is held over a page that has not come yet (its loading screen) for this long at most. */
+export const WIDE_HOLD_CAP_MS = 1200
 /** Where the whole width slides: phones, the pill's breakpoint. */
 export const PAGE_PHONE = "(max-width: 767px)"
 /** The attribute on <html> while a copy moves. */
@@ -69,6 +77,8 @@ export type PageMotion = "push" | "pop"
 
 let started: { motion: PageMotion; at: number; wide: boolean; width: number; move: Animation | null } | null = null
 let armed: { motion: PageMotion; at: number } | null = null
+/** On a computer: the copy held over the window until the page that replaces it has painted (or WIDE_HOLD_CAP_MS). */
+let wideHold: { release: () => void } | null = null
 
 const reduced = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 const phone = () => !!window.matchMedia?.(PAGE_PHONE).matches
@@ -163,17 +173,39 @@ export function holdPageMotion(el: HTMLElement | null | undefined, motion: PageM
     body.style.overflowX = bodyClip
     if (html.getAttribute(PAGE_MOTION_ATTR) === motion) html.removeAttribute(PAGE_MOTION_ATTR)
     if (started && started.motion === motion) started = null
+    if (wideHold === hold) wideHold = null
   }
-  const cap = window.setTimeout(done, ms + 1200)
+  const cap = window.setTimeout(done, (wide ? WIDE_HOLD_CAP_MS : 0) + ms + 1200)
   html.setAttribute(PAGE_MOTION_ATTR, motion)
+  /*
+    A COMPUTER: THE OLD PAGE, STILL, UNTIL THE NEW ONE IS PAINTED UNDER IT. Nothing moves and nothing fades yet: the copy is
+    the page as it stood. The page that arrives (arriveWithPageMotion) releases it; two frames later, when the new page has
+    been painted under it, the copy fades off in PAGE_WIDE_FADE_MS, opacity only. A page slow to come (its loading screen
+    first) is waited on for WIDE_HOLD_CAP_MS at most, then the copy fades off whatever is there.
+  */
+  let hold: { release: () => void } | null = null
+  if (wide) {
+    let going = false
+    const fadeOff = () => {
+      if (going || over) return
+      going = true
+      window.clearTimeout(waitCap)
+      try {
+        box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PAGE_WIDE_FADE_MS, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" }).finished.then(done, done)
+      } catch {
+        done()
+      }
+    }
+    const waitCap = window.setTimeout(fadeOff, WIDE_HOLD_CAP_MS)
+    hold = { release: () => requestAnimationFrame(() => requestAnimationFrame(fadeOff)) }
+    wideHold = hold
+    return done
+  }
   started = { motion, at: performance.now(), wide, width, move: null }
   try {
     const timing = { duration: ms, easing: PAGE_MOTION_EASE, fill: "forwards" as const }
     let move: Animation
-    if (wide) {
-      const to = motion === "push" ? -PAGE_WIDE_SHIFT_PX : PAGE_WIDE_SHIFT_PX
-      move = box.animate([{ translate: "0 0", opacity: 1 }, { translate: `${to}px 0`, opacity: 0 }], { ...timing, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
-    } else if (motion === "push") {
+    if (motion === "push") {
       /* The box's right edge is the new page's left edge on every frame; the copy inside drifts left a third as far. */
       move = box.animate([{ translate: "0 0" }, { translate: `${-width}px 0` }], timing)
       inner.animate([{ translate: "0 0" }, { translate: `${Math.round((1 - PAGE_UNDER_SHIFT) * width)}px 0` }], timing)
@@ -207,21 +239,22 @@ export function arrivalMotion(): { motion: PageMotion; wide: boolean; width: num
  * moved, so the caller plays nothing of its own.
  */
 export function arriveWithPageMotion(root: HTMLElement | null | undefined): boolean {
+  /*
+    A COMPUTER: the page is simply there, under the old page's copy, which goes once it has been painted. Its own landing
+    fade (html.nav-landing in app/globals.css, from 0) is ended here, or the two would be seen through each other.
+  */
+  const held = wideHold
+  if (held && root) {
+    wideHold = null
+    endLandingFade(root)
+    held.release()
+    return true
+  }
   const m = arrivalMotion()
-  if (!m || !root || typeof root.animate !== "function") return false
+  if (!m || m.wide || !root || typeof root.animate !== "function") return false
   try {
     let a: Animation
-    if (m.wide) {
-      const from = m.motion === "push" ? PAGE_WIDE_SHIFT_PX : -PAGE_WIDE_SHIFT_PX
-      a = root.animate(
-        [
-          { translate: `${from}px 0`, opacity: 0.001, offset: 0 },
-          { translate: `${Math.round(from * 0.6)}px 0`, opacity: 0.001, offset: PAGE_WIDE_HOLD },
-          { translate: "0 0", opacity: 1, offset: 1 },
-        ],
-        { duration: PAGE_POP_MS, easing: PAGE_MOTION_EASE },
-      )
-    } else if (m.motion === "push") {
+    if (m.motion === "push") {
       a = root.animate([{ translate: `${m.width}px 0` }, { translate: "0 0" }], { duration: PAGE_PUSH_MS, easing: PAGE_MOTION_EASE })
     } else {
       a = root.animate([{ translate: `${-Math.round(PAGE_UNDER_SHIFT * m.width)}px 0` }, { translate: "0 0" }], { duration: PAGE_POP_MS, easing: PAGE_MOTION_EASE })
@@ -238,5 +271,20 @@ export function arriveWithPageMotion(root: HTMLElement | null | undefined): bool
     return true
   } catch {
     return false
+  }
+}
+
+/** The page-wide landing fade (app-page-enter, html.nav-landing) on the arriving page and the boxes the rule names, ended. */
+function endLandingFade(root: HTMLElement) {
+  try {
+    const els = [root, ...Array.from(document.querySelectorAll<HTMLElement>("[data-member-profile],[data-storefront-root]"))]
+    for (const el of els) {
+      if (el.closest(`[${STILL_ATTR}]`)) continue
+      for (const a of el.getAnimations?.() ?? []) {
+        if ((a as Animation & { animationName?: string }).animationName === "app-page-enter") a.finish()
+      }
+    }
+  } catch {
+    /* A browser without getAnimations: the page fades as it always did. */
   }
 }

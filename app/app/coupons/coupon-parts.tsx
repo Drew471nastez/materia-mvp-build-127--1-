@@ -16,6 +16,7 @@ import { Check } from "lucide-react"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { cn } from "@/lib/utils"
 import { secondaryDepth } from "@/components/ui/depth-button"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * Near black, with the product editor's depth: a line of light on top, a
@@ -63,10 +64,10 @@ export function CouponSaveButton({ saving, disabled, onSave }: { saving: boolean
         saving && "cursor-default hover:bg-[#111113] active:bg-[#111113]",
       )}
     >
-      <span className={cn(saving && "opacity-0")}>Save</span>
+      <span className={cn(saving && "opacity-0")}>{tt("Save")}</span>
       {saving ? (
         <span aria-hidden className="absolute inset-0 flex items-center justify-center">
-          <ActivitySpinner size={18} label="Saving" className="text-white" />
+          <ActivitySpinner size={18} label={tt("Saving")} className="text-white" />
         </span>
       ) : null}
     </button>

@@ -64,6 +64,8 @@ import {
   type RangeValue,
   type Ymd,
 } from "@/lib/date-range/range"
+import { tt } from "@/lib/i18n/text"
+import { calendarWeekdays, formatDate, weekdayNames } from "@/lib/i18n/format"
 
 /* ── the look ───────────────────────────────────────────────────────────── */
 
@@ -290,7 +292,7 @@ function PresetList({
   onOpen: (step: "custom") => void
 }) {
   return (
-    <div role="menu" aria-label="Date range" onKeyDown={onRowsKey} className={compact ? "px-2 pb-2 pt-1" : "p-1.5"}>
+    <div role="menu" aria-label={tt("Date range")} onKeyDown={onRowsKey} className={compact ? "px-2 pb-2 pt-1" : "p-1.5"}>
       {PRESET_MENU.map((section, i) => (
         <React.Fragment key={i}>
           {i > 0 ? <PickerDivider compact={compact} /> : null}
@@ -316,7 +318,7 @@ function PresetList({
                 detail={value.preset === "custom" ? rangeLabel(value) : null}
                 onClick={() => onOpen("custom")}
               >
-                Custom range
+                {tt("Custom range")}
               </PickerRow>
             ),
           )}
@@ -328,8 +330,9 @@ function PresetList({
 
 /* ── the calendar ───────────────────────────────────────────────────────── */
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+/* The day and month names in the dashboard's language (lib/i18n/format), read when drawn. */
+/** "October 2026" / "octubre de 2026" / "Oktober 2026". */
+const monthYear = (y: number, m: number) => formatDate(Date.UTC(y, m, 15), { month: "long", year: "numeric", timeZone: "UTC" })
 
 /** Always six weeks, so every month is the same height and nothing below it moves. */
 function monthCells(y: number, m: number): (Ymd | null)[] {
@@ -374,11 +377,11 @@ function Month({
   return (
     <div className={cn("min-w-0", compact ? "w-full" : "w-[280px]")}>
       <div className={cn("grid grid-cols-7 pb-1.5 text-center font-medium text-[#8b8f98]", compact ? "text-[12px]" : "text-[11.5px]")} aria-hidden>
-        {WEEKDAYS.map((w) => (
-          <div key={w}>{compact ? w.slice(0, 1) : w.slice(0, 2)}</div>
+        {(compact ? weekdayNames("narrow") : calendarWeekdays()).map((w, i) => (
+          <div key={i}>{w}</div>
         ))}
       </div>
-      <div role="grid" aria-label={`${MONTHS_LONG[m]} ${y}`} className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(6, ${cell}px)` }} onMouseLeave={() => onHover(null)}>
+      <div role="grid" aria-label={monthYear(y, m)} className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(6, ${cell}px)` }} onMouseLeave={() => onHover(null)}>
         {cells.map((cellDay, i) => {
           /*
             Keyed by place, not by day, and every square has its band, its
@@ -451,7 +454,7 @@ function Month({
 /** "Dec 31, 2025": what a narrow date box shows, where the long form is cut off. */
 function shortDate(v: Ymd): string {
   const { y, m, d } = parts(v)
-  return `${MONTHS_LONG[m].slice(0, 3)} ${d}, ${y}`
+  return formatDate(Date.UTC(y, m, d), { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
 }
 
 function DateBox({ label, value, onCommit, compact }: { label: string; value: Ymd | null; onCommit: (v: Ymd) => void; compact: boolean }) {
@@ -475,7 +478,7 @@ function DateBox({ label, value, onCommit, compact }: { label: string; value: Ym
       <span className="text-[11px] font-medium text-[#6b7280]">{label}</span>
       <input
         value={text}
-        placeholder={compact ? "Mon D, YYYY" : "Month D, YYYY"}
+        placeholder={compact ? tt("Mon D, YYYY") : tt("Month D, YYYY")}
         inputMode="text"
         autoComplete="off"
         onChange={(e) => setText(e.target.value)}
@@ -638,7 +641,7 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
       <div className={cn(compact ? "px-4 pt-1" : "px-5 pt-4")}>
         <div className="flex items-end gap-2">
           <DateBox
-            label="Start"
+            label={tt("Start")}
             compact={compact}
             value={draft.start}
             onCommit={(v) => {
@@ -649,7 +652,7 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
             }}
           />
           <DateBox
-            label="End"
+            label={tt("End")}
             compact={compact}
             value={draft.end}
             onCommit={(v) => {
@@ -662,7 +665,7 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
         </div>
 
         <div className={cn("flex items-center justify-between", compact ? "mt-3" : "mt-4")}>
-          <button type="button" aria-label="Previous month" onClick={back} className={cn(monthNav, navSize)}>
+          <button type="button" aria-label={tt("Previous month")} onClick={back} className={cn(monthNav, navSize)}>
             <ChevronLeft className="h-4 w-4" strokeWidth={2.25} />
           </button>
           <div ref={labelsRef} className="flex flex-1 justify-around overflow-hidden">
@@ -672,12 +675,12 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
                 aria-live="polite"
                 className={cn("font-semibold tabular-nums text-[#1a1a2e]", compact ? "text-[15px]" : "text-[14px]")}
               >
-                {MONTHS_LONG[mo.m]} {mo.y}
+                {monthYear(mo.y, mo.m)}
               </span>
             ))}
           </div>
           {/* aria-disabled with the same look, not disabled: see the days above. */}
-          <button type="button" aria-label="Next month" aria-disabled={!canForward || undefined} onClick={forward} className={cn(monthNav, navSize, !canForward && "pointer-events-none opacity-35")}>
+          <button type="button" aria-label={tt("Next month")} aria-disabled={!canForward || undefined} onClick={forward} className={cn(monthNav, navSize, !canForward && "pointer-events-none opacity-35")}>
             <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
           </button>
         </div>
@@ -724,12 +727,12 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
       {!inline && (
         <div className={cn("flex items-center justify-between gap-3 border-t border-[#eef0f2]", compact ? "px-4 pb-1 pt-3" : "px-5 py-3")}>
           <p className={cn("min-w-0 truncate tabular-nums text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")} aria-live="polite">
-            {complete ? `${days} ${days === 1 ? "day" : "days"}` : draft.start ? "Pick the last day" : "Pick the first day"}
+            {complete ? tt("{days, plural, one {# day} other {# days}}", { days }) : draft.start ? tt("Pick the last day") : tt("Pick the first day")}
           </p>
           <div className="flex shrink-0 gap-2">
             {onBack ? (
               <button type="button" className={cn(secondaryBtn, compact ? "h-11 px-4 text-[15px]" : "h-8 px-3 text-[13px]")} onClick={onBack}>
-                Back
+                {tt("Back")}
               </button>
             ) : null}
             <button
@@ -738,7 +741,7 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
               disabled={!complete}
               onClick={() => complete && onApply({ start: draft.start as Ymd, end: draft.end as Ymd, preset: "custom" })}
             >
-              Apply
+              {tt("Apply")}
             </button>
           </div>
         </div>
@@ -937,7 +940,7 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       <>
         {trigger}
         {/* Kept, and built while the page is idle: the tap only slides it up. */}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Date range" keepMounted={onScreen} onClosed={onSheetClosed}>
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Date range")} keepMounted={onScreen} onClosed={onSheetClosed}>
           <PickerPanel value={value} today={today} firstDay={firstDay} compact onPick={pick} restart={restart} ahead={CUSTOM_AHEAD} />
         </BottomSheet>
       </>

@@ -24,7 +24,7 @@ import { SearchModal } from "../../header-search-modal"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
-import { useChargeNote, useMoney, useStorefront, useWord } from "../../theme/storefront-context"
+import { useMoney, useStorefront, useWord } from "../../theme/storefront-context"
 import { CartReturnsNote } from "../../theme/shop-commerce"
 import { lineKey } from "@/lib/website-builder/cart"
 import { cartPathFor, drawerCheckout } from "@/lib/website-builder/cart-checkout"
@@ -786,7 +786,6 @@ function CartDrawerInner({
   const w = useWord()
   /* Amounts in the visitor's market's currency, as the product cards show them; checkout charges the store's, and says so. */
   const money = useMoney()
-  const chargeNote = useChargeNote()
   /* Back from checkout lands on the cart in the page's language. */
   const cartPath = cartPathFor(useStorefront().language)
   /* Check out goes straight to the checkout (lib/website-builder/cart-checkout). */
@@ -996,7 +995,7 @@ function CartDrawerInner({
             >
               {w("view_cart")}
             </a>
-            {chargeNote && <p className="mt-1 text-center text-[12px] leading-snug opacity-70" data-currency-note="">{chargeNote}</p>}
+            {/* No "charged in USD" line in the cart (the owner): it is said at checkout, where the card is charged. */}
             {/* Website settings › Commerce › Returns line in the cart. */}
             <CartReturnsNote className="mt-1 text-center text-[12.5px] opacity-70" />
           </div>

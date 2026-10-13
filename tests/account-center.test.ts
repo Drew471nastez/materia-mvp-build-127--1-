@@ -24,6 +24,7 @@ import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, showsProfileHeader } f
 import { profileShareUrl } from "@/lib/profile/share-profile"
 import { BUYER_TABS, buyerTabFor } from "@/lib/nav/buyer-tabs"
 import { pushStateFrom } from "@/lib/account/push-state"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -37,7 +38,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   }
 }
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 console.log("\nEvery old /library address, and where it goes now")

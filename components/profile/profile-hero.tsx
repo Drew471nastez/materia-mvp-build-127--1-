@@ -73,7 +73,11 @@ export interface ProfileHeroPerson {
   name: string
   username: string | null
   avatarUrl: string | null
+  /** The cover drawn: their own, else their creator page's. */
   coverUrl: string | null
+  /** On your own profile: which of the two it is, for Edit profile (round J1). Left out, coverUrl is their own. */
+  ownCoverUrl?: string | null
+  pageCoverUrl?: string | null
   bio: string | null
   followers: number
   following: number
@@ -176,7 +180,8 @@ export function ProfileHero({
                     username={person.username}
                     bio={person.bio}
                     avatarUrl={person.avatarUrl}
-                    coverUrl={person.coverUrl}
+                    coverUrl={person.ownCoverUrl !== undefined ? person.ownCoverUrl : person.coverUrl}
+                    pageCoverUrl={person.pageCoverUrl ?? null}
                     usernameEditable={usernameEditable}
                   />
                 </div>

@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { APP_STATE_LABEL, ESSENTIALS, STORELIB_APPS, STORELIB_CATALOG_APPS, appStatesFrom, essentialIds, essentialsProgress, storelibApps, type AppFacts } from "@/lib/integrations/storelib-apps"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -20,7 +21,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const unknown: AppFacts = { paymentsReady: null, shippingRates: null, pickupOrLocal: null, taxRegions: null, reviewsOn: null, emailMarketing: null, domainLive: null, coupons: null, activeOffers: null, abandonedRecovery: null, requireAccount: null, moreMarkets: null, codeConnected: null }
 
@@ -76,7 +77,7 @@ console.log("\nThe directory\n")
   check("a search looks through everything whatever pill is on", /const shown = q\s*\? entries\.filter\(matches\)/.test(ui))
   check("on a phone one list of rows, from 640px a grid of cards", /divide-y divide-\[#f1f2f4\] overflow-hidden sm:grid sm:grid-cols-2/.test(ui) && /sm:h-full sm:flex-col/.test(ui))
   /* Changed on purpose (the owner: the pills were "buggy and glitchy"): no sliding thumb (it crossed wrapped rows diagonally, the words went white before it came), no fade on the cards; the pressed pill is dark in the same frame and still scrolled into view on a phone. */
-  check("the pills: dark in the same frame, no thumb, no card fade, the pressed pill scrolled into view", !/data-integration-pill-thumb/.test(ui) && !/placeThumb/.test(ui) && /on \? "border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white"/.test(ui) && !/translate3d\(0, 6px, 0\)/.test(ui) && /row\.scrollTo\(\{ left: to/.test(ui) && /reduced\(\)/.test(ui))
+  check("the pills: dark in the same frame, no thumb, no card fade, the pressed pill scrolled into view", !/data-integration-pill-thumb/.test(ui) && !/placeThumb/.test(ui) && /on \? "border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white"/.test(ui) && !/translate3d\(0, 6px, 0\)/.test(ui) && /list\.animate\(\[\{ opacity: 0\.55 \}, \{ opacity: 1 \}\], \{ duration: 140/.test(ui) && /row\.scrollTo\(\{ left: to/.test(ui) && /reduced\(\)/.test(ui))
   check("  every logo is fetched once when the directory opens, so a category's cards paint with theirs", /new Image\(\)/.test(ui) && !/loading="lazy"/.test(read("components/app/settings/integration-mark.tsx").split("export function MiniMark")[0]))
   check("a page: What it does on top, the rest closed under How it works and your data", />What it does</.test(ui) && /<details className="group border-t/.test(ui) && /How it works and your data/.test(ui) && /item\.lead \?\? item\.about\[0\]/.test(ui))
   const long = INTEGRATIONS.filter((i) => (i.lead ?? i.about[0]).length > 160).map((i) => i.id)

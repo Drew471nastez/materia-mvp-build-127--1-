@@ -18,6 +18,7 @@ import { cappedQuantity, missingColumn, overLimit, readOrderLimit } from "@/lib/
 import { barcodeProblem, barcodeTyped, compareAtProblem, countTyped, decimalTyped, moneyTyped, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { variantStock } from "@/lib/physical/storefront-stock"
 import { isStale, rememberCreated, rememberDeleted } from "@/lib/products/delete-client"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -26,7 +27,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const ed = read("app/app/products/new/product-editor.tsx")
 const cards = read("components/physical/product-cards.tsx")
 const options = read("components/physical/variant-options.tsx")

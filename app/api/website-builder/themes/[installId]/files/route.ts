@@ -5,7 +5,7 @@ import { editorContent, hasUnpublishedEdit, listVersions, sourceMap } from "@/li
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
+import { getDefaultFileContent, shownPath } from "@/lib/website-builder/theme-file-tree"
 import { compileThemeFile } from "@/lib/storelib-theme"
 import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
 import { timed } from "@/lib/perf/server-timing"
@@ -313,7 +313,7 @@ export async function DELETE(req: Request, { params }: Params) {
   if (m && !(path in DEFAULT_THEME_SOURCES) && searchParams.get("force") !== "1") {
     const usedBy = await pagesUsingSection(supabase, installId, m[1])
     if (usedBy.length) {
-      return NextResponse.json({ error: `${path} is used by ${usedBy.length} page${usedBy.length === 1 ? "" : "s"}`, used_by: usedBy }, { status: 409 })
+      return NextResponse.json({ error: `${shownPath(path)} is used by ${usedBy.length} page${usedBy.length === 1 ? "" : "s"}`, used_by: usedBy }, { status: 409 })
     }
   }
 
@@ -363,7 +363,7 @@ export async function PATCH(req: Request, { params }: Params) {
     : (await supabase.from("store_theme_custom_files").select("content").eq("install_id", installId).eq("path", from).maybeSingle()).data) as
     | { content: string; draft_content?: string | null }
     | null
-  if (!existing) return NextResponse.json({ error: `${from} is not a saved file` }, { status: 404 })
+  if (!existing) return NextResponse.json({ error: `${shownPath(from)} is not a saved file` }, { status: 404 })
   const source = editorContent({ content: existing.content, draft_content: existing.draft_content ?? null })
 
   /**
@@ -377,7 +377,7 @@ export async function PATCH(req: Request, { params }: Params) {
   if (fromSection && fromSection[1] !== to.match(/^sections\/([a-z0-9_-]+)\.storelib$/)?.[1] && searchParams.get("force") !== "1") {
     const usedBy = await pagesUsingSection(supabase, installId, fromSection[1])
     if (usedBy.length) {
-      return NextResponse.json({ error: `${from} is used by ${usedBy.length} page${usedBy.length === 1 ? "" : "s"}`, used_by: usedBy }, { status: 409 })
+      return NextResponse.json({ error: `${shownPath(from)} is used by ${usedBy.length} page${usedBy.length === 1 ? "" : "s"}`, used_by: usedBy }, { status: 409 })
     }
   }
 
@@ -389,7 +389,7 @@ export async function PATCH(req: Request, { params }: Params) {
    */
   if (to.endsWith(".storelib")) {
     const r = compileThemeFile(source, { file: to })
-    if (r.ok === false) return NextResponse.json({ error: `${to} did not compile`, errors: r.errors }, { status: 422 })
+    if (r.ok === false) return NextResponse.json({ error: `${shownPath(to)} did not compile`, errors: r.errors }, { status: 422 })
   }
 
   const { error: upsertErr } = await supabase

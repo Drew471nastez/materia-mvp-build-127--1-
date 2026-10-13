@@ -72,6 +72,8 @@
 import { homePaymentsState, rowCanAcceptPayments, type HomePaymentsState } from "@/lib/payments/stripe/readiness"
 import { homeTotals } from "@/lib/analytics/home-figures"
 import type { OrderRow } from "@/lib/orders/order-view"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /* ─── The facts ─────────────────────────────────────────────────────────── */
 
@@ -284,15 +286,15 @@ export const SETUP_ORDER: readonly SetupStepId[] = ["signup", "guide", "product"
 
 export function setupSteps(f: ProgressFacts): ProgressItem[] {
   const all: Record<SetupStepId, ProgressItem> = {
-    signup: { id: "signup", label: "Sign up", done: true, href: "/app/settings" },
-    guide: { id: "guide", label: "How to get started", done: f.guideOpened, action: "guide" },
-    product: { id: "product", label: "Add your first product", done: f.products > 0, href: f.products > 0 ? "/app/products" : "/app/products/new" },
-    payments: { id: "payments", label: "Set up payments", done: f.paymentsReady, href: "/app/payouts" },
-    store: { id: "store", label: "Publish your website", done: f.websiteLive, href: "/app/website-builder" },
+    signup: { id: "signup", label: tt("Sign up"), done: true, href: "/app/settings" },
+    guide: { id: "guide", label: tt("How to get started"), done: f.guideOpened, action: "guide" },
+    product: { id: "product", label: tt("Add your first product"), done: f.products > 0, href: f.products > 0 ? "/app/products" : "/app/products/new" },
+    payments: { id: "payments", label: tt("Set up payments"), done: f.paymentsReady, href: "/app/payouts" },
+    store: { id: "store", label: tt("Publish your website"), done: f.websiteLive, href: "/app/website-builder" },
     sale: f.sales > 0
-      ? { id: "sale", label: "Make your first sale", done: true, href: "/app/orders" }
-      : { id: "sale", label: "Make your first sale", done: false, action: "share" },
-    domain: { id: "domain", label: "Connect your domain", done: f.domainConnected, href: "/app/settings?tab=domains" },
+      ? { id: "sale", label: tt("Make your first sale"), done: true, href: "/app/orders" }
+      : { id: "sale", label: tt("Make your first sale"), done: false, action: "share" },
+    domain: { id: "domain", label: tt("Connect your domain"), done: f.domainConnected, href: "/app/settings?tab=domains" },
   }
   return SETUP_ORDER.map((id) => all[id])
 }
@@ -324,14 +326,14 @@ export function challenges(f: ProgressFacts): ProgressItem[] {
     ...extra,
   })
   const all: Record<ChallengeId, ProgressItem> = {
-    sales: item("sales", `Make ${t.sales} sales`, f.sales, { action: "share" }),
-    products: item("products", `Publish ${t.products} products`, f.publishedProducts, { href: "/app/products" }),
-    email: item("email", "Send your first email", f.emailsSent, { href: "/app/emails/new" }),
-    automation: item("automation", "Turn on an automation", f.automationsOn, { href: "/app/emails?tab=flows" }),
-    subscribers: item("subscribers", `Reach ${t.subscribers} subscribers`, f.subscribers, { href: "/app/emails?tab=subscribers" }),
-    coupon: item("coupon", "Make a sale with a coupon", f.couponUses, { href: "/app/coupons" }),
-    revenue: item("revenue", `Make $${(t.revenue / 100).toLocaleString("en-US")} in sales`, f.revenueCents, { href: "/app/analytics", unit: "cents" }),
-    "page-domain": item("page-domain", "Put your creator page on your domain", f.creatorPageDomain ? 1 : 0, { href: "/app/settings?tab=domains" }),
+    sales: item("sales", tt("Make {sales} sales", { sales: t.sales }), f.sales, { action: "share" }),
+    products: item("products", tt("Publish {products} products", { products: t.products }), f.publishedProducts, { href: "/app/products" }),
+    email: item("email", tt("Send your first email"), f.emailsSent, { href: "/app/emails/new" }),
+    automation: item("automation", tt("Turn on an automation"), f.automationsOn, { href: "/app/emails?tab=flows" }),
+    subscribers: item("subscribers", tt("Reach {subscribers} subscribers", { subscribers: t.subscribers }), f.subscribers, { href: "/app/emails?tab=subscribers" }),
+    coupon: item("coupon", tt("Make a sale with a coupon"), f.couponUses, { href: "/app/coupons" }),
+    revenue: item("revenue", tt("Make ${value} in sales", { value: (t.revenue / 100).toLocaleString(appLocale()) }), f.revenueCents, { href: "/app/analytics", unit: "cents" }),
+    "page-domain": item("page-domain", tt("Put your creator page on your domain"), f.creatorPageDomain ? 1 : 0, { href: "/app/settings?tab=domains" }),
   }
   return CHALLENGE_ORDER.map((id) => all[id])
 }

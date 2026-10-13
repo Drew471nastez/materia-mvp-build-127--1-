@@ -298,8 +298,8 @@ function ProfileSection({
   /** profiles.location_city / location_country (run-now part 98); the fields are not drawn before it runs. */
   location?: ProfileLocation & { supported: boolean }
   avatarUrl: string | null
-  /** profiles.cover_url and whether the column is there (components/account/cover-field.tsx). */
-  cover: { url: string | null; supported: boolean }
+  /** profiles.cover_url and whether the column is there (components/account/cover-field.tsx); `page` is their creator page's cover. */
+  cover: { url: string | null; supported: boolean; page?: string | null }
   /** Their handle; made for them when they had none (lib/profile/ensure-username). */
   username: string
   /** False for somebody with a store or a OnePage: their handle is also those addresses and moves from /app Settings. */
@@ -408,6 +408,7 @@ function ProfileSection({
         bio: nextBio,
         avatarUrl,
         coverUrl: cover.url,
+        pageCoverUrl: cover.page ?? null,
       })
       if (onCloseAfterSave) {
         const y = window.scrollY
@@ -481,7 +482,7 @@ function ProfileSection({
 
       {cover.supported ? (
         <div className="mt-5 border-t border-[#f0f1f3] pt-4">
-          <CoverField initial={cover.url} labelClass={LABEL} helpClass={HELP} />
+          <CoverField initial={cover.url} pageCover={cover.page ?? null} labelClass={LABEL} helpClass={HELP} />
         </div>
       ) : null}
 
@@ -1089,8 +1090,8 @@ export function AccountSettings({
   privacy?: { showActivity: boolean; showCommunities: boolean; supported: boolean }
   /** A live store (lib/profile/account-creator.ts): no activity anywhere, so no switch for it. */
   creator?: boolean
-  /** The profile's own cover (profiles.cover_url); not offered where the column is not there. */
-  cover?: { url: string | null; supported: boolean }
+  /** The profile's own cover (profiles.cover_url); not offered where the column is not there. `page`: their creator page's. */
+  cover?: { url: string | null; supported: boolean; page?: string | null }
   /** Where they are from (lib/profile/location.ts); `supported` false before run-now part 98. */
   location?: ProfileLocation & { supported: boolean }
   /** From ?section=, so the profile's Settings pill lands on Account. */

@@ -22,6 +22,8 @@ import { embedFromUrl, embedThumbUrl, type EmbedRef } from "@/lib/communities/po
 import { EVENT_KINDS, POST_ROLES, ROLES, SPACE_KINDS, isOneOf, type AccessRuleJson, type CommunityAccess, type CommunityFaq, type CommunityLink, type CommunityRule, type CommunityVisibility, type EventKind, type PostRole, type Role, type SpaceKind } from "@/lib/communities/types"
 
 import type { MemberActionTaken } from "./view-types"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string; field: string }
 
@@ -83,8 +85,8 @@ export function checkAccessChoice(raw: unknown, current: AccessChoice): Checked<
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const privacy = r.privacy === undefined ? current.privacy : r.privacy
   const pricing = r.pricing === undefined ? current.pricing : r.pricing
-  if (!isPrivacy(privacy)) return { ok: false, field: "privacy", error: "Pick who can get in." }
-  if (!isPricing(pricing)) return { ok: false, field: "pricing", error: "Pick what joining costs." }
+  if (!isPrivacy(privacy)) return { ok: false, field: "privacy", error: tt("Pick who can get in.") }
+  if (!isPricing(pricing)) return { ok: false, field: "pricing", error: tt("Pick what joining costs.") }
   return { ok: true, value: { privacy, pricing } }
 }
 
@@ -99,13 +101,13 @@ export const PRICE_LIMITS = {
 } as const
 
 export function checkPrice(raw: unknown, interval: unknown): Checked<{ cents: number; interval: PriceInterval }> {
-  if (!isOneOf(PRICE_INTERVALS, interval)) return { ok: false, field: "interval", error: "Pick monthly, yearly or one time." }
+  if (!isOneOf(PRICE_INTERVALS, interval)) return { ok: false, field: "interval", error: tt("Pick monthly, yearly or one time.") }
   const cents = typeof raw === "number" ? Math.round(raw) : centsFromInput(raw)
-  if (cents === null || !Number.isFinite(cents)) return { ok: false, field: "price", error: "Add a price." }
+  if (cents === null || !Number.isFinite(cents)) return { ok: false, field: "price", error: tt("Add a price.") }
   const { min, max } = PRICE_LIMITS[interval]
   if (cents < min || cents > max) {
     const top = interval === "year" ? "$100,000" : "$10,000"
-    return { ok: false, field: "price", error: `A price is between $1 and ${top}.` }
+    return { ok: false, field: "price", error: tt("A price is between $1 and {top}.", { top }) }
   }
   return { ok: true, value: { cents, interval } }
 }
@@ -129,11 +131,11 @@ const imageUrl = (v: unknown): string | null => (typeof v === "string" && /^http
 export function checkCreate(raw: unknown): Checked<CreateInput> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const name = line(r.name, 200)
-  if (!name) return { ok: false, field: "name", error: "Give your community a name." }
-  if (name.length > LENGTHS.communityName.max) return { ok: false, field: "name", error: `A name is up to ${LENGTHS.communityName.max} characters.` }
+  if (!name) return { ok: false, field: "name", error: tt("Give your community a name.") }
+  if (name.length > LENGTHS.communityName.max) return { ok: false, field: "name", error: tt("A name is up to {max} characters.", { max: LENGTHS.communityName.max }) }
   const description = plain(r.description, DESCRIPTION_CHARS + 1)
-  if (description.length > DESCRIPTION_CHARS) return { ok: false, field: "description", error: `A description is up to ${DESCRIPTION_CHARS} characters.` }
-  if (!isOneOf(COMMUNITY_TYPES, r.type)) return { ok: false, field: "type", error: "Pick who can join." }
+  if (description.length > DESCRIPTION_CHARS) return { ok: false, field: "description", error: tt("A description is up to {descriptionChars} characters.", { descriptionChars: DESCRIPTION_CHARS }) }
+  if (!isOneOf(COMMUNITY_TYPES, r.type)) return { ok: false, field: "type", error: tt("Pick who can join.") }
   let price: CreateInput["price"] = null
   if (r.type === "paid") {
     const p = checkPrice(r.price, r.interval)
@@ -247,7 +249,7 @@ export function csvRow(cells: unknown[]): string {
 export function validTimeZone(zone: unknown): zone is string {
   if (typeof zone !== "string" || !zone || zone.length > 64) return false
   try {
-    new Intl.DateTimeFormat("en-US", { timeZone: zone }).format(0)
+    new Intl.DateTimeFormat(appLocale(), zoned({ timeZone: zone })).format(0)
     return true
   } catch {
     return false
@@ -321,12 +323,12 @@ export interface SpaceInput {
 export function checkSpace(raw: unknown, opts: { creating: boolean }): Checked<SpaceInput> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const name = line(r.name, 80)
-  if (!name) return { ok: false, field: "name", error: "Give the space a name." }
-  if (name.length > LENGTHS.spaceName.max) return { ok: false, field: "name", error: `A space name is up to ${LENGTHS.spaceName.max} characters.` }
+  if (!name) return { ok: false, field: "name", error: tt("Give the space a name.") }
+  if (name.length > LENGTHS.spaceName.max) return { ok: false, field: "name", error: tt("A space name is up to {max} characters.", { max: LENGTHS.spaceName.max }) }
   const description = line(r.description, 400)
-  if (description.length > LENGTHS.spaceDescription.max) return { ok: false, field: "description", error: `A description is up to ${LENGTHS.spaceDescription.max} characters.` }
+  if (description.length > LENGTHS.spaceDescription.max) return { ok: false, field: "description", error: tt("A description is up to {max} characters.", { max: LENGTHS.spaceDescription.max }) }
   const kind = isOneOf(SPACE_KINDS, r.kind) ? r.kind : opts.creating ? "feed" : null
-  if (!kind) return { ok: false, field: "kind", error: "Pick what the space is for." }
+  if (!kind) return { ok: false, field: "kind", error: tt("Pick what the space is for.") }
   const postRole = isOneOf(POST_ROLES, r.postRole) ? r.postRole : kind === "announcements" ? "admin" : "member"
   const icon = line(r.icon, 40)
   return {
@@ -374,12 +376,12 @@ function httpsLink(value: unknown): string | null | false {
 }
 
 export const EVENT_KIND_LABEL: Record<EventKind, string> = {
-  online: "Online",
-  live: "Live stream",
-  workshop: "Workshop",
-  ama: "Q&A",
-  meetup: "Meetup",
-  in_person: "In person",
+  get online() { return tt("Online") },
+  get live() { return tt("Live stream") },
+  get workshop() { return tt("Workshop") },
+  get ama() { return tt("Q&A") },
+  get meetup() { return tt("Meetup") },
+  get in_person() { return tt("In person") },
 }
 
 /**
@@ -390,29 +392,29 @@ export const EVENT_KIND_LABEL: Record<EventKind, string> = {
 export function checkEvent(raw: unknown): Checked<EventInput> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const title = line(r.title, 300)
-  if (!title) return { ok: false, field: "title", error: "Give the event a title." }
-  if (title.length > LENGTHS.eventTitle.max) return { ok: false, field: "title", error: `A title is up to ${LENGTHS.eventTitle.max} characters.` }
+  if (!title) return { ok: false, field: "title", error: tt("Give the event a title.") }
+  if (title.length > LENGTHS.eventTitle.max) return { ok: false, field: "title", error: tt("A title is up to {max} characters.", { max: LENGTHS.eventTitle.max }) }
   const description = plain(r.description, LENGTHS.eventDescription.max + 1)
-  if (description.length > 4000) return { ok: false, field: "description", error: "A description is up to 4,000 characters." }
+  if (description.length > 4000) return { ok: false, field: "description", error: tt("A description is up to 4,000 characters.") }
   const kind = isOneOf(EVENT_KINDS, r.kind) ? r.kind : "online"
   const timezone = validTimeZone(r.timezone) ? (r.timezone as string) : null
-  if (!timezone) return { ok: false, field: "timezone", error: "Pick a time zone." }
+  if (!timezone) return { ok: false, field: "timezone", error: tt("Pick a time zone.") }
   const startsAt = zonedTimeToUtc(String(r.startDate ?? ""), String(r.startTime ?? ""), timezone)
-  if (!startsAt) return { ok: false, field: "start", error: "Add when it starts." }
+  if (!startsAt) return { ok: false, field: "start", error: tt("Add when it starts.") }
   let endsAt: string | null = null
   if (r.endTime) {
     endsAt = zonedTimeToUtc(String(r.endDate || r.startDate || ""), String(r.endTime), timezone)
-    if (!endsAt) return { ok: false, field: "end", error: "That end time is not a time." }
-    if (Date.parse(endsAt) <= Date.parse(startsAt)) return { ok: false, field: "end", error: "It has to end after it starts." }
+    if (!endsAt) return { ok: false, field: "end", error: tt("That end time is not a time.") }
+    if (Date.parse(endsAt) <= Date.parse(startsAt)) return { ok: false, field: "end", error: tt("It has to end after it starts.") }
   }
   const meeting = httpsLink(r.meetingUrl)
-  if (meeting === false) return { ok: false, field: "meetingUrl", error: "A meeting link starts with https://" }
+  if (meeting === false) return { ok: false, field: "meetingUrl", error: tt("A meeting link starts with https://") }
   const livestream = httpsLink(r.livestreamUrl)
-  if (livestream === false) return { ok: false, field: "livestreamUrl", error: "A livestream link starts with https://" }
+  if (livestream === false) return { ok: false, field: "livestreamUrl", error: tt("A livestream link starts with https://") }
   let capacity: number | null = null
   if (r.capacity !== undefined && r.capacity !== null && r.capacity !== "") {
     const n = Number(r.capacity)
-    if (!Number.isInteger(n) || n < 1 || n > 100_000) return { ok: false, field: "capacity", error: "Capacity is a whole number from 1." }
+    if (!Number.isInteger(n) || n < 1 || n > 100_000) return { ok: false, field: "capacity", error: tt("Capacity is a whole number from 1.") }
     capacity = n
   }
   const location = line(r.location, 300) || null
@@ -451,22 +453,22 @@ export function checkEventTickets(raw: unknown, event: { startsAt: string; timez
   const free = { ok: true as const, value: { priceCents: null, salesCloseAt: null, refundWindowHours: null, refundPolicy: null } }
   if (r.priceMode !== "paid") return free
   const cents = centsFromInput(r.price)
-  if (cents === null || Number.isNaN(cents)) return { ok: false, field: "price", error: "Type the ticket price, like 25 or 25.50." }
-  if (cents < EVENT_PRICE_MIN_CENTS) return { ok: false, field: "price", error: "A ticket is at least 0.50." }
-  if (cents > EVENT_PRICE_MAX_CENTS) return { ok: false, field: "price", error: "That price is too high." }
+  if (cents === null || Number.isNaN(cents)) return { ok: false, field: "price", error: tt("Type the ticket price, like 25 or 25.50.") }
+  if (cents < EVENT_PRICE_MIN_CENTS) return { ok: false, field: "price", error: tt("A ticket is at least 0.50.") }
+  if (cents > EVENT_PRICE_MAX_CENTS) return { ok: false, field: "price", error: tt("That price is too high.") }
   let salesCloseAt: string | null = null
   const closeDate = typeof r.salesCloseDate === "string" ? r.salesCloseDate : ""
   const closeTime = typeof r.salesCloseTime === "string" ? r.salesCloseTime : ""
   if (closeDate || closeTime) {
-    if (!closeDate || !closeTime) return { ok: false, field: "salesClose", error: "Give both a date and a time for when sales close." }
+    if (!closeDate || !closeTime) return { ok: false, field: "salesClose", error: tt("Give both a date and a time for when sales close.") }
     salesCloseAt = zonedTimeToUtc(closeDate, closeTime, event.timezone)
-    if (!salesCloseAt) return { ok: false, field: "salesClose", error: "That is not a date and time." }
-    if (Date.parse(salesCloseAt) > Date.parse(event.startsAt)) return { ok: false, field: "salesClose", error: "Sales have to close by the time it starts." }
+    if (!salesCloseAt) return { ok: false, field: "salesClose", error: tt("That is not a date and time.") }
+    if (Date.parse(salesCloseAt) > Date.parse(event.startsAt)) return { ok: false, field: "salesClose", error: tt("Sales have to close by the time it starts.") }
   }
   let refundWindowHours: number | null = null
   if (r.refundWindow !== undefined && r.refundWindow !== null && r.refundWindow !== "") {
     const n = Number(r.refundWindow)
-    if (!Number.isInteger(n) || n < 0 || n > EVENT_REFUND_WINDOW_MAX_HOURS) return { ok: false, field: "refundWindow", error: `A refund window is a whole number of hours, up to ${EVENT_REFUND_WINDOW_MAX_HOURS}.` }
+    if (!Number.isInteger(n) || n < 0 || n > EVENT_REFUND_WINDOW_MAX_HOURS) return { ok: false, field: "refundWindow", error: tt("A refund window is a whole number of hours, up to {value}.", { value: EVENT_REFUND_WINDOW_MAX_HOURS }) }
     refundWindowHours = n
   }
   return { ok: true, value: { priceCents: cents, salesCloseAt, refundWindowHours, refundPolicy: cleanRefundPolicy(r.refundPolicy) } }
@@ -478,11 +480,11 @@ export function checkEventTickets(raw: unknown, event: { startsAt: string; timez
  */
 export function refundWindowWords(hours: number | null): string | null {
   if (hours === null) return null
-  if (hours === 0) return "until it starts"
-  if (hours === 1) return "until an hour before it starts"
-  if (hours < 48) return `until ${hours} hours before it starts`
+  if (hours === 0) return tt("until it starts")
+  if (hours === 1) return tt("until an hour before it starts")
+  if (hours < 48) return tt("until {hours} hours before it starts", { hours })
   const days = Math.round(hours / 24)
-  return `until ${days} days before it starts`
+  return tt("until {days} days before it starts", { days })
 }
 
 /** A replay as pasted: a Storelib video id, or any link with one in it. */
@@ -505,16 +507,16 @@ export interface LevelInput {
 /** Levels from the editor: numbered from 1, the first at 0 points, each one needing more than the one before. */
 export function checkLevels(raw: unknown): Checked<LevelInput[]> {
   const list = Array.isArray(raw) ? raw : []
-  if (list.length < 1) return { ok: false, field: "levels", error: "Keep at least one level." }
-  if (list.length > MAX_LEVELS) return { ok: false, field: "levels", error: `Up to ${MAX_LEVELS} levels.` }
+  if (list.length < 1) return { ok: false, field: "levels", error: tt("Keep at least one level.") }
+  if (list.length > MAX_LEVELS) return { ok: false, field: "levels", error: tt("Up to {maxLevels} levels.", { maxLevels: MAX_LEVELS }) }
   const out: LevelInput[] = []
   for (let i = 0; i < list.length; i++) {
     const r = (list[i] && typeof list[i] === "object" ? list[i] : {}) as Record<string, unknown>
     const name = line(r.name, 80)
-    if (!name || name.length > LENGTHS.levelName.max) return { ok: false, field: `level-${i + 1}`, error: `Level ${i + 1} needs a name up to ${LENGTHS.levelName.max} characters.` }
+    if (!name || name.length > LENGTHS.levelName.max) return { ok: false, field: `level-${i + 1}`, error: tt("Level {value} needs a name up to {max} characters.", { value: i + 1, max: LENGTHS.levelName.max }) }
     const minPoints = i === 0 ? 0 : Number(r.minPoints)
-    if (!Number.isInteger(minPoints) || minPoints < 0 || minPoints > 10_000_000) return { ok: false, field: `level-${i + 1}`, error: `Level ${i + 1} needs a number of points.` }
-    if (i > 0 && minPoints <= out[i - 1].minPoints) return { ok: false, field: `level-${i + 1}`, error: `Level ${i + 1} needs more points than level ${i}.` }
+    if (!Number.isInteger(minPoints) || minPoints < 0 || minPoints > 10_000_000) return { ok: false, field: `level-${i + 1}`, error: tt("Level {value} needs a number of points.", { value: i + 1 }) }
+    if (i > 0 && minPoints <= out[i - 1].minPoints) return { ok: false, field: `level-${i + 1}`, error: tt("Level {value} needs more points than level {i}.", { value: i + 1, i }) }
     out.push({ level: i + 1, name, minPoints, reward: line(r.reward, 200) || null })
   }
   return { ok: true, value: out }
@@ -522,7 +524,7 @@ export function checkLevels(raw: unknown): Checked<LevelInput[]> {
 
 export function checkPoints(raw: unknown): Checked<number> {
   const n = Number(raw)
-  if (!Number.isInteger(n) || n === 0 || n < -10_000 || n > 10_000) return { ok: false, field: "points", error: "Points are a whole number from -10,000 to 10,000, not 0." }
+  if (!Number.isInteger(n) || n === 0 || n < -10_000 || n > 10_000) return { ok: false, field: "points", error: tt("Points are a whole number from -10,000 to 10,000, not 0.") }
   return { ok: true, value: n }
 }
 
@@ -531,22 +533,22 @@ export function checkPoints(raw: unknown): Checked<number> {
 export function checkRules(raw: unknown): Checked<CommunityRule[]> {
   const list = (Array.isArray(raw) ? raw : []).map((x) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {}))
   const out = list.map((r) => ({ title: line(r.title, 120), body: plain(r.body, 1000) })).filter((r) => r.title || r.body)
-  if (out.length > MAX_RULES) return { ok: false, field: "rules", error: `Up to ${MAX_RULES} rules.` }
-  if (out.some((r) => !r.title)) return { ok: false, field: "rules", error: "Each rule needs a title." }
+  if (out.length > MAX_RULES) return { ok: false, field: "rules", error: tt("Up to {maxRules} rules.", { maxRules: MAX_RULES }) }
+  if (out.some((r) => !r.title)) return { ok: false, field: "rules", error: tt("Each rule needs a title.") }
   return { ok: true, value: out }
 }
 
 export function checkFaq(raw: unknown): Checked<CommunityFaq[]> {
   const list = (Array.isArray(raw) ? raw : []).map((x) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {}))
   const out = list.map((r) => ({ q: line(r.q, 200), a: plain(r.a, 2000) })).filter((r) => r.q || r.a)
-  if (out.length > MAX_FAQ) return { ok: false, field: "faq", error: `Up to ${MAX_FAQ} questions.` }
-  if (out.some((r) => !r.q || !r.a)) return { ok: false, field: "faq", error: "Each question needs an answer." }
+  if (out.length > MAX_FAQ) return { ok: false, field: "faq", error: tt("Up to {maxFaq} questions.", { maxFaq: MAX_FAQ }) }
+  if (out.some((r) => !r.q || !r.a)) return { ok: false, field: "faq", error: tt("Each question needs an answer.") }
   return { ok: true, value: out }
 }
 
 export function checkBenefits(raw: unknown): Checked<string[]> {
   const out = (Array.isArray(raw) ? raw : []).map((b) => line(b, 120)).filter(Boolean)
-  if (out.length > MAX_BENEFITS) return { ok: false, field: "benefits", error: `Up to ${MAX_BENEFITS} lines.` }
+  if (out.length > MAX_BENEFITS) return { ok: false, field: "benefits", error: tt("Up to {maxBenefits} lines.", { maxBenefits: MAX_BENEFITS }) }
   return { ok: true, value: out }
 }
 
@@ -557,10 +559,10 @@ export function checkLinks(raw: unknown): Checked<CommunityLink[]> {
     const label = line(r.label, 60)
     const url = httpsLink(r.url)
     if (!label && !url) continue
-    if (!label || !url) return { ok: false, field: "links", error: "Each link needs a label and an https:// address." }
+    if (!label || !url) return { ok: false, field: "links", error: tt("Each link needs a label and an https:// address.") }
     out.push({ label, url })
   }
-  if (out.length > MAX_LINKS) return { ok: false, field: "links", error: `Up to ${MAX_LINKS} links.` }
+  if (out.length > MAX_LINKS) return { ok: false, field: "links", error: tt("Up to {maxLinks} links.", { maxLinks: MAX_LINKS }) }
   return { ok: true, value: out }
 }
 
@@ -600,22 +602,22 @@ export interface NextStep {
  */
 export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
   const steps: NextStep[] = []
-  if (f.paid && !f.paymentsReady) steps.push({ id: "payouts", title: "Connect payouts", detail: "Members pay you through Stripe. Nobody can join a paid community until payouts are connected.", href: "/app/settings?tab=payments", action: "Connect" })
-  if (!f.published) steps.push({ id: "publish", title: "Publish your community", detail: "It is a draft. Only you can see it until you publish.", href: `${base}/settings?tab=advanced`, action: "Publish" })
-  if (f.members <= 1 && f.invites === 0) steps.push({ id: "invite", title: "Invite your first members", detail: "Send an invite by email or share a link.", href: `${base}/members?invite=1`, action: "Invite" })
-  if (f.posts === 0) steps.push({ id: "welcome", title: "Write a welcome post", detail: "Say who it is for and how to get started.", href: `${base}/feed?compose=welcome`, action: "Write" })
-  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add something to Learn", detail: "A program of lessons, or a course you already sell.", href: `${base}/learn`, action: "Add" })
-  if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: "Schedule an event", detail: "A call, a workshop or a Q&A.", href: `${base}/events?new=1`, action: "Schedule" })
+  if (f.paid && !f.paymentsReady) steps.push({ id: "payouts", title: tt("Connect payouts"), detail: tt("Members pay you through Stripe. Nobody can join a paid community until payouts are connected."), href: "/app/settings?tab=payments", action: tt("Connect") })
+  if (!f.published) steps.push({ id: "publish", title: tt("Publish your community"), detail: tt("It is a draft. Only you can see it until you publish."), href: `${base}/settings?tab=advanced`, action: tt("Publish") })
+  if (f.members <= 1 && f.invites === 0) steps.push({ id: "invite", title: tt("Invite your first members"), detail: tt("Send an invite by email or share a link."), href: `${base}/members?invite=1`, action: tt("Invite") })
+  if (f.posts === 0) steps.push({ id: "welcome", title: tt("Write a welcome post"), detail: tt("Say who it is for and how to get started."), href: `${base}/feed?compose=welcome`, action: tt("Write") })
+  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: tt("Add something to Learn"), detail: tt("A program of lessons, or a course you already sell."), href: `${base}/learn`, action: tt("Add") })
+  if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: tt("Schedule an event"), detail: tt("A call, a workshop or a Q&A."), href: `${base}/events?new=1`, action: tt("Schedule") })
   if (f.eventsEnabled && !f.paymentsReady && (f.pricedEventsUnsellable ?? 0) > 0)
     steps.push({
       id: "event_payouts",
-      title: (f.pricedEventsUnsellable ?? 0) === 1 ? "Connect payouts to sell that ticket" : "Connect payouts to sell those tickets",
-      detail: (f.pricedEventsUnsellable ?? 0) === 1 ? "One event has a price, and nobody can buy a ticket until payouts are connected." : `${f.pricedEventsUnsellable} events have a price, and nobody can buy a ticket until payouts are connected.`,
+      title: (f.pricedEventsUnsellable ?? 0) === 1 ? tt("Connect payouts to sell that ticket") : tt("Connect payouts to sell those tickets"),
+      detail: (f.pricedEventsUnsellable ?? 0) === 1 ? tt("One event has a price, and nobody can buy a ticket until payouts are connected.") : tt("{pricedEventsUnsellable} events have a price, and nobody can buy a ticket until payouts are connected.", { pricedEventsUnsellable: f.pricedEventsUnsellable }),
       href: "/app/settings?tab=payments",
-      action: "Connect",
+      action: tt("Connect"),
     })
-  if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add pictures, a video and what members get.", href: `${base}/settings?tab=page`, action: "Edit" })
-  if (f.rules === 0) steps.push({ id: "rules", title: "Write the rules", detail: "Members see them before they join and when they post.", href: `${base}/moderation?tab=rules`, action: "Write" })
+  if (!f.customized) steps.push({ id: "customize", title: tt("Customize the page"), detail: tt("Add pictures, a video and what members get."), href: `${base}/settings?tab=page`, action: tt("Edit") })
+  if (f.rules === 0) steps.push({ id: "rules", title: tt("Write the rules"), detail: tt("Members see them before they join and when they post."), href: `${base}/moderation?tab=rules`, action: tt("Write") })
   return steps
 }
 
@@ -676,7 +678,7 @@ export function parseMemberQuery(p: URLSearchParams | Record<string, string | un
   }
 }
 
-export const ROLE_LABEL: Record<Role, string> = { owner: "Owner", admin: "Admin", moderator: "Moderator", member: "Member" }
+export const ROLE_LABEL: Record<Role, string> = { get owner() { return tt("Owner") }, get admin() { return tt("Admin") }, get moderator() { return tt("Moderator") }, get member() { return tt("Member") } }
 
 /* ── Invites ────────────────────────────────────────────────────────────── */
 
@@ -701,17 +703,17 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export function checkInvite(raw: unknown): Checked<InviteInput> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const email = typeof r.email === "string" && r.email.trim() ? r.email.trim().toLowerCase() : null
-  if (email && (!EMAIL.test(email) || email.length > 254)) return { ok: false, field: "email", error: "That email address does not look right." }
+  if (email && (!EMAIL.test(email) || email.length > 254)) return { ok: false, field: "email", error: tt("That email address does not look right.") }
   let maxUses: number | null = null
   if (!email && r.maxUses !== undefined && r.maxUses !== null && r.maxUses !== "") {
     const n = Number(r.maxUses)
-    if (!Number.isInteger(n) || n < 1 || n > 100_000) return { ok: false, field: "maxUses", error: "Uses is a whole number from 1." }
+    if (!Number.isInteger(n) || n < 1 || n > 100_000) return { ok: false, field: "maxUses", error: tt("Uses is a whole number from 1.") }
     maxUses = n
   }
   let expiresInDays: number | null = null
   if (r.expiresInDays !== undefined && r.expiresInDays !== null && r.expiresInDays !== "") {
     const n = Number(r.expiresInDays)
-    if (!Number.isInteger(n) || n < 1 || n > 365) return { ok: false, field: "expires", error: "An invite lasts 1 to 365 days." }
+    if (!Number.isInteger(n) || n < 1 || n > 365) return { ok: false, field: "expires", error: tt("An invite lasts 1 to 365 days.") }
     expiresInDays = n
   }
   return {
@@ -727,7 +729,7 @@ export function checkInvite(raw: unknown): Checked<InviteInput> {
 }
 
 /** Space kinds as the editor names them. */
-export const SPACE_KIND_LABEL: Record<SpaceKind, string> = { feed: "Discussion", chat: "Chat", announcements: "Announcements", resources: "Resources" }
+export const SPACE_KIND_LABEL: Record<SpaceKind, string> = { get feed() { return tt("Discussion") }, get chat() { return tt("Chat") }, get announcements() { return tt("Announcements") }, get resources() { return tt("Resources") } }
 
 /* ── The page's gallery ─────────────────────────────────────────────────── */
 
@@ -809,34 +811,34 @@ export function coverItem(items: readonly GalleryItem[]): GalleryEmbed | Gallery
  * picture or video twice is kept once; `cover` stays on the first item only.
  */
 export function checkGallery(raw: unknown, ownUrl: (url: unknown) => string | null): Checked<GalleryItem[]> {
-  if (!Array.isArray(raw)) return { ok: false, field: "gallery", error: "The gallery is a list." }
-  if (raw.length > GALLERY_MAX) return { ok: false, field: "gallery", error: `Up to ${GALLERY_MAX} pictures and videos.` }
+  if (!Array.isArray(raw)) return { ok: false, field: "gallery", error: tt("The gallery is a list.") }
+  if (raw.length > GALLERY_MAX) return { ok: false, field: "gallery", error: tt("Up to {galleryMax} pictures and videos.", { galleryMax: GALLERY_MAX }) }
   const out: GalleryItem[] = []
   const seen = new Set<string>()
   for (const x of raw) {
     const item = x && typeof x === "object" ? (x as Record<string, unknown>) : {}
     if (item.type === "image") {
       const url = ownUrl(item.url)
-      if (!url) return { ok: false, field: "gallery", error: "Upload the picture again." }
+      if (!url) return { ok: false, field: "gallery", error: tt("Upload the picture again.") }
       if (seen.has(url)) continue
       seen.add(url)
       out.push({ type: "image", url })
     } else if (item.type === "video") {
-      if (!isUuid(item.videoId)) return { ok: false, field: "gallery", error: "Upload the video again." }
+      if (!isUuid(item.videoId)) return { ok: false, field: "gallery", error: tt("Upload the video again.") }
       const id = item.videoId.toLowerCase()
       if (seen.has(id)) continue
       seen.add(id)
       out.push({ type: "video", videoId: id, ...(item.cover === true && out.length === 0 ? { cover: true as const } : {}) })
     } else if (item.type === "embed") {
       const embed = galleryEmbed(item)
-      if (!embed) return { ok: false, field: "gallery", error: "Only YouTube and Vimeo links can be added as a video." }
+      if (!embed) return { ok: false, field: "gallery", error: tt("Only YouTube and Vimeo links can be added as a video.") }
       const key = galleryKey(embed)
       if (seen.has(key)) continue
       seen.add(key)
       if (out.length > 0) delete embed.cover
       out.push(embed)
     } else {
-      return { ok: false, field: "gallery", error: "A gallery holds pictures and videos." }
+      return { ok: false, field: "gallery", error: tt("A gallery holds pictures and videos.") }
     }
   }
   return { ok: true, value: out }
@@ -855,10 +857,10 @@ export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
 
 /** How long a mute lasts, in hours, as the menus offer it (lib/communities/server/moderation.ts muteUntil takes hours). */
 export const MUTE_CHOICES = [
-  { hours: 1, label: "1 hour" },
-  { hours: 24, label: "24 hours" },
-  { hours: 24 * 7, label: "7 days" },
-  { hours: 24 * 30, label: "30 days" },
+  { hours: 1, get label() { return tt("1 hour") } },
+  { hours: 24, get label() { return tt("24 hours") } },
+  { hours: 24 * 7, get label() { return tt("7 days") } },
+  { hours: 24 * 30, get label() { return tt("30 days") } },
 ] as const
 
 /**
@@ -901,30 +903,30 @@ export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Rol
   const out: MemberChoice[] = []
   if (m.status === "pending") {
     if (c.approve_member && !m.approved) {
-      out.push({ key: "approve", label: "Approve", action: "approve" })
-      out.push({ key: "reject", label: "Decline", action: "reject", confirm: true })
+      out.push({ key: "approve", label: tt("Approve"), action: "approve" })
+      out.push({ key: "reject", label: tt("Decline"), action: "reject", confirm: true })
     }
     return out
   }
   if (m.status === "active") {
     if (c.change_role) {
-      for (const r of assignableRoles(actor.role).filter((r) => r !== m.role)) out.push({ key: `role-${r}`, label: r === "member" ? "Make a member" : r === "admin" ? "Make an admin" : "Make a moderator", action: "role", role: r, section: "Role" })
+      for (const r of assignableRoles(actor.role).filter((r) => r !== m.role)) out.push({ key: `role-${r}`, label: r === "member" ? tt("Make a member") : r === "admin" ? tt("Make an admin") : tt("Make a moderator"), action: "role", role: r, section: "Role" })
     }
     if (c.manage_members) {
-      if (m.source === "manual") out.push({ key: "end-comp", label: "End complimentary access", action: "end_complimentary", section: "Access" })
-      else if (!["subscription", "purchase", "product"].includes(m.source)) out.push({ key: "comp", label: "Give complimentary access", action: "complimentary", section: "Access" })
+      if (m.source === "manual") out.push({ key: "end-comp", label: tt("End complimentary access"), action: "end_complimentary", section: "Access" })
+      else if (!["subscription", "purchase", "product"].includes(m.source)) out.push({ key: "comp", label: tt("Give complimentary access"), action: "complimentary", section: "Access" })
     }
     if (actor.gamification && c.award_points) {
-      out.push({ key: "points", label: "Give points", action: "points", section: "Points" })
-      if (actor.badges > 0) out.push({ key: "badge", label: "Give a badge", action: "badge", section: "Points" })
+      out.push({ key: "points", label: tt("Give points"), action: "points", section: "Points" })
+      if (actor.badges > 0) out.push({ key: "badge", label: tt("Give a badge"), action: "badge", section: "Points" })
     }
     if (c.mute) {
-      if (m.mutedUntil) out.push({ key: "unmute", label: "Unmute", action: "unmute", section: "Moderate" })
-      else out.push({ key: "mute", label: "Mute", action: "mute", confirm: true, section: "Moderate" })
+      if (m.mutedUntil) out.push({ key: "unmute", label: tt("Unmute"), action: "unmute", section: "Moderate" })
+      else out.push({ key: "mute", label: tt("Mute"), action: "mute", confirm: true, section: "Moderate" })
     }
-    if (c.suspend) out.push({ key: "suspend", label: "Suspend", action: "suspend", confirm: true, section: "Moderate" })
-    if (c.remove_member) out.push({ key: "remove", label: "Remove from the community", action: "remove", confirm: true, danger: true, section: "Moderate" })
-    if (c.ban) out.push({ key: "ban", label: "Ban", action: "ban", confirm: true, danger: true, section: "Moderate" })
+    if (c.suspend) out.push({ key: "suspend", label: tt("Suspend"), action: "suspend", confirm: true, section: "Moderate" })
+    if (c.remove_member) out.push({ key: "remove", label: tt("Remove from the community"), action: "remove", confirm: true, danger: true, section: "Moderate" })
+    if (c.ban) out.push({ key: "ban", label: tt("Ban"), action: "ban", confirm: true, danger: true, section: "Moderate" })
     return out
   }
   /*
@@ -935,10 +937,10 @@ export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Rol
   */
   const theirs = m.acted ?? null
   const mayUndoHere = !theirs?.byRole || theirs.byUserId === actor.userId || ROLE_RANK[theirs.byRole] <= ROLE_RANK[actor.role]
-  if (m.status === "paused" && c.suspend && mayUndoHere) out.push({ key: "unsuspend", label: "Bring back", action: "unsuspend", confirm: true })
-  if (m.status === "paused" && c.ban) out.push({ key: "ban", label: "Ban", action: "ban", confirm: true, danger: true })
-  if (m.status === "banned" && c.ban && mayUndoHere) out.push({ key: "unban", label: "Unban", action: "unban", confirm: true })
-  if (m.status === "removed" && c.remove_member && mayUndoHere) out.push({ key: "reinstate", label: "Let them back in", shortLabel: "Let back in", action: "reinstate", confirm: true })
+  if (m.status === "paused" && c.suspend && mayUndoHere) out.push({ key: "unsuspend", label: tt("Bring back"), action: "unsuspend", confirm: true })
+  if (m.status === "paused" && c.ban) out.push({ key: "ban", label: tt("Ban"), action: "ban", confirm: true, danger: true })
+  if (m.status === "banned" && c.ban && mayUndoHere) out.push({ key: "unban", label: tt("Unban"), action: "unban", confirm: true })
+  if (m.status === "removed" && c.remove_member && mayUndoHere) out.push({ key: "reinstate", label: tt("Let them back in"), shortLabel: tt("Let back in"), action: "reinstate", confirm: true })
   return out
 }
 
@@ -946,7 +948,7 @@ export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Rol
 function dayAndMonth(iso: string): string {
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return ""
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(t)
+  return new Intl.DateTimeFormat(appLocale(), zoned({ month: "short", day: "numeric" })).format(t)
 }
 
 /**
@@ -955,10 +957,10 @@ function dayAndMonth(iso: string): string {
  */
 export function takenAwayLine(m: { status: string; mutedUntil?: string | null; acted?: MemberActionTaken | null }, now: number = Date.now()): string {
   const a = m.acted ?? null
-  const what = a?.kind === "banned" ? "Banned" : a?.kind === "removed" ? "Removed" : a?.kind === "suspended" ? "Suspended" : a?.kind === "muted" ? "Muted" : m.status === "banned" ? "Banned" : m.status === "removed" ? "Removed" : m.status === "paused" ? "Suspended" : "Muted"
-  const parts = [a?.byName ? `${what} by ${a.byName}` : what]
+  const what = a?.kind === "banned" ? tt("Banned") : a?.kind === "removed" ? tt("Removed") : a?.kind === "suspended" ? tt("Suspended") : a?.kind === "muted" ? tt("Muted") : m.status === "banned" ? tt("Banned") : m.status === "removed" ? tt("Removed") : m.status === "paused" ? tt("Suspended") : tt("Muted")
+  const parts = [a?.byName ? tt("{what} by {byName}", { what, byName: a.byName }) : what]
   if (a?.at) parts.push(relativeTime(a.at, now))
-  if (a?.kind === "muted" && (a.until || m.mutedUntil)) parts.push(`ends ${dayAndMonth(a.until ?? m.mutedUntil ?? "")}`)
+  if (a?.kind === "muted" && (a.until || m.mutedUntil)) parts.push(tt("ends {date}", { date: dayAndMonth(a.until ?? m.mutedUntil ?? "") }))
   if (a?.reason) parts.push(a.reason)
   return parts.filter(Boolean).join(" · ")
 }
@@ -967,31 +969,31 @@ export function takenAwayLine(m: { status: string; mutedUntil?: string | null; a
 export function memberDoneText(choice: MemberChoice, name: string): string {
   switch (choice.action) {
     case "approve":
-      return `${name} approved`
+      return tt("{name} approved", { name })
     case "reject":
-      return "Request declined"
+      return tt("Request declined")
     case "role":
-      return `${name} is now ${choice.role === "admin" ? "an admin" : choice.role === "moderator" ? "a moderator" : "a member"}`
+      return tt("{name} is now {value}", { name, value: choice.role === "admin" ? tt("an admin") : choice.role === "moderator" ? tt("a moderator") : tt("a member") })
     case "mute":
-      return `${name} is muted for ${MUTE_CHOICES.find((x) => x.hours === choice.hours)?.label ?? "a while"}`
+      return tt("{name} is muted for {value}", { name, value: MUTE_CHOICES.find((x) => x.hours === choice.hours)?.label ?? tt("a while") })
     case "unmute":
-      return `${name} can post again`
+      return tt("{name} can post again", { name })
     case "suspend":
-      return `${name} is suspended`
+      return tt("{name} is suspended", { name })
     case "unsuspend":
-      return `${name} is back`
+      return tt("{name} is back", { name })
     case "reinstate":
-      return `${name} is back in`
+      return tt("{name} is back in", { name })
     case "ban":
-      return `${name} is banned`
+      return tt("{name} is banned", { name })
     case "unban":
-      return `${name} is unbanned`
+      return tt("{name} is unbanned", { name })
     case "remove":
-      return `${name} was removed`
+      return tt("{name} was removed", { name })
     case "end_complimentary":
-      return "Complimentary access ended"
+      return tt("Complimentary access ended")
     default:
-      return "Saved"
+      return tt("Saved")
   }
 }
 
@@ -1003,22 +1005,22 @@ export function memberConfirmText(choice: MemberChoice, name: string, person?: {
     whether the payment is live (the server works that out when it runs), so
     the sentence is written to be true either way.
   */
-  const toFree = person && ["subscription", "purchase", "product"].includes(person.source ?? "") && person.paying !== true ? " If their paid membership has ended, they come back on the free tier." : ""
+  const toFree = person && ["subscription", "purchase", "product"].includes(person.source ?? "") && person.paying !== true ? tt(" If their paid membership has ended, they come back on the free tier.") : ""
   switch (choice.action) {
     case "reject":
-      return { title: `Decline ${name}?`, detail: "They can ask again later.", verb: "Decline" }
+      return { title: tt("Decline {name}?", { name }), detail: tt("They can ask again later."), verb: tt("Decline") }
     case "reinstate":
-      return { title: `Let ${name} back in?`, detail: `They get access again now, and keep their points, level and posts.${toFree}`, verb: "Let them in" }
+      return { title: tt("Let {name} back in?", { name }), detail: tt("They get access again now, and keep their points, level and posts.{free}", { free: toFree }), verb: tt("Let them in") }
     case "unban":
-      return { title: `Unban ${name}?`, detail: `They can open the community and post again, and keep their points, level and posts.${toFree}`, verb: "Unban" }
+      return { title: tt("Unban {name}?", { name }), detail: tt("They can open the community and post again, and keep their points, level and posts.{free}", { free: toFree }), verb: tt("Unban") }
     case "unsuspend":
-      return { title: `Bring ${name} back?`, detail: `Their access starts again now, with their points, level and posts as they were.${toFree}`, verb: "Bring them back" }
+      return { title: tt("Bring {name} back?", { name }), detail: tt("Their access starts again now, with their points, level and posts as they were.{free}", { free: toFree }), verb: tt("Bring them back") }
     case "suspend":
-      return { title: `Suspend ${name}?`, detail: "They lose access until you bring them back. Their posts stay.", verb: "Suspend" }
+      return { title: tt("Suspend {name}?", { name }), detail: tt("They lose access until you bring them back. Their posts stay."), verb: tt("Suspend") }
     case "remove":
-      return { title: `Remove ${name}?`, detail: "They lose access now and can join again. A paid membership keeps billing until they cancel it.", verb: "Remove" }
+      return { title: tt("Remove {name}?", { name }), detail: tt("They lose access now and can join again. A paid membership keeps billing until they cancel it."), verb: tt("Remove") }
     default:
-      return { title: `Ban ${name}?`, detail: "They lose access and cannot join again unless you unban them.", verb: "Ban" }
+      return { title: tt("Ban {name}?", { name }), detail: tt("They lose access and cannot join again unless you unban them."), verb: tt("Ban") }
   }
 }
 

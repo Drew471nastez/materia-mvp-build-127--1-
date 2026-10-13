@@ -45,6 +45,7 @@ import { isEditedBuiltIn } from "@/components/website-builder/editor/edited-buil
 import { convertShopifyTheme } from "@/lib/storelib-theme/shopify/convert"
 import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -53,7 +54,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const INSTALL = "11111111-1111-4111-8111-111111111111"
 const OTHER = "22222222-2222-4222-8222-222222222222"

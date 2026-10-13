@@ -1,6 +1,8 @@
 "use client"
 
 import { Download, FileText, CheckCircle, Clock, XCircle } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 interface Invoice {
   id: string
@@ -21,11 +23,11 @@ interface InvoicesListProps {
 export function InvoicesList({ invoices }: InvoicesListProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(appLocale(), zoned({
       month: "short",
       day: "numeric",
       year: "numeric",
-    })
+    }))
   }
 
   const formatAmount = (cents: number) => {
@@ -38,14 +40,14 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
         return (
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
             <CheckCircle className="h-3 w-3" />
-            Paid
+            {tt("Paid")}
           </div>
         )
       case "open":
         return (
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
             <Clock className="h-3 w-3" />
-            Pending
+            {tt("Pending")}
           </div>
         )
       case "void":
@@ -68,12 +70,12 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
   if (!invoices || invoices.length === 0) {
     return (
       <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
-        <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Billing History</h3>
+        <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{tt("Billing History")}</h3>
         <div className="bg-[#f9fafb] rounded-xl p-8 text-center">
           <FileText className="h-10 w-10 text-[#9ca3af] mx-auto mb-3" />
-          <p className="text-[13px] text-[#6b7280] mb-1">No invoices yet</p>
+          <p className="text-[13px] text-[#6b7280] mb-1">{tt("No invoices yet")}</p>
           <p className="text-[12px] text-[#9ca3af]">
-            Your billing history will appear here
+            {tt("Your billing history will appear here")}
           </p>
         </div>
       </div>
@@ -82,7 +84,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
 
   return (
     <div className="bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]">
-      <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Billing History</h3>
+      <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{tt("Billing History")}</h3>
 
       {/* Mobile view */}
       <div className="block sm:hidden space-y-3">
@@ -105,7 +107,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
 
             {invoice.period_start && invoice.period_end && (
               <div className="text-[11px] text-[#9ca3af] mb-3">
-                Billing period: {formatDate(invoice.period_start)} - {formatDate(invoice.period_end)}
+                {tt("Billing period: {date} - {date2}", { date: formatDate(invoice.period_start), date2: formatDate(invoice.period_end) })}
               </div>
             )}
 
@@ -118,7 +120,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                   className="flex-1 h-9 text-[12px] font-medium bg-white hover:bg-[#f3f4f6] text-[#374151] border border-[#e5e7eb] rounded-lg transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Download PDF
+                  {tt("Download PDF")}
                 </a>
               )}
               {invoice.hosted_invoice_url && (
@@ -129,7 +131,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                   className="flex-1 h-9 text-[12px] font-medium bg-white hover:bg-[#f3f4f6] text-[#374151] border border-[#e5e7eb] rounded-lg transition-colors flex items-center justify-center gap-1.5"
                 >
                   <FileText className="h-3.5 w-3.5" />
-                  View Invoice
+                  {tt("View Invoice")}
                 </a>
               )}
             </div>
@@ -142,11 +144,11 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#e5e7eb]">
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Date</th>
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Amount</th>
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Period</th>
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Status</th>
-              <th className="text-right text-[12px] font-semibold text-[#6b7280] pb-3">Invoice</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{tt("Date")}</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{tt("Amount")}</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{tt("Period")}</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{tt("Status")}</th>
+              <th className="text-right text-[12px] font-semibold text-[#6b7280] pb-3">{tt("Invoice")}</th>
             </tr>
           </thead>
           <tbody>
@@ -192,7 +194,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                         className="px-3 h-8 text-[12px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors inline-flex items-center gap-1.5"
                       >
                         <FileText className="h-3.5 w-3.5" />
-                        View
+                        {tt("View")}
                       </a>
                     )}
                   </div>

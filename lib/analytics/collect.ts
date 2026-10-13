@@ -8,7 +8,7 @@ import { anonSession, anonVisitorId, clientIp, dailyKey } from "./anon-visit"
 import { EVENT, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
 import { resolveProperty, type ResolvedProperty } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
-import { OWN_MARKER_COOKIE } from "./own-marker"
+import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE } from "./own-marker"
 import { isBotAgent, parseUserAgent } from "./user-agent"
 
 /**
@@ -254,7 +254,7 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     page from the app (lib/analytics/own-marker). Either answer is enough.
   */
   const ownerUserId = (owner as { user_id?: string | null }).user_id ?? null
-  if (deps.marksOwner(req.cookie(OWN_MARKER_COOKIE), creatorId)) return { recorded: false, reason: "own" }
+  if (deps.marksOwner(req.cookie(OWN_MARKER_COOKIE), creatorId) || deps.marksOwner(req.cookie(OWN_MARKER_DOMAIN_COOKIE), creatorId)) return { recorded: false, reason: "own" }
   if (await deps.isOwnVisit(req.cookieNames, ownerUserId)) return { recorded: false, reason: "own" }
 
   /* 9, first half. Consent is the visitor's own record, read here, never the page's word. */

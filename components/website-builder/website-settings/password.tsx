@@ -18,6 +18,7 @@ import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Card, ErrorNote, Row, Toggle, buttonClass, inputClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { tt } from "@/lib/i18n/text"
 
 interface AccessState {
   available: boolean
@@ -55,7 +56,7 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
         body: JSON.stringify(change),
       })
       const d = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(d?.error || "That did not save. Try again.")
+      if (!res.ok) throw new Error(d?.error || tt("That did not save. Try again."))
       setState(d as AccessState)
       if (change.password) {
         setPassword("")
@@ -63,7 +64,7 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
         window.setTimeout(() => setSaved(false), 1600)
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That did not save. Try again.")
+      setError(e instanceof Error ? e.message : tt("That did not save. Try again."))
     } finally {
       setBusy(false)
     }
@@ -73,7 +74,7 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
     if (!state || busy) return
     /* On needs a password: the one typed now, or the one set before. */
     if (on && !state.hasPassword && !password.trim()) {
-      setError("Type a password first, then turn this on.")
+      setError(tt("Type a password first, then turn this on."))
       document.getElementById("wb-site-password")?.focus()
       return
     }
@@ -85,34 +86,34 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
   return (
     <>
       <Card
-        title="Password"
+        title={tt("Password")}
         footer={
           <>
-            You get in from your password page with Are you the owner, and the preview in the builder always shows the website.{" "}
+            {tt("You get in from your password page with Are you the owner, and the preview in the builder always shows the website.")}{" "}
             <button type="button" className={textLinkClass} onClick={() => ctx.onEditPage("password")}>
-              Edit the password page
+              {tt("Edit the password page")}
             </button>
           </>
         }
       >
         <Row
-          label="Password protect"
+          label={tt("Password protect")}
           hint={
             unavailable
-              ? "Not available yet. Try again in a little while."
+              ? tt("Not available yet. Try again in a little while.")
               : ctx.live
-                ? "Visitors see your password page until they type the password."
-                : "Covers whichever of your websites is live, and this one from the moment you publish it."
+                ? tt("Visitors see your password page until they type the password.")
+                : tt("Covers whichever of your websites is live, and this one from the moment you publish it.")
           }
           inline
         >
           {state === null ? (
-            <Loader2 className="h-4 w-4 animate-spin text-white/45" aria-label="Loading" />
+            <Loader2 className="h-4 w-4 animate-spin text-white/45" aria-label={tt("Loading")} />
           ) : (
-            <Toggle checked={state.enabled} onChange={toggle} label="Password protect this website" />
+            <Toggle checked={state.enabled} onChange={toggle} label={tt("Password protect this website")} />
           )}
         </Row>
-        <Row label="Password" hint={state?.hasPassword ? "Set. Type a new one to change it." : "What visitors type to get in."} htmlFor="wb-site-password">
+        <Row label={tt("Password")} hint={state?.hasPassword ? tt("Set. Type a new one to change it.") : tt("What visitors type to get in.")} htmlFor="wb-site-password">
           <div className="flex items-center gap-2">
             <input
               id="wb-site-password"
@@ -122,7 +123,7 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
               value={password}
               maxLength={100}
               disabled={unavailable}
-              placeholder={state?.hasPassword ? "New password" : "Choose a password"}
+              placeholder={state?.hasPassword ? tt("New password") : tt("Choose a password")}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && password.trim()) void send({ password: password.trim() })
@@ -131,7 +132,7 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
             />
             <button type="button" className={buttonClass} disabled={busy || unavailable || password.trim().length === 0} onClick={() => void send({ password: password.trim() })}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {saved ? "Saved" : "Save"}
+              {saved ? tt("Saved") : tt("Save")}
             </button>
           </div>
         </Row>

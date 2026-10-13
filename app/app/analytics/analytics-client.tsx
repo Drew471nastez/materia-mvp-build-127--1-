@@ -53,13 +53,15 @@ import { MetricTab } from "@/components/app/metric-tab"
 import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
 import { HoverNote } from "@/components/app/help-label"
 import { LoadingLine } from "@/components/app/loading-line"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /* The four figures in order, for the strip that scrolls them on a phone. "views" is the Visitors tab. */
 const TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
 /* Each tab keeps its width in the phone's row, the home page's 130px. */
 const STRIP_TAB = "flex-shrink-0 min-w-[130px] md:min-w-0"
 /* The first line's name in the chart's readout. */
-const SERIES_LABELS = { views: "Visitors" }
+const SERIES_LABELS = { get views() { return tt("Visitors") } }
 
 interface Product {
   id: string
@@ -91,7 +93,7 @@ const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
 export const COUNTING_NOTE_MS = 2500
 
 /** One formatter for the page. Constructing an Intl.NumberFormat is not free. */
-const USD_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const USD_FORMAT = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
 
 /**
  * What the percentages are measured against: "Dec 1–Dec 31, 2025", the
@@ -105,8 +107,8 @@ function PercentChangeIndicator({ current, previous }: { current: number | null;
   if (previous === 0) {
     /* Nothing before is not "+100%": it is new, or it is still nothing. */
     return current > 0 ? (
-      <HoverNote className="text-[11px] font-medium text-[#9ca3af]" note={`None in ${against}`}>
-        New
+      <HoverNote className="text-[11px] font-medium text-[#9ca3af]" note={tt("None in {against}", { against })}>
+        {tt("New")}
       </HoverNote>
     ) : null
   }
@@ -117,7 +119,7 @@ function PercentChangeIndicator({ current, previous }: { current: number | null;
   return (
     <HoverNote
       className={`inline-flex items-center gap-0.5 text-[11px] font-medium tabular-nums ${up ? "text-emerald-600" : "text-[#9ca3af]"}`}
-      note={`${up ? "+" : "-"}${Math.round(Math.abs(change))}% compared with ${against}`}
+      note={tt("{value}{value2}% compared with {against}", { value: up ? "+" : "-", value2: Math.round(Math.abs(change)), against })}
     >
       {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
       {Math.round(Math.abs(change))}%
@@ -399,7 +401,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
     if (num >= 10_000) return `${Math.round(num / 1000)}k`
     if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, "")}k`
-    return Math.round(num).toLocaleString("en-US")
+    return Math.round(num).toLocaleString(appLocale())
   }
   const formatRate = (pct: number | null) => (pct === null ? "–" : `${pct > 0 && pct < 10 ? pct.toFixed(1).replace(/\.0$/, "") : Math.round(pct)}%`)
   const allTime = (f: Figure, fmt: (n: number) => string, fallback: string) =>
@@ -450,14 +452,14 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
           <div
             ref={metricStripRef}
             role="tablist"
-            aria-label="Metric"
+            aria-label={tt("Metric")}
             data-scroll-x
             className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"
             style={TAB_STRIP_STYLE}
           >
             <MetricTab tab="views" className={STRIP_TAB} label={t("dashboard.visitors")} value={formatCompactNumber(shown.views.value ?? 0)} change={changeOf(shown.views)} selected={chartMetricFilter === "views"} soft={soft} loading={figuresLoading} foot={`${formatCompactNumber(shown.pageViews)} ${t("dashboard.pageViews")}`} onSelect={() => setChartMetricFilter("views")} />
-            <MetricTab tab="revenue" className={STRIP_TAB} label={t("analytics.totalRevenue")} value={formatPrice(shown.revenue.value ?? 0)} change={changeOf(shown.revenue)} selected={chartMetricFilter === "revenue"} soft={soft} loading={figuresLoading} foot={allTime(shown.revenue, formatPrice, "Less refunds")} onSelect={() => setChartMetricFilter("revenue")} />
-            <MetricTab tab="orders" className={STRIP_TAB} label={t("analytics.totalOrders")} value={formatCompactNumber(shown.orders.value ?? 0)} change={changeOf(shown.orders)} selected={chartMetricFilter === "orders"} soft={soft} loading={figuresLoading} foot={allTime(shown.orders, formatCompactNumber, "Paid and free")} onSelect={() => setChartMetricFilter("orders")} />
+            <MetricTab tab="revenue" className={STRIP_TAB} label={t("analytics.totalRevenue")} value={formatPrice(shown.revenue.value ?? 0)} change={changeOf(shown.revenue)} selected={chartMetricFilter === "revenue"} soft={soft} loading={figuresLoading} foot={allTime(shown.revenue, formatPrice, tt("Less refunds"))} onSelect={() => setChartMetricFilter("revenue")} />
+            <MetricTab tab="orders" className={STRIP_TAB} label={t("analytics.totalOrders")} value={formatCompactNumber(shown.orders.value ?? 0)} change={changeOf(shown.orders)} selected={chartMetricFilter === "orders"} soft={soft} loading={figuresLoading} foot={allTime(shown.orders, formatCompactNumber, tt("Paid and free"))} onSelect={() => setChartMetricFilter("orders")} />
             <MetricTab tab="conversion" className={STRIP_TAB} label={t("analytics.conversionRate")} value={formatRate(shown.conversion.value)} change={changeOf(shown.conversion)} selected={chartMetricFilter === "conversion"} soft={soft} loading={figuresLoading} foot={t("dashboard.ordersPerVisitor")} onSelect={() => setChartMetricFilter("conversion")} />
           </div>
 
@@ -502,7 +504,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
                   className="pointer-events-none absolute inset-x-0 top-[38%] z-10 flex justify-center px-4 opacity-0"
                   style={{ animation: `skeleton-reveal 260ms ease-out ${COUNTING_NOTE_MS}ms forwards` }}
                 >
-                  <span className="rounded-md bg-white/85 px-2 py-0.5 text-center text-[13px] text-[#6b7280]">Counting visits for this range</span>
+                  <span className="rounded-md bg-white/85 px-2 py-0.5 text-center text-[13px] text-[#6b7280]">{tt("Counting visits for this range")}</span>
                 </div>
               ) : null}
             </div>

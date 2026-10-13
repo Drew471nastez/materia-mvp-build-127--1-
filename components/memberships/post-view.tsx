@@ -25,6 +25,8 @@ import Link from "next/link"
 import { Download, FileText, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { FeedPost } from "@/lib/memberships/view-types"
+import { tt } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 const URL_RE = /(https?:\/\/[^\s<>"')]+[^\s<>"').,;:!?])/g
 
@@ -68,22 +70,22 @@ export function PostText({ body, className }: { body: string; className?: string
 export function fileSize(bytes: number): string {
   if (!bytes) return ""
   if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
+  if (bytes < 1024 * 1024) return tt("{value} KB", { value: Math.round(bytes / 1024) })
+  if (bytes < 1024 * 1024 * 1024) return tt("{value} MB", { value: (bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0) })
+  return tt("{value} GB", { value: (bytes / 1024 / 1024 / 1024).toFixed(1) })
 }
 
 export function postDate(iso: string, now = Date.now()): string {
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return ""
   const minutes = Math.round((now - t) / 60_000)
-  if (minutes < 1) return "Just now"
-  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 1) return tt("Just now")
+  if (minutes < 60) return tt("{minutes} min ago", { minutes })
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h ago`
+  if (hours < 24) return tt("{hours} h ago", { hours })
   const d = new Date(t)
   const sameYear = d.getFullYear() === new Date(now).getFullYear()
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })
+  return d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) }))
 }
 
 function Pictures({ images, title }: { images: FeedPost["images"]; title: string }) {
@@ -114,22 +116,22 @@ function Pictures({ images, title }: { images: FeedPost["images"]; title: string
               shown.length === 1 ? "max-h-[520px]" : "aspect-square",
               shown.length === 3 && i === 0 && "row-span-2 aspect-auto",
             )}
-            aria-label={`Open picture ${i + 1} of ${images.length}`}
+            aria-label={tt("Open picture {value} of {length}", { value: i + 1, length: images.length })}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.url} alt={title ? `${title}, picture ${i + 1}` : `Picture ${i + 1}`} loading="lazy" decoding="async" className={cn("h-full w-full object-cover transition-[scale] duration-300 ease-out group-hover/pic:scale-[1.015] motion-reduce:transition-none", shown.length === 1 && "max-h-[520px] object-contain")} />
+            <img src={img.url} alt={title ? tt("{title}, picture {value}", { title, value: i + 1 }) : tt("Picture {value}", { value: i + 1 })} loading="lazy" decoding="async" className={cn("h-full w-full object-cover transition-[scale] duration-300 ease-out group-hover/pic:scale-[1.015] motion-reduce:transition-none", shown.length === 1 && "max-h-[520px] object-contain")} />
             {more > 0 && i === shown.length - 1 ? <span className="absolute inset-0 grid place-items-center bg-black/45 text-[17px] font-semibold text-white">+{more}</span> : null}
           </button>
         ))}
       </div>
       {open !== null ? (
-        <div role="dialog" aria-modal="true" aria-label="Picture" className="fixed inset-0 z-[2147483000] grid place-items-center bg-black/90 p-4 pt-[max(1rem,env(safe-area-inset-top))]" onClick={() => setOpen(null)}>
+        <div role="dialog" aria-modal="true" aria-label={tt("Picture")} className="fixed inset-0 z-[2147483000] grid place-items-center bg-black/90 p-4 pt-[max(1rem,env(safe-area-inset-top))]" onClick={() => setOpen(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={images[open].url} alt="" className="max-h-full max-w-full rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
-          <button type="button" onClick={() => setOpen(null)} className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Close">
+          <button type="button" onClick={() => setOpen(null)} className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label={tt("Close")}>
             <X className="h-5 w-5" />
           </button>
-          {images.length > 1 ? <p className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-[13px] text-white/70">{open + 1} of {images.length}</p> : null}
+          {images.length > 1 ? <p className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-[13px] text-white/70">{tt("{value} of {length}", { value: open + 1, length: images.length })}</p> : null}
         </div>
       ) : null}
     </>
@@ -160,7 +162,7 @@ export function PostView({
               aria-hidden
               className={cn("inline-block h-2 w-2 rounded-full bg-[#8b5cf6] transition-[opacity,scale] duration-500 ease-out motion-reduce:transition-none", post.unread ? "opacity-100" : "-mr-2 w-0 scale-0 opacity-0")}
             />
-            {post.unread ? <span className="sr-only">New. </span> : null}
+            {post.unread ? <span className="sr-only">{tt("New.")} </span> : null}
             <time dateTime={post.publishedAt}>{postDate(post.publishedAt, now)}</time>
           </p>
           {post.title ? <h2 className="mt-1 text-[17px] font-semibold leading-snug text-[#1a1a2e] sm:text-[18px]">{post.title}</h2> : null}
@@ -169,7 +171,7 @@ export function PostView({
       </header>
 
       {locked ? (
-        <p className="mt-3 text-[14px] text-[#9ca3af]">For members.</p>
+        <p className="mt-3 text-[14px] text-[#9ca3af]">{tt("For members.")}</p>
       ) : (
         <div className="mt-3 space-y-4">
           {post.body ? <PostText body={post.body} /> : null}
@@ -188,7 +190,7 @@ export function PostView({
                   {fileHref ? (
                     <a href={fileHref(a.assetId)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#e1e3e7] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] active:bg-[#f1f2f4]">
                       <Download aria-hidden className="h-3.5 w-3.5" />
-                      Download
+                      {tt("Download")}
                     </a>
                   ) : null}
                 </li>

@@ -46,6 +46,7 @@ import { productJsonLd } from "../lib/website-builder/site-seo"
 import { INTEGRATIONS } from "../lib/integrations/catalog"
 import { accountPageSections } from "../lib/website-builder/account-pages"
 import { renderEmail } from "../lib/notify/templates"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -63,7 +64,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 const realLog = console.log
 console.warn = () => undefined
 console.error = () => undefined
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const KEY = "a-long-enough-test-secret-for-review-links"
 const CREATOR = "33333333-3333-4333-8333-333333333333"

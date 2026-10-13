@@ -30,6 +30,8 @@ import { Pill, usePill } from "../../coupons/coupon-parts"
 import { CollectionEditor } from "./collection-editor"
 import { CollectionCover, StatusMark, countWords, howWords, picturesOf, type Collection, type CollectionProduct } from "./collection-parts"
 import { pressMark } from "@/lib/press-mark"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /* The products page's own measures (../products-client.tsx), so the two pages are one place. */
 const BAR_BUTTON_SIZE = "lg:h-[35px] lg:px-[13px] lg:text-[14.5px]"
@@ -48,10 +50,10 @@ async function send(url: string, method: string, body?: unknown): Promise<{ ok: 
   try {
     const res = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok || !Array.isArray(data?.collections)) return { ok: false, error: typeof data?.error === "string" ? data.error : "That did not go through. Try again." }
+    if (!res.ok || !Array.isArray(data?.collections)) return { ok: false, error: typeof data?.error === "string" ? data.error : tt("That did not go through. Try again.") }
     return { ok: true, collections: data.collections as Collection[] }
   } catch {
-    return { ok: false, error: "No connection. Try again in a moment." }
+    return { ok: false, error: tt("No connection. Try again in a moment.") }
   }
 }
 
@@ -96,7 +98,7 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
   const requestClose = (dirty: boolean) => {
     if (!dirty) return close()
     close(async () => {
-      const yes = await ask({ title: "Discard changes?", body: "Your edits to this collection will be lost.", confirm: "Discard", cancel: "Keep editing" })
+      const yes = await ask({ title: tt("Discard changes?"), body: tt("Your edits to this collection will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") })
       if (yes) setEditing(null)
       else setOpen(true)
     })
@@ -107,24 +109,24 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
     if (!r.ok) return r.error
     setList(r.collections)
     close()
-    say(`${body.title.trim()} saved`)
+    say(tt("{value} saved", { value: body.title.trim() }))
     return null
   }
 
   const remove = (c: Collection) => {
     close(async () => {
       const yes = await ask({
-        title: `Delete ${c.title}?`,
-        body: "The collection and its page on your website go. The products in it stay as they are.",
-        confirm: "Delete",
-        cancel: "Keep it",
+        title: tt("Delete {title}?", { title: c.title }),
+        body: tt("The collection and its page on your website go. The products in it stay as they are."),
+        confirm: tt("Delete"),
+        cancel: tt("Keep it"),
       })
       if (!yes) return setOpen(true)
       setEditing(null)
       const r = await send(`/api/collections/${c.id}`, "DELETE")
       if (!r.ok) return say(r.error, "error")
       setList(r.collections)
-      say(`${c.title} deleted`)
+      say(tt("{title} deleted", { title: c.title }))
     })
   }
 
@@ -132,24 +134,24 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       <Pill notice={notice} />
       <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
-        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">Collections</h1>
+        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Collections")}</h1>
         {list.length > 0 ? (
           <button type="button" data-new-collection="" className={NEW_LOOK} onClick={() => start(null)}>
-            New collection
+            {tt("New collection")}
           </button>
         ) : null}
       </PaneBar>
 
       <div className={cn("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
-        <section aria-label="Collections" data-collections-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
+        <section aria-label={tt("Collections")} data-collections-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
           {list.length === 0 ? (
             <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14 lg:py-[62px]">
-              <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">No collections yet</p>
+              <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">{tt("No collections yet")}</p>
               <p className="mt-1 max-w-[340px] text-[14px] leading-5 text-[#6b7280] md:text-[13px] lg:max-w-[372px] lg:text-[14.5px]">
-                Group products by hand or by rules, like New in, Courses or Under $30, and show a group on your website.
+                {tt("Group products by hand or by rules, like New in, Courses or Under $30, and show a group on your website.")}
               </p>
               <button type="button" onClick={() => start(null)} className={cn(NEW_LOOK, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}>
-                Create collection
+                {tt("Create collection")}
               </button>
             </div>
           ) : (
@@ -160,7 +162,7 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                 what decides them, in grey. A hidden collection says so first,
                 with a grey dot; a published one says nothing.
               */}
-              <ul aria-label="Collections" data-list="" className="md:hidden">
+              <ul aria-label={tt("Collections")} data-list="" className="md:hidden">
                 {list.map((c) => (
                   <li
                     key={c.id}
@@ -195,10 +197,10 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
               <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table lg:text-[14.5px]">
                 <thead>
                   <tr className="h-9 text-left text-[12px] text-[#6b7280] lg:h-[40px] lg:text-[13.5px] xl:h-[44px]">
-                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">Collection</th>
-                    <th scope="col" className="hidden w-[34%] border-b border-[#eef0f2] px-3 font-medium lg:table-cell lg:px-[13px]">Product conditions</th>
-                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 font-medium lg:w-[132px] lg:px-[13px]">Status</th>
-                    <th scope="col" className="w-[104px] border-b border-[#eef0f2] pl-3 pr-4 text-right font-medium lg:w-[124px] lg:pl-[13px] lg:pr-[18px] xl:pr-[22px]">Products</th>
+                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">{tt("Collection")}</th>
+                    <th scope="col" className="hidden w-[34%] border-b border-[#eef0f2] px-3 font-medium lg:table-cell lg:px-[13px]">{tt("Product conditions")}</th>
+                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 font-medium lg:w-[132px] lg:px-[13px]">{tt("Status")}</th>
+                    <th scope="col" className="w-[104px] border-b border-[#eef0f2] pl-3 pr-4 text-right font-medium lg:w-[124px] lg:pl-[13px] lg:pr-[18px] xl:pr-[22px]">{tt("Products")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -225,14 +227,14 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                         <StatusMark published={c.published} strong={c.published} />
                       </td>
                       <td className="whitespace-nowrap bg-white pl-3 pr-4 text-right tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:pl-[13px] lg:pr-[18px] xl:pr-[22px]">
-                        {c.productIds.length.toLocaleString("en-US")}
+                        {c.productIds.length.toLocaleString(appLocale())}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               <div data-footer="" className="hidden h-10 items-center border-t border-[#eef0f2] px-4 md:flex lg:h-[44px] lg:px-[18px] xl:h-[48px] xl:px-[22px]">
-                <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">{`${list.length} ${list.length === 1 ? "collection" : "collections"}`}</span>
+                <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">{tt("{n, plural, one {# collection} other {# collections}}", { n: list.length })}</span>
               </div>
             </>
           )}

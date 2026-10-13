@@ -24,6 +24,7 @@ import { getOnePageDomain } from "@/lib/onepage/address"
 import { CardMark, CheckMark, ChoiceMark } from "./choice-marks"
 import { WallpaperPattern } from "./wallpaper-layers"
 import { AvatarMark } from "@/components/app/app-avatar"
+import { tt, msg } from "@/lib/i18n/text"
 
 type Goal = "general" | "artist" | "digital" | "business"
 
@@ -39,10 +40,10 @@ type Goal = "general" | "artist" | "digital" | "business"
   scripts/check-onepage-onboarding.mjs measures it.
 */
 const GOALS: readonly { id: Goal; title: string; text: string }[] = [
-  { id: "general", title: "General", text: "Links, socials and products, a bit of each." },
-  { id: "artist", title: "Artist & Creator", text: "Show my work and where to find me." },
-  { id: "digital", title: "Digital Products", text: "Sell my digital products." },
-  { id: "business", title: "Business", text: "Bring customers to my business." },
+  { id: "general", get title() { return tt("General") }, get text() { return tt("Links, socials and products, a bit of each.") } },
+  { id: "artist", get title() { return tt("Artist & Creator") }, get text() { return tt("Show my work and where to find me.") } },
+  { id: "digital", get title() { return tt("Digital Products") }, get text() { return tt("Sell my digital products.") } },
+  { id: "business", get title() { return tt("Business") }, get text() { return tt("Bring customers to my business.") } },
 ]
 const goalIcon = (id: Goal, px: 48 | 96 | 144) => `/images/onepage-goals/${id}-${px}.webp`
 const goalIconSet = (id: Goal) => `${goalIcon(id, 48)} 1x, ${goalIcon(id, 96)} 2x, ${goalIcon(id, 144)} 3x`
@@ -137,7 +138,7 @@ const TemplateCard = memo(function TemplateCard({
       type="button"
       onClick={() => onPick(template.id)}
       aria-pressed={selected}
-      aria-label={`${template.name} template`}
+      aria-label={tt("{name} template", { name: template.name })}
       data-template-card={template.id}
       className={cn(
         "relative flex cursor-pointer flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]",
@@ -214,9 +215,9 @@ const TemplateCard = memo(function TemplateCard({
 
 /* What the last step says, in order. All three are drawn, one over the other (see Step 5). */
 const SETUP_WORDS = [
-  ["setting-up", "Setting up your OnePage"],
-  ["just-a-moment", "Almost there"],
-  ["ready", "Your OnePage is ready."],
+  ["setting-up", msg("Setting up your OnePage")],
+  ["just-a-moment", msg("Almost there")],
+  ["ready", msg("Your OnePage is ready.")],
 ] as const
 
 /* The themes are the Design tab's own list, not a copy of it that drifts: the onboarding offers what the tab offers. */
@@ -793,7 +794,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     try {
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('No canvas context')
+      if (!ctx) throw new Error(tt("No canvas context"))
 
       // Output size (512x512 for crisp profile pictures)
       const outputSize = 512
@@ -805,7 +806,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
-        img.onerror = () => reject(new Error('Failed to load image'))
+        img.onerror = () => reject(new Error(tt("Failed to load image")))
         img.src = tempImageUrl
       })
 
@@ -825,14 +826,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       // Convert to blob and upload
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
-          (b) => b ? resolve(b) : reject(new Error('Failed to create blob')),
+          (b) => b ? resolve(b) : reject(new Error(tt("Failed to create blob"))),
           'image/png',
           0.95
         )
       })
 
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error(tt("Not authenticated"))
 
       const fileName = `${user.id}/onepage-avatar-${Date.now()}.png` // the owner's folder first: storage only lets a person write there
       const { error: uploadError } = await supabase.storage
@@ -864,7 +865,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       setCropBox({ x: 50, y: 50, size: 200 })
     } catch (e) {
       console.error("Error uploading avatar:", e)
-      alert('Failed to upload image')
+      alert(tt("Failed to upload image"))
     } finally {
       setUploadingAvatar(false)
     }
@@ -1211,13 +1212,13 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("email_capture")
         addBlock("divider", undefined, { style: "line", height: 24 })
         addBlock("link_button", undefined, {
-          label: "Subscribe on YouTube",
+          label: tt("Subscribe on YouTube"),
           url: "https://youtube.com",
           icon: "youtube",
           thumbnail_url: null
         })
         addBlock("link_button", undefined, {
-          label: "Listen on Spotify",
+          label: tt("Listen on Spotify"),
           url: "https://open.spotify.com/",
           icon: "spotify",
           thumbnail_url: null,
@@ -1232,7 +1233,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("email_capture")
         addBlock("divider", undefined, { style: "line", height: 24 })
         addBlock("link_button", undefined, {
-          label: "Follow on Instagram",
+          label: tt("Follow on Instagram"),
           url: "https://instagram.com/",
           icon: "instagram",
           thumbnail_url: null
@@ -1248,13 +1249,13 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("email_capture")
         addBlock("divider", undefined, { style: "line", height: 24 })
         addBlock("link_button", undefined, {
-          label: "Connect on LinkedIn",
+          label: tt("Connect on LinkedIn"),
           url: "https://linkedin.com/in/",
           icon: "linkedin",
           thumbnail_url: null
         })
         addBlock("link_button", undefined, {
-          label: "Follow on Instagram",
+          label: tt("Follow on Instagram"),
           url: "https://instagram.com/",
           icon: "instagram",
           thumbnail_url: null
@@ -1348,10 +1349,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-4 sm:mb-8">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Let's get started
+                      {tt("Let's get started")}
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      Start with your name. You can change everything later.
+                      {tt("Start with your name. You can change everything later.")}
                     </p>
                   </div>
 
@@ -1374,7 +1375,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           onChange={(e) => setDisplayName(e.target.value)}
                           onFocus={() => setUsernameFocused(true)}
                           onBlur={() => setUsernameFocused(false)}
-                          placeholder="Your name"
+                          placeholder={tt("Your name")}
                           className="flex-1 text-base outline-none bg-transparent"
                           autoFocus={false}
                           autoComplete="off"
@@ -1390,7 +1391,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         )}
                       </div>
                       {usernameAvailable === false && (
-                        <p className="text-red-500 text-xs mt-1.5 ml-1">This name is not available</p>
+                        <p className="text-red-500 text-xs mt-1.5 ml-1">{tt("This name is not available")}</p>
                       )}
                     </div>
 
@@ -1419,7 +1420,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       <textarea
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
-                        placeholder="Tell us a few words about yourself"
+                        placeholder={tt("Tell us a few words about yourself")}
                         rows={2}
                         className="flex-1 text-base outline-none bg-transparent resize-none"
                       />
@@ -1433,10 +1434,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 <div className="flex flex-col items-center h-full">
                   <div className="text-center mb-3 sm:mb-6 shrink-0">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      What's the goal here?
+                      {tt("What's the goal here?")}
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      We'll build your OnePage around this
+                      {tt("We'll build your OnePage around this")}
                     </p>
                   </div>
 
@@ -1454,10 +1455,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-3 sm:mb-8">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Add your socials
+                      {tt("Add your socials")}
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      These will appear on your OnePage
+                      {tt("These will appear on your OnePage")}
                     </p>
                   </div>
 
@@ -1480,7 +1481,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         className="mt-2 sm:mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
                       >
                         <Pencil className="w-4 h-4" />
-                        Edit
+                        {tt("Edit")}
                       </button>
                       <input
                         ref={avatarInputRef}
@@ -1538,10 +1539,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 <div className="flex flex-col items-center h-full">
                   <div className="text-center mb-3 sm:mb-5 shrink-0">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Choose a template
+                      {tt("Choose a template")}
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      Pick a style. You can change it later.
+                      {tt("Pick a style. You can change it later.")}
                     </p>
                   </div>
 
@@ -1624,7 +1625,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             shown ? "opacity-100 duration-[260ms] delay-100" : "opacity-0 duration-[180ms]",
                           )}
                         >
-                          {words}
+                          {tt(words)}
                         </h1>
                       )
                     })}
@@ -1649,7 +1650,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       onClick={handleBack}
                       className="px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                     >
-                      Back
+                      {tt("Back")}
                     </button>
                   )}
                   {/* None of these button - desktop only, step 2 only */}
@@ -1661,7 +1662,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       }}
                       className="hidden sm:block px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                     >
-                      None of these
+                      {tt("None of these")}
                     </button>
                   )}
                 </div>
@@ -1673,7 +1674,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       onClick={handleSkip}
                       className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                     >
-                      Skip
+                      {tt("Skip")}
                     </button>
                   )}
 
@@ -1687,7 +1688,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     )}
                   >
-                    Next
+                    {tt("Next")}
                   </button>
                 </div>
               </div>
@@ -1716,7 +1717,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             <button onClick={() => { setShowCropModal(false); setTempImageUrl(null); setAvatarFile(null) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Crop image</h2>
+            <h2 className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop image")}</h2>
           </div>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -1791,7 +1792,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   {/* Image */}
                   <img
                     src={tempImageUrl}
-                    alt="Preview"
+                    alt={tt("Preview")}
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
                     style={{
                       width: imageSizeCrop.width,
@@ -1878,7 +1879,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 </div>
 
                 <p className="text-xs text-center text-gray-500">
-                  Drag to move, drag bottom-right corner to resize
+                  {tt("Drag to move, drag bottom-right corner to resize")}
                 </p>
 
                 <canvas ref={canvasRef} className="hidden" />
@@ -1888,14 +1889,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     onClick={() => { setShowCropModal(false); setTempImageUrl(null); setAvatarFile(null); setCropBox({ x: 50, y: 50, size: 200 }) }}
                     className="flex-1 py-3 rounded-xl font-medium text-sm border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    {tt("Cancel")}
                   </button>
                   <button
                     onClick={handleCropComplete}
                     disabled={uploadingAvatar}
                     className="flex-1 py-3 rounded-xl font-medium text-sm bg-[#1a1a2e] text-white hover:bg-[#2a2a40] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />Saving...</> : "Save"}
+                    {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />{tt("Saving...")}</> : tt("Save")}
                   </button>
                 </div>
               </>

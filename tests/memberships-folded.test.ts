@@ -41,6 +41,7 @@ import { legacyLibraryTarget, libraryMembershipPath } from "@/lib/library/paths"
 import { membershipMatches } from "@/components/library/library-memberships"
 import { countLine } from "@/components/library/library-home"
 import type { MembershipCard } from "@/lib/memberships/view-types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -55,7 +56,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `   ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(p, "utf8")
+const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 async function main() {

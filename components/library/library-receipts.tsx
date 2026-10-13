@@ -1,5 +1,6 @@
 "use client"
 
+import { SoftImg } from "@/components/ui/soft-img"
 import Link from "next/link"
 import { useState } from "react"
 import { FileText, Loader2 } from "lucide-react"
@@ -81,8 +82,7 @@ export function LibraryReceipts({ receipts }: { receipts: LibraryReceipt[] }) {
               className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-3.5 transition-colors hover:bg-[#fcfcfd] focus-visible:bg-[#f8f9fa] focus-visible:outline-none sm:px-5"
             >
               <div className="relative h-11 w-11 overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {first?.thumbnailUrl ? <img src={first.thumbnailUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" /> : null}
+                {first?.thumbnailUrl ? <SoftImg src={first.thumbnailUrl} width={44} className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" /> : null}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">

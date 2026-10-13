@@ -3,9 +3,13 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ThemeMarketplaceClient } from "./themes-client"
 import { pageUser } from "@/lib/auth/page-user"
+import { getServerTt } from "@/lib/i18n/server"
 
-export const metadata: Metadata = {
-  title: "Theme marketplace",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Theme marketplace"),
+  }
 }
 
 /**

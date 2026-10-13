@@ -68,8 +68,11 @@ export interface AccountIdentity {
   avatarUrl: string | null
   /** profiles.bio, or null when there is none (or the column is not there yet). */
   bio?: string | null
-  /** Their own cover (profiles.cover_url), else their store's; null for none. */
+  /** The cover their profile draws: their own (profiles.cover_url), else their creator page's (lib/profile/page-look.ts); null for none. */
   coverUrl?: string | null
+  /** Each of the two, for Edit profile: Settings changes their own and offers their page's back (round J1). */
+  ownCoverUrl?: string | null
+  pageCoverUrl?: string | null
   followers?: number
   following?: number
   /** A live store: their profile has no Activity, so /account opens on their Communities (lib/profile/owner-pills.ts). */
@@ -124,7 +127,8 @@ export function AccountHub({ identity, communities = false, children }: { identi
         username: identity.username,
         bio: identity.bio ?? null,
         avatarUrl: shown,
-        coverUrl: identity.coverUrl ?? null,
+        coverUrl: identity.ownCoverUrl !== undefined ? identity.ownCoverUrl : (identity.coverUrl ?? null),
+        pageCoverUrl: identity.pageCoverUrl ?? null,
       }}
     />
     <div data-account-hub="">
@@ -135,6 +139,8 @@ export function AccountHub({ identity, communities = false, children }: { identi
           username: identity.username,
           avatarUrl: shown,
           coverUrl: identity.coverUrl ?? null,
+          ownCoverUrl: identity.ownCoverUrl,
+          pageCoverUrl: identity.pageCoverUrl ?? null,
           bio: (identity.bio || "").trim() || null,
           followers: identity.followers ?? 0,
           following: identity.following ?? 0,

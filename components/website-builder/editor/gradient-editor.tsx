@@ -33,6 +33,7 @@ import { Minus, Plus, RotateCw } from "lucide-react"
 import { ColorChip } from "./color-chip"
 import { useFrameCommit } from "./use-frame-commit"
 import { liveGesture } from "@/lib/website-builder/live-settings"
+import { tt, msg } from "@/lib/i18n/text"
 
 export interface GradientStop {
   color: string
@@ -57,14 +58,14 @@ const DEFAULT: Gradient = {
 }
 
 export const GRADIENT_PRESETS: { label: string; value: string }[] = [
-  { label: "Dusk", value: "linear-gradient(135deg, #0f172a 0%, #4c1d95 100%)" },
-  { label: "Sunrise", value: "linear-gradient(135deg, #fde68a 0%, #f472b6 100%)" },
-  { label: "Ocean", value: "linear-gradient(160deg, #0ea5e9 0%, #1e3a8a 100%)" },
-  { label: "Mist", value: "linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)" },
-  { label: "Ember", value: "linear-gradient(120deg, #7c2d12 0%, #f97316 100%)" },
-  { label: "Forest", value: "linear-gradient(150deg, #052e16 0%, #16a34a 100%)" },
-  { label: "Slate", value: "linear-gradient(180deg, #0f172a 0%, #334155 100%)" },
-  { label: "Rose", value: "linear-gradient(135deg, #fecdd3 0%, #be123c 100%)" },
+  { get label() { return tt("Dusk") }, value: "linear-gradient(135deg, #0f172a 0%, #4c1d95 100%)" },
+  { get label() { return tt("Sunrise") }, value: "linear-gradient(135deg, #fde68a 0%, #f472b6 100%)" },
+  { get label() { return tt("Ocean") }, value: "linear-gradient(160deg, #0ea5e9 0%, #1e3a8a 100%)" },
+  { get label() { return tt("Mist") }, value: "linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)" },
+  { get label() { return tt("Ember") }, value: "linear-gradient(120deg, #7c2d12 0%, #f97316 100%)" },
+  { get label() { return tt("Forest") }, value: "linear-gradient(150deg, #052e16 0%, #16a34a 100%)" },
+  { get label() { return tt("Slate") }, value: "linear-gradient(180deg, #0f172a 0%, #334155 100%)" },
+  { get label() { return tt("Rose") }, value: "linear-gradient(135deg, #fecdd3 0%, #be123c 100%)" },
 ]
 
 /** `linear-gradient(135deg, #0f172a 0%, #4c1d95 100%)` → a Gradient, or null. */
@@ -139,7 +140,7 @@ const TURN_BY = 45
  * clockwise. "Down" rather than "180 degrees", because nobody pictures a
  * number and everybody pictures a direction.
  */
-const DIRECTION_NAME = ["Up", "Up right", "Right", "Down right", "Down", "Down left", "Left", "Up left"]
+const DIRECTION_NAME = [msg("Up"), msg("Up right"), msg("Right"), msg("Down right"), msg("Down"), msg("Down left"), msg("Left"), msg("Up left")]
 
 /** How near the track a press has to be, as a share of it, to take a stop. */
 const GRAB_WITHIN = 12
@@ -308,7 +309,7 @@ export function GradientEditor({
 
       {unreadable && (
         <p className="text-[12px] leading-snug text-muted-foreground">
-          This gradient was written by hand in a form this control cannot read. It is kept as it is; changing anything below replaces it.
+          {tt("This gradient was written by hand in a form this control cannot read. It is kept as it is; changing anything below replaces it.")}
         </p>
       )}
 
@@ -330,7 +331,7 @@ export function GradientEditor({
             commit({ ...g, stops: g.stops.filter((_, idx) => idx !== index) })
           }}
           disabled={stops.length <= MIN_STOPS}
-          aria-label="Remove this colour"
+          aria-label={tt("Remove this colour")}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <Minus className="h-4 w-4" />
@@ -344,7 +345,7 @@ export function GradientEditor({
             commit(added)
           }}
           disabled={stops.length >= MAX_STOPS}
-          aria-label="Add a colour"
+          aria-label={tt("Add a colour")}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <Plus className="h-4 w-4" />
@@ -357,9 +358,9 @@ export function GradientEditor({
         onClick={turn}
         className="flex h-9 w-full items-center justify-between rounded-lg border border-border px-3 text-[13px] transition-colors hover:bg-muted"
       >
-        <span className="text-muted-foreground">Direction</span>
+        <span className="text-muted-foreground">{tt("Direction")}</span>
         <span className="flex items-center gap-2 font-medium text-foreground">
-          {DIRECTION_NAME[Math.round(g.angle / TURN_BY) % 8]}
+          {tt(DIRECTION_NAME[Math.round(g.angle / TURN_BY) % 8])}
           <RotateCw className="h-3.5 w-3.5 text-muted-foreground" />
         </span>
       </button>

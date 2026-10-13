@@ -83,6 +83,7 @@ import {
   readRecent,
   type Hsv,
 } from "@/lib/onepage/color"
+import { tt } from "@/lib/i18n/text"
 
 /** Used when a field passes no suggestions of its own: quiet colours that sit well on a page. */
 export const DEFAULT_SUGGESTIONS = ["#ffffff", "#1a1a2e", "#f4efe9", "#b2846c", "#6b7280", "#2f6f4f", "#e4572e", "#1f4e79"]
@@ -280,8 +281,8 @@ export function ColorPickerPanel({
         ref={square.ref}
         role="slider"
         tabIndex={0}
-        aria-label="Saturation and brightness"
-        aria-valuetext={`Saturation ${Math.round(hsv.s * 100)}%, brightness ${Math.round(hsv.v * 100)}%`}
+        aria-label={tt("Saturation and brightness")}
+        aria-valuetext={tt("Saturation {value}%, brightness {value2}%", { value: Math.round(hsv.s * 100), value2: Math.round(hsv.v * 100) })}
         data-sheet-no-drag=""
         data-color-square=""
         onPointerDown={square.onPointerDown}
@@ -307,7 +308,7 @@ export function ColorPickerPanel({
         ref={strip.ref}
         role="slider"
         tabIndex={0}
-        aria-label="Hue"
+        aria-label={tt("Hue")}
         aria-valuemin={0}
         aria-valuemax={360}
         aria-valuenow={Math.round(hsv.h)}
@@ -339,7 +340,7 @@ export function ColorPickerPanel({
 
       <div className="flex items-center gap-2">
         <label className={cn("flex min-w-0 flex-1 items-center rounded-full border bg-white transition-[border-color,box-shadow] duration-150 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", targets, compact ? "px-4" : "px-3", bad ? "border-[#e5484d]" : "border-[#e3e4e8]")}>
-          <span className="sr-only">Colour code</span>
+          <span className="sr-only">{tt("Colour code")}</span>
           <span aria-hidden className={cn("mr-2 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]", compact ? "h-5 w-5" : "h-4 w-4")} style={{ backgroundColor: shown }} />
           <input
             value={text}
@@ -370,8 +371,8 @@ export function ColorPickerPanel({
         {dropper ? (
           <button
             type="button"
-            aria-label="Pick a colour from the screen"
-            title="Pick a colour from the screen"
+            aria-label={tt("Pick a colour from the screen")}
+            title={tt("Pick a colour from the screen")}
             data-color-eyedropper=""
             onClick={async () => {
               try {
@@ -392,8 +393,8 @@ export function ColorPickerPanel({
           with a rule and a full gap between them. Each keeps its own small
           caption, because a row of colours with no name is a guess. */}
       <div className={cn("flex flex-col border-t border-[#eef0f2]", compact ? "gap-3 pt-3" : "gap-1.5 pt-2.5")}>
-        <SwatchRow title="Suggested" colors={suggestions} value={shown} onPick={pick} compact={compact} />
-        {recent.length ? <SwatchRow title="Recent" colors={recent} value={shown} onPick={pick} compact={compact} /> : null}
+        <SwatchRow title={tt("Suggested")} colors={suggestions} value={shown} onPick={pick} compact={compact} />
+        {recent.length ? <SwatchRow title={tt("Recent")} colors={recent} value={shown} onPick={pick} compact={compact} /> : null}
       </div>
     </div>
   )
@@ -483,7 +484,7 @@ export function ColorField({
   const trigger = (
     <button
       type="button"
-      aria-label={`${label}: ${hex ? hex.toUpperCase() : emptyLabel || "not set"}`}
+      aria-label={`${label}: ${hex ? hex.toUpperCase() : emptyLabel || tt("not set")}`}
       aria-haspopup="dialog"
       data-color-field=""
       data-open={open ? "" : undefined}
@@ -505,7 +506,7 @@ export function ColorField({
             className={cn("h-8 w-8 shrink-0 rounded-full", isNearWhite(swatch) ? "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]")}
             style={{ backgroundColor: swatch }}
           />
-          <span className={cn("truncate", !hex && "text-[#6b7280]")}>{hex ? hex.toUpperCase() : emptyLabel || "Choose"}</span>
+          <span className={cn("truncate", !hex && "text-[#6b7280]")}>{hex ? hex.toUpperCase() : emptyLabel || tt("Choose")}</span>
         </>
       ) : null}
     </button>
@@ -524,7 +525,7 @@ export function ColorField({
             <div className="flex items-center justify-between px-5 pb-2 pt-1">
               <p className="text-[17px] font-semibold text-[#1a1a2e]">{label}</p>
               <button type="button" onClick={() => setShown(false)} className={cn(primaryDepth, "h-10 rounded-full px-5 text-[14px]")}>
-                Done
+                {tt("Done")}
               </button>
             </div>
           }

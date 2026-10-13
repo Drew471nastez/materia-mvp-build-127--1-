@@ -12,6 +12,8 @@ import { PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { DeliveryStatus, FulfillmentStatus, PaymentStatus, ShipStage } from "@/lib/orders/order-view"
 import { FULFILLMENT_LABEL, PAYMENT_LABEL, SHIP_STAGE_LABEL, showsProblem } from "@/lib/orders/order-view"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 export const INK = "#1a1a2e"
 
@@ -91,7 +93,7 @@ export function OrderBarFrame({
   )
 }
 
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const money = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
 
 export function formatMoney(cents: number): string {
   return money.format((cents || 0) / 100)
@@ -150,7 +152,7 @@ export function ShipBadge({ stage, problem }: { stage: ShipStage; problem?: bool
   if (showsProblem(stage, problem)) {
     return (
       <StatusBadge tone="critical">
-        <span data-ship-stage="problem">Delivery problem</span>
+        <span data-ship-stage="problem">{tt("Delivery problem")}</span>
       </StatusBadge>
     )
   }
@@ -163,8 +165,8 @@ export function ShipBadge({ stage, problem }: { stage: ShipStage; problem?: bool
 }
 
 export function DeliveryBadge({ status }: { status: DeliveryStatus }) {
-  if (status === "delivered") return <StatusBadge tone="neutral">Delivered</StatusBadge>
-  if (status === "failed") return <StatusBadge tone="critical">Not delivered</StatusBadge>
+  if (status === "delivered") return <StatusBadge tone="neutral">{tt("Delivered")}</StatusBadge>
+  if (status === "failed") return <StatusBadge tone="critical">{tt("Not delivered")}</StatusBadge>
   return <span className="text-[#9ca3af]">&ndash;</span>
 }
 

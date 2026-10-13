@@ -27,6 +27,7 @@
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { publicOnePage, publicOnePageFromDraft } from "@/lib/onepage/public-shape"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -41,7 +42,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 console.log("\nEvery way in goes by the router")

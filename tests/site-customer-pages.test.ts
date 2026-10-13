@@ -50,6 +50,7 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { publicAccess, readSiteAccess, saveSiteAccess } from "@/lib/site-password/store"
 import { enterPassword, ownerHandOff, passwordNotice, spendOwnerPass } from "@/lib/site-password/enter"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 process.env.SITE_ACCOUNT_SECRET = "test-secret-for-site-customer-pages-0123456789"
 
@@ -61,7 +62,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   else { failed++; failures.push(label); process.stdout.write(`  FAIL  ${label}${detail === undefined ? "" : `\n        ${typeof detail === "string" ? detail.slice(0, 600) : JSON.stringify(detail).slice(0, 600)}`}\n`) }
 }
 function section(title: string) { process.stdout.write(`\n${title}\n`) }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 /* Two creators, side by side, and two customers each. */
@@ -208,7 +209,7 @@ async function main() {
     check("the page key is the site's own: reserved, generated, built in, at /password, filed under Other",
       RESERVED_PAGE_KEYS.has("password") && GENERATED_PAGE_KEYS.has("password") && BUILT_IN_PAGE_KEYS.has("password") && pagePath("password") === "/password" && pageKeyFromSegment("password") === null && pageGroupOf("password") === "other")
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
-    check("and the builder opens it without the header and footer too", (editor.match(/CHROMELESS_PAGES\.has\(/g) ?? []).length === 2)
+    check("and the builder opens it without the header and footer too", /const loaded = CHROMELESS_PAGES\.has\(currentPage\) \? withoutChrome\(loadedRaw\)/.test(editor) && /const merged = CHROMELESS_PAGES\.has\(page\) \? withoutChrome\(loaded\)/.test(editor))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

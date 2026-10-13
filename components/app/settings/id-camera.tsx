@@ -30,6 +30,7 @@ import { HINT_WORDS, STEADY_FRAMES, frameQuality, hintFor, toGray, type FrameHin
 import { armAskSounds, playAskSound } from "@/lib/website-builder/ask-sounds"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /** An ID card is 85.6 by 54 mm; a passport's photo page is close enough to frame the same way. */
 const CARD_RATIO = 85.6 / 54
@@ -255,7 +256,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
 
   if (!open || typeof document === "undefined") return null
 
-  const title = side === "front" ? "Front of your ID" : "Back of your ID"
+  const title = side === "front" ? tt("Front of your ID") : tt("Back of your ID")
   const progress = steady / STEADY_FRAMES
 
   return createPortal(
@@ -271,7 +272,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
       <video ref={video} playsInline muted autoPlay className={cn("absolute inset-0 h-full w-full object-cover transition-opacity duration-300", phase === "live" ? "opacity-100" : "opacity-0")} />
 
       <div className="relative z-10 flex shrink-0 items-center justify-between px-2 pt-[max(8px,env(safe-area-inset-top))]">
-        <button type="button" aria-label="Close" onClick={onClose} className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/30 text-white outline-none backdrop-blur-sm transition-colors active:bg-black/50">
+        <button type="button" aria-label={tt("Close")} onClick={onClose} className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/30 text-white outline-none backdrop-blur-sm transition-colors active:bg-black/50">
           <X className="h-5 w-5" />
         </button>
         <span className="text-[15px] font-semibold">{title}</span>
@@ -281,17 +282,17 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
       {phase === "review" && shot ? (
         <div className="relative flex flex-1 flex-col items-center justify-center px-6 animate-in fade-in-0 zoom-in-[0.98] duration-200">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={shot.url} alt={`${title}, as taken`} className="max-h-[52vh] w-full max-w-[520px] rounded-2xl object-contain shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]" />
-          <p className="mt-5 max-w-[340px] text-center text-[14px] leading-5 text-white/80">Check the words are sharp, all four corners are in, and there is no glare.</p>
+          <img src={shot.url} alt={tt("{title}, as taken", { title })} className="max-h-[52vh] w-full max-w-[520px] rounded-2xl object-contain shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]" />
+          <p className="mt-5 max-w-[340px] text-center text-[14px] leading-5 text-white/80">{tt("Check the words are sharp, all four corners are in, and there is no glare.")}</p>
         </div>
       ) : phase === "denied" || phase === "none" ? (
         <div className="relative flex flex-1 flex-col items-center justify-center px-8 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10">
             <Camera className="h-6 w-6" />
           </span>
-          <p className="mt-4 text-[17px] font-semibold">{phase === "denied" ? "Camera access is off" : "No camera here"}</p>
+          <p className="mt-4 text-[17px] font-semibold">{phase === "denied" ? tt("Camera access is off") : tt("No camera here")}</p>
           <p className="mt-1.5 max-w-[320px] text-[14px] leading-5 text-white/70">
-            {phase === "denied" ? "Allow the camera for Storelib in your phone's settings, then try again." : "Open setup on your phone to take the photo with its camera."}
+            {phase === "denied" ? tt("Allow the camera for Storelib in your phone's settings, then try again.") : tt("Open setup on your phone to take the photo with its camera.")}
           </p>
         </div>
       ) : (
@@ -310,7 +311,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
             </div>
           </div>
           <p aria-live="polite" className="absolute inset-x-0 bottom-6 z-10 px-6 text-center text-[15px] font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-            {phase === "starting" ? "Starting the camera" : side === "front" ? (hint === "ready" ? HINT_WORDS.ready : `${HINT_WORDS[hint]}. Fit the front of your ID in the frame.`) : hint === "ready" ? HINT_WORDS.ready : `${HINT_WORDS[hint]}. Now the back.`}
+            {phase === "starting" ? tt("Starting the camera") : side === "front" ? (hint === "ready" ? HINT_WORDS.ready : tt("{hintWords}. Fit the front of your ID in the frame.", { hintWords: HINT_WORDS[hint] })) : hint === "ready" ? HINT_WORDS.ready : tt("{hintWords}. Now the back.", { hintWords: HINT_WORDS[hint] })}
           </p>
         </div>
       )}
@@ -330,14 +331,14 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
               className="flex h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white/12 text-[15px] font-medium text-white outline-none backdrop-blur-sm transition-colors active:bg-white/20"
             >
               <RotateCcw className="h-4 w-4" />
-              Retake
+              {tt("Retake")}
             </button>
             <button
               type="button"
               onClick={() => onPhoto(shot.blob)}
               className="flex h-12 flex-1 cursor-pointer items-center justify-center rounded-xl bg-white text-[15px] font-semibold text-[#1a1a2e] outline-none transition-transform active:scale-[0.98]"
             >
-              Use photo
+              {tt("Use photo")}
             </button>
           </div>
         ) : (
@@ -346,7 +347,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
             {phase === "live" ? (
               <button
                 type="button"
-                aria-label="Take photo"
+                aria-label={tt("Take photo")}
                 onClick={() => void capture()}
                 className="flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-full border-[4px] border-white/90 outline-none transition-transform active:scale-95"
               >
@@ -356,12 +357,12 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
               <span className="h-[72px] w-[72px]" />
             ) : (
               <button type="button" onClick={() => void begin()} className="flex h-12 cursor-pointer items-center justify-center rounded-xl bg-white px-6 text-[15px] font-semibold text-[#1a1a2e] outline-none">
-                Try again
+                {tt("Try again")}
               </button>
             )}
             {side === "back" && onNoBack ? (
               <button type="button" onClick={onNoBack} className="flex h-11 min-w-[88px] cursor-pointer items-center justify-end rounded-full px-3 text-right text-[13.5px] font-medium leading-4 text-white/85 outline-none active:text-white">
-                No back
+                {tt("No back")}
               </button>
             ) : (
               <span className="min-w-[88px]" />
@@ -413,7 +414,7 @@ export async function shrinkPhoto(file: File): Promise<Blob> {
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", q))
       if (blob && blob.size < 1_500_000) return blob
     }
-    throw new Error("too large")
+    throw new Error(tt("too large"))
   } finally {
     URL.revokeObjectURL(url)
   }
@@ -446,11 +447,11 @@ export function sendIdPhoto<T>(url: string, form: FormData, onProgress: (pct: nu
         onProgress(100)
         resolve(body)
       } else {
-        reject(Object.assign(new Error(body?.error || "That photo did not go through. Take it again."), { status: xhr.status }))
+        reject(Object.assign(new Error(body?.error || tt("That photo did not go through. Take it again.")), { status: xhr.status }))
       }
     }
-    xhr.onerror = () => reject(Object.assign(new Error("No connection. Check your internet and take it again."), { status: 0 }))
-    xhr.ontimeout = () => reject(Object.assign(new Error("That took too long. Take it again."), { status: 0 }))
+    xhr.onerror = () => reject(Object.assign(new Error(tt("No connection. Check your internet and take it again.")), { status: 0 }))
+    xhr.ontimeout = () => reject(Object.assign(new Error(tt("That took too long. Take it again.")), { status: 0 }))
     xhr.send(form)
   })
 }

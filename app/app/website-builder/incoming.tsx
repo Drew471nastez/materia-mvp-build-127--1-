@@ -29,6 +29,7 @@ import { RotateCcw, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { IMPORT_TOO_LARGE, importSizeProblem } from "@/lib/website-builder/theme-import"
 import { LIBRARY_FULL_CODE } from "@/lib/website-builder/library-limit"
+import { tt, msg } from "@/lib/i18n/text"
 
 export type IncomingKind = "import" | "add" | "duplicate"
 
@@ -49,21 +50,21 @@ export const ARRIVAL_MS = 1200
 
 /** What the row says while the server works. */
 const WORKING: Record<IncomingKind, string> = {
-  import: "Importing",
-  add: "Adding",
-  duplicate: "Copying",
+  get import() { return tt("Importing") },
+  get add() { return tt("Adding") },
+  get duplicate() { return tt("Copying") },
 }
 
 export function incomingStatus(i: Incoming): string {
-  if (i.phase === "error") return i.error ?? "Something went wrong"
-  if (i.phase === "uploading") return `Uploading ${Math.round(i.progress * 100)}%`
+  if (i.phase === "error") return i.error ?? tt("Something went wrong")
+  if (i.phase === "uploading") return tt("Uploading {value}%", { value: Math.round(i.progress * 100) })
   return WORKING[i.kind]
 }
 
 /** "summer-shop.storelib-theme.zip" is "summer-shop". */
 export function nameFromFile(file: { name: string }): string {
   const base = file.name.replace(/(\.storelib-theme)?\.zip$/i, "").replace(/\.storelib-theme$/i, "")
-  return base.trim() || "Imported theme"
+  return base.trim() || tt("Imported theme")
 }
 
 /** What a request came back with. `failure` when there was no answer at all. */
@@ -172,16 +173,16 @@ export async function fetchAnswer(url: string, body: unknown, ms: number): Promi
   }
 }
 
-const OFFLINE = "The connection dropped. Try again."
-const STALLED = "The upload stopped moving. Try again."
-const SLOW = "The import took too long. Try again."
+const OFFLINE = msg("The connection dropped. Try again.")
+const STALLED = msg("The upload stopped moving. Try again.")
+const SLOW = msg("The import took too long. Try again.")
 
 /** The answer with a reason a person can read in `data.error`, for the row and the toast. */
-function said(a: Answer, otherwise: string, timeout = SLOW): Answer {
+function said(a: Answer, otherwise: string, timeout: string = tt(SLOW)): Answer {
   if (a.ok) return a
   const error =
     a.failure === "timeout" ? timeout
-    : a.failure === "network" ? OFFLINE
+    : a.failure === "network" ? tt(OFFLINE)
     : a.status === 413 ? IMPORT_TOO_LARGE
     : typeof a.data.error === "string" && a.data.error ? a.data.error
     : otherwise
@@ -210,18 +211,18 @@ export async function importThemeFile(
 ): Promise<Answer> {
   const problem = importSizeProblem(file.size)
   if (problem) return { ok: false, status: 400, data: { error: problem } }
-  const place = said(await fetchAnswer("/api/website-builder/themes/import/upload", { size: file.size }, 20_000), "Could not start the upload. Try again.", OFFLINE)
+  const place = said(await fetchAnswer("/api/website-builder/themes/import/upload", { size: file.size }, 20_000), tt("Could not start the upload. Try again."), OFFLINE)
   /* A full library is an answer, not a failure of the way in. */
   if (!place.ok && place.data.code === LIBRARY_FULL_CODE) return place
   const url = place.data.url
   const path = place.data.path
   if (place.ok && typeof url === "string" && typeof path === "string") {
     const put = await sendWithProgress("PUT", url, file, on, { "Content-Type": file.type || "application/zip", "x-upsert": "true" })
-    if (put.ok) return said(await fetchAnswer("/api/website-builder/themes/import", { path }, ANSWER_MS), "Could not import that file")
+    if (put.ok) return said(await fetchAnswer("/api/website-builder/themes/import", { path }, ANSWER_MS), tt("Could not import that file"))
     /* Storage's own error text is not for people: only the size is said as it is. */
-    if (file.size > FORM_IMPORT_MAX_BYTES) return said({ ...put, data: {} }, "Could not upload that file. Try again.", STALLED)
+    if (file.size > FORM_IMPORT_MAX_BYTES) return said({ ...put, data: {} }, tt("Could not upload that file. Try again."), tt(STALLED))
   } else if (file.size > FORM_IMPORT_MAX_BYTES) {
-    return place.ok ? said({ ok: false, status: 500, data: {} }, "Could not start the upload. Try again.") : place
+    return place.ok ? said({ ok: false, status: 500, data: {} }, tt("Could not start the upload. Try again.")) : place
   }
   /*
     THE SECOND WAY IN. A package small enough for a function's request body
@@ -231,7 +232,7 @@ export async function importThemeFile(
   */
   const form = new FormData()
   form.append("file", file)
-  return said(await sendWithProgress("POST", "/api/website-builder/themes/import", form, on), "Could not import that file", STALLED)
+  return said(await sendWithProgress("POST", "/api/website-builder/themes/import", form, on), tt("Could not import that file"), tt(STALLED))
 }
 
 /** Under the 4.5 MB a function accepts as a request body, with room for the form around the file. */
@@ -330,12 +331,12 @@ export function IncomingRow({
         className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 hover:bg-[#f8f9fa] sm:h-9"
       >
         <RotateCcw className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2} />
-        Try again
+        {tt("Try again")}
       </button>
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss"
+        aria-label={tt("Dismiss")}
         className="flex h-11 w-11 items-center justify-center rounded-lg text-[#6b7280] transition-colors duration-150 hover:bg-[#eef0f3] hover:text-[#1a1a2e] sm:h-9 sm:w-9"
       >
         <X className="h-4 w-4" />

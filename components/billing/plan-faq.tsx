@@ -15,6 +15,7 @@ import { useId, useState } from "react"
 import { ArrowUpRight, Plus } from "lucide-react"
 import { planQuestions } from "@/lib/billing/plans"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 function Item({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
   const id = useId()
@@ -70,17 +71,17 @@ export function PlanFaq() {
     <section aria-labelledby="plan-faq-title" data-plan-faq="" className="mx-auto w-full max-w-[880px]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <h2 id="plan-faq-title" className="text-[28px] font-bold leading-[1.1] tracking-[-0.02em] text-[#1a1a2e] sm:text-[40px]">
-          Frequent questions
-          <span className="block text-[#6b7280]">Find answers</span>
+          {tt("Frequent questions")}
+          <span className="block text-[#6b7280]">{tt("Find answers")}</span>
         </h2>
         {/* One line on a phone, two stacked under the title's right edge on a computer. */}
         <div className="flex flex-wrap items-baseline gap-x-2 sm:block sm:text-right">
-          <p className="text-[14px] text-[#1a1a2e]">Any more questions?</p>
+          <p className="text-[14px] text-[#1a1a2e]">{tt("Any more questions?")}</p>
           <a
             href="mailto:support@storelib.com"
             className="inline-flex items-center gap-1 text-[14px] font-medium text-[#3b2bb8] underline-offset-4 hover:underline sm:mt-1"
           >
-            Email support
+            {tt("Email support")}
             <ArrowUpRight className="h-4 w-4" aria-hidden />
           </a>
         </div>

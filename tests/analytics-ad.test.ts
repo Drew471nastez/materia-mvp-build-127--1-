@@ -127,7 +127,9 @@ console.log("\nThe store's own analytics on an imported theme\n")
   const tags = compatTrackingTags(trackingTags({ ga4: "G-ABC123DEF4" }))
   check("Google Analytics' tag, as on a builder website", /<script async src="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=G-ABC123DEF4"/.test(tags) && /gtag\('config',"G-ABC123DEF4"\)/.test(tags), tags)
   const route = read("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-  check("  put on every live page of an imported theme, never a preview", /if \(html && !token && page && out\.status === 200/.test(route) && /compatTrackScript\(\{ creatorId: found\.site\.creatorId, productId: product\?\.id \?\? null/.test(route))
+  /* Round 25 (G25): the tags are built in lib/store/compat-page-tags.ts, so the route and the probe put the same string on the page. */
+  const pageTags = read("lib/store/compat-page-tags.ts")
+  check("  put on every live page of an imported theme, never a preview", /if \(html && !token && page && out\.status === 200/.test(route) && /* Round 25 (V25): the product's id from the lists already held. */ /compatPageTags\(\{ stored, creatorId: found\.site\.creatorId, productId, named/.test(route) && /compatTrackScript\(\{ creatorId: input\.creatorId, productId: input\.productId/.test(pageTags))
   const calls: unknown[][] = []
   pixelEvent({ gtag: (...a: unknown[]) => calls.push(a), fbq: (...a: unknown[]) => calls.push(["fb", ...a]) } as unknown as Window, "begin_checkout", PRODUCT)
   check("each step by the name each service knows: GA4 begin_checkout, Meta InitiateCheckout", calls.some((c) => c[1] === "begin_checkout") && calls.some((c) => c[0] === "fb" && c[2] === "InitiateCheckout"), calls)

@@ -18,6 +18,7 @@
  */
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
 
 /** Whether a section type is a built-in this site has its own copy of. Pure, tested as words. */
 export function isEditedBuiltIn(
@@ -66,10 +67,10 @@ export function EditedBuiltInNote({ installId, type, onReset }: { installId: str
         body: JSON.stringify({ action: "reset-override", path }),
       })
       const d = (await res.json().catch(() => ({}))) as { error?: string }
-      if (!res.ok) throw new Error(d.error || "Could not reset it just now. Try again.")
+      if (!res.ok) throw new Error(d.error || tt("Could not reset it just now. Try again."))
       onReset()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not reset it just now. Try again.")
+      setError(e instanceof Error ? e.message : tt("Could not reset it just now. Try again."))
     } finally {
       setBusy(false)
       setConfirm(false)
@@ -80,22 +81,22 @@ export function EditedBuiltInNote({ installId, type, onReset }: { installId: str
   return (
     <div className="mx-4 mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-[12.5px] leading-snug">
       <p>
-        <span className="font-medium text-foreground">{from === "github" ? "Edited in GitHub" : "Edited in the code editor"}</span>
-        <span className="text-muted-foreground"> · This site uses its own copy of this built-in section. Other sites keep Storelib&apos;s.</span>
+        <span className="font-medium text-foreground">{from === "github" ? tt("Edited in GitHub") : tt("Edited in the code editor")}</span>
+        <span className="text-muted-foreground"> · {tt("This site uses its own copy of this built-in section. Other sites keep Storelib's.")}</span>
       </p>
       {canReset && (
         <div className="mt-1.5 flex items-center gap-3">
           {confirm ? (
             <>
-              <span className="text-muted-foreground">Go back to Storelib&apos;s version?</span>
-              <button type="button" onClick={() => setConfirm(false)} className="min-h-[32px] text-muted-foreground hover:text-foreground">Keep</button>
+              <span className="text-muted-foreground">{tt("Go back to Storelib's version?")}</span>
+              <button type="button" onClick={() => setConfirm(false)} className="min-h-[32px] text-muted-foreground hover:text-foreground">{tt("Keep")}</button>
               <button type="button" disabled={busy} onClick={() => void reset()} className="min-h-[32px] font-medium text-red-600 hover:text-red-700 dark:text-red-400">
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reset"}
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : tt("Reset")}
               </button>
             </>
           ) : (
             <button type="button" onClick={() => setConfirm(true)} className="min-h-[32px] font-medium text-foreground underline underline-offset-2">
-              Reset to Storelib&apos;s version
+              {tt("Reset to Storelib's version")}
             </button>
           )}
         </div>

@@ -222,10 +222,13 @@ async function main() {
   console.log("\nThe place")
   {
     const view = code("components/community/member/member-profile.tsx")
-    check("the band is taller: 160 and 208 with a picture, 96 and 112 without", /h-\[160px\] bg-\[#eceef1\] sm:h-\[208px\]/.test(view) && /h-\[96px\] bg-\[#f3f4f6\] sm:h-\[112px\]/.test(view))
+    /* Round 25 made it taller again (tests/surfaces25.test.ts): 184 and 236 with a picture, 112 and 128 without. */
+    /* Round J1: one shape for everybody (2:1, 16:5 wider up), taller than round 25's 184 and 236 (tests/community-profile-j1.test.ts). */
+    check("the band is taller: one fixed shape with or without a picture (round J1)", /<MemberCover url=\{person\.coverUrl\}/.test(view) && /aspect-\[2\/1\][^"]*sm:aspect-\[16\/5\]/.test(code("components/community/member/member-cover.tsx")))
     check("the photo is bigger and straddles the band (half of it plus its ring)", /h-\[96px\] w-\[96px\] sm:h-\[112px\] sm:w-\[112px\]/.test(view) && /-mt-\[51px\]/.test(view) && /sm:-mt-\[59px\]/.test(view))
     check("a press on it opens the creator page's own viewer", /import \{ AvatarLightbox \} from "@\/components\/storefront\/avatar-lightbox"/.test(view) && /<AvatarLightbox src=\{person\.avatarUrl\} name=\{person\.name\}>\s*<span[^>]*data-member-profile-avatar=""/.test(view))
-    check("the board between the head and the posts", /<ProfileHead [^>]*\/>\s*\{data\.board \? <ActivityBoard board=\{data\.board\} name=\{data\.person\.name\} \/> : null\}\s*<div data-profile-panel="posts">/.test(view))
+    /* Round 25: a member's board between the head and the posts, a creator's under their posts (tests/surfaces25.test.ts). */
+    check("the board between the head and the posts, for a member", /<ProfileHead [^>]*\/>\s*\{postsFirst \? null : board\}\s*<div data-profile-panel="posts">/.test(view))
 
     const full: MemberBoard = {
       grid: { tz: "UTC", from: "2025-10-12", today: "2026-10-10", days: [["2026-10-09", 1, 2, 3], ["2026-06-01", 0, 0, 1]] },
@@ -238,9 +241,11 @@ async function main() {
     check("a square for every day up to today", (html.match(/data-day="/g) ?? []).length === 364, (html.match(/data-day="/g) ?? []).length)
     check("shaded by what that day held", /data-activity-cell="3" data-day="2026-10-09"/.test(html) && /data-activity-cell="1" data-day="2026-06-01"/.test(html))
     check("the newest week first in a reversed row, so it opens at today with no script", /flex-row-reverse/.test(html) && html.indexOf('data-activity-week="2026-10-04"') < html.indexOf('data-activity-week="2025-10-12"'))
-    check("level, points and the way to the next", /Level 3/.test(html) && /Contributor/.test(html) && /46 points to level 4 · Insider/.test(html) && /aria-valuenow="49"/.test(html))
+    /* Round 25, the owner: "too much text". The level's name and points stay; the sentence to the next level and its bar went. */
+    check("level and points, without the way to the next (round 25)", /Level 3/.test(html) && /Contributor/.test(html) && !/points to level 4/.test(html) && !/aria-valuenow/.test(html))
     check("posts, comments, joined", /data-activity-fact="posts"/.test(html) && /data-activity-fact="comments"/.test(html) && /data-activity-fact="joined"/.test(html) && /Mar 2026/.test(html))
-    check("the year in a line, said to a screen reader too", /1 post, 2 comments and 4 likes/.test(html) && /aria-live="polite"/.test(html) && /aria-label="1 post, 2 comments, 4 likes in the last year"/.test(html))
+    /* Round 25: no sentence under the grid any more; the year is still said to a screen reader. */
+    check("the year said to a screen reader", /aria-label="1 post, 2 comments, 4 likes in the last year"/.test(html))
     const before = renderToStaticMarkup(createElement(ActivityBoard, { board: { ...full, grid: null, comments: null }, name: "Sam" }))
     check("before part 125: no grid and no comment count, the rest there", !/data-activity-grid/.test(before) && !/data-activity-fact="comments"/.test(before) && /data-activity-fact="posts"/.test(before) && /data-activity-standing/.test(before))
     const noPoints = renderToStaticMarkup(createElement(ActivityBoard, { board: { ...full, standing: null }, name: "Sam" }))
@@ -259,6 +264,15 @@ async function main() {
     check("the commit that takes the community away plays it, on the whole frame", /if \(!takeArmedMotion\("push"\)\) return\s*holdPageMotion\(\(el\?\.closest\("\[data-community-shell\]"\)/.test(view))
     const arrival = code("components/profile/profile-arrival.tsx")
     check("the full page comes in with it, else as before", /if \(arriveWithPageMotion\(root\)\) \{/.test(arrival) && /\} else if \(!reduced && arrivesFromCommunity\(prev/.test(arrival))
+    /* Round J, the owner on a computer: "When I click Visit page, I don't like that slide animation taking me there. Get rid of it, fully." */
+    check("round J: its own slide in from the right is a phone's only; a computer never slides", /\} else if \(!reduced && arrivesFromCommunity\(prev, window\.location\.search\) && window\.matchMedia\?\.\(PAGE_PHONE\)\.matches && typeof root\.animate === "function"\) \{/.test(arrival))
+    {
+      const push = code("lib/navigation/page-push.ts")
+      check("round J: on a computer the old page is held, still, until the arriving page releases it; nothing moves", /if \(wide\) \{[\s\S]*?const waitCap = window\.setTimeout\(fadeOff, WIDE_HOLD_CAP_MS\)\s*hold = \{ release: \(\) => requestAnimationFrame\(\(\) => requestAnimationFrame\(fadeOff\)\) \}\s*wideHold = hold\s*return done\s*\}/.test(push) && /box\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\], \{ duration: PAGE_WIDE_FADE_MS/.test(push))
+      check("round J: the copy goes in 100ms or less, and waits at most 1.2s for a page that has not come", /export const PAGE_WIDE_FADE_MS = 100/.test(push) && /export const WIDE_HOLD_CAP_MS = 1200/.test(push))
+      check("round J: the arriving page releases it and ends its own landing fade, so the two are never seen through each other", /const held = wideHold\s*if \(held && root\) \{\s*wideHold = null\s*endLandingFade\(root\)\s*held\.release\(\)\s*return true\s*\}/.test(push) && /animationName === "app-page-enter"\) a\.finish\(\)/.test(push))
+      check("round J: a phone's push and pop are as they were", /move = box\.animate\(\[\{ translate: "0 0" \}, \{ translate: `\$\{-width\}px 0` \}\], timing\)/.test(push) && /move = box\.animate\(\[\{ translate: "0 0" \}, \{ translate: `\$\{width\}px 0` \}\], timing\)/.test(push) && /export const PAGE_PUSH_MS = 380/.test(push) && /export const PAGE_POP_MS = 320/.test(push))
+    }
     check("its own back arrow arms a pop, and leaving plays it", /closest\?\.\("\[data-profile-back-button\]"\)\) armPageMotion\("pop"\)/.test(arrival) && /if \(takeArmedMotion\("pop"\)\) holdPageMotion\(root, "pop"\)/.test(arrival))
     const shell = code("components/community/member/shell-frame.tsx")
     check("the community comes back with the pop, not with its push in from outside", /const popped = landing && arriveWithPageMotion\(el\)\s*if \(!popped && landing && el/.test(shell))

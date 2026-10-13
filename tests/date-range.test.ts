@@ -42,6 +42,7 @@ import { readPeriod, writePeriod } from "@/lib/date-range/params"
 import { rangeWindow, readOrdersPeriod, serializePeriod } from "@/lib/orders/range"
 import { readMetrics } from "@/lib/orders/metrics"
 import { ordersCsv, csvCell } from "@/app/app/orders/export-dialog"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -50,7 +51,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 function main() {

@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  A BUYER'S CASE ABOUT AN ORDER, IN WORDS EVERY SIDE SHARES
@@ -26,17 +27,17 @@ export const CASE_REASONS = ["question", "change_address", "cancel", "not_arrive
 export type CaseReason = (typeof CASE_REASONS)[number]
 
 export const CASE_REASON_LABELS: Record<CaseReason, string> = {
-  question: "A question",
-  change_address: "Change the address",
-  cancel: "Cancel the order",
-  not_arrived: "It hasn't arrived",
-  damaged: "It arrived damaged",
-  wrong_item: "I got the wrong item",
-  missing_item: "Something is missing",
-  return: "I want to return it",
-  refund: "I want a refund",
-  access: "I can't open what I bought",
-  other: "Something else",
+  get question() { return tt("A question") },
+  get change_address() { return tt("Change the address") },
+  get cancel() { return tt("Cancel the order") },
+  get not_arrived() { return tt("It hasn't arrived") },
+  get damaged() { return tt("It arrived damaged") },
+  get wrong_item() { return tt("I got the wrong item") },
+  get missing_item() { return tt("Something is missing") },
+  get return() { return tt("I want to return it") },
+  get refund() { return tt("I want a refund") },
+  get access() { return tt("I can't open what I bought") },
+  get other() { return tt("Something else") },
 }
 
 /**
@@ -99,9 +100,9 @@ export type CaseStatus = (typeof CASE_STATUSES)[number]
 export type CaseAuthor = "buyer" | "store" | "storelib"
 
 /** As each side reads whose turn it is. */
-export const STATUS_FOR_BUYER: Record<CaseStatus, string> = { store: "With the store", buyer: "Your reply", storelib: "With Storelib", resolved: "Resolved" }
-export const STATUS_FOR_STORE: Record<CaseStatus, string> = { store: "Your reply", buyer: "Waiting on the buyer", storelib: "With Storelib", resolved: "Resolved" }
-export const STATUS_FOR_ADMIN: Record<CaseStatus, string> = { store: "With the store", buyer: "With the buyer", storelib: "Needs a reply", resolved: "Resolved" }
+export const STATUS_FOR_BUYER: Record<CaseStatus, string> = { get store() { return tt("With the store") }, get buyer() { return tt("Your reply") }, get storelib() { return tt("With Storelib") }, get resolved() { return tt("Resolved") } }
+export const STATUS_FOR_STORE: Record<CaseStatus, string> = { get store() { return tt("Your reply") }, get buyer() { return tt("Waiting on the buyer") }, get storelib() { return tt("With Storelib") }, get resolved() { return tt("Resolved") } }
+export const STATUS_FOR_ADMIN: Record<CaseStatus, string> = { get store() { return tt("With the store") }, get buyer() { return tt("With the buyer") }, get storelib() { return tt("Needs a reply") }, get resolved() { return tt("Resolved") } }
 
 export const MAX_CASE_BODY = 5000
 
@@ -179,13 +180,13 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\r
 
 /** A case as a buyer opens it, or what is missing. */
 export function readNewCase(body: Record<string, unknown> | null, kind: "physical" | "digital"): { ok: true; reason: CaseReason; message: string } | { ok: false; error: string } {
-  if (!body) return { ok: false, error: "Bad request." }
+  if (!body) return { ok: false, error: tt("Bad request.") }
   const allowed = reasonsFor(kind)
   const reason = allowed.includes(body.reason as CaseReason) ? (body.reason as CaseReason) : null
-  if (!reason) return { ok: false, error: "Choose what it's about." }
+  if (!reason) return { ok: false, error: tt("Choose what it's about.") }
   const message = text(body.message, MAX_CASE_BODY)
-  if (message.length < 10) return { ok: false, error: "Tell the store a bit more, so they can help the first time." }
-  if (spamReason(message, body.website)) return { ok: false, error: "That message could not be sent. Write it without links and try again." }
+  if (message.length < 10) return { ok: false, error: tt("Tell the store a bit more, so they can help the first time.") }
+  if (spamReason(message, body.website)) return { ok: false, error: tt("That message could not be sent. Write it without links and try again.") }
   return { ok: true, reason, message }
 }
 

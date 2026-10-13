@@ -22,6 +22,7 @@ import { Bold, Italic, Link } from "lucide-react"
 
 import { sanitizeInlineHtml } from "@/lib/storelib-theme/values"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export function InlineRichTextControl({
   value,
@@ -70,16 +71,16 @@ export function InlineRichTextControl({
   return (
     <div className="rounded-lg border border-border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-neutral-900/10 focus-within:border-neutral-400 transition-colors">
       <div className="flex items-center gap-px border-b border-border bg-muted/30 px-1.5 py-1">
-        <ToolButton label="Bold" onPress={() => run("bold")}>
+        <ToolButton label={tt("Bold")} onPress={() => run("bold")}>
           <Bold className="h-[15px] w-[15px]" strokeWidth={2.4} />
         </ToolButton>
-        <ToolButton label="Italic" onPress={() => run("italic")}>
+        <ToolButton label={tt("Italic")} onPress={() => run("italic")}>
           <Italic className="h-[15px] w-[15px]" strokeWidth={2.1} />
         </ToolButton>
         <ToolButton
-          label="Link"
+          label={tt("Link")}
           onPress={() => {
-            const href = window.prompt("Link to")
+            const href = window.prompt(tt("Link to"))
             if (!href) return
             const t = href.trim()
             const safe = /^(https?:\/\/|mailto:|tel:|\/(?![/\\])|#)/i.test(t) ? t : `https://${t}`

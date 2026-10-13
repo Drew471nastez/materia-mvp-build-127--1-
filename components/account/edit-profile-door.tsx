@@ -23,6 +23,7 @@ export function EditProfileDoor({
   bio,
   avatarUrl = null,
   coverUrl = null,
+  pageCoverUrl = null,
 }: {
   userId: string
   name: string
@@ -30,15 +31,18 @@ export function EditProfileDoor({
   bio: string | null
   usernameEditable: boolean
   avatarUrl?: string | null
+  /** Their own cover (profiles.cover_url). */
   coverUrl?: string | null
+  /** Their creator page's cover (round J1). */
+  pageCoverUrl?: string | null
 }) {
   const router = useRouter()
 
   useEffect(() => {
     if (!settingsStaysHere()) return
-    primeSettingsFromProfile({ userId, name, username, bio, avatarUrl, coverUrl })
+    primeSettingsFromProfile({ userId, name, username, bio, avatarUrl, coverUrl, pageCoverUrl })
     void warmSettings("profile")
-  }, [userId, name, username, bio, avatarUrl, coverUrl])
+  }, [userId, name, username, bio, avatarUrl, coverUrl, pageCoverUrl])
 
   const open = () => {
     if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {

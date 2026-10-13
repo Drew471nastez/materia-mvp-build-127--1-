@@ -79,11 +79,44 @@ const SEARCH_ALSO: Record<string, string> = {
 }
 
 let cached: Choice[] | null = null
+const localized = new Map<string, Choice[]>()
 /** Every country, by name, as the list's choices. Built once, on the first open. */
-export function countryChoices(): Choice[] {
+export function countryChoices(locale?: string): Choice[] {
+  if (locale && !/^en(-|$)/.test(locale)) return localizedChoices(locale)
   if (cached) return cached
   cached = COUNTRIES.map((c) => ({ value: c.code, label: c.name, keywords: `${c.code} ${SEARCH_ALSO[c.code] ?? ""}`.trim() }))
   return cached
+}
+
+/**
+ * The same list named in another language ("Alemania", "Niemcy"), sorted the
+ * way that language sorts, still found by its English name and code. What is
+ * saved stays the English name (countryToSave).
+ */
+function localizedChoices(locale: string): Choice[] {
+  const kept = localized.get(locale)
+  if (kept) return kept
+  let names: Intl.DisplayNames | null = null
+  try {
+    names = new Intl.DisplayNames([locale], { type: "region" })
+  } catch {
+    names = null
+  }
+  const list = COUNTRIES.map((c) => ({ value: c.code, label: (c.code !== "XK" && names?.of(c.code)) || c.name, keywords: `${c.code} ${c.name} ${SEARCH_ALSO[c.code] ?? ""}`.trim() })).sort((a, b) => a.label.localeCompare(b.label, locale))
+  localized.set(locale, list)
+  return list
+}
+
+/** A saved country (an English name or a code) named in the given language. */
+export function countryLabelIn(value: string | null | undefined, locale: string): string {
+  const english = countryLabel(value)
+  const code = english ? countryOf(english) : null
+  if (!code || /^en(-|$)/.test(locale) || code === "XK") return english
+  try {
+    return new Intl.DisplayNames([locale], { type: "region" }).of(code) || english
+  } catch {
+    return english
+  }
 }
 
 /** What is saved for a country picked from the list: its English name, as before. */

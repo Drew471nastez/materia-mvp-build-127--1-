@@ -67,7 +67,10 @@ export function primeSettingsFromProfile(seed: {
   username: string | null
   bio: string | null
   avatarUrl?: string | null
+  /** Their OWN cover (profiles.cover_url), not the one the profile draws: that can be their creator page's. */
   coverUrl?: string | null
+  /** Their creator page's cover, which the profile draws when they have none of their own (round J1). */
+  pageCoverUrl?: string | null
 }) {
   if (typeof window === "undefined") return
   const base = cached?.data
@@ -89,7 +92,11 @@ export function primeSettingsFromProfile(seed: {
     usernameEditable: base?.usernameEditable ?? true,
     privacy: base?.privacy ?? { showActivity: true, showCommunities: true, supported: false },
     creator: base?.creator ?? false,
-    cover: { url: (seed.coverUrl || base?.cover?.url || "").trim() || null, supported: true },
+    cover: {
+      url: ((seed.coverUrl !== undefined ? seed.coverUrl : base?.cover?.url) || "").trim() || null,
+      supported: true,
+      page: seed.pageCoverUrl !== undefined ? seed.pageCoverUrl : (base?.cover?.page ?? null),
+    },
     location: base?.location ?? { city: null, country: null, supported: false },
     initialSection: "profile",
   }
@@ -260,13 +267,13 @@ function SettingsLayer({ section, data, full = false, onClose }: { section: Sett
 export function SettingsWarm({
   seed,
 }: {
-  seed?: { userId: string; name: string; username: string | null; bio: string | null; avatarUrl?: string | null; coverUrl?: string | null }
+  seed?: { userId: string; name: string; username: string | null; bio: string | null; avatarUrl?: string | null; coverUrl?: string | null; pageCoverUrl?: string | null }
 }) {
   useEffect(() => {
     if (!settingsStaysHere()) return
     if (seed) primeSettingsFromProfile(seed)
     void warmSettings("profile")
-  }, [seed?.userId, seed?.name, seed?.username, seed?.bio, seed?.avatarUrl, seed?.coverUrl])
+  }, [seed?.userId, seed?.name, seed?.username, seed?.bio, seed?.avatarUrl, seed?.coverUrl, seed?.pageCoverUrl])
   return null
 }
 

@@ -23,6 +23,7 @@ import {
   type SettingsSection,
   type SitePage,
 } from "@/components/website-builder/website-settings/types"
+import { tt } from "@/lib/i18n/text"
 
 export type { SettingsSection } from "@/components/website-builder/website-settings/types"
 
@@ -291,7 +292,7 @@ export function ProjectSettings({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Website settings"
+      aria-label={tt("Website settings")}
       className="wb-settings-in fixed inset-0 z-[150] flex flex-col overflow-hidden bg-[#0f0f0f] text-white md:flex-row"
       /**
        * THE PHONE'S OWN FURNITURE IS NOT A SUGGESTION. This is pinned to the
@@ -327,11 +328,11 @@ export function ProjectSettings({
             className="flex h-11 items-center gap-2 rounded-lg px-2 text-[15px] font-medium text-white/80 transition-colors hover:text-white active:bg-white/[0.06] md:-ml-2 md:h-9 [-webkit-tap-highlight-color:transparent]"
           >
             <ArrowLeft className="h-[18px] w-[18px] md:h-4 md:w-4" strokeWidth={2} />
-            Back to editor
+            {tt("Back to editor")}
           </button>
         </div>
-        <p className="px-5 pt-5 text-[20px] font-semibold text-white md:px-6 md:pt-6 md:text-[17px]">Website settings</p>
-        <nav aria-label="Website settings" className="flex flex-col px-3 pb-6">
+        <p className="px-5 pt-5 text-[20px] font-semibold text-white md:px-6 md:pt-6 md:text-[17px]">{tt("Website settings")}</p>
+        <nav aria-label={tt("Website settings")} className="flex flex-col px-3 pb-6">
           {SETTINGS_SECTIONS.map(({ id, label, group }, i) => {
             const active = section === id
             /* Each group under its own heading: the site, what is on it,
@@ -386,7 +387,7 @@ export function ProjectSettings({
             className="flex h-11 items-center gap-0.5 rounded-lg pl-1 pr-2.5 text-[16px] font-medium text-white/85 transition-colors active:bg-white/[0.06] [-webkit-tap-highlight-color:transparent]"
           >
             <ChevronLeft className="h-6 w-6" strokeWidth={2} />
-            Website Settings
+            {tt("Website Settings")}
           </button>
         </div>
         {/* A new subject fades in where it is: no rise, no scale. It rose 8px

@@ -54,6 +54,7 @@ const MemoOptionsEditor = React.memo(OptionsEditor)
 import { FilesLibraryChooser } from "@/components/files/files-library"
 import { fileThumb } from "@/lib/files/thumb"
 import { emptyRow, photoScopes, remapRows, renameValueInRows, rowsForCombinations, variantThumbSrc, type VariantRow } from "./variant-rows"
+import { tt } from "@/lib/i18n/text"
 
 export interface PhysicalEditorHandle {
   /** A sentence for what must be fixed before saving, or null. */
@@ -167,7 +168,7 @@ export interface OrderLimitDraft {
 export function orderLimitProblem(limit: OrderLimitDraft | undefined): string | null {
   if (!limit?.on) return null
   const n = Number(limit.count)
-  return limit.count.trim() && Number.isInteger(n) && n >= 1 && n <= MAX_ORDER_LIMIT ? null : `Limit sales: set how many one order can take, 1 to ${MAX_ORDER_LIMIT}`
+  return limit.count.trim() && Number.isInteger(n) && n >= 1 && n <= MAX_ORDER_LIMIT ? null : tt("Limit sales: set how many one order can take, 1 to {maxOrderLimit}", { maxOrderLimit: MAX_ORDER_LIMIT })
 }
 
 /**
@@ -199,7 +200,7 @@ export function PhysicalProductCards(props: PhysicalCardsProps) {
   if (!enabled) {
     /* Switched off in /admin: nothing physical is read or written, and nothing is lost. */
     props.handle.current = { check: () => null, save: async () => null }
-    return <Notice tone="gray">Physical products are turned off on Storelib right now. This product's variants, stock and shipping are kept as they are and come back when it's on.</Notice>
+    return <Notice tone="gray">{tt("Physical products are turned off on Storelib right now. This product's variants, stock and shipping are kept as they are and come back when it's on.")}</Notice>
   }
   return <Cards {...props} />
 }
@@ -399,7 +400,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       .catch((err) => {
         setPending((p) => Object.fromEntries(Object.entries(p).filter(([k]) => !keys.includes(k))))
         URL.revokeObjectURL(preview)
-        setPhotoError(err instanceof Error && err.message ? err.message : "That photo could not be uploaded. Try again.")
+        setPhotoError(err instanceof Error && err.message ? err.message : tt("That photo could not be uploaded. Try again."))
       })
   }
 
@@ -485,24 +486,26 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
 
   handle.current = {
     check: () => {
-      if (loading) return "Wait for the stock and shipping details to load."
+      if (loading) return tt("Wait for the stock and shipping details to load.")
       for (const o of options) {
-        if (o.name.trim() && o.values.length === 0) return `Add a value to ${o.name.trim()}`
-        if (!o.name.trim() && o.values.length) return "Name every option, like Size or Color"
+        if (o.name.trim() && o.values.length === 0) return tt("Add a value to {value}", { value: o.name.trim() })
+        if (!o.name.trim() && o.values.length) return tt("Name every option, like Size or Color")
       }
       const names = options.map((o) => clean(o.name)).filter(Boolean)
-      if (new Set(names).size !== names.length) return "Two options have the same name"
-      if (rows.length > 250) return "Up to 250 variants. Remove some option values."
+      if (new Set(names).size !== names.length) return tt("Two options have the same name")
+      if (rows.length > 250) return tt("Up to 250 variants. Remove some option values.")
       const base = centsOf(basePrice)
       for (const r of rows) {
         if (!r.active) continue
         const p = centsOf(r.price) ?? base
-        if (p === null || p < 50) return multi ? `Set a price for ${variantName(r.options)}` : `Set a price of at least ${formatStoreMoney(50, currency)}`
+        /* $0 is a price: a free sample or a gift sells at nothing (checkout places a free order with no card). Between nothing and the smallest card payment is not. */
+        if (p === null) return multi ? tt("Set a price for {name}", { name: variantName(r.options) }) : tt("Set a price")
+        if (p > 0 && p < 50) return multi ? tt("{name}: $0 or at least {amount}", { name: variantName(r.options), amount: formatStoreMoney(50, currency) }) : tt("$0 or at least {amount}", { amount: formatStoreMoney(50, currency) })
       }
-      if (rows.every((r) => !r.active)) return "Sell at least one variant"
-      if (repeatedSkus(rows.map((r) => r.sku)).size) return "Two variants have the same SKU"
-      if (requiresShipping && weight.trim() && toGrams(weight, weightUnit) === null) return "Check the weight"
-      if (ownFulfilment && method !== "self" && !shipsFrom) return `Choose who fulfils it, under Advanced`
+      if (rows.every((r) => !r.active)) return tt("Sell at least one variant")
+      if (repeatedSkus(rows.map((r) => r.sku)).size) return tt("Two variants have the same SKU")
+      if (requiresShipping && weight.trim() && toGrams(weight, weightUnit) === null) return tt("Check the weight")
+      if (ownFulfilment && method !== "self" && !shipsFrom) return tt("Choose who fulfils it, under Advanced")
       return orderLimitProblem(orderLimit)
     },
     save: async (id: string) => {
@@ -569,7 +572,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
 
   if (loading) {
     return (
-      <div className="space-y-4" aria-busy="true" aria-label="Loading stock and shipping">
+      <div className="space-y-4" aria-busy="true" aria-label={tt("Loading stock and shipping")}>
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-[150px] animate-pulse rounded-2xl border border-[#e5e7eb]/60 bg-white" />
         ))}
@@ -591,18 +594,18 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   /* One variant's photo can go on every variant that shares one of its values: a colour's photo for every size. */
   const imageScopes = imageFor ? photoScopes(imageFor.keys, imageFor.name, rows, normalised) : []
   const storeLine = fulfilmentSummary(store, ctx.locations)
-  const ownLine = fulfilmentSummary({ method, locationId: method === "self" ? null : shipsFrom || null }, ctx.locations) + (method === "self" && shipsFrom ? `, from ${ctx.locations.find((l) => l.id === shipsFrom)?.name ?? "one place"}` : "")
+  const ownLine = fulfilmentSummary({ method, locationId: method === "self" ? null : shipsFrom || null }, ctx.locations) + (method === "self" && shipsFrom ? tt(", from {value}", { value: ctx.locations.find((l) => l.id === shipsFrom)?.name ?? tt("one place") }) : "")
   const nonDefaultProfiles = ctx.profiles.filter((p) => !p.isDefault)
-  const generalName = ctx.profiles.find((p) => p.isDefault)?.name ?? "General"
+  const generalName = ctx.profiles.find((p) => p.isDefault)?.name ?? tt("General")
   const advancedSet = [
-    !multi && single?.sku.trim() ? `SKU ${single.sku.trim()}` : "",
-    !multi && single?.cost.trim() ? "cost" : "",
-    requiresShipping && (dims.l || dims.w || dims.h) ? "package size" : "",
-    requiresShipping && (origin || hsCode) ? "customs" : "",
-    !taxable ? "no tax" : "",
+    !multi && single?.sku.trim() ? tt("SKU {value}", { value: single.sku.trim() }) : "",
+    !multi && single?.cost.trim() ? tt("cost") : "",
+    requiresShipping && (dims.l || dims.w || dims.h) ? tt("package size") : "",
+    requiresShipping && (origin || hsCode) ? tt("customs") : "",
+    !taxable ? tt("no tax") : "",
     vendor.trim() ? vendor.trim() : "",
-    tags.length ? `${tags.length} ${tags.length === 1 ? "tag" : "tags"}` : "",
-    ownFulfilment ? "its own fulfilment" : "",
+    tags.length ? tt("{n, plural, one {# tag} other {# tags}}", { n: tags.length }) : "",
+    ownFulfilment ? tt("its own fulfilment") : "",
   ].filter(Boolean)
   const openFulfilment = () => {
     setAdvancedOpen(true)
@@ -612,29 +615,29 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   return (
     <div className="space-y-4 sm:space-y-5" data-physical-cards="">
       {/* ── Inventory ────────────────────────────────────────────────── */}
-      <Card id="physical-inventory" title="Inventory" description={printedAt ? `Not counted: ${printedAt.partner?.name ?? printedAt.name} makes each one when it sells, so it never shows as sold out.` : trackInventory ? "Stock goes down with every sale. Nobody can buy more than you have." : "Not counted: it can always be bought."}>
+      <Card id="physical-inventory" title={tt("Inventory")} description={printedAt ? tt("Not counted: {value} makes each one when it sells, so it never shows as sold out.", { value: printedAt.partner?.name ?? printedAt.name }) : trackInventory ? tt("Stock goes down with every sale. Nobody can buy more than you have.") : tt("Not counted: it can always be bought.")}>
         <div className="space-y-4">
           {printedAt ? (
             <p className="text-[13.5px] leading-5 text-[#4b5563]" data-made-to-order="">
-              To count stock, have it fulfilled from one of your own locations.
+              {tt("To count stock, have it fulfilled from one of your own locations.")}
             </p>
           ) : (
-            <Toggle label="Track inventory" description="Count how many you have and stop selling at zero." checked={trackInventory} onChange={changed(setTrackInventory)} />
+            <Toggle label={tt("Track inventory")} description={tt("Count how many you have and stop selling at zero.")} checked={trackInventory} onChange={changed(setTrackInventory)} />
           )}
           {counted && !multi && single ? (
             activeLocations.length === 0 ? (
               <Notice tone="amber">
-                Add the place you keep stock first.{" "}
+                {tt("Add the place you keep stock first.")}{" "}
                 <SettingsLink href={LOCATIONS_HREF} className="font-medium underline underline-offset-2">
-                  Add a location
+                  {tt("Add a location")}
                 </SettingsLink>
               </Notice>
             ) : onlyLocation ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Quantity" hint={(single.committed[onlyLocation.id] ?? 0) > 0 ? `${single.committed[onlyLocation.id]} held for unshipped orders` : "How many you have right now"}>
-                  <NumberInput aria-label="Quantity" placeholder="0" value={single.stock[onlyLocation.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [onlyLocation.id]: v } })} />
+                <Field label={tt("Quantity")} hint={(single.committed[onlyLocation.id] ?? 0) > 0 ? tt("{value} held for unshipped orders", { value: single.committed[onlyLocation.id] }) : tt("How many you have right now")}>
+                  <NumberInput aria-label={tt("Quantity")} placeholder="0" value={single.stock[onlyLocation.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [onlyLocation.id]: v } })} />
                 </Field>
-                <Field label="Low stock alert" hint={ctx.settings.lowStockAlerts ? "We email you when it drops to this" : "Marked Low on Inventory at this"}>
+                <Field label={tt("Low stock alert")} hint={ctx.settings.lowStockAlerts ? tt("We email you when it drops to this") : tt("Marked Low on Inventory at this")}>
                   <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={(v) => changed(setLowStock)(v.slice(0, 5))} />
                 </Field>
               </div>
@@ -644,26 +647,26 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
                   <div key={l.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#eceef1] px-3 py-2">
                     <div className="min-w-0">
                       <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.name}</p>
-                      <p className="text-[12px] text-[#6b7280]">{(single.committed[l.id] ?? 0) > 0 ? `${single.committed[l.id]} held for unshipped orders` : "Quantity"}</p>
+                      <p className="text-[12px] text-[#6b7280]">{(single.committed[l.id] ?? 0) > 0 ? tt("{value} held for unshipped orders", { value: single.committed[l.id] }) : tt("Quantity")}</p>
                     </div>
-                    <NumberInput aria-label={`Quantity at ${l.name}`} placeholder="0" value={single.stock[l.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [l.id]: v } })} className="w-[110px] text-right" />
+                    <NumberInput aria-label={tt("Quantity at {name}", { name: l.name })} placeholder="0" value={single.stock[l.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [l.id]: v } })} className="w-[110px] text-right" />
                   </div>
                 ))}
               </div>
             )
           ) : null}
-          {counted && multi ? <p className="text-[13px] text-[#6b7280]">Each variant has its own quantity, in Variants below.</p> : null}
+          {counted && multi ? <p className="text-[13px] text-[#6b7280]">{tt("Each variant has its own quantity, in Variants below.")}</p> : null}
           {counted && (multi || !onlyLocation) ? (
-            <Field label="Low stock alert" hint={ctx.settings.lowStockAlerts ? "We email you when a variant drops to this" : "Marked Low on Inventory at this"} className="sm:max-w-[260px]">
+            <Field label={tt("Low stock alert")} hint={ctx.settings.lowStockAlerts ? tt("We email you when a variant drops to this") : tt("Marked Low on Inventory at this")} className="sm:max-w-[260px]">
               <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={(v) => changed(setLowStock)(v.slice(0, 5))} />
             </Field>
           ) : null}
-          {counted ? <Toggle label="Keep selling when out of stock" description="Buyers can still order, and you ship when it's back." checked={continueSelling} onChange={changed(setContinueSelling)} /> : null}
+          {counted ? <Toggle label={tt("Keep selling when out of stock")} description={tt("Buyers can still order, and you ship when it's back.")} checked={continueSelling} onChange={changed(setContinueSelling)} /> : null}
         </div>
       </Card>
 
       {/* ── Variants ─────────────────────────────────────────────────── */}
-      <Card id="physical-variants" title="Variants" description={multi ? "Every combination of your options is a variant with its own price, stock and photo." : "Sizes, colors or anything else it comes in. Each one gets its own price, stock and photo."}>
+      <Card id="physical-variants" title={tt("Variants")} description={multi ? tt("Every combination of your options is a variant with its own price, stock and photo.") : tt("Sizes, colors or anything else it comes in. Each one gets its own price, stock and photo.")}>
         <MemoOptionsEditor options={options} setOptions={setOptionsDirty} renameValue={renameValue} moveOption={moveOption} removeOption={removeOption} />
         {multi ? (
           <VariantTable
@@ -686,33 +689,33 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
 
       {/* ── Shipping ─────────────────────────────────────────────────── */}
       {/* No "not shipped" switch: a physical product is always shipped or picked up, so checkout always asks where it goes (lib/physical/checkout-pricing-server). Handing it over in person is local pickup. */}
-      <Card id="physical-shipping" title="Shipping" description="Used to work out delivery at checkout. To hand it over in person, turn on local pickup in Settings › Shipping.">
+      <Card id="physical-shipping" title={tt("Shipping")} description={tt("Used to work out delivery at checkout. To hand it over in person, turn on local pickup in Settings › Shipping.")}>
         <div className="space-y-4">
           {requiresShipping ? (
             <div className={cn("grid gap-3", nonDefaultProfiles.length ? "sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.3fr)]" : "grid-cols-[minmax(0,1fr)_110px] sm:max-w-[420px]")}>
-              <Field label="Weight" hint="With its packaging">
-                <DecimalInput value={weight} onChange={changed(setWeight)} placeholder="0.0" aria-label="Weight" />
+              <Field label={tt("Weight")} hint={tt("With its packaging")}>
+                <DecimalInput value={weight} onChange={changed(setWeight)} placeholder="0.0" aria-label={tt("Weight")} />
               </Field>
-              <Field label="Unit">
-                <SelectInput value={weightUnit} onChange={(v) => changeWeightUnit(v as WeightUnit)} aria-label="Weight unit">
-                  <option value="kg">kg</option>
+              <Field label={tt("Unit")}>
+                <SelectInput value={weightUnit} onChange={(v) => changeWeightUnit(v as WeightUnit)} aria-label={tt("Weight unit")}>
+                  <option value="kg">{tt("kg")}</option>
                   <option value="g">g</option>
-                  <option value="lb">lb</option>
-                  <option value="oz">oz</option>
+                  <option value="lb">{tt("lb")}</option>
+                  <option value="oz">{tt("oz")}</option>
                 </SelectInput>
               </Field>
               {/* Rates: one choice only when the store has more than its general rates. */}
               {nonDefaultProfiles.length ? (
                 <Field
-                  label="Shipping rates"
+                  label={tt("Shipping rates")}
                   hint={
                     <SettingsLink href="/app/settings?tab=shipping&section=delivery" className="underline underline-offset-2">
-                      Edit shipping rates
+                      {tt("Edit shipping rates")}
                     </SettingsLink>
                   }
                 >
-                  <SelectInput value={profileId} onChange={changed(setProfileId)} aria-label="Shipping rates">
-                    <option value="">{generalName} (all products)</option>
+                  <SelectInput value={profileId} onChange={changed(setProfileId)} aria-label={tt("Shipping rates")}>
+                    <option value="">{tt("{generalName} (all products)", { generalName })}</option>
                     {nonDefaultProfiles.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -725,9 +728,9 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           ) : null}
           {requiresShipping && ctx.profiles.every((p) => (p.zoneCount ?? 0) === 0) ? (
             <Notice tone="amber">
-              You haven't set where you ship yet, so buyers can't check out.{" "}
+              {tt("You haven't set where you ship yet, so buyers can't check out.")}{" "}
               <SettingsLink href="/app/settings?tab=shipping&section=delivery" className="font-medium underline underline-offset-2">
-                Set up shipping
+                {tt("Set up shipping")}
               </SettingsLink>
             </Notice>
           ) : null}
@@ -735,15 +738,15 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-[#f7f7f8] px-3.5 py-2.5" data-shipped-by="">
             <p className="min-w-0 text-[13.5px] leading-5 text-[#4b5563]">
               <span className="font-medium text-[#1a1a2e]">{ownFulfilment ? ownLine : storeLine}</span>
-              <span className="text-[#6b7280]">{ownFulfilment ? " · this product only" : " · your store setting"}</span>
+              <span className="text-[#6b7280]">{ownFulfilment ? tt(" · this product only") : tt(" · your store setting")}</span>
             </p>
             {ownFulfilment ? (
               <button type="button" onClick={openFulfilment} className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
-                Change
+                {tt("Change")}
               </button>
             ) : (
               <SettingsLink href={LOCATIONS_HREF} className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
-                Change in Settings
+                {tt("Change in Settings")}
               </SettingsLink>
             )}
           </div>
@@ -754,8 +757,8 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" id="physical-advanced">
         <button type="button" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((v) => !v)} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left sm:px-6">
           <span className="min-w-0">
-            <span className="block text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Advanced</span>
-            <span className="block truncate text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{advancedSet.length ? advancedSet.join(", ") : multi ? "Package size, tax, brand, tags and who fulfils it" : "SKU, barcode, cost, package size, tax, brand and tags"}</span>
+            <span className="block text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">{tt("Advanced")}</span>
+            <span className="block truncate text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{advancedSet.length ? advancedSet.join(", ") : multi ? tt("Package size, tax, brand, tags and who fulfils it") : tt("SKU, barcode, cost, package size, tax, brand and tags")}</span>
           </span>
           <ChevronDown className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-transform duration-200", advancedOpen && "rotate-180")} />
         </button>
@@ -763,44 +766,44 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
         <Reveal open={advancedOpen}>
           <div className="divide-y divide-[#f1f2f4] border-t border-[#eceef1]" data-physical-advanced="">
             {!multi && single ? (
-              <Group title="Codes and cost">
+              <Group title={tt("Codes and cost")}>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label="SKU" hint="Your code. On orders and packing slips.">
-                    <TextInput value={single.sku} maxLength={64} autoComplete="off" placeholder="MUG-BLK-11" onChange={(e) => setRow(singleKey, { sku: skuTyped(e.target.value) })} />
+                  <Field label="SKU" hint={tt("Your code. On orders and packing slips.")}>
+                    <TextInput value={single.sku} maxLength={64} autoComplete="off" placeholder={tt("MUG-BLK-11")} onChange={(e) => setRow(singleKey, { sku: skuTyped(e.target.value) })} />
                   </Field>
-                  <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
+                  <Field label={tt("Barcode")} hint={tt("ISBN, UPC, EAN or GTIN")}>
                     <TextInput value={single.barcode} maxLength={14} inputMode="numeric" autoComplete="off" placeholder="5901234123457" onChange={(e) => setRow(singleKey, { barcode: barcodeTyped(e.target.value) })} />
                   </Field>
-                  <Field label="Cost per item" hint={marginOf(single) ? `${marginOf(single)} margin. Buyers never see this.` : "What one costs you. Buyers never see this."}>
+                  <Field label={tt("Cost per item")} hint={marginOf(single) ? tt("{single} margin. Buyers never see this.", { single: marginOf(single) }) : tt("What one costs you. Buyers never see this.")}>
                     <MoneyInput value={single.cost} onChange={(v) => setRow(singleKey, { cost: v })} />
                   </Field>
                 </div>
               </Group>
             ) : null}
             {requiresShipping ? (
-              <Group title="Package size" hint="Boxed, for carriers that price by size. Empty uses your default package.">
+              <Group title={tt("Package size")} hint={tt("Boxed, for carriers that price by size. Empty uses your default package.")}>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-[1fr_1fr_1fr_100px] sm:gap-3">
-                  <Field label="Length">
+                  <Field label={tt("Length")}>
                     <DecimalInput value={dims.l} placeholder="20" onChange={(v) => changed(setDims)((d) => ({ ...d, l: v }))} />
                   </Field>
-                  <Field label="Width">
+                  <Field label={tt("Width")}>
                     <DecimalInput value={dims.w} placeholder="15" onChange={(v) => changed(setDims)((d) => ({ ...d, w: v }))} />
                   </Field>
-                  <Field label="Height">
+                  <Field label={tt("Height")}>
                     <DecimalInput value={dims.h} placeholder="10" onChange={(v) => changed(setDims)((d) => ({ ...d, h: v }))} />
                   </Field>
-                  <Field label="Unit" className="col-span-3 sm:col-span-1">
-                    <SelectInput value={dimUnit} onChange={(v) => changeDimUnit(v as DimensionUnit)} aria-label="Size unit">
-                      <option value="cm">cm</option>
-                      <option value="in">in</option>
+                  <Field label={tt("Unit")} className="col-span-3 sm:col-span-1">
+                    <SelectInput value={dimUnit} onChange={(v) => changeDimUnit(v as DimensionUnit)} aria-label={tt("Size unit")}>
+                      <option value="cm">{tt("cm")}</option>
+                      <option value="in">{tt("in")}</option>
                     </SelectInput>
                   </Field>
                 </div>
                 {customsOpen ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2" data-customs="">
-                    <Field label="Country of origin" hint="Where it was made, for customs forms">
+                    <Field label={tt("Country of origin")} hint={tt("Where it was made, for customs forms")}>
                       <SelectInput value={origin} onChange={changed(setOrigin)}>
-                        <option value="">Not set</option>
+                        <option value="">{tt("Not set")}</option>
                         {COUNTRIES.map((c) => (
                           <option key={c.code} value={c.code}>
                             {c.name}
@@ -808,30 +811,30 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
                         ))}
                       </SelectInput>
                     </Field>
-                    <Field label="HS code" hint="For international customs">
+                    <Field label={tt("HS code")} hint={tt("For international customs")}>
                       <TextInput value={hsCode} inputMode="numeric" maxLength={14} onChange={(e) => changed(setHsCode)(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="6109.10" />
                     </Field>
                   </div>
                 ) : (
                   <button type="button" onClick={() => setCustomsOpen(true)} className={cn(BTN_GHOST, "-ml-2 mt-2 h-8 px-2 text-[13px]")}>
                     <Plus className="h-3.5 w-3.5" />
-                    Customs info, for shipping abroad
+                    {tt("Customs info, for shipping abroad")}
                   </button>
                 )}
               </Group>
             ) : null}
-            <Group title="Tax">
+            <Group title={tt("Tax")}>
               <div className="space-y-3">
                 <Toggle
-                  label="Charge tax on this product"
+                  label={tt("Charge tax on this product")}
                   description={
                     ctx.settings.taxMode === "manual" ? (
-                      "Your tax rates apply at checkout."
+                      tt("Your tax rates apply at checkout.")
                     ) : (
                       <>
-                        Your shop doesn't charge tax yet.{" "}
+                        {tt("Your shop doesn't charge tax yet.")}{" "}
                         <SettingsLink href="/app/settings?tab=taxes" className="underline underline-offset-2">
-                          Set up tax
+                          {tt("Set up tax")}
                         </SettingsLink>
                       </>
                     )
@@ -840,28 +843,28 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
                   onChange={changed(setTaxable)}
                 />
                 {taxable && (ctx.settings.taxMode === "manual" || taxCategory) ? (
-                  <Field label="Tax category" hint="Optional, for your records and your accountant" className="sm:max-w-[360px]">
-                    <TextInput value={taxCategory} maxLength={60} onChange={(e) => changed(setTaxCategory)(e.target.value)} placeholder="Clothing" />
+                  <Field label={tt("Tax category")} hint={tt("Optional, for your records and your accountant")} className="sm:max-w-[360px]">
+                    <TextInput value={taxCategory} maxLength={60} onChange={(e) => changed(setTaxCategory)(e.target.value)} placeholder={tt("Clothing")} />
                   </Field>
                 ) : null}
               </div>
             </Group>
-            <Group title="Brand and tags" hint="Collections and search can use them.">
+            <Group title={tt("Brand and tags")} hint={tt("Collections and search can use them.")}>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Brand or maker">
-                  <TextInput value={vendor} maxLength={120} placeholder="Brand name" onChange={(e) => changed(setVendor)(e.target.value)} />
+                <Field label={tt("Brand or maker")}>
+                  <TextInput value={vendor} maxLength={120} placeholder={tt("Brand name")} onChange={(e) => changed(setVendor)(e.target.value)} />
                 </Field>
-                <Field label="Tags" hint="Press Enter after each one">
+                <Field label={tt("Tags")} hint={tt("Press Enter after each one")}>
                   <TagInput value={tags} onChange={changed(setTags)} />
                 </Field>
               </div>
             </Group>
             <div id="physical-advanced-fulfilment" className="scroll-mt-4">
-              <Group title="Fulfilment">
+              <Group title={tt("Fulfilment")}>
                 <div className="space-y-4">
                   <Toggle
-                    label="Fulfil this product differently"
-                    description={ownFulfilment ? "This product has its own answer. Your other products keep the store setting." : `Off, it follows your store setting: ${storeLine.charAt(0).toLowerCase()}${storeLine.slice(1)}.`}
+                    label={tt("Fulfil this product differently")}
+                    description={ownFulfilment ? tt("This product has its own answer. Your other products keep the store setting.") : tt("Off, it follows your store setting: {value}{value2}.", { value: storeLine.charAt(0).toLowerCase(), value2: storeLine.slice(1) })}
                     checked={ownFulfilment}
                     onChange={chooseOwnFulfilment}
                   />
@@ -945,13 +948,13 @@ function TagInput({ value, onChange }: { value: string[]; onChange: (v: string[]
       {value.map((t) => (
         <span key={t} className="inline-flex h-7 items-center gap-1 rounded-md bg-[#f1f2f4] pl-2 pr-0.5 text-[13px] text-[#374151]">
           {t}
-          <button type="button" aria-label={`Remove tag ${t}`} onClick={() => onChange(value.filter((x) => x !== t))} className="grid h-6 w-6 place-items-center rounded hover:bg-[#e2e3e7]">
+          <button type="button" aria-label={tt("Remove tag {t}", { t })} onClick={() => onChange(value.filter((x) => x !== t))} className="grid h-6 w-6 place-items-center rounded hover:bg-[#e2e3e7]">
             <X className="h-3 w-3" />
           </button>
         </span>
       ))}
       <input
-        aria-label="Add a tag"
+        aria-label={tt("Add a tag")}
         value={draft}
         placeholder={value.length ? "" : "summer, linen"}
         onChange={(e) => (e.target.value.includes(",") ? add(e.target.value) : setDraft(e.target.value))}
@@ -988,7 +991,7 @@ function OwnFulfilment({
 }) {
   return (
     <div className="space-y-3">
-      <div role="radiogroup" aria-label="How is this product fulfilled?" className="overflow-hidden rounded-xl border border-[#e5e7eb]">
+      <div role="radiogroup" aria-label={tt("How is this product fulfilled?")} className="overflow-hidden rounded-xl border border-[#e5e7eb]">
         {METHOD_ORDER.map((m) => {
           const on = method === m
           return (
@@ -1012,9 +1015,9 @@ function OwnFulfilment({
       </div>
       {method === "self" ? (
         manyPlaces ? (
-          <Field label="Ships from" hint="Any picks the place with stock" className="sm:max-w-[360px]">
+          <Field label={tt("Ships from")} hint={tt("Any picks the place with stock")} className="sm:max-w-[360px]">
             <SelectInput value={shipsFrom} onChange={setShipsFrom}>
-              <option value="">Any of my locations</option>
+              <option value="">{tt("Any of my locations")}</option>
               {partners.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -1027,10 +1030,10 @@ function OwnFulfilment({
         <PartnerPicker method={method} partners={partners} value={shipsFrom} onChange={setShipsFrom} onCreated={onCreated} />
       )}
       <p className="text-[13px] leading-5 text-[#6b7280]">
-        <span className="font-medium text-[#4b5563]">After a sale: </span>
+        <span className="font-medium text-[#4b5563]">{tt("After a sale:")} </span>
         {(() => {
           const here = method === "self" ? null : partners.find((p) => p.id === shipsFrom)
-          return here?.forwarding === "provider" && here.partner?.connected ? `The order goes to ${here.partner.name} by each variant's SKU, and its tracking comes back to your buyer by itself.` : METHODS[method].afterSale
+          return here?.forwarding === "provider" && here.partner?.connected ? tt("The order goes to {name} by each variant's SKU, and its tracking comes back to your buyer by itself.", { name: here.partner.name }) : METHODS[method].afterSale
         })()}
       </p>
     </div>
@@ -1045,17 +1048,17 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const kind = METHODS[method].locationKinds[0]
-  const label = method === "warehouse" ? "Warehouse" : method === "dropship" ? "Supplier" : "Print partner"
+  const label = method === "warehouse" ? tt("Warehouse") : method === "dropship" ? tt("Supplier") : tt("Print partner")
   const chosen = partners.find((p) => p.id === value) ?? null
 
   if (adding) {
     return (
       <div className="space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3" data-partner-form="">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={`${label} name`}>
-            <TextInput value={name} maxLength={80} placeholder={method === "print_on_demand" ? "My print shop" : method === "dropship" ? "My supplier" : "My warehouse"} onChange={(e) => setName(e.target.value)} />
+          <Field label={tt("{label} name", { label })}>
+            <TextInput value={name} maxLength={80} placeholder={method === "print_on_demand" ? tt("My print shop") : method === "dropship" ? tt("My supplier") : tt("My warehouse")} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="Their orders email" hint="Optional. Each paid order for this product is emailed here with the items and address. Empty: you pass orders on yourself.">
+          <Field label={tt("Their orders email")} hint={tt("Optional. Each paid order for this product is emailed here with the items and address. Empty: you pass orders on yourself.")}>
             <TextInput value={email} maxLength={254} inputMode="email" placeholder="orders@example.com" onChange={(e) => setEmail(e.target.value)} />
           </Field>
         </div>
@@ -1063,7 +1066,7 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
         <div className="flex justify-end gap-2">
           {partners.length > 0 ? (
             <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(false)}>
-              Cancel
+              {tt("Cancel")}
             </button>
           ) : null}
           <button
@@ -1082,7 +1085,7 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
               setAdding(false)
             }}
           >
-            {busy ? "Adding" : `Add ${label.toLowerCase()}`}
+            {busy ? tt("Adding") : tt("Add {value}", { value: label.toLowerCase() })}
           </button>
         </div>
       </div>
@@ -1093,7 +1096,7 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <Field label={label} className="flex-1">
           <SelectInput value={value} onChange={onChange}>
-            <option value="">Choose</option>
+            <option value="">{tt("Choose")}</option>
             {partners.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -1103,18 +1106,18 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
         </Field>
         <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(true)}>
           <Plus className="h-4 w-4" />
-          New
+          {tt("New")}
         </button>
       </div>
       {chosen ? (
         <p className="text-[12.5px] text-[#6b7280]">
           {partnerSentence(chosen)}{" "}
           <SettingsLink href={LOCATIONS_HREF} className="underline underline-offset-2">
-            Change
+            {tt("Change")}
           </SettingsLink>
         </p>
       ) : (
-        <p className="text-[12.5px] text-[#b45309]">Choose who fulfils it, so orders reach them.</p>
+        <p className="text-[12.5px] text-[#b45309]">{tt("Choose who fulfils it, so orders reach them.")}</p>
       )}
     </div>
   )
@@ -1174,24 +1177,24 @@ function VariantImagePicker({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Photo for ${name}`}
+      title={tt("Photo for {name}", { name })}
       footer={
         <div className="flex w-full items-center justify-between gap-2">
           {value ? (
             <button type="button" className={BTN_GHOST} onClick={() => onPick(null, keys)} data-variant-photo-remove="">
-              Remove photo
+              {tt("Remove photo")}
             </button>
           ) : (
             <span />
           )}
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            Done
+            {tt("Done")}
           </button>
         </div>
       }
     >
       {scopes.length > 1 ? (
-        <div className="mb-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Which variants get the photo" data-variant-photo-scope="">
+        <div className="mb-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label={tt("Which variants get the photo")} data-variant-photo-scope="">
           {scopes.map((s, i) => (
             <button
               key={s.label}
@@ -1210,7 +1213,7 @@ function VariantImagePicker({
           ))}
         </div>
       ) : (
-        <p className="mb-3 text-[13.5px] text-[#6b7280]">Shown when a buyer picks this variant.</p>
+        <p className="mb-3 text-[13.5px] text-[#6b7280]">{tt("Shown when a buyer picks this variant.")}</p>
       )}
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-5" data-variant-photo-grid="">
         {photos.map((url) => {
@@ -1221,7 +1224,7 @@ function VariantImagePicker({
               type="button"
               onClick={() => onPick(url, keys)}
               aria-pressed={value === url}
-              aria-label={value === url ? "This photo, chosen" : "Use this photo"}
+              aria-label={value === url ? tt("This photo, chosen") : tt("Use this photo")}
               data-variant-photo-choice=""
               className={cn("aspect-square overflow-hidden rounded-lg border bg-[#f3f4f6] outline-none focus-visible:ring-2 focus-visible:ring-[#9ca3af]/50", value === url ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:border-[#9ca3af]")}
             >
@@ -1235,11 +1238,11 @@ function VariantImagePicker({
             type="button"
             onClick={() => input.current?.click()}
             className="grid aspect-square place-items-center rounded-lg border border-dashed border-[#d1d5db] text-[#6b7280] hover:border-[#9ca3af] hover:text-[#1a1a2e]"
-            aria-label="Upload a photo"
+            aria-label={tt("Upload a photo")}
           >
             <span className="flex flex-col items-center gap-1 text-[12px]">
               <Upload className="h-4 w-4" />
-              Upload
+              {tt("Upload")}
             </span>
           </button>
         ) : null}
@@ -1247,16 +1250,16 @@ function VariantImagePicker({
           type="button"
           onClick={() => onBrowse(keys)}
           className="grid aspect-square place-items-center rounded-lg border border-dashed border-[#d1d5db] text-[#6b7280] hover:border-[#9ca3af] hover:text-[#1a1a2e]"
-          aria-label="Choose from your files"
+          aria-label={tt("Choose from your files")}
           data-variant-photo-files=""
         >
           <span className="flex flex-col items-center gap-1 text-center text-[12px] leading-[14px]">
             <FolderOpen className="h-4 w-4" />
-            Your files
+            {tt("Your files")}
           </span>
         </button>
       </div>
-      {photos.length === 0 ? <p className="mt-3 text-[13px] text-[#6b7280]">Photos you add to the product show here first.</p> : null}
+      {photos.length === 0 ? <p className="mt-3 text-[13px] text-[#6b7280]">{tt("Photos you add to the product show here first.")}</p> : null}
       <input
         ref={input}
         type="file"

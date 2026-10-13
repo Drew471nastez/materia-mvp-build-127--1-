@@ -15,6 +15,7 @@ import Link from "next/link"
 import { BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, Toggle, api } from "@/components/physical/ui"
 import { cn } from "@/lib/utils"
 import { REVIEWS_APP_DEFAULTS, cleanHexColor, type ReviewsAppSettings } from "@/lib/reviews/app-settings"
+import { tt } from "@/lib/i18n/text"
 
 type Loaded = { settings: ReviewsAppSettings; ready: boolean; counts?: { pending: number; published: number; asked: number } }
 
@@ -57,16 +58,16 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
   }
 
   if (!loaded) {
-    return error ? <Notice>{error}</Notice> : <div className="h-24 animate-pulse rounded-xl bg-[#f3f4f6]" aria-label="Loading" />
+    return error ? <Notice>{error}</Notice> : <div className="h-24 animate-pulse rounded-xl bg-[#f3f4f6]" aria-label={tt("Loading")} />
   }
-  if (!loaded.ready) return <Notice tone="amber">Storelib Reviews needs its database update (SQL part 134). Until it runs, nothing here is kept.</Notice>
+  if (!loaded.ready) return <Notice tone="amber">{tt("Storelib Reviews needs its database update (SQL part 134). Until it runs, nothing here is kept.")}</Notice>
 
   const on = draft.enabled
   return (
     <div className="space-y-5" data-reviews-app-panel="">
       <Toggle
-        label={on ? "Storelib Reviews is on" : "Turn on Storelib Reviews"}
-        description={on ? "Reviews show on your website and buyers are asked by email." : "Show reviews on your website, collect them by email and approve them in Reviews."}
+        label={on ? tt("Storelib Reviews is on") : tt("Turn on Storelib Reviews")}
+        description={on ? tt("Reviews show on your website and buyers are asked by email.") : tt("Show reviews on your website, collect them by email and approve them in Reviews.")}
         checked={on}
         onChange={(v) => {
           const next = { ...draft, enabled: v }
@@ -76,45 +77,45 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
       />
       {loaded.counts && on ? (
         <p className="text-[13px] text-[#6b7280]" data-reviews-app-counts="">
-          {loaded.counts.published} published · {loaded.counts.pending} waiting for approval · {loaded.counts.asked} asked by email ·{" "}
+          {tt("{published} published · {pending} waiting for approval · {asked} asked by email", { published: loaded.counts.published, pending: loaded.counts.pending, asked: loaded.counts.asked })} ·{" "}
           <Link href="/app/reviews" className="font-medium text-[#1a1a2e] underline underline-offset-4">
-            Open Reviews
+            {tt("Open Reviews")}
           </Link>
         </p>
       ) : null}
 
       <div className={cn(SECTION, "space-y-3", !on && "opacity-60")}>
-        <p className={H}>New reviews</p>
-        <Field label="When a review comes in" htmlFor="ra-publish">
+        <p className={H}>{tt("New reviews")}</p>
+        <Field label={tt("When a review comes in")} htmlFor="ra-publish">
           <SelectInput id="ra-publish" value={draft.publish} onChange={(v) => set({ publish: v === "manual" ? "manual" : "auto" })}>
-            <option value="auto">Publish it right away</option>
-            <option value="manual">Wait for me to approve it</option>
+            <option value="auto">{tt("Publish it right away")}</option>
+            <option value="manual">{tt("Wait for me to approve it")}</option>
           </SelectInput>
         </Field>
         {draft.publish === "auto" ? (
-          <Field label="Publish right away from" htmlFor="ra-min" hint="Reviews with fewer stars wait for you in Reviews, under Pending.">
+          <Field label={tt("Publish right away from")} htmlFor="ra-min" hint={tt("Reviews with fewer stars wait for you in Reviews, under Pending.")}>
             <SelectInput id="ra-min" value={String(draft.minStars)} onChange={(v) => set({ minStars: Number(v) })}>
-              <option value="1">Any rating</option>
+              <option value="1">{tt("Any rating")}</option>
               {[2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
-                  {n} stars and up
+                  {tt("{n} stars and up", { n })}
                 </option>
               ))}
             </SelectInput>
           </Field>
         ) : null}
-        <Field label="Who can write one" htmlFor="ra-who" hint={draft.who === "anyone" ? "A visitor confirms their review from an email before it posts, and it is not marked Verified buyer or counted in your Storelib rating. A buyer who uses the form is sent their own link instead." : "From the link in their review email or their receipt. Every review is a Verified buyer."}>
+        <Field label={tt("Who can write one")} htmlFor="ra-who" hint={draft.who === "anyone" ? tt("A visitor confirms their review from an email before it posts, and it is not marked Verified buyer or counted in your Storelib rating. A buyer who uses the form is sent their own link instead.") : tt("From the link in their review email or their receipt. Every review is a Verified buyer.")}>
           <SelectInput id="ra-who" value={draft.who} onChange={(v) => set({ who: v === "anyone" ? "anyone" : "verified" })}>
-            <option value="verified">Buyers only</option>
-            <option value="anyone">Anyone, on your website</option>
+            <option value="verified">{tt("Buyers only")}</option>
+            <option value="anyone">{tt("Anyone, on your website")}</option>
           </SelectInput>
         </Field>
-        <Toggle label="Photos" description="Buyers can add up to 4 photos. Each one is checked before it is kept." checked={draft.photos} onChange={(v) => set({ photos: v })} />
-        <Field label="Buyers can change their review for" htmlFor="ra-edit">
+        <Toggle label={tt("Photos")} description={tt("Buyers can add up to 4 photos. Each one is checked before it is kept.")} checked={draft.photos} onChange={(v) => set({ photos: v })} />
+        <Field label={tt("Buyers can change their review for")} htmlFor="ra-edit">
           <SelectInput id="ra-edit" value={String(draft.editDays)} onChange={(v) => set({ editDays: Number(v) })}>
             {[0, 7, 30, 90, 365].map((n) => (
               <option key={n} value={n}>
-                {n === 0 ? "No changes after posting" : `${n} days`}
+                {n === 0 ? tt("No changes after posting") : tt("{n} days", { n })}
               </option>
             ))}
           </SelectInput>
@@ -122,52 +123,52 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
       </div>
 
       <div className={cn(SECTION, "space-y-3", !on && "opacity-60")}>
-        <Toggle label="Review request email" description="Sent as your store, with five stars to tap. One per item bought." checked={draft.request.enabled} onChange={(v) => setRequest({ enabled: v })} />
+        <Toggle label={tt("Review request email")} description={tt("Sent as your store, with five stars to tap. One per item bought.")} checked={draft.request.enabled} onChange={(v) => setRequest({ enabled: v })} />
         {draft.request.enabled ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Downloads and courses: days after purchase" htmlFor="ra-digital">
+              <Field label={tt("Downloads and courses: days after purchase")} htmlFor="ra-digital">
                 <TextInput id="ra-digital" type="number" min={0} max={60} inputMode="numeric" value={String(draft.request.digitalDays)} onChange={(e) => setRequest({ digitalDays: clampDays(e.target.value, 60) })} />
               </Field>
-              <Field label="Shipped items: days after" htmlFor="ra-physical">
+              <Field label={tt("Shipped items: days after")} htmlFor="ra-physical">
                 <div className="flex gap-2">
                   <TextInput id="ra-physical" type="number" min={0} max={60} inputMode="numeric" className="w-20" value={String(draft.request.physicalDays)} onChange={(e) => setRequest({ physicalDays: clampDays(e.target.value, 60) })} />
-                  <SelectInput aria-label="Counted from" className="flex-1" value={draft.request.physicalFrom} onChange={(v) => setRequest({ physicalFrom: v === "shipped" ? "shipped" : "delivered" })}>
-                    <option value="delivered">delivery</option>
-                    <option value="shipped">shipping</option>
+                  <SelectInput aria-label={tt("Counted from")} className="flex-1" value={draft.request.physicalFrom} onChange={(v) => setRequest({ physicalFrom: v === "shipped" ? "shipped" : "delivered" })}>
+                    <option value="delivered">{tt("delivery")}</option>
+                    <option value="shipped">{tt("shipping")}</option>
                   </SelectInput>
                 </div>
               </Field>
             </div>
-            <Toggle label="One reminder" description="Only to buyers who have not reviewed yet." checked={draft.request.reminder} onChange={(v) => setRequest({ reminder: v })} />
+            <Toggle label={tt("One reminder")} description={tt("Only to buyers who have not reviewed yet.")} checked={draft.request.reminder} onChange={(v) => setRequest({ reminder: v })} />
             {draft.request.reminder ? (
-              <Field label="Days after the first email" htmlFor="ra-reminder">
+              <Field label={tt("Days after the first email")} htmlFor="ra-reminder">
                 <TextInput id="ra-reminder" type="number" min={1} max={30} inputMode="numeric" className="w-24" value={String(draft.request.reminderDays)} onChange={(e) => setRequest({ reminderDays: Math.max(1, clampDays(e.target.value, 30)) })} />
               </Field>
             ) : null}
-            <p className="text-[12.5px] leading-[18px] text-[#6b7280]">Only orders placed after you turn the app on are asked. Buyers who turned review emails off, or already reviewed, are never asked.</p>
+            <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Only orders placed after you turn the app on are asked. Buyers who turned review emails off, or already reviewed, are never asked.")}</p>
           </>
         ) : null}
       </div>
 
       <div className={cn(SECTION, "space-y-3", !on && "opacity-60")}>
-        <p className={H}>On your website</p>
-        <Field label="Star color" htmlFor="ra-star">
+        <p className={H}>{tt("On your website")}</p>
+        <Field label={tt("Star color")} htmlFor="ra-star">
           <div className="flex items-center gap-2">
-            <input aria-label="Pick a star color" type="color" value={cleanHexColor(draft.display.starColor)} onChange={(e) => setDisplay({ starColor: e.target.value })} className="h-10 w-12 cursor-pointer rounded-lg border border-[#e5e7eb] bg-white p-1" />
+            <input aria-label={tt("Pick a star color")} type="color" value={cleanHexColor(draft.display.starColor)} onChange={(e) => setDisplay({ starColor: e.target.value })} className="h-10 w-12 cursor-pointer rounded-lg border border-[#e5e7eb] bg-white p-1" />
             <TextInput id="ra-star" value={draft.display.starColor} maxLength={7} className="w-28" onChange={(e) => setDisplay({ starColor: e.target.value })} onBlur={() => setDisplay({ starColor: cleanHexColor(draft.display.starColor) })} />
           </div>
         </Field>
-        <Field label="Order" htmlFor="ra-sort">
+        <Field label={tt("Order")} htmlFor="ra-sort">
           <SelectInput id="ra-sort" value={draft.display.sort} onChange={(v) => setDisplay({ sort: v as ReviewsAppSettings["display"]["sort"] })}>
-            <option value="featured">Featured first, then newest</option>
-            <option value="newest">Newest first</option>
-            <option value="highest">Highest rating first</option>
-            <option value="lowest">Lowest rating first</option>
-            <option value="photos">With photos first</option>
+            <option value="featured">{tt("Featured first, then newest")}</option>
+            <option value="newest">{tt("Newest first")}</option>
+            <option value="highest">{tt("Highest rating first")}</option>
+            <option value="lowest">{tt("Lowest rating first")}</option>
+            <option value="photos">{tt("With photos first")}</option>
           </SelectInput>
         </Field>
-        <Field label="Reviews shown before Show more" htmlFor="ra-per">
+        <Field label={tt("Reviews shown before Show more")} htmlFor="ra-per">
           <SelectInput id="ra-per" value={String(draft.display.perPage)} onChange={(v) => setDisplay({ perPage: Number(v) })}>
             {[3, 4, 6, 8, 10, 12].map((n) => (
               <option key={n} value={n}>
@@ -176,25 +177,25 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
             ))}
           </SelectInput>
         </Field>
-        <Toggle label="Verified buyer label" checked={draft.display.showVerified} onChange={(v) => setDisplay({ showVerified: v })} />
-        <Toggle label="Dates" checked={draft.display.showDate} onChange={(v) => setDisplay({ showDate: v })} />
-        <Toggle label="Photos in reviews" checked={draft.display.showPhotos} onChange={(v) => setDisplay({ showPhotos: v })} />
-        <Toggle label="Stars on product cards" description="Imported themes show their own stars from the same ratings." checked={draft.display.showCardRating} onChange={(v) => setDisplay({ showCardRating: v })} />
+        <Toggle label={tt("Verified buyer label")} checked={draft.display.showVerified} onChange={(v) => setDisplay({ showVerified: v })} />
+        <Toggle label={tt("Dates")} checked={draft.display.showDate} onChange={(v) => setDisplay({ showDate: v })} />
+        <Toggle label={tt("Photos in reviews")} checked={draft.display.showPhotos} onChange={(v) => setDisplay({ showPhotos: v })} />
+        <Toggle label={tt("Stars on product cards")} description={tt("Imported themes show their own stars from the same ratings.")} checked={draft.display.showCardRating} onChange={(v) => setDisplay({ showCardRating: v })} />
         <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
-          Add reviews to your pages in the website editor: Product reviews, Star rating, Reviews carousel and All reviews are under Add section. Your website also has a reviews page at /reviews.
+          {tt("Add reviews to your pages in the website editor: Product reviews, Star rating, Reviews carousel and All reviews are under Add section. Your website also has a reviews page at /reviews.")}
         </p>
       </div>
 
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {saved && !dirty ? <span className="mr-auto text-[13px] text-[#067647]">Saved</span> : null}
+        {saved && !dirty ? <span className="mr-auto text-[13px] text-[#067647]">{tt("Saved")}</span> : null}
         {dirty ? (
           <button type="button" className={BTN_SECONDARY} disabled={busy} onClick={() => setDraft(loaded.settings)}>
-            Discard
+            {tt("Discard")}
           </button>
         ) : null}
         <button type="button" className={BTN_PRIMARY} disabled={busy || !dirty} onClick={() => void save()} data-reviews-app-save="">
-          {busy ? "Saving" : "Save"}
+          {busy ? tt("Saving") : tt("Save")}
         </button>
       </div>
     </div>

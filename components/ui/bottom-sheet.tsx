@@ -166,6 +166,7 @@ import { cn } from "@/lib/utils"
 import { readPublishedKeyboardInset, sheetFoot, sheetOverKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 /* The builder sheet's arithmetic, so the two move alike (pure: no DOM, no React). */
 import { releaseVelocity, rubberBand, snapMotion, snapTarget, curveCss, type Sample } from "@/components/website-builder/sheet-gestures"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * THE TIMING. An open is 360ms on iOS's presentation curve, the builder
@@ -1251,7 +1252,7 @@ export function BottomSheet({
           /* Layout and style stop at the panel. Paint cannot: the skirt
              below is painted outside it on purpose. The content inside gets
              paint containment as well (the body below). */
-          contain: "layout style",
+          contain: tt("layout style"),
           /* A short soft edge along the top. It was a 40px blur at 18%:
              under a 40% scrim it could not be seen, and it was the largest
              thing to raster on the first frame of every open. */

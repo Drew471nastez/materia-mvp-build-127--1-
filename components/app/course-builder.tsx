@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ArrowLeft, Plus, GripVertical, Trash2, ChevronDown, ChevronRight } from "lucide-react"
 import type { Product, Course, CourseModule, CourseLesson } from "@/lib/types"
+import { tt } from "@/lib/i18n/text"
 
 interface CourseBuilderProps {
   product: Product
@@ -69,7 +70,7 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
   }
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (!confirm("Delete this module and all its lessons?")) return
+    if (!confirm(tt("Delete this module and all its lessons?"))) return
 
     const supabase = createClient()
     const { error } = await supabase.from("course_modules").delete().eq("id", moduleId)
@@ -157,7 +158,7 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
           className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to courses
+          {tt("Back to courses")}
         </Link>
         <div className="flex items-center justify-between">
           <div>
@@ -167,16 +168,16 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
                 {product.status}
               </Badge>
               <span className="text-sm text-muted-foreground">
-                {modules.length} modules, {modules.reduce((acc, m) => acc + m.lessons.length, 0)} lessons
+                {tt("{length} modules,", { length: modules.length })} {modules.reduce((acc, m) => acc + m.lessons.length, 0)} {tt("lessons")}
               </span>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/app/courses/${product.id}`}>Edit details</Link>
+              <Link href={`/app/courses/${product.id}`}>{tt("Edit details")}</Link>
             </Button>
             <Button variant={product.status === "published" ? "outline" : "default"} onClick={togglePublish}>
-              {product.status === "published" ? "Unpublish" : "Publish"}
+              {product.status === "published" ? tt("Unpublish") : tt("Publish")}
             </Button>
           </div>
         </div>
@@ -196,11 +197,11 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
                     <ChevronRight className="h-4 w-4" />
                   )}
                   <CardTitle className="text-base">
-                    Module {idx + 1}: {module.title}
+                    {tt("Module {value}: {title}", { value: idx + 1, title: module.title })}
                   </CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{module.lessons.length} lessons</span>
+                  <span className="text-sm text-muted-foreground">{tt("{length} lessons", { length: module.lessons.length })}</span>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -228,7 +229,7 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
                         <span className="text-sm">{lesson.title}</span>
                         {lesson.video_url && (
                           <Badge variant="secondary" className="text-xs">
-                            Video
+                            {tt("Video")}
                           </Badge>
                         )}
                       </div>
@@ -239,12 +240,12 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
                         >
                           <DialogTrigger asChild>
                             <Button variant="ghost" size="sm" onClick={() => setEditingLesson(lesson.id)}>
-                              Edit
+                              {tt("Edit")}
                             </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Edit Lesson</DialogTitle>
+                              <DialogTitle>{tt("Edit Lesson")}</DialogTitle>
                             </DialogHeader>
                             <LessonForm
                               lesson={lesson}
@@ -272,7 +273,7 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
                       onClick={() => setAddingLessonToModule(module.id)}
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Add lesson
+                      {tt("Add lesson")}
                     </Button>
                   )}
                 </div>
@@ -287,14 +288,14 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
             <CardContent className="pt-6">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Module title"
+                  placeholder={tt("Module title")}
                   value={newModuleTitle}
                   onChange={(e) => setNewModuleTitle(e.target.value)}
                   autoFocus
                 />
-                <Button onClick={handleAddModule}>Add</Button>
+                <Button onClick={handleAddModule}>{tt("Add")}</Button>
                 <Button variant="outline" onClick={() => setIsAddingModule(false)}>
-                  Cancel
+                  {tt("Cancel")}
                 </Button>
               </div>
             </CardContent>
@@ -302,7 +303,7 @@ export function CourseBuilder({ product, course, modules: initialModules }: Cour
         ) : (
           <Button variant="outline" className="w-full bg-transparent" onClick={() => setIsAddingModule(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Add module
+            {tt("Add module")}
           </Button>
         )}
       </div>
@@ -315,12 +316,12 @@ function AddLessonForm({ onAdd, onCancel }: { onAdd: (title: string) => void; on
 
   return (
     <div className="flex gap-2 rounded-md border border-border p-3">
-      <Input placeholder="Lesson title" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+      <Input placeholder={tt("Lesson title")} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
       <Button size="sm" onClick={() => onAdd(title)} disabled={!title.trim()}>
-        Add
+        {tt("Add")}
       </Button>
       <Button size="sm" variant="outline" onClick={onCancel}>
-        Cancel
+        {tt("Cancel")}
       </Button>
     </div>
   )
@@ -342,18 +343,18 @@ function LessonForm({
   return (
     <div className="space-y-4">
       <div className="grid gap-2">
-        <Label htmlFor="lessonTitle">Title</Label>
+        <Label htmlFor="lessonTitle">{tt("Title")}</Label>
         <Input id="lessonTitle" value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="videoUrl">Video URL (YouTube, Vimeo, etc.)</Label>
+        <Label htmlFor="videoUrl">{tt("Video URL (YouTube, Vimeo, etc.)")}</Label>
         <Input id="videoUrl" placeholder="https://..." value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="content">Lesson content</Label>
+        <Label htmlFor="content">{tt("Lesson content")}</Label>
         <Textarea
           id="content"
-          placeholder="Write your lesson content..."
+          placeholder={tt("Write your lesson content...")}
           value={contentText}
           onChange={(e) => setContentText(e.target.value)}
           rows={6}
@@ -361,7 +362,7 @@ function LessonForm({
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {tt("Cancel")}
         </Button>
         <Button
           onClick={() =>
@@ -372,7 +373,7 @@ function LessonForm({
             })
           }
         >
-          Save
+          {tt("Save")}
         </Button>
       </div>
     </div>

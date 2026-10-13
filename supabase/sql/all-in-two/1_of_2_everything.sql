@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 168: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 173: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3425,6 +3425,12 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('167', '1
 DO $do$ BEGIN IF to_regclass('public.storelib_applied_parts') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.storelib_applied_parts WHERE part = '168') AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'requires_shipping') THEN UPDATE public.products SET requires_shipping = true, updated_at = now() WHERE type = 'physical' AND requires_shipping = false; END IF; END $do$;
 ALTER TABLE public.products ALTER COLUMN requires_shipping SET DEFAULT true;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('168', '168_physical_products_ship_once.sql', '924f750b2d20b00ac189ee281689f155f7b2b3449cbae7844492db5a0cee673f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 173_visitor_language_and_ga_status.sql
+/* Show visitors their own language, and whether Google Analytics is receiving data. `store_localization.visitor_language` (part 136's table): Settings › Markets and languages' switch "Show visitors their own language", false unless the store turns it on; with it on, a first visit to the website or the creator page opens in the published language the browser asks for, once, or offers the nearest one. `store_settings.tracking_seen` (part 109's table): for the store's Google Analytics measurement ID, when a visitor's page last saw Google take a hit with it and when the owner's Check in Settings › Integrations last did, so Settings says "Connected, receiving data" with the time; an object, small, nothing about any visitor. Server only, as both tables already are. No rows change. Each step skips itself with a notice where its table is not there (run 136 or 109 first). Until it runs, the switch says it needs this part and stays off, and Google Analytics shows the Check's answer without a last event time. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.store_localization') IS NULL THEN RAISE NOTICE 'visitor language: store_localization is not there yet, run part 136 first.'; ELSE ALTER TABLE public.store_localization ADD COLUMN IF NOT EXISTS visitor_language boolean NOT NULL DEFAULT false; END IF; END $do$;
+DO $do$ BEGIN IF to_regclass('public.store_settings') IS NULL THEN RAISE NOTICE 'Google Analytics status: store_settings is not there yet, run part 109 first.'; ELSE ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS tracking_seen jsonb NOT NULL DEFAULT '{}'::jsonb; IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'store_settings_tracking_seen_small') THEN ALTER TABLE public.store_settings ADD CONSTRAINT store_settings_tracking_seen_small CHECK (jsonb_typeof(tracking_seen) = 'object' AND pg_column_size(tracking_seen) < 4096) NOT VALID; END IF; END IF; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('173', '173_visitor_language_and_ga_status.sql', '9554d8d7c34885965cb4fd80ebf573145cb5ac467362bb311798d39d483d5951') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

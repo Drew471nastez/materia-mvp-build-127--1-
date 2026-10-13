@@ -15,6 +15,7 @@
  * See docs/storelib-sites.md.
  */
 
+import { untt } from "./i18n-source"
 import { readFileSync, existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
@@ -87,7 +88,7 @@ function section(title: string) {
 }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 /**
  * Source with its comments removed.

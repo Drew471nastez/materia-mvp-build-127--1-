@@ -9,6 +9,7 @@ import { CNAME_TARGET, DEFAULT_A, type DnsRecord } from "@/lib/custom-domains/ho
 import type { RecordCheck } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
 import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
+import { tt } from "@/lib/i18n/text"
 
 interface DomainRow {
   id: string
@@ -47,11 +48,11 @@ function recordsFor(d: DomainRow): DnsRecord[] {
  */
 function describe(d: DomainRow): { tone: "live" | "attention" | "critical" | "neutral"; label: string; ssl: string } {
   if (d.status === "active") {
-    return { tone: "live", label: "Connected", ssl: d.ssl_status === "failed" ? "Certificate failed" : "Secured with HTTPS" }
+    return { tone: "live", label: tt("Connected"), ssl: d.ssl_status === "failed" ? tt("Certificate failed") : tt("Secured with HTTPS") }
   }
-  if (d.status === "ssl_provisioning") return { tone: "attention", label: "Securing", ssl: "Certificate being issued" }
-  if (d.status === "failed") return { tone: "critical", label: "Not connected", ssl: "No certificate" }
-  return { tone: "attention", label: "Waiting for DNS", ssl: "Issued once DNS is set" }
+  if (d.status === "ssl_provisioning") return { tone: "attention", label: tt("Securing"), ssl: tt("Certificate being issued") }
+  if (d.status === "failed") return { tone: "critical", label: tt("Not connected"), ssl: tt("No certificate") }
+  return { tone: "attention", label: tt("Waiting for DNS"), ssl: tt("Issued once DNS is set") }
 }
 
 /**
@@ -73,14 +74,14 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
     fetch("/api/domains")
       .then(async (res) => {
         const d = (await res.json().catch(() => ({}))) as { domains?: DomainRow[]; error?: string }
-        if (!res.ok) throw new Error(d.error || "Could not load your domains")
+        if (!res.ok) throw new Error(d.error || tt("Could not load your domains"))
         /* This is the website's: a domain connected to the creator page is listed in Settings. */
         if (alive) setDomains((d.domains ?? []).filter((x) => (x.purpose ?? "website") === "website"))
       })
       .catch((e) => {
         if (!alive) return
         setDomains([])
-        setError(e instanceof Error ? e.message : "Could not load your domains")
+        setError(e instanceof Error ? e.message : tt("Could not load your domains"))
       })
     return () => {
       alive = false
@@ -123,14 +124,14 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         body: JSON.stringify({ domain: clean, purpose: "website", replace: Boolean(current) }),
       })
       const d = (await res.json().catch(() => ({}))) as { domain?: DomainRow; error?: string }
-      if (!res.ok || !d.domain) throw new Error(d.error || "Could not connect that domain")
+      if (!res.ok || !d.domain) throw new Error(d.error || tt("Could not connect that domain"))
       const added = d.domain
       setDomains((prev) => (current ? [added] : [added, ...(prev ?? [])]))
       setDraft("")
       setConfirming(false)
-      setNote("Now add these records where you bought the domain, then press Check DNS.")
+      setNote(tt("Now add these records where you bought the domain, then press Check DNS."))
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not connect that domain")
+      setError(e instanceof Error ? e.message : tt("Could not connect that domain"))
     } finally {
       setAdding(false)
     }
@@ -156,12 +157,12 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         issues?: string[]
         warnings?: string[]
       }
-      if (!res.ok) throw new Error(r.error || "Could not check the DNS records")
+      if (!res.ok) throw new Error(r.error || tt("Could not check the DNS records"))
       const message = r.verified
         ? r.sslPending
-          ? "DNS is right. The certificate is being issued, which usually takes a few minutes."
-          : "Connected. Your website is live at this domain."
-        : r.message || "The records are not showing yet. DNS can take up to a day to reach everyone; check again later."
+          ? tt("DNS is right. The certificate is being issued, which usually takes a few minutes.")
+          : tt("Connected. Your website is live at this domain.")
+        : r.message || tt("The records are not showing yet. DNS can take up to a day to reach everyone; check again later.")
       if (r.verified) {
         setDomains((prev) => (prev ?? []).map((x) => (x.id === d.id ? { ...x, status: r.sslPending ? "ssl_provisioning" : "active" } : x)))
         if (!r.sslPending) setNote(message)
@@ -175,7 +176,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         },
       }))
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not check the DNS records")
+      setError(e instanceof Error ? e.message : tt("Could not check the DNS records"))
     } finally {
       setChecking(null)
     }
@@ -183,22 +184,22 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
 
   return (
     <>
-      <PageTitle>Domains</PageTitle>
-      <Lead>{liveHost ? `Your website is at ${liveHost}. Its other addresses send visitors there.` : "Every address here shows your live website."}</Lead>
+      <PageTitle>{tt("Domains")}</PageTitle>
+      <Lead>{liveHost ? tt("Your website is at {liveHost}. Its other addresses send visitors there.", { liveHost }) : tt("Every address here shows your live website.")}</Lead>
 
-      <Card title="Storelib address">
+      <Card title={tt("Storelib address")}>
         <StorelibAddress ctx={ctx} />
         <Row label="HTTPS" inline>
-          <Badge tone="live">Secured</Badge>
+          <Badge tone="live">{tt("Secured")}</Badge>
         </Row>
         {liveHost ? (
-          <Row label="Visitors" hint="Pages opened here go to your domain. Checkout links already sent keep working.">
-            <span className="text-[14px] text-white/60" data-domain-redirect="">Sent to {liveHost}</span>
+          <Row label={tt("Visitors")} hint={tt("Pages opened here go to your domain. Checkout links already sent keep working.")}>
+            <span className="text-[14px] text-white/60" data-domain-redirect="">{tt("Sent to {liveHost}", { liveHost })}</span>
           </Row>
         ) : null}
       </Card>
 
-      <Card title="Custom domain">
+      <Card title={tt("Custom domain")}>
         {domains === null ? (
           <div className="flex items-center justify-center py-10 text-white/45">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -209,13 +210,13 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
             const waiting = d.status !== "active"
             return (
               <Fragment key={d.id}>
-                <Row label={d.host || `www.${d.domain}`} hint={(d.is_primary ?? true) ? "Primary address" : "Sends visitors to the primary address"} inline>
+                <Row label={d.host || `www.${d.domain}`} hint={(d.is_primary ?? true) ? tt("Primary address") : tt("Sends visitors to the primary address")} inline>
                   <Badge tone={s.tone}>{s.label}</Badge>
                 </Row>
                 {d.apex !== false && (
-                  <Row label={d.domain} hint="Redirects">
+                  <Row label={d.domain} hint={tt("Redirects")}>
                     {/* A second domain sends its visitors on to the primary one, once that is live (proxy.ts, a domain that is not primary). */}
-                    <span className="text-[14px] text-white/60">to {d.is_primary === false && liveHost ? liveHost : `www.${d.domain}`}</span>
+                    <span className="text-[14px] text-white/60">{tt("to")} {d.is_primary === false && liveHost ? liveHost : `www.${d.domain}`}</span>
                   </Row>
                 )}
                 <Row label="HTTPS" inline>
@@ -230,7 +231,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                       status={d.status}
                       checking={checking === d.id}
                       onCheck={() => void check(d)}
-                      checkLabel={checked[d.id] ? "Check again" : "Check DNS"}
+                      checkLabel={checked[d.id] ? tt("Check again") : tt("Check DNS")}
                       result={checked[d.id]?.result ?? null}
                       fixes={checked[d.id]?.fixes ?? []}
                       tone="dark"
@@ -245,7 +246,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         {domains !== null && (
           <div className="space-y-3 px-4 py-4 md:px-6">
             <label htmlFor="wb-new-domain" className="block text-[14.5px] font-medium text-white">
-              {current ? "Use a different domain" : "Connect a domain you own"}
+              {current ? tt("Use a different domain") : tt("Connect a domain you own")}
             </label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
@@ -267,17 +268,17 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
               />
               <button type="button" onClick={() => void add()} disabled={!clean || adding} className={cn(primaryButtonClass, "md:h-10")}>
                 {adding && <Loader2 className="h-4 w-4 animate-spin" />}
-                {confirming ? "Replace" : "Connect"}
+                {confirming ? tt("Replace") : tt("Connect")}
               </button>
             </div>
             {!current && !confirming && (
               <p className="text-[13px] leading-snug text-white/45">
-                Type the domain and press Connect. You get the records to add where you bought it, and the site answers there once they are in, usually within the hour.
+                {tt("Type the domain and press Connect. You get the records to add where you bought it, and the site answers there once they are in, usually within the hour.")}
               </p>
             )}
             {confirming && current && (
               <p className="text-[13.5px] leading-snug text-amber-200">
-                This replaces {current.domain}. For 30 days {current.domain} sends its visitors on to {clean}, then it stops. Press Replace to go ahead.
+                {tt("This replaces {domain}. For 30 days {domain2} sends its visitors on to {clean}, then it stops. Press Replace to go ahead.", { domain: current.domain, domain2: current.domain, clean })}
               </p>
             )}
           </div>
@@ -287,7 +288,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       {note && <p className="mt-4 text-[14px] text-white/70">{note}</p>}
       {domains && domains.length > 0 && (
         <button type="button" onClick={manage} className="mt-1 inline-flex min-h-11 items-center text-[13.5px] text-white/55 underline-offset-2 hover:text-white hover:underline md:mt-3 md:min-h-0 [-webkit-tap-highlight-color:transparent]">
-          Remove the domain, or see its records in Settings
+          {tt("Remove the domain, or see its records in Settings")}
         </button>
       )}
       {error && <ErrorNote>{error}</ErrorNote>}
@@ -330,11 +331,11 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
         body: JSON.stringify({ handle: wanted }),
       })
       const d = (await res.json().catch(() => ({}))) as { handle?: string; error?: string }
-      if (!res.ok || !d.handle) throw new Error(d.error || "Could not change the address")
+      if (!res.ok || !d.handle) throw new Error(d.error || tt("Could not change the address"))
       ctx.onAddressChanged(d.handle)
       setEditing(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not change the address")
+      setError(e instanceof Error ? e.message : tt("Could not change the address"))
     } finally {
       setSaving(false)
     }
@@ -343,7 +344,7 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
   if (!editing) {
     return (
       <Row
-        label="Address"
+        label={tt("Address")}
         hint={
           <button
             type="button"
@@ -354,7 +355,7 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
             }}
             className={textLinkClass}
           >
-            Change address
+            {tt("Change address")}
           </button>
         }
       >
@@ -366,7 +367,7 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
   return (
     <div className="space-y-3 px-4 py-4 md:px-6" data-address-editor="">
       <label htmlFor="wb-site-handle" className="block text-[14.5px] font-medium text-white">
-        Website address
+        {tt("Website address")}
       </label>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-center rounded-lg border border-white/12 bg-[#171717] focus-within:border-white/35">
@@ -391,16 +392,16 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <button type="button" onClick={() => setEditing(false)} className={cn(buttonClass, "md:h-10")}>
-            Cancel
+            {tt("Cancel")}
           </button>
           <button type="button" onClick={() => void save()} disabled={!wanted || !!problem || saving} className={cn(primaryButtonClass, "md:h-10")}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save
+            {tt("Save")}
           </button>
         </div>
       </div>
       <p className={cn("text-[13px] leading-snug", problem || error ? "text-[#f87171]" : "text-white/45")}>
-        {problem || error || (wanted && wanted !== draft.trim().toLowerCase() ? `Will be ${wanted}${suffix}. Your username stays the same.` : "Your username stays the same. The old address keeps working.")}
+        {problem || error || (wanted && wanted !== draft.trim().toLowerCase() ? tt("Will be {wanted}{suffix}. Your username stays the same.", { wanted, suffix }) : tt("Your username stays the same. The old address keeps working."))}
       </p>
     </div>
   )

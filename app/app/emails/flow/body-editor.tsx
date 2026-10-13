@@ -23,6 +23,7 @@ import { RectangleHorizontal } from "lucide-react"
 import { RichTextEditor, type RichTextApi } from "@/components/app/rich-text-editor"
 import { escapeAttr, escapeText } from "@/lib/rich-text/html"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 const STORE_URL = "{{store_url}}"
 
@@ -64,7 +65,7 @@ export function BodyEditor({
   /** The link fields this flow's trigger can fill, offered as places a link or button can go. */
   links?: Array<{ label: string; href: string }>
 }) {
-  const shortcuts = links && links.length > 0 ? links : [{ label: "Your Storelib page", href: STORE_URL }]
+  const shortcuts = links && links.length > 0 ? links : [{ label: tt("Your Storelib page"), href: STORE_URL }]
   const api = React.useRef<RichTextApi | null>(null)
   const [button, setButton] = React.useState<{ text: string; url: string } | null>(null)
   const [error, setError] = React.useState("")
@@ -73,10 +74,10 @@ export function BodyEditor({
     if (!button || !api.current) return
     const url = normaliseUrl(button.url)
     if (!url) {
-      setError("Enter a web address, like yoursite.com/page.")
+      setError(tt("Enter a web address, like yoursite.com/page."))
       return
     }
-    const text = button.text.trim() || "Open"
+    const text = button.text.trim() || tt("Open")
     api.current.insertBlock(
       `<p><a href="${escapeAttr(url)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background-color:#1a1a2e;color:#ffffff;text-decoration:none;font-weight:600;">${escapeText(text)}</a></p><p><br></p>`,
     )
@@ -89,7 +90,7 @@ export function BodyEditor({
       onChange={onChange}
       label={label}
       tools={["h2", "bold", "italic", "bulletList", "link"]}
-      linkShortcuts={shortcuts.map((s) => ({ label: `Link to ${s.label.charAt(0).toLowerCase()}${s.label.slice(1)}`, href: s.href }))}
+      linkShortcuts={shortcuts.map((s) => ({ label: tt("Link to {value}{value2}", { value: s.label.charAt(0).toLowerCase(), value2: s.label.slice(1) }), href: s.href }))}
       cleanOutput={keepEmailHtml}
       minHeight={220}
       apiRef={api}
@@ -98,8 +99,8 @@ export function BodyEditor({
           <button
             type="button"
             className={extra}
-            title="Button"
-            aria-label="Button"
+            title={tt("Button")}
+            aria-label={tt("Button")}
             aria-expanded={!!button}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
@@ -109,19 +110,19 @@ export function BodyEditor({
             }}
           >
             <RectangleHorizontal className="h-[18px] w-[18px] sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Button</span>
+            <span className="hidden sm:inline">{tt("Button")}</span>
           </button>
           <button
             type="button"
             className={extra}
-            title="Their first name, or 'there' when it is not known"
-            aria-label="First name"
+            title={tt("Their first name, or 'there' when it is not known")}
+            aria-label={tt("First name")}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => editor.insertHtml("{{first_name}}")}
           >
             {/* "Name" on a phone, so the whole toolbar fits the sheet without a scroll to reach it. */}
-            <span className="sm:hidden">Name</span>
-            <span className="max-sm:hidden">First name</span>
+            <span className="sm:hidden">{tt("Name")}</span>
+            <span className="max-sm:hidden">{tt("First name")}</span>
           </button>
         </>
       )}
@@ -133,8 +134,8 @@ export function BodyEditor({
                 autoFocus
                 value={button.text}
                 onChange={(e) => setButton({ ...button, text: e.target.value })}
-                placeholder="Button text"
-                aria-label="Button text"
+                placeholder={tt("Button text")}
+                aria-label={tt("Button text")}
                 className={input}
               />
               <input
@@ -151,7 +152,7 @@ export function BodyEditor({
                 autoCorrect="off"
                 spellCheck={false}
                 placeholder="yoursite.com/page"
-                aria-label="Button link"
+                aria-label={tt("Button link")}
                 className={input}
               />
             </div>
@@ -171,10 +172,10 @@ export function BodyEditor({
               </span>
               <div className="flex shrink-0 gap-1.5">
                 <button type="button" className="h-11 rounded-lg px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] sm:h-8" onClick={() => setButton(null)}>
-                  Cancel
+                  {tt("Cancel")}
                 </button>
                 <button type="button" className="h-11 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white hover:bg-[#2a2a40] sm:h-8" onClick={confirmButton}>
-                  Insert
+                  {tt("Insert")}
                 </button>
               </div>
             </div>

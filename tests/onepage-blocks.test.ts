@@ -12,6 +12,7 @@ import { join } from "node:path"
 import { extraBlockHasContent, isBlockShown, isScheduledNow, scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
 import { ONEPAGE_FONTS, familyOf, onePageFontHref, onePageFontHrefs, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { createDefaultBlock } from "@/lib/onepage/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -22,7 +23,7 @@ function check(name: string, ok: boolean, detail = "") {
 }
 function section(t: string) { console.log(`\n${t}`) }
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 function main() {
   const NOW = Date.parse("2026-09-25T12:00:00Z")

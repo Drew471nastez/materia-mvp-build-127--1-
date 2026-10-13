@@ -640,6 +640,12 @@ export default function CheckoutPageClient({
   /** Paid, with the receipt's token: the check on screen, the receipt asked for now, and opened once the check has been seen. */
   const showPaid = React.useCallback(
     (receiptToken: string, paidState: { total: number; free: boolean }) => {
+      /* The store's own Google Analytics hears the purchase (components/analytics/ga-route), never the token itself. */
+      try {
+        window.dispatchEvent(new CustomEvent("storelib:paid", { detail: { ref: receiptToken, totalCents: paidState.total } }))
+      } catch {
+        /* nothing to tell */
+      }
       setPaid(paidState)
       setArriving(false)
       if (!returnTo) {

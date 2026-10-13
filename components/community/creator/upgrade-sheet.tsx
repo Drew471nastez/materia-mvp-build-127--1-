@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import { PRO_CHECKOUT_PLAN_ID, offeredPlan } from "@/lib/billing/plans"
 import { FREE_COMMUNITY_LIMIT } from "@/lib/communities/plan-limit"
 import { Dialog, buttonPrimary, buttonSecondary } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 export const UPGRADE_HREF = "/app/settings/billing/upgrade"
 
@@ -26,21 +27,21 @@ export function UpgradeSheet({ open, onClose }: { open: boolean; onClose: () => 
     <Dialog
       open={open}
       onClose={onClose}
-      title="Run more communities on Pro"
+      title={tt("Run more communities on Pro")}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            Not now
+            {tt("Not now")}
           </button>
           <Link href={UPGRADE_HREF} onClick={onClose} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-upgrade-link="">
-            Upgrade to {pro.name}
+            {tt("Upgrade to {name}", { name: pro.name })}
           </Link>
         </>
       }
     >
       <div data-upgrade-sheet="">
         <p className="text-[14px] leading-relaxed text-[#4b5563]">
-          The Free plan includes {FREE_COMMUNITY_LIMIT} communities. On {pro.name} there is no limit, and every community you have keeps its members, posts and prices.
+          {tt("The Free plan includes")} {FREE_COMMUNITY_LIMIT} {tt("communities. On {name} there is no limit, and every community you have keeps its members, posts and prices.", { name: pro.name })}
         </p>
         <div className="mt-4 rounded-xl border border-[#e5e7eb] px-4 py-3.5">
           <div className="flex items-baseline justify-between gap-3">
@@ -51,7 +52,7 @@ export function UpgradeSheet({ open, onClose }: { open: boolean; onClose: () => 
             </p>
           </div>
           <ul className="mt-2.5 space-y-1.5">
-            {["Unlimited communities", ...pro.features.slice(0, 3)].map((f) => (
+            {[tt("Unlimited communities"), ...pro.features.slice(0, 3)].map((f) => (
               <li key={f} className="flex items-start gap-2 text-[13.5px] leading-snug text-[#4b5563]">
                 <Check aria-hidden className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#1a1a2e]" strokeWidth={2.5} />
                 {f}

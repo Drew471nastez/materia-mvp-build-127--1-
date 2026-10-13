@@ -46,6 +46,7 @@ import { openExternal } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 import { StorelibGlyph } from "./storelib-share-marks"
 import { type ConnectedPlatform, type ShareAddress, type ShareSurface } from "./share-data"
+import { tt } from "@/lib/i18n/text"
 
 /* The sheet's own curve (components/ui/bottom-sheet SHEET_EASE), so the panel opens the way the sheet moves. */
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -134,7 +135,7 @@ export const SharePill = React.memo(function SharePill({
       aria-haspopup="dialog"
       /* data-open, not aria-expanded: see the account trigger (components/app/mobile-account-menu.tsx). */
       data-open={expanded ? "" : undefined}
-      aria-label={`Share ${display}`}
+      aria-label={tt("Share {display}", { display })}
       title={display}
       data-share-pill={md ? "address" : "view"}
       className={cn(
@@ -166,7 +167,7 @@ export const SharePill = React.memo(function SharePill({
       ) : (
         <>
           <Eye className="h-4 w-4 shrink-0 text-[#3a3a40]" strokeWidth={1.9} aria-hidden />
-          <span className="font-medium">View</span>
+          <span className="font-medium">{tt("View")}</span>
         </>
       )}
     </button>
@@ -310,13 +311,13 @@ const QuickRow = React.memo(function QuickRow({
       <span className="min-w-0 flex-1">
         <span className={cn("block font-semibold text-[#111827]", phone ? "text-[15px]" : "text-[13.5px]")}>{address.label}</span>
         <span data-share-address="" className={cn("block truncate text-[#6b7280]", phone ? "text-[12.5px]" : "text-[12px]")}>
-          {live ? address.display : "Publish your OnePage to get its link"}
+          {live ? address.display : tt("Publish your OnePage to get its link")}
         </span>
       </span>
       <button
         type="button"
         data-share-copy=""
-        aria-label={live ? (copied ? "Copied" : `Copy the ${address.label} address`) : `Set up your ${address.label}`}
+        aria-label={live ? (copied ? tt("Copied") : tt("Copy the {label} address", { label: address.label })) : tt("Set up your {label}", { label: address.label })}
         onClick={(e) => {
           e.stopPropagation()
           if (live) onCopy(address.url)
@@ -339,11 +340,11 @@ const QuickRow = React.memo(function QuickRow({
           <span hidden={!copied} className="inline-flex">
             <Check className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden />
           </span>
-          <span>{copied ? "Copied" : phone ? "Copy link" : "Copy"}</span>
+          <span>{copied ? tt("Copied") : phone ? tt("Copy link") : tt("Copy")}</span>
         </span>
         <span hidden={live} className="inline-flex items-center gap-1">
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-          Set up
+          {tt("Set up")}
         </span>
       </button>
     </div>
@@ -454,7 +455,7 @@ export const ShareStorelib = React.memo(function ShareStorelib({
             data-share-sheet=""
             data-surface="panel"
             role="dialog"
-            aria-label="Quick access"
+            aria-label={tt("Quick access")}
             tabIndex={-1}
             align="end"
             side="bottom"
@@ -480,7 +481,7 @@ export const ShareStorelib = React.memo(function ShareStorelib({
             )}
             style={{ animationTimingFunction: EASE }}
           >
-            <p className="px-4 pb-1.5 pt-3 text-[11.5px] font-medium text-[#6b7280]">Quick access</p>
+            <p className="px-4 pb-1.5 pt-3 text-[11.5px] font-medium text-[#6b7280]">{tt("Quick access")}</p>
             {rows(false)}
           </PopoverPrimitive.Content>
         </PopoverPrimitive.Portal>
@@ -489,10 +490,10 @@ export const ShareStorelib = React.memo(function ShareStorelib({
       <BottomSheet
         isOpen={sheetOpen}
         onClose={close}
-        label="Quick access"
+        label={tt("Quick access")}
         hideFrom="md"
         keepMounted={phone && onScreen}
-        header={<h2 className="px-4 pt-2 text-[16px] font-semibold leading-6 text-[#1a1a2e]">Quick access</h2>}
+        header={<h2 className="px-4 pt-2 text-[16px] font-semibold leading-6 text-[#1a1a2e]">{tt("Quick access")}</h2>}
       >
         <div data-share-sheet="" data-surface="sheet">
           {rows(true)}

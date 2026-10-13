@@ -25,6 +25,7 @@ import { OFFERED_SOCIAL_PLATFORM_KEYS, resolveSocialInput } from "@/lib/social/p
 import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
 import { stripComments } from "./_source"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -45,7 +46,7 @@ function section(title: string) {
 }
 
 const root = process.cwd()
-const read = (p: string) => readFileSync(join(root, p), "utf8")
+const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
 // ---------------------------------------------------------------------------

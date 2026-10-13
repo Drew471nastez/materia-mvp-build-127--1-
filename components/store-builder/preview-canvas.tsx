@@ -22,12 +22,11 @@ import {
   type CreatorData,
   type ProfileData,
 } from "./unified-section-renderer"
-import { ProductCreatorBar } from "./product-creator-bar"
 import { EditorSubscribeBar } from "./subscribe-bar"
-import { defaultSubscribeBarSettings } from "@/lib/store-builder/defaults"
-import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+import { ProductCreatorBar } from "./product-creator-bar"
 import { EditorStickyAddToCart } from "./sticky-add-to-cart"
 import {
+  defaultSubscribeBarSettings,
   defaultProductCreatorBarSettings,
   defaultStickyAddToCartSettings,
 } from "@/lib/store-builder/defaults"
@@ -152,6 +151,35 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       coverZoom: undefined,
     })
   }
+
+  /**
+   * The preview has to agree with the live storefront, so it applies the same
+   * two rules as app/(marketing)/u/[username]/page.tsx:
+   *
+   *   - the bar always renders (its visibility toggle is gone), and
+   *   - sticky is on unless the creator has actually moved the switch, which
+   *     `stickyBarChoiceMade` is what records; a stored `false` on its own
+   *     is a default that got saved past, not a decision.
+   *
+   * Without this a creator who has an old `visible: false` or the legacy
+   * `enableStickyBar: false` sees one thing here and a different thing on
+   * their page.
+   */
+  const rawSubscribeBar =
+    currentPageType === "shop"
+      ? (draftConfig.headerSettings as ShopHeaderSettings).subscribeBar || defaultSubscribeBarSettings
+      : null
+
+  const subscribeBarSettings = rawSubscribeBar
+    ? {
+        ...rawSubscribeBar,
+        visible: true,
+        enableStickyBar: rawSubscribeBar.stickyBarChoiceMade ? (rawSubscribeBar.enableStickyBar ?? true) : true,
+        enableStickyOnScrollUp: rawSubscribeBar.stickyBarChoiceMade
+          ? (rawSubscribeBar.enableStickyOnScrollUp ?? true)
+          : true,
+      }
+    : null
 
   const headerSettings = draftConfig.headerSettings as ShopHeaderSettings
   const avatarUrl =
@@ -515,6 +543,21 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
           )}
           style={{ backgroundColor: getLoadingBackground() }}
         >
+          {/* Subscribe Bar Skeleton */}
+          <div
+            className={cn("py-3 px-4 flex items-center justify-center gap-4 border-b", isMobile ? "flex-col gap-2" : "")}
+            style={{ borderColor: getBorderColor(), backgroundColor: isDarkTheme ? '#1a1a1a' : getLoadingBackground() }}
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton themePreset={themePreset} className="h-8 w-8 rounded-full" />
+              <Skeleton themePreset={themePreset} className={cn("h-4", isMobile ? "w-32" : "w-48")} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton themePreset={themePreset} className={cn("h-10 rounded-lg", isMobile ? "w-40" : "w-48")} />
+              <Skeleton themePreset={themePreset} className="h-10 w-24 rounded-lg" />
+            </div>
+          </div>
+
           {/* Cover Image */}
           <Skeleton themePreset={themePreset} className={cn("w-full", isMobile ? "h-32" : "h-48")} />
 
@@ -699,41 +742,33 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               ) : null
             })()}
 
-            {/*
-              THE BAR ABOVE THE COVER, as the live creator page draws it
-              (lib/storefront/subscribe-bar-visibility.ts), in the colours
-              the page resolves for it (storefront-chrome.ts). A press opens
-              its settings: words, style, sticky and colours.
-            */}
-            {(() => {
-              const stored = ((draftConfig.headerSettings as ShopHeaderSettings).subscribeBar || defaultSubscribeBarSettings) as typeof defaultSubscribeBarSettings & { colors?: { backgroundColor?: string; textColor?: string }; colorChoices?: string[] }
-              const bar = resolveStorefrontChrome(draftConfig.globalSettings?.themePreset, {
-                bar: {
-                  backgroundColor: stored.colors?.backgroundColor || (stored as unknown as Record<string, string>).backgroundColor,
-                  textColor: stored.colors?.textColor || (stored as unknown as Record<string, string>).textColor,
-                  buttonColor: stored.buttonColor,
-                  buttonTextColor: stored.buttonTextColor,
-                  chosen: stored.colorChoices,
-                },
-              }).bar
-              return (
-                <EditorSubscribeBar
-                  settings={{
-                    ...defaultSubscribeBarSettings,
-                    ...stored,
-                    visible: true,
-                    ...bar,
-                    avatarUrl: profile?.avatar_url ?? undefined,
-                    creatorName: profile?.display_name || undefined,
-                  }}
-                  creatorId={creatorId}
-                  isEditorPreview={isEditorMode}
-                  isMobile={isMobile}
-                  isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
-                  onSelect={() => handleSelectSection("subscribe-bar")}
-                />
-              )
-            })()}
+            {/* Subscribe Bar - always rendered on the shop page (it has no
+                visibility toggle any more; `subscribeBarSettings` is null for
+                other page types). Uses CSS sticky positioning, which works
+                within the scrollable canvas. */}
+            {subscribeBarSettings && (
+              <EditorSubscribeBar
+                settings={
+                  {
+                    ...subscribeBarSettings,
+                    // Normalize colors: extract from colors object if not at top level
+                    backgroundColor:
+                      subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
+                    textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
+                    // Pass avatar and creator info
+                    showAvatar: subscribeBarSettings?.showAvatar ?? true,
+                    avatarUrl: avatarUrl,
+                    creatorName: personName({ name: profile?.display_name, username: profile?.username }),
+                  } || defaultSubscribeBarSettings
+                }
+                creatorId={creatorId}
+                isEditorPreview={isEditorMode}
+                isMobile={isMobile}
+                isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
+                onSelect={() => handleSelectSection("subscribe-bar")}
+                scrollContainerRef={scrollParentRef}
+              />
+            )}
 
             <UnifiedShopHeader
               settings={draftConfig.headerSettings as ShopHeaderSettings}

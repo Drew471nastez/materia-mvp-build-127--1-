@@ -46,6 +46,7 @@ import {
 } from "@/lib/website-builder/policy-editing"
 import { pageGroupOf } from "@/lib/website-builder/page-groups"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -60,7 +61,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : `\n        ${typeof detail === "string" ? detail : JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const HEADER: SectionInstance = { id: "header", type: "header", name: "Header", settings: {}, blocks: [], hidden: false }
 const FOOTER: SectionInstance = { id: "footer", type: "footer", name: "Footer", settings: {}, blocks: [], hidden: false }

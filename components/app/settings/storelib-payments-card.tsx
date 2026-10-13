@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { STATUS_PILL } from "@/lib/payments/stripe/status"
 import { PAYMENTS_SURFACE } from "@/components/app/settings/payments-layout"
 import { AmexMark, ApplePayMark, GooglePayMark, MastercardMark, StorelibPaymentsBrand, VisaMark } from "./payment-marks"
+import { tt, msg } from "@/lib/i18n/text"
 
 const TONE = {
   green: "bg-[#dcfce7] text-[#166534]",
@@ -50,7 +51,7 @@ function PaymentsCardHeader({
       {onRefresh ? (
         <button
           type="button"
-          aria-label="Refresh status"
+          aria-label={tt("Refresh status")}
           disabled={refreshing}
           onClick={onRefresh}
           className="hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#6b7280] shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f7f7f8] hover:text-[#1a1a2e] disabled:opacity-60 sm:flex"
@@ -62,7 +63,7 @@ function PaymentsCardHeader({
   )
 }
 
-const FEATURES = ["Cards, Apple Pay, Google Pay and local methods", "Payouts straight to your bank", "Fraud checks on every payment"]
+const FEATURES = [msg("Cards, Apple Pay, Google Pay and local methods"), msg("Payouts straight to your bank"), msg("Fraud checks on every payment")]
 
 function PaymentsFeatures() {
   return (
@@ -71,12 +72,12 @@ function PaymentsFeatures() {
         {FEATURES.map((line) => (
           <li key={line} className="flex items-start gap-2">
             <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#16a34a]" strokeWidth={2.5} />
-            {line}
+            {tt(line)}
           </li>
         ))}
       </ul>
       <div className="flex items-center gap-2 rounded-xl border border-[#eceef1] px-3.5 py-2.5">
-        <span className="min-w-0 truncate text-[13px] text-[#1a1a2e]">Payment methods</span>
+        <span className="min-w-0 truncate text-[13px] text-[#1a1a2e]">{tt("Payment methods")}</span>
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
           <VisaMark />
           <MastercardMark />
@@ -128,17 +129,17 @@ export function StorelibPaymentsCardLoading() {
     <section
       className={cn(PAYMENTS_SURFACE, "overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)]")}
       aria-busy="true"
-      aria-label="Loading payments"
+      aria-label={tt("Loading payments")}
       data-storelib-payments-card=""
       data-storelib-payments-loading-card=""
     >
       <PaymentsCardHeader statusPlaceholder />
       <PaymentsFeatures />
       {/* The answer's own text, unseen, holds its height so nothing jumps when it lands. */}
-      <Shimmer className="border-t border-[#f1f2f4] px-4 py-8 text-center sm:px-10 sm:py-12" label="Loading">
+      <Shimmer className="border-t border-[#f1f2f4] px-4 py-8 text-center sm:px-10 sm:py-12" label={tt("Loading")}>
         <div aria-hidden className="invisible">
-          <p className="text-[16px] font-semibold sm:text-[17px]">Add information to start accepting payments</p>
-          <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-5 sm:text-[14px]">Takes about five minutes. Everything stays in Storelib.</p>
+          <p className="text-[16px] font-semibold sm:text-[17px]">{tt("Add information to start accepting payments")}</p>
+          <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-5 sm:text-[14px]">{tt("Takes about five minutes. Everything stays in Storelib.")}</p>
         </div>
         <ShimmerBlock className="mx-auto mt-6 h-11 w-full rounded-xl sm:w-[200px]" />
       </Shimmer>

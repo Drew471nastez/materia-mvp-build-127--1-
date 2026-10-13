@@ -24,6 +24,7 @@ import { fromGrams, fromMm, toGrams, toMm } from "@/lib/physical/units"
 import { orderConfirmationEmail, shipmentEmail, supplierOrderEmail } from "@/lib/physical/email-templates"
 import { PROVIDERS } from "@/lib/physical/providers"
 import type { Location, ShippingProfile, ShippingRate } from "@/lib/physical/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -36,7 +37,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail)}`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 function walk(dir: string): string[] {
   return readdirSync(join(process.cwd(), dir)).flatMap((n) => {

@@ -44,9 +44,11 @@ import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { addDays, parts, ymdOf, type Ymd } from "@/lib/date-range/range"
 import { dayLabel, from12, isoFromWall, timeLabel, to12, todayIn, viewerZone, wallFromIso } from "@/lib/onepage/schedule"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { calendarWeekdays, formatDate } from "@/lib/i18n/format"
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
-const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+/** "October 2026" in the dashboard's language. */
+const monthYear = (y: number, m: number) => formatDate(Date.UTC(y, m, 15), { month: "long", year: "numeric", timeZone: "UTC" })
 const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
 
 /** Always six weeks, so every month is the same height. */
@@ -99,23 +101,23 @@ export function MonthGrid({
     <div data-month-grid="" className="w-full">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className={cn("font-semibold text-[#1a1a2e]", compact ? "text-[17px]" : "text-[14.5px]")} aria-live="polite">
-          {MONTHS_LONG[view.m]} {view.y}
+          {monthYear(view.y, view.m)}
         </p>
         <div className="flex gap-1.5">
-          <button type="button" aria-label="Previous month" data-month-prev="" onClick={() => go(-1)} className={nav}>
+          <button type="button" aria-label={tt("Previous month")} data-month-prev="" onClick={() => go(-1)} className={nav}>
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button type="button" aria-label="Next month" data-month-next="" onClick={() => go(1)} className={nav}>
+          <button type="button" aria-label={tt("Next month")} data-month-next="" onClick={() => go(1)} className={nav}>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       </div>
       <div className={cn("grid grid-cols-7 pb-1 text-center font-medium text-[#8b8f98]", compact ? "text-[12.5px]" : "text-[11.5px]")} aria-hidden>
-        {WEEKDAYS.map((w) => (
-          <div key={w}>{w}</div>
+        {calendarWeekdays().map((w, i) => (
+          <div key={i}>{w}</div>
         ))}
       </div>
-      <div ref={gridRef} role="grid" aria-label={`${MONTHS_LONG[view.m]} ${view.y}`} className="grid grid-cols-7 justify-items-center gap-y-0.5" onKeyDown={onKey}>
+      <div ref={gridRef} role="grid" aria-label={monthYear(view.y, view.m)} className="grid grid-cols-7 justify-items-center gap-y-0.5" onKeyDown={onKey}>
         {cells.map((d, i) => {
           /* An empty square keeps its place in the grid, so the 1st sits under its own weekday. */
           if (!d) return <span key={i} aria-hidden className={size} />
@@ -191,7 +193,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
     <div className="flex items-center gap-2" data-time-input="">
       <div className={cn("inline-flex items-center rounded-xl border border-[#e3e4e8] bg-white px-2 transition-[border-color,box-shadow] focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", compact ? "h-12" : "h-10")}>
         <input
-          aria-label="Hour"
+          aria-label={tt("Hour")}
           data-time-hour=""
           inputMode="numeric"
           autoComplete="off"
@@ -221,7 +223,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
         <span aria-hidden className={cn("font-medium text-[#6b7280]", compact ? "text-[18px]" : "text-[15px]")}>:</span>
         <input
           ref={minuteRef}
-          aria-label="Minute"
+          aria-label={tt("Minute")}
           data-time-minute=""
           inputMode="numeric"
           autoComplete="off"
@@ -244,7 +246,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
           className={box}
         />
       </div>
-      <div role="radiogroup" aria-label="Morning or afternoon" className={cn("inline-flex rounded-xl bg-[#f1f2f4] p-1", compact ? "h-12" : "h-10")}>
+      <div role="radiogroup" aria-label={tt("Morning or afternoon")} className={cn("inline-flex rounded-xl bg-[#f1f2f4] p-1", compact ? "h-12" : "h-10")}>
         {(["AM", "PM"] as const).map((x) => {
           const on = (x === "PM") === pm
           return (
@@ -292,7 +294,7 @@ export function DateTimeField({
   value,
   onChange,
   label,
-  emptyLabel = "Any time",
+  emptyLabel = tt("Any time"),
   defaultTime = { hour: 9, minute: 0 },
   after,
   required = false,
@@ -343,20 +345,20 @@ export function DateTimeField({
       <MonthGrid key={open ? "open" : "shut"} selected={wall?.ymd ?? null} today={today} compact={compact} before={afterYmd} onPick={(d) => write(d, hour, minute)} />
       <div className="h-px bg-[#eef0f2]" aria-hidden />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={cn("font-medium text-[#1a1a2e]", compact ? "text-[15px]" : "text-[13.5px]")}>Time</p>
+        <p className={cn("font-medium text-[#1a1a2e]", compact ? "text-[15px]" : "text-[13.5px]")}>{tt("Time")}</p>
         <TimeInput hour={hour} minute={minute} compact={compact} onChange={(h, m) => write(wall?.ymd ?? null, h, m)} />
       </div>
-      {!wall ? <p className="-mt-2 text-[12.5px] text-[#6b7280]">Pick a day to set it.</p> : null}
+      {!wall ? <p className="-mt-2 text-[12.5px] text-[#6b7280]">{tt("Pick a day to set it.")}</p> : null}
       <div className="flex items-center justify-between gap-2">
         {!required && wall ? (
           <button type="button" onClick={() => { onChange(null); setOpen(false) }} data-datetime-clear="" className={cn(secondaryDepth, "rounded-xl px-4 text-[14px]", compact ? "h-12" : "h-10")}>
-            Clear
+            {tt("Clear")}
           </button>
         ) : (
           <span />
         )}
         <button type="button" onClick={() => setOpen(false)} data-datetime-done="" className={cn(primaryDepth, "rounded-xl px-5 text-[14px]", compact ? "h-12" : "h-10")}>
-          Done
+          {tt("Done")}
         </button>
       </div>
     </div>

@@ -34,6 +34,7 @@ import {
 import { customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 import { applyOp, describeSection, fieldsFor } from "@/lib/website-builder/agent/operations"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -42,7 +43,7 @@ function check(label: string, ok: boolean, detail?: string) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; failures.push(label + (detail ? ` — ${detail}` : "")); console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 const s = (id: string, type = id): SectionInstance => ({ id, type, name: id, settings: {}, blocks: [] })
 const ids = (list: SectionInstance[]) => list.map((x) => x.id).join(",")

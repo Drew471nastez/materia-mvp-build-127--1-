@@ -135,7 +135,8 @@ function main() {
     check("card pictures use the slot rules and the feed's quality", /const fit = feedSlot\(slot, p\.w && p\.h \? p\.w \/ p\.h : null\)/.test(media) && /optimizedSrcSet\(p\.url, fit\.widths, FEED_PICTURE_QUALITY\)/.test(media) && /optimizedImageUrl\(p\.url, fit\.display, FEED_PICTURE_QUALITY\)/.test(media))
     check("the first screen is eager and high, the rest lazy and low", loadPolicy(true).loading === "eager" && loadPolicy(true).fetchPriority === "high" && loadPolicy(false).loading === "lazy" && loadPolicy(false).fetchPriority === "low" && /const policy = loadPolicy\(priority\)/.test(media))
     check("a phone only picture fetches nothing where it is hidden (an empty source from 640px)", /<source media=\{hiddenFrom\} srcSet=\{NO_PICTURE\} \/>/.test(media) && /phoneOnly=\{!several\}/.test(code("components/community/member/post-card.tsx")) && /hiddenFrom=\{phoneOnly \? "\(min-width: 640px\)" : undefined\}/.test(media))
-    check("space kept, a soft arrival from the blurred copy, no fade for a picture already drawn, decoded off the thread the first time", /style=\{\{ aspectRatio: String\(ratio\) \}\}/.test(media) && /blur-\[10px\]/.test(media) && /painted\.has\(src\) \? "cached"/.test(media) && /decoding=\{state === "cached" \? "sync" : "async"\}/.test(media))
+    /* Changed on purpose (the owner: no blur, no fade). */
+    check("space kept, no blurred copy and no fade, no wait for a picture already drawn, decoded off the thread the first time", /style=\{\{ aspectRatio: String\(ratio\) \}\}/.test(media) && !/data-soft-blur/.test(media) && !/blur-\[10px\]/.test(media) && /el\.decode\(\)\.then\(show, show\)/.test(media) && !/transition-opacity ease-out/.test(media) && /painted\.has\(src\) \? "cached"/.test(media) && /decoding=\{state === "cached" \? "sync" : "async"\}/.test(media))
   }
 
   console.log("\nREFRESH: in place, through the navigator, settled once drawn")

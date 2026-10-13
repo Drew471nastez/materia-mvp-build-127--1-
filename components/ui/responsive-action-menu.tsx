@@ -34,6 +34,7 @@ import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 export interface ActionMenuItem {
   label: string
@@ -157,7 +158,7 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
             run?.()
           }}
           title={title}
-          label={title ?? "Actions"}
+          label={title ?? tt("Actions")}
         >
           <ActionSheetRows groups={groups} onPick={pick} />
         </BottomSheet>

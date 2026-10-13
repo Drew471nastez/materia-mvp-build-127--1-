@@ -42,6 +42,7 @@ import { STORELIB_SCHEMAS } from "@/lib/website-builder/storelib-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { sectionColors } from "@/components/website-builder/sections/_shared"
 import { DEFAULT_COLOR_SCHEMES as LEGACY_DEFAULTS, type SectionInstance, type ThemeSettingsValues } from "@/lib/website-builder/types"
+import { untt } from "./i18n-source"
 
 const root = process.cwd()
 let passed = 0
@@ -64,7 +65,7 @@ function section(title: string) {
 function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
 }
-const read = (f: string) => readFileSync(join(root, f), "utf8")
+const read = (f: string) => untt(readFileSync(join(root, f), "utf8"), f)
 
 // ===========================================================================
 section("Both renderer families resolve colours through one function")
@@ -248,8 +249,8 @@ section("Typography compiles to tokens at three widths")
       link-in-a-nav   uppercase, 2px, radius 22px, 1px solid
       wordmark        uppercase, 2px, radius 22px, 1px solid
   */
-  const typo = readFileSync(join(process.cwd(), "lib/storelib-theme/typography.ts"), "utf8")
-  const themeCss = readFileSync(join(process.cwd(), "lib/website-builder/theme-css.ts"), "utf8")
+  const typo = untt(readFileSync(join(process.cwd(), "lib/storelib-theme/typography.ts"), "utf8"), "lib/storelib-theme/typography.ts")
+  const themeCss = untt(readFileSync(join(process.cwd(), "lib/website-builder/theme-css.ts"), "utf8"), "lib/website-builder/theme-css.ts")
   check("there is one definition of what a button is",
     /* Round 25: and [data-sl-button], what the AI's reference tells it to mark a button with. */
     /const BUTTON_PARTS = \["button", '\[role="button"\]', "\.s__btn", "\[data-button\]", "\[data-sl-button\]"\]/.test(typo)

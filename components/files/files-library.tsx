@@ -97,6 +97,8 @@ import { ActionDropdownContent, ActionSheetRows, groupsOf, type ActionMenuItem }
 import { afterLayout } from "@/lib/ui/after-layout"
 import { VIDEO_ACCEPT, durationText } from "@/lib/media/video"
 import { isVideoFile, putObject, uploadVideo, videoRefusal } from "@/lib/files/upload-video"
+import { tt, msg } from "@/lib/i18n/text"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 export interface LibraryFile {
   id: string
@@ -131,11 +133,11 @@ export interface PickHint {
 const TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"])
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,image/avif"
 const MAX_BYTES = 5 * 1024 * 1024
-const ALL_SOURCES = ["All", "Library", "Website", "Product photos", "Videos"] as const
+const ALL_SOURCES = [msg("All"), msg("Library"), msg("Website"), msg("Product photos"), msg("Videos")] as const
 type Source = (typeof ALL_SOURCES)[number]
-const SOURCES: readonly Source[] = ["All", "Library", "Website", "Product photos"]
+const SOURCES: readonly Source[] = [msg("All"), msg("Library"), msg("Website"), msg("Product photos")]
 /* A list of videos: where each came from (a product's videos are kept with its photos). */
-const VIDEO_SOURCES: readonly Source[] = ["All", "Library", "Website", "Product photos"]
+const VIDEO_SOURCES: readonly Source[] = [msg("All"), msg("Library"), msg("Website"), msg("Product photos")]
 /* Pictures and videos together: the same, and a pill for the videos alone. */
 const MEDIA_SOURCES: readonly Source[] = ALL_SOURCES
 /* The rows drawn at once: three on a phone at three across, three in the window at four across. */
@@ -147,16 +149,16 @@ const OVER_SHEET_Z = 210
 const PHONE = "(max-width: 639px)"
 
 export function sizeText(bytes: number | null): string {
-  if (bytes === null) return "Unknown size"
+  if (bytes === null) return tt("Unknown size")
   if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024 * 1024) return tt("{value} KB", { value: Math.round(bytes / 1024) })
+  return tt("{value} MB", { value: (bytes / (1024 * 1024)).toFixed(1) })
 }
 
 function dateText(iso: string | null): string {
   if (!iso) return ""
   try {
-    return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso))
+    return new Intl.DateTimeFormat(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" })).format(new Date(iso))
   } catch {
     return ""
   }
@@ -272,18 +274,18 @@ function useLibraryList(kind: LibraryKind) {
 
 function copyLink(f: LibraryFile) {
   if (!navigator.clipboard?.writeText) {
-    toast.error("Copying is not available here.")
+    toast.error(tt("Copying is not available here."))
     return
   }
   void navigator.clipboard.writeText(f.url).then(
-    () => toast.success("Link copied"),
-    () => toast.error("The link could not be copied."),
+    () => toast.success(tt("Link copied")),
+    () => toast.error(tt("The link could not be copied.")),
   )
 }
 
 const isVideo = (f: LibraryFile) => !!f.type?.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name)
 /** "Picture" or "Video", for what a toast or a question calls it. */
-const noun = (f: LibraryFile) => (isVideo(f) ? "Video" : "Picture")
+const noun = (f: LibraryFile) => (isVideo(f) ? tt("Video") : tt("Picture"))
 
 async function downloadFile(f: LibraryFile) {
   try {
@@ -299,7 +301,7 @@ async function downloadFile(f: LibraryFile) {
     })
     toast.success(savedMessage(outcome, noun(f)))
   } catch {
-    toast.error(`The ${noun(f).toLowerCase()} could not be downloaded.`)
+    toast.error(tt("The {value} could not be downloaded.", { value: noun(f).toLowerCase() }))
   }
 }
 
@@ -329,9 +331,9 @@ async function downloadMany(list: LibraryFile[]) {
       }),
     )
     downloadBlob(await zip.generateAsync({ type: "blob", compression: "STORE" }), "storelib-files.zip")
-    toast.success(`${list.length} files downloaded`)
+    toast.success(tt("{length} files downloaded", { length: list.length }))
   } catch {
-    toast.error("The files could not be downloaded.")
+    toast.error(tt("The files could not be downloaded."))
   }
 }
 
@@ -351,25 +353,25 @@ const manyAtOnce = () => savePlatform() === "web"
 async function uploadOne(f: File, onProgress: (p: number) => void): Promise<LibraryFile> {
   if (isVideoFile(f)) {
     const v = await uploadVideo(f, "files", onProgress)
-    return { id: `store-builder-images:${v.path}`, bucket: "store-builder-images", path: v.path, name: v.path.split("/").pop() ?? f.name, url: v.url, bytes: v.bytes, type: v.type, createdAt: new Date().toISOString(), source: "Library", poster: v.poster, duration: v.duration }
+    return { id: `store-builder-images:${v.path}`, bucket: "store-builder-images", path: v.path, name: v.path.split("/").pop() ?? f.name, url: v.url, bytes: v.bytes, type: v.type, createdAt: new Date().toISOString(), source: msg("Library"), poster: v.poster, duration: v.duration }
   }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("signed out")
+  if (!user) throw new Error(tt("signed out"))
   const ext = (f.type.split("/")[1] || "jpg").replace("jpeg", "jpg")
   const path = `${user.id}/files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
   const body: Blob = await withoutMetadata(f)
   await putObject("store-builder-images", path, body, f.type, onProgress)
   confirmUpload("store-builder-images", path)
   const url = mediaUrl(supabase.storage.from("store-builder-images").getPublicUrl(path).data.publicUrl)
-  return { id: `store-builder-images:${path}`, bucket: "store-builder-images", path, name: path.split("/").pop() ?? f.name, url, bytes: f.size, type: f.type, createdAt: new Date().toISOString(), source: "Library" }
+  return { id: `store-builder-images:${path}`, bucket: "store-builder-images", path, name: path.split("/").pop() ?? f.name, url, bytes: f.size, type: f.type, createdAt: new Date().toISOString(), source: msg("Library") }
 }
 
 /** What is refused before it is sent: the bucket would refuse it after. */
 function refusal(f: File, kind: LibraryKind): string | null {
   if (kind === "video" || (kind === "media" && isVideoFile(f))) return videoRefusal(f)
-  if (!TYPES.has(f.type)) return kind === "media" ? `${f.name}: only JPG, PNG, GIF, WebP and AVIF pictures, or MP4, WebM and MOV videos.` : `${f.name}: only JPG, PNG, GIF, WebP and AVIF pictures.`
-  if (f.size > MAX_BYTES) return `${f.name} is over 5 MB.`
+  if (!TYPES.has(f.type)) return kind === "media" ? tt("{name}: only JPG, PNG, GIF, WebP and AVIF pictures, or MP4, WebM and MOV videos.", { name: f.name }) : tt("{name}: only JPG, PNG, GIF, WebP and AVIF pictures.", { name: f.name })
+  if (f.size > MAX_BYTES) return tt("{name} is over 5 MB.", { name: f.name })
   return null
 }
 
@@ -617,7 +619,7 @@ function VideoFrame({ file, index, hidden, onGone }: { file: LibraryFile; index:
       {/* What says it is a video: a small play mark and its length, in the corner a phone's thumb is not over. */}
       <span className="pointer-events-none absolute bottom-1.5 right-1.5 inline-flex h-5 items-center gap-1 rounded-md bg-black/55 px-1.5 text-[11px] font-medium leading-none tabular-nums text-white" data-file-video="">
         <Play className="h-2.5 w-2.5 fill-current" strokeWidth={0} aria-hidden />
-        {length ? <span data-file-duration="">{length}</span> : <span className="sr-only">Video</span>}
+        {length ? <span data-file-duration="">{length}</span> : <span className="sr-only">{tt("Video")}</span>}
       </span>
     </>
   )
@@ -684,7 +686,7 @@ const Tile = React.memo(function Tile({
   const video = isVideo(file)
   const local = localPreview.get(file.url)
   const on = selecting ? ticked : chosen
-  const label = selecting ? `${ticked ? "Unselect" : "Select"} ${file.name}` : mode === "pick" ? `Use ${file.name}` : `Open ${file.name}`
+  const label = selecting ? `${ticked ? tt("Unselect") : tt("Select")} ${file.name}` : mode === "pick" ? tt("Use {name}", { name: file.name }) : tt("Open {name}", { name: file.name })
   return (
     /* Off screen a tile is skipped by the browser's layout and paint (content-visibility): a pill that shows sixty tiles lays out only the screenful (round 21). */
     <li
@@ -783,7 +785,7 @@ const Tile = React.memo(function Tile({
       </button>
       <button
         type="button"
-        aria-label={`More for ${file.name}`}
+        aria-label={tt("More for {name}", { name: file.name })}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         data-file-menu=""
@@ -806,7 +808,7 @@ const Tile = React.memo(function Tile({
 /** A file on its way up: its own preview (or a film mark), dimmed, with how far it is. */
 function PendingTile({ row }: { row: Pending }) {
   return (
-    <li className="relative" data-file-pending="" aria-label={`Uploading ${row.name}`}>
+    <li className="relative" data-file-pending="" aria-label={tt("Uploading {name}", { name: row.name })}>
       <span className="relative block aspect-square w-full overflow-hidden rounded-xl border border-[#eceef1] bg-[#f3f4f6]">
         {row.preview ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -857,7 +859,7 @@ function SourcePills({ sources, value, onChange, onWarm }: { sources: readonly S
   }, [measure])
   return (
     <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div ref={row} className="relative inline-flex h-10 items-center gap-0.5 rounded-xl bg-[#eef0f2] p-1" role="tablist" aria-label="Where it came from" data-files-pills="">
+      <div ref={row} className="relative inline-flex h-10 items-center gap-0.5 rounded-xl bg-[#eef0f2] p-1" role="tablist" aria-label={tt("Where it came from")} data-files-pills="">
         <span
           aria-hidden
           data-files-pill-mark=""
@@ -882,7 +884,7 @@ function SourcePills({ sources, value, onChange, onWarm }: { sources: readonly S
               value === s && !mark && "bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1)]",
             )}
           >
-            {s}
+            {tt(s)}
           </button>
         ))}
       </div>
@@ -922,7 +924,7 @@ export function FilesLibrary({
 }) {
   const { files, setFiles, error, load } = useLibraryList(kind)
   const [query, setQuery] = React.useState("")
-  const [source, setSource] = React.useState<Source>("All")
+  const [source, setSource] = React.useState<Source>(msg("All"))
   const [open, setOpen] = React.useState<LibraryFile | null>(null)
   const [confirming, setConfirming] = React.useState<LibraryFile | null>(null)
   const [confirmingMany, setConfirmingMany] = React.useState<LibraryFile[] | null>(null)
@@ -979,7 +981,7 @@ export function FilesLibrary({
       const now = tickedRef.current
       if (now.includes(f.id)) return setTicked(now.filter((id) => id !== f.id))
       if (limit !== undefined && now.length >= limit) {
-        toast.error(limit <= 0 ? "This list is full." : `You can add up to ${limit} here.`)
+        toast.error(limit <= 0 ? tt("This list is full.") : tt("You can add up to {limit} here.", { limit }))
         return
       }
       setTicked([...now, f.id])
@@ -1022,7 +1024,7 @@ export function FilesLibrary({
     if (good.length === 0) return
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return toast.error("Sign in again to upload.")
+    if (!user) return toast.error(tt("Sign in again to upload."))
     const rows: Pending[] = good.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, preview: isVideoFile(f) ? null : URL.createObjectURL(f), progress: 0 }))
     setPending((p) => [...rows, ...p])
     const results = await Promise.all(
@@ -1031,7 +1033,7 @@ export function FilesLibrary({
         try {
           return await uploadOne(f, (p) => setPending((all) => all.map((x) => (x.key === row.key ? { ...x, progress: Math.max(x.progress, p) } : x))))
         } catch {
-          toast.error(`${f.name} could not be uploaded.`)
+          toast.error(tt("{name} could not be uploaded.", { name: f.name }))
           return null
         }
       }),
@@ -1059,7 +1061,7 @@ export function FilesLibrary({
     if (mode === "pick" && multiple) tickMany(added)
     /* One file dropped or chosen while picking: it is the one picked, with the file itself to show at once. */
     else if (mode === "pick" && added.length === 1 && good.length === 1) onPickRef.current?.(added[0].url, { file: good[0] })
-    else if (added.length > 1) toast.success(`${added.length} files uploaded`)
+    else if (added.length > 1) toast.success(tt("{length} files uploaded", { length: added.length }))
   }
 
   /* Open in Files lands on /app/files?file=<id>: that file's details, once the list is in. */
@@ -1081,7 +1083,7 @@ export function FilesLibrary({
     if (tickedRef.current.includes(f.id)) setTicked(tickedRef.current.filter((id) => id !== f.id))
     setConfirming(null)
     setOpen((o) => (o?.id === f.id ? null : o))
-    toast.success("Deleted")
+    toast.success(tt("Deleted"))
   }
 
   /* Several at once (Files, Select, Delete): the API takes up to MAX_DELETE_AT_ONCE (100) a request. */
@@ -1106,7 +1108,7 @@ export function FilesLibrary({
     }
     setConfirmingMany(null)
     stopSelecting()
-    toast.success(done.size === 1 ? "Deleted" : `${done.size} files deleted`)
+    toast.success(done.size === 1 ? tt("Deleted") : tt("{size} files deleted", { size: done.size }))
   }
 
   /* ── The swap ── */
@@ -1123,7 +1125,7 @@ export function FilesLibrary({
     Every pill's first screen is fetched ahead (`warmPill`): on idle once the list is in, and at once on a hover or a
     touch of its pill, so the tiles a switch shows are already decoded.
   */
-  const [grid, setGrid] = React.useState<{ source: Source; words: string }>({ source: "All", words: "" })
+  const [grid, setGrid] = React.useState<{ source: Source; words: string }>({ source: msg("All"), words: "" })
   const filesNow = React.useRef(files)
   filesNow.current = files
   const swapGrid = React.useCallback(
@@ -1241,19 +1243,19 @@ export function FilesLibrary({
       mode !== "pick"
         ? []
         : selecting
-          ? [{ label: on ? "Unselect" : "Select", icon: <Check />, onClick: () => tick(f) }]
+          ? [{ label: on ? tt("Unselect") : tt("Select"), icon: <Check />, onClick: () => tick(f) }]
           : isVideo(f)
-            ? [{ label: "Use this video", icon: <Check />, onClick: () => pickFile(f) }]
-            : [{ label: "Use this picture", icon: <Check />, onClick: () => pickFile(f) }]
+            ? [{ label: tt("Use this video"), icon: <Check />, onClick: () => pickFile(f) }]
+            : [{ label: tt("Use this picture"), icon: <Check />, onClick: () => pickFile(f) }]
     /* While picking, the file in the Files page itself, in a new tab so the builder stays as it is. */
-    const inFiles: ActionMenuItem[] = mode === "pick" ? [{ label: "Open in Files", icon: <ExternalLink />, href: `/app/files?file=${encodeURIComponent(f.id)}`, target: "_blank" }] : []
+    const inFiles: ActionMenuItem[] = mode === "pick" ? [{ label: tt("Open in Files"), icon: <ExternalLink />, href: `/app/files?file=${encodeURIComponent(f.id)}`, target: "_blank" }] : []
     return [
       ...use,
-      { label: "Preview", icon: <Eye />, onClick: () => setOpen(f) },
-      { label: "Copy link", icon: <Copy />, onClick: () => copyLink(f) },
-      { label: "Download", icon: <Download />, onClick: () => void downloadFile(f) },
+      { label: tt("Preview"), icon: <Eye />, onClick: () => setOpen(f) },
+      { label: tt("Copy link"), icon: <Copy />, onClick: () => copyLink(f) },
+      { label: tt("Download"), icon: <Download />, onClick: () => void downloadFile(f) },
       ...inFiles,
-      { label: "Delete", icon: <Trash2 />, variant: "destructive", separatorBefore: true, onClick: () => setConfirming(f) },
+      { label: tt("Delete"), icon: <Trash2 />, variant: "destructive", separatorBefore: true, onClick: () => setConfirming(f) },
     ]
   }, [menu, mode, pickFile, selecting, tick, tickedSet])
   const groups = React.useMemo(() => groupsOf(items), [items])
@@ -1301,18 +1303,18 @@ export function FilesLibrary({
       <div className={cn("space-y-3", fill && "shrink-0 px-4 pb-3 sm:px-5")}>
         <div className="flex items-center gap-2">
           <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Search files</span>
+            <span className="sr-only">{tt("Search files")}</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
-            <input type="search" data-no-autofocus="" value={query} onChange={(e) => type(e.target.value)} placeholder="Search files" className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] outline-none transition-[border-color] focus:border-[#9ca3af] sm:text-[14px]" />
+            <input type="search" data-no-autofocus="" value={query} onChange={(e) => type(e.target.value)} placeholder={tt("Search files")} className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] outline-none transition-[border-color] focus:border-[#9ca3af] sm:text-[14px]" />
           </label>
           {mode === "manage" ? (
             <button type="button" className={cn(BTN_SECONDARY, "shrink-0 rounded-xl px-3 sm:px-4")} onClick={() => (selectingFiles ? stopSelecting() : setSelectingFiles(true))} aria-pressed={selectingFiles} data-files-select="">
-              {selectingFiles ? "Cancel" : "Select"}
+              {selectingFiles ? tt("Cancel") : tt("Select")}
             </button>
           ) : null}
           <button type="button" className={cn(BTN_SECONDARY, "shrink-0 gap-1.5 rounded-xl px-3 sm:px-4")} onClick={() => input.current?.click()} data-files-upload="">
             <ImagePlus className="h-4 w-4" aria-hidden />
-            {pending.length > 0 ? `Uploading ${pending.length}` : "Upload"}
+            {pending.length > 0 ? tt("Uploading {length}", { length: pending.length }) : tt("Upload")}
           </button>
           <input
             ref={input}
@@ -1339,7 +1341,7 @@ export function FilesLibrary({
         >
           <div ref={gridWrapRef} className={cn("relative rounded-2xl transition-[box-shadow]", dragOver && "shadow-[0_0_0_2px_#1a1a2e]")}>
             {files === null ? (
-              <ul className={cn("grid gap-2.5", gridCols)} aria-busy="true" aria-label="Loading files" data-files-waiting="">
+              <ul className={cn("grid gap-2.5", gridCols)} aria-busy="true" aria-label={tt("Loading files")} data-files-waiting="">
                 {Array.from({ length: EAGER }, (_, i) => (
                   <li key={i} className="aspect-square rounded-xl border border-[#eceef1] bg-[#f3f4f6]" />
                 ))}
@@ -1348,9 +1350,9 @@ export function FilesLibrary({
               <>
                 {shown.length === 0 && pending.length === 0 ? (
                   <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e3e5e8] px-4 py-10 text-center" data-files-empty="">
-                    <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? "No files yet" : "Nothing matches"}</p>
+                    <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? tt("No files yet") : tt("Nothing matches")}</p>
                     <p className="mt-1 text-[13px] text-[#6b7280]">
-                      {files.length === 0 ? (kind === "video" ? "Upload a video here, or drop one in." : kind === "media" ? "Upload pictures and videos here, or drop them in, and use them anywhere on your website and products." : "Upload pictures here, or drop them in, and use them anywhere on your website.") : "Try another word or filter."}
+                      {files.length === 0 ? (kind === "video" ? tt("Upload a video here, or drop one in.") : kind === "media" ? tt("Upload pictures and videos here, or drop them in, and use them anywhere on your website and products.") : tt("Upload pictures here, or drop them in, and use them anywhere on your website.")) : tt("Try another word or filter.")}
                     </p>
                   </div>
                 ) : null}
@@ -1396,13 +1398,13 @@ export function FilesLibrary({
           >
             <div className={cn("flex items-center gap-2 rounded-2xl border border-[#e5e7eb] bg-white p-2 pl-4 shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]", ticked.length ? "pointer-events-auto" : "pointer-events-none")}>
               <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">
-                {count} selected{limit !== undefined ? <span className="text-[#9ca3af]"> of {limit}</span> : null}
+                {tt("{count} selected", { count })}{limit !== undefined ? <span className="text-[#9ca3af]"> {tt("of {limit}", { limit })}</span> : null}
               </span>
               <button type="button" tabIndex={ticked.length ? 0 : -1} className="h-10 shrink-0 rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" onClick={() => setTicked([])}>
-                Clear
+                {tt("Clear")}
               </button>
               <button type="button" tabIndex={ticked.length ? 0 : -1} className={cn(BTN_PRIMARY, "shrink-0 rounded-xl px-4")} onClick={addTicked} data-files-add="">
-                Add {count} {count === 1 ? nouns[0] : nouns[1]}
+                {tt("Add {count}", { count })} {count === 1 ? nouns[0] : nouns[1]}
               </button>
             </div>
           </div>
@@ -1413,22 +1415,22 @@ export function FilesLibrary({
       {!fill && selecting ? (
         <div className="sticky bottom-[calc(var(--app-nav-top,0px)+10px)] z-[3] md:bottom-4" data-files-bulk-bar="">
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5e7eb] bg-white p-2 pl-4 shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]">
-            <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">{ticked.length ? `${ticked.length} selected` : kind === "image" ? "Tap pictures to select them" : "Tap files to select them"}</span>
+            <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">{ticked.length ? tt("{length} selected", { length: ticked.length }) : kind === "image" ? tt("Tap pictures to select them") : tt("Tap files to select them")}</span>
             {shown.length > 0 ? (
               <button type="button" className="h-9 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" onClick={() => setTicked(ticked.length === shown.length ? [] : shown.map((f) => f.id))}>
-                {ticked.length === shown.length ? "Clear" : "Select all"}
+                {ticked.length === shown.length ? tt("Clear") : tt("Select all")}
               </button>
             ) : null}
             {ticked.length > 0 && (ticked.length === 1 || manyAtOnce()) ? (
               <button type="button" className={cn(BTN_SECONDARY, "h-9 shrink-0 gap-1.5 px-3")} onClick={() => void downloadMany(tickedFiles())} data-files-bulk-download="">
                 <Download className="h-4 w-4" aria-hidden />
-                Download
+                {tt("Download")}
               </button>
             ) : null}
             {ticked.length > 0 ? (
               <button type="button" className={cn(BTN_DANGER, "h-9 shrink-0 gap-1.5 px-3")} onClick={() => setConfirmingMany(tickedFiles())} data-files-bulk-delete="">
                 <Trash2 className="h-4 w-4" aria-hidden />
-                Delete
+                {tt("Delete")}
               </button>
             ) : null}
           </div>
@@ -1482,7 +1484,7 @@ export function FilesLibrary({
           setMenu(null)
           run?.()
         }}
-        label="Picture actions"
+        label={tt("Picture actions")}
         hideFrom={null}
         zIndex={OVER_SHEET_Z}
       >
@@ -1559,7 +1561,7 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
       open={!!file}
       onClose={onClose}
       phone={phone}
-      label="File details"
+      label={tt("File details")}
       showCloseButton={false}
       className="gap-0 p-0 sm:max-w-[720px] sm:rounded-2xl"
       sheet={{ zIndex: OVER_SHEET_Z, aboveKeyboard: false, maxHeight: "calc(var(--vv-h, 100dvh) * 0.9)" }}
@@ -1568,7 +1570,7 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
         <div className="flex min-h-0 flex-col" data-file-details="">
           <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-1 sm:border-b sm:border-[#f1f2f4] sm:px-5 sm:py-3">
             <SheetDialogTitle className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e]">{f.name}</SheetDialogTitle>
-            <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
+            <button type="button" onClick={onClose} aria-label={tt("Close")} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -1594,10 +1596,10 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
             <div className="space-y-3">
               <dl className="grid grid-cols-2 gap-2.5 text-[13.5px] sm:grid-cols-1">
                 {[
-                  ["Size", sizeText(f.bytes)],
-                  ["Type", (f.type ?? "").replace(/^(image|video)\//, "").toUpperCase() || noun(f)],
-                  ["Uploaded", dateText(f.createdAt)],
-                  ["From", f.source],
+                  [tt("Size"), sizeText(f.bytes)],
+                  [tt("Type"), (f.type ?? "").replace(/^(image|video)\//, "").toUpperCase() || noun(f)],
+                  [tt("Uploaded"), dateText(f.createdAt)],
+                  [tt("From"), f.source],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[12px] font-medium text-[#9ca3af]">{k}</dt>
@@ -1608,20 +1610,20 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
               <div className="flex flex-wrap gap-2">
                 {mode === "pick" ? (
                   <button type="button" className={cn(BTN_PRIMARY, "w-full")} onClick={() => onUse(f)}>
-                    {selecting ? "Select" : isVideo(f) ? "Use this video" : "Use this picture"}
+                    {selecting ? tt("Select") : isVideo(f) ? tt("Use this video") : tt("Use this picture")}
                   </button>
                 ) : null}
                 <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => copyLink(f)}>
                   <Copy className="h-4 w-4" aria-hidden />
-                  Copy link
+                  {tt("Copy link")}
                 </button>
                 <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => void downloadFile(f)}>
                   <Download className="h-4 w-4" aria-hidden />
-                  Download
+                  {tt("Download")}
                 </button>
                 <button type="button" className={cn(BTN_DANGER, "w-full gap-1.5")} onClick={() => onDelete(f)}>
                   <Trash2 className="h-4 w-4" aria-hidden />
-                  Delete
+                  {tt("Delete")}
                 </button>
               </div>
             </div>
@@ -1642,23 +1644,23 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
       open={!!file}
       onClose={onClose}
       phone={phone}
-      label={f && isVideo(f) ? "Delete this video?" : "Delete this picture?"}
+      label={f && isVideo(f) ? tt("Delete this video?") : tt("Delete this picture?")}
       showCloseButton={false}
       className="max-w-[420px] gap-0 rounded-2xl p-6"
       sheet={{ zIndex: OVER_SHEET_Z + 10, fill: false, aboveKeyboard: false, dismissible: !busy }}
     >
       {f ? (
         <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm="">
-          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{isVideo(f) ? "Delete this video?" : "Delete this picture?"}</SheetDialogTitle>
+          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{isVideo(f) ? tt("Delete this video?") : tt("Delete this picture?")}</SheetDialogTitle>
           <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
-            {f.source === "Library" ? `${f.name} is removed from your files.` : `${f.name} is removed from your files, and anything that still shows it will show nothing.`}
+            {f.source === "Library" ? tt("{name} is removed from your files.", { name: f.name }) : tt("{name} is removed from your files, and anything that still shows it will show nothing.", { name: f.name })}
           </p>
           <div className="mt-5 flex gap-2 sm:justify-end">
             <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(f)} disabled={busy} data-file-confirm-delete="">
-              {busy ? "Deleting" : "Delete"}
+              {busy ? tt("Deleting") : tt("Delete")}
             </button>
           </div>
         </div>
@@ -1672,7 +1674,7 @@ function ConfirmDeleteMany({ files, busy, onClose, onConfirm }: { files: Library
   const phone = usePhoneNow()
   const list = useLastOpen(files)
   const n = list?.length ?? 0
-  const title = n === 1 ? "Delete this file?" : `Delete ${n} files?`
+  const title = n === 1 ? tt("Delete this file?") : tt("Delete {n} files?", { n })
   return (
     <SheetDialog
       open={!!files}
@@ -1686,13 +1688,13 @@ function ConfirmDeleteMany({ files, busy, onClose, onConfirm }: { files: Library
       {list ? (
         <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm-many="">
           <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{title}</SheetDialogTitle>
-          <p className="mt-2 text-[14px] leading-[20px] text-[#6b7280]">They are removed from your files, and anything that still shows one of them will show nothing.</p>
+          <p className="mt-2 text-[14px] leading-[20px] text-[#6b7280]">{tt("They are removed from your files, and anything that still shows one of them will show nothing.")}</p>
           <div className="mt-5 flex gap-2 sm:justify-end">
             <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(list)} disabled={busy} data-file-confirm-delete-many="">
-              {busy ? "Deleting" : n === 1 ? "Delete" : `Delete ${n}`}
+              {busy ? tt("Deleting") : n === 1 ? tt("Delete") : tt("Delete {n}", { n })}
             </button>
           </div>
         </div>
@@ -1771,7 +1773,7 @@ export function FilesLibraryChooser({
     [onPickMany, onClose],
   )
   if (!used) return null
-  const title = kind === "video" ? (multiple ? "Choose videos" : "Choose a video") : "Choose from your files"
+  const title = kind === "video" ? (multiple ? tt("Choose videos") : tt("Choose a video")) : tt("Choose from your files")
   return (
     <SheetDialog
       open={open}
@@ -1787,7 +1789,7 @@ export function FilesLibraryChooser({
       <div className="flex min-h-0 flex-1 flex-col" data-files-chooser={kind}>
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-1 sm:px-5 sm:pb-4 sm:pt-4">
           <SheetDialogTitle className="text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]">{title}</SheetDialogTitle>
-          <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
+          <button type="button" onClick={onClose} aria-label={tt("Close")} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -4,6 +4,7 @@ import { Bell, ChevronDown, Compass, Search, Settings } from "lucide-react"
 import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
 import { AvatarMark, avatarSource } from "@/components/app/app-avatar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -94,7 +95,7 @@ export function ShellHeaderStill({ name, photo }: { name: string; photo: string 
           <div className="relative flex flex-1 justify-center px-6">
             <span data-still="search" className="flex h-[36px] w-full max-w-[480px] items-center gap-2.5 rounded-full border border-white/10 bg-white/10 px-4">
               <Search className="h-4 w-4 shrink-0 text-white/50" />
-              <span className="flex-1 text-left text-[13px] text-white/60">Search orders, customers, products</span>
+              <span className="flex-1 text-left text-[13px] text-white/60">{tt("Search orders, customers, products")}</span>
               <span className="hidden items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[11px] text-white/50 lg:flex">
                 <span className="text-[10px]">&#8984;</span>K
               </span>

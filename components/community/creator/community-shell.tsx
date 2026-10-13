@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 import { PaneBar, StatusBadge } from "@/app/app/orders/order-parts"
 import type { CommunityHead, SectionId } from "./view-types"
 import { SECTION_WIDTH, ToastHost, buttonPrimary, buttonSecondary, errorText, send } from "./parts"
+import { tt } from "@/lib/i18n/text"
 
 export interface SectionTab {
   id: SectionId
@@ -40,15 +41,15 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
   const base = `/app/community/${head.id}`
   const can = head.can
   const tabs: (SectionTab | null)[] = [
-    { id: "overview", label: "Overview", href: base },
-    can.moderate_content ? { id: "feed", label: "Feed", href: `${base}/feed` } : null,
-    can.manage_spaces ? { id: "spaces", label: "Spaces", href: `${base}/spaces` } : null,
-    can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: "Learn", href: `${base}/learn` } : null,
-    can.manage_events && head.eventsEnabled ? { id: "events", label: "Calendar", href: `${base}/events` } : null,
-    can.remove_member ? { id: "members", label: "Members", href: `${base}/members`, count: head.memberCount } : null,
-    can.review_reports ? { id: "moderation", label: "Moderation", href: `${base}/moderation`, count: head.openReports || undefined } : null,
-    can.view_analytics ? { id: "analytics", label: "Analytics", href: `${base}/analytics` } : null,
-    can.manage_settings ? { id: "settings", label: "Settings", href: `${base}/settings` } : null,
+    { id: "overview", label: tt("Overview"), href: base },
+    can.moderate_content ? { id: "feed", label: tt("Feed"), href: `${base}/feed` } : null,
+    can.manage_spaces ? { id: "spaces", label: tt("Spaces"), href: `${base}/spaces` } : null,
+    can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: tt("Learn"), href: `${base}/learn` } : null,
+    can.manage_events && head.eventsEnabled ? { id: "events", label: tt("Calendar"), href: `${base}/events` } : null,
+    can.remove_member ? { id: "members", label: tt("Members"), href: `${base}/members`, count: head.memberCount } : null,
+    can.review_reports ? { id: "moderation", label: tt("Moderation"), href: `${base}/moderation`, count: head.openReports || undefined } : null,
+    can.view_analytics ? { id: "analytics", label: tt("Analytics"), href: `${base}/analytics` } : null,
+    can.manage_settings ? { id: "settings", label: tt("Settings"), href: `${base}/settings` } : null,
   ]
   return tabs.filter((t): t is SectionTab => t !== null)
 }
@@ -62,10 +63,10 @@ export function activeSection(pathname: string, id: string): SectionId {
 }
 
 function StateBadge({ head }: { head: CommunityHead }) {
-  if (head.suspended) return <StatusBadge tone="critical">Suspended</StatusBadge>
-  if (head.archived) return <StatusBadge tone="neutral">Archived</StatusBadge>
-  if (head.status === "published") return <StatusBadge tone="success">Published</StatusBadge>
-  return <StatusBadge tone="neutral">Draft</StatusBadge>
+  if (head.suspended) return <StatusBadge tone="critical">{tt("Suspended")}</StatusBadge>
+  if (head.archived) return <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge>
+  if (head.status === "published") return <StatusBadge tone="success">{tt("Published")}</StatusBadge>
+  return <StatusBadge tone="neutral">{tt("Draft")}</StatusBadge>
 }
 
 export function CommunityTabs({ head, active }: { head: CommunityHead; active: SectionId }) {
@@ -79,7 +80,7 @@ export function CommunityTabs({ head, active }: { head: CommunityHead; active: S
     if (left < s.scrollLeft || left + el.offsetWidth > s.scrollLeft + s.clientWidth) s.scrollTo({ left: Math.max(0, left - 24), behavior: "auto" })
   }, [active])
   return (
-    <nav aria-label="Community sections" className="-mb-px">
+    <nav aria-label={tt("Community sections")} className="-mb-px">
       <div ref={strip} data-section-tabs="" className="app-gutter-bleed flex items-center gap-0.5 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-16px),transparent)] md:[mask-image:none]">
         {tabs.map((t) => {
           const on = t.id === active
@@ -115,13 +116,13 @@ function PublishButton({ head }: { head: CommunityHead }) {
     setError(null)
     const res = await send(`/api/app/community/${head.id}`, "PATCH", { publish: true })
     setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error, "It could not be published. Try again."))
+    if (!res.ok) return setError(errorText(res.data.error, tt("It could not be published. Try again.")))
     router.refresh()
   }
   return (
     <span className="relative">
       <button type="button" onClick={() => void publish()} disabled={busy} data-publish="" className={cn(buttonPrimary, "max-sm:h-10 max-sm:px-3.5")}>
-        {busy ? "Publishing" : "Publish"}
+        {busy ? tt("Publishing") : tt("Publish")}
       </button>
       {error ? (
         <span role="alert" className="absolute right-0 top-[calc(100%+6px)] z-20 w-[260px] rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-[12.5px] leading-snug text-[#991b1b] shadow-sm">
@@ -140,7 +141,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
       <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={active}>
         <PaneBar width={SECTION_WIDTH} className="pt-2.5 lg:pt-3.5">
           <div className="flex min-h-[48px] items-center gap-2.5">
-            <Link href="/app/community" aria-label="All communities" scroll={false} className="-ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#1a1a2e] transition-[background-color,opacity] duration-150 hover:bg-[#eceef1] active:opacity-70 sm:h-9 sm:w-9">
+            <Link href="/app/community" aria-label={tt("All communities")} scroll={false} className="-ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#1a1a2e] transition-[background-color,opacity] duration-150 hover:bg-[#eceef1] active:opacity-70 sm:h-9 sm:w-9">
               <ArrowLeft aria-hidden className="h-[18px] w-[18px]" />
             </Link>
             {head.logoUrl ? (
@@ -157,9 +158,9 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {head.status === "published" || head.can.manage_settings ? (
-                <a href={`/community/${head.slug}`} target="_blank" rel="noopener noreferrer" aria-label="View page" className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0")}>
+                <a href={`/community/${head.slug}`} target="_blank" rel="noopener noreferrer" aria-label={tt("View page")} className={cn(buttonSecondary, "max-sm:h-10 max-sm:w-10 max-sm:px-0")}>
                   <ExternalLink aria-hidden className="h-4 w-4" />
-                  <span className="max-sm:hidden">View page</span>
+                  <span className="max-sm:hidden">{tt("View page")}</span>
                 </a>
               ) : null}
               <PublishButton head={head} />
@@ -171,9 +172,9 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
         </PaneBar>
         <div key={active} className={cn("mx-auto app-gutter pb-28 pt-4 md:pb-12", SECTION_WIDTH)}>
           {head.suspended ? (
-            <p className="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2.5 text-[13.5px] text-[#991b1b]">Storelib suspended this community. Members cannot open it. Contact support to talk about it.</p>
+            <p className="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2.5 text-[13.5px] text-[#991b1b]">{tt("Storelib suspended this community. Members cannot open it. Contact support to talk about it.")}</p>
           ) : head.archived ? (
-            <p className="mb-4 rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-[13.5px] text-[#4b5563]">This community is archived. Members can read it, nobody can post. Bring it back from Settings.</p>
+            <p className="mb-4 rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-[13.5px] text-[#4b5563]">{tt("This community is archived. Members can read it, nobody can post. Bring it back from Settings.")}</p>
           ) : null}
           {children}
         </div>

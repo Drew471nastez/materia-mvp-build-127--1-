@@ -28,6 +28,8 @@ import { checkoutTaxFor } from "@/lib/tax/rules"
 import { createAdminClient as checkoutAdmin } from "@/lib/supabase/admin"
 import type { CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 import { rowsOwn } from "@/lib/checkout/owned"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { gaCheckoutOf } from "@/lib/store/ga"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 interface CheckoutPageProps {
@@ -231,6 +233,14 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   const checkoutTax = checkoutTaxFor(taxSetup, product.id, detectedCountry(requestHeaders))
 
   return (
+    <>
+    {/* The store's own Google Analytics and pixels: begin_checkout now, purchase when it is paid (components/analytics/ga-route). */}
+    {creator?.id ? (
+      <StoreTracking
+        creatorId={creator.id}
+        checkout={gaCheckoutOf([{ productId: product.id, title: product.title, variantName: selectedVariant?.name ?? null, unitCents: isPwywActive && customPriceCents !== null ? customPriceCents : finalPriceCents, quantity: 1, type: product.type }], null)}
+      />
+    ) : null}
     <CheckoutPageClient
       checkoutConfig={checkoutConfig}
       emailConfirmed={!!user?.email_confirmed_at}
@@ -273,6 +283,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         priceCents: v.pay_what_you_want ? v.pwyw_min_price_cents || 0 : v.price_cents,
       }))}
     />
+    </>
   )
 }
 

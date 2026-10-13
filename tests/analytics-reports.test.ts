@@ -56,6 +56,7 @@ import {
 } from "../lib/analytics/properties"
 import { summaryHref, summaryText } from "../lib/analytics/summary"
 import { homeFromReports } from "../lib/analytics/home-figures"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -70,7 +71,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail === undefined ? "" : ` (${JSON.stringify(detail)})`}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 const HOUR = 3_600_000

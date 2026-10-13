@@ -2,12 +2,17 @@ import { redirect } from "next/navigation"
 import { CouponEditor } from "../coupon-editor"
 import type { CouponRecord } from "../coupon-form"
 import { loadCouponArea } from "../load-coupons"
+import type { Metadata } from "next"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export const metadata = {
-  title: "Edit coupon",
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return {
+    title: tt("Edit coupon"),
+  }
 }
 
 interface CouponEditPageProps {

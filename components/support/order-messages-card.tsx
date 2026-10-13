@@ -15,6 +15,7 @@ import { api, Pill } from "@/components/physical/ui"
 import { CASE_REASON_LABELS, STATUS_FOR_STORE, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
 import { BuyerCaseThread } from "@/app/app/support/buyer-cases"
 import { card } from "@/app/app/orders/order-parts"
+import { tt } from "@/lib/i18n/text"
 
 const TONE: Record<CaseStatus, "blue" | "amber" | "gray" | "red"> = { store: "amber", buyer: "blue", storelib: "red", resolved: "gray" }
 
@@ -37,10 +38,10 @@ export function OrderMessagesCard({ checkoutId, orderId, className }: { checkout
 
   if (!query || !cases || cases.length === 0) return null
   return (
-    <section className={cn(card, "overflow-hidden", className)} aria-label="Messages from the buyer" data-order-messages="">
+    <section className={cn(card, "overflow-hidden", className)} aria-label={tt("Messages from the buyer")} data-order-messages="">
       <div className="flex items-center gap-2 border-b border-[#f1f2f4] px-4 py-3 sm:px-5">
         <MessageSquare className="h-4 w-4 text-[#6b7280]" aria-hidden />
-        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Messages from the buyer</h2>
+        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Messages from the buyer")}</h2>
       </div>
       {cases.length > 1 || !openId ? (
         <ul className="divide-y divide-[#f1f2f4]">
@@ -49,7 +50,7 @@ export function OrderMessagesCard({ checkoutId, orderId, className }: { checkout
               <button type="button" onClick={() => setOpenId(openId === c.id ? null : c.id)} className={cn("flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-[#fafafa] sm:px-5", openId === c.id && "bg-[#fafafa]")} data-order-case={c.id}>
                 <span className={cn("min-w-0 truncate text-[13.5px] text-[#1a1a2e]", c.unread ? "font-semibold" : "font-medium")}>{CASE_REASON_LABELS[c.reason]}</span>
                 <Pill tone={TONE[c.status]} className="shrink-0">
-                  {c.unread ? "New message" : STATUS_FOR_STORE[c.status]}
+                  {c.unread ? tt("New message") : STATUS_FOR_STORE[c.status]}
                 </Pill>
               </button>
             </li>

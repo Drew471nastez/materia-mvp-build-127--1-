@@ -41,6 +41,7 @@ import {
 } from "@/lib/onepage/seo"
 import { checkSettingsPatch } from "@/lib/onepage/settings-rules"
 import { imageInfo } from "@/lib/onepage/share-image"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -162,7 +163,7 @@ const stubs: Record<string, string> = {
   "@/components/attribution/capture-touch": stub("touch", `export const CaptureTouch = () => null\n`),
   "@/lib/onepage/ensure-onepage": stub("ensure", `export const ensureOnePage = async () => null\n`),
   "@/lib/api/public-fetch": stub("fetch", `export const fetchPublic = async (url) => globalThis.__shareStubs.fetch(url)\n`),
-  "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\n`),
+  "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\nexport const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, back() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`),
   "next/og": stub(
     "og",
     `import { createRequire } from "node:module"\nconst require = createRequire(${JSON.stringify(join(process.cwd(), "package.json"))})\nexport const ImageResponse = require("next/og").ImageResponse\n`,
@@ -348,7 +349,7 @@ async function routes() {
 
 function sources() {
   console.log("\nThe SQL and the editor")
-  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+  const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
   const sql = read("supabase/sql/run-now/57_onepage_share_image.sql")
   const lines = sql.trimEnd().split("\n")
   check("part 57: a header, then one statement per line", lines[0].startsWith("/* ") && lines[0].endsWith(" */") && lines.slice(1).every((l) => /^(DO \$\$ .* END \$\$;|notify pgrst, 'reload schema';)$/.test(l)))

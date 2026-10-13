@@ -29,6 +29,7 @@ import type { StarterId } from "@/lib/email-campaigns/starters"
 import { layoutName } from "@/lib/email-campaigns/layouts"
 import { ComposeDialog, buttonAccent, buttonSecondary } from "./ui"
 import { StarterList, type LayoutChoice } from "./starter-list"
+import { tt } from "@/lib/i18n/text"
 
 const quiet =
   "inline-flex h-10 shrink-0 cursor-pointer select-none items-center rounded-lg px-2.5 text-[14px] font-medium text-[#1a1a2e] transition-colors duration-100 hover:bg-[#eceef1] active:bg-[#e4e6ea] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e] sm:h-8 sm:text-[13px] [-webkit-tap-highlight-color:transparent]"
@@ -37,19 +38,19 @@ export function LayoutBar({ layout, edited, onChange, onRemove, className }: { l
   return (
     <div data-layout-bar="" className={cn("flex min-h-10 min-w-0 items-center gap-2 pl-1", className)}>
       <p className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[14px] sm:text-[13px]">
-        <span className="shrink-0 text-[#6b7280]">Layout</span>
+        <span className="shrink-0 text-[#6b7280]">{tt("Layout")}</span>
         <span data-layout-name="" className="min-w-0 truncate font-semibold text-[#1a1a2e]">
-          {layout ? layoutName(layout) : "None"}
+          {layout ? layoutName(layout) : tt("None")}
         </span>
-        {layout && edited ? <span className="shrink-0 text-[13px] text-[#6b7280] sm:text-[12px]">edited</span> : null}
+        {layout && edited ? <span className="shrink-0 text-[13px] text-[#6b7280] sm:text-[12px]">{tt("edited")}</span> : null}
       </p>
       <div className="-mr-1 flex shrink-0 items-center">
         <button type="button" className={quiet} onClick={onChange} data-layout-change="">
-          {layout ? "Change" : "Choose"}
+          {layout ? tt("Change") : tt("Choose")}
         </button>
         {layout ? (
-          <button type="button" className={quiet} onClick={onRemove} data-layout-remove="" aria-label="Remove the layout and start from blank">
-            Remove
+          <button type="button" className={quiet} onClick={onRemove} data-layout-remove="" aria-label={tt("Remove the layout and start from blank")}>
+            {tt("Remove")}
           </button>
         ) : null}
       </div>
@@ -82,21 +83,21 @@ export function LayoutDialog({
   }, [state])
   const confirming = shown.mode === "confirm"
   const choice = confirming ? shown.choice : null
-  const title = !confirming ? "Layout" : choice === "blank" ? "Start from blank?" : `Use the ${layoutName(choice as StarterId)} layout?`
+  const title = !confirming ? tt("Layout") : choice === "blank" ? tt("Start from blank?") : tt("Use the {name} layout?", { name: layoutName(choice as StarterId) })
   return (
     <ComposeDialog
       open={state !== null}
       onClose={onClose}
       title={title}
-      description={confirming ? "What you wrote in this email is replaced." : "Choose a layout for this email, or Blank for none."}
+      description={confirming ? tt("What you wrote in this email is replaced.") : tt("Choose a layout for this email, or Blank for none.")}
       footer={
         confirming ? (
           <>
             <button type="button" className={buttonSecondary} onClick={onClose}>
-              Keep my email
+              {tt("Keep my email")}
             </button>
             <button type="button" className={buttonAccent} onClick={() => choice && onApply(choice)} data-layout-confirm="">
-              {choice === "blank" ? "Clear it" : "Replace it"}
+              {choice === "blank" ? tt("Clear it") : tt("Replace it")}
             </button>
           </>
         ) : undefined
@@ -105,8 +106,8 @@ export function LayoutDialog({
       {confirming ? (
         <p className="text-[14px] leading-[21px] text-[#1a1a2e]">
           {choice === "blank"
-            ? "Everything in the email goes and it starts empty. A subject or preview text you typed yourself stays."
-            : "What is in the email now is replaced with the layout. A subject or preview text you typed yourself stays."}
+            ? tt("Everything in the email goes and it starts empty. A subject or preview text you typed yourself stays.")
+            : tt("What is in the email now is replaced with the layout. A subject or preview text you typed yourself stays.")}
         </p>
       ) : (
         <StarterList bare withBlank current={current} onPick={onChoose} className="-mx-5 -my-2 sm:-my-4" />

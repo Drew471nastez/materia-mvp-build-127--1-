@@ -50,6 +50,7 @@ import { BACK_HOLD_MS, backInFlight, backThen } from "@/lib/navigation/go-back"
 import { pageUnderSettingsSheet, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { hasUnsaved, requestLeave } from "@/lib/settings/unsaved-guard"
 import { inSheetSettingsLink, SETTINGS_PATH, SETTINGS_TAB_EVENT } from "@/lib/settings/sheet-links"
+import { tt } from "@/lib/i18n/text"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 420
@@ -141,7 +142,7 @@ const onSettings = () => typeof window !== "undefined" && window.location.pathna
 /** A touch that starts on one of these is the control's, not the sheet's. */
 const OWN_GESTURE = "input[type=range], textarea, [contenteditable=true], [data-no-sheet-drag], [role=slider]"
 
-export function SettingsSheet({ children, label = "Settings", overlay = false }: { children: React.ReactNode; label?: string; overlay?: boolean }) {
+export function SettingsSheet({ children, label = tt("Settings"), overlay = false }: { children: React.ReactNode; label?: string; overlay?: boolean }) {
   const router = useRouter()
   const pathname = usePathname()
   const panel = React.useRef<HTMLDivElement>(null)
@@ -680,7 +681,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           <button
             type="button"
             onClick={() => close()}
-            aria-label="Close settings"
+            aria-label={tt("Close settings")}
             className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[#4b5563] outline-none transition-colors hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 max-lg:hidden sm:right-3 [-webkit-tap-highlight-color:transparent]"
             data-settings-sheet-close=""
           >

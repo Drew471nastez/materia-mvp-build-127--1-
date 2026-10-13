@@ -25,6 +25,7 @@
 
 import type { TriggerType } from "./flow-model"
 import { orderNumberOf, resolveVariables, variableKey, APP_ORIGIN, type VariableKey } from "@/lib/email-variables"
+import { tt } from "@/lib/i18n/text"
 
 export type MergeKey = Exclude<VariableKey, "email" | "last_name" | "library_url">
 
@@ -44,20 +45,20 @@ const ORDERS: TriggerType[] = ["purchase", "first_purchase"]
 const PRODUCTS: TriggerType[] = ["purchase", "first_purchase", "abandoned_checkout"]
 
 export const MERGE_FIELDS: MergeField[] = [
-  { key: "first_name", label: "First name", says: "Their first name, or “there” after Hi", link: false },
-  { key: "name", label: "Full name", says: "Their full name, or “there” after Hi", link: false },
-  { key: "creator_name", label: "Your name", says: "Your name as it is on your profile when the email is sent", link: false },
-  { key: "store_name", label: "Store name", says: "Your store’s name as it is when the email is sent", link: false },
-  { key: "store_url", label: "Your Storelib page", says: "The address of your Storelib page", link: true },
-  { key: "product_name", label: "Product name", says: "What they bought or left at checkout", link: false, only: PRODUCTS },
-  { key: "product_url", label: "Product page", says: "The product’s page", link: true, only: PRODUCTS },
-  { key: "order_number", label: "Order number", says: "Their order’s number, as on the receipt", link: false, only: ORDERS },
-  { key: "order_url", label: "Their order", says: "Their order page, with the download", link: true, only: ORDERS },
-  { key: "download_url", label: "Download link", says: "Where they download what they bought", link: true, only: ORDERS },
-  { key: "review_url", label: "Leave a review", says: "Their order page, open at the review form", link: true, only: ORDERS },
-  { key: "checkout_url", label: "Back to checkout", says: "Checkout for the product they left", link: true, only: ["abandoned_checkout"] },
-  { key: "unsubscribe_url", label: "Unsubscribe link", says: "Their own unsubscribe page", link: true },
-  { key: "current_year", label: "Year", says: "This year, as a number", link: false },
+  { key: "first_name", get label() { return tt("First name") }, get says() { return tt("Their first name, or “there” after Hi") }, link: false },
+  { key: "name", get label() { return tt("Full name") }, get says() { return tt("Their full name, or “there” after Hi") }, link: false },
+  { key: "creator_name", get label() { return tt("Your name") }, get says() { return tt("Your name as it is on your profile when the email is sent") }, link: false },
+  { key: "store_name", get label() { return tt("Store name") }, get says() { return tt("Your store’s name as it is when the email is sent") }, link: false },
+  { key: "store_url", get label() { return tt("Your Storelib page") }, get says() { return tt("The address of your Storelib page") }, link: true },
+  { key: "product_name", get label() { return tt("Product name") }, get says() { return tt("What they bought or left at checkout") }, link: false, only: PRODUCTS },
+  { key: "product_url", get label() { return tt("Product page") }, get says() { return tt("The product’s page") }, link: true, only: PRODUCTS },
+  { key: "order_number", get label() { return tt("Order number") }, get says() { return tt("Their order’s number, as on the receipt") }, link: false, only: ORDERS },
+  { key: "order_url", get label() { return tt("Their order") }, get says() { return tt("Their order page, with the download") }, link: true, only: ORDERS },
+  { key: "download_url", get label() { return tt("Download link") }, get says() { return tt("Where they download what they bought") }, link: true, only: ORDERS },
+  { key: "review_url", get label() { return tt("Leave a review") }, get says() { return tt("Their order page, open at the review form") }, link: true, only: ORDERS },
+  { key: "checkout_url", get label() { return tt("Back to checkout") }, get says() { return tt("Checkout for the product they left") }, link: true, only: ["abandoned_checkout"] },
+  { key: "unsubscribe_url", get label() { return tt("Unsubscribe link") }, get says() { return tt("Their own unsubscribe page") }, link: true },
+  { key: "current_year", get label() { return tt("Year") }, get says() { return tt("This year, as a number") }, link: false },
 ]
 
 const BY_KEY = new Map(MERGE_FIELDS.map((f) => [f.key, f]))

@@ -23,6 +23,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, MUTED, Notice, Pill, TextInput, Toggle, api } from "./ui"
+import { tt } from "@/lib/i18n/text"
 
 interface LinkRow {
   variantId: string
@@ -91,7 +92,7 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
   }
 
   if (error && !rows) return <Notice className="mt-3">{error}</Notice>
-  if (!rows) return <p className={cn(MUTED, "mt-3")} data-partner-links-loading="">Reading your products…</p>
+  if (!rows) return <p className={cn(MUTED, "mt-3")} data-partner-links-loading="">{tt("Reading your products…")}</p>
 
   const atPartner = rows.filter((r) => r.atPartner)
   const shown = showAll || atPartner.length === 0 ? rows : atPartner
@@ -101,18 +102,18 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
     <div className="mt-3" data-partner-links={provider}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[13px] font-medium text-[#1a1a2e]">
-          {matched} of {shown.length} matched
-          {atPartner.length > 0 && !showAll ? <span className="font-normal text-[#6b7280]"> · sold from {locationName ?? name}</span> : null}
+          {tt("{matched} of {length} matched", { matched, length: shown.length })}
+          {atPartner.length > 0 && !showAll ? <span className="font-normal text-[#6b7280]"> · {tt("sold from")} {locationName ?? name}</span> : null}
         </p>
         {atPartner.length > 0 && atPartner.length < rows.length ? (
           <button type="button" className={cn(BTN_GHOST, "h-8 px-2 text-[13px]")} onClick={() => setShowAll((v) => !v)}>
-            {showAll ? `Only ${locationName ?? name}` : "All physical products"}
+            {showAll ? tt("Only {value}", { value: locationName ?? name }) : tt("All physical products")}
           </button>
         ) : null}
       </div>
       {error ? <Notice className="mt-2">{error}</Notice> : null}
-      {rows.length === 0 ? <p className={cn(MUTED, "mt-2")}>You have no physical products yet. Add one, then match it here.</p> : null}
-      {atPartner.length === 0 && rows.length > 0 ? <p className={cn(MUTED, "mt-1")}>No product is sold from {locationName ?? name} yet. In a product, choose {provider === "cj_dropshipping" ? "Dropshipping" : "Print on demand"} and the {locationName ?? name} location.</p> : null}
+      {rows.length === 0 ? <p className={cn(MUTED, "mt-2")}>{tt("You have no physical products yet. Add one, then match it here.")}</p> : null}
+      {atPartner.length === 0 && rows.length > 0 ? <p className={cn(MUTED, "mt-1")}>{tt("No product is sold from")} {locationName ?? name} {tt("yet. In a product, choose")} {provider === "cj_dropshipping" ? tt("Dropshipping") : tt("Print on demand")} {tt("and the")} {locationName ?? name} {tt("location.")}</p> : null}
       <ul className="mt-2 divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]">
         {shown.map((r) => {
           /* One stock switch per product, on its first variant's row. */
@@ -133,20 +134,20 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
                       <>
                         {provider === "cj_dropshipping" ? "CJ" : "Gelato"}: {r.link.label ?? r.link.providerVariantId}
                         {r.link.providerSku ? ` · ${r.link.providerSku}` : ""}
-                        {r.link.stockSync && r.link.stockLevel != null ? ` · ${r.link.stockLevel} in stock at CJ` : ""}
+                        {r.link.stockSync && r.link.stockLevel != null ? tt(" · {stockLevel} in stock at CJ", { stockLevel: r.link.stockLevel }) : ""}
                       </>
                     ) : r.sku ? (
-                      `SKU ${r.sku}${provider === "cj_dropshipping" ? ", sent only if CJ has this exact SKU" : ", not matched"}`
+                      tt("SKU {sku}{value}", { sku: r.sku, value: provider === "cj_dropshipping" ? tt(", sent only if CJ has this exact SKU") : tt(", not matched") })
                     ) : (
-                      "Not matched, no SKU"
+                      tt("Not matched, no SKU")
                     )}
                   </p>
                   {r.link?.stockError ? <p className="mt-0.5 text-[12px] text-[#b42318]">{r.link.stockError}</p> : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  {r.link ? <Pill tone="green">Matched</Pill> : r.atPartner ? <Pill tone="amber">Not matched</Pill> : null}
+                  {r.link ? <Pill tone="green">{tt("Matched")}</Pill> : r.atPartner ? <Pill tone="amber">{tt("Not matched")}</Pill> : null}
                   <button type="button" className={cn(BTN_SECONDARY, "h-8 px-3 text-[13px]")} disabled={busy} onClick={() => setEditing(editing === r.variantId ? null : r.variantId)} data-partner-link-edit="">
-                    {editing === r.variantId ? "Close" : r.link ? "Change" : "Match"}
+                    {editing === r.variantId ? tt("Close") : r.link ? tt("Change") : tt("Match")}
                   </button>
                 </div>
               </div>
@@ -154,8 +155,8 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
                 <div className="mt-2">
                   <Toggle
                     id={`cj-stock-${r.productId}`}
-                    label="Keep stock in step with CJ"
-                    description="This product's stock at the CJ location follows CJ's warehouses, read every six hours and when CJ says it changed."
+                    label={tt("Keep stock in step with CJ")}
+                    description={tt("This product's stock at the CJ location follows CJ's warehouses, read every six hours and when CJ says it changed.")}
                     checked={stockOn}
                     disabled={busy}
                     onChange={(on) => void stock({ productId: r.productId, stockSync: on })}
@@ -176,7 +177,7 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
       {provider === "cj_dropshipping" && rows.some((r) => r.link?.stockSync) ? (
         <div className="mt-2 flex justify-end">
           <button type="button" className={cn(BTN_SECONDARY, "h-9 text-[13px]")} disabled={busy} onClick={() => void stock({ syncNow: true })} data-partner-stock-now="">
-            {busy ? "Reading CJ" : "Read CJ stock now"}
+            {busy ? tt("Reading CJ") : tt("Read CJ stock now")}
           </button>
         </div>
       ) : null}
@@ -224,16 +225,16 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
           if (q.trim().length >= 2) void search()
         }}
       >
-        <TextInput className="min-w-0" value={q} onChange={(e) => setQ(e.target.value)} placeholder="CJ SKU or product words" aria-label="Search CJ" data-cj-search="" />
+        <TextInput className="min-w-0" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt("CJ SKU or product words")} aria-label={tt("Search CJ")} data-cj-search="" />
         <button type="submit" className={cn(BTN_PRIMARY, "shrink-0")} disabled={searching || q.trim().length < 2}>
-          {searching ? "Searching" : "Search CJ"}
+          {searching ? tt("Searching") : tt("Search CJ")}
         </button>
       </form>
       {error ? <Notice>{error}</Notice> : null}
-      {found && found.variants.length === 0 && found.products.length === 0 ? <p className="text-[13px] text-[#6b7280]">CJ has nothing for that. Try other words, or the SKU from the CJ product page.</p> : null}
+      {found && found.variants.length === 0 && found.products.length === 0 ? <p className="text-[13px] text-[#6b7280]">{tt("CJ has nothing for that. Try other words, or the SKU from the CJ product page.")}</p> : null}
       {found?.variants.length ? (
         <div>
-          <p className="text-[12px] font-medium uppercase tracking-wide text-[#6b7280]">Exact SKU</p>
+          <p className="text-[12px] font-medium uppercase tracking-wide text-[#6b7280]">{tt("Exact SKU")}</p>
           <ul className="mt-1 space-y-1">
             {found.variants.map((v) => (
               <VariantChoice key={v.vid} v={v} busy={busy} onChoose={() => void choose(v.vid)} />
@@ -243,7 +244,7 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
       ) : null}
       {found?.products.length ? (
         <div>
-          <p className="text-[12px] font-medium uppercase tracking-wide text-[#6b7280]">Products</p>
+          <p className="text-[12px] font-medium uppercase tracking-wide text-[#6b7280]">{tt("Products")}</p>
           <ul className="mt-1 space-y-1">
             {found.products.map((p) => (
               <li key={p.pid} className="rounded-lg bg-white">
@@ -253,15 +254,15 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
                     <span className="block [overflow-wrap:anywhere] text-[13px] font-medium text-[#1a1a2e]">{p.name || p.sku}</span>
                     <span className="block [overflow-wrap:anywhere] text-[12px] text-[#6b7280]">
                       {p.sku}
-                      {p.price ? ` · from $${p.price}` : ""}
+                      {p.price ? tt(" · from ${price}", { price: p.price }) : ""}
                     </span>
                   </span>
                 </button>
                 {open?.pid === p.pid ? (
                   open.variants === null ? (
-                    <p className="px-2.5 pb-2 text-[12.5px] text-[#6b7280]">Reading its variants…</p>
+                    <p className="px-2.5 pb-2 text-[12.5px] text-[#6b7280]">{tt("Reading its variants…")}</p>
                   ) : open.variants.length === 0 ? (
-                    <p className="px-2.5 pb-2 text-[12.5px] text-[#6b7280]">CJ lists no variants for it.</p>
+                    <p className="px-2.5 pb-2 text-[12.5px] text-[#6b7280]">{tt("CJ lists no variants for it.")}</p>
                   ) : (
                     <ul className="space-y-1 px-2 pb-2">
                       {open.variants.map((v) => (
@@ -278,7 +279,7 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
       {row.link ? (
         <div className="flex justify-end">
           <button type="button" className={cn(BTN_GHOST, "h-8 px-2 text-[13px] text-[#b42318]")} disabled={busy} onClick={() => void onRemove()}>
-            Remove match
+            {tt("Remove match")}
           </button>
         </div>
       ) : null}
@@ -298,7 +299,7 @@ function VariantChoice({ v, busy, onChoose }: { v: CjVariant; busy: boolean; onC
         </span>
       </span>
       <button type="button" className={cn(BTN_SECONDARY, "h-8 shrink-0 px-3 text-[13px]")} disabled={busy} onClick={onChoose}>
-        Choose
+        {tt("Choose")}
       </button>
     </li>
   )
@@ -319,21 +320,21 @@ function GelatoMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: bool
         if (err) setError(err)
       }}
     >
-      <Field label="Gelato product UID" hint="From the product in Gelato's catalogue, for this size and colour.">
+      <Field label={tt("Gelato product UID")} hint={tt("From the product in Gelato's catalogue, for this size and colour.")}>
         <TextInput value={uid} onChange={(e) => setUid(e.target.value)} placeholder="apparel_product_gca_t-shirt_gsc_crewneck_…" autoCapitalize="off" autoCorrect="off" spellCheck={false} data-gelato-uid="" />
       </Field>
-      <Field label="Print file" hint="A public https address of the design, a PDF or PNG at print size.">
+      <Field label={tt("Print file")} hint={tt("A public https address of the design, a PDF or PNG at print size.")}>
         <TextInput value={file} onChange={(e) => setFile(e.target.value)} placeholder="https://…/design.pdf" inputMode="url" data-gelato-file="" />
       </Field>
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex flex-wrap justify-end gap-2">
         {row.link ? (
           <button type="button" className={cn(BTN_GHOST, "text-[#b42318]")} disabled={busy} onClick={() => void onRemove()}>
-            Remove match
+            {tt("Remove match")}
           </button>
         ) : null}
         <button type="submit" className={BTN_PRIMARY} disabled={busy || !uid.trim() || !file.trim()}>
-          {busy ? "Checking with Gelato" : "Save match"}
+          {busy ? tt("Checking with Gelato") : tt("Save match")}
         </button>
       </div>
     </form>

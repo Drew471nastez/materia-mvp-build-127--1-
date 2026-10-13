@@ -7,6 +7,7 @@ import { AppLink } from "@/components/app/app-link"
 import { useLanguage } from "@/lib/i18n"
 import { asksInPlace, useNewProductChooser } from "@/app/app/products/new/kind-chooser"
 import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -50,8 +51,8 @@ export function QuickActions() {
     <div className="grid gap-4 md:grid-cols-2">
       {newProduct.chooser}
       {ACTIONS.map((a) => {
-        const title = a.title ? t(a.title) : "Add Custom Domain"
-        const body = a.body ? t(a.body) : "Connect your own domain to your store"
+        const title = a.title ? t(a.title) : tt("Add Custom Domain")
+        const body = a.body ? t(a.body) : tt("Connect your own domain to your store")
         return (
           <AppLink
             key={a.href}

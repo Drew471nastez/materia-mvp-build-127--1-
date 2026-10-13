@@ -34,9 +34,11 @@ import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
 import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
+import { GaConnect } from "@/components/app/settings/ga-connect"
 import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
 import { APP_STATE_LABEL, essentialIds, essentialsProgress, storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
+import { tt } from "@/lib/i18n/text"
 
 /* Storelib's own apps first (the page opens on them), then the Essentials, every service, what is installed, and each category. */
 type Filter = "essentials" | "all" | "installed" | "storelib" | IntegrationCategory
@@ -328,6 +330,12 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       const to = row.scrollLeft > left ? left : row.scrollLeft < right ? right : row.scrollLeft
       if (to !== row.scrollLeft) row.scrollTo({ left: to, behavior: reduced() ? "auto" : "smooth" })
     }
+    /*
+      THE NEW CATEGORY EASES IN, ALL AT ONCE (the owner: switching showed the cards "too direct"; before that, a staggered
+      rise read as glitchy). The list as one, a short fade from most of the way there: no card moves, none waits for another.
+    */
+    const list = gridRef.current
+    if (list && !reduced() && typeof list.animate === "function") list.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 140, easing: "cubic-bezier(0.4, 0, 0.2, 1)" })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
@@ -406,7 +414,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       {page && mine.length > 0 ? (
         <section aria-labelledby="installed-integrations" className="space-y-2.5" data-installed-integrations="">
           <h2 id="installed-integrations" className="text-[15px] font-semibold text-[#1a1a2e]">
-            Connected
+            {tt("Connected")}
           </h2>
           <ul className={cn(CARD, "divide-y divide-[#f1f2f4] overflow-hidden")}>
             {mine.map((i) => (
@@ -432,23 +440,23 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       ) : null}
       <div className="flex gap-2">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search integrations</span>
+          <span className="sr-only">{tt("Search integrations")}</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search apps and integrations"
+            placeholder={tt("Search apps and integrations")}
             className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] sm:text-[14px]"
             data-integrations-search=""
           />
         </label>
         <button type="button" className={cn(BTN_SECONDARY, "h-10 shrink-0 rounded-xl px-3.5")} onClick={() => setRequesting(true)} data-request-integration="">
-          Request
+          {tt("Request")}
         </button>
       </div>
 
-      <div ref={pillsRef} hidden={!!q} className="relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Categories" data-integration-pills="">
+      <div ref={pillsRef} hidden={!!q} className="relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={tt("Categories")} data-integration-pills="">
         {pills.map((f) => {
           const on = filter === f
           return (
@@ -464,7 +472,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
                 on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] active:bg-[#f3f4f6]",
               )}
             >
-              {f === "essentials" ? "Essentials" : f === "all" ? "All" : f === "installed" ? "Installed" : f === "storelib" ? "Storelib apps" : CATEGORY_NAMES[f]}
+              {f === "essentials" ? tt("Essentials") : f === "all" ? tt("All") : f === "installed" ? tt("Installed") : f === "storelib" ? tt("Storelib apps") : CATEGORY_NAMES[f]}
               <span className={cn("tabular-nums", on ? "text-white/70" : "text-[#9ca3af]")}>{f === "essentials" ? (appStates ? `${progress.done}/${progress.total}` : progress.total) : (counts.get(f) ?? 0)}</span>
             </button>
           )
@@ -483,9 +491,9 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
         />
       ) : shown.length === 0 ? (
         <div className={cn(CARD, "px-5 py-10 text-center")}>
-          <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "installed" && !q ? "Nothing installed yet" : "Nothing matches"}</p>
+          <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "installed" && !q ? tt("Nothing installed yet") : tt("Nothing matches")}</p>
           <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setRequesting(true)}>
-            Request integration
+            {tt("Request integration")}
           </button>
         </div>
       ) : (
@@ -607,10 +615,10 @@ function EssentialsPanel({
       <div className="flex items-center gap-4 border-b border-[#f1f2f4] px-4 py-3.5 sm:px-5">
         <div className="min-w-0 flex-1">
           <h2 id="integration-essentials" className="text-[15px] font-semibold text-[#1a1a2e]">
-            {all ? "Your store has the essentials" : "The essentials"}
+            {all ? tt("Your store has the essentials") : tt("The essentials")}
           </h2>
           <p className="text-[13px] text-[#6b7280]" data-essentials-count="">
-            {progress ? `${done} of ${total} set up` : `${total} things every store needs`}
+            {progress ? tt("{done} of {total} set up", { done, total }) : tt("{total} things every store needs", { total })}
           </p>
         </div>
         <div aria-hidden className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-[#eef0f3] sm:w-40">
@@ -630,9 +638,9 @@ function EssentialsPanel({
                 <span className="block truncate text-[12.5px] text-[#6b7280]">{line}</span>
               </span>
               {state === "on" ? (
-                <Badge tone="green">On</Badge>
+                <Badge tone="green">{tt("On")}</Badge>
               ) : state ? (
-                <span className="shrink-0 text-[13px] font-medium text-[#1a1a2e]">Set up</span>
+                <span className="shrink-0 text-[13px] font-medium text-[#1a1a2e]">{tt("Set up")}</span>
               ) : null}
               <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
             </>
@@ -659,12 +667,12 @@ function EssentialsPanel({
 
 /** Where it stands, in words a person reads at a glance: a dot and a line, with what it means under the name. */
 const STANDING: Record<IntegrationStatus, { tone: Tone; label: string; line: string }> = {
-  built_in: { tone: "gray", label: "Built into Storelib", line: "Ready to use. Nothing to connect." },
-  installed: { tone: "green", label: "Connected", line: "Working on your store." },
-  needs_attention: { tone: "amber", label: "Needs attention", line: "Connected, but the last try didn't go through." },
-  error: { tone: "red", label: "Not working", line: "Check its settings below." },
-  coming_soon: { tone: "gray", label: "Coming soon", line: "Not available to connect yet." },
-  available: { tone: "gray", label: "Not connected", line: "Set it up below in a minute." },
+  built_in: { tone: "gray", get label() { return tt("Built into Storelib") }, get line() { return tt("Ready to use. Nothing to connect.") } },
+  installed: { tone: "green", get label() { return tt("Connected") }, get line() { return tt("Working on your store.") } },
+  needs_attention: { tone: "amber", get label() { return tt("Needs attention") }, get line() { return tt("Connected, but the last try didn't go through.") } },
+  error: { tone: "red", get label() { return tt("Not working") }, get line() { return tt("Check its settings below.") } },
+  coming_soon: { tone: "gray", get label() { return tt("Coming soon") }, get line() { return tt("Not available to connect yet.") } },
+  available: { tone: "gray", get label() { return tt("Not connected") }, get line() { return tt("Set it up below in a minute.") } },
 }
 const DOT: Record<Tone, string> = { gray: "bg-[#9ca3af]", green: "bg-[#12b76a]", amber: "bg-[#f79009]", red: "bg-[#f04438]" }
 
@@ -722,7 +730,7 @@ function IntegrationPage({
   /* Nothing to connect yet: a listed service, a provider marked Coming soon, or one paused from /admin. */
   const notifyOnly = item.kind === "listed" || (item.kind === "commerce" && !!item.comingSoon) || (!!item.paused && !installed)
   const providerState = item.providerId ? (states?.find((s) => s.provider === item.providerId) ?? null) : null
-  const action = item.builtIn && item.kind !== "commerce" ? null : notifyOnly ? "Tell me when it's ready" : installed ? "Manage" : "Set up"
+  const action = item.builtIn && item.kind !== "commerce" ? null : notifyOnly ? tt("Tell me when it's ready") : installed ? tt("Manage") : tt("Set up")
   const toSetup = () => {
     const el = setupRef.current
     if (!el) return
@@ -740,7 +748,7 @@ function IntegrationPage({
         data-integration-back=""
       >
         <ChevronLeft className="h-4 w-4" aria-hidden />
-        Back to integrations
+        {tt("Back to integrations")}
       </button>
 
       <header className={cn(DEPTH, "p-4 sm:p-6")} data-integration-header="">
@@ -773,7 +781,7 @@ function IntegrationPage({
         <div className="space-y-4 sm:space-y-5">
           <section ref={setupRef} className={cn(DEPTH, "scroll-mt-4 overflow-hidden")} aria-labelledby="integration-install" data-integration-install="">
             <div className="border-b border-[#f1f2f4] px-4 py-3.5 sm:px-6">
-              <h3 id="integration-install" className="text-[15px] font-semibold text-[#1a1a2e]">{notifyOnly ? "Get notified" : installed ? "Settings" : "Set up"}</h3>
+              <h3 id="integration-install" className="text-[15px] font-semibold text-[#1a1a2e]">{notifyOnly ? tt("Get notified") : installed ? tt("Settings") : tt("Set up")}</h3>
             </div>
             <div className="px-4 py-4 sm:px-6 sm:py-5">
               {notifyOnly ? (
@@ -790,6 +798,9 @@ function IntegrationPage({
                 <ReviewsAppPanel onChanged={(st) => onApp("storelib_reviews", st.enabled)} />
               ) : item.kind === "app" && item.appId === "courier_tracking" ? (
                 <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
+              ) : item.kind === "tracker" && item.trackerId === "ga4" ? (
+                /* Google Analytics: pasted, checked with a live hit, then "Receiving data" with the last event's time. */
+                <GaConnect value={tracking?.ga4 ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.kind === "tracker" && item.trackerId ? (
                 <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.providerId && providerInfo(item.providerId) ? (
@@ -804,7 +815,7 @@ function IntegrationPage({
             /* The key that sends subscribers and orders, apart from the onsite ID above (lib/integrations/marketing). */
             <section className={cn(DEPTH, "overflow-hidden")} aria-labelledby="integration-sync" data-integration-sync="">
               <div className="border-b border-[#f1f2f4] px-4 py-3.5 sm:px-6">
-                <h3 id="integration-sync" className="text-[15px] font-semibold text-[#1a1a2e]">Subscribers and orders</h3>
+                <h3 id="integration-sync" className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Subscribers and orders")}</h3>
               </div>
               <div className="px-4 py-4 sm:px-6 sm:py-5">
                 <MarketingSyncPanel provider={item.trackerId} onChanged={onMarketing} />
@@ -818,15 +829,15 @@ function IntegrationPage({
           */}
           <section className={cn(DEPTH, "overflow-hidden")} aria-labelledby="integration-about" data-integration-about="">
             <div className="px-4 py-4 sm:px-6 sm:py-5">
-              <h3 id="integration-about" className="text-[15px] font-semibold text-[#1a1a2e]">What it does</h3>
+              <h3 id="integration-about" className="text-[15px] font-semibold text-[#1a1a2e]">{tt("What it does")}</h3>
               <p className="mt-2 text-[14px] leading-[21px] text-[#4b5563]">{item.lead ?? item.about[0]}</p>
               {item.paused ? (
-                <Notice tone="gray" className="mt-3">{item.name} is paused on Storelib for now. Anything already set up keeps its settings.</Notice>
+                <Notice tone="gray" className="mt-3">{tt("{name} is paused on Storelib for now. Anything already set up keeps its settings.", { name: item.name })}</Notice>
               ) : null}
             </div>
             <details className="group border-t border-[#f1f2f4]" data-integration-details="">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa] sm:px-6 [&::-webkit-details-marker]:hidden">
-                How it works and your data
+                {tt("How it works and your data")}
                 <ChevronDown className="h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-200 group-open:rotate-180" aria-hidden />
               </summary>
               <div className="space-y-4 px-4 pb-5 sm:px-6">
@@ -838,7 +849,7 @@ function IntegrationPage({
                   </div>
                 ) : null}
                 <div>
-                  <h4 className="text-[13px] font-semibold text-[#1a1a2e]">Data ownership</h4>
+                  <h4 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Data ownership")}</h4>
                   <ul className="mt-1.5 space-y-2 text-[14px] leading-[21px] text-[#4b5563]">
                     {item.data.map((d) => (
                       <li key={d} className="flex gap-2.5">
@@ -854,10 +865,10 @@ function IntegrationPage({
         </div>
 
         <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
-          <h3 id="integration-glance" className="text-[15px] font-semibold text-[#1a1a2e]">At a glance</h3>
+          <h3 id="integration-glance" className="text-[15px] font-semibold text-[#1a1a2e]">{tt("At a glance")}</h3>
           <dl className="mt-3 divide-y divide-[#f1f2f4]">
             <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
-              <dt className="text-[13px] text-[#6b7280]">Category</dt>
+              <dt className="text-[13px] text-[#6b7280]">{tt("Category")}</dt>
               <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{CATEGORY_NAMES[item.category]}</dd>
             </div>
             {item.glance.map((g) => (
@@ -869,7 +880,7 @@ function IntegrationPage({
           </dl>
           {item.docsUrl ? (
             <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "mt-3 h-10 w-full rounded-xl")}>
-              {item.name} help
+              {tt("{name} help", { name: item.name })}
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             </a>
           ) : null}
@@ -898,22 +909,22 @@ function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; va
     setSaved(true)
   }
 
-  if (!ready) return <Notice tone="amber">Analytics and pixels need their database update (SQL part 112). Until it runs, nothing here is kept.</Notice>
+  if (!ready) return <Notice tone="amber">{tt("Analytics and pixels need their database update (SQL part 112). Until it runs, nothing here is kept.")}</Notice>
   return (
     <div className="space-y-3" data-tracker-install={item.trackerId}>
-      <Field label={t.label} htmlFor={`tracker-${item.trackerId}`} hint={`Where to find it: ${t.where}`}>
+      <Field label={t.label} htmlFor={`tracker-${item.trackerId}`} hint={tt("Where to find it: {where}", { where: t.where })}>
         <TextInput id={`tracker-${item.trackerId}`} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t.example} autoComplete="off" spellCheck={false} inputMode="text" />
       </Field>
       {error ? <Notice>{error}</Notice> : null}
-      {saved && !error ? <p className="text-[13px] text-[#067647]" data-tracker-saved="">{value ? `Saved. ${t.name} loads on your website from its next page view.` : "Removed from your website."}</p> : null}
+      {saved && !error ? <p className="text-[13px] text-[#067647]" data-tracker-saved="">{value ? tt("Saved. {name} loads on your website from its next page view.", { name: t.name }) : tt("Removed from your website.")}</p> : null}
       <div className="flex flex-wrap justify-end gap-2">
         {value ? (
           <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void save(null)}>
-            Remove
+            {tt("Remove")}
           </button>
         ) : null}
         <button type="button" className={BTN_PRIMARY} disabled={busy || !typed.trim() || typed.trim() === value} onClick={() => void save(typed)}>
-          {busy ? "Saving" : value ? "Save" : "Install"}
+          {busy ? tt("Saving") : value ? tt("Save") : tt("Install")}
         </button>
       </div>
     </div>
@@ -941,17 +952,17 @@ function NotifyMe({ item }: { item: Integration }) {
   }
   return (
     <div className="space-y-3" data-integration-notify={item.id}>
-      <p className="text-[14px] leading-[21px] text-[#4b5563]">Not available yet. Ask for it and you&apos;ll be counted: the most asked for are built first.</p>
+      <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("Not available yet. Ask for it and you'll be counted: the most asked for are built first.")}</p>
       {error ? <Notice>{error}</Notice> : null}
       {state === "sent" ? (
         <p className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#067647]" data-integration-notified="">
           <Check className="h-4 w-4" aria-hidden />
-          You&apos;re on the list for {item.name}.
+          {tt("You're on the list for {name}.", { name: item.name })}
         </p>
       ) : (
         <div className="flex justify-end">
           <button type="button" className={BTN_PRIMARY} disabled={state === "sending"} onClick={() => void ask()}>
-            {state === "sending" ? "Sending" : "Tell me when it's ready"}
+            {state === "sending" ? tt("Sending") : tt("Tell me when it's ready")}
           </button>
         </div>
       )}
@@ -984,32 +995,32 @@ function RequestForm({ open, onClose }: { open: boolean; onClose: () => void }) 
     <Modal
       open={open}
       onClose={onClose}
-      title="Request integration"
+      title={tt("Request integration")}
       footer={
         sent ? (
           <button type="button" className={BTN_PRIMARY} onClick={onClose}>
-            Done
+            {tt("Done")}
           </button>
         ) : (
           <div className="flex w-full justify-end gap-2">
             <button type="button" className={BTN_SECONDARY} onClick={onClose} disabled={busy}>
-              Cancel
+              {tt("Cancel")}
             </button>
             <button type="button" className={BTN_PRIMARY} disabled={busy || !name.trim()} onClick={() => void send()}>
-              {busy ? "Sending" : "Send request"}
+              {busy ? tt("Sending") : tt("Send request")}
             </button>
           </div>
         )
       }
     >
       {sent ? (
-        <p className="text-[14px] leading-[21px] text-[#4b5563]" data-request-sent="">Thanks. We read every request, and the most asked for are built first.</p>
+        <p className="text-[14px] leading-[21px] text-[#4b5563]" data-request-sent="">{tt("Thanks. We read every request, and the most asked for are built first.")}</p>
       ) : (
         <div className="space-y-3">
-          <Field label="Which service?" htmlFor="request-name">
+          <Field label={tt("Which service?")} htmlFor="request-name">
             <TextInput id="request-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Klaviyo" />
           </Field>
-          <Field label="What would you use it for?" htmlFor="request-note" hint="Optional">
+          <Field label={tt("What would you use it for?")} htmlFor="request-note" hint={tt("Optional")}>
             <textarea id="request-note" value={note} maxLength={600} rows={3} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-[16px] outline-none focus:border-[#9ca3af] sm:text-[14px]" />
           </Field>
           {error ? <Notice>{error}</Notice> : null}

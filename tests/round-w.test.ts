@@ -16,6 +16,7 @@ import { CATEGORY_GROUPS, PHYSICAL_CATEGORY_GROUPS, isCategoryFor, searchCategor
 import { keywordSuggestion, parseSuggestRequest } from "@/lib/products/category-suggest"
 import { HELP_TOPICS, helpTopicsFor } from "@/lib/help/questions"
 import { existsSync } from "node:fs"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -24,7 +25,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 console.log("\nWhose turn a case is")
 check("a buyer's message puts it with the store", statusAfterMessage("buyer", { status: "buyer", escalated: false }) === "store")
@@ -135,7 +136,7 @@ console.log("\nThe physical product editor")
   const parsed = parseSuggestRequest(JSON.stringify({ title: "Mug", kind: "physical" }), { storageOrigin: "https://x.supabase.co", creatorId: "c" })
   check("the suggestion route is told which list", parsed.ok && parsed.input.kind === "physical")
   const ed = read("app/app/products/new/product-editor.tsx")
-  check("What's included is a download's, hidden for a thing that ships", /hidden=\{productType === "physical"\}\s*>\s*<div>\s*<div className="flex items-center gap-1.5">\s*<h2 className=\{CARD_TITLE\}>What's Included/.test(ed) && /productType === "physical" \? \[\] : whatsIncluded/.test(ed))
+  check("What's included is a download's, hidden for a thing that ships", /hidden=\{productType === "physical"\}\s*>\s*<div>\s*<div className="flex items-center gap-1.5">\s*<h2 className=\{CARD_TITLE\}>What('|&apos;)s Included/.test(ed) && /productType === "physical" \? \[\] : whatsIncluded/.test(ed))
   /* Round 20: a product not live yet is kept as a draft on the way (no title or photo asked for), and the third way out says what it does (tests/product20.test.ts). */
   check("settings links in the editor stay in the app and ask Save draft and go, Leave without saving, Stay", /openSettings=\{openSettings\}/.test(ed) && /alt: "Leave without saving"/.test(ed) && /confirm: "Save draft and go"/.test(ed) && /router\.push\(href\)/.test(ed))
   const cards = read("components/physical/product-cards.tsx")

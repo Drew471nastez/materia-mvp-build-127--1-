@@ -20,6 +20,7 @@ import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { summaryText } from "@/lib/analytics/summary"
+import { tt } from "@/lib/i18n/text"
 
 type Summary = { visitors: number; orders: number; href: string }
 
@@ -115,7 +116,7 @@ export function AnalyticsSummaryFact({ property }: { property: string }) {
   const numbers = summary ? summaryText(summary).replace(/^Last 30 days: /, "") : ""
   return (
     <div className="flex items-center justify-between gap-4 py-2.5" data-analytics-summary={property}>
-      <dt className="text-[#6b7280]">Last 30 days</dt>
+      <dt className="text-[#6b7280]">{tt("Last 30 days")}</dt>
       <dd className="min-w-0 text-right">
         {!summary ? (
           <span aria-hidden className="text-transparent">

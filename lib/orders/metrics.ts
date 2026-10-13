@@ -8,15 +8,16 @@
  */
 import { bucketIndex, bucketStarts, grainFor } from "../analytics/buckets"
 import { isSale, type Order } from "./order-view"
+import { tt } from "@/lib/i18n/text"
 
 export type MetricKey = "sales" | "orders" | "aov" | "customers" | "refunds"
 
 export const METRICS: Array<{ key: MetricKey; label: string; money?: boolean; upIsBad?: boolean; help: string }> = [
-  { key: "sales", label: "Total sales", money: true, help: "Money taken from orders in this period, less anything refunded." },
-  { key: "orders", label: "Orders", help: "Orders placed in this period. Failed, unfinished and disputed payments are not counted." },
-  { key: "aov", label: "Average order value", money: true, help: "What a paid order was worth on average. Free orders are left out." },
-  { key: "customers", label: "Customers", help: "Different people who ordered in this period, told apart by their email." },
-  { key: "refunds", label: "Refunds", money: true, upIsBad: true, help: "Money given back in this period, counted on the day it was refunded." },
+  { key: "sales", get label() { return tt("Total sales") }, money: true, get help() { return tt("Money taken from orders in this period, less anything refunded.") } },
+  { key: "orders", get label() { return tt("Orders") }, get help() { return tt("Orders placed in this period. Failed, unfinished and disputed payments are not counted.") } },
+  { key: "aov", get label() { return tt("Average order value") }, money: true, get help() { return tt("What a paid order was worth on average. Free orders are left out.") } },
+  { key: "customers", get label() { return tt("Customers") }, get help() { return tt("Different people who ordered in this period, told apart by their email.") } },
+  { key: "refunds", get label() { return tt("Refunds") }, money: true, upIsBad: true, get help() { return tt("Money given back in this period, counted on the day it was refunded.") } },
 ]
 
 export interface MetricReading {

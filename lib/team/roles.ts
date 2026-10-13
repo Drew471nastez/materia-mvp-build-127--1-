@@ -15,6 +15,7 @@
  * Billing, payouts, the team itself and deleting the store are the owner's
  * and nobody else's, whatever role is given (lib/settings/explainers "team").
  */
+import { tt } from "@/lib/i18n/text"
 
 export type TeamRole = "owner" | "manager" | "staff"
 /** The roles an owner can give. The owner is the account, never an invite. */
@@ -75,11 +76,11 @@ export function isMemberRole(v: unknown): v is MemberRole {
   return v === "manager" || v === "staff"
 }
 
-export const ROLE_LABEL: Record<TeamRole, string> = { owner: "Owner", manager: "Manager", staff: "Staff" }
+export const ROLE_LABEL: Record<TeamRole, string> = { get owner() { return tt("Owner") }, get manager() { return tt("Manager") }, get staff() { return tt("Staff") } }
 /** What each role can do now (OPEN_TO_TEAM), in the words the Team page uses. */
 export const ROLE_SUMMARY: Record<MemberRole, string> = {
-  manager: "Orders: fulfil, ship, handle returns and send receipts",
-  staff: "Products, the website and content, once they open to the team",
+  get manager() { return tt("Orders: fulfil, ship, handle returns and send receipts") },
+  get staff() { return tt("Products, the website and content, once they open to the team") },
 }
 
 /**
@@ -87,12 +88,14 @@ export const ROLE_SUMMARY: Record<MemberRole, string> = {
  * use: a short list, then what stays with the owner. Only what is open to
  * the team (OPEN_TO_TEAM) is listed as something they can do.
  */
+/* The invite page (/team/join) reads these; it is outside the dashboard and its language. i18n-ignore-start */
 export const ROLE_CAN: Record<MemberRole, readonly string[]> = {
   manager: ["See and search every order", "Fulfil and ship orders, buy labels", "Handle returns and order notes", "Send receipts and invoices, export orders"],
   staff: ["Products, the website and content, once they open to the team"],
 }
 /** What stays with the owner, whatever the role. */
 export const OWNER_KEEPS = "Refunds, payouts, billing, products, the website, the team and deleting the store stay with the owner."
+/* i18n-ignore-end */
 
 /** People an owner can invite besides themselves: three on Free. */
 export const FREE_SEATS = 3

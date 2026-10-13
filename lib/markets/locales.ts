@@ -95,7 +95,9 @@ export function localizedPath(path: string, locale: string, defaultLocale: strin
 /**
  * The language a visitor's browser asks for first, among the website's
  * published ones (Accept-Language). Only a suggestion: a visitor's own
- * choice is always kept over it, and nobody is redirected by it.
+ * choice is always kept over it. Show visitors their own language
+ * (lib/markets/visitor-language.ts) is what may act on it, and only when
+ * the store turns it on.
  */
 export function preferredLocale(acceptLanguage: string | null | undefined, published: readonly string[]): string | null {
   if (!acceptLanguage || published.length === 0) return null
@@ -115,4 +117,23 @@ export function preferredLocale(acceptLanguage: string | null | undefined, publi
     if (base) return base
   }
   return null
+}
+
+/**
+ * The flag a language is shown with (Settings › Languages & Currency): the
+ * country most people would look for it under. A tag with its own region
+ * (pt-BR) is that region's; Chinese by its script (simplified: China,
+ * traditional: Taiwan). Null for a language with no flag of its own here:
+ * the tile with its letters stays.
+ */
+const LANGUAGE_FLAG: Record<string, string> = {
+  en: "US", es: "ES", fr: "FR", de: "DE", it: "IT", pt: "PT", nl: "NL", ro: "RO", pl: "PL", cs: "CZ", sk: "SK", hu: "HU",
+  bg: "BG", el: "GR", hr: "HR", sl: "SI", sr: "RS", sv: "SE", da: "DK", nb: "NO", fi: "FI", et: "EE", lv: "LV", lt: "LT",
+  uk: "UA", ru: "RU", tr: "TR", ar: "SA", he: "IL", fa: "IR", hi: "IN", bn: "BD", ur: "PK", th: "TH", vi: "VN", id: "ID",
+  ms: "MY", fil: "PH", ja: "JP", ko: "KR", "zh-Hans": "CN", "zh-Hant": "TW",
+}
+export function languageFlag(locale: string): string | null {
+  if (LANGUAGE_FLAG[locale]) return LANGUAGE_FLAG[locale]
+  const region = /^[a-z]{2,3}-([A-Z]{2})$/.exec(locale)?.[1]
+  return region ?? LANGUAGE_FLAG[baseLanguage(locale)] ?? null
 }

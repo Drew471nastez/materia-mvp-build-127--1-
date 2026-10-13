@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 import { catalogCards, shopProducts } from "@/lib/website-builder/shop-products"
+import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
 
 // GET - Fetch creator's products for the website builder editor
 export async function GET(request: Request) {
@@ -40,6 +41,12 @@ export async function GET(request: Request) {
 
       if (error || !product) {
         return NextResponse.json({ error: "Product not found" }, { status: 404 })
+      }
+
+      /* `facts=1`: what an imported theme's product page is drawn with, read as the live site reads it (lib/storelib-theme/compat/product-facts-server.ts), for the builder's canvas. */
+      if (searchParams.get("facts") === "1") {
+        const facts = await pageFactsFor(createAdminClient(), creator.id, productId, true, { published: false })
+        return NextResponse.json({ facts }, { headers: { "Cache-Control": "private, no-store" } })
       }
 
       /* What the product section draws, read the way the live product page

@@ -51,6 +51,9 @@ import {
 import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
 import { Code, CommandBlock, Keycap, Step, Steps } from "@/components/website-builder/setup-steps"
 import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
+import { appLocale, zoned } from "@/lib/i18n/format"
 
 interface Connection {
   id: string
@@ -66,19 +69,19 @@ interface Connection {
 
 /** A key's second line: when it was used, how long it works, and if it only reads. Pure, tested as words. */
 export function keyLine(c: Pick<Connection, "last_used_at" | "expires_at" | "expired" | "access">, now = Date.now()): string {
-  const used = c.last_used_at ? `Used ${relativeTime(c.last_used_at, now)}` : "Not used yet"
+  const used = c.last_used_at ? tt("Used {time}", { time: relativeTime(c.last_used_at, now) }) : tt("Not used yet")
   const until = c.expired
-    ? "Expired. Make a new key"
+    ? tt("Expired. Make a new key")
     : c.expires_at
-      ? `Works until ${new Date(c.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}`
+      ? tt("Works until {date}", { date: new Date(c.expires_at).toLocaleDateString(appLocale().startsWith("en") ? "en-GB" : appLocale(), zoned({ day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })) })
       : null
-  return [used, until, c.access === "read" ? "Read only" : null].filter(Boolean).join(" · ")
+  return [used, until, c.access === "read" ? tt("Read only") : null].filter(Boolean).join(" · ")
 }
 
 const TOOLS: Record<AgentTool, { name: string; tokenName: string; web?: string }> = {
-  claude: { name: "Claude Code", tokenName: "Claude Code", web: "Claude Code on the web" },
-  codex: { name: "Codex", tokenName: "Codex", web: "Codex in ChatGPT" },
-  other: { name: "Another tool", tokenName: "AI agent" },
+  claude: { name: "Claude Code", get tokenName() { return tt("Claude Code") }, get web() { return tt("Claude Code on the web") } },
+  codex: { name: "Codex", get tokenName() { return tt("Codex") }, get web() { return tt("Codex in ChatGPT") } },
+  other: { name: "Another tool", get tokenName() { return tt("AI agent") } },
 }
 
 /** Which line a key belongs on, from the name it was made with. */
@@ -100,7 +103,7 @@ function TerminalGuide({ os }: { os: Os }) {
   const guide = openTerminalGuide(os)
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2 text-[14px] text-white/70" aria-label={`Open a terminal on ${OS_LABEL[os]}`}>
+      <div className="flex flex-wrap items-center gap-2 text-[14px] text-white/70" aria-label={tt("Open a terminal on {os}", { os: OS_LABEL[os] })}>
         {guide.parts.map((part, i) => {
           const prev = guide.parts[i - 1]
           const plus = "key" in part && prev && "key" in prev
@@ -110,7 +113,7 @@ function TerminalGuide({ os }: { os: Os }) {
               {"key" in part && <Keycap>{part.key}</Keycap>}
               {"type" in part && (
                 <span>
-                  type <span className="font-medium text-white">{part.type}</span>
+                  {tt("type")} <span className="font-medium text-white">{part.type}</span>
                 </span>
               )}
               {"then" in part && <span aria-hidden className="px-0.5 text-white/35">→</span>}
@@ -179,12 +182,12 @@ export function useAgentConnections(installId: string) {
       try {
         const res = await fetch(`/api/website-builder/themes/${installId}/agent-connections`)
         const d = (await res.json().catch(() => ({}))) as { connections?: Connection[]; ready?: boolean; error?: string }
-        if (!res.ok) throw new Error(d.error || "Could not load connections")
+        if (!res.ok) throw new Error(d.error || tt("Could not load connections"))
         setConnections(d.connections ?? [])
         setReady(d.ready !== false)
       } catch (e) {
         if (quiet) return
-        setError({ tool: null, message: e instanceof Error ? e.message : "Could not load connections" })
+        setError({ tool: null, message: e instanceof Error ? e.message : tt("Could not load connections") })
         setConnections([])
       }
     },
@@ -211,12 +214,12 @@ export function useAgentConnections(installId: string) {
         body: JSON.stringify({ name: TOOLS[tool].tokenName }),
       })
       const d = (await res.json().catch(() => ({}))) as { connection?: Connection; token?: string; error?: string }
-      if (!res.ok || !d.token || !d.connection) throw new Error(d.error || "Could not make a key")
+      if (!res.ok || !d.token || !d.connection) throw new Error(d.error || tt("Could not make a key"))
       const made = d.connection
       setFresh((prev) => ({ ...prev, [tool]: { id: made.id, token: d.token as string } }))
       setConnections((prev) => [made, ...(prev ?? [])])
     } catch (e) {
-      setError({ tool, message: e instanceof Error ? e.message : "Could not make a key" })
+      setError({ tool, message: e instanceof Error ? e.message : tt("Could not make a key") })
     } finally {
       setMaking(null)
     }
@@ -228,7 +231,7 @@ export function useAgentConnections(installId: string) {
       method: "DELETE",
     }).catch(() => null)
     if (!res?.ok) {
-      setError({ tool, message: "Could not disconnect. Try again." })
+      setError({ tool, message: tt("Could not disconnect. Try again.") })
       return false
     }
     setConnections((prev) => (prev ?? []).filter((c) => c.id !== id))
@@ -256,12 +259,12 @@ export function agentStatus(
 ): { tone: ConnectionTone; status?: string; detail?: string; action?: string; loading?: boolean } {
   if (list === null) return { tone: "off", loading: true }
   if (!ready) return { tone: "none", status: "Not available on this Storelib yet" }
-  if (list.length === 0) return { tone: "off", status: "Not connected", action: "Connect" }
+  if (list.length === 0) return { tone: "off", status: "Not connected", action: tt("Connect") }
   /* Every key past its day: the tool cannot reach the site until a new one is made. */
-  if ((list as Connection[]).every((c) => c.expired)) return { tone: "attention", status: "Key expired", detail: "make a new one", action: "Manage" }
+  if ((list as Connection[]).every((c) => c.expired)) return { tone: "attention", status: "Key expired", detail: tt("make a new one"), action: tt("Manage") }
   const used = lastUsed(list as Connection[])
-  if (used) return { tone: "on", status: "Connected", detail: `used ${relativeTime(used, now)}`, action: "Manage" }
-  return { tone: "waiting", status: "Not used yet", action: "Manage" }
+  if (used) return { tone: "on", status: "Connected", detail: tt("used {time}", { time: relativeTime(used, now) }), action: tt("Manage") }
+  return { tone: "waiting", status: "Not used yet", action: tt("Manage") }
 }
 
 /** The steps for a key that has just been made, with the key in them. */
@@ -272,39 +275,39 @@ function SetupSteps({ tool, agents }: { tool: AgentTool; agents: AgentConnection
   const lines = setupCommands(tool, os, token)
   const next = afterSetup(tool)
   const terminal = tool !== "other"
-  const enter = os === "mac" ? "Return" : "Enter"
+  const enter = os === "mac" ? tt("Return") : tt("Enter")
   return (
     <Steps>
       {terminal && (
         <Step
           n={1}
-          title="Open Terminal"
-          aside={<Segmented<Os> label="Your computer" options={OSES.map((o) => ({ id: o, label: OS_LABEL[o] }))} value={os} onChange={setOs} />}
+          title={tt("Open Terminal")}
+          aside={<Segmented<Os> label={tt("Your computer")} options={OSES.map((o) => ({ id: o, label: OS_LABEL[o] }))} value={os} onChange={setOs} />}
         >
           <TerminalGuide os={os} />
         </Step>
       )}
 
-      <Step n={terminal ? 2 : 1} title={terminal ? `Paste this and press ${enter}` : "Add Storelib to your tool"} muted={!fresh}>
+      <Step n={terminal ? 2 : 1} title={terminal ? tt("Paste this and press {enter}", { enter }) : tt("Add Storelib to your tool")} muted={!fresh}>
         <div className="space-y-3">
           {lines.map((line) => (
             <CommandBlock key={line.label} label={lines.length > 1 ? line.label : undefined} value={line.value} disabled={!fresh} />
           ))}
         </div>
         <p className="mt-2.5 text-[13px] leading-relaxed text-white/45">
-          {fresh ? "Your key is in this line. It is shown only this once." : "Making your key"}
+          {fresh ? tt("Your key is in this line. It is shown only this once.") : tt("Making your key")}
         </p>
         {tool === "claude" && fresh && (
           <p className="mt-1 text-[13px] leading-relaxed text-white/45">
-            Added Storelib before? Run <Code>{CLAUDE_REMOVE_OLD}</Code> first.
+            <Rich text={tt("Added Storelib before? Run {command} first.")} parts={{ command: <Code>{CLAUDE_REMOVE_OLD}</Code> }} />
           </p>
         )}
       </Step>
 
       {next && (
-        <Step n={3} title={`Start ${TOOLS[tool].name} and ask for a change`} muted={!fresh}>
+        <Step n={3} title={tt("Start {name} and ask for a change", { name: TOOLS[tool].name })} muted={!fresh}>
           <p className="text-[14px] text-white/65">
-            Type <Code>{next.start}</Code>, press {enter}, then ask:
+            <Rich text={tt("Type {command}, press {enter}, then ask:", { enter })} parts={{ command: <Code>{next.start}</Code> }} />
           </p>
           <p className="mt-2 text-[15.5px] leading-snug text-white">&ldquo;{FIRST_ASK}&rdquo;</p>
         </Step>
@@ -317,12 +320,12 @@ function SetupSteps({ tool, agents }: { tool: AgentTool; agents: AgentConnection
 function KeyList({ tool, agents, list }: { tool: AgentTool; agents: AgentConnections; list: Connection[] }) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   return (
-    <ul aria-label={`${TOOLS[tool].name} keys`} className="-my-1 divide-y divide-white/[0.07]">
+    <ul aria-label={tt("{name} keys", { name: TOOLS[tool].name })} className="-my-1 divide-y divide-white/[0.07]">
       {list.map((c) => (
         <li key={c.id} className="flex min-h-[60px] items-center gap-4 py-2.5">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] text-white/85">
-              Key <span className="font-mono text-[13px] text-white/70">{c.prefix}…</span>
+              {tt("Key")} <span className="font-mono text-[13px] text-white/70">{c.prefix}…</span>
             </p>
             <p className="mt-0.5 truncate text-[13px] text-white/45">
               {keyLine(c)}
@@ -335,14 +338,14 @@ function KeyList({ tool, agents, list }: { tool: AgentTool; agents: AgentConnect
                 onClick={() => setConfirmingId(null)}
                 className="h-11 rounded-lg px-3 text-[15px] text-white/70 hover:text-white md:h-9 md:text-[14px]"
               >
-                Keep
+                {tt("Keep")}
               </button>
               <button
                 type="button"
                 onClick={() => void agents.disconnect(tool, c.id).then((ok) => ok && setConfirmingId(null))}
                 className="h-11 rounded-lg bg-red-500/90 px-4 text-[15px] font-medium text-white hover:bg-red-500 md:h-9 md:text-[14px]"
               >
-                Disconnect
+                {tt("Disconnect")}
               </button>
             </div>
           ) : (
@@ -351,7 +354,7 @@ function KeyList({ tool, agents, list }: { tool: AgentTool; agents: AgentConnect
               onClick={() => setConfirmingId(c.id)}
               className="h-11 shrink-0 rounded-lg px-3 text-[15px] font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white md:h-9 md:text-[14px]"
             >
-              Disconnect
+              {tt("Disconnect")}
             </button>
           )}
         </li>
@@ -444,14 +447,14 @@ export function AgentConnectionRow({
           {settingUp && <SetupSteps tool={tool} agents={agents} />}
           {settingUp && fresh && (
             <RowNote tone={freshUsed ? "good" : "quiet"}>
-              {freshUsed ? `${name} is connected. What it writes shows up here as a draft.` : `Waiting for ${name} to connect.`}
+              {freshUsed ? tt("{name} is connected. What it writes shows up here as a draft.", { name }) : tt("Waiting for {name} to connect.", { name })}
             </RowNote>
           )}
 
           {!settingUp && others.length > 0 && <KeyList tool={tool} agents={agents} list={others} />}
           {settingUp && others.length > 0 && (
             <div className="mt-7">
-              <p className="text-[13px] font-medium text-white/50">Other keys</p>
+              <p className="text-[13px] font-medium text-white/50">{tt("Other keys")}</p>
               <div className="mt-1.5">
                 <KeyList tool={tool} agents={agents} list={others} />
               </div>
@@ -464,7 +467,7 @@ export function AgentConnectionRow({
               {agents.error?.tool === tool && !fresh && (
                 <>
                   {" "}
-                  <InlineButton onClick={() => void agents.make(tool)}>Try again</InlineButton>
+                  <InlineButton onClick={() => void agents.make(tool)}>{tt("Try again")}</InlineButton>
                 </>
               )}
             </RowNote>
@@ -472,12 +475,12 @@ export function AgentConnectionRow({
 
           {!settingUp && others.length > 0 && (
             <RowNote>
-              On another computer, or lost the line? <InlineButton onClick={() => void agents.make(tool)}>Make a new key</InlineButton>
+              {tt("On another computer, or lost the line?")} <InlineButton onClick={() => void agents.make(tool)}>{tt("Make a new key")}</InlineButton>
             </RowNote>
           )}
           {TOOLS[tool].web && (
             <RowNote>
-              Using {TOOLS[tool].web}? <InlineButton onClick={onGitHub}>Connect GitHub</InlineButton> instead.
+              {tt("Using {web}?", { web: TOOLS[tool].web })} <InlineButton onClick={onGitHub}>{tt("Connect GitHub")}</InlineButton> {tt("instead.")}
             </RowNote>
           )}
         </>

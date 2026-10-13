@@ -24,6 +24,7 @@ import { noteTabScroll, prepareTabArrival, tabScrollFor } from "../lib/navigatio
 import { landsAsDocument } from "../lib/native-start-landing"
 import { buyerTabFor, buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
 import { needsDocumentLoad } from "../lib/native-links"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -31,7 +32,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail === undefined ? "" : `   (${JSON.stringify(detail)})`}`) }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
 
 console.log("\n8. One prefetch policy, from the device and the network")

@@ -151,6 +151,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "website-builder/subscribe/route.ts": "the same, from a built site",
   "newsletter/route.ts": "a visitor asking Storelib itself for news from the storelib.com footer; rate limited, and it tells the caller nothing about the list",
   "onepage/email-capture/route.ts": "a visitor leaving their email on a public page",
+  "store/ga-seen/route.ts": "a store's own Google Analytics tag saying Google took a hit with the store's measurement ID; kept only when the ID is the one that store saved, one database question a minute a store, nothing about the visitor",
   "track-view/route.ts": "records a page view for a visitor with no session; the creator, product and property are checked against the database in lib/analytics/collect",
   "track-event/route.ts": "records an anonymous event, by the same pipeline and the same checks as a page view",
   "onepage/track/route.ts": "a OnePage link click from a visitor; whose OnePage it is comes from the onepages row, and the analytics copy goes through lib/analytics/collect",

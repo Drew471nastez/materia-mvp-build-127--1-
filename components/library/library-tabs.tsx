@@ -205,29 +205,54 @@ export function LibraryTabs({ communities = false }: { communities?: boolean } =
     const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2
     setEdges((e) => (e.left === left && e.right === right ? e : { left, right }))
   }, [])
+  /* The chosen pill brought whole into view: on load at once, after a press smoothly. */
+  const intoView = useCallback(
+    (smooth: boolean) => {
+      const el = trackRef.current
+      const pill = el?.querySelector<HTMLElement>(`[data-library-tab-href="${current}"]`)
+      if (!el || !pill) return
+      const pad = 24
+      const from = pill.offsetLeft - pad
+      const to = pill.offsetLeft + pill.offsetWidth + pad - el.clientWidth
+      const next = el.scrollLeft > from ? from : el.scrollLeft < to ? to : el.scrollLeft
+      if (Math.abs(next - el.scrollLeft) < 1) return
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      el.scrollTo({ left: Math.max(0, next), behavior: smooth && !reduce ? "smooth" : "auto" })
+    },
+    [current],
+  )
+  const intoViewRef = useRef(intoView)
+  intoViewRef.current = intoView
+  /*
+    MEASURED WHEN THE BROWSER HAS LAID THE PAGE OUT, NOT BEFORE (round 25, the owner: entering the library "should be smooth,
+    not abrupt"). Both reads used to run in the commit that brings the library, each making the browser lay out the whole
+    arriving page on the spot (86ms of the arrival at 4x CPU, traced). The row's ResizeObserver hands over its first size
+    after the page's own layout, before it is painted, with nothing forced: the edges are read and the chosen pill brought
+    into view there. A press later moves it the usual way.
+  */
   useLayoutEffect(() => {
     if (!shows) return
-    measure()
     const el = trackRef.current
-    if (!el || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(measure)
+    if (!el) return
+    if (typeof ResizeObserver === "undefined") {
+      measure()
+      intoViewRef.current(false)
+      return
+    }
+    let first = true
+    const ro = new ResizeObserver(() => {
+      measure()
+      if (first) {
+        first = false
+        intoViewRef.current(false)
+      }
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [shows, measure])
-
-  /* The chosen pill brought whole into view: on load at once, after a press smoothly. */
   useLayoutEffect(() => {
-    const el = trackRef.current
-    const pill = el?.querySelector<HTMLElement>(`[data-library-tab-href="${current}"]`)
-    if (!el || !pill) return
-    const pad = 24
-    const from = pill.offsetLeft - pad
-    const to = pill.offsetLeft + pill.offsetWidth + pad - el.clientWidth
-    const next = el.scrollLeft > from ? from : el.scrollLeft < to ? to : el.scrollLeft
-    if (Math.abs(next - el.scrollLeft) < 1) return
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    el.scrollTo({ left: Math.max(0, next), behavior: panelEntrance && !reduce ? "smooth" : "auto" })
-  }, [current, panelEntrance])
+    if (panelEntrance) intoView(true)
+  }, [intoView, panelEntrance])
 
   if (!shows) return null
 

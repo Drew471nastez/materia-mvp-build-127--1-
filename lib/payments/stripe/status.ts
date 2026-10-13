@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * STORELIB PAYMENTS STATUS. One answer for "where is this creator's
  * payments account", read from the Stripe account itself (Stripe is the
@@ -111,22 +112,22 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
       reads it as their account having been wiped. Their orders and payouts
       are all still there; only the link to Stripe is new.
     */
-    if (f.reconnect) return view("NOT_STARTED", "Reconnect payments", "Set up payments again to keep selling. Your orders and payout history are safe.", "Reconnect payments", "setup")
-    return view("NOT_STARTED", "Set up payouts", "Get paid directly to your bank account.", "Set up payouts", "setup")
+    if (f.reconnect) return view("NOT_STARTED", tt("Reconnect payments"), tt("Set up payments again to keep selling. Your orders and payout history are safe."), tt("Reconnect payments"), "setup")
+    return view("NOT_STARTED", tt("Set up payouts"), tt("Get paid directly to your bank account."), tt("Set up payouts"), "setup")
   }
 
   const reason = f.disabledReason ?? ""
   /* Stripe can keep a disabled_reason after capabilities return; trust live flags for pause. */
   if (/^rejected\./.test(reason)) {
-    return view("SUSPENDED", "Payments are turned off", "This account can't accept payments. Write to support@storelib.com and we'll help.", "Contact support", "support")
+    return view("SUSPENDED", tt("Payments are turned off"), tt("This account can't accept payments. Write to support@storelib.com and we'll help."), tt("Contact support"), "support")
   }
   if (reason === "platform_paused" && !(takes && f.payoutsEnabled)) {
-    return view("SUSPENDED", "Payments are turned off", "This account can't accept payments. Write to support@storelib.com and we'll help.", "Contact support", "support")
+    return view("SUSPENDED", tt("Payments are turned off"), tt("This account can't accept payments. Write to support@storelib.com and we'll help."), tt("Contact support"), "support")
   }
 
   const bankFailed = f.lastPayoutFailed || f.externalAccounts.some((b) => b.status === "errored" || b.status === "verification_failed")
   if (bankFailed) {
-    return view("PAYOUT_FAILED", "Update your payout account", "We couldn't verify this bank account. Check the account details or add another payout account.", "Update payout account", "change_bank")
+    return view("PAYOUT_FAILED", tt("Update your payout account"), tt("We couldn't verify this bank account. Check the account details or add another payout account."), tt("Update payout account"), "change_bank")
   }
 
   const due = userDue(f)
@@ -136,22 +137,22 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
 
   if (details.length > 0) {
     if (!f.detailsSubmitted && !f.everActive) {
-      return view("INCOMPLETE", "Finish setting up payments", "Pick up where you left off.", "Continue setup", "onboarding")
+      return view("INCOMPLETE", tt("Finish setting up payments"), tt("Pick up where you left off."), tt("Continue setup"), "onboarding")
     }
     if (pastDetails.length > 0 || reason === "requirements.past_due") {
-      if (f.everActive) return view("RESTRICTED", "Payouts are temporarily paused", "Complete the requested verification to resume payouts.", "Fix now", "onboarding")
+      if (f.everActive) return view("RESTRICTED", tt("Payouts are temporarily paused"), tt("Complete the requested verification to resume payouts."), tt("Fix now"), "onboarding")
       return identity
-        ? view("RESTRICTED", "Verify your identity", "One more step is needed to activate payments.", "Continue verification", "onboarding")
-        : view("RESTRICTED", "More information needed", "More information is needed to activate payments.", "Continue", "onboarding")
+        ? view("RESTRICTED", tt("Verify your identity"), tt("One more step is needed to activate payments."), tt("Continue verification"), "onboarding")
+        : view("RESTRICTED", tt("More information needed"), tt("More information is needed to activate payments."), tt("Continue"), "onboarding")
     }
     if (takes) {
       return details.some((k) => DOCUMENT.test(k))
-        ? view("ACTION_REQUIRED", "Verify your identity", "Verify your identity to keep receiving payouts.", "Verify identity", "onboarding")
-        : view("ACTION_REQUIRED", "More information needed", "Update your payout details to keep your account active.", "Update details", "onboarding")
+        ? view("ACTION_REQUIRED", tt("Verify your identity"), tt("Verify your identity to keep receiving payouts."), tt("Verify identity"), "onboarding")
+        : view("ACTION_REQUIRED", tt("More information needed"), tt("Update your payout details to keep your account active."), tt("Update details"), "onboarding")
     }
     return identity
-      ? view("ACTION_REQUIRED", "Verify your identity", "One more step is needed to activate payments.", "Continue verification", "onboarding")
-      : view("ACTION_REQUIRED", "More information needed", "More information is needed to activate payments.", "Continue", "onboarding")
+      ? view("ACTION_REQUIRED", tt("Verify your identity"), tt("One more step is needed to activate payments."), tt("Continue verification"), "onboarding")
+      : view("ACTION_REQUIRED", tt("More information needed"), tt("More information is needed to activate payments."), tt("Continue"), "onboarding")
   }
 
   /*
@@ -162,36 +163,36 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
    * and then asked for it again days later as "more information".
    */
   const idStillToDo = !f.everActive && !(takes && f.payoutsEnabled) && (f.idOutstanding ?? (f.eventuallyDue ?? []).some((k) => DOCUMENT.test(k)))
-  if (idStillToDo) return view("INCOMPLETE", "Finish setting up payments", "One step left: verify your identity.", "Continue setup", "onboarding")
+  if (idStillToDo) return view("INCOMPLETE", tt("Finish setting up payments"), tt("One step left: verify your identity."), tt("Continue setup"), "onboarding")
 
   const checking = f.pendingVerification.length > 0 || reason === "requirements.pending_verification" || reason === "under_review" || reason === "listed"
   if (checking && !(takes && f.payoutsEnabled)) {
-    return view("VERIFYING", "Verification in progress", "We're checking your information. No action is needed right now.", null, null)
+    return view("VERIFYING", tt("Verification in progress"), tt("We're checking your information. No action is needed right now."), null, null)
   }
 
   const bankMissing = f.externalAccounts.length === 0 || due.all.some((k) => BANK.test(k))
-  if (bankMissing) return view("BANK_REQUIRED", "Add your bank account", "Add the account where you'd like to receive payouts.", "Add bank account", "bank")
+  if (bankMissing) return view("BANK_REQUIRED", tt("Add your bank account"), tt("Add the account where you'd like to receive payouts."), tt("Add bank account"), "bank")
 
-  if (takes && f.payoutsEnabled) return view("ACTIVE", "Payments active", "You're ready to accept payments.", null, null)
+  if (takes && f.payoutsEnabled) return view("ACTIVE", tt("Payments active"), tt("You're ready to accept payments."), null, null)
 
   const capabilityPending = Object.values(f.capabilities).some((s) => s === "pending")
   if (capabilityPending || (!f.detailsSubmitted && !f.everActive)) {
-    return view("VERIFYING", "Verification in progress", "We're checking your information. No action is needed right now.", null, null)
+    return view("VERIFYING", tt("Verification in progress"), tt("We're checking your information. No action is needed right now."), null, null)
   }
-  return view("RESTRICTED", "Payments need attention", "Our payment partner paused this account. Write to support@storelib.com and we'll sort it out.", "Contact support", "support")
+  return view("RESTRICTED", tt("Payments need attention"), tt("Our payment partner paused this account. Write to support@storelib.com and we'll sort it out."), tt("Contact support"), "support")
 }
 
 /** The card's pill: a word or two and its tone. */
 export const STATUS_PILL: Record<StorelibPaymentsStatus, { label: string; tone: "gray" | "blue" | "amber" | "green" | "red" }> = {
-  NOT_STARTED: { label: "Setup required", tone: "gray" },
-  INCOMPLETE: { label: "Setup incomplete", tone: "amber" },
-  VERIFYING: { label: "Under review", tone: "blue" },
-  ACTION_REQUIRED: { label: "Action required", tone: "amber" },
-  BANK_REQUIRED: { label: "Add bank account", tone: "amber" },
-  ACTIVE: { label: "Payments active", tone: "green" },
-  RESTRICTED: { label: "Needs attention", tone: "red" },
-  PAYOUT_FAILED: { label: "Payout failed", tone: "red" },
-  SUSPENDED: { label: "Turned off", tone: "red" },
+  NOT_STARTED: { get label() { return tt("Setup required") }, tone: "gray" },
+  INCOMPLETE: { get label() { return tt("Setup incomplete") }, tone: "amber" },
+  VERIFYING: { get label() { return tt("Under review") }, tone: "blue" },
+  ACTION_REQUIRED: { get label() { return tt("Action required") }, tone: "amber" },
+  BANK_REQUIRED: { get label() { return tt("Add bank account") }, tone: "amber" },
+  ACTIVE: { get label() { return tt("Payments active") }, tone: "green" },
+  RESTRICTED: { get label() { return tt("Needs attention") }, tone: "red" },
+  PAYOUT_FAILED: { get label() { return tt("Payout failed") }, tone: "red" },
+  SUSPENDED: { get label() { return tt("Turned off") }, tone: "red" },
 }
 
 /** The older five-beat name the setup card and panel still read. */

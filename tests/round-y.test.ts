@@ -42,8 +42,8 @@ async function main() {
   }
   const ctx = { registers: { compat: { assetUrl: (n: string) => `/theme/${n}` } } }
   const filter = (name: string, v: string) => (compatFilter(name) as unknown as (v: unknown, a: unknown[], k: object, c: unknown) => unknown)(v, [], {}, ctx)
-  check("asked for by shopify_asset_url, served from Storelib's own address", filter("shopify_asset_url", "option_selection.js") === "/api/site-theme/shopify/option_selection.js")
-  check("global_asset_url too", filter("global_asset_url", "api.jquery.js") === "/api/site-theme/shopify/api.jquery.js")
+  check("asked for by shopify_asset_url, served from Storelib's own address", filter("shopify_asset_url", "option_selection.js") === "/api/site-theme/helpers/option-selection.js")
+  check("global_asset_url too", filter("global_asset_url", "api.jquery.js") === "/api/site-theme/helpers/cart-api.js")
   check("a theme's own file by those filters is still the theme's", filter("shopify_asset_url", "theme.js") === "/theme/theme.js")
   check("any other name stays the theme's own", shopifyGlobalAssetUrl("theme.js") === null)
   check("nothing points at Shopify's servers", SHOPIFY_GLOBAL_ASSETS.every((n) => !/shopify(cdn)?\.com|cdn\.shopify/.test(shopifyGlobalAsset(n)!)))

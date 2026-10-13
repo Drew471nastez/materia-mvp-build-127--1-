@@ -51,6 +51,8 @@ import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/ana
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
 import { MorphLines } from "@/components/app/morph-lines"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 /** How tall the chart is, and the band under the plot that holds the dates. */
 const CHART_H = 200
@@ -106,12 +108,12 @@ function previousKeyFor(filter: string): Key | null {
 }
 
 const LABELS: Record<string, string> = {
-  views: "Views",
-  clicks: "Clicks",
-  sales: "Orders",
-  revenue: "Revenue",
-  subscribers: "Subscribers",
-  conversion: "Conversion",
+  get views() { return tt("Views") },
+  get clicks() { return tt("Clicks") },
+  get sales() { return tt("Orders") },
+  get revenue() { return tt("Revenue") },
+  get subscribers() { return tt("Subscribers") },
+  get conversion() { return tt("Conversion") },
   ctr: "CTR",
 }
 
@@ -316,7 +318,7 @@ function AnalyticsChartWithTooltipInner({
       const base = key.replace("prev_", "")
       if (base === "revenue") return formatPrice(val)
       if (base === "conversion" || base === "ctr") return `${Number(val.toFixed(2))}%`
-      return Math.round(val).toLocaleString("en-US")
+      return Math.round(val).toLocaleString(appLocale())
     },
     [formatPrice],
   )
@@ -340,13 +342,13 @@ function AnalyticsChartWithTooltipInner({
       ...visibleKeys.map((k): ScrubRow => ({
         label: seriesLabels?.[k] ?? LABELS[k] ?? k,
         /* A rate with nobody to divide by is not 0%. */
-        value: (i) => (k === "conversion" && chartDisplayData[i]?.conversion === null ? "No visitors" : format(k, at(i, k) ?? 0)),
+        value: (i) => (k === "conversion" && chartDisplayData[i]?.conversion === null ? tt("No visitors") : format(k, at(i, k) ?? 0)),
         mark: "line",
         tone: "value",
         color,
       })),
       ...(compareKey
-        ? [{ label: "Compared", value: (i: number) => { const v = at(i, compareKey); return v === null ? null : format(compareKey, v) }, mark: "dashed", tone: "compared", color: CHART_COLORS.compared } as ScrubRow]
+        ? [{ label: tt("Compared"), value: (i: number) => { const v = at(i, compareKey); return v === null ? null : format(compareKey, v) }, mark: "dashed", tone: "compared", color: CHART_COLORS.compared } as ScrubRow]
         : []),
     ]
   }, [chartDisplayData, visibleKeys, compareKey, format, seriesLabels, color])

@@ -31,6 +31,7 @@ import { forgetOverview } from "@/lib/payments/overview-cache"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 import { DEMO_CURRENCIES, SCENARIOS, buildScenario, chartFor, type DemoCurrency, type Scenario, type ScenarioId } from "./scenarios"
+import { tt } from "@/lib/i18n/text"
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
@@ -74,7 +75,7 @@ async function answer(s: Scenario, url: URL, init?: RequestInit): Promise<Respon
       bankAccount:
         s.status.status === "NOT_STARTED"
           ? null
-          : { bankName: "Banca Demo", last4: "4821", currency: s.currency, routingNumber: null, accountHolderName: "Demo Creator", status: s.bankStatus },
+          : { bankName: tt("Banca Demo"), last4: "4821", currency: s.currency, routingNumber: null, accountHolderName: tt("Demo Creator"), status: s.bankStatus },
       payoutSchedule: { interval: "manual", weeklyAnchor: null, monthlyAnchor: null, delayDays: s.settleDays },
       payoutsEnabled: s.status.status === "ACTIVE" || s.status.status === "ACTION_REQUIRED" || s.status.status === "PAYOUT_FAILED",
       chargesEnabled: s.status.canCharge,
@@ -88,27 +89,27 @@ async function answer(s: Scenario, url: URL, init?: RequestInit): Promise<Respon
     if (method === "POST") {
       const b = await bodyOf(init)
       const d = s.disputes.find((x) => x.id === b.id)
-      if (!d) return json({ error: "That dispute was not found." }, 404)
-      if (typeof b.note !== "string" || b.note.trim().length < 10) return json({ error: "Write a few words about the sale (at least 10 characters)." }, 400)
+      if (!d) return json({ error: tt("That dispute was not found.") }, 404)
+      if (typeof b.note !== "string" || b.note.trim().length < 10) return json({ error: tt("Write a few words about the sale (at least 10 characters).") }, 400)
       d.noteSent = true
       return json({ ok: true })
     }
     return json({ disputes: s.disputes, recorded: true })
   }
   if (path === "/api/payments/overview" || path === "/api/payments/refresh" || path === "/api/payments/begin" || path === "/api/payments/prepare") return json(s.overview)
-  if (path === "/api/payments/component") return json({ error: "The ID and bank forms only load on a real account. Everything around them is the real page." }, 400)
-  if (path.startsWith("/api/payments/")) return json({ error: "Not available in the demo." }, 400)
+  if (path === "/api/payments/component") return json({ error: tt("The ID and bank forms only load on a real account. Everything around them is the real page.") }, 400)
+  if (path.startsWith("/api/payments/")) return json({ error: tt("Not available in the demo.") }, 400)
   if (path === "/api/stripe/cashout" && method === "POST") {
-    if (s.available <= 0) return json({ error: "There is nothing available to cash out yet." }, 400)
+    if (s.available <= 0) return json({ error: tt("There is nothing available to cash out yet.") }, 400)
     const amount = s.available
-    s.payouts.unshift({ id: `po_demo_${Date.now()}`, amount, currency: s.currency, status: "in_transit", arrival_date: Math.floor(Date.now() / 1000) + 2 * 86400, created: Math.floor(Date.now() / 1000), method: "standard", type: "bank_account", description: null, destination: "Banca Demo ••••4821" })
+    s.payouts.unshift({ id: `po_demo_${Date.now()}`, amount, currency: s.currency, status: "in_transit", arrival_date: Math.floor(Date.now() / 1000) + 2 * 86400, created: Math.floor(Date.now() / 1000), method: "standard", type: "bank_account", description: null, destination: tt("Banca Demo ••••4821") })
     s.available = 0
     return json({ payout: { amount, currency: s.currency } })
   }
   if (path === "/api/stripe/refund" && method === "POST") {
     const b = await bodyOf(init)
     const o = s.orders.find((x) => x.id === b.orderId)
-    if (!o || o.status !== "completed") return json({ error: "This sale cannot be refunded." }, 400)
+    if (!o || o.status !== "completed") return json({ error: tt("This sale cannot be refunded.") }, 400)
     o.status = "refunded"
     o.refund_amount_cents = o.amount_cents
     o.refunded_at = new Date().toISOString()
@@ -122,9 +123,9 @@ async function answer(s: Scenario, url: URL, init?: RequestInit): Promise<Respon
     const settled = Date.parse(ready) < Date.now()
     return json({
       timeline: [
-        { id: "paid", label: "Payment received", description: "The buyer paid at checkout.", timestamp: paid, status: "completed" },
-        { id: "settle", label: settled ? "Settled" : "Settling", description: `Available about ${s.settleDays} days after payment.`, timestamp: settled ? ready : null, status: settled ? "completed" : "pending" },
-        { id: "available", label: "Available to cash out", description: "Cash out sends it to your bank.", timestamp: settled ? ready : null, status: settled ? "completed" : "upcoming" },
+        { id: "paid", label: tt("Payment received"), description: tt("The buyer paid at checkout."), timestamp: paid, status: "completed" },
+        { id: "settle", label: settled ? tt("Settled") : tt("Settling"), description: tt("Available about {settleDays} days after payment.", { settleDays: s.settleDays }), timestamp: settled ? ready : null, status: settled ? "completed" : "pending" },
+        { id: "available", label: tt("Available to cash out"), description: tt("Cash out sends it to your bank."), timestamp: settled ? ready : null, status: settled ? "completed" : "upcoming" },
       ],
     })
   }
@@ -190,8 +191,8 @@ export function PayoutsDemo() {
       {/* The demo's own bar: which made up account, in which currency, and the lock. */}
       <div className="sticky top-0 z-30 border-b border-[#ece9ff] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="mx-auto flex max-w-[1200px] items-center gap-2 py-2 app-gutter">
-          <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-[#f4f3ff] px-2.5 text-[12px] font-semibold text-[#6d4ae8]">Demo</span>
-          <div className="app-no-scrollbar -my-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1" role="tablist" aria-label="Scenario">
+          <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-[#f4f3ff] px-2.5 text-[12px] font-semibold text-[#6d4ae8]">{tt("Demo")}</span>
+          <div className="app-no-scrollbar -my-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1" role="tablist" aria-label={tt("Scenario")}>
             {SCENARIOS.map((sc) => (
               <button
                 key={sc.id}
@@ -208,7 +209,7 @@ export function PayoutsDemo() {
               </button>
             ))}
           </div>
-          <label className="sr-only" htmlFor="demo-currency">Currency</label>
+          <label className="sr-only" htmlFor="demo-currency">{tt("Currency")}</label>
           <select
             id="demo-currency"
             value={currency}
@@ -219,7 +220,7 @@ export function PayoutsDemo() {
               <option key={c} value={c}>{c.toUpperCase()}</option>
             ))}
           </select>
-          <button type="button" onClick={() => void lock()} disabled={locking} aria-label="Lock the demo" className={cn(secondaryDepth, "h-8 w-8 shrink-0 rounded-lg px-0 max-md:h-9 max-md:w-9")}>
+          <button type="button" onClick={() => void lock()} disabled={locking} aria-label={tt("Lock the demo")} className={cn(secondaryDepth, "h-8 w-8 shrink-0 rounded-lg px-0 max-md:h-9 max-md:w-9")}>
             <Lock className="h-3.5 w-3.5 text-[#6b7280]" />
           </button>
         </div>
@@ -230,7 +231,7 @@ export function PayoutsDemo() {
           {/* app/app/payouts/page.tsx's own frame, around the production client. */}
           <PaneBar width="max-w-[1200px]" className="flex min-h-[66px] items-center justify-between gap-3 pb-2 pt-[14px]">
             <div className="min-w-0">
-              <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">Payouts</h1>
+              <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">{tt("Payouts")}</h1>
             </div>
             <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
           </PaneBar>
@@ -256,8 +257,8 @@ export function PayoutsDemo() {
       ) : (
         <div key={key} className="mx-auto min-h-full max-w-[1200px] app-gutter pb-24 md:pb-8" data-payouts-setup="">
           <header className="pb-1 pt-2">
-            <h1 className="flex min-h-[48px] items-center text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Payouts</h1>
-            <p className="-mt-1 text-[13px] leading-5 text-[#6b7280]">Set up payments to start selling</p>
+            <h1 className="flex min-h-[48px] items-center text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Payouts")}</h1>
+            <p className="-mt-1 text-[13px] leading-5 text-[#6b7280]">{tt("Set up payments to start selling")}</p>
           </header>
           <div className="mt-4">
             <StorelibPaymentsInline compact />
@@ -283,10 +284,10 @@ export function PayoutsDemoGate() {
     try {
       const r = await fetch("/api/payouts-demo/unlock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) })
       const body = (await r.json().catch(() => ({}))) as { error?: string }
-      if (!r.ok) throw new Error(body.error || "That did not work. Try again.")
+      if (!r.ok) throw new Error(body.error || tt("That did not work. Try again."))
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That did not work. Try again.")
+      setError(err instanceof Error ? err.message : tt("That did not work. Try again."))
       setBusy(false)
     }
   }
@@ -294,10 +295,10 @@ export function PayoutsDemoGate() {
   return (
     <div className="flex h-full min-h-[70vh] items-center justify-center bg-[#f8f9fa] px-4 app-page-enter">
       <form onSubmit={submit} className="w-full max-w-[380px] rounded-2xl border border-[#e5e7eb]/80 bg-white p-6 shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
-        <span className="inline-flex h-6 items-center rounded-full bg-[#f4f3ff] px-2.5 text-[12px] font-semibold text-[#6d4ae8]">Demo</span>
-        <h1 className="mt-3 text-[20px] font-semibold text-[#1a1a2e]">Payouts demo</h1>
-        <p className="mt-1 text-[14px] leading-5 text-[#6b7280]">The real Payouts page with made up accounts. Enter the password to open it.</p>
-        <label htmlFor="demo-password" className="mt-5 block text-[13px] font-medium text-[#1a1a2e]">Password</label>
+        <span className="inline-flex h-6 items-center rounded-full bg-[#f4f3ff] px-2.5 text-[12px] font-semibold text-[#6d4ae8]">{tt("Demo")}</span>
+        <h1 className="mt-3 text-[20px] font-semibold text-[#1a1a2e]">{tt("Payouts demo")}</h1>
+        <p className="mt-1 text-[14px] leading-5 text-[#6b7280]">{tt("The real Payouts page with made up accounts. Enter the password to open it.")}</p>
+        <label htmlFor="demo-password" className="mt-5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Password")}</label>
         <input
           id="demo-password"
           type="password"
@@ -312,7 +313,7 @@ export function PayoutsDemoGate() {
           disabled={busy || !password}
           className="mt-5 inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white transition-colors hover:bg-[#2a2a40] disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:rounded-lg"
         >
-          {busy ? "Opening" : "Open the demo"}
+          {busy ? tt("Opening") : tt("Open the demo")}
         </button>
       </form>
     </div>

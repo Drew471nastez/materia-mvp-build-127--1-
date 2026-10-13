@@ -68,6 +68,7 @@ import {
   REST_FILL,
   useTabLens,
 } from "@/components/nav/tab-lens"
+import { tt } from "@/lib/i18n/text"
 
 /* ── The palette ──────────────────────────────────────────────────────────
    The page this menu covers is #f8f9fa and its cards are white, so the menu
@@ -295,7 +296,7 @@ export function MobileNavItem({
             type="button"
             onClick={() => onToggle(item.href)}
             aria-expanded={expanded}
-            aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+            aria-label={expanded ? tt("Collapse {label}", { label: item.label }) : tt("Expand {label}", { label: item.label })}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]"
             style={{ color: LABEL_TEXT }}
           >
@@ -395,7 +396,7 @@ export function MobileMenuPage({
       id="app-mobile-menu"
       role="dialog"
       aria-modal="true"
-      aria-label="Menu"
+      aria-label={tt("Menu")}
       data-mobile-menu={open ? "open" : "closed"}
       /*
         Z 50, THE PHONE HEADER'S OWN, AND RENDERED BEFORE IT (sidebar.tsx), so
@@ -571,10 +572,10 @@ const GLASS: React.CSSProperties = {
  * from the window's width. Whatever CSS made it, the lens agrees.
  */
 const TABS = [
-  { key: "home", label: "Home", href: "/app" },
-  { key: "orders", label: "Orders", href: "/app/orders" },
-  { key: "products", label: "Products", href: "/app/products" },
-  { key: "analytics", label: "Analytics", href: "/app/analytics" },
+  { key: "home", get label() { return tt("Home") }, href: "/app" },
+  { key: "orders", get label() { return tt("Orders") }, href: "/app/orders" },
+  { key: "products", get label() { return tt("Products") }, href: "/app/products" },
+  { key: "analytics", get label() { return tt("Analytics") }, href: "/app/analytics" },
 ] as const
 /**
  * How far the bottom of the pill sits above the bottom of the screen: the
@@ -960,7 +961,7 @@ export function MobileNavPill({
       >
         <nav
           ref={slide.barRef}
-          aria-label="Main"
+          aria-label={tt("Main")}
           {...slide.handlers}
           className="pointer-events-auto relative select-none rounded-full"
           style={{
@@ -1094,7 +1095,7 @@ export function MobileNavPill({
         */}
         <button
           type="button"
-          aria-label="Settings"
+          aria-label={tt("Settings")}
           aria-hidden={!menuOpen}
           tabIndex={menuOpen ? 0 : -1}
           onClick={() => {
@@ -1133,7 +1134,7 @@ export function MobileNavPill({
 
         <button
           type="button"
-          aria-label={menuOpen ? "Close menu" : "Menu"}
+          aria-label={menuOpen ? tt("Close menu") : tt("Menu")}
           aria-expanded={menuOpen}
           onClick={() => {
             hapticTap("light")

@@ -55,6 +55,7 @@ import {
 import { ACCESS_FOR_PRICE, afterFilter, exploreCategory, exploreCommunities, exploreOrFilter, explorePrice, exploreSubcategory } from "@/lib/communities/server/explore"
 import { cardExcerpt, cardRating, EXCERPT_MAX } from "@/lib/communities/server/public"
 import { purgeOldViewDays, recordCommunityView, visitorKey } from "@/lib/communities/server/views"
+import { untt } from "./i18n-source"
 
 let passed = 0
 let failed = 0
@@ -70,7 +71,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${d}`)
   }
 }
-const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 const DAY = 86_400_000

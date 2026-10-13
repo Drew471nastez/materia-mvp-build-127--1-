@@ -5,9 +5,13 @@ import { pageUser } from "@/lib/auth/page-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadCreatorMembership } from "@/lib/memberships/creator"
 import { CreatorMembershipScreenView } from "@/components/memberships/creator-screen"
+import { getServerTt } from "@/lib/i18n/server"
 
 export const dynamic = "force-dynamic"
-export const metadata: Metadata = { title: "Membership" }
+export async function generateMetadata(): Promise<Metadata> {
+  const { tt } = await getServerTt()
+  return { title: tt("Membership") }
+}
 
 interface Props {
   params: Promise<{ id: string }>
