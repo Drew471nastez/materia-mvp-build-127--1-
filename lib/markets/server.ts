@@ -29,7 +29,8 @@ import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
 import { defaultLocalization, validateLocalization, type Localization } from "./model"
 import { normalizeLocale } from "./locales"
-import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, seoTranslatables, sourceHash, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { compatThemeFor, installFiles } from "@/lib/website-builder/compat-site"
@@ -302,6 +303,9 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (menuItems.length) groups.splice(groups[0]?.id === "chrome" ? 1 : 0, 0, { id: "menus", title: "Menus", items: menuItems })
     const seoItems = seoTranslatables(theme)
     if (seoItems.length) groups.push({ id: "seo", title: "Search engines", items: seoItems })
+    /* The theme's own words: Branding's tagline and headline, the sale badge, the cookie banner (translate.ts themeTextTranslatables). */
+    const themeItems = themeTextTranslatables(theme, THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? []))
+    if (themeItems.length) groups.push({ id: "theme", title: "Theme settings", items: themeItems })
   }
 
   const { data: products } = await productsRead

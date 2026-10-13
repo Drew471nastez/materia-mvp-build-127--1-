@@ -67,9 +67,11 @@ export default async function SiteShopPage({ params, searchParams }: PageProps) 
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, productCount } = found
+  const { site: own, productCount } = found
   /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
-  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale, market), languageChoice(site.creatorId, locale, market)])
+  const [localizer, language] = await Promise.all([siteLocalizer(own.creatorId, locale, market), languageChoice(own.creatorId, locale, market)])
+  /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
+  const site = localizer ? { ...own, themeSettings: localizer.theme(own.themeSettings as Record<string, unknown>) as typeof own.themeSettings } : own
   const products = localizer && found.products ? localizer.cards(found.products) : found.products
   /* The page the creator arranged, when they have; the generated shop
      until then. The editor generates from the same builder, so the two

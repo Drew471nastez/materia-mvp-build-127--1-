@@ -63,7 +63,7 @@ export const blockKey = (sectionId: string, blockId: string, settingId: string) 
 
 /** A key that is one of the shapes above, at a sane length, and nothing else. */
 export function isTranslationKey(key: unknown): key is string {
-  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+|ui:[a-z_]+)$/i.test(key)
+  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+|theme:[a-z_]+|ui:[a-z_]+)$/i.test(key)
 }
 
 /** Where a key's value is shown, in words, for the translations list. */
@@ -271,11 +271,37 @@ export function seoTranslatables(theme: Record<string, unknown> | null | undefin
   return out
 }
 
-/** The theme's settings in a language: its menus, and its and its pages' search engine text. */
-export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: TranslationMap | null | undefined, opts: { approvedOnly?: boolean } = {}): T {
+/** Theme settings that are a setting's id and never words to translate, though their control takes text: the shop's own name. */
+const THEME_NOT_WORDS = new Set(["brand_name"])
+
+/**
+ * The theme's own words (Theme settings: Branding's tagline, headline and
+ * description, the sale badge, the cookie banner), by `theme:<setting id>`.
+ * `fields` is the theme settings schema, so a text setting added to it later
+ * is translatable with nothing else to change.
+ */
+export function themeTextTranslatables(theme: Record<string, unknown> | null | undefined, fields: readonly SchemaField[]): Translatable[] {
+  const out: Translatable[] = []
+  for (const f of fields) {
+    if (!TRANSLATABLE_TYPES.has(f.type) || THEME_NOT_WORDS.has(f.id)) continue
+    const v = theme?.[f.id]
+    if (typeof v === "string" && v.trim()) out.push({ key: `theme:${f.id}`, source: v, label: f.label, where: "Theme settings", multiline: f.type !== "text" })
+  }
+  return out
+}
+
+/** The theme's settings in a language: its menus, its own words (theme:<id>), and its and its pages' search engine text. */
+export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: TranslationMap | null | undefined, opts: TranslateOpts = {}): T {
   if (!map || map.size === 0) return theme
   const next: Record<string, unknown> = { ...theme }
   if (theme.menus && typeof theme.menus === "object") next.menus = localizeMenus(theme.menus as Record<string, MenuLike>, map, opts)
+  for (const key of map.keys()) {
+    if (!key.startsWith("theme:")) continue
+    const id = key.slice(6)
+    if (THEME_NOT_WORDS.has(id) || typeof theme[id] !== "string") continue
+    const v = valueFor(map, key, opts, theme[id] as string)
+    if (v !== null) next[id] = v
+  }
   const t = valueFor(map, "page:home:seo_title", opts)
   const d = valueFor(map, "page:home:seo_description", opts)
   if (t && typeof theme.seo_title === "string") next.seo_title = t

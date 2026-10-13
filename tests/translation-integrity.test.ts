@@ -7,7 +7,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { localizeCards, localizeRecord, localizeSections, sourceHash, translationMap, valueFor, type TranslationRow } from "@/lib/markets/translate"
+import { localizeCards, localizeRecord, localizeSections, localizeTheme, sourceHash, themeTextTranslatables, translationMap, valueFor, type TranslationRow } from "@/lib/markets/translate"
 import { saveTranslations } from "@/lib/markets/server"
 import { plainDescription } from "@/lib/products/plain-description"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -52,6 +52,20 @@ async function main() {
   check("every live page hands its language to the collections it lists", ["search/page.tsx", "products/page.tsx", "collections/page.tsx", "render-account.tsx", "collections/[handle]/page.tsx"].every((f) => /\{ cached: true, localizer \}/.test(read(`app/(site)/w/[username]/${f}`))))
   check("  where the page's data lays them over", /collections: collections && opts\.localizer \?/.test(read("lib/website-builder/published-site.ts")))
   check("imported themes too", /`collection:\$\{c\.id\}`/.test(read("lib/markets/compat.ts")))
+
+  console.log("\nThe theme's own words")
+  const fields = [{ id: "brand_name", type: "text", label: "Store name" }, { id: "tagline", type: "text", label: "Tagline" }, { id: "cookie_banner_text", type: "textarea", label: "Banner text" }, { id: "badge_sale_bg", type: "color", label: "Sale badge colour" }] as never
+  const theme = { brand_name: "Clay Studio", tagline: "Made by hand", cookie_banner_text: "We use cookies.", badge_sale_bg: "#ff0000" }
+  const items = themeTextTranslatables(theme, fields)
+  check("the tagline and the cookie banner are listed to translate", items.map((i) => i.key).join() === "theme:tagline,theme:cookie_banner_text", items.map((i) => i.key))
+  check("  never the shop's name, never a colour", !items.some((i) => i.key === "theme:brand_name" || i.key === "theme:badge_sale_bg"))
+  const themeMap = translationMap([row("theme:tagline", "Fait main", "Made by hand"), row("theme:cookie_banner_text", "Nous utilisons des cookies.", "We use cookies (old).")])
+  const shown = localizeTheme(theme, themeMap, { approvedOnly: true, fresh: true })
+  check("laid over on the page", shown.tagline === "Fait main")
+  check("  one written for an older text is not", shown.cookie_banner_text === "We use cookies.")
+  check("the translations list reads them from the theme settings schema", /themeTextTranslatables\(theme, THEME_SETTINGS_GROUPS\.flatMap/.test(read("lib/markets/server.ts")))
+  check("every live page lays the theme over in its language, not only the home page", ["products/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "search/page.tsx", "cart/page.tsx", "render-account.tsx"].every((f) => /themeSettings: localizer\.theme\(/.test(read(`app/(site)/w/[username]/${f}`))))
+  check("and the editor's language preview does too", /const canvasThemeShown = useMemo\(\(\) => \(previewMap \? \(localizeTheme\(/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /theme=\{canvasThemeShown\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 
   console.log("\nStorelib AI never replaces what the merchant wrote")
   const draft = read("app/api/store/translations/draft/route.ts")

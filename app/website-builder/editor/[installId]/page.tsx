@@ -171,7 +171,7 @@ import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/web
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { PreviewLanguageSwitch } from "@/components/website-builder/preview-language-switch"
-import { localizeCards, localizeMenus, localizeSections } from "@/lib/markets/translate"
+import { localizeCards, localizeMenus, localizeSections, localizeTheme } from "@/lib/markets/translate"
 import { languageName } from "@/lib/markets/locales"
 import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
@@ -7990,6 +7990,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [drawnSections, previewMap, storelibSources, librarySchemas],
   )
   const shopCardsShown = useMemo(() => localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true }), [shopCards, previewMap])
+  /* The theme's own words in the previewed language (the tagline, the sale badge, the cookie banner), as the live site lays them (translate.ts localizeTheme). */
+  const canvasThemeShown = useMemo(() => (previewMap ? (localizeTheme(canvasThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true, fresh: true }) as typeof canvasThemeSettings) : canvasThemeSettings), [canvasThemeSettings, previewMap])
   const compatLanguage = useMemo(
     () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
     [previewLang.locale, previewLang.defaultLanguage, previewLang.languages, previewMap],
@@ -10207,7 +10209,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 />
               ) : (
               <EditorCanvasPage
-                theme={canvasThemeSettings}
+                theme={canvasThemeShown}
                 sources={storelibSources}
                 pageTemplate={templateForPage(currentPage)}
                 sections={drawnShown}
