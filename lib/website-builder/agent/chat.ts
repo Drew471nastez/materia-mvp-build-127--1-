@@ -648,7 +648,7 @@ export async function reportThemeExchange(
 
   const prompt = message.role === "user" ? message : partner
   const reply = message.role === "user" ? partner : message
-  const engine = (REPORTABLE_ENGINES as readonly string[]).includes(input.engine ?? "") ? input.engine : null
+  const engine = (REPORTABLE_ENGINES as readonly string[]).includes(input.engine ?? "") || /^claude:claude-[a-z0-9-]{1,100}$/.test(input.engine ?? "") ? input.engine : null
 
   const { error: writeError } = await admin.from("theme_chat_reports").upsert(
     {

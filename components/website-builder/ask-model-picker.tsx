@@ -108,7 +108,7 @@ export function ModelPicker({
   const levelIndex = levels && level ? levels.indexOf(level) : 0
 
   const rows = (
-    <ul role="listbox" aria-label={tt("Model")} data-ask-model-menu="" className={cn(phone ? "px-2 pb-2" : "p-1")}>
+    <ul role="listbox" aria-label={tt("Model")} data-ask-model-menu="" className={cn("max-h-[min(45dvh,360px)] overflow-y-auto overscroll-contain", phone ? "px-2 pb-2" : "p-1")}>
       {engines.map((option) => {
         const selected = option.id === chosen.id
         return (

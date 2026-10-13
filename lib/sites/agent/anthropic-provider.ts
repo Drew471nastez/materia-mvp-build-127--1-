@@ -188,10 +188,10 @@ export function readUsage(usage: Anthropic.Usage | undefined): TokenUsage {
  * THE SAME PROVIDER ON SOMEBODY ELSE'S ACCOUNT. `client` is where the calls
  * go: Storelib's key by default, or a creator's own Claude key.
  */
-export function createAnthropicProvider(client: () => Anthropic, options: { id?: string } = {}): AgentProvider {
+export function createAnthropicProvider(client: () => Anthropic, options: { id?: string; modelInfo?: Anthropic.ModelInfo } = {}): AgentProvider {
   return {
     id: options.id ?? "anthropic",
-    complete: (request) => completeWith(client, request),
+    complete: (request) => completeWith(client, request, options.modelInfo),
   }
 }
 
@@ -202,7 +202,7 @@ export function anthropicClientFor(key: string): Anthropic {
 
 export const anthropicProvider: AgentProvider = createAnthropicProvider(anthropic)
 
-async function completeWith(client: () => Anthropic, request: ProviderRequest): Promise<ProviderTurn> {
+async function completeWith(client: () => Anthropic, request: ProviderRequest, modelInfo?: Anthropic.ModelInfo): Promise<ProviderTurn> {
   const rate = rateFor(request.model)
 
   /**
@@ -222,6 +222,7 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest): 
       max_tokens: Math.min(
         request.maxOutputTokens,
         rate?.maxOutputTokens ?? request.maxOutputTokens,
+        modelInfo?.max_tokens ?? request.maxOutputTokens,
       ),
       /**
        * Anthropic takes the system prompt as its own parameter rather than
@@ -258,7 +259,7 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest): 
          * agents already declares `additionalProperties: false` and
          * `required`, which is what this needs to be accepted.
          */
-        strict: true,
+        ...(!modelInfo?.capabilities || modelInfo.capabilities.structured_outputs.supported ? { strict: true } : {}),
       })),
       /**
        * Adaptive thinking. On Sonnet 5 and Opus 5 this is the only on-mode —
@@ -271,8 +272,10 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest): 
        * worth watching, what it is thinking is not something to put on a
        * customer's screen.
        */
-      thinking: { type: "adaptive" as const },
-      ...(request.effort ? { output_config: { effort: request.effort } } : {}),
+      ...(modelInfo?.capabilities
+        ? modelInfo.capabilities.thinking.types.adaptive.supported ? { thinking: { type: "adaptive" as const } } : {}
+        : /claude-(?:sonnet-5|opus-(?:5|4-[678])|sonnet-4-6|fable|mythos)/.test(request.model) ? { thinking: { type: "adaptive" as const } } : {}),
+      ...(request.effort && (modelInfo?.capabilities ? modelInfo.capabilities.effort?.[request.effort]?.supported : !/haiku|sonnet-4-5|opus-4-5/.test(request.model)) ? { output_config: { effort: request.effort } } : {}),
     },
     { signal: request.signal },
   )

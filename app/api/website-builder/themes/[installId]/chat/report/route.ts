@@ -23,7 +23,7 @@ export const runtime = "nodejs"
 const BodySchema = z.object({
   messageId: z.string().uuid(),
   reason: z.string().max(REPORT_REASON_MAX * 2).nullable().optional(),
-  engine: z.string().max(32).nullable().optional(),
+  engine: z.string().max(120).nullable().optional(),
 })
 
 export async function POST(request: Request, context: { params: Promise<{ installId: string }> }) {
