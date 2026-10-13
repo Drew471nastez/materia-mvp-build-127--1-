@@ -25,7 +25,7 @@ import { SectionErrorBoundary } from "./SectionErrorBoundary"
 import { sectionTokenAttrs, type SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
 import { StorelibSection } from "./StorelibSection"
-import { ownAnchor, sectionAnchor, SECTION_ANIMATIONS } from "@/lib/website-builder/section-anchors"
+import { entranceSetting, ownAnchor, sectionAnchor, SECTION_ANIMATIONS } from "@/lib/website-builder/section-anchors"
 import { useLiveSection } from "@/lib/website-builder/live-settings"
 
 /** A section's `animation` setting as the page reads it; "theme" and anything unknown are no attribute. */
@@ -173,7 +173,7 @@ export function renderSection(props: SectionProps) {
       data-anchor={sectionAnchor(props.section.id)}
       data-anchor-alias={ownAnchor(props.section) || undefined}
       /* The section's own entrance animation, when it chose one over the theme's. */
-      data-animation={sectionAnimationAttr(props.section.settings?.animation)}
+      data-animation={sectionAnimationAttr(entranceSetting(props.section))}
       {...tokens}
     >
       {guard(<Component {...props} />)}

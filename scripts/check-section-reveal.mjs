@@ -99,6 +99,40 @@ await run("A phone, 390 x 844", "/", { width: 390, height: 844, phone: true })
 await run("The builder's canvas, 1000 x 700", "/?mode=canvas&w=1000&h=700", { width: 1080, height: 780 })
 await run("The builder's canvas, phone, 390 x 700", "/?mode=canvas&w=390&h=700", { width: 470, height: 780 })
 
+/*
+  A SETTING CHANGED IN THE BUILDER PLAYS. The section being edited is on
+  screen, and on screen is never hidden, so a new entrance only showed after
+  scrolling it away and back. Now the sections in view play it once.
+*/
+async function changed(name, url, size, apply) {
+  const page = await probe.open(url, size)
+  await sleep(700)
+  await page.evaluate(() => { window.__anims.length = 0 })
+  await page.evaluate(apply)
+  await sleep(1200)
+  const anims = await page.evaluate(() => window.__anims)
+  const state = await page.evaluate(STATE)
+  await page.close()
+  console.log(`        ${name}: animated ${[...new Set(anims.map((a) => a.key))].join(", ") || "nothing"}`)
+  return { anims, state }
+}
+console.log("\nA setting changed while the page is open")
+{
+  const canvasSize = { width: 1080, height: 780 }
+  const one = await changed("canvas, features set to zoom", "/?mode=canvas&w=1000&h=700", canvasSize, () => window.__setSection("features-b2", { animation: "zoom" }))
+  check("in the canvas, the edited section plays its new entrance once", one.anims.length === 1 && one.anims[0].key === "features-b2" && one.anims[0].props.includes("scale"), one.anims)
+  check("  and everything on screen is shown at the end", one.state.boxes.filter((b) => b.onScreen).every((b) => b.opacity === "1" && b.reveal === null), one.state.boxes.filter((b) => b.onScreen))
+  const first = await changed("canvas, the first section set to zoom", "/?mode=canvas&w=1000&h=700", canvasSize, () => window.__setSection("intro-a1", { animation: "zoom" }))
+  check("  the first section still never moves", first.anims.length === 0, first.anims)
+  const all = await changed("canvas, the theme's style set to zoom", "/?mode=canvas&w=1000&h=700", canvasSize, () => window.__setTheme({ animation_style: "zoom-in" }))
+  const inView = all.state.boxes.filter((b) => b.onScreen && !b.chrome).map((b) => b.key).filter((k) => k !== BODY_FIRST && k !== "quiet-d4" && k !== "faq-x1")
+  check("  a theme change plays on every section in view that follows the theme", inView.length > 0 && inView.every((k) => all.anims.some((a) => a.key === k)) && all.anims.every((a) => a.key !== BODY_FIRST), { inView, animated: all.anims.map((a) => a.key) })
+  const off = await changed("canvas, animations switched off", "/?mode=canvas&w=1000&h=700", canvasSize, () => window.__setTheme({ animations_enabled: false }))
+  check("  switched off, nothing plays", off.anims.length === 0, off.anims)
+  const live = await changed("live page, features set to zoom", "/", { width: 1280, height: 800 }, () => window.__setSection("features-b2", { animation: "zoom" }))
+  check("on the live page a setting never changes under a visitor, and nothing replays", live.anims.length === 0, live.anims)
+}
+
 console.log("\nReduced motion")
 {
   const page = await probe.open("/", { width: 1280, height: 800, reduced: true })

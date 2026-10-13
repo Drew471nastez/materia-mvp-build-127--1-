@@ -325,6 +325,21 @@ export function themeAnimation(theme: Record<string, unknown> | null | undefined
   return THEME_STYLE[style] ?? "fade_up"
 }
 
+/**
+ * A section's entrance choice, as stored. Tabs used `animation` for how a
+ * tab's panel switches (none, fade, slide) before that became
+ * `tab_animation`: a tabs section saved before then, with no
+ * `tab_animation`, has no entrance choice of its own, and its `animation`
+ * is still the tab switch (components/website-builder/sections/renderers/
+ * TabsContentSection.tsx). It made the section fade in on scroll with the
+ * theme's animations off.
+ */
+export function entranceSetting(section: { type: string; settings?: Record<string, unknown> | null }): unknown {
+  const s = section.settings ?? {}
+  if (section.type === "tabs_content" && s.tab_animation === undefined) return undefined
+  return s.animation
+}
+
 /** A section's `animation` setting over the theme's. Anything unknown is "theme". */
 export function resolveSectionAnimation(own: unknown, theme: Record<string, unknown> | null | undefined): SectionAnimation {
   if (typeof own === "string" && own !== "theme" && (SECTION_ANIMATIONS as readonly string[]).includes(own)) return own as SectionAnimation

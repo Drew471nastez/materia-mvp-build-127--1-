@@ -31,6 +31,7 @@ import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
 import { SocialLinksEditor } from "@/components/website-builder/editor/social-links-editor"
 import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
+import { isChromeType } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock } from "@/components/website-builder/editor/block-tree-rows"
@@ -7410,6 +7411,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               section={section}
               schema={schema}
               theme={settingsDraft}
+              firstBody={sections.find((x) => !x.hidden && !isChromeType(x.type))?.id === section.id}
               onUpdateSetting={(key, val) => updateSectionSetting(section.id, key, val)}
               onEditScheme={(schemeKey) => {
                 if (schemeKey) setEditSchemeKey(schemeKey)

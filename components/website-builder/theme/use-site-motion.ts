@@ -14,7 +14,7 @@ import {
   publishAnchorOffset,
   type Reveal,
 } from "@/lib/website-builder/section-motion"
-import { isChromeType } from "@/lib/website-builder/section-anchors"
+import { entranceSetting, isChromeType } from "@/lib/website-builder/section-anchors"
 import { installMediaFade } from "@/lib/website-builder/media-fade"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -34,7 +34,7 @@ export function useSiteMotion(
     t.animation_style ?? null,
     t.animation_duration ?? null,
     t.animation_stagger ?? null,
-    body.map((s) => s.settings?.animation ?? null),
+    body.map((s) => entranceSetting(s) ?? null),
   ])
 
   /* The header's height, measured and shared: the scroll lands under it, and
@@ -72,6 +72,11 @@ export function useSiteMotion(
   const lastIds = useRef<string>("")
   const themeRef = useRef(t)
   themeRef.current = t
+  /* What the last plan was made from, to tell a changed setting from a first load (the editor's preview, below). */
+  const lastMotion = useRef<{ theme: string; own: Map<string, unknown> } | null>(null)
+  const motionNow = { theme: JSON.stringify([t.animations_enabled ?? null, t.animation_style ?? null, t.animation_duration ?? null, t.animation_stagger ?? null]), own: new Map(body.map((s) => [s.id, entranceSetting(s) ?? null])) }
+  const motionRef = useRef(motionNow)
+  motionRef.current = motionNow
 
   useEffect(() => {
     const root = rootRef.current
@@ -83,6 +88,19 @@ export function useSiteMotion(
       r = installReveal(root, themeRef.current)
       reveal.current = r
       lastIds.current = rootRef.current ? currentIds(rootRef.current) : ""
+      /*
+        IN THE EDITOR, A CHANGED SETTING PLAYS. The section being edited is on
+        screen, and on screen is never hidden, so a new entrance showed only
+        after scrolling it away and back. Now the sections in view play it
+        once: every one for a theme setting, the edited ones for their own.
+      */
+      const before = lastMotion.current
+      const now = motionRef.current
+      lastMotion.current = now
+      if (!inEditor || !before) return
+      if (before.theme !== now.theme) return r.preview(null)
+      const changed = [...now.own.keys()].filter((id) => before.own.has(id) && before.own.get(id) !== now.own.get(id))
+      if (changed.length) r.preview(changed)
     })
     return () => {
       cancelAnimationFrame(frame)

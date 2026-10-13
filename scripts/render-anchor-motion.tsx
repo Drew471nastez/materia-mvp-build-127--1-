@@ -23,6 +23,9 @@ declare global {
   interface Window {
     __ready: boolean
     __scrollToHash: (hash: string) => boolean
+    /* A setting changed while the page is open, as the editor's sidebar does it. */
+    __setSection: (key: string, patch: Record<string, unknown>) => void
+    __setTheme: (patch: Record<string, unknown>) => void
   }
 }
 
@@ -46,7 +49,7 @@ const canvas = params.get("mode") === "canvas"
 /** Tall enough to need a real scroll between any two sections. */
 const tall = { padding_top: 120, padding_bottom: 120 }
 
-const sections: SectionInstance[] = [
+const initialSections: SectionInstance[] = [
   fromPreset("header", "header-1", { header_sticky_enabled: true }, [
     nav("n1", "Pricing", "/#pricing"),
     nav("n2", "Questions", "/#section-faq-x1"),
@@ -63,7 +66,7 @@ const sections: SectionInstance[] = [
   fromPreset("footer", "footer-1"),
 ]
 
-const theme = {
+const initialTheme = {
   animations_enabled: true,
   animation_style: "fade-up",
   animation_duration: 600,
@@ -72,6 +75,10 @@ const theme = {
 } as unknown as ThemeSettingsValues
 
 function App() {
+  const [sections, setSections] = React.useState(initialSections)
+  const [theme, setTheme] = React.useState(initialTheme)
+  window.__setSection = (key, patch) => setSections((all) => all.map((s) => (s.id === key ? { ...s, settings: { ...s.settings, ...patch } } : s)))
+  window.__setTheme = (patch) => setTheme((t) => ({ ...t, ...patch }) as ThemeSettingsValues)
   const page = <ThemePage theme={theme} sections={sections} storefront={canvas ? { inEditor: true } : undefined} />
   if (!canvas) return page
   const w = Number(params.get("w") || 1000)

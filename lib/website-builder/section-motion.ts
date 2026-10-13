@@ -448,6 +448,13 @@ export interface Reveal {
   rescan: (fresh: boolean) => void
   /** Everything shown, nothing watched. */
   stop: () => void
+  /**
+   * The editor only: play the entrance once on the sections in view, as a
+   * visitor scrolling to them would see it. `keys` names the sections whose
+   * setting changed; null is every one (a theme setting changed). A section
+   * that never arrives (the first, the header, one set to None) stays still.
+   */
+  preview: (keys: string[] | null) => void
 }
 
 /**
@@ -462,7 +469,7 @@ export function installReveal(root: HTMLElement, theme: Record<string, unknown>,
   const supported =
     typeof IntersectionObserver !== "undefined" && typeof Element !== "undefined" && typeof Element.prototype.animate === "function"
   if (reduced || !supported) {
-    return { rescan: () => {}, stop: () => {} }
+    return { rescan: () => {}, stop: () => {}, preview: () => {} }
   }
   const { duration, stagger } = revealTiming(theme)
   const sc = scrollerOf(root)
@@ -531,10 +538,33 @@ export function installReveal(root: HTMLElement, theme: Record<string, unknown>,
   const showAll = () => {
     for (const b of Array.from(root.querySelectorAll<HTMLElement>(`${BOX}[data-reveal]`))) b.removeAttribute("data-reveal")
   }
+
+  const preview = (keys: string[] | null) => {
+    const boxes = boxesOf(root)
+    const plan = revealPlan(
+      boxes.map((b) => ({ type: b.dataset.sectionType ?? "", chrome: b.hasAttribute("data-chrome"), animation: b.dataset.animation ?? null, ownMotion: ownMotion(b) })),
+      theme,
+    )
+    const view = sc ? sc.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+    let n = 0
+    boxes.forEach((b, i) => {
+      const s = plan[i]
+      if (!s || b.hasAttribute("data-reveal")) return
+      if (keys && !keys.includes(b.dataset.sectionKey ?? "")) return
+      const r = b.getBoundingClientRect()
+      if (r.bottom <= view.top || r.top >= view.bottom) return
+      try {
+        b.animate(keyframesFor(s), { duration, delay: n++ * stagger, easing: REVEAL_EASING, fill: "backwards" })
+      } catch {
+        /* Shown as it is. */
+      }
+    })
+  }
   window.addEventListener("beforeprint", showAll)
   rescan(true)
   return {
     rescan,
+    preview,
     stop: () => {
       io.disconnect()
       window.removeEventListener("beforeprint", showAll)

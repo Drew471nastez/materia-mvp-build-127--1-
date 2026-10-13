@@ -214,7 +214,7 @@
       "type": "header"
     },
     {
-      "id": "animation",
+      "id": "tab_animation",
       "label": "Tab switch animation",
       "type": "select",
       "default": "fade",
