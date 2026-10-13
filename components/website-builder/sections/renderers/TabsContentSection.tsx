@@ -25,7 +25,7 @@ export function TabsContentSection({ section, theme, isEditing, isSelected, onCl
   const style = str(s.tab_style, "underline")
   const position = str(s.tab_position, "top")
   /* How a tab's panel switches: `tab_animation`, or `animation` for a section saved before it was renamed (section-anchors entranceSetting). */
-  const animation = str(s.tab_animation, s.tab_animation === undefined && ["none", "fade", "slide"].includes(String(s.animation)) ? String(s.animation) : "fade")
+  const animation = str(s.tab_animation, str(s.animation, "fade"))
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60
   const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-(--theme-page-width)", full: "max-w-none" }

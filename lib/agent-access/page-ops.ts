@@ -40,6 +40,7 @@ import {
 } from "@/lib/website-builder/agent/operations"
 import { schemaOf, type SchemaMap } from "@/lib/website-builder/agent/schemas"
 import { themeExtraFields, typographyWrite } from "@/lib/website-builder/agent/theme-extras"
+import { tabSwitchUpgrade } from "@/lib/website-builder/section-anchors"
 import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 
 /** What an agent sends: an operation with settings as objects, ids its own. */
@@ -139,12 +140,9 @@ export function checkOp(
       if (!raw || Object.keys(raw).length === 0) return { error: "settings is a non-empty object of setting id to value." }
       const checked = checkSettings(fieldsFor(found.type, schemas), raw, found.type)
       if (checked.error) return { error: checked.error }
-      /* A tabs section saved before `tab_animation` keeps its tab switch under the new name, so `animation` can be its entrance (section-anchors entranceSetting). */
-      if (found.type === "tabs_content" && checked.settings!.animation !== undefined && found.settings?.tab_animation === undefined) {
-        const old = String(found.settings?.animation ?? "")
-        checked.settings!.tab_animation = ["none", "fade", "slide"].includes(old) ? old : "fade"
-      }
-      return { op: { kind: "update_section", id: found.id, settings: checked.settings! }, note: checked.notes.join("; ") || undefined }
+      /* A tabs section saved before `tab_animation`: the write carries its switch under the new name (section-anchors tabSwitchUpgrade). */
+      const upgraded = tabSwitchUpgrade(found, checked.settings!)
+      return { op: { kind: "update_section", id: found.id, settings: upgraded.settings, ...(upgraded.unset.length ? { unset: upgraded.unset } : {}) }, note: checked.notes.join("; ") || undefined }
     }
 
     case "move_section": {

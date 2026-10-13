@@ -20,6 +20,7 @@
  * Each is held to what its control takes, as every other setting is.
  */
 import type { SchemaField } from "../types"
+import { themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import {
   FONT_ROLES,
   TEXT_TRANSFORMS,
@@ -41,10 +42,9 @@ const SIZE = { min: 8, max: 200 }
 const LINE = { min: 0.8, max: 3 }
 const TRACKING = { min: -5, max: 20 }
 
-/** The scheme keys this theme has, for default_color_scheme. */
+/** The scheme keys this theme has, for default_color_scheme: the built-in ones too, not only those the seller changed or added. */
 export function schemeKeys(settings: Record<string, unknown>): string[] {
-  const schemes = settings.color_schemes
-  return schemes && typeof schemes === "object" && !Array.isArray(schemes) ? Object.keys(schemes as Record<string, unknown>) : []
+  return Object.keys(themeColorSchemes(settings))
 }
 
 /** The plain controls among them, checked by checkSettings like any other. */

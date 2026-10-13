@@ -30,6 +30,8 @@ import {
   themeAnimation,
   declaresOwnMotion,
   entranceSetting,
+  tabSwitchUpgrade,
+  withTabSwitchKey,
   type SectionLike,
 } from "../lib/website-builder/section-anchors"
 import { LINK_CATEGORIES, linkCategoryOf, linkMenu, sectionLinkTargets, sectionTargetFor, drillsIntoSections, picksDirectly } from "../lib/website-builder/link-menu"
@@ -188,9 +190,16 @@ function main() {
   check("  every other section reads `animation` as before", entranceSetting({ type: "image_banner", settings: { animation: "fade" } }) === "fade")
   check("  the schema calls the switch tab_animation", /"id": "tab_animation",\s*"label": "Tab switch animation"/.test(read("themes/default/sections/tabs_content.json")) && !/"id": "animation"/.test(read("themes/default/sections/tabs_content.json")))
   const tabs = read("components/website-builder/sections/renderers/TabsContentSection.tsx")
-  check("  and the section still reads an old saved switch", /str\(s\.tab_animation, s\.tab_animation === undefined && \["none", "fade", "slide"\]\.includes\(String\(s\.animation\)\)/.test(tabs))
+  check("  and the section still reads an old saved switch", /str\(s\.tab_animation, str\(s\.animation, "fade"\)\)/.test(tabs))
+  check("  a new tabs section is added with tab_animation, never animation", /"tab_animation": "fade"/.test(read("themes/default/sections/tabs_content.json")) && !/"animation": "fade"/.test(read("themes/default/sections/tabs_content.json")))
+  const upgraded = withTabSwitchKey<{ type: string; settings: Record<string, unknown> }>({ type: "tabs_content", settings: { animation: "slide", heading: "x" } })
+  check("  an old one is brought up to date as the editor loads it: the switch moved, the old key gone", upgraded.settings.tab_animation === "slide" && !("animation" in upgraded.settings) && upgraded.settings.heading === "x")
+  check("    so setting its switch later never turns the old value into an entrance", entranceSetting({ ...upgraded, settings: { ...upgraded.settings, tab_animation: "none" } }) === undefined)
+  check("    and the editor does it on every page it loads", /sec = withTabSwitchKey\(sec\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  const write = tabSwitchUpgrade({ type: "tabs_content", settings: { animation: "fade" } }, { tab_animation: "slide" })
+  check("  a write through the assistant or the agent API to an old one clears the old key", write.settings.tab_animation === "slide" && write.unset.join() === "animation")
   const designPanel = read("components/website-builder/editor/design-panels.tsx")
-  check("  the panel offers the entrance for tabs, keeping the old switch under its new name first", /section\.type === "tabs_content" && s\.tab_animation === undefined\) \{\s*onUpdateSetting\("tab_animation"/.test(designPanel) && /const own = entranceSetting\(section\)/.test(designPanel))
+  check("  the panel offers the entrance for tabs too", /const own = entranceSetting\(section\)/.test(designPanel) && /const setAnimation = \(v: string\) => onUpdateSetting\("animation"/.test(designPanel))
   check("the panel says the first section shows without an entrance", /firstBody \? <p[^>]*>\{?"?The first section is on screen as the page opens, so it shows without an entrance\."?\}?/.test(designPanel) && /firstBody=\{sections\.find\(\(x\) => !x\.hidden && !isChromeType\(x\.type\)\)\?\.id === section\.id\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
   check("\"Same as theme\" names alternate sides, never fade up", /themeAlternates\(asRecord\(theme\)\) \? "alternate sides"/.test(designPanel))
 

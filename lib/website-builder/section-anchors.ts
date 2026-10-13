@@ -340,6 +340,40 @@ export function entranceSetting(section: { type: string; settings?: Record<strin
   return s.animation
 }
 
+const TAB_SWITCHES = ["none", "fade", "slide"]
+
+/**
+ * A tabs section saved before `tab_animation`, brought up to date: its
+ * switch moved to `tab_animation` and its old `animation` (the switch, never
+ * an entrance: the panel never offered one) gone. The editor does this as a
+ * page loads, so the switch's control shows what the section does and a
+ * later write of either key means what it says.
+ */
+export function withTabSwitchKey<T extends { type: string; settings?: Record<string, unknown> | null }>(section: T): T {
+  const s = section.settings
+  if (section.type !== "tabs_content" || !s || s.tab_animation !== undefined) return section
+  const old = typeof s.animation === "string" ? s.animation : ""
+  const { animation: _switch, ...rest } = s
+  return { ...section, settings: { ...rest, tab_animation: TAB_SWITCHES.includes(old) ? old : "fade" } }
+}
+
+/**
+ * The same, for one write to such a section through the assistant or the
+ * agent API, which act on what was stored: the write carries the switch
+ * under its new name and clears the old key, unless it sets the entrance.
+ */
+export function tabSwitchUpgrade(
+  section: { type: string; settings?: Record<string, unknown> | null },
+  settings: Record<string, unknown>,
+): { settings: Record<string, unknown>; unset: string[] } {
+  const s = section.settings ?? {}
+  if (section.type !== "tabs_content" || s.tab_animation !== undefined) return { settings, unset: [] }
+  const old = typeof s.animation === "string" ? s.animation : ""
+  const next = { ...settings }
+  if (next.tab_animation === undefined) next.tab_animation = TAB_SWITCHES.includes(old) ? old : "fade"
+  return { settings: next, unset: next.animation === undefined && s.animation !== undefined ? ["animation"] : [] }
+}
+
 /** A section's `animation` setting over the theme's. Anything unknown is "theme". */
 export function resolveSectionAnimation(own: unknown, theme: Record<string, unknown> | null | undefined): SectionAnimation {
   if (typeof own === "string" && own !== "theme" && (SECTION_ANIMATIONS as readonly string[]).includes(own)) return own as SectionAnimation

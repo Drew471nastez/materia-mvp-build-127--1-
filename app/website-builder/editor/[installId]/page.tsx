@@ -31,7 +31,7 @@ import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
 import { SocialLinksEditor } from "@/components/website-builder/editor/social-links-editor"
 import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
-import { isChromeType } from "@/lib/website-builder/section-anchors"
+import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock } from "@/components/website-builder/editor/block-tree-rows"
@@ -3702,6 +3702,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // productData resolves — a transient API failure would otherwise reveal
     // the wrong product.
     loaded = loaded.map(sec => {
+      /* A tabs section saved before `tab_animation` (lib/website-builder/section-anchors withTabSwitchKey). */
+      sec = withTabSwitchKey(sec)
       if (!sec.settings || !("_product_data" in sec.settings)) return sec
       const { _product_data: _omit, ...rest } = sec.settings as Record<string, unknown>
       return { ...sec, settings: rest }

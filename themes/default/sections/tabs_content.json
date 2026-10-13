@@ -339,7 +339,7 @@
         "tab_position": "top",
         "tab_style": "underline",
         "alignment": "left",
-        "animation": "fade",
+        "tab_animation": "fade",
         "padding_top": 60,
         "padding_bottom": 60,
         "color_scheme": "white"

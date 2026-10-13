@@ -32,6 +32,7 @@
  */
 
 import { describeThemeExtras, themeExtraFields, typographyWrite } from "./theme-extras"
+import { tabSwitchUpgrade } from "../section-anchors"
 import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
 import {
   applyOp,
@@ -2733,17 +2734,15 @@ function execute(
       }
       const checked = Object.keys(settings).length ? checkSettings(fieldsFor(found.type, schemas), settings, found.type) : { settings: {}, notes: [] as string[] }
       if (checked.error) return { output: checked.error }
-      /* A tabs section saved before `tab_animation` keeps its tab switch under the new name, so `animation` can be its entrance (section-anchors entranceSetting). */
-      if (found.type === "tabs_content" && checked.settings!.animation !== undefined && found.settings?.tab_animation === undefined) {
-        const old = String(found.settings?.animation ?? "")
-        checked.settings!.tab_animation = ["none", "fade", "slide"].includes(old) ? old : "fade"
-      }
+      /* A tabs section saved before `tab_animation`: the write carries its switch under the new name (section-anchors tabSwitchUpgrade). */
+      const upgraded = tabSwitchUpgrade(found, checked.settings!)
+      const cleared = [...new Set([...unset, ...upgraded.unset])]
 
       return {
         output: `Updated ${found.type} [${id}]: ${[...Object.keys(checked.settings!), ...unset.map((k) => `${k} cleared`)].join(", ")}.${
           checked.notes.length > 0 ? ` (${checked.notes.join("; ")})` : ""
         }`,
-        op: { kind: "update_section", id, settings: checked.settings!, ...(unset.length ? { unset } : {}) },
+        op: { kind: "update_section", id, settings: upgraded.settings, ...(cleared.length ? { unset: cleared } : {}) },
       }
     }
 

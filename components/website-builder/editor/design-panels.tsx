@@ -691,13 +691,8 @@ export function SectionDesignPanel({
   const animationOptions = SECTION_ANIMATION_OPTIONS.map((o) =>
     o.value === "theme" ? { ...o, label: tt("Same as theme ({themeMotion})", { themeMotion: themeMotionLabel }) } : o,
   )
-  const setAnimation = (v: string) => {
-    /* A tabs section saved before `tab_animation`: its tab switch is kept under its own name first, so `animation` can mean the entrance. */
-    if (section.type === "tabs_content" && s.tab_animation === undefined) {
-      onUpdateSetting("tab_animation", ["none", "fade", "slide"].includes(String(s.animation)) ? s.animation : "fade")
-    }
-    onUpdateSetting("animation", v === "theme" ? undefined : v)
-  }
+  /* A tabs section saved before `tab_animation` is brought up to date as the editor loads it (section-anchors withTabSwitchKey), so `animation` here is always the entrance. */
+  const setAnimation = (v: string) => onUpdateSetting("animation", v === "theme" ? undefined : v)
 
   if (!support.colorScheme && !support.typography && !showAnimation) return null
 

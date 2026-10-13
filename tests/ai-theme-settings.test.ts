@@ -60,6 +60,9 @@ function main() {
   check("another logo on phones, its picture and its height (held to 80)", logo?.use_mobile_logo === true && logo.mobile_logo_url === "https://example.com/logo-small.png" && logo.mobile_logo_width === 80, logo)
   check("the default scheme is one the theme has", themeAfter({ default_color_scheme: "night" })?.default_color_scheme === "night")
   check("  never one it does not", !theme({ default_color_scheme: "sunset" }).ok)
+  const plain: ThemeState = { sections: start.sections, settings: {} }
+  const builtIn = checkOps(plain, [{ op: "update_theme", settings: { default_color_scheme: "dark" } }], schemas)
+  check("  a built-in scheme, on a theme that never changed one", builtIn.ok, builtIn)
   check("an id nothing has is still refused", !theme({ made_up_setting: 1 }).ok)
   check("the model is told about them under update_theme", /typography_styles/.test(describeThemeExtras()) && /mobile_logo_width/.test(describeThemeExtras()) && /default_color_scheme/.test(describeThemeExtras()) && /describeThemeExtras\(\)/.test(read("lib/website-builder/agent/loop.ts")))
 
@@ -72,7 +75,10 @@ function main() {
   const tabs = checkOps(start, [{ op: "update_section", section_id: "t1", settings: { animation: "fade_up" } }], schemas)
   const tabsAfter = tabs.ok ? applyOp(start, tabs.ops[0], schemas).sections.find((s) => s.id === "t1") : null
   check("an older tabs section keeps its slide switch and takes the entrance", tabsAfter?.settings.tab_animation === "slide" && tabsAfter && entranceSetting(tabsAfter) === "fade_up", tabsAfter?.settings)
-  check("  the builder's assistant does the same", /found\.type === "tabs_content" && checked\.settings!\.animation !== undefined && found\.settings\?\.tab_animation === undefined/.test(read("lib/website-builder/agent/loop.ts")))
+  const switchOnly = checkOps(start, [{ op: "update_section", section_id: "t1", settings: { tab_animation: "none" } }], schemas)
+  const switchAfter = switchOnly.ok ? applyOp(start, switchOnly.ops[0], schemas).sections.find((s) => s.id === "t1") : null
+  check("  setting only its switch clears the old key, so it never becomes an entrance", switchAfter?.settings.tab_animation === "none" && !("animation" in (switchAfter?.settings ?? {})) && switchAfter !== null && entranceSetting(switchAfter!) === undefined, switchAfter?.settings)
+  check("  the builder's assistant does the same", /const upgraded = tabSwitchUpgrade\(found, checked\.settings!\)/.test(read("lib/website-builder/agent/loop.ts")))
 
   console.log("\nA scheme's gradient")
   const scheme = (gradient: string) => setColorScheme(JSON.stringify({ scheme: "night", name: "", colorsJson: "{}", gradient }), start)

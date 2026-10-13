@@ -184,6 +184,18 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, status: 400, error: "Enter your email address.", field: "email" }
   const clientKey = clean(input.clientKey, 120)
   if (clientKey.length < 8) return { ok: false, status: 400, error: "Refresh the page and try again." }
+  /*
+    PLACE ORDER AGAIN, after an answer that never arrived: the cash order the
+    first press placed, found before the cart is priced. Priced first, a press
+    that had taken the last units read "only 0 left" for an order already on
+    its way.
+  */
+  if (input.cashOnDelivery === true && input.shopId) {
+    const { data: placed } = await db.from("commerce_checkouts").select("id, status, receipt_token").eq("creator_id", input.shopId).eq("client_key", codClientKey(clientKey)).maybeSingle()
+    if (placed?.status === "paid" && placed.receipt_token) {
+      return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receipt_token as string)}`, checkoutId: placed.id as string, free: false, cod: true, receiptToken: placed.receipt_token as string }
+    }
+  }
 
   const items = readItems(input.items)
   const priced = await priceCheckout(db, { items, couponCode: input.couponCode, buyerId: input.buyerId, buyerEmail: email, ownerEmail: input.ownerEmail ?? null, shopId: input.shopId })
@@ -252,9 +264,20 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   /* Paid on delivery, its own row: a card checkout for the same cart is let go, so its stock hold does not sit beside this one. */
   const rowKey = cod ? codClientKey(clientKey) : clientKey
   if (cod) {
-    const { data: card } = await db.from("commerce_checkouts").select("id, status").eq("creator_id", priced.creatorId).eq("client_key", clientKey).maybeSingle()
+    const { data: card } = await db.from("commerce_checkouts").select("id, status, stripe_payment_intent_id, stripe_session_id").eq("creator_id", priced.creatorId).eq("client_key", clientKey).maybeSingle()
     if (card?.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
-    if (card?.status === "pending") await releaseCheckout(db, card.id as string, "cancelled", "Paying in cash on delivery instead")
+    if (card?.status === "pending") {
+      /*
+        Its card payment is stopped at Stripe first, as Change does (abandonCheckout).
+        Let go without that, a card the bank charged a moment ago, whose answer had
+        not reached the page, was charged with no order behind it: its webhook finds
+        the checkout cancelled. One Stripe will not cancel is left to finish.
+      */
+      const letGo = card.stripe_payment_intent_id || card.stripe_session_id
+        ? await abandonCheckout(db, { shopId: priced.creatorId, clientKey })
+        : (await releaseCheckout(db, card.id as string, "cancelled", "Paying in cash on delivery instead"), true)
+      if (!letGo) return { ok: false, status: 409, error: "A card payment for this order is still going through. Wait a moment and refresh the page: if it went through, your order is placed." }
+    }
   }
 
   /* The same press again: the checkout it made, and its page while it is open. */

@@ -32,6 +32,7 @@ import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatu
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
 import { COD_PROVIDER, paymentStateOf, type PaymentState } from "./cash-on-delivery"
+import { currencyCode, formatMinor } from "@/lib/markets/money"
 
 export interface OrderLine {
   orderId: string
@@ -732,7 +733,8 @@ export async function markCashCollected(db: Db, creatorId: string, checkoutId: s
       checkoutId,
       creatorId,
       kind: "payment.paid",
-      message: `Cash on delivery received: ${((row.total_cents ?? 0) / 100).toFixed(2)} ${row.currency ?? ""}`.trim(),
+      /* In the currency's own decimals: ¥2,500, never "25.00 JPY". */
+      message: `Cash on delivery received: ${formatMinor(row.total_cents ?? 0, currencyCode(row.currency) ?? "USD", "en")}`,
       actor: "creator",
       key: `cod_collected:${checkoutId}`,
     })

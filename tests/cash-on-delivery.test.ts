@@ -106,6 +106,10 @@ function main() {
   check("no seller ledger entry for cash never held", /if \(co\.provider !== COD_PROVIDER\) await step\("ledger"/.test(server))
   check("a database without part 174 is said plainly", /cod && insertError\?\.code === "23514"/.test(server))
   check("a second press returns the order already placed", /existing && cod && existing\.status === "paid" && existing\.receipt_token/.test(server))
+  check("  found before the cart is priced, so taking the last units never reads as a failure", server.indexOf("if (input.cashOnDelivery === true && input.shopId)") > 0 && server.indexOf("if (input.cashOnDelivery === true && input.shopId)") < server.indexOf("const priced = await priceCheckout("))
+  check("a card payment started for the same cart is stopped at Stripe before cash takes over", /\? await abandonCheckout\(db, \{ shopId: priced\.creatorId, clientKey \}\)/.test(server) && /if \(!letGo\) return \{ ok: false, status: 409/.test(server))
+  check("  never let go with no word to Stripe", !/if \(card\?\.status === "pending"\) await releaseCheckout/.test(server))
+  check("the cash received entry is in the currency's own decimals", /Cash on delivery received: \$\{formatMinor\(row\.total_cents \?\? 0, currencyCode\(row\.currency\) \?\? "USD", "en"\)\}/.test(read("lib/physical/orders-server.ts")))
 
   console.log("\nCheckout pages and routes")
   const site = read("app/api/checkout/site/route.ts")
