@@ -152,7 +152,7 @@ export function CourseOutline({ modules, colors = {} }: { modules: OutlineModule
                     {countLine(lessons.length, secondsIn(lessons))}
                   </span>
                 </span>
-                <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none", isOpen && "rotate-180")} style={{ color: muted }} />
+                <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 transition-[rotate] duration-200 ease-out motion-reduce:transition-none", isOpen && "rotate-180")} style={{ color: muted }} />
               </button>
               <div id={panel} className={cn("grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
                 <div className="min-h-0 overflow-hidden" inert={!isOpen}>
