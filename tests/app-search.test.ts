@@ -18,6 +18,7 @@
 import { readCode } from "./_source"
 import {
   GROUP_LIMIT,
+  forgetOrderIndex,
   containsPattern,
   customerHref,
   emailHref,
@@ -66,6 +67,8 @@ function likeToRegExp(pattern: string): RegExp {
 }
 
 function fakeDb(tables: Record<string, Row[]>, options: { missingTables?: string[]; columns?: Record<string, string[]> } = {}) {
+  /* A new database is a new world: the orders a search kept for a store (lib/search/app-search cachedOrders) are not this one's. */
+  forgetOrderIndex()
   const calls: Call[] = []
   const db = {
     calls,
@@ -176,6 +179,14 @@ function world() {
       { id: "ea2", creator_id: A, subject: "100% new", status: "draft", created_at: day(2) },
       { id: "eb1", creator_id: B, subject: "Launch week B", status: "sent", created_at: day(1) },
     ],
+    product_collections: [
+      { id: "ca1", creator_id: A, title: "Launch bundle", published: true, created_at: day(1) },
+      { id: "cb1", creator_id: B, title: "Launch bundle B", published: true, created_at: day(1) },
+    ],
+    coupons: [
+      { id: "qa1", creator_id: A, code: "LAUNCH20", discount_type: "percentage", discount_value: 20, is_active: true, created_at: day(1) },
+      { id: "qb1", creator_id: B, code: "LAUNCHB", discount_type: "fixed", discount_value: 5, is_active: true, created_at: day(1) },
+    ],
     email_flows: [
       { id: "fa1", creator_id: A, name: "Launch welcome", status: "active", created_at: day(1) },
       { id: "fb1", creator_id: B, name: "Launch welcome B", status: "active", created_at: day(1) },
@@ -183,12 +194,12 @@ function world() {
   }
 }
 
-const B_IDS = ["pb1", "ob1", "sb1", "eb1", "fb1", "jane.b@example.com", "jane.sub@b.com"]
-const CREATOR_TABLES = ["products", "subscribers", "email_campaigns", "email_flows"]
+const B_IDS = ["pb1", "ob1", "sb1", "eb1", "fb1", "cb1", "qb1", "LAUNCHB", "jane.b@example.com", "jane.sub@b.com"]
+const CREATOR_TABLES = ["products", "subscribers", "email_campaigns", "email_flows", "product_collections", "coupons"]
 
 function leaks(result: Awaited<ReturnType<typeof searchCreator>>): string[] {
   const text = JSON.stringify(result)
-  return B_IDS.filter((id) => text.includes(id)).concat(/Launch course B|Launch week B|Launch welcome B|Jane Bee|Jane Sub/.test(text) ? ["B's words"] : [])
+  return B_IDS.filter((id) => text.includes(id)).concat(/Launch course B|Launch week B|Launch welcome B|Launch bundle B|Jane Bee|Jane Sub/.test(text) ? ["B's words"] : [])
 }
 
 function everyQueryScoped(calls: Call[], creator: string, ownProducts: string[]): string[] {
@@ -270,6 +281,33 @@ async function main() {
     check("a product's name finds the orders with it", byProduct.groups.orders.map((o) => o.id).join() === "oa4,oa2", byProduct.groups.orders.map((o) => o.id))
   }
 
+  console.log("\nCollections and coupons")
+  {
+    const r = await searchCreator(fakeDb(world()), A, "launch")
+    check("a collection opens in its editor", r.groups.collections[0]?.href === "/app/products/collections?collection=ca1" && r.groups.collections[0]?.detail === "Published", r.groups.collections[0])
+    check("a coupon by its code, what it takes off and whether it is on", r.groups.coupons[0]?.title === "LAUNCH20" && r.groups.coupons[0]?.detail === "20% off · On" && r.groups.coupons[0]?.href === "/app/coupons/qa1", r.groups.coupons[0])
+    const rb = await searchCreator(fakeDb(world()), B, "launch")
+    check("a fixed coupon says its amount", rb.groups.coupons[0]?.detail === "$5.00 off · On", rb.groups.coupons[0])
+  }
+
+  console.log("\nOnly what was asked for")
+  {
+    const db = fakeDb(world())
+    const r = await searchCreator(db, A, "launch", { groups: new Set(["products", "collections", "coupons"]) })
+    const tables = [...new Set(db.calls.map((c) => c.table))].sort().join()
+    check("a role with products reads products, collections and coupons and nothing else", tables === "coupons,product_collections,products", tables)
+    check("and no order, buyer or email comes back", r.groups.orders.length === 0 && r.groups.customers.length === 0 && r.groups.emails.length === 0 && r.groups.products.length > 0)
+  }
+
+  console.log("\nThe orders, read once while somebody types")
+  {
+    const first = fakeDb(world())
+    await searchCreator(first, A, "jan")
+    await searchCreator(first, A, "jane")
+    check("the next keystroke does not read every order again", first.calls.filter((c) => c.table === "orders").length === 1, first.calls.filter((c) => c.table === "orders").length)
+    check("the email list is read beside the orders, not after them", /const contactsRead: Promise<Contact\[\] \| null> = wants\("customers"\)/.test(readCode("lib/search/app-search.ts")))
+  }
+
   console.log("\nCustomers: buyers, then the email list")
   {
     const r = await searchCreator(fakeDb(world()), A, "jane")
@@ -321,7 +359,9 @@ async function main() {
   console.log("\nThe route")
   const route = readCode("app/api/app/search/route.ts")
   check("a POST, so the query is not in an address a log keeps", /export async function POST\(/.test(route) && !/export async function GET\(/.test(route))
-  check("signed in, on the person's own client", /from "@\/lib\/supabase\/server"/.test(route) && /auth\.getUser\(\)/.test(route) && !/createAdminClient/.test(route))
+  /* Changed on purpose: a teammate searches the store they work in, through the service role, held to it by actingStore and the role's areas. The owner is still on their own client. */
+  check("signed in; the owner on their own client", /from "@\/lib\/supabase\/server"/.test(route) && /auth\.getUser\(\)/.test(route) && /searchCreator\(supabase, creator\.id, q\)/.test(route))
+  check("a teammate: the store they work in, only what their role opens", /const acting = await actingStore\(admin, user\.id\)/.test(route) && /memberCan\(acting\.role, GROUP_AREA\[g\]\)/.test(route) && /searchCreator\(admin, acting\.creatorId, q, \{ groups \}\)/.test(route) && /orders: "orders"/.test(route) && /customers: "customers"/.test(route) && /coupons: "products"/.test(route))
   check("the creator from the session's user, not the request", /\.eq\("user_id", user\.id\)/.test(route) && !/body\??\.creator/.test(route))
   check("rate limited per person", /rateLimit\(\{[\s\S]*subjects: \[`user:\$\{user\.id\}`\][\s\S]*LIMITS\.search/.test(route))
   check("never answers from a cache", /no-store/.test(route))

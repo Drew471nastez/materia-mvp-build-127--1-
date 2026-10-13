@@ -38,14 +38,16 @@ import { groupOrders, matchesSearch, type Order, type OrderRow } from "@/lib/ord
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
-export type SearchGroupId = "orders" | "customers" | "products" | "emails" | "automations"
+export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "coupons" | "emails" | "automations"
 
-export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "emails", "automations"]
+export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "collections", "coupons", "emails", "automations"]
 
 export const GROUP_LABELS: Record<SearchGroupId, string> = {
   get orders() { return tt("Orders") },
   get customers() { return tt("Customers") },
   get products() { return tt("Products") },
+  get collections() { return tt("Collections") },
+  get coupons() { return tt("Coupons") },
   get emails() { return tt("Emails") },
   get automations() { return tt("Automations") },
 }
@@ -71,7 +73,7 @@ export interface SearchResult {
 }
 
 export function emptyResult(): SearchResult {
-  return { groups: { orders: [], customers: [], products: [], emails: [], automations: [] }, unavailable: [] }
+  return { groups: { orders: [], customers: [], products: [], collections: [], coupons: [], emails: [], automations: [] }, unavailable: [] }
 }
 
 /** Trimmed, one space between words, and no longer than MAX_QUERY_LENGTH. */
@@ -214,6 +216,37 @@ async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow
   })
 }
 
+/*
+  THE ORDERS, READ ONCE WHILE SOMEBODY TYPES. Numbering an order needs every
+  order of the store (see the top of this file), so each pause in typing read
+  all of them again: "jo", "joh", "john" was three full reads of a store's
+  orders. They are kept here, on this server instance, for ORDER_INDEX_MS,
+  keyed by the store, and two searches at once share one read. Never the
+  query, never sent anywhere: the same rows the search was about to read.
+*/
+const ORDER_INDEX_MS = 20_000
+const ORDER_INDEX_MAX = 50
+const orderIndex = new Map<string, { at: number; read: Promise<Order[]> }>()
+
+function cachedOrders(db: Db, creatorId: string, products: ProductIndex[], now = Date.now()): Promise<Order[]> {
+  const hit = orderIndex.get(creatorId)
+  if (hit && now - hit.at < ORDER_INDEX_MS) return hit.read
+  const read = readOrderRows(db, products).then(groupOrders)
+  orderIndex.set(creatorId, { at: now, read })
+  /* A failed read is not kept: the next search reads again. */
+  read.catch(() => {
+    if (orderIndex.get(creatorId)?.read === read) orderIndex.delete(creatorId)
+  })
+  /* The oldest store out first, so the map never grows past a handful. */
+  while (orderIndex.size > ORDER_INDEX_MAX) orderIndex.delete(orderIndex.keys().next().value as string)
+  return read
+}
+
+/** For tests: forget what was kept. */
+export function forgetOrderIndex(): void {
+  orderIndex.clear()
+}
+
 function orderHit(order: Order): SearchHit {
   const titles = order.lines.map((l) => l.product?.title).filter((t): t is string => !!t)
   const what = titles.length > 1 ? tt("{titles} and {value} more", { titles: titles[0], value: titles.length - 1 }) : titles[0] || ""
@@ -350,6 +383,56 @@ async function readAutomations(db: Db, creatorId: string, q: string): Promise<Se
   }))
 }
 
+/* ─── Collections and coupons ────────────────────────────────────────── */
+
+async function readCollections(db: Db, creatorId: string, q: string): Promise<SearchHit[]> {
+  const rows = await readWithFallback(
+    "collections",
+    (columns) =>
+      db
+        .from("product_collections")
+        .select(columns)
+        .eq("creator_id", creatorId)
+        .ilike("title", containsPattern(q))
+        .order("created_at", { ascending: false })
+        .limit(GROUP_LIMIT),
+    "id, title, published",
+  )
+  return rows.map((r) => ({
+    id: text(r.id),
+    title: text(r.title) || tt("Untitled collection"),
+    detail: r.published === false ? tt("Hidden") : tt("Published"),
+    /* The collection opens in its editor (app/app/products/collections ?collection=). */
+    href: `/app/products/collections?collection=${encodeURIComponent(text(r.id))}`,
+  }))
+}
+
+async function readCoupons(db: Db, creatorId: string, q: string): Promise<SearchHit[]> {
+  const rows = await readWithFallback(
+    "coupons",
+    (columns) =>
+      db
+        .from("coupons")
+        .select(columns)
+        .eq("creator_id", creatorId)
+        .ilike("code", containsPattern(q))
+        .order("created_at", { ascending: false })
+        .limit(GROUP_LIMIT),
+    "id, code, discount_type, discount_value, is_active",
+  )
+  return rows.map((r) => {
+    /* A percentage, or an amount in whole units as the coupon form keeps it (app/app/coupons/coupon-form.ts). */
+    const value = typeof r.discount_value === "number" ? r.discount_value : Number(r.discount_value)
+    const off = !Number.isFinite(value) ? "" : r.discount_type === "percentage" ? tt("{value}% off", { value }) : tt("{value} off", { value: usd.format(value) })
+    return {
+      id: text(r.id),
+      title: text(r.code) || tt("Coupon"),
+      detail: [off, r.is_active === false ? tt("Off") : tt("On")].filter(Boolean).join(" · "),
+      href: `/app/coupons/${encodeURIComponent(text(r.id))}`,
+    }
+  })
+}
+
 /* ─── Products ───────────────────────────────────────────────────────── */
 
 function productHits(products: ProductIndex[], q: string): SearchHit[] {
@@ -360,7 +443,7 @@ function productHits(products: ProductIndex[], q: string): SearchHit[] {
     .map((p) => ({
       id: p.id,
       title: p.title,
-      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? usd.format(p.price_cents / 100) : "Free") : ""]
+      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? usd.format(p.price_cents / 100) : tt("Free")) : ""]
         .filter(Boolean)
         .join(" · "),
       href: `/app/products/${encodeURIComponent(p.id)}`,
@@ -373,10 +456,17 @@ function productHits(products: ProductIndex[], q: string): SearchHit[] {
  * The five groups for one query, for one creator. `creatorId` must be the
  * signed in person's own, read on the server: nothing from the request.
  */
-export async function searchCreator(db: Db, creatorId: string, rawQuery: string): Promise<SearchResult> {
+export async function searchCreator(
+  db: Db,
+  creatorId: string,
+  rawQuery: string,
+  /** `groups`: only these are read (a teammate's role, app/api/app/search); every group when left out. */
+  opts: { groups?: ReadonlySet<SearchGroupId> } = {},
+): Promise<SearchResult> {
   const result = emptyResult()
   const q = normalizeQuery(rawQuery)
   if (!creatorId || !isSearchable(q)) return result
+  const wants = (g: SearchGroupId) => !opts.groups || opts.groups.has(g)
 
   const failed = (group: SearchGroupId, err: unknown) => {
     if (!result.unavailable.includes(group)) result.unavailable.push(group)
@@ -385,32 +475,40 @@ export async function searchCreator(db: Db, creatorId: string, rawQuery: string)
     console.warn(`[app-search] ${group} unavailable (${code})`)
   }
 
-  const productsRead = readProducts(db, creatorId).catch((err) => {
-    failed("products", err)
-    return null
-  })
+  const needOrders = wants("orders") || wants("customers")
+  const productsRead =
+    wants("products") || needOrders
+      ? readProducts(db, creatorId).catch((err) => {
+          failed("products", err)
+          return null
+        })
+      : Promise.resolve(null)
+  /* The email list is read beside the orders, not after them: it needs nothing from them. */
+  const contactsRead: Promise<Contact[] | null> = wants("customers")
+    ? readContacts(db, creatorId, q).catch((err) => {
+        failed("customers", err)
+        return null
+      })
+    : Promise.resolve(null)
 
   const ordersAndCustomers = (async () => {
+    if (!needOrders) return
     const products = await productsRead
     let orders: Order[] = []
     if (products) {
       try {
-        orders = groupOrders(await readOrderRows(db, products))
+        orders = await cachedOrders(db, creatorId, products)
       } catch (err) {
         failed("orders", err)
       }
     } else {
       failed("orders", new GroupUnavailable("orders", "products"))
     }
-    result.groups.orders = orders.filter((o) => matchesSearch(o, q)).slice(0, GROUP_LIMIT).map(orderHit)
+    if (wants("orders")) result.groups.orders = orders.filter((o) => matchesSearch(o, q)).slice(0, GROUP_LIMIT).map(orderHit)
+    if (!wants("customers")) return
 
     const buyers = buyersMatching(orders, q)
-    let contacts: Contact[] = []
-    try {
-      contacts = await readContacts(db, creatorId, q)
-    } catch (err) {
-      failed("customers", err)
-    }
+    const contacts = (await contactsRead) ?? []
     const seen = new Set(buyers.map((b) => b.key))
     const people: SearchHit[] = buyers.map((b) => ({
       id: `buyer:${b.key}`,
@@ -433,19 +531,25 @@ export async function searchCreator(db: Db, creatorId: string, rawQuery: string)
   })()
 
   const productsFound = productsRead.then((products) => {
-    if (products) result.groups.products = productHits(products, q)
+    if (products && wants("products")) result.groups.products = productHits(products, q)
   })
 
-  const emails = readEmails(db, creatorId, q).then(
-    (hits) => void (result.groups.emails = hits),
-    (err) => failed("emails", err),
-  )
-  const automations = readAutomations(db, creatorId, q).then(
-    (hits) => void (result.groups.automations = hits),
-    (err) => failed("automations", err),
-  )
+  const group = (g: SearchGroupId, read: () => Promise<SearchHit[]>) =>
+    wants(g)
+      ? read().then(
+          (hits) => void (result.groups[g] = hits),
+          (err) => failed(g, err),
+        )
+      : Promise.resolve()
 
-  await Promise.all([ordersAndCustomers, productsFound, emails, automations])
+  await Promise.all([
+    ordersAndCustomers,
+    productsFound,
+    group("collections", () => readCollections(db, creatorId, q)),
+    group("coupons", () => readCoupons(db, creatorId, q)),
+    group("emails", () => readEmails(db, creatorId, q)),
+    group("automations", () => readAutomations(db, creatorId, q)),
+  ])
   result.unavailable.sort((a, b) => SEARCH_GROUPS.indexOf(a) - SEARCH_GROUPS.indexOf(b))
   return result
 }
