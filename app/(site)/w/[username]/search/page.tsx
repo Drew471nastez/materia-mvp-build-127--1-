@@ -84,7 +84,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
   const arranged = stored && stored.length > 0 ? stored : searchSections(site.pages.home ?? site.sections)
   /* Placeholders filled, menus and picked products in hand: see dressPage.
      Pickers name from the whole shop; `products` is what matched. */
-  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.search", "Search")
+  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.search", "Search", undefined, { cached: true, localizer })
   /* The query travels on the page rather than in the section's settings: it
      belongs to this request, not to anything the creator arranged. */
   /* The filters narrow what the words found, and say how many each would

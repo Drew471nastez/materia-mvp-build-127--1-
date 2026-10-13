@@ -105,7 +105,7 @@ export async function renderAccountPage(
   /* In the page's language: its texts, the header and footer, the shop's own words and the language switch (lib/markets/live.ts). */
   const [localizer, language] = extras.lang ? await Promise.all([siteLocalizer(site.creatorId, extras.lang.locale, extras.lang.market), languageChoice(site.creatorId, extras.lang.locale, extras.lang.market)]) : [null, undefined]
   const shown = localizer ? localizer.sections(linked, site.sources) : linked
-  const { sections, data } = await dressPage(site, shown, localizer ? localizer.cards(products ?? []) : products, productCount, template, pageTitleFromKey(key))
+  const { sections, data } = await dressPage(site, shown, localizer ? localizer.cards(products ?? []) : products, productCount, template, pageTitleFromKey(key), undefined, { cached: true, localizer })
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },

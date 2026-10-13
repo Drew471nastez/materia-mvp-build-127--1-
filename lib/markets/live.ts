@@ -28,7 +28,7 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import { localizationTag, marketsMissing, cachedTranslations } from "./server"
 import { languageName, localizedPath, normalizeLocale } from "./locales"
-import { localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
+import { localizeCards, localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
 import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
 import { chargeNote, currencyCode, fxFresh, type PriceRounding } from "./money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
@@ -112,6 +112,8 @@ export interface Localizer {
   defaultLanguage: string
   sections(list: SectionInstance[], sources: Record<string, string> | undefined): SectionInstance[]
   product<T extends { id?: unknown } & Record<string, unknown>>(p: T): T
+  /** A collection's name and description (`collection:<id>:title|description`). They were translated in Settings and never shown. */
+  collection<T extends { id?: unknown }>(c: T): T
   cards<T extends ProductCard>(list: T[]): T[]
   /** The theme's settings: its menus, and its and its pages' search engine text. */
   theme<T extends Record<string, unknown>>(settings: T): T
@@ -134,7 +136,7 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   if (!code && !pricing) return null
   const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : []
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
-  const opts = { approvedOnly: true }
+  const opts = { approvedOnly: true, fresh: true }
   const moneyLocale = code ?? langs.defaultLanguage
   const price = (t: string) => (pricing && t ? convertPriceText(t, pricing, moneyLocale) : t)
   const words: Record<string, string> = {}
@@ -163,20 +165,25 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
       if (map.size === 0 || typeof p.id !== "string") return p
       return localizeRecord(p, `product:${p.id}`, PRODUCT_FIELDS.filter((f) => typeof p[f] === "string") as never, map, opts)
     },
+    collection(c) {
+      if (map.size === 0 || typeof c.id !== "string") return c
+      const record = c as unknown as Record<string, unknown>
+      return localizeRecord(record, `collection:${c.id}`, (["title", "description"] as const).filter((f) => typeof record[f] === "string"), map, opts) as unknown as typeof c
+    },
     theme(settings) {
       return localizeTheme(settings, map, opts)
     },
     cards(list) {
       if (map.size === 0 && !pricing) return list
       return list.map((c) => {
-        const title = localizeRecord({ title: c.settings.title }, `product:${c.id}`, ["title"], map, opts).title
-        if (!pricing) return title === c.settings.title ? c : { ...c, settings: { ...c.settings, title } }
+        /* The title, and the description a card shows, laid over exactly as the editor's preview lays them (translate.ts localizeCards). */
+        const worded = localizeCards([c], map, opts)[0]
+        if (!pricing) return worded
         /* Shown in the market's currency; checkout charges the store's and says so. */
         return {
           ...c,
           settings: {
-            ...c.settings,
-            title,
+            ...worded.settings,
             price: price(c.settings.price),
             compare_price: price(c.settings.compare_price),
             currency: pricing.currency,

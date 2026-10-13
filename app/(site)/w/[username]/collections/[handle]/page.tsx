@@ -89,8 +89,10 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   const extra = older.length ? await pickedProducts(createAdminClient() as never, site.creatorId, { ids: older, slugs: [] }) : []
   const cards = [...pool.filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 
-  const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, inIt.collection, site.pages.collection)
-  const dressed = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "collection", inIt.collection.title)
+  /* Its name and description in the page's language (lib/markets/live.ts collection). */
+  const collection = localizer ? localizer.collection(inIt.collection) : inIt.collection
+  const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, collection, site.pages.collection)
+  const dressed = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "collection", collection.title, undefined, { cached: true, localizer })
   const sections = dressed.sections
   /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }

@@ -7961,7 +7961,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const previewLang = usePreviewLanguage(installId)
   const previewMap = previewLang.map
   const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
-  const catalogCardsShown = useMemo(() => localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true }), [catalogCardsForCanvas, previewMap])
+  const catalogCardsShown = useMemo(() => localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true }), [catalogCardsForCanvas, previewMap])
   const canvasData = useMemo(
     () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderCollections, canvasReviews],
@@ -7984,12 +7984,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             previewMap,
             (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
             (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields,
-            { approvedOnly: true },
+            { approvedOnly: true, fresh: true },
           )
         : drawnSections,
     [drawnSections, previewMap, storelibSources, librarySchemas],
   )
-  const shopCardsShown = useMemo(() => localizeCards(shopCards, previewMap, { approvedOnly: true }), [shopCards, previewMap])
+  const shopCardsShown = useMemo(() => localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true }), [shopCards, previewMap])
   const compatLanguage = useMemo(
     () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
     [previewLang.locale, previewLang.defaultLanguage, previewLang.languages, previewMap],

@@ -6,7 +6,7 @@ import { storeIdentity } from "@/lib/store/identity-server"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
-import { statusOf, translationMap } from "@/lib/markets/translate"
+import { statusOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
 import { canDraftWithAi, draftTranslations } from "@/lib/markets/translate-ai"
 import { recordActivity } from "@/lib/activity/log-server"
 
@@ -26,12 +26,20 @@ const DRAFT_WINDOW_MS = 85_000
 
 /**
  * POST { locale }: "Translate with AI". The website's texts in that language
- * that are missing or outdated (a value a person wrote and approved is never
- * sent or replaced, unless its original changed), drafted by Storelib AI
+ * that are missing or outdated, drafted by Storelib AI. A translation the
+ * merchant wrote or edited is never sent or replaced, outdated or not: it
+ * shows as outdated in the sheet for them to update. Drafted by Storelib AI
  * (lib/markets/translate-ai.ts) and saved as drafts to review. The store's
  * own, through its owner; twelve presses an hour, which is one whole "Translate
  * everything" (the sheet presses up to twelve times), as each is a paid call.
  */
+/** What Storelib AI may draft: missing, or outdated and its own. Never the merchant's words. */
+function aiMayWrite(row: TranslationRow | undefined, source: string): boolean {
+  if (row?.source === "manual") return false
+  const s = statusOf(row, source)
+  return s === "missing" || s === "outdated"
+}
+
 export async function POST(request: Request) {
   const started = Date.now()
   const c = await shopCaller("website")
@@ -51,18 +59,16 @@ export async function POST(request: Request) {
   const map = translationMap(saved.rows)
   const todo = groups
     .flatMap((g) => g.items)
-    .filter((t) => {
-      const s = statusOf(map.get(t.key), t.source)
-      return s === "missing" || s === "outdated"
-    })
+    .filter((t) => aiMayWrite(map.get(t.key), t.source))
     .slice(0, PER_PRESS)
   if (todo.length === 0) return physicalJson({ drafted: 0, left: 0 })
   const { drafts, unavailable } = await draftTranslations(todo.map((t) => ({ key: t.key, source: t.source })), loc.defaultLanguage, locale, store?.name || "the store", { deadlineAt: started + DRAFT_WINDOW_MS })
   if (unavailable && drafts.size === 0) return physicalJson({ error: "Translating with AI isn't available right now. You can still write each translation yourself." }, 503)
   const items = todo.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: false, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
-  const done = await saveTranslations(c.db, c.creatorId, locale, items, c.userId)
+  /* keepManual: one the merchant saved while this was drafting is read again just before the write and left alone. */
+  const done = await saveTranslations(c.db, c.creatorId, locale, items, c.userId, { keepManual: true })
   if (done.ok === false) return physicalJson({ error: done.error }, done.status)
   await recordActivity(c.db, c, { action: "website.translations", meta: { locale, drafted: done.saved } })
-  const remaining = groups.flatMap((g) => g.items).filter((t) => !drafts.has(t.key) && ["missing", "outdated"].includes(statusOf(map.get(t.key), t.source))).length
+  const remaining = groups.flatMap((g) => g.items).filter((t) => !drafts.has(t.key) && aiMayWrite(map.get(t.key), t.source)).length
   return physicalJson({ drafted: done.saved, left: remaining })
 }

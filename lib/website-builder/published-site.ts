@@ -480,7 +480,7 @@ export async function dressPage(
    * held in a cache anybody else reads, so its picked products are read
    * directly. Everything published is cached with the shop.
    */
-  opts: { cached: boolean } = { cached: true },
+  opts: { cached: boolean; localizer?: { collection<T extends { id?: unknown }>(c: T): T } | null } = { cached: true },
 ): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
   const missing = missingReferences(productReferences(sections, schemaOf), products)
@@ -546,7 +546,8 @@ export async function dressPage(
     catalog: mergeCatalog(products, picked),
     menus: siteMenus(site.themeSettings, filled),
     communities,
-    collections,
+    /* In the page's language: each collection's approved name and description (lib/markets/live.ts collection). */
+    collections: collections && opts.localizer ? Object.fromEntries(Object.entries(collections).map(([k, c]) => [k, opts.localizer!.collection(c as never)])) : collections,
     reviews,
   })
   return { sections: filled, data }

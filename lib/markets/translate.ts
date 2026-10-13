@@ -26,6 +26,7 @@
  * Pure.
  */
 import type { BlockInstance, SchemaField, SectionInstance } from "@/lib/website-builder/types"
+import { plainDescription } from "@/lib/products/plain-description"
 
 export type TranslationStatus = "draft" | "approved"
 export type TranslationSource = "manual" | "ai"
@@ -105,12 +106,24 @@ export function translatablesOf(sections: SectionInstance[], fieldsOf: FieldsOf,
 /**
  * The value a key has in a language, for the live website (`approvedOnly`)
  * or the editor's preview (drafts too): null when the original should show.
+ *
+ * `fresh`, with the original it stands for: a translation written for a
+ * text that has since changed is not shown, so a visitor reads the new
+ * original rather than an old sentence that no longer says the same. The
+ * Translate sheet lists it as outdated (statusOf), to be written again.
  */
-export function valueFor(map: TranslationMap | null | undefined, key: string, opts: { approvedOnly?: boolean } = {}): string | null {
+export function valueFor(map: TranslationMap | null | undefined, key: string, opts: TranslateOpts = {}, original?: string): string | null {
   const row = map?.get(key)
   if (!row || !row.value.trim()) return null
   if (opts.approvedOnly && row.status !== "approved") return null
+  if (opts.fresh && original !== undefined && row.sourceHash && row.sourceHash !== sourceHash(original)) return null
   return row.value
+}
+
+/** How a translation is laid over: approved ones only (the live site), and only while written for the original as it is now (`fresh`). */
+export interface TranslateOpts {
+  approvedOnly?: boolean
+  fresh?: boolean
 }
 
 /** Missing, outdated (the original changed since), draft or done: what the translations list says about one key. */
@@ -124,13 +137,13 @@ export function statusOf(row: TranslationRow | undefined, source: string): "miss
  * The sections in a language: every text setting with a value laid over,
  * everything else the original's. A new array; the original is untouched.
  */
-export function localizeSections(sections: SectionInstance[], map: TranslationMap | null | undefined, fieldsOf: FieldsOf, blockFieldsOf: BlockFieldsOf, opts: { approvedOnly?: boolean } = {}): SectionInstance[] {
+export function localizeSections(sections: SectionInstance[], map: TranslationMap | null | undefined, fieldsOf: FieldsOf, blockFieldsOf: BlockFieldsOf, opts: TranslateOpts = {}): SectionInstance[] {
   if (!map || map.size === 0) return sections
   const over = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string) => {
     let next: Record<string, unknown> | null = null
     for (const f of fields ?? []) {
       if (!TRANSLATABLE_TYPES.has(f.type) || typeof settings?.[f.id] !== "string") continue
-      const v = valueFor(map, key(f.id), opts)
+      const v = valueFor(map, key(f.id), opts, settings[f.id] as string)
       if (v === null) continue
       next = next ?? { ...settings }
       next[f.id] = v
@@ -151,12 +164,12 @@ export function localizeSections(sections: SectionInstance[], map: TranslationMa
 }
 
 /** A record (a product, a collection) with its translated fields laid over: `fields` names which, the key's prefix which record. */
-export function localizeRecord<T extends Record<string, unknown>>(record: T, prefix: string, fields: readonly (keyof T & string)[], map: TranslationMap | null | undefined, opts: { approvedOnly?: boolean } = {}): T {
+export function localizeRecord<T extends Record<string, unknown>>(record: T, prefix: string, fields: readonly (keyof T & string)[], map: TranslationMap | null | undefined, opts: TranslateOpts = {}): T {
   if (!map || map.size === 0) return record
   let next: T | null = null
   for (const f of fields) {
     if (typeof record[f] !== "string") continue
-    const v = valueFor(map, `${prefix}:${f}`, opts)
+    const v = valueFor(map, `${prefix}:${f}`, opts, record[f] as string)
     if (v === null) continue
     next = next ?? { ...record }
     ;(next as Record<string, unknown>)[f] = v
@@ -164,12 +177,21 @@ export function localizeRecord<T extends Record<string, unknown>>(record: T, pre
   return next ?? record
 }
 
-/** Product cards with their titles and descriptions laid over (the builder's canvas in another language). */
-export function localizeCards<T extends { id: string; settings: unknown }>(list: T[], map: TranslationMap | null | undefined, opts: { approvedOnly?: boolean } = {}): T[] {
+/**
+ * Product cards with their titles and descriptions laid over, in the
+ * builder's canvas and on the live site (live.ts cards). A card's
+ * description is plain text (shop-products plainDescription) and its
+ * translation is the product's rich text, so it is made plain the same way.
+ */
+export function localizeCards<T extends { id: string; settings: unknown }>(list: T[], map: TranslationMap | null | undefined, opts: TranslateOpts = {}): T[] {
   if (!map || map.size === 0) return list
   return list.map((c) => {
-    const settings = localizeRecord(c.settings as Record<string, unknown>, `product:${c.id}`, ["title", "description"], map, opts)
-    return settings === c.settings ? c : { ...c, settings }
+    const own = c.settings as Record<string, unknown>
+    const title = typeof own.title === "string" ? valueFor(map, `product:${c.id}:title`, opts, own.title) : null
+    /* The card holds a plain excerpt of the description, not the text it was translated from: no freshness to compare here. */
+    const description = typeof own.description === "string" ? valueFor(map, `product:${c.id}:description`, opts) : null
+    if (title === null && description === null) return c
+    return { ...c, settings: { ...own, ...(title !== null ? { title } : {}), ...(description !== null ? { description: plainDescription(description) } : {}) } }
   })
 }
 

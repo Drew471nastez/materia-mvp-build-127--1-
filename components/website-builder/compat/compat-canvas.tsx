@@ -189,7 +189,7 @@ const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.
 /** A product in the language previewed: its title and description, as lib/markets/compat.ts lays them over on the website. */
 function inLanguage(card: ProductCard, map: TranslationMap): ProductCard {
   const c = card as ProductCard & { descriptionHtml?: string }
-  const opts = { approvedOnly: true }
+  const opts = { approvedOnly: true, fresh: true }
   const settings = localizeRecord(c.settings as unknown as Record<string, unknown>, `product:${c.id}`, ["title", "description"], map, opts)
   const html = c.descriptionHtml !== undefined ? (localizeRecord({ description: c.descriptionHtml }, `product:${c.id}`, ["description"], map, opts).description as string) : undefined
   if (settings === (c.settings as unknown) && html === c.descriptionHtml) return card
@@ -305,7 +305,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const map = language?.map ?? null
   const fields = useMemo(() => (compatTheme && map ? compatFields(compatTheme) : null), [compatTheme, map])
   const sections = useMemo(
-    () => (fields && map ? (localizeSections(ownSections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true }) as unknown as StoredSection[]) : ownSections),
+    () => (fields && map ? (localizeSections(ownSections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true, fresh: true }) as unknown as StoredSection[]) : ownSections),
     [ownSections, fields, map],
   )
   const products = useMemo(() => (map ? props.products.map((c) => inLanguage(c, map)) : props.products), [props.products, map])
@@ -565,7 +565,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const key = docKeyFor(warm.pageKey, null, null)
     if (slotsRef.current.some((x) => x.key === key)) return
     /* In the language previewed, as the page in front is (`sections`, above). */
-    const list = fields && map ? (localizeSections(warm.sections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true }) as unknown as StoredSection[]) : warm.sections
+    const list = fields && map ? (localizeSections(warm.sections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true, fresh: true }) as unknown as StoredSection[]) : warm.sections
     if (keptRef.current.some((x) => x.key === key && x.stamp === stampRef.current && holds(x, list))) return
     let html: string
     try {

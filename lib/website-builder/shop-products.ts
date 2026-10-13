@@ -61,6 +61,7 @@ import { listedOn } from "@/lib/store/channels"
 import { offChannel } from "@/lib/store/channel-filter"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { imagesOnly, isPosterName, isVideoUrl } from "@/lib/media/video"
+import { plainDescription } from "@/lib/products/plain-description"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
@@ -348,33 +349,8 @@ export async function productOptions(db: Db, productIds: string[]): Promise<Opti
   }
 }
 
-/** Tags after which words must not run together. */
-const BLOCK_END = /<\/(?:p|div|li|h[1-6]|blockquote|pre|tr)>|<br\s*\/?>/gi
-
-/**
- * A product description as plain text that keeps its paragraphs. It is stored
- * as rich text from the product editor, and a section prints it escaped
- * rather than trusting it as markup: the product page's own renderer does
- * the same, for the same reason (a stored description is user input).
- */
-export function plainDescription(html: string | null | undefined, max = 5_000): string {
-  if (!html) return ""
-  const text = html
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
-    .replace(BLOCK_END, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/[ \t\f\v]+/g, " ")
-    .replace(/ *\n */g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
-}
+/* A product description as plain text that keeps its paragraphs (lib/products/plain-description.ts), here for the callers that always read it from this file. */
+export { plainDescription }
 
 /** The product a product page is about, from the row its route already read. */
 export function toProductPage(row: ProductRow, variants: VariantRow[] = []): ProductPageData {

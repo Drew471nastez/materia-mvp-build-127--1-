@@ -58,7 +58,7 @@ export default async function SiteCollectionsPage({ params }: PageProps) {
   const stored = site.pages.collections
   const arranged = stored && stored.length > 0 ? stored : collectionsPageSections(site.pages.home ?? site.sections)
   /* Placeholders filled, menus, picked products and the collections in hand: see dressPage. */
-  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.collections", "Collections")
+  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.collections", "Collections", undefined, { cached: true, localizer })
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.collections", products, undefined, data)
 
   return (

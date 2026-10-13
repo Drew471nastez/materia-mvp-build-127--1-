@@ -165,7 +165,15 @@ export function paragraphsOf(text: string): string {
 }
 
 /** One language's values, saved. Each is checked: a known key shape, a sane length, rich text cleaned, plain text kept plain. */
-export async function saveTranslations(db: Db, creatorId: string, locale: string, items: unknown, userId: string | null): Promise<{ ok: true; saved: number; removed: number } | { ok: false; status: number; error: string }> {
+export async function saveTranslations(
+  db: Db,
+  creatorId: string,
+  locale: string,
+  items: unknown,
+  userId: string | null,
+  /** keepManual: an AI write, which never replaces a translation the merchant wrote (read again here, just before the write). */
+  opts: { keepManual?: boolean } = {},
+): Promise<{ ok: true; saved: number; removed: number } | { ok: false; status: number; error: string }> {
   const lang = normalizeLocale(locale)
   if (!lang) return { ok: false, status: 400, error: "That isn't a language we recognise." }
   if (!Array.isArray(items) || items.length === 0) return { ok: true, saved: 0, removed: 0 }
@@ -186,6 +194,11 @@ export async function saveTranslations(db: Db, creatorId: string, locale: string
       continue
     }
     upserts.push({ creator_id: creatorId, locale: lang, key: raw.key, value, source_hash: sourceHash(source), status: raw.approved === false ? "draft" : "approved", source: raw.ai ? "ai" : "manual", updated_by: userId, updated_at: now })
+  }
+  if (upserts.length && opts.keepManual) {
+    const { data: theirs } = await db.from("site_translations").select("key").eq("creator_id", creatorId).eq("locale", lang).eq("source", "manual").in("key", upserts.map((u) => u.key as string))
+    const kept = new Set(((theirs ?? []) as { key: string }[]).map((r) => r.key))
+    for (let i = upserts.length - 1; i >= 0; i--) if (kept.has(upserts[i].key as string)) upserts.splice(i, 1)
   }
   if (upserts.length) {
     const { error } = await db.from("site_translations").upsert(upserts, { onConflict: "creator_id,locale,key" })

@@ -109,7 +109,8 @@ export function TranslateSheet({ locale, defaultLanguage, published = false, onP
     const body = [...keys]
       .map((k) => byKey.get(k))
       .filter((i): i is Item => !!i)
-      .map((i) => ({ key: i.key, value: edits[i.key] ?? i.value, source: i.source, approved: true, rich: i.rich }))
+      /* An AI draft approved as it stands stays Storelib AI's; edited, it is the merchant's own, which AI never replaces. */
+      .map((i) => ({ key: i.key, value: edits[i.key] ?? i.value, source: i.source, approved: true, rich: i.rich, ai: i.ai && !changed.includes(i.key) }))
     if (body.length === 0) return
     setBusy("save")
     setError(null)

@@ -30,7 +30,7 @@ import { fxFresh } from "./money"
 import { convertedCents, moneyFormatFor } from "./pricing"
 import { priceCents } from "@/lib/storelib-theme/compat/objects"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
-import { localizeMenus, localizeRecord, localizeSections, translationMap, type TranslationMap } from "./translate"
+import { localizeCards, localizeMenus, localizeRecord, localizeSections, translationMap, type TranslationMap } from "./translate"
 import { linkLanguageScript } from "./link-script"
 import { compatFields } from "./compat-fields"
 
@@ -110,7 +110,7 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
   const extraBodyEnd = `${site.extraBodyEnd ?? ""}${code ? linkLanguageScript(code, langs.defaultLanguage, all) : ""}`
   if (map.size === 0 && !pricing) return { ...site, i18n, extraBodyEnd }
 
-  const opts = { approvedOnly: true }
+  const opts = { approvedOnly: true, fresh: true }
   const { fieldsOf, blockFieldsOf } = compatFields(site.theme)
   const pages: Record<string, StoredSection[]> = {}
   for (const [key, list] of Object.entries(site.pages)) pages[key] = map.size ? (localizeSections(list as unknown as SectionInstance[], map, fieldsOf, blockFieldsOf, opts) as unknown as StoredSection[]) : list
@@ -121,7 +121,8 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
     return out === null ? v : (out / 100).toFixed(2)
   }
   const card = <T extends { id: string; settings: O; descriptionHtml?: string }>(c: T): T => {
-    let settings = map.size ? localizeRecord(c.settings, `product:${c.id}`, ["title", "description"], map, opts) : c.settings
+    /* The card's description is plain text, made plain from the translated rich text as a built website's card is (translate.ts localizeCards). */
+    let settings = map.size ? (localizeCards([{ id: c.id, settings: c.settings }], map, opts)[0].settings as O) : c.settings
     if (pricing) {
       settings = {
         ...settings,
@@ -144,7 +145,13 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
     shop: pricing ? { ...site.shop, currency: pricing.currency, moneyFormat: moneyFormatFor(pricing.currency, code ?? langs.defaultLanguage) } : site.shop,
     products: site.products.map((p) => card(p as never)) as SiteData["products"],
     pickable: site.pickable?.map((p) => card(p as never)) as SiteData["pickable"],
-    collections: pricing ? site.collections.map((c) => (c.products ? { ...c, products: c.products.map((p) => card(p as never)) } : c)) : site.collections,
+    collections: map.size || pricing
+      ? site.collections.map((c) => {
+          /* Its name and description in this language, as on a built website (live.ts collection), and its cards. */
+          const named = map.size ? (localizeRecord(c as never, `collection:${c.id}`, (["title", "description"] as const).filter((f) => typeof c[f] === "string") as never, map, opts) as typeof c) : c
+          return named.products ? { ...named, products: named.products.map((p) => card(p as never)) } : named
+        })
+      : site.collections,
     menus: map.size ? (localizeMenus(site.menus as never, map, opts) as SiteData["menus"]) : site.menus,
     product: product ? async (handle) => { const p = await product(handle); return p ? card(p as never) : p } : undefined,
   }
