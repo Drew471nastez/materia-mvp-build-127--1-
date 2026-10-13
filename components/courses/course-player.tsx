@@ -268,7 +268,7 @@ export function CoursePlayer({
   const notesWrap = embedded ? "mt-5 border-t border-[#f0f1f3] pt-5" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
   const grid = embedded
     ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7"
-    : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
+    : "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-8"
   const shell = embedded ? "w-full min-w-0" : ""
   const stage = (
     <Stage

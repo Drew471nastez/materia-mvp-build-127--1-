@@ -7915,9 +7915,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       collections: builderCollections?.choices ?? null,
       /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
       colorSchemes: compatSchemes,
+      /* Storelib's own themes: Edit beside a section's scheme opens Theme settings › Colors. */
+      openColorSchemes: compatInstall ? undefined : () => {
+        setSidebarMode("settings")
+        setPageBrowserOpen(false)
+        setSelectedPanel({ type: "theme_settings" })
+        setExpandedSettings("color_schemes")
+        if (isMobileView) setMobileSidebarOpen(true)
+      },
       pictureMedia: compatInstall ? compatMedia : null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia, isMobileView],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null

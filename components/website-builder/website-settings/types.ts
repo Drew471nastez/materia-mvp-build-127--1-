@@ -20,6 +20,7 @@ export const SETTINGS_SECTIONS = [
   { id: "navigation", get label() { return tt("Navigation") }, group: "content" },
   { id: "commerce", get label() { return tt("Commerce") }, group: "content" },
   { id: "policies", get label() { return tt("Policies") }, group: "content" },
+  { id: "apps", get label() { return tt("Apps and integrations") }, group: "content" },
   { id: "publishing", get label() { return tt("Publishing") }, group: "live" },
   { id: "backups", get label() { return tt("Backups & Versions") }, group: "live" },
   { id: "connections", get label() { return tt("Connections") }, group: "code" },

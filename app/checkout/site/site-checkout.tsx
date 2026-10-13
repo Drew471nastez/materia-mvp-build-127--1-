@@ -882,6 +882,7 @@ export function SiteCheckout({
         <details className="group" open={initialNote ? true : undefined} data-shop-note="">
           <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-4">Add a note for the shop</summary>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className={cn(inputClass, "mt-2 h-auto py-2.5")} placeholder="Gift wrap, delivery instructions..." />
+          <p className="mt-1.5 text-[12.5px] text-[#6b7280]">{brand.name} sees it with your order.</p>
         </details>
       ) : null}
       {/* What the shop's cart asked (an imported theme's gift message, a delivery date): it goes on the order with the note. */}

@@ -4354,6 +4354,7 @@ const words: Record<string, string> = {
  "This video could not be opened. Try again.": "Impossible d'ouvrir cette vidéo. Réessaie.",
  "Play the video": "Lire la vidéo",
  "Lesson video": "Vidéo de la leçon",
+ "Apps and integrations": "Apps et intégrations",
  "Earlier visits": "Visites antérieures",
  "Pages": "Pages",
  "Pages and products": "Pages et produits",

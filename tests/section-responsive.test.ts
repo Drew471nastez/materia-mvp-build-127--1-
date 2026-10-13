@@ -1567,9 +1567,11 @@ check(
     const list = types.slice(types.indexOf("SETTINGS_SECTIONS = ["), types.indexOf("] as const"))
     // Changed on purpose: the list is grouped (Website, Content, Going live,
     // Code), so Backups and Navigation sit under their own headings.
-    return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions", group: "live" \}/.test(list) &&
-      /\{ id: "navigation", label: "Navigation", group: "content" \}/.test(list) &&
-      (list.match(/\{ id: "/g) ?? []).length === 10
+    // Changed on purpose: labels are translated getters, and Apps and integrations joined Content.
+    return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", get label\(\) \{ return tt\("Backups & Versions"\) \}, group: "live" \}/.test(list) &&
+      /\{ id: "navigation", get label\(\) \{ return tt\("Navigation"\) \}, group: "content" \}/.test(list) &&
+      /\{ id: "apps", get label\(\) \{ return tt\("Apps and integrations"\) \}, group: "content" \}/.test(list) &&
+      (list.match(/\{ id: "/g) ?? []).length === 11
   })(),
 )
 
