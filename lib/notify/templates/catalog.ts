@@ -77,6 +77,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PHYSICAL_SETUP_UNFINISHED_2: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "paymentsMissing"],
   PHYSICAL_STORE_NOT_READY: ["items", "blockingCount", "liveCount", "reason"],
   PHYSICAL_STORE_NOT_READY_2: ["items", "blockingCount", "liveCount", "reason"],
+  ORDERS_WAITING_TO_SHIP: ["count", "days", "orderId"],
   PAYMENT_SETUP_REMINDER: [],
   PAYMENT_SETUP_REMINDER_2: [],
   PAYOUT_SETUP_UNFINISHED: ["started", "productTitle"],
@@ -880,6 +881,32 @@ export const CATALOG: Record<NotificationType, Entry> = {
       action: { label: first ? first.title : "Open shipping settings", path: first ? first.path : READINESS_PATH },
       notice: items.length > 1 ? { title: "Everything in one place", text: "Settings has the full list, with a fix link for each.", link: { label: "Open the checklist", path: READINESS_PATH } } : null,
       inApp: { title: broke ? "Buyers can't check out right now" : "Your physical products can't be bought yet", body: first ? (one ? `${first.title}. ${first.why}` : `${first.title}, and ${items.length - 1} more.`) : "Check your shipping setup.", actionLabel: "Fix it", actionPath: first ? first.path : READINESS_PATH },
+    }
+  },
+
+  /*
+     Paid orders that ship, still not sent after a few days (conditions.ts orders_still_waiting): how many, and
+     the Unfulfilled view oldest first, or the one order when there is one.
+  */
+  ORDERS_WAITING_TO_SHIP: (d) => {
+    const count = Math.max(1, d.count("count") ?? 1)
+    const days = Math.max(1, d.count("days") ?? 3)
+    const one = count === 1
+    const orderId = d.text("orderId", 64)
+    const path = one && orderId ? PATHS.order(orderId) : "/app/orders?view=unfulfilled&sort=oldest"
+    const what = one ? "1 order is" : `${count} orders are`
+    return {
+      family: "action_required",
+      audience: "creator",
+      subject: one ? "An order is waiting to ship" : `${count} orders are waiting to ship`,
+      preview: `${what} paid and not shipped after ${days} days.`,
+      heading: one ? "An order is waiting to ship" : `${count} orders are waiting to ship`,
+      paragraphs: [
+        `${what} paid and still not shipped after more than ${days} days. Your buyers are waiting for them.`,
+        "Open each order to ship it, or to tell the buyer what is happening.",
+      ],
+      action: { label: one ? "Open the order" : "Open orders to ship", path },
+      inApp: { title: one ? "An order is waiting to ship" : `${count} orders are waiting to ship`, body: `Paid more than ${days} days ago.`, actionLabel: one ? "Open order" : "Open orders", actionPath: path },
     }
   },
 

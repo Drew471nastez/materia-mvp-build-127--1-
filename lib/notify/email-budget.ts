@@ -51,6 +51,7 @@ export const EMAIL_POLICY: Record<NotificationType, EmailClass> = {
   PHYSICAL_SETUP_UNFINISHED_2: "budgeted",
   PHYSICAL_STORE_NOT_READY: "budgeted",
   PHYSICAL_STORE_NOT_READY_2: "budgeted",
+  ORDERS_WAITING_TO_SHIP: "budgeted",
   DOMAIN_CONNECTED: "budgeted",
   DOMAIN_CONNECTION_FAILED: "budgeted",
 

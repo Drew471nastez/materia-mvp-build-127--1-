@@ -42,6 +42,8 @@ export const DOMAIN_EVENTS = [
   "physical_setup.started",
   /* A store with physical products on sale went from fine to a blocking gap (lib/physical/readiness-server.ts noteReadiness): keyed by the store and the episode. */
   "physical_readiness.not_ready",
+  /* Paid physical orders still unshipped past their days (lib/physical/orders-waiting-server.ts): raised by the physical cron once a day per store, keyed by the store and the day. */
+  "physical.orders_waiting",
   "payout_method.added",
   "payout_method.problem",
   "payout_method.changed",
@@ -149,6 +151,8 @@ export const NOTIFICATION_TYPES = [
   /* Physical products on sale and something stops a buyer checking out or an order shipping (lib/physical/readiness.ts): the notice, and one reminder a few days on. */
   "PHYSICAL_STORE_NOT_READY",
   "PHYSICAL_STORE_NOT_READY_2",
+  /* Paid orders that ship, still not sent after a few days: once a day at most, while any are waiting (lib/physical/action-reminders.ts OVERDUE_DAYS). */
+  "ORDERS_WAITING_TO_SHIP",
   "PAYMENT_SETUP_REMINDER",
   "PAYMENT_SETUP_REMINDER_2",
   /* Started and left unfinished, rather than never started (lib/notify/workflows/unfinished.ts). */
@@ -275,6 +279,8 @@ export type ConditionName =
   | "physical_setup_unfinished"
   /** Physical products on sale with a blocking gap other than payments (lib/physical/readiness.ts needsNotice). */
   | "physical_store_not_ready"
+  /** Paid orders that ship are still waiting past OVERDUE_DAYS (lib/physical/action-counts-server.ts). */
+  | "orders_still_waiting"
   /** Stripe is still asking this account for details (creators.stripe_requirements, written by the webhook). */
   | "verification_still_needed"
   | "payout_still_failed"

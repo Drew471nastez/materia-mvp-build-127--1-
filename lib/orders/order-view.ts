@@ -102,6 +102,8 @@ export interface Shipping {
   pickup: boolean
   /** A parcel ran into a delivery problem: the badge says so instead of Fulfilled, as the buyer's order page does. */
   problem?: boolean
+  /** A return the buyer asked for that is not finished (requested or on its way back): the Returns view. */
+  returnOpen?: boolean
 }
 
 /** Whether a stage still shows a delivery problem: only while the parcel is out (not delivered, returned or cancelled). */
@@ -318,7 +320,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
           : "unfulfilled",
       delivery: delivered.length > 0 ? "delivered" : emailFailed ? "failed" : null,
       deliveredAt: delivered.at(-1) ?? null,
-      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true, problem: lines.some((r) => r.physical_problem === true) } : null,
+      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true, problem: lines.some((r) => r.physical_problem === true), returnOpen: shipped.physical_return === "requested" || shipped.physical_return === "in_progress" } : null,
     })
   }
 
@@ -367,12 +369,14 @@ export function startOfDay(ms: number, timeZone: string): number {
 
 /* ─── The list: views, search, filters, pages ─────────────────────────── */
 
-export type View = "all" | "unfulfilled" | "paid" | "pending" | "refunded"
+export type View = "all" | "unfulfilled" | "returns" | "paid" | "pending" | "refunded"
 
 export const VIEWS: Array<{ value: View; label: string }> = [
   { value: "all", get label() { return tt("All") } },
   /* Shopify's own second tab: what is still to send. Shown only to a shop with something to ship (the list hides empty views). */
   { value: "unfulfilled", get label() { return tt("Unfulfilled") } },
+  /* Returns a buyer asked for and nobody has finished: where Home's "returns to review" line opens. Shown only while there is one. */
+  { value: "returns", get label() { return tt("Returns") } },
   { value: "paid", get label() { return tt("Paid") } },
   { value: "pending", get label() { return tt("Payment pending") } },
   { value: "refunded", get label() { return tt("Refunded") } },
@@ -388,6 +392,8 @@ export function inView(order: Order, view: View): boolean {
       return true
     case "unfulfilled":
       return (order.shipping?.stage === "unfulfilled" || order.shipping?.stage === "partially_fulfilled") && order.payment !== "refunded" && isSale(order)
+    case "returns":
+      return order.shipping?.returnOpen === true
     case "paid":
       return order.payment === "paid"
     case "pending":

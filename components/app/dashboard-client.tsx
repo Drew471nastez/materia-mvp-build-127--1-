@@ -62,6 +62,8 @@ import { AppLink } from "@/components/app/app-link"
 import { STRIP_ACTION, STRIP_SPARKLE, STRIP_TEXT, STRIP_TINT, STRIP_TITLE } from "@/components/app/announcement-bar-mobile"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { HomeBanner } from "@/components/app/home/home-banner"
+import { AttentionList } from "@/components/app/home/attention-list"
+import type { CommerceActionCounts } from "@/lib/physical/action-reminders"
 import { NO_SALES, type SalesSummary } from "@/lib/home/announcements"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { homeProgress, legacyFacts, type ProgressFacts } from "@/lib/home/progress"
@@ -426,6 +428,8 @@ interface DashboardClientProps {
   sharePlatforms?: ConnectedPlatform[]
   /** The OnePage is published, so its address opens (app/app/page.tsx). */
   onePageLive?: boolean
+  /** What the store's orders need now, counted on the server; null when it took too long, and the list asks itself. */
+  initialAttention?: CommerceActionCounts | null
 }
 
 // Helper function to calculate percentage change
@@ -657,6 +661,7 @@ export function DashboardClient({
   websitePublished = false,
   subscriptionPlanId = "free",
   onePageLive = false,
+  initialAttention = null,
 }: DashboardClientProps) {
   /**
    * THE PERIOD, from the date picker every page in /app shares, remembered
@@ -1367,6 +1372,9 @@ export function DashboardClient({
 
         {/* Physical products on sale that buyers can't check out with yet (components/physical/readiness-banner). Payments is the banner's own "payouts" announcement, so it is left out here. */}
         <ReadinessBanner surface="home" className="mb-6" />
+
+        {/* What the store's orders need now: orders to fulfill, returns, failed deliveries, disputes, stock (components/app/home/attention-list). Nothing when nothing waits. */}
+        <AttentionList initial={initialAttention} className="mb-6" />
 
         {/* Dashboard Banner: what matters now for this store, beside the globe (components/app/home/home-banner) */}
         <div className="mb-8">

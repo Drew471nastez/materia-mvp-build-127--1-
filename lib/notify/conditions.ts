@@ -108,6 +108,7 @@ export const CONDITION_NAMES: readonly ConditionName[] = [
   "store_setup_unfinished",
   "physical_setup_unfinished",
   "physical_store_not_ready",
+  "orders_still_waiting",
   "verification_still_needed",
   "payout_still_failed",
   "dispute_still_open",
@@ -197,6 +198,20 @@ export async function checkCondition(store: NotifyStore, name: ConditionName, jo
         facts.stepsDone = s.steps.filter((x) => x.done).length
         facts.stepsTotal = s.steps.length
         facts.paymentsMissing = s.blockers.length > 0
+      }
+      return true
+    }
+    case "orders_still_waiting": {
+      /* Read now: paid orders that ship, still unsent past their days. Shipped in between, nothing is sent. The email says how many as of now. */
+      if (!creatorId || !store.ordersWaiting) return false
+      const w = await store.ordersWaiting(creatorId)
+      if (!w) return null
+      if (w.count <= 0) return false
+      if (facts) {
+        facts.count = w.count
+        facts.days = w.days
+        if (w.orderId) facts.orderId = w.orderId
+        else delete facts.orderId
       }
       return true
     }

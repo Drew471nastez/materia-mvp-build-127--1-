@@ -17,6 +17,8 @@ import { providerPaymentsReady } from "@/lib/payments/readiness"
 import { readChallengeCounts } from "@/lib/home/progress-server"
 import { creatorSalesRows, creatorSalesTotals } from "@/lib/analytics/creator-orders"
 import { salesSummaryFrom } from "@/lib/home/announcements"
+import { commerceActionCounts } from "@/lib/physical/action-counts-server"
+import { within } from "@/lib/website-builder/load-guard"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -123,6 +125,7 @@ export default async function AppDashboard() {
     salesTotals,
     challengeCounts,
     bannerRows,
+    attention,
   ] = await Promise.all([
     /* Every product and whether it is published: Getting started asks for one, the challenges for five published. */
     adminSupabase
@@ -165,6 +168,8 @@ export default async function AppDashboard() {
     readChallengeCounts(adminSupabase, creator.id),
     /* The banner's sales news: the last 30 days and the first sale, never every order (lib/home/announcements salesSummaryFrom). */
     creatorSalesRows(adminSupabase, creator.id, now),
+    /* What the store's orders need now (lib/physical/action-reminders): in the first paint, so the lines never push Home down; null past 2s, and the browser asks for them then. */
+    within(commerceActionCounts(adminSupabase, creator.id, now), 2_000, null),
   ])
   const bannerSales = salesSummaryFrom({ ...bannerRows, totals: salesTotals }, now)
 
@@ -209,6 +214,7 @@ export default async function AppDashboard() {
       websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}
       onePageLive={onepage?.status === "published"}
+      initialAttention={attention}
     />
   )
 }
