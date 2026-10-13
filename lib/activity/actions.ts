@@ -46,6 +46,7 @@ const ORDER: Record<string, string> = {
   "order.return_opened": "Opened a return for order {s}",
   "order.return_updated": "Updated a return for order {s}",
   "order.refunded": "Refunded order {s}",
+  "order.cash_collected": "Marked order {s} as paid in cash",
   "order.note": "Added a note to order {s}",
   "order.cancel_requested": "Asked to cancel order {s}",
   "order.cancel_declined": "Kept order {s} after a cancel request",

@@ -55,6 +55,9 @@ export const dynamic = "force-dynamic"
  *   confirm   paid: the order, written once (or found written by the
  *             webhook), and the thank you page on the site
  *   free      a code took it to $0: the order, no card
+ *   cod       a cart that ships, paid in cash when it arrives, when the
+ *             shop takes it (lib/physical/cash-on-delivery.ts): the order,
+ *             no card
  *   abandon   the buyer changed the order after Pay: the held stock and the
  *             code's place go back at once
  *   access    "Bought this before? Email me my link": the receipts of this
@@ -117,6 +120,8 @@ async function handlePOST(request: Request) {
       return confirm(request, admin, site, body)
     case "free":
       return free(request, admin, site, body)
+    case "cod":
+      return cashOnDelivery(request, admin, site, body)
     /* Both act for the visitor (an email sent, a cart cookie changed): only from this website's own page. */
     case "access":
     case "forget":
@@ -579,6 +584,72 @@ function basketError(reason: string): string {
   if (reason === "unpaid") return "The payment has not completed."
   if (reason === "not_found" || reason === "unreadable") return "That payment could not be found."
   return "Your payment went through. The order is still being saved: refresh this page in a moment. You will not be charged again."
+}
+
+/* ── Cash on delivery ─────────────────────────────────────────────────── */
+
+/**
+ * The order, written now and paid in cash when it is delivered or picked up.
+ * Every rule is the server's (startCheckout with cashOnDelivery, codRefusal):
+ * the shop takes cash, everything in the cart ships, nothing is free.
+ */
+async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
+  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body, owner ? { email: owner.email } : null)
+  if (allOwned(priced)) return json({ error: "You already own this. It's in your downloads.", code: "already_owned" }, 409)
+  if (couponError) return json({ error: couponError, field: "code" }, 400)
+  if (decision.kind !== "ships") return json({ error: "Cash on delivery is only for things that are delivered or picked up. Pay by card for the rest." }, 400)
+  const pickup = isPickupOptionId(body.deliveryOptionId)
+  const contact = await contactOf(request, admin, site, body, { ships: true, pickup })
+  if (contact instanceof NextResponse) return contact
+  /* An order nobody pays for until it arrives: held to the same pace as a card payment. */
+  const limited = await rateLimit({
+    bucket: "payment",
+    subjects: [addressSubject(request), emailSubject(contact.email)],
+    windows: LIMITS.payment,
+    message: "Too many orders placed just now. Wait a few minutes and try again.",
+  })
+  if (limited) return limited
+  const origin = originFor(site, body)
+  const attribution = await attributionForCheckout(admin, { creatorId: site.creatorId, source: "website", origin, sent: body.origin })
+  const wholeCart = body.wholeCart === true
+
+  const { abandonCheckout, startCheckout } = await import("@/lib/physical/checkout-server")
+  /* A card payment started for an earlier version of this order lets go of its stock first, as Pay does. */
+  if (typeof body.replaces === "string" && body.replaces && body.replaces !== body.clientKey) {
+    await abandonCheckout(admin, { shopId: site.creatorId, clientKey: body.replaces }).catch(() => false)
+  }
+  const name = `${contact.first} ${contact.last}`.trim()
+  const started = await startCheckout(admin, {
+    shopId: site.creatorId,
+    items: body.items,
+    couponCode: body.couponCode,
+    email: contact.email,
+    name,
+    phone: body.phone,
+    address: body.address && typeof body.address === "object" ? { ...(body.address as Record<string, unknown>), name } : body.address,
+    deliveryOptionId: body.deliveryOptionId,
+    buyerNote: body.buyerNote,
+    cartAttributes: body.cartAttributes,
+    clientKey: body.clientKey,
+    origin,
+    attribution,
+    buyerId: null,
+    buyerSignedIn: contact.signedIn,
+    ownerEmail: contact.ownerEmail,
+    buyerEmailConfirmed: contact.signedIn,
+    platformOrigin: `https://${getMainDomain()}`,
+    backUrl: site.origin,
+    config: contact.config,
+    emailOptIn: contact.optedIn,
+    intent: true,
+    cashOnDelivery: true,
+  })
+  if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+  if (started.free) return json({ error: "This order is free. Press Place order.", free: true }, 409)
+  if (!started.cod || !started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
+  const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
+  return NextResponse.json({ receiptToken: started.receiptToken, thanks: siteThanksHref(started.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, wholeCart) })
 }
 
 /* ── Free ─────────────────────────────────────────────────────────────── */

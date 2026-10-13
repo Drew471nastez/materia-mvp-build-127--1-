@@ -148,6 +148,13 @@ export interface StripePayProps {
   emailLocked?: boolean
   /** Between the payment and Pay: business details, consent, a message. */
   beforePay: React.ReactNode
+  /**
+   * Cash on delivery, offered beside the card when the shop takes it and
+   * everything in the order ships (lib/physical/cash-on-delivery.ts). Chosen,
+   * the card form steps aside and Pay becomes Place order, which places the
+   * order with no card at all. Absent, nothing about the form changes.
+   */
+  cash?: { note: string; place: () => Promise<void> } | null
 }
 
 /** Whether this browser is online now, kept current. */
@@ -240,6 +247,7 @@ function StripePayInner({
   afterContact,
   emailLocked = false,
   beforePay,
+  cash = null,
 }: StripePayProps & {
   methods: CheckoutMethod[]
   stripePromise: ReturnType<typeof getStripePromise>
@@ -344,6 +352,18 @@ function StripePayInner({
     } finally {
       setBusy(false)
     }
+  }
+
+  /* Card or cash, when the shop offers cash: the card first, as it always was. */
+  const [byCash, setByCash] = React.useState(false)
+  const cashOn = !!cash && byCash
+  const placeCash = async () => {
+    onError(null)
+    if (!cash) return
+    if (!online) return onError("You are offline. Nothing was ordered. Reconnect and press Place order again.")
+    const problem = check("card")
+    if (problem) return onError(problem)
+    await cash.place()
   }
 
   const hideExpress = express === false || failed
@@ -485,7 +505,44 @@ function StripePayInner({
         <SectionTitle>
           <span id="checkout-payment">Payment method</span>
         </SectionTitle>
-        <div className="min-h-[200px]">
+        {cash ? (
+          <div role="radiogroup" aria-label="How to pay" data-pay-choice="" className="mb-3 grid grid-cols-2 gap-2">
+            {([
+              [false, "Card"],
+              [true, "Cash on delivery"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={label}
+                type="button"
+                role="radio"
+                aria-checked={byCash === value}
+                data-pay-cash={value ? "" : undefined}
+                disabled={busy}
+                onClick={() => {
+                  setByCash(value)
+                  onError(null)
+                }}
+                className={cn(
+                  "flex h-11 cursor-pointer items-center gap-2.5 rounded-[8px] border bg-white px-3.5 text-left text-[14px] font-medium text-[#1a1a2e] transition-colors [-webkit-tap-highlight-color:transparent] disabled:cursor-not-allowed",
+                  byCash === value ? "border-[#1a1a2e]" : "border-[#e1e3e7] hover:border-[#d2d5da]",
+                )}
+                style={{ boxShadow: FIELD_SHADOW }}
+              >
+                <span aria-hidden className={cn("grid h-4 w-4 shrink-0 place-items-center rounded-full border", byCash === value ? "border-[#1a1a2e]" : "border-[#c9ccd2]")}>
+                  {byCash === value ? <span className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}
+                </span>
+                <span className="min-w-0 truncate">{label}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {cashOn ? (
+          <p data-cash-note="" className="rounded-[8px] bg-[#f8f9fa] px-3.5 py-3 text-[14px] leading-5 text-[#4b5563]">
+            {cash?.note}
+          </p>
+        ) : null}
+        {/* Kept drawn while cash is chosen, so going back to the card is instant and keeps what was typed. */}
+        <div className={cn("min-h-[200px]", cashOn && "hidden")}>
           <PaymentElement
             onReady={() => {
               setPaymentReady(true)
@@ -514,9 +571,15 @@ function StripePayInner({
       ) : null}
 
       <PayDock>
-        <PayButton onClick={() => void pay()} busy={busy} disabled={!stripe || !elements || !online}>
-          {busy ? "Processing" : payLabel}
-        </PayButton>
+        {cashOn ? (
+          <PayButton onClick={() => void placeCash()} busy={busy} disabled={!online}>
+            {busy ? "Processing" : "Place order"}
+          </PayButton>
+        ) : (
+          <PayButton onClick={() => void pay()} busy={busy} disabled={!stripe || !elements || !online}>
+            {busy ? "Processing" : payLabel}
+          </PayButton>
+        )}
       </PayDock>
     </div>
   )

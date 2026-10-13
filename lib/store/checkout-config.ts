@@ -36,6 +36,12 @@ export interface CheckoutConfig {
    * cancels and refunds from the order or keeps it (lib/physical/buyer-cancel.ts). Physical orders only.
    */
   buyerCancel: boolean
+  /**
+   * Cash on delivery beside card: the buyer pays in cash when a physical
+   * order is delivered or picked up (lib/physical/cash-on-delivery.ts).
+   * Off until the seller turns it on. Physical carts only.
+   */
+  cashOnDelivery: boolean
 }
 
 export const DEFAULT_CHECKOUT: CheckoutConfig = {
@@ -48,6 +54,7 @@ export const DEFAULT_CHECKOUT: CheckoutConfig = {
   phone: "optional",
   address2: "optional",
   buyerCancel: true,
+  cashOnDelivery: false,
 }
 
 const RULES: FieldRule[] = ["off", "optional", "required"]
@@ -69,6 +76,7 @@ export function checkoutConfig(raw: unknown): CheckoutConfig {
     phone: rule(o.phone, DEFAULT_CHECKOUT.phone),
     address2: rule(o.address2, DEFAULT_CHECKOUT.address2),
     buyerCancel: bool(o.buyerCancel, DEFAULT_CHECKOUT.buyerCancel),
+    cashOnDelivery: bool(o.cashOnDelivery, DEFAULT_CHECKOUT.cashOnDelivery),
   }
 }
 

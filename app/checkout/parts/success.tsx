@@ -19,12 +19,15 @@ export function PaidOverlay({
   state,
   total,
   free,
+  cash = false,
   returningTo = null,
 }: {
   /** "finishing": back from a bank with the payment made, the order still being saved. "paid": the order is made. */
   state: PaidState
   total: number
   free: boolean
+  /** Placed to be paid in cash on delivery: nothing was paid yet. */
+  cash?: boolean
   /** The creator's website the buyer is going back to, when checkout was started there. */
   returningTo?: string | null
 }) {
@@ -61,8 +64,8 @@ export function PaidOverlay({
           </>
         ) : (
           <>
-            <p className="checkout-paid-text mt-5 text-[20px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{free ? "It's yours" : "Payment complete"}</p>
-            <p className="checkout-paid-text mt-1 text-[14px] text-[#6b7280]">{free ? next : `${money(total)} paid. ${next}`}</p>
+            <p className="checkout-paid-text mt-5 text-[20px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{free ? "It's yours" : cash ? "Order placed" : "Payment complete"}</p>
+            <p className="checkout-paid-text mt-1 text-[14px] text-[#6b7280]">{free ? next : cash ? `${money(total)} to pay in cash. ${next}` : `${money(total)} paid. ${next}`}</p>
             {returningTo && <p className="checkout-paid-text mt-1 text-[13px] text-[#6b7280]">Your receipt is in your email.</p>}
           </>
         )}

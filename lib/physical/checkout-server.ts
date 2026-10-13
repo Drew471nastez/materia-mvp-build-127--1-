@@ -70,6 +70,7 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { lineProperties, physicalCheckoutHref } from "./cart-link"
 import { cartAttributes } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
+import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./cash-on-delivery"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
@@ -116,6 +117,12 @@ export interface StartInput {
   intent?: boolean
   /** The ways to pay the form loaded with (lib/checkout/payment-methods). */
   paymentMethods?: unknown
+  /**
+   * Paid in cash on delivery (lib/physical/cash-on-delivery.ts): the order is
+   * written at once, as a free one is, with no card and no fee, and the
+   * seller collects the money when it is delivered or picked up.
+   */
+  cashOnDelivery?: boolean
   /** Signed in to the website's own customer account (lib/site-accounts), which counts as an account here. */
   buyerSignedIn?: boolean
   /** That account's address, proven by its sign in code: what it already owns is left out (lib/checkout/owned). Never a typed email. */
@@ -123,7 +130,7 @@ export interface StartInput {
 }
 
 export type StartResult =
-  | { ok: true; url: string; checkoutId: string; free: boolean; clientSecret?: string | null; paymentIntentId?: string | null; receiptToken?: string | null }
+  | { ok: true; url: string; checkoutId: string; free: boolean; cod?: boolean; clientSecret?: string | null; paymentIntentId?: string | null; receiptToken?: string | null }
   | { ok: false; status: number; error: string; field?: string; stock?: { title: string; available: number }[] }
 
 function clean(value: unknown, max: number): string {
@@ -225,19 +232,42 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (!creator) return { ok: false, status: 404, error: "Shop not found." }
 
   const free = totals.totalCents === 0
-  if (!free && totals.totalCents < MIN_CHARGE_CENTS) return { ok: false, status: 400, error: "The smallest card payment is $0.50." }
+  /*
+    CASH ON DELIVERY (lib/physical/cash-on-delivery.ts): the shop has it on,
+    everything in the cart is delivered or picked up, and there is something
+    to pay. No card is asked for, so neither the card minimum nor the
+    seller's card payments being ready stand in the way: the money is the
+    seller's to collect.
+  */
+  const cod = input.cashOnDelivery === true && !free
+  if (cod) {
+    const why = codRefusal({ enabled: config.cashOnDelivery, lines: q.lines, requiresShipping: priced.requiresShipping, totalCents: totals.totalCents })
+    if (why) return { ok: false, status: 409, error: why }
+  }
+  if (!free && !cod && totals.totalCents < MIN_CHARGE_CENTS) return { ok: false, status: 400, error: "The smallest card payment is $0.50." }
   /* Storelib's one readiness rule (lib/payments/stripe/readiness); the buyer is told nothing about the seller's verification. */
-  if (!free && (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string)))) {
+  if (!free && !cod && (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string)))) {
     return { ok: false, status: 409, error: BUYER_UNAVAILABLE }
+  }
+  /* Paid on delivery, its own row: a card checkout for the same cart is let go, so its stock hold does not sit beside this one. */
+  const rowKey = cod ? codClientKey(clientKey) : clientKey
+  if (cod) {
+    const { data: card } = await db.from("commerce_checkouts").select("id, status").eq("creator_id", priced.creatorId).eq("client_key", clientKey).maybeSingle()
+    if (card?.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
+    if (card?.status === "pending") await releaseCheckout(db, card.id as string, "cancelled", "Paying in cash on delivery instead")
   }
 
   /* The same press again: the checkout it made, and its page while it is open. */
   const { data: existing } = await db
     .from("commerce_checkouts")
-    .select("id, status, stripe_session_id, stripe_payment_intent_id, total_cents, expires_at")
+    .select("id, status, stripe_session_id, stripe_payment_intent_id, total_cents, expires_at, receipt_token")
     .eq("creator_id", priced.creatorId)
-    .eq("client_key", clientKey)
+    .eq("client_key", rowKey)
     .maybeSingle()
+  /* Place order pressed twice: the order the first press placed. */
+  if (existing && cod && existing.status === "paid" && existing.receipt_token) {
+    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(existing.receipt_token as string)}`, checkoutId: existing.id as string, free: false, cod: true, receiptToken: existing.receipt_token as string }
+  }
   if (existing) {
     if (existing.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
     /* The card form's second press (a declined card, a bank's check abandoned): the same payment, while it can still be paid. */
@@ -264,7 +294,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const chargeCurrency = platformChargeCurrency()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>> | null = null
-  if (!free) {
+  /* No fee on cash on delivery: nothing passes through Storelib to take it from. */
+  if (!free && !cod) {
     try {
       fee = await calculatePlatformFeeForCheckout(totals.totalCents, priced.creatorId, db, chargeCurrency)
     } catch {
@@ -305,8 +336,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       lines: q.lines.map((l) => snapshotLine(l, propertiesFor(input.items, l))),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
-      provider: free ? "free" : "stripe",
-      client_key: clientKey,
+      provider: free ? "free" : cod ? COD_PROVIDER : "stripe",
+      client_key: rowKey,
       receipt_token: receiptToken,
       origin: input.origin,
       attribution: input.attribution,
@@ -317,6 +348,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     .single()
   if (insertError || !checkout) {
     if (insertError?.code === "23505") return { ok: false, status: 409, error: "Refresh the page and try again." }
+    /* The database has not taken SQL part 174 yet: its provider check refuses "cod". */
+    if (cod && insertError?.code === "23514") return { ok: false, status: 503, error: "Cash on delivery isn't available on this shop yet. Pay by card instead." }
     console.error("[physical] checkout insert failed:", insertError?.code)
     return { ok: false, status: insertError?.code === "42P01" ? 503 : 500, error: insertError?.code === "42P01" ? "This shop is not ready to sell physical products yet." : "Could not start the checkout." }
   }
@@ -386,10 +419,14 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     await db.from("commerce_checkouts").update({ coupon_holder: holder }).eq("id", checkoutId)
   }
 
-  if (free) {
-    const done = await completeCheckout(db, { checkoutId, sessionId: `free_${randomBytes(18).toString("base64url")}`, paymentIntentId: null, facts: null, baseUrl: input.platformOrigin })
-    if (!done.ok) return { ok: false, status: 500, error: "The order could not be saved. Try again in a moment." }
-    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: true, receiptToken }
+  if (free || cod) {
+    const done = await completeCheckout(db, { checkoutId, sessionId: `${cod ? "cod" : "free"}_${randomBytes(18).toString("base64url")}`, paymentIntentId: null, facts: null, baseUrl: input.platformOrigin })
+    if (!done.ok) {
+      /* A cash order that could not be written lets go of what it held, as an unpaid card checkout does. */
+      if (cod) await releaseCheckout(db, checkoutId, "failed", "The order could not be saved")
+      return { ok: false, status: 500, error: "The order could not be saved. Try again in a moment." }
+    }
+    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: !cod, cod, receiptToken }
   }
 
   if (input.intent) {
@@ -806,8 +843,8 @@ export async function completeCheckout(
       checkoutId: c.checkoutId,
       creatorId: co.creator_id,
       kind: "payment.paid",
-      message: co.provider === "free" ? "Order placed with a code, nothing to pay" : `Payment of ${money(co.total_cents, co.currency)} received`,
-      actor: co.provider === "free" ? "buyer" : "webhook",
+      message: co.provider === "free" ? "Order placed with a code, nothing to pay" : co.provider === COD_PROVIDER ? `Order placed, ${money(co.total_cents, co.currency)} to be paid in cash on delivery` : `Payment of ${money(co.total_cents, co.currency)} received`,
+      actor: co.provider === "free" || co.provider === COD_PROVIDER ? "buyer" : "webhook",
       key: `paid:${c.checkoutId}`,
     })
     if (again > 0) {
@@ -866,14 +903,14 @@ export async function completeCheckout(
         fee_cents: fees[i] ?? 0,
         application_fee_cents: fees[i] ?? 0,
         currency: String(co.currency || "USD").toLowerCase(),
-        provider: co.provider === "free" ? "free" : "stripe",
+        provider: co.provider === "free" ? "free" : co.provider === COD_PROVIDER ? COD_PROVIDER : "stripe",
         status: "completed",
         stripe_session_id: sessionId,
         stripe_payment_intent_id: c.paymentIntentId ?? co.stripe_payment_intent_id,
         session_fingerprint: fingerprint,
         receipt_token: receiptToken,
         allowed_fingerprints: [fingerprint],
-        payment_method: c.facts?.paymentMethod ?? (co.provider === "free" ? null : "card"),
+        payment_method: c.facts?.paymentMethod ?? (co.provider === "free" ? null : co.provider === COD_PROVIDER ? COD_PAYMENT_METHOD : "card"),
         card_brand: c.facts?.cardBrand ?? null,
         card_last4: c.facts?.cardLast4 ?? null,
         buyer_country: co.shipping_address?.country ?? null,
@@ -1024,7 +1061,7 @@ async function onceForOrder(
     admin: db,
     sessionId: s.sessionId,
     paymentIntentId: co.stripe_payment_intent_id ?? null,
-    provider: co.provider === "free" ? "free" : "stripe",
+    provider: co.provider === "free" ? "free" : co.provider === COD_PROVIDER ? COD_PROVIDER : "stripe",
     creatorId: co.creator_id,
     buyerId: co.buyer_id,
     buyerEmail: co.buyer_email,
@@ -1041,7 +1078,8 @@ async function onceForOrder(
   }
   await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.lines[0]?.product_id ?? null, co.email_opt_in === true ? "ticked" : "none"))
   if (co.coupon_id) await step("coupon use", () => recordCouponUse(db, co.coupon_id, co.coupon_holder))
-  await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId }))
+  /* Cash on delivery never passes through Storelib: nothing goes on the seller's payout balance (lib/physical/cash-on-delivery.ts). */
+  if (co.provider !== COD_PROVIDER) await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId }))
   await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
   await step("forwarding", () => queueForwarding(db, co.id, co.creator_id))
   /* ShipStation connected: the items the seller ships go there to be labelled (lib/integrations/shipping/shipstation-server.ts). */

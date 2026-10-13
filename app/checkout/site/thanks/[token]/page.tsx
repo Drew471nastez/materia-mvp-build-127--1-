@@ -35,6 +35,8 @@ interface Summary {
   taxCents: number
   shipTo: string | null
   receipt: string
+  /** To be paid in cash when it arrives (lib/physical/cash-on-delivery.ts): "delivered" or "picked up", or null when it was paid. */
+  cashWhen?: "delivered" | "picked up" | null
   /** For the store's Google Analytics purchase: the order's own id (never the token, which is a credential) and what was bought. */
   ga: { id: string; items: GaItem[]; currency: string | null }
 }
@@ -47,7 +49,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
   try {
     const { data: co, error } = await db
       .from("commerce_checkouts")
-      .select("id, creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method, currency")
+      .select("id, creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method, currency, provider")
       .eq("receipt_token", token)
       .maybeSingle()
     if (error || !co || co.creator_id !== creatorId || co.status !== "paid") return null
@@ -63,6 +65,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
       taxCents: co.shipping_rate?.tax_included ? 0 : co.tax_cents ?? 0,
       shipTo: co.delivery_method === "pickup" ? `Pick up at ${pickup?.name ?? "the shop"}` : address ? [address.line1, address.city].filter(Boolean).join(", ") : null,
       receipt: `/checkout/physical/order/${encodeURIComponent(token)}`,
+      cashWhen: co.provider === "cod" ? (co.delivery_method === "pickup" ? "picked up" : "delivered") : null,
       ga: { id: String(co.id), items: lines.map((l) => gaItem({ id: l.product_id ?? "", title: l.title, priceCents: l.unit_cents, quantity: l.quantity, variant: l.variant_name, kind: l.type === "physical" ? "physical" : "digital" })).filter((i): i is GaItem => !!i), currency: typeof co.currency === "string" ? co.currency : null },
     }
   } catch {
@@ -192,6 +195,11 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
               </div>
             </dl>
             {order.shipTo ? <p className="mt-4 text-[13.5px] text-[#4b5563]">{order.shipTo}</p> : null}
+            {order.cashWhen ? (
+              <p data-cash-payment="" className="mt-3 rounded-[8px] bg-[#f8f9fa] px-3.5 py-2.5 text-[14px] leading-5 text-[#4b5563]">
+                {order.cashWhen === "picked up" ? `Pay ${money(order.totalCents)} in cash when you pick it up.` : `Pay ${money(order.totalCents)} in cash when it's delivered.`}
+              </p>
+            ) : null}
           </section>
 
           <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">

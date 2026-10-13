@@ -37,6 +37,8 @@ interface Props {
     processing: boolean
     /** `taxLabel`: "VAT 19%", as the checkout named it. `currency`: what it was charged in. */
     totals: { subtotal: number; discount: number; shipping: number; tax: number; taxIncluded: boolean; taxLabel?: string; total: number; refunded: number; currency?: string }
+    /** Paid in cash when it arrives (lib/physical/cash-on-delivery.ts): "due" until the shop has the cash, "paid" after. */
+    cash?: "due" | "paid" | null
     lines: { orderId: string; title: string; variantName: string | null; imageUrl: string | null; quantity: number; cents: number; type: string; receiptToken: string | null; returnable: number }[]
     /** Each shipment's updates (`updates`, oldest first): shipped, in transit, out for delivery, delivered, a delivery problem. */
     shipments: {
@@ -310,6 +312,11 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
             <Row label="Total" value={`${money(order.totals.total)}${order.totals.currency && order.totals.currency.toUpperCase() === "USD" ? " USD" : ""}`} strong />
             {order.totals.refunded ? <Row label="Refunded" value={`-${money(order.totals.refunded)}`} /> : null}
           </dl>
+          {order.cash && !order.cancelled ? (
+            <p data-cash-payment="" className="mt-3 rounded-[10px] bg-[#f8f9fa] px-3.5 py-2.5 text-[14px] leading-5 text-[#4b5563]">
+              {order.cash === "paid" ? "Paid in cash." : pickup ? `Pay ${money(order.totals.total - order.totals.refunded)} in cash when you pick it up.` : `Pay ${money(order.totals.total - order.totals.refunded)} in cash when it's delivered.`}
+            </p>
+          ) : null}
         </section>
 
         {order.address ? (

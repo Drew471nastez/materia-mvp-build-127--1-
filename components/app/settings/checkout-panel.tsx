@@ -180,6 +180,17 @@ export function CheckoutPanel() {
       </Card>
 
       {physical ? (
+        <Card title={tt("Cash on delivery")} description={tt("Orders that ship or are picked up.")}>
+          <Toggle
+            label={tt("Take cash on delivery")}
+            description={tt("Buyers choose Card or Cash on delivery at checkout. The order is placed at once and waits to be sent as usual. Mark it as paid from the order when you have the cash. No Storelib fee is taken on these orders.")}
+            checked={config.cashOnDelivery}
+            onChange={(v) => change({ cashOnDelivery: v })}
+          />
+        </Card>
+      ) : null}
+
+      {physical ? (
         <Card title={tt("Cancellations")} description={tt("Orders that ship, before you send them.")}>
           <Toggle
             label={tt("Let buyers ask to cancel")}

@@ -61,6 +61,8 @@ export interface OrderRow {
   physical_pickup?: boolean | null
   /** A parcel of this order is marked as a delivery problem (a fulfillment with status failed). */
   physical_problem?: boolean | null
+  /** Paid in cash on delivery and the seller has not marked the cash received (lib/physical/cash-on-delivery.ts). */
+  physical_cash_due?: boolean | null
   /** This line's share of what the buyer paid for delivery, inside `amount_cents` (lib/physical/checkout-server). */
   shipping_cents?: number | null
   /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
@@ -79,7 +81,8 @@ export interface OrderRow {
   } | null
 }
 
-export type PaymentStatus = "paid" | "pending" | "refunded" | "partially_refunded" | "failed" | "disputed"
+/** `cash_due`: paid in cash on delivery and not collected yet (lib/physical/cash-on-delivery.ts). A sale, to fulfil, with its money still to take. */
+export type PaymentStatus = "paid" | "pending" | "cash_due" | "refunded" | "partially_refunded" | "failed" | "disputed"
 export type FulfillmentStatus = "fulfilled" | "unfulfilled"
 export type DeliveryStatus = "delivered" | "failed" | null
 
@@ -235,6 +238,8 @@ function paymentOf(rows: OrderRow[], totalCents: number, refundedCents: number):
   if (refundedCents > 0) {
     return totalCents > 0 && refundedCents < totalCents ? "partially_refunded" : "refunded"
   }
+  /* Cash on delivery not collected yet: an order to fulfil whose money is still to take, never "Paid". */
+  if (rows.some((r) => r.physical_cash_due === true)) return "cash_due"
   return "paid"
 }
 
@@ -562,6 +567,7 @@ export function hiddenColumnsFrom(cookie: string | undefined | null): ColumnKey[
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   get paid() { return tt("Paid") },
   get pending() { return tt("Payment pending") },
+  get cash_due() { return tt("Cash on delivery") },
   get refunded() { return tt("Refunded") },
   get partially_refunded() { return tt("Partially refunded") },
   get failed() { return tt("Failed") },

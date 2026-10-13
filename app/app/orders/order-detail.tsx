@@ -88,6 +88,7 @@ import {
 } from "./order-parts"
 import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
 import { BuyerNoteCard, NoteComposer, PhysicalFulfillment, ShippingCard, historyOf, usePhysicalOrder } from "@/components/physical/order-panel"
+import { COD_PAYMENT_METHOD } from "@/lib/physical/cash-on-delivery"
 import { useReasons } from "@/lib/store/use-reasons"
 import { OrderMessagesCard } from "@/components/support/order-messages-card"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
@@ -111,7 +112,7 @@ export interface OrderDetailProps {
   onAction: (order: Order, action: OrderAction) => Promise<string>
   onNotice: (message: string) => void
   /** A physical order moved on (fulfilled, delivered, returned): the list's row follows. */
-  onShipping?: (checkoutId: string, fulfillment: string, returnStatus: string) => void
+  onShipping?: (checkoutId: string, fulfillment: string, returnStatus: string, cashDue: boolean) => void
   /** False for a team member: refunds are the owner's (lib/team/roles). */
   canRefund?: boolean
 }
@@ -176,11 +177,13 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   const row = order.lines.find((l) => l.checkout_id && l.physical_fulfillment)
   React.useEffect(() => {
     if (!parcel || !onShipping) return
-    if (row && row.physical_fulfillment === parcel.fulfillmentStatus && (row.physical_return ?? "none") === parcel.returnStatus) return
-    onShipping(parcel.id, parcel.fulfillmentStatus, parcel.returnStatus)
-  }, [parcel?.id, parcel?.fulfillmentStatus, parcel?.returnStatus, row?.physical_fulfillment, row?.physical_return]) // eslint-disable-line react-hooks/exhaustive-deps
+    const cashDue = parcel.payment === "cod_due"
+    if (row && row.physical_fulfillment === parcel.fulfillmentStatus && (row.physical_return ?? "none") === parcel.returnStatus && (row.physical_cash_due === true) === cashDue) return
+    onShipping(parcel.id, parcel.fulfillmentStatus, parcel.returnStatus, cashDue)
+  }, [parcel?.id, parcel?.fulfillmentStatus, parcel?.returnStatus, parcel?.payment, row?.physical_fulfillment, row?.physical_return, row?.physical_cash_due]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const refundable = order.lines.filter((l) => l.status === "completed" && (l.amount_cents || 0) > 0 && l.stripe_payment_intent_id)
+  /* A card payment, or cash on delivery once the seller has it (lib/physical/cash-on-delivery.ts): before that there is nothing to give back. */
+  const refundable = order.lines.filter((l) => l.status === "completed" && (l.amount_cents || 0) > 0 && (l.stripe_payment_intent_id || (l.payment_method === COD_PAYMENT_METHOD && l.physical_cash_due === false)))
   const emailable = order.lines.some(canEmail)
   const firstReceipt = order.lines.find((l) => l.receipt_token)?.receipt_token
 

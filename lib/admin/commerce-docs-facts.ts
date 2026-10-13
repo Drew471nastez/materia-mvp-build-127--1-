@@ -102,6 +102,7 @@ const CHECKOUT_LABELS: Record<keyof CheckoutConfig, string> = {
   phone: "Phone number",
   address2: "Address line 2",
   buyerCancel: "Let buyers ask to cancel",
+  cashOnDelivery: "Cash on delivery",
 }
 
 const word = (v: unknown): string => {

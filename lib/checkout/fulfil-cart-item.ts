@@ -48,7 +48,7 @@ export interface FulfilContext {
   sessionId: string
   paymentIntentId: string | null
   /** "stripe", or "free" for a basket a code took to $0. */
-  provider?: "stripe" | "free"
+  provider?: "stripe" | "free" | "cod"
   creatorId: string
   buyerId: string | null
   buyerEmail: string | null

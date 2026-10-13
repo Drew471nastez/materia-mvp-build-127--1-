@@ -380,7 +380,7 @@ export function SiteCheckout({
   const [error, setError] = React.useState<string | null>(null)
   const [fieldError, setFieldError] = React.useState<{ field: string; message: string } | null>(null)
   const [busy, setBusy] = React.useState(false)
-  const [paid, setPaid] = React.useState<{ total: number; free: boolean } | null>(null)
+  const [paid, setPaid] = React.useState<{ total: number; free: boolean; cash?: boolean } | null>(null)
   const [settled, setSettled] = React.useState(false)
   const [summaryOpen, setSummaryOpen] = React.useState(true)
   const [wide, setWide] = React.useState(false)
@@ -602,6 +602,40 @@ export function SiteCheckout({
     }
     await finish(paymentIntentId, secretRef.current || "")
   }
+
+  /*
+    CASH ON DELIVERY (lib/physical/cash-on-delivery.ts): the order is placed
+    now and paid when it arrives. Under the same key as the card payment for
+    the same order, so a card checkout already started for it lets its stock
+    go on the server, and a second press finds the order already placed.
+  */
+  const placeCash = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const body = orderBody()
+      const sig = JSON.stringify([body.items, body.couponCode, body.address, body.deliveryOptionId, body.email, body.firstName, body.lastName, body.phone, body.buyerNote, body.cartAttributes, body.emailOptIn])
+      const before = intentKey.current
+      const key = before && before.sig === sig ? before.key : newKey()
+      intentKey.current = { key, sig, at: key === before?.key ? before.at : Date.now() }
+      const res = await call<{ thanks?: string }>({ action: "cod", ...body, clientKey: key, replaces: before && before.key !== key ? before.key : null })
+      if (!res.ok || !res.data.thanks) {
+        const field = res.data.field as keyof BusinessDetails | undefined
+        if (field && field in EMPTY_BUSINESS) setBusinessErrors({ [field]: res.data.error || "Check this field." })
+        /* The server said no: the next press is a new order. A request that never got an answer keeps its key, so pressing again finds the order if it was placed. */
+        intentKey.current = { key, sig: "", at: 0 }
+        throw new Error(res.data.error || "The order could not be placed. Nothing was charged. Try again.")
+      }
+      setPaid({ total, free: false, cash: true })
+      go(res.data.thanks)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The order could not be placed. Nothing was charged. Try again.")
+    } finally {
+      setBusy(false)
+    }
+  }
+  /* Offered when the shop takes cash and everything in the order is delivered or picked up (codRefusal says the same on the server). */
+  const cashOffered = config.cashOnDelivery && ships && !!quote && quote.lines.length > 0 && quote.lines.every((l) => l.type === "physical")
 
   const takeFree = async () => {
     if (busy) return
@@ -1104,6 +1138,7 @@ export function SiteCheckout({
         contactExtra={contactExtra}
         afterContact={delivery}
         beforePay={beforePay}
+        cash={cashOffered ? { note: mode === "pickup" ? `Pay ${money(total)} in cash when you pick it up.` : `Pay ${money(total)} in cash when it's delivered.`, place: placeCash } : null}
       />
     )
   }
@@ -1186,7 +1221,7 @@ export function SiteCheckout({
           </main>
         </div>
       </div>
-      <PaidOverlay state={paid ? "paid" : arriving ? "finishing" : null} total={paid?.total ?? 0} free={!!paid?.free} returningTo={siteHost} />
+      <PaidOverlay state={paid ? "paid" : arriving ? "finishing" : null} total={paid?.total ?? 0} free={!!paid?.free} cash={!!paid?.cash} returningTo={siteHost} />
     </>
   )
 }

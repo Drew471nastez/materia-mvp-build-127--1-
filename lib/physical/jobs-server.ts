@@ -27,6 +27,7 @@ import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
 import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
 import { emailIdForJob, itemsText, resolveCopy } from "@/lib/emails/customer-custom"
+import { COD_PAYMENT_METHOD, COD_PROVIDER } from "./cash-on-delivery"
 import { orderCancelledEmail, orderConfirmationEmail, orderDateText, orderUpdatedEmail, paymentFailedEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
 import { creatorTimeZone } from "@/lib/account/time-zone"
 import { storeIdentity } from "@/lib/store/identity-server"
@@ -400,6 +401,9 @@ interface CheckoutForEmail {
   pickup?: { name: string; address: string[]; instructions: string | null; ready: string; hours?: string | null } | null
   paid_at?: string | null
   created_at?: string | null
+  /** stripe, free or cod (lib/physical/cash-on-delivery.ts), and when a cash order's cash came in. */
+  provider?: string | null
+  cod_collected_at?: string | null
   /** Where it was placed (lib/orders/order-source OrderOrigin): a website's host in `site`. */
   origin?: Record<string, unknown> | null
 }
@@ -429,7 +433,7 @@ function paymentLabelOf(row: { payment_method?: string | null; card_brand?: stri
     const brand = row.card_brand ? row.card_brand.charAt(0).toUpperCase() + row.card_brand.slice(1) : "Card"
     return row.card_last4 ? `${brand} ending ${row.card_last4}` : brand
   }
-  const named: Record<string, string> = { paypal: "PayPal", apple_pay: "Apple Pay", google_pay: "Google Pay", link: "Link", klarna: "Klarna" }
+  const named: Record<string, string> = { paypal: "PayPal", apple_pay: "Apple Pay", google_pay: "Google Pay", link: "Link", klarna: "Klarna", [COD_PAYMENT_METHOD]: "Cash on delivery" }
   return named[row.payment_method] ?? row.payment_method.replace(/_/g, " ")
 }
 
@@ -570,6 +574,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       pickup: pickupOf(co),
       copy: copyFor("order_confirmation", co.lines),
       orderDate,
+      cashDue: co.provider === COD_PROVIDER && !co.cod_collected_at,
     })
   } else if (p.template === "shipment") {
     const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer, status").eq("id", p.fulfillmentId).maybeSingle()

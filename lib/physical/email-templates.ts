@@ -263,6 +263,8 @@ export interface OrderEmailModel {
   copy?: ResolvedCopy
   /** When it was placed, as the buyer reads it ("10 October 2026"; orderDateText). */
   orderDate?: string | null
+  /** Paid in cash when it arrives (lib/physical/cash-on-delivery.ts): the email says how much to have ready. */
+  cashDue?: boolean
 }
 
 /** Where a pickup order is collected: the place, when it is usually ready, its opening hours and the store's instructions. */
@@ -304,7 +306,8 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
   const subject = m.copy?.subject ?? `Order ${m.orderNumber} confirmed`
   const hello = m.buyerFirstName ? `Hi ${esc(m.buyerFirstName)}, ` : ""
   const next = m.pickup ? "we're getting your order ready. We'll email you when it's ready to pick up." : m.address?.line1 ? "we're getting your order ready to be shipped. We'll let you know when it's on its way." : "your order is confirmed and everything is on your order page."
-  const intro = m.copy?.introHtml ?? `${hello}${hello ? next : next.charAt(0).toUpperCase() + next.slice(1)}${m.hasDownloads ? " Your downloads are on your order page." : ""}`
+  const cash = m.cashDue ? ` Pay ${formatMoney(m.totals.total, m.totals.currency)} in cash when ${m.pickup ? "you pick it up" : "it's delivered"}.` : ""
+  const intro = (m.copy?.introHtml ?? `${hello}${hello ? next : next.charAt(0).toUpperCase() + next.slice(1)}${m.hasDownloads ? " Your downloads are on your order page." : ""}`) + esc(cash)
   const saved = m.totals.discount + m.totals.shippingDiscount
   const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `<br>${esc(m.deliveryEstimate)}` : ""}` : null
   const info: { label: string; html: string }[] = []
@@ -324,7 +327,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
   const text = [
     `${m.shopName}: order ${m.orderNumber} confirmed${m.orderDate ? ` (${m.orderDate})` : ""}`,
     "",
-    m.copy?.introText ?? intro.replace(/<[^>]+>/g, ""),
+    m.copy?.introText != null ? `${m.copy.introText}${cash}` : intro.replace(/<[^>]+>/g, ""),
     "",
     "Order summary",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),

@@ -159,6 +159,8 @@ export function PhysicalCheckout({
   const [note, setNote] = React.useState("")
   const [summaryOpen, setSummaryOpen] = React.useState(false)
   const [paying, setPaying] = React.useState(false)
+  /* Cash on delivery chosen instead of the card (lib/physical/cash-on-delivery.ts), when the shop offers it. */
+  const [byCash, setByCash] = React.useState(false)
   /* Back from the payment page, restored from the browser's cache: not still paying. */
   useBackFromCache(() => setPaying(false))
   const [payError, setPayError] = React.useState<{ message: string; field: string | null } | null>(null)
@@ -325,6 +327,7 @@ export function PhysicalCheckout({
           buyerNote: note,
           emailOptIn: config.marketingOptIn ? emailOptIn : false,
           clientKey: clientKey.current,
+          ...(cashOn ? { cashOnDelivery: true } : {}),
           returnUrl: backUrl ?? window.location.href,
           /* Stripe's form inside this page; Stripe's own page in the app's shell, where Stripe.js cannot run. */
           ...(isCapacitorShell() ? {} : { ui: "embedded" }),
@@ -350,7 +353,7 @@ export function PhysicalCheckout({
         if (res.status === 409) setItems((x) => (x ? [...x] : x))
         return
       }
-      if (data.free === true && fromCart) {
+      if ((data.free === true || data.cod === true) && fromCart) {
         try {
           window.localStorage.removeItem(cartStorageKey(shopId))
         } catch {
@@ -359,7 +362,8 @@ export function PhysicalCheckout({
       }
       window.location.href = data.url
     } catch {
-      clientKey.current = actionKey()
+      /* A cash order may have been placed without the answer arriving: the same key again finds it rather than placing a second. */
+      if (!cashOn) clientKey.current = actionKey()
       setPayError({ message: "Could not reach the checkout. Check your connection and try again.", field: null })
       setPaying(false)
     }
@@ -402,6 +406,9 @@ export function PhysicalCheckout({
     return null
   })()
   const canPay = !!quote && quote.lines.length > 0 && quote.stockIssues.length === 0 && !missing && !paying && !quoting
+  /* Offered when the shop takes cash, everything ships or is picked up, and there is something to pay (codRefusal says the same on the server). */
+  const cashOffered = config.cashOnDelivery && !!quote?.requiresShipping && !!quote && quote.lines.length > 0 && quote.lines.every((l) => l.type === "physical") && (quote.totals.totalCents ?? 0) > 0
+  const cashOn = cashOffered && byCash
 
   const t = quote?.totals
   const summary = quote ? (
@@ -832,15 +839,53 @@ export function PhysicalCheckout({
               <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className="mt-2 w-full rounded-[10px] border border-[#d9dce1] px-3.5 py-2.5 text-[15px] outline-none focus:border-[#1a1a2e]" placeholder="Gift wrap, delivery instructions..." />
             </details>
 
+            {cashOffered ? (
+              <div>
+                <div role="radiogroup" aria-label="How to pay" data-pay-choice="" className="grid grid-cols-2 gap-2">
+                  {([
+                    [false, "Card"],
+                    [true, "Cash on delivery"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      role="radio"
+                      aria-checked={byCash === value}
+                      data-pay-cash={value ? "" : undefined}
+                      disabled={paying}
+                      onClick={() => {
+                        setByCash(value)
+                        setPayError(null)
+                      }}
+                      className={cn(
+                        "flex h-12 items-center gap-2.5 rounded-[10px] border bg-white px-3.5 text-left text-[15px] font-medium text-[#1a1a2e] transition-colors disabled:cursor-not-allowed",
+                        byCash === value ? "border-[#1a1a2e]" : "border-[#d9dce1] hover:border-[#c4c8cf]",
+                      )}
+                    >
+                      <span aria-hidden className={cn("grid h-4 w-4 shrink-0 place-items-center rounded-full border", byCash === value ? "border-[#1a1a2e]" : "border-[#c9ccd2]")}>
+                        {byCash === value ? <span className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}
+                      </span>
+                      <span className="min-w-0 truncate">{label}</span>
+                    </button>
+                  ))}
+                </div>
+                {cashOn && t ? (
+                  <p data-cash-note="" className="mt-2 text-[13.5px] leading-5 text-[#4b5563]">
+                    {mode === "pickup" ? `Pay ${money(t.totalCents)} in cash when you pick it up.` : `Pay ${money(t.totalCents)} in cash when it's delivered.`}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             {payError ? <p role="alert" className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[14px] text-[#991b1b]">{payError.message}</p> : null}
 
             <button type="button" onClick={pay} disabled={!canPay} className="flex h-14 w-full items-center justify-center gap-2 rounded-[12px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.16)] transition-colors hover:bg-[#2a2a44] disabled:cursor-not-allowed disabled:opacity-50">
               <Lock className="h-4 w-4" />
-              {paying ? "Opening payment" : t && t.totalCents === 0 ? "Place order" : "Continue to payment"}
+              {paying ? (cashOn ? "Placing order" : "Opening payment") : cashOn || (t && t.totalCents === 0) ? "Place order" : "Continue to payment"}
             </button>
             <p className="text-center text-[12.5px] leading-[18px] text-[#6b7280]">
               {missing === "delivery" && quote?.requiresShipping ? (mode === "pickup" ? "Choose a pickup point to continue. " : "Choose a shipping method to continue. ") : ""}
-              Payment is taken securely by Stripe. Stock is held for you while you pay.
+              {cashOn ? "Nothing is charged now. The shop collects the cash." : "Payment is taken securely by Stripe. Stock is held for you while you pay."}
             </p>
           </div>
         </section>

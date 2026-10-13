@@ -31,6 +31,7 @@ import { cartAttributes } from "@/lib/checkout/site-checkout"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
+import { COD_PROVIDER, paymentStateOf, type PaymentState } from "./cash-on-delivery"
 
 export interface OrderLine {
   orderId: string
@@ -124,6 +125,13 @@ export interface PhysicalOrder {
   totalCents: number
   refundedCents: number
   platformFeeCents: number
+  /**
+   * How it was paid, or is to be (lib/physical/cash-on-delivery.ts): by card,
+   * free with a code, or in cash on delivery, still to collect or collected.
+   */
+  payment: PaymentState
+  /** When the seller marked the cash received. Null for every order not paid in cash, and for one still to collect. */
+  cashCollectedAt: string | null
   couponCode: string | null
   address: Record<string, any> | null
   /** `kind` local: the seller brings it (lib/physical/local-delivery.ts), with their note. */
@@ -254,6 +262,8 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     totalCents: co.total_cents,
     refundedCents: refunded,
     platformFeeCents: co.platform_fee_cents,
+    payment: paymentStateOf(co.provider, co.cod_collected_at ?? null),
+    cashCollectedAt: co.provider === COD_PROVIDER ? (co.cod_collected_at ?? null) : null,
     couponCode: co.coupon_code,
     address: co.shipping_address,
     delivery: co.shipping_rate?.name
@@ -695,6 +705,42 @@ export async function addNote(db: Db, creatorId: string, checkoutId: string, tex
   if (error && error.code !== "23505") return { ok: false, error: "The note could not be saved. Try again." }
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * CASH ON DELIVERY, RECEIVED: the seller says the buyer paid in cash. Only
+ * for a cash order still to collect and not cancelled; once, however often
+ * it is pressed (the update names the empty column). The order reads Paid
+ * from then on, and a refund of it is cash given back (app/api/stripe/refund).
+ */
+export async function markCashCollected(db: Db, creatorId: string, checkoutId: string): Promise<Outcome> {
+  const now = new Date().toISOString()
+  const { data: changed, error } = await db
+    .from("commerce_checkouts")
+    .update({ cod_collected_at: now, updated_at: now })
+    .eq("id", checkoutId)
+    .eq("creator_id", creatorId)
+    .eq("provider", COD_PROVIDER)
+    .eq("status", "paid")
+    .is("cancelled_at", null)
+    .is("cod_collected_at", null)
+    .select("id, total_cents, currency")
+  if (error) return { ok: false, error: "Could not mark it as paid. Try again." }
+  const row = Array.isArray(changed) ? (changed[0] as { total_cents?: number; currency?: string } | undefined) : undefined
+  if (row) {
+    await addOrderEvent(db, {
+      checkoutId,
+      creatorId,
+      kind: "payment.paid",
+      message: `Cash on delivery received: ${((row.total_cents ?? 0) / 100).toFixed(2)} ${row.currency ?? ""}`.trim(),
+      actor: "creator",
+      key: `cod_collected:${checkoutId}`,
+    })
+  }
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (!row && order.payment !== "cod_collected") return { ok: false, error: order.cancelledAt ? "This order was cancelled." : "This order isn't paid in cash on delivery.", status: 409 }
+  return { ok: true, order }
 }
 
 export async function saveNote(db: Db, creatorId: string, checkoutId: string, note: unknown): Promise<{ ok: boolean }> {
