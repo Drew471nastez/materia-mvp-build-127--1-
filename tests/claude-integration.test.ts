@@ -26,12 +26,12 @@ async function main() {
     const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input)
     if (url.startsWith("https://claude-integration-db.invalid/rest/v1/creator_ai_keys")) {
       const owner = new URL(url).searchParams.get("creator_id")
-      return Response.json(owner === "eq.personal" ? [{ provider: "anthropic", sealed_key: sealed }] : [])
+      return new Response(JSON.stringify(owner === "eq.personal" ? [{ provider: "anthropic", sealed_key: sealed }] : []), { headers: { "Content-Type": "application/json" } })
     }
     if (url.startsWith("https://api.anthropic.com/v1/models")) {
       const headers = new Headers(input instanceof Request ? input.headers : init?.headers)
       calls.push(headers.get("x-api-key") === ownKey ? "personal" : "platform")
-      return Response.json({ data: available, has_more: false, first_id: available[0].id, last_id: available[1].id })
+      return new Response(JSON.stringify({ data: available, has_more: false, first_id: available[0].id, last_id: available[1].id }), { headers: { "Content-Type": "application/json" } })
     }
     throw new Error("Unexpected external call in Claude integration test")
   }
