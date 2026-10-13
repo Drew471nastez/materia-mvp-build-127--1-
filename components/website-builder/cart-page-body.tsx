@@ -33,7 +33,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
-import { useChargeNote, useMoney, useStorefront, useWord } from "./theme/storefront-context"
+import { useMoney, useStorefront, useWord } from "./theme/storefront-context"
 import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
@@ -59,7 +59,6 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   const { lines, ready, setQty, remove, clear, subtotalCents, count, shopId } = useSiteCart()
   /* Amounts as the product cards show them: the visitor's market's currency, or the store's. */
   const money = useMoney()
-  const chargeNote = useChargeNote()
   /* Back from checkout lands on this cart, in the page's language. */
   const cartPath = cartPathFor(useStorefront().language)
   /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
@@ -404,11 +403,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
           >
             {showDetails ? (busy ? "Getting your order" : w("get_it_free")) : busy ? "Taking you to payment" : w("check_out")}
           </button>
-          {chargeNote && !showDetails && (
-            <p className="w-full text-right text-[12px] leading-snug opacity-70 sm:w-[300px]" data-currency-note="">
-              {chargeNote}
-            </p>
-          )}
+          {/* No "charged in USD" line in the cart (the owner): it is said at checkout, where the card is charged. */}
           {!showDetails && (
             <p className="w-full text-right text-[12px] opacity-55 sm:w-[300px]">
               Payment is handled by Stripe.

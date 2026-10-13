@@ -330,6 +330,12 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       const to = row.scrollLeft > left ? left : row.scrollLeft < right ? right : row.scrollLeft
       if (to !== row.scrollLeft) row.scrollTo({ left: to, behavior: reduced() ? "auto" : "smooth" })
     }
+    /*
+      THE NEW CATEGORY EASES IN, ALL AT ONCE (the owner: switching showed the cards "too direct"; before that, a staggered
+      rise read as glitchy). The list as one, a short fade from most of the way there: no card moves, none waits for another.
+    */
+    const list = gridRef.current
+    if (list && !reduced() && typeof list.animate === "function") list.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 140, easing: "cubic-bezier(0.4, 0, 0.2, 1)" })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 

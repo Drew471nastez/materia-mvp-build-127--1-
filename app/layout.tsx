@@ -61,7 +61,6 @@ import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
 import { SettingsSubpageHost } from "@/components/account/settings-subpage"
 import { AccountCommunityChrome } from "@/components/account/account-community-chrome"
-import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
 import { NativePushInit } from "@/components/native-push-init"
 import { NotificationsAsk } from "@/components/platform/notifications-ask"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
@@ -309,8 +308,11 @@ export default function RootLayout({
         <NativePlaceKeeper />
         {/* The strip under the clock, the browser's bar and the status bar's text in the page's own top colour; the launch screen down on the first steady frame. */}
         <NativeChrome />
-        {/* In the iPhone app only: a swipe from the left edge drags the page and goes back (lib/navigation/edge-swipe). */}
-        <EdgeSwipeBack />
+        {/*
+          NO EDGE SWIPE IN THE APP (the owner: "remove the edge to edge slide navigation from the iOS and Android app; keep it
+          only in the browser, which has its own"). Safari and Chrome keep their own swipe; the app's shell has none of its own.
+          components/platform/edge-swipe-back.tsx stays, unmounted, should it ever come back.
+        */}
         <NativePushInit /> 
         {/* After an install or a reinstall the phone has forgotten: ask once, in our own words, before the phone's prompt. */}
         <NotificationsAsk />

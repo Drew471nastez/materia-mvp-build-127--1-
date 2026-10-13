@@ -26,11 +26,10 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 import { cachedTranslations } from "./server"
 import { marketPricing, siteLanguages, type LiveMarket } from "./live"
 import { cachedRates } from "./fx-server"
-import { chargeNote, fxFresh } from "./money"
+import { fxFresh } from "./money"
 import { convertedCents, moneyFormatFor } from "./pricing"
 import { priceCents } from "@/lib/storelib-theme/compat/objects"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
-import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { localizeMenus, localizeRecord, localizeSections, translationMap, type TranslationMap } from "./translate"
 import { linkLanguageScript } from "./link-script"
 import { compatFields } from "./compat-fields"
@@ -59,11 +58,6 @@ function countryList(markets: LiveMarket[], base: string): { code: string; name:
   return list
 }
 
-/** The note an imported theme's cart shows beside its checkout button when prices are converted. */
-function chargeNoteScript(note: string): string {
-  const text = JSON.stringify(note)
-  return `<script data-storelib-currency-note>(function(d){var t=${text};function put(r){(r.querySelectorAll?r:d).querySelectorAll('[name="checkout"],a[href*="/checkout"],button.cart__checkout-button,.cart__ctas').forEach(function(b){var host=b.closest("form")||b.parentNode;if(!host||host.querySelector("[data-currency-note]"))return;var p=d.createElement("p");p.setAttribute("data-currency-note","");p.style.cssText="margin:8px 0 0;font-size:12px;line-height:1.4;opacity:.75;text-align:center";p.textContent=t;host.appendChild(p)})}function go(){put(d)}if(d.readyState==="loading")d.addEventListener("DOMContentLoaded",go);else go();new MutationObserver(function(m){m.forEach(function(x){x.addedNodes.forEach(function(n){if(n.nodeType===1)put(n)})})}).observe(d.documentElement,{childList:true,subtree:true})})(document)</script>`
-}
 
 /**
  * The site for one request: in `locale` (null: the website's own
@@ -112,8 +106,8 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
 
   const rows = code ? await cachedTranslations(site.creatorId, code).catch(() => []) : []
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
-  const note = pricing ? chargeNote(pricing.currency, platformChargeCurrencyUpper()) : null
-  const extraBodyEnd = `${site.extraBodyEnd ?? ""}${code ? linkLanguageScript(code, langs.defaultLanguage, all) : ""}${note ? chargeNoteScript(note) : ""}`
+  /* No "charged in USD" line put into an imported theme's cart (the owner): the website's checkout says it, where the card is charged. */
+  const extraBodyEnd = `${site.extraBodyEnd ?? ""}${code ? linkLanguageScript(code, langs.defaultLanguage, all) : ""}`
   if (map.size === 0 && !pricing) return { ...site, i18n, extraBodyEnd }
 
   const opts = { approvedOnly: true }

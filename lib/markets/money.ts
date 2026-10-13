@@ -100,12 +100,14 @@ export function convertMinor(
 }
 
 /** "€25.00", "25,00 €", "¥2,500", "25,00 lei": the amount in the visitor's language's way of writing it. */
-export function formatMinor(amount: number, currency: string, locale = "en"): string {
-  const dec = minorUnits(currency)
+export function formatMinor(amount: number, currency: string, locale = "en", opts: { wholeAsWhole?: boolean } = {}): string {
+  const full = minorUnits(currency)
+  /* `wholeAsWhole`: a whole amount is written without its decimals ("439 lei", never "439,00 lei"); for a market rounded up to whole numbers. */
+  const dec = opts.wholeAsWhole && amount % 10 ** full === 0 ? 0 : full
   try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: dec, maximumFractionDigits: dec }).format(amount / 10 ** dec)
+    return new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: dec, maximumFractionDigits: dec }).format(amount / 10 ** full)
   } catch {
-    return `${(amount / 10 ** dec).toFixed(dec)} ${currency}`
+    return `${(amount / 10 ** full).toFixed(dec)} ${currency}`
   }
 }
 

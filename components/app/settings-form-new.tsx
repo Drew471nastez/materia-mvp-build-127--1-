@@ -101,7 +101,7 @@ const TABS = [
   /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
   { id: "taxes", get label() { return tt("Taxes") }, icon: Receipt, group: "store", get line() { return tt("Tax you charge, by country") } },
   /* The website's languages, and the countries it sells to with their currency (components/app/settings/markets-panel.tsx, lib/markets). */
-  { id: "markets", get label() { return tt("Markets and languages") }, icon: Languages, group: "store", get line() { return tt("Languages, countries and currencies") } },
+  { id: "markets", get label() { return tt("Languages & Currency") }, icon: Languages, group: "store", get line() { return tt("Languages, countries and currencies") } },
   { id: "domains", get label() { return tt("Domains") }, icon: Globe, group: "store", get line() { return tt("Your own web address") } },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
   { id: "ai_memory", get label() { return tt("AI Memory") }, icon: Brain, group: "store", get line() { return tt("What Storelib AI remembers about your store") } },

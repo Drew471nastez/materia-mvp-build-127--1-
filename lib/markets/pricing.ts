@@ -62,7 +62,8 @@ export function pricingFor(market: MarketPrice | null | undefined, base: string,
     convert,
     format(minor, locale = "en") {
       const out = convert(minor)
-      return out === null ? null : formatMinor(out, market.currency, locale)
+      /* A market rounded up to whole numbers shows them whole: "439 lei", not "439,00 lei" (the owner). */
+      return out === null ? null : formatMinor(out, market.currency, locale, { wholeAsWhole: market.rounding === "whole" })
     },
   }
 }

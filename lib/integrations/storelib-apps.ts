@@ -45,7 +45,7 @@ export const STORELIB_APPS: StorelibApp[] = [
   { id: "storelib-checkout-reminders", name: "Checkout reminders", summary: "Email buyers who stopped at checkout.", href: "/app/settings?tab=checkout", physical: false },
   { id: "storelib-discounts", name: "Discount codes", summary: "Codes for a percent or amount off.", href: "/app/coupons", physical: false },
   { id: "storelib-bundles", name: "Bundles and upsells", summary: "Buy together deals and checkout offers.", href: "/app/offers", physical: true },
-  { id: "storelib-markets", name: "Markets and languages", summary: "Sell in more currencies and languages.", href: "/app/settings?tab=markets", physical: false },
+  { id: "storelib-markets", name: "Languages & Currency", summary: "Sell in more currencies and languages.", href: "/app/settings?tab=markets", physical: false },
   { id: "storelib-accounts", name: "Customer accounts", summary: "Buyers sign in before they pay.", href: "/app/settings?tab=checkout", physical: false },
   { id: "storelib-domain", name: "Domain", summary: "Your website on your own address.", href: "/app/settings?tab=domains", physical: false },
   { id: "storelib-code", name: "GitHub and AI agents", summary: "Edit your website from GitHub, Claude Code or Codex.", href: "/app/website-builder", physical: false },
