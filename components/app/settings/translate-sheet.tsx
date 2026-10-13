@@ -61,6 +61,9 @@ const STATUS: Record<Status, { label: string; tone: "gray" | "amber" | "blue" | 
 
 type Filter = "todo" | "all"
 
+/** How long one AI press is waited for: the route stops starting batches at 85s and is allowed 120s in all. */
+const DRAFT_WAIT_MS = 125_000
+
 /** The words of a rich text original, for reading above the field. */
 const plain = (html: string) => html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6])>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\n{3,}/g, "\n\n").trim()
 
@@ -132,7 +135,8 @@ export function TranslateSheet({ locale, defaultLanguage, published = false, onP
     setError(null)
     let total = 0
     for (let round = 0; round < 12; round++) {
-      const r = await api<{ drafted: number; left: number }>(`/api/store/translations/draft`, { method: "POST", body: { locale } })
+      /* A press is the model's time, up to the route's own window (app/api/store/translations/draft): not the 25s a save is given, after which the browser said "That took too long" while the drafts were still being written. */
+      const r = await api<{ drafted: number; left: number }>(`/api/store/translations/draft`, { method: "POST", body: { locale }, timeoutMs: DRAFT_WAIT_MS })
       if (!r.ok) {
         setError(r.error)
         break

@@ -34,9 +34,12 @@ async function storeLanguages(c: { db: any; creatorId: string }) {
 export async function GET(request: Request) {
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
-  const { ready, loc, languages } = await storeLanguages(c)
   const url = new URL(request.url)
   const asked = normalizeLocale(url.searchParams.get("locale"))
+  /* The website's texts started beside the languages, not after them: they do not depend on which language, and they are most of the wait. Read only for the sheet, never for the builder's ?values=1 preview. */
+  const textsRead = asked && url.searchParams.get("values") !== "1" ? siteTexts(c.db, c.creatorId) : null
+  textsRead?.catch(() => undefined)
+  const { ready, loc, languages } = await storeLanguages(c)
   const locale = asked && asked !== loc.defaultLanguage && languages.includes(asked) ? asked : null
   /*
     ?values=1, THE BUILDER'S PREVIEW IN ANOTHER LANGUAGE: the approved
@@ -53,7 +56,7 @@ export async function GET(request: Request) {
     return physicalJson({ locale, defaultLanguage: loc.defaultLanguage, languages, published, values })
   }
   if (!locale) return physicalJson({ ready, locale: null, defaultLanguage: loc.defaultLanguage, languages, groups: [] })
-  const [groups, saved] = await Promise.all([siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])
+  const [groups, saved] = await Promise.all([textsRead ?? siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])
   const map = translationMap(saved.rows)
   let done = 0
   let total = 0

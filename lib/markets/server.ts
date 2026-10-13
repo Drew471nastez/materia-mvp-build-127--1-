@@ -222,6 +222,20 @@ export interface TextGroup {
  * published yet, its draft, so a creator can prepare a language first.
  */
 export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]> {
+  /*
+    STARTED TOGETHER. The menus, the products and the collections need
+    nothing from the theme, and were read after it, one after another: four
+    round trips in a row before the translation sheet could open. They are
+    asked for now and awaited where they are used.
+  */
+  const menusRead = storeMenusOrNull(db, creatorId).catch(() => null)
+  /* `.then` is what sends a query (it is lazy until then); its failure is still this function's, below, and marked handled until it is awaited there. */
+  const productsRead = db.from("products").select("id, title, description, seo_title, seo_description").eq("creator_id", creatorId).eq("status", "published").order("created_at", { ascending: false }).limit(200).then((r: { data: unknown }) => r)
+  productsRead.catch(() => undefined)
+  const collectionsRead = db.from("product_collections").select("id, title, description").eq("creator_id", creatorId).limit(200).then(
+    (r: { data: unknown }) => r,
+    () => ({ data: [] }),
+  )
   const { data: install } = await db.from("store_theme_installs").select("id, status").eq("creator_id", creatorId).order("status", { ascending: false }).limit(5)
   const installs = (install ?? []) as { id: string; status: string }[]
   const chosen = installs.find((i) => i.status === "published") ?? installs[0]
@@ -269,7 +283,7 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (chrome.length) groups.unshift({ id: "chrome", title: "Header and footer", items: chrome })
 
     /* The store's menus (the header's and footer's links), and the website's search engine text. */
-    const menus = await storeMenusOrNull(db, creatorId).catch(() => null)
+    const menus = await menusRead
     const theme = themeValues
     const menuItems = menuTranslatables((menus ?? (theme?.menus as never)) ?? null)
     if (menuItems.length) groups.splice(groups[0]?.id === "chrome" ? 1 : 0, 0, { id: "menus", title: "Menus", items: menuItems })
@@ -277,7 +291,7 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (seoItems.length) groups.push({ id: "seo", title: "Search engines", items: seoItems })
   }
 
-  const { data: products } = await db.from("products").select("id, title, description, seo_title, seo_description").eq("creator_id", creatorId).eq("status", "published").order("created_at", { ascending: false }).limit(200)
+  const { data: products } = await productsRead
   const productItems: Translatable[] = []
   for (const p of (products ?? []) as Record<string, unknown>[]) {
     const title = typeof p.title === "string" ? p.title : ""
@@ -289,10 +303,7 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
   }
   if (productItems.length) groups.push({ id: "products", title: "Products", items: productItems })
 
-  const { data: collections } = await db.from("product_collections").select("id, title, description").eq("creator_id", creatorId).limit(200).then(
-    (r: { data: unknown }) => r,
-    () => ({ data: [] }),
-  )
+  const { data: collections } = await collectionsRead
   const collectionItems: Translatable[] = []
   for (const c of (collections ?? []) as Record<string, unknown>[]) {
     const title = typeof c.title === "string" ? c.title : ""

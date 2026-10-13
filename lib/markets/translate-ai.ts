@@ -74,7 +74,19 @@ export interface DraftItem {
  * with a non-empty text. An empty map when there is no key, no credit, or
  * the call failed; the reason is logged by kind, never with the content.
  */
-export async function draftTranslations(items: DraftItem[], from: string, to: string, shopName: string): Promise<{ drafts: Map<string, string>; unavailable: boolean }> {
+export async function draftTranslations(
+  items: DraftItem[],
+  from: string,
+  to: string,
+  shopName: string,
+  /**
+   * `deadlineAt`: no batch starts after this moment (ms since epoch), and one
+   * already running is given only the time left. The route saves what came
+   * back and says how many are left, so a press always ends with its drafts
+   * kept rather than cut off by the function's own limit with nothing saved.
+   */
+  opts: { deadlineAt?: number; concurrency?: number } = {},
+): Promise<{ drafts: Map<string, string>; unavailable: boolean }> {
   const drafts = new Map<string, string>()
   if (!canDraftWithAi() || Date.now() < pausedUntil) return { drafts, unavailable: true }
   const wanted = new Set(items.map((i) => i.key))
@@ -92,32 +104,52 @@ export async function draftTranslations(items: DraftItem[], from: string, to: st
   }
   if (batch.length) batches.push(batch)
 
-  for (const b of batches) {
-    try {
-      const response = await openai().responses.create(
-        {
-          model: MODEL,
-          instructions: instructions(from, to, shopName),
-          input: [{ role: "user", content: [{ type: "input_text" as const, text: JSON.stringify({ items: b.map((i) => ({ key: i.key, text: i.source })) }) }] }],
-          reasoning: { effort: "low" },
-          text: { format: { type: "json_schema", name: "translations", schema: SCHEMA, strict: true } },
-          max_output_tokens: 16_000,
-        },
-        { timeout: 60_000, maxRetries: 1 },
-      )
-      if (response.incomplete_details?.reason === "max_output_tokens") continue
-      const parsed = JSON.parse(response.output_text || "{}") as { translations?: { key?: unknown; text?: unknown }[] }
-      for (const t of parsed.translations ?? []) {
-        if (typeof t.key === "string" && wanted.has(t.key) && typeof t.text === "string" && t.text.trim()) drafts.set(t.key, t.text)
+  /*
+    SIDE BY SIDE, NOT ONE AFTER ANOTHER. Four batches of forty were four
+    model calls in a row, each allowed a minute and a retry, inside a
+    function allowed two minutes: a big press ran past its limit and saved
+    nothing, and the browser had given up long before ("That took too
+    long"). A few at once is one call's time for the whole press.
+  */
+  let stop: "missing-key" | "billing" | null = null
+  let next = 0
+  const run = async () => {
+    while (!stop && next < batches.length) {
+      const left = (opts.deadlineAt ?? Infinity) - Date.now()
+      if (left < 15_000) return
+      const b = batches[next++]
+      try {
+        const response = await openai().responses.create(
+          {
+            model: MODEL,
+            instructions: instructions(from, to, shopName),
+            input: [{ role: "user", content: [{ type: "input_text" as const, text: JSON.stringify({ items: b.map((i) => ({ key: i.key, text: i.source })) }) }] }],
+            reasoning: { effort: "low" },
+            text: { format: { type: "json_schema", name: "translations", schema: SCHEMA, strict: true } },
+            max_output_tokens: 16_000,
+          },
+          /* No retry when there is no time for one: what is not drafted now is left for the next press. */
+          { timeout: Math.min(60_000, left), maxRetries: left > 75_000 ? 1 : 0 },
+        )
+        if (response.incomplete_details?.reason === "max_output_tokens") continue
+        const parsed = JSON.parse(response.output_text || "{}") as { translations?: { key?: unknown; text?: unknown }[] }
+        for (const t of parsed.translations ?? []) {
+          if (typeof t.key === "string" && wanted.has(t.key) && typeof t.text === "string" && t.text.trim()) drafts.set(t.key, t.text)
+        }
+      } catch (err) {
+        if (err instanceof MissingKeyError) {
+          stop = "missing-key"
+          return
+        }
+        if (isBillingRefusal(err)) {
+          pausedUntil = Date.now() + 15 * 60_000
+          stop = "billing"
+          return
+        }
+        console.error(`[translate-ai] a batch failed: ${failureKind(err) ?? (err instanceof Error ? err.name : "error")}`)
       }
-    } catch (err) {
-      if (err instanceof MissingKeyError) return { drafts, unavailable: true }
-      if (isBillingRefusal(err)) {
-        pausedUntil = Date.now() + 15 * 60_000
-        return { drafts, unavailable: true }
-      }
-      console.error(`[translate-ai] a batch failed: ${failureKind(err) ?? (err instanceof Error ? err.name : "error")}`)
     }
   }
-  return { drafts, unavailable: false }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(opts.concurrency ?? 4, batches.length)) }, run))
+  return { drafts, unavailable: stop !== null }
 }

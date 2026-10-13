@@ -365,7 +365,11 @@ function refreshAfterWrite(path: string): void {
   }
 }
 
-export async function api<T = Record<string, unknown>>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
+export async function api<T = Record<string, unknown>>(
+  path: string,
+  /** `timeoutMs`: a longer wait for the one call that is slow by nature (an AI draft); every other call keeps the default (lib/net/request.ts WAIT_MS). */
+  init?: { method?: string; body?: unknown; timeoutMs?: number },
+): Promise<ApiResult<T>> {
   const method = init?.method ?? (init?.body ? "POST" : "GET")
   if (method === "GET") {
     const e = kept.get(path)
@@ -379,13 +383,14 @@ export async function api<T = Record<string, unknown>>(path: string, init?: { me
   return r
 }
 
-async function request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
+async function request<T>(path: string, init?: { method?: string; body?: unknown; timeoutMs?: number }): Promise<ApiResult<T>> {
   /* Bounded end to end (lib/net/request.ts): a request that never answers used to leave a panel's Save spinning for ever. */
   const r = await requestJson<Record<string, unknown>>(path, {
     method: init?.method ?? (init?.body ? "POST" : "GET"),
     json: init?.body ? init.body : undefined,
     credentials: "same-origin",
     cache: "no-store",
+    ...(init?.timeoutMs ? { timeoutMs: init.timeoutMs } : {}),
   })
   if (r.ok) return { ok: true, data: r.data as T }
   if (r.kind === "refused" || r.kind === "server" || r.kind === "auth")

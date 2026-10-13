@@ -18,17 +18,26 @@ export const maxDuration = 120
 const PER_PRESS = 150
 
 /**
+ * No batch starts after this much of the press: what came back by then is
+ * saved and counted, and the rest is the next press's (the sheet asks
+ * again until nothing is left). Leaves room inside maxDuration for the save.
+ */
+const DRAFT_WINDOW_MS = 85_000
+
+/**
  * POST { locale }: "Translate with AI". The website's texts in that language
  * that are missing or outdated (a value a person wrote and approved is never
  * sent or replaced, unless its original changed), drafted by Storelib AI
  * (lib/markets/translate-ai.ts) and saved as drafts to review. The store's
- * own, through its owner; a few presses an hour, as each one is a paid call.
+ * own, through its owner; twelve presses an hour, which is one whole "Translate
+ * everything" (the sheet presses up to twelve times), as each is a paid call.
  */
 export async function POST(request: Request) {
+  const started = Date.now()
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
   if (!canDraftWithAi()) return physicalJson({ error: "Translating with AI isn't available right now. You can still write each translation yourself." }, 503)
-  const limited = await rateLimit({ bucket: "site-translations-ai", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 6, seconds: 3600 }, { limit: 30, seconds: 86400 }], message: "Translating with AI can be used a few times an hour. Try again later." })
+  const limited = await rateLimit({ bucket: "site-translations-ai", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 12, seconds: 3600 }, { limit: 40, seconds: 86400 }], message: "Translating with AI can be used a few times an hour. Try again later." })
   if (limited) return limited
   const body = await readBody(request)
   /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
@@ -48,7 +57,7 @@ export async function POST(request: Request) {
     })
     .slice(0, PER_PRESS)
   if (todo.length === 0) return physicalJson({ drafted: 0, left: 0 })
-  const { drafts, unavailable } = await draftTranslations(todo.map((t) => ({ key: t.key, source: t.source })), loc.defaultLanguage, locale, store?.name || "the store")
+  const { drafts, unavailable } = await draftTranslations(todo.map((t) => ({ key: t.key, source: t.source })), loc.defaultLanguage, locale, store?.name || "the store", { deadlineAt: started + DRAFT_WINDOW_MS })
   if (unavailable && drafts.size === 0) return physicalJson({ error: "Translating with AI isn't available right now. You can still write each translation yourself." }, 503)
   const items = todo.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: false, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
   const done = await saveTranslations(c.db, c.creatorId, locale, items, c.userId)

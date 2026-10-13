@@ -158,7 +158,6 @@ export function PageList({
   products = [],
   onSelect,
   onSelectProduct,
-  onIntent,
   onCreate,
   onDelete,
   tone,
@@ -178,12 +177,6 @@ export function PageList({
   onSelect: (key: string) => void
   /** The product page, shown as this product. Without it the product page is one row, the template. */
   onSelectProduct?: (id: string) => void
-  /**
-   * A page is about to be chosen: the pointer rests on its row, the keyboard
-   * reaches it, or a finger lands on it. The editor reads that page's
-   * sections then, so the switch does not begin with a wait after the press.
-   */
-  onIntent?: (key: string) => void
   onCreate?: () => void
   onDelete?: (key: string) => void
   tone: Tone
@@ -328,9 +321,6 @@ export function PageList({
           onPointerEnter={onIntent && !active ? (e) => { if (e.pointerType === "mouse") onIntent(p.key) } : undefined}
           onFocus={onIntent && !active ? () => onIntent(p.key) : undefined}
           onClick={() => choose(() => onSelect(p.key))}
-          onPointerEnter={active || !onIntent ? undefined : (e) => { if (e.pointerType === "mouse") onIntent(p.key) }}
-          onPointerDown={active || !onIntent ? undefined : () => onIntent(p.key)}
-          onFocus={active || !onIntent ? undefined : () => onIntent(p.key)}
           className={rowClass(active, indented)}
         >
           <span className="min-w-0 flex-1 truncate">{p.name}</span>
@@ -655,8 +645,6 @@ export function PageSwitcher({
   pages: SwitcherPage[]
   current: string
   onSelect: (key: string) => void
-  /** A page is about to be chosen (PageList's onIntent). */
-  onIntent?: (key: string) => void
   onCreate: () => void
   onDelete?: (key: string) => void
   onReload: () => void
@@ -784,7 +772,6 @@ export function PageSwitcher({
               products={products}
               onSelect={onSelect}
               onSelectProduct={onSelectProduct}
-              onIntent={onIntent}
               onCreate={onCreate}
               onDelete={onDelete}
               onIntent={onIntent}
