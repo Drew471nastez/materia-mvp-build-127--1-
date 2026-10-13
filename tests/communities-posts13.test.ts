@@ -143,7 +143,8 @@ async function main() {
   /* ── 5 ─────────────────────────────────────────────────────────────── */
   console.log("\n5. Pictures in cards")
   check("two or more: a grid in the card at every width, one fixed shape (2:1 phone, 8:3 computer), three or more with the first large", /aspect-\[2\/1\]/.test(media) && /sm:aspect-\[8\/3\]/.test(media) && /three && i === 0 \? "row-span-2" : ""/.test(media) && /className=\{several \? "mt-3" : "mt-3 sm:hidden"\}/.test(card))
-  check("never an empty box: a blurred 32px copy from the optimizer under it, then a fade in", /optimizedImageUrl\(url, 16\)/.test(media) && /blur-\[10px\]/.test(media) && /onLoad=\{\(\) => setState\(\(s\) => \(s === "wait" \? "in" : s\)\)\}/.test(media))
+  /* Changed on purpose (the owner: "no blur or fade, just optimised images, clean"): the box keeps its colour, the decoded picture is there in one frame. */
+  check("never a blurred copy, never a fade: the box's own colour, then the whole decoded picture at once", !/data-soft-blur/.test(media) && !/blur-\[10px\]/.test(media) && /el\.decode\(\)\.then\(show, show\)/.test(media) && !/transition-opacity ease-out/.test(media))
   check("a picture already in the cache is drawn at once (no blink when a card is drawn again)", /if \(el\?\.complete && el\.naturalWidth > 0\) setState\("cached"\)/.test(media))
   check("a hairline and a light depth around a card's pictures", /ring-1 ring-inset ring-black\/\[0\.06\]/.test(media) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\)\]/.test(media))
   check("community pictures are drawn in standard dynamic range", /export const SDR = "\[dynamic-range-limit:standard\]"/.test(media) && (media.match(/\$\{SDR\}/g) ?? []).length >= 3 && /\[dynamic-range-limit:standard\]/.test(lightbox))

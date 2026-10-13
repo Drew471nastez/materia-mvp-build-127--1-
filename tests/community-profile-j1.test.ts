@@ -187,7 +187,8 @@ async function main() {
     check("  at high priority, with its srcset and sizes", /fetchPriority="high"|fetchpriority="high"/.test(img) && /srcSet="|srcset="/.test(img) && /sizes="\(min-width: 1280px\)/.test(img))
     check("  and preloaded with the same files", /<link rel="preload"[^>]*as="image"[^>]*>/.test(html) && /imageSrcSet="|imagesrcset="/i.test(html))
     check("a fixed shape, drawn before anything loads", /aspect-\[2\/1\][^"]*sm:aspect-\[16\/5\]/.test(html))
-    check("the wash under it is the photo's own 112px file (no extra download)", /data-member-cover-wash=""/.test(html) && /sizes="112px"/.test(html))
+    /* Changed on purpose (the owner: "the images don't have that blur thing"): no blurred photo under the cover, the name's own soft colour. */
+    check("under it a soft wash of the name's colour, never a blurred photo", !/data-member-cover-wash/.test(html) && !/blur-\[/.test(html) && html.includes("linear-gradient(135deg, hsl("))
     const plain = renderToString(createElement(MemberCover, { url: null, crop: { x: 50, y: 50, zoom: 1 }, name: "Ana", avatarUrl: null }))
     check("nobody's picture at all: a soft wash of a colour from their name, never a flat grey", /data-member-profile-cover="name-wash"/.test(plain) && plain.includes("linear-gradient(135deg, hsl(") && !/<img/.test(plain))
     check("  the same colour for the same name, every time", nameWash("Ana") === nameWash("Ana") && nameWash("Ana") !== nameWash("Bo"))

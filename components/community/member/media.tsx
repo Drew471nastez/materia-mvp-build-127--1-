@@ -59,7 +59,8 @@ import { openMediaViewer } from "./media-viewer"
  * image optimizer (a few hundred bytes, there almost at once even on a slow
  * phone network), stretched and blurred under where the picture will be, so
  * the box shows the picture's own colours; the picture then fades in over
- * it (250ms, opacity only). One already in the browser's cache is drawn at
+ * it (250ms, opacity only). CHANGED (the owner): no blurred copy and no fade;
+ * the box keeps its quiet colour and the decoded picture is there in one frame. One already in the browser's cache is drawn at
  * once, with no fade, so a card drawn again (another space, back to the
  * feed) never blinks. Somebody else's picture (a GIF's still, a link's) has
  * the quiet grey box and the same fade.
@@ -77,7 +78,6 @@ import { openMediaViewer } from "./media-viewer"
 export const SDR = "[dynamic-range-limit:standard]"
 /** The inset hairline over a picture's edge (its parent is the rounded, clipped box). */
 export const PICTURE_EDGE = "pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/[0.06]"
-const FADE_MS = 250
 
 /** Pictures this tab has already drawn: remounts and space switches stay opaque. */
 const painted = new Set<string>()
@@ -166,7 +166,7 @@ export function SoftImg({
   const ref = useRef<HTMLImageElement>(null)
   /* In the page's HTML: shown as soon as the browser has it, never hidden until the scripts run (lib/ui/drawn-by-server.ts). */
   const fromServer = useDrawnByServer()
-  /* "cached": drawn at once; "wait": transparent until it loads; "in": fading in; "html": in the HTML, shown as it arrives. */
+  /* "cached": drawn at once; "wait": the box's own colour until the picture is loaded and decoded; "html": in the HTML, shown as it arrives. ("in" is no longer used: nothing fades.) */
   const [state, setState] = useState<"cached" | "wait" | "in" | "html">(() => (src && painted.has(src) ? "cached" : fromServer ? "html" : "wait"))
   const [prevSrc, setPrevSrc] = useState(src)
   if (src !== prevSrc) {
@@ -181,18 +181,6 @@ export function SoftImg({
       setState("cached")
     }
   }, [src, eager])
-  /*
-    THE BLUR GOES ONCE THE PICTURE IS IN (round 24). A picture that faded in stayed "in" for the card's life, and the blurred
-    copy under it with it: after one scroll down the feed, 44 blurred boxes for 44 pictures, 32 of them under a picture
-    already drawn, each one re-rasterised (a 10px CSS blur of a box scaled to 110%) whenever its tile was painted, which on
-    iOS is the CPU. Measured at 4x CPU, raster over the same swipes went from 400 to 570ms to 220 to 260ms without them.
-    Once the fade has ended the picture counts as drawn: no blur under it, no transition on it.
-  */
-  useEffect(() => {
-    if (state !== "in") return
-    const t = window.setTimeout(() => setState((s) => (s === "in" ? "cached" : s)), FADE_MS + 40)
-    return () => window.clearTimeout(t)
-  }, [state])
   const shown = state !== "wait"
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
@@ -213,21 +201,27 @@ export function SoftImg({
         decoding={state === "cached" ? "sync" : "async"}
         fetchPriority={fetchPriority}
         referrerPolicy={referrerPolicy}
-        onLoad={() => {
+        onLoad={(e) => {
           painted.add(src)
-          setState((s) => (s === "wait" ? "in" : s === "in" ? "in" : "cached"))
+          /*
+            NO BLUR, NO FADE (the owner: "the images don't have that blur thing... no blur or fade, just optimised images, clean").
+            The box keeps its quiet colour until the picture is whole, then the picture is there in one frame: decoded first, so
+            it is never painted in strips, and never a blurred copy or a fade before it.
+          */
+          const el = e.currentTarget
+          const show = () => setState((s) => (s === "wait" ? "cached" : s === "in" ? "cached" : s))
+          if (typeof el.decode === "function") el.decode().then(show, show)
+          else show()
         }}
         onError={onError}
-        className={`${className} ${SDR} ${state === "cached" || state === "html" ? "" : "transition-opacity ease-out motion-reduce:transition-none"} ${shown ? "opacity-100" : "opacity-0"}`}
-        style={state === "in" ? { transitionDuration: `${FADE_MS}ms` } : undefined}
+        className={`${className} ${SDR} ${shown ? "opacity-100" : "opacity-0"}`}
         data-soft-img={state}
       />
   )
+  /* `blur` is still accepted from the callers and no longer drawn: nothing is fetched for it. */
+  void blur
   return (
     <>
-      {blur && state !== "cached" ? (
-        <span aria-hidden className={`absolute inset-0 scale-110 bg-cover bg-center blur-[10px] ${SDR}`} style={{ backgroundImage: `url("${blur}")` }} data-soft-blur="" />
-      ) : null}
       {hiddenFrom ? (
         <picture>
           <source media={hiddenFrom} srcSet={NO_PICTURE} />

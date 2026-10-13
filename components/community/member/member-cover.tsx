@@ -13,11 +13,9 @@
  *                            nothing under it ever moves, with or without a
  *                            picture.
  *   NEVER A FLAT GREY        under the picture, and in its place for somebody
- *                            with no cover at all: their own photo, blown up
- *                            and blurred into a wash of its colours (the same
- *                            file the photo below is drawn from, so nothing
- *                            more is downloaded), or a soft wash of a colour
- *                            taken from their name when they have no photo.
+ *                            with no cover at all: a soft wash of a colour
+ *                            taken from their name. Never a blurred photo
+ *                            (the owner: no blur).
  *   THE PICTURE AT ONCE      in the server's HTML with fetchpriority high,
  *                            preloaded in the head with the same srcset and
  *                            sizes (lib/communities/member-cover.ts), so it is
@@ -32,7 +30,6 @@
  */
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { preload } from "react-dom"
-import { avatarSource } from "@/components/app/app-avatar"
 import { coverCropStyle, type CoverCrop } from "@/lib/images/cover-crop"
 import { markMemberCoverReady, memberCoverReady, memberCoverSource } from "@/lib/communities/member-cover"
 import { cn } from "@/lib/utils"
@@ -101,33 +98,17 @@ function CoverPicture({ url, crop, name }: { url: string; crop: CoverCrop; name:
   )
 }
 
-export function MemberCover({ url, crop, name, avatarUrl }: { url: string | null; crop: CoverCrop; name: string; avatarUrl: string | null }) {
-  /* The photo's own file (MemberAvatar draws it at 112px): the wash costs no download. */
-  const face = avatarSource(avatarUrl, 112)
+export function MemberCover({ url, crop, name }: { url: string | null; crop: CoverCrop; name: string; avatarUrl?: string | null }) {
+  /*
+    NO BLUR (the owner: "the images don't have that blur thing"). Under the cover, and in its place for somebody with none,
+    a soft wash of a colour of their own, from their name: flat, no blurred photo, no extra layer to paint.
+  */
   return (
     <div
       className="relative aspect-[2/1] w-full overflow-hidden bg-[#eef0f3] sm:aspect-[16/5]"
-      style={face ? undefined : { backgroundImage: nameWash(name) }}
-      data-member-profile-cover={url ? "image" : face ? "photo-wash" : "name-wash"}
+      style={{ backgroundImage: nameWash(name) }}
+      data-member-profile-cover={url ? "image" : "name-wash"}
     >
-      {face ? (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={face.src}
-            srcSet={face.srcSet}
-            sizes={face.sizes}
-            alt=""
-            aria-hidden
-            decoding="async"
-            draggable={false}
-            className="absolute inset-0 h-full w-full scale-150 select-none object-cover opacity-75 blur-[56px] saturate-[1.2]"
-            data-member-cover-wash=""
-          />
-          {/* A light veil, so a dark photo's wash stays soft and the white ring of the photo still reads on it. */}
-          <span aria-hidden className="absolute inset-0 bg-white/35" />
-        </>
-      ) : null}
       {url ? <CoverPicture key={url} url={url} crop={crop} name={name} /> : null}
     </div>
   )

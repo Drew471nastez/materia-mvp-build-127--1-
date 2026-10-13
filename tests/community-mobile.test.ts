@@ -63,7 +63,8 @@ console.log("\nTHE FEED'S PICTURES")
   const feed = read("components/community/member/feed.tsx")
   const rs = read("components/community/member/return-scroll.ts")
   check("cards are not skipped off screen (the skip was 32px too tall per card and cost more than it saved)", !/\[content-visibility:auto\]/.test(card) && !/containIntrinsicSize/.test(card))
-  check("the blurred copy goes once a picture has faded in", /setState\(\(s\) => \(s === "in" \? "cached" : s\)\), FADE_MS \+ 40\)/.test(media))
+  /* Changed on purpose (the owner: no blur, no fade): there is no blurred copy to take away. */
+  check("no blurred copy and no fade under a picture", !/data-soft-blur/.test(media) && !/blur-\[10px\]/.test(media) && /el\.decode\(\)\.then\(show, show\)/.test(media) && !/transition-opacity ease-out/.test(media))
   check("the first two cards ask for their pictures at once and first", /priority=\{i < 2\}/.test(feed) && /eager=\{priority\}\s*fetchPriority=\{priority \? "high" : undefined\}/.test(media.slice(media.indexOf("function CardPictureImg"))))
   check("the scroll's place is noted when it rests, not written to storage on every frame", /timer = window\.setTimeout\(flush, 150\)/.test(rs) && !/requestAnimationFrame\(\(\) => \{\s*frame = 0\s*write\(/.test(rs))
 }
