@@ -79,6 +79,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/physical", schedule: "3,13,23,33,43,53 * * * *", what: "Physical commerce: unpaid stock holds released, order emails, supplier emails and webhooks sent or retried" },
   { path: "/api/cron/fx-rates", schedule: "35 15 * * 1-5", what: "Keeps the European Central Bank's exchange rates for the day (Markets and languages)" },
   { path: "/api/cron/community", schedule: "*/5 * * * *", what: "Community jobs: announcement and event fan outs, reminders, recounts, the daily rollup and trending" },
+  { path: "/api/cron/translations", schedule: "47 * * * *", what: "Translate changes automatically: each store's new and changed website text translated into its other languages (Markets and languages)" },
 ] as const
 
 /**

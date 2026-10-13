@@ -49,6 +49,8 @@ const PATH = "/api/store/markets"
 interface Loaded {
   ready: boolean
   localization: Localization
+  /** Translate changes automatically: its last run (lib/markets/auto-translate.ts), and whether Storelib AI is on for this deployment. */
+  autoTranslate?: { run: { at: string; translated: number; left: number; error?: string } | null; available: boolean }
   baseCurrency: string
   chargeCurrency: string
   fx: { asOf: string; fresh: boolean; currencies: string[] } | null
@@ -69,6 +71,24 @@ function languageLabel(code: string): string {
 
 /** The market every store starts with is named "Home" in its data; it reads in the dashboard's language until the creator renames it. */
 const marketName = (m: { name: string; primary?: boolean }) => (m.primary && m.name.trim().toLowerCase() === "home" ? ttx("market", "Home") : m.name)
+
+/** What the last automatic run did, under its switch: when, how many, and what is left or went wrong. */
+function AutoTranslateRunLine({ run }: { run: { at: string; translated: number; left: number; error?: string } }) {
+  const when = new Date(run.at)
+  const at = Number.isNaN(when.getTime()) ? "" : when.toLocaleString(activeLocale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
+  const text = run.error
+    ? tt("Last run {at}: Storelib AI couldn't be reached. It tries again next hour.", { at })
+    : run.left > 0
+      ? tt("Last run {at}: {translated} translated, {left} for the next run", { at, translated: run.translated, left: run.left })
+      : run.translated > 0
+        ? tt("Last run {at}: {translated} translated, everything is up to date", { at, translated: run.translated })
+        : tt("Last run {at}: everything is up to date", { at })
+  return (
+    <p className={cn("mt-2 text-[12.5px] leading-[18px]", run.error ? "text-[#b45309]" : "text-[#6b7280]")} data-auto-translate-run={run.error ? "error" : run.left > 0 ? "left" : "done"}>
+      {text}
+    </p>
+  )
+}
 
 export function MarketsPanel() {
   const [data, setData] = React.useState<Loaded | null>(() => peekGet<Loaded>(PATH))
@@ -216,6 +236,24 @@ export function MarketsPanel() {
             disabled={!data.ready}
             onChange={(v) => commit({ ...draft, visitorLanguage: v })}
           />
+        </div>
+        {/* Translate changes automatically (lib/markets/auto-translate.ts): saved as it is switched, like the rest. */}
+        <div className="mt-4 border-t border-[#f1f2f4] pt-4" data-auto-translate="">
+          <Toggle
+            id="auto-translate"
+            label={tt("Translate changes automatically")}
+            description={
+              data.autoTranslate?.available === false
+                ? tt("Storelib AI isn't available right now. You can still translate each text yourself.")
+                : draft.languages.length === 0
+                  ? tt("Works once you add a language: each hour, text you add or change is translated and goes live.")
+                  : tt("Each hour, text you add or change is translated into your other languages and goes live. Translations you wrote are never replaced.")
+            }
+            checked={draft.autoTranslate === true}
+            disabled={!data.ready || (data.autoTranslate?.available === false && draft.autoTranslate !== true)}
+            onChange={(v) => commit({ ...draft, autoTranslate: v })}
+          />
+          {draft.autoTranslate && data.autoTranslate?.run ? <AutoTranslateRunLine run={data.autoTranslate.run} /> : null}
         </div>
       </Card>
 

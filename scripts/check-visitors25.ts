@@ -525,7 +525,7 @@ async function settings(browser: Browser, base: string) {
     await r.page.waitForSelector('[data-ga-status="receiving-data"]', { timeout: 8000 }).catch(() => {})
     const rec = await r.page.evaluate(() => ({ title: document.querySelector("[data-ga-status] p")?.textContent, line: document.querySelector("[data-ga-line]")?.textContent, notes: document.querySelector("[data-ga-notes]")?.textContent }))
     await r.page.screenshot({ path: `${OUT}/ga-receiving-${vp.label}.png`, fullPage: true })
-    check(`${vp.label}: Connected, receiving data, the last event's time, and the 48 hours note`, rec.title === "Connected, receiving data" && rec.line === "Last event 2 min ago, from a visit to your website." && /48 hours/.test(rec.notes ?? "") && /within a minute/.test(rec.notes ?? ""), rec)
+    check(`${vp.label}: Connected, receiving data, the last event's time, and the 48 hours note`, rec.title === "Connected, receiving data" && /* "2 minutes ago" since the catalogs wrote whole words (ef95dbf0a). */ /^Last event 2 min(?:utes)? ago, from a visit to your website\.$/.test(rec.line ?? "") && /48 hours/.test(rec.notes ?? "") && /within a minute/.test(rec.notes ?? ""), rec)
     await r.close()
 
     const w = await pageFor(browser, vp)
@@ -560,6 +560,26 @@ async function settings(browser: Browser, base: string) {
     await sleep(800)
     const put = await m.page.evaluate(() => (window as unknown as { __calls: string[] }).__calls.find((c) => c.startsWith("PUT /api/store/markets")))
     check(`${vp.label}:   turned on, saved at once like the rest of the page`, !!put && /"visitorLanguage":true/.test(put), put)
+    /* Translate changes automatically, beside it: off until turned on, saved by the switch, then its last run said under it. */
+    const auto = await m.page.evaluate(() => {
+      const el = document.querySelector("[data-auto-translate]") as HTMLElement | null
+      el?.scrollIntoView({ block: "center" })
+      return el ? { text: el.textContent, on: el.querySelector("[role=switch]")?.getAttribute("aria-checked") } : null
+    })
+    check(`${vp.label}: Translate changes automatically, off until turned on, saying it never replaces yours`, !!auto && /Translate changes automatically/.test(auto.text ?? "") && /never replaced/.test(auto.text ?? "") && auto.on === "false", auto)
+    await press(m.page, vp, "[data-auto-translate] [role=switch]")
+    await sleep(800)
+    const autoPut = await m.page.evaluate(() => (window as unknown as { __calls: string[] }).__calls.filter((c) => c.startsWith("PUT /api/store/markets")).pop())
+    check(`${vp.label}:   turned on, saved at once`, !!autoPut && /"autoTranslate":true/.test(autoPut), autoPut)
+    const line = await m.page.evaluate(() => {
+      const el = document.querySelector("[data-auto-translate-run]") as HTMLElement | null
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      const lh = parseFloat(getComputedStyle(el).lineHeight)
+      return { text: el.textContent, kind: el.getAttribute("data-auto-translate-run"), lines: Math.round(r.height / lh), right: r.right, vw: innerWidth }
+    })
+    await m.page.screenshot({ path: `${OUT}/markets-auto-${vp.label}.png` })
+    check(`${vp.label}:   its last run, under it: how many, and what is left`, !!line && line.kind === "left" && /12 translated, 3 for the next run/.test(line.text ?? "") && line.right <= line.vw, line)
     check(`${vp.label}: nothing scrolls sideways`, (await sideways(m.page)) <= 0)
     await m.close()
   }

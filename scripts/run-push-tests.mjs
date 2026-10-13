@@ -37,6 +37,7 @@ const SUITES = [
   "tests/ai-theme-settings.test.ts",
   "tests/translation-integrity.test.ts",
   "tests/shop-money.test.ts",
+  "tests/auto-translate.test.ts",
   "tests/playbook24.test.ts",
   "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",

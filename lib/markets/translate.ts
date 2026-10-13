@@ -133,6 +133,28 @@ export function statusOf(row: TranslationRow | undefined, source: string): "miss
   return row.status === "approved" ? "done" : "draft"
 }
 
+/** What Storelib AI may write, by the press or the hourly job: missing, or outdated and its own. Never the merchant's words. */
+export function aiMayWrite(row: TranslationRow | undefined, source: string): boolean {
+  if (row?.source === "manual") return false
+  const s = statusOf(row, source)
+  return s === "missing" || s === "outdated"
+}
+
+/**
+ * Translations already written for the same original under another key
+ * ("Shop" in the header menu and the footer's), by the original's hash:
+ * reused as they are, with no call to Storelib AI. Approved ones only,
+ * and the merchant's own first.
+ */
+export function reusableTranslations(rows: TranslationRow[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const r of [...rows].sort((a, b) => (a.source === "manual" ? 0 : 1) - (b.source === "manual" ? 0 : 1))) {
+    if (r.status !== "approved" || !r.value.trim() || out.has(r.sourceHash)) continue
+    out.set(r.sourceHash, r.value)
+  }
+  return out
+}
+
 /**
  * The sections in a language: every text setting with a value laid over,
  * everything else the original's. A new array; the original is untouched.

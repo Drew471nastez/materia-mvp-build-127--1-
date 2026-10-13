@@ -70,6 +70,14 @@ export interface Localization {
    * store_localization.visitor_language (SQL part 173).
    */
   visitorLanguage?: boolean
+  /**
+   * Translate changes automatically (lib/markets/auto-translate.ts): each
+   * hour, Storelib AI translates the website's text that is new or changed
+   * since its translation, into every language the website has, and puts it
+   * live. Never a translation the merchant wrote. Off unless the store turns
+   * it on. Kept in store_localization.auto_translate (SQL part 175).
+   */
+  autoTranslate?: boolean
 }
 
 export const MAX_LANGUAGES = 20
@@ -139,7 +147,7 @@ export function validateLocalization(input: unknown, opts: { baseCurrency: strin
   home.adjustBps = 0
   home.rounding = "none"
   home.active = true
-  return { ok: true, value: { defaultLanguage, languages, markets, visitorLanguage: raw.visitorLanguage === true } }
+  return { ok: true, value: { defaultLanguage, languages, markets, visitorLanguage: raw.visitorLanguage === true, autoTranslate: raw.autoTranslate === true } }
 }
 
 /** Every language a visitor can open: the default first, then the published ones. */

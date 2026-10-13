@@ -69,7 +69,7 @@ async function main() {
 
   console.log("\nStorelib AI never replaces what the merchant wrote")
   const draft = read("app/api/store/translations/draft/route.ts")
-  check("the merchant's own are never sent to AI, outdated or not", /if \(row\?\.source === "manual"\) return false/.test(draft))
+  check("the merchant's own are never sent to AI, outdated or not", /if \(row\?\.source === "manual"\) return false/.test(read("lib/markets/translate.ts")) && /aiMayWrite\(map\.get\(t\.key\), t\.source\)/.test(draft))
   check("its write keeps the merchant's, read again just before writing", /saveTranslations\(c\.db, c\.creatorId, locale, items, c\.userId, \{ keepManual: true \}\)/.test(draft))
   /* The write, against a table where the merchant saved "Bonjour" a moment ago. */
   const written: Record<string, unknown>[] = []

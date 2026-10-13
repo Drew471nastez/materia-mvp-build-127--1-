@@ -92,7 +92,7 @@ function stubFetch() {
       ga = { id: saved, seenAt: ga?.seenAt ?? null, checkedAt: new Date().toISOString(), ready: true }
       return json({ ga })
     }
-    if (url === "/api/store/markets" && method === "GET") return json({ ready: true, localization: local, baseCurrency: "USD", chargeCurrency: "USD", fx: null })
+    if (url === "/api/store/markets" && method === "GET") return json({ ready: true, localization: local, autoTranslate: { run: { at: new Date(Date.now() - 20 * 60_000).toISOString(), translated: 12, left: 3 }, available: true }, baseCurrency: "USD", chargeCurrency: "USD", fx: null })
     if (url === "/api/store/markets" && method === "PUT") {
       local = (JSON.parse(String(init?.body ?? "{}")) as { localization: typeof local }).localization
       return json({ localization: local })

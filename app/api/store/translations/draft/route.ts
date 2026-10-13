@@ -6,8 +6,8 @@ import { storeIdentity } from "@/lib/store/identity-server"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
-import { statusOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
-import { canDraftWithAi, draftTranslations } from "@/lib/markets/translate-ai"
+import { aiMayWrite, translationMap } from "@/lib/markets/translate"
+import { canDraftWithAi, draftReusing } from "@/lib/markets/translate-ai"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
@@ -32,13 +32,9 @@ const DRAFT_WINDOW_MS = 85_000
  * (lib/markets/translate-ai.ts) and saved as drafts to review. The store's
  * own, through its owner; twelve presses an hour, which is one whole "Translate
  * everything" (the sheet presses up to twelve times), as each is a paid call.
+ * What AI may write is lib/markets/translate.ts aiMayWrite, the same rule as
+ * the hourly job's (lib/markets/auto-translate.ts).
  */
-/** What Storelib AI may draft: missing, or outdated and its own. Never the merchant's words. */
-function aiMayWrite(row: TranslationRow | undefined, source: string): boolean {
-  if (row?.source === "manual") return false
-  const s = statusOf(row, source)
-  return s === "missing" || s === "outdated"
-}
 
 export async function POST(request: Request) {
   const started = Date.now()
@@ -59,7 +55,8 @@ export async function POST(request: Request) {
     .filter((t) => aiMayWrite(map.get(t.key), t.source))
     .slice(0, PER_PRESS)
   if (todo.length === 0) return physicalJson({ drafted: 0, left: 0 })
-  const { drafts, unavailable } = await draftTranslations(todo.map((t) => ({ key: t.key, source: t.source })), loc.defaultLanguage, locale, store?.name || "the store", { deadlineAt: started + DRAFT_WINDOW_MS })
+  /* One already translated under another key is reused (lib/markets/translate-ai.ts draftReusing); the rest go to Storelib AI. */
+  const { drafts, unavailable } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, loc.defaultLanguage, locale, store?.name || "the store", { deadlineAt: started + DRAFT_WINDOW_MS })
   if (unavailable && drafts.size === 0) return physicalJson({ error: "Translating with AI isn't available right now. You can still write each translation yourself." }, 503)
   const items = todo.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: false, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
   /* keepManual: one the merchant saved while this was drafting is read again just before the write and left alone. */

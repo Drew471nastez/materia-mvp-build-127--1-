@@ -92,14 +92,46 @@ export async function readLocalizationRow(db: Db, creatorId: string): Promise<{ 
   return db.from("store_localization").select("default_language, languages, markets").eq("creator_id", creatorId).maybeSingle()
 }
 
-export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization }> {
-  const { data, error } = await readLocalizationRow(db, creatorId)
+/** store_localization.auto_translate and auto_translate_run are SQL part 175's: a database without them reads as the setting off. */
+export function autoTranslateMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && /auto_translate/.test(error.message ?? "")
+}
+
+export const AUTO_TRANSLATE_NEEDS_PART = "Translating changes automatically needs a database update. Run SQL part 175 in Supabase, then turn it on again."
+
+/** What the last automatic run did (lib/markets/auto-translate.ts), for the switch to say. */
+export interface AutoTranslateRun {
+  /** When it ran, ISO. */
+  at: string
+  /** Texts translated and put live. */
+  translated: number
+  /** Texts still to do, for the next run. */
+  left: number
+  /** Set when Storelib AI could not be reached (no key, no credit, every call failed): the switch says it tries again. */
+  error?: "unavailable"
+}
+
+/** Translate changes automatically, and its last run. Off, with no run, before part 175 or on any failed read. */
+export async function readAutoTranslate(db: Db, creatorId: string): Promise<{ on: boolean; run: AutoTranslateRun | null; ready: boolean }> {
+  const { data, error } = await db.from("store_localization").select("auto_translate, auto_translate_run").eq("creator_id", creatorId).maybeSingle().then(
+    (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
+    (e: unknown) => ({ data: null, error: { message: String(e) } }),
+  )
+  if (error) return { on: false, run: null, ready: !autoTranslateMissing(error) && !marketsMissing(error) }
+  const row = data as { auto_translate?: boolean | null; auto_translate_run?: Partial<AutoTranslateRun> | null } | null
+  const r = row?.auto_translate_run
+  const run = r && typeof r.at === "string" ? { at: r.at, translated: Number(r.translated) || 0, left: Number(r.left) || 0, ...(r.error === "unavailable" ? { error: "unavailable" as const } : {}) } : null
+  return { on: row?.auto_translate === true, run, ready: true }
+}
+
+export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization; autoTranslateRun?: AutoTranslateRun | null }> {
+  const [{ data, error }, auto] = await Promise.all([readLocalizationRow(db, creatorId), readAutoTranslate(db, creatorId)])
   const fresh = async () => defaultLocalization(...(await Promise.all([homeCountryOf(db, creatorId), websiteLanguageOf(db, creatorId)])))
   if (error) return { ready: !marketsMissing(error), value: await fresh() }
   if (!data) return { ready: true, value: await fresh() }
   const row = data
-  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true }, { baseCurrency })
-  return { ready: true, value: checked.ok ? checked.value : defaultLocalization(await homeCountryOf(db, creatorId), row.default_language) }
+  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
+  return { ready: true, value: checked.ok ? checked.value : defaultLocalization(await homeCountryOf(db, creatorId), row.default_language), autoTranslateRun: auto.run }
 }
 
 export async function saveLocalization(db: Db, creatorId: string, input: unknown, baseCurrency: string): Promise<{ ok: true; value: Localization } | { ok: false; status: number; error: string }> {
@@ -118,6 +150,17 @@ export async function saveLocalization(db: Db, creatorId: string, input: unknown
     v.visitorLanguage = false
   }
   if (error) return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save. Try again." }
+  /* Translate changes automatically: its own write, so a database without part 175 keeps everything else and the switch says what it needs. */
+  const auto = await db.from("store_localization").update({ auto_translate: v.autoTranslate === true }).eq("creator_id", creatorId).then(
+    (r: { error: { code?: string; message?: string } | null }) => r,
+    (e: unknown) => ({ error: { message: String(e) } }),
+  )
+  if (auto.error) {
+    revalidateTag(localizationTag(creatorId), { expire: 0 })
+    if (!autoTranslateMissing(auto.error)) return { ok: false, status: 500, error: "Could not save. Try again." }
+    if (v.autoTranslate) return { ok: false, status: 409, error: AUTO_TRANSLATE_NEEDS_PART }
+    v.autoTranslate = false
+  }
   revalidateTag(localizationTag(creatorId), { expire: 0 })
   return { ok: true, value: v }
 }

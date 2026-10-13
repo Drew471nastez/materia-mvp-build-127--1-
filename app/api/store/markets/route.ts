@@ -6,6 +6,7 @@ import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { localizationOf, saveLocalization } from "@/lib/markets/server"
 import { latestRates, refreshRates } from "@/lib/markets/fx-server"
 import { fxFresh } from "@/lib/markets/money"
+import { canDraftWithAi } from "@/lib/markets/translate-ai"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -45,6 +46,8 @@ export async function GET() {
   return physicalJson({
     ready: loc.ready,
     localization: loc.value,
+    /* Translate changes automatically: what its last run did, and whether Storelib AI can run at all. */
+    autoTranslate: { run: loc.autoTranslateRun ?? null, available: canDraftWithAi() },
     baseCurrency,
     chargeCurrency: platformChargeCurrencyUpper(),
     fx: fx ? { asOf: fx.asOf, fresh: fxFresh(fx), currencies: ["EUR", ...Object.keys(fx.rates)].sort() } : null,
