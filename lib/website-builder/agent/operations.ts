@@ -26,6 +26,7 @@
  * cannot run in a browser, because half its job happens there.
  */
 
+import { SECTION_ANIMATION_OPTIONS, isChromeType } from "../section-anchors"
 import { nameOf, schemaOf, type SchemaMap } from "./schemas"
 import { THEME_SETTINGS_GROUPS } from "../theme-settings-schema"
 import type { BlockInstance, BlockSchema, SchemaField, SectionInstance } from "../types"
@@ -381,8 +382,26 @@ export function applyOps(state: ThemeState, ops: ThemeOp[], schemas?: SchemaMap)
  */
 const NOT_A_SETTING = new Set(["header", "paragraph"])
 
+/**
+ * HOW A SECTION ARRIVES, a control every body section has in the sidebar
+ * (its design panel, components/website-builder/editor/design-panels.tsx)
+ * and none declares in its schema: the assistant was refused "make this
+ * section zoom in" as an unknown id. "theme" follows Theme settings ›
+ * Animations. Not the header or the footer, which never move, and not a
+ * section whose own schema already has an `animation` of its own.
+ */
+export const SECTION_ENTRANCE_FIELD: SchemaField = {
+  id: "animation",
+  label: "How the section arrives as it scrolls into view (theme follows Theme settings › Animations; the first section on a page shows at once)",
+  type: "select",
+  options: SECTION_ANIMATION_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+}
+
 function writableFields(type: string, schemas?: SchemaMap): SchemaField[] {
-  return (schemaOf(schemas, type)?.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
+  const schema = schemaOf(schemas, type)
+  const own = (schema?.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
+  if (!schema || isChromeType(type) || own.some((f) => f.id === "animation")) return own
+  return [...own, SECTION_ENTRANCE_FIELD]
 }
 
 function writableBlockFields(sectionType: string, blockType: string, schemas?: SchemaMap): SchemaField[] {

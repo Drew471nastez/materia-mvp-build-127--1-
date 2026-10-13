@@ -31,6 +31,7 @@
  * button, writing what is on screen.
  */
 
+import { describeThemeExtras, themeExtraFields, typographyWrite } from "./theme-extras"
 import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
 import {
   applyOp,
@@ -48,6 +49,7 @@ import {
   fieldsFor,
   maxBlocks,
   themeFieldsFor,
+  type SettingsCheck,
   type StoreFacts,
   type ThemeOp,
   type ThemeState,
@@ -566,7 +568,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
     },
     {
       name: "update_theme",
-      description: `Change whole-theme settings — colours, fonts, buttons, layout, animation. These apply to EVERY page, so use them when the request is about the site as a whole rather than one section. The ids you may write, by group:\n${describeThemeSettings()}`,
+      description: `Change whole-theme settings — colours, fonts, buttons, layout, animation. These apply to EVERY page, so use them when the request is about the site as a whole rather than one section. The ids you may write, by group:\n${describeThemeSettings()}\n${describeThemeExtras()}`,
       parameters: {
         type: "object",
         properties: {
@@ -2731,6 +2733,11 @@ function execute(
       }
       const checked = Object.keys(settings).length ? checkSettings(fieldsFor(found.type, schemas), settings, found.type) : { settings: {}, notes: [] as string[] }
       if (checked.error) return { output: checked.error }
+      /* A tabs section saved before `tab_animation` keeps its tab switch under the new name, so `animation` can be its entrance (section-anchors entranceSetting). */
+      if (found.type === "tabs_content" && checked.settings!.animation !== undefined && found.settings?.tab_animation === undefined) {
+        const old = String(found.settings?.animation ?? "")
+        checked.settings!.tab_animation = ["none", "fade", "slide"].includes(old) ? old : "fade"
+      }
 
       return {
         output: `Updated ${found.type} [${id}]: ${[...Object.keys(checked.settings!), ...unset.map((k) => `${k} cleared`)].join(", ")}.${
@@ -2999,8 +3006,22 @@ function execute(
        * take — merges into the settings and is then ignored by the renderer.
        * Success reported, nothing changed.
        */
-      const checked = checkSettings(themeFieldsFor(), settings, "The theme")
+      /* The text styles are an object of their own, merged onto the theme's (./theme-extras). */
+      let typography: { value: Record<string, unknown>; notes: string[] } | null = null
+      if (settings.typography_styles !== undefined) {
+        const t = typographyWrite(state.settings as Record<string, unknown>, settings.typography_styles)
+        if ("error" in t) return { output: t.error, failed: true }
+        typography = t
+        delete settings.typography_styles
+      }
+      const checked: SettingsCheck = Object.keys(settings).length
+        ? checkSettings([...themeFieldsFor(), ...themeExtraFields(state.settings as Record<string, unknown>)], settings, "The theme")
+        : { settings: {}, notes: [] }
       if (checked.error) return { output: checked.error }
+      if (typography) {
+        checked.settings!.typography_styles = typography.value
+        checked.notes.push(...typography.notes)
+      }
       /*
         A FONT IS A FAMILY THE THEME CAN LOAD. The control takes any string,
         and "Fraunces" merges, saves and then draws as the fallback on every

@@ -3178,7 +3178,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     pushUndoRef.current()
 
     if (op.kind === "update_theme") {
-      setSettingsDraft(previous => applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues)
+      /* What the sidebar's own write carries along (updateSetting): the favicon in both places it lives, and the logo into the header section. */
+      let follows: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(op.settings)) follows = { ...follows, ...faviconFollows({ ...(settingsRef.current as Record<string, unknown>), ...follows }, key, value) }
+      setSettingsDraft(previous => ({ ...(applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues), ...follows }))
+      const logo = Object.entries(op.settings).filter(([key]) => key in LOGO_SYNC_THEME_TO_HEADER)
+      if (logo.length) {
+        setSections(prev => prev.map(s =>
+          s.type === "header" ? { ...s, settings: { ...s.settings, ...Object.fromEntries(logo.map(([key, value]) => [LOGO_SYNC_THEME_TO_HEADER[key], value])) } } : s
+        ))
+      }
       return
     }
 

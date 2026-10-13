@@ -270,7 +270,8 @@ async function main() {
     */
     /* System 14,000 until round 25: the build recipe says when to write a section of its own, and the reference it carries quotes sections that read more of the theme (about 150 tokens). */
     /* Tools 6,450 since Storelib Reviews: its four sections (reviews_product, reviews_badge, reviews_carousel, reviews_all) are in the list of section types the tools name, about 5 tokens. */
-    check("the first request stays inside its budget", tokens(first.system) <= 14_200 && tokens(JSON.stringify(first.tools)) <= 6_450 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    /* Tools 6,600: update_theme names the settings the sidebar writes outside the schema (typography_styles, the phone logo, default_color_scheme) and set_color_scheme its gradient, about 105 tokens (agent/theme-extras.ts). */
+    check("the first request stays inside its budget", tokens(first.system) <= 14_200 && tokens(JSON.stringify(first.tools)) <= 6_600 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>
