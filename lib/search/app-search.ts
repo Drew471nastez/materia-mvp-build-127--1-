@@ -37,6 +37,7 @@
 import { groupOrders, matchesSearch, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { formatOrderMoney, orderCurrency } from "@/lib/orders/money"
 
 export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "coupons" | "emails" | "automations"
 
@@ -139,6 +140,7 @@ async function readWithFallback(group: SearchGroupId, run: (columns: string) => 
 
 const text = (v: unknown): string => (typeof v === "string" ? v : "")
 
+/* A product's price and a coupon's amount as their editors show them; an order's total is in what it was charged (lib/orders/money). */
 const usd = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
 
 function sentenceCase(v: string): string {
@@ -172,7 +174,7 @@ async function readProducts(db: Db, creatorId: string): Promise<ProductIndex[]> 
 /* ─── Orders and the people who placed them ──────────────────────────── */
 
 const ORDER_COLUMNS =
-  "id, product_id, created_at, stripe_session_id, amount_cents, tip_cents, status, buyer_email, customer_email, buyer_first_name, buyer_last_name, refund_amount_cents"
+  "id, product_id, created_at, stripe_session_id, amount_cents, tip_cents, status, buyer_email, customer_email, buyer_first_name, buyer_last_name, refund_amount_cents, currency"
 
 /** Every order row on the creator's products, a thousand at a time, as the Orders page reads them. */
 async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow[]> {
@@ -210,6 +212,7 @@ async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow
       buyer_last_name: nullable(o.buyer_last_name),
       stripe_session_id: nullable(o.stripe_session_id),
       refund_amount_cents: typeof o.refund_amount_cents === "number" ? o.refund_amount_cents : null,
+      currency: orderCurrency(o.currency),
       product: product ? { id: product.id, title: product.title } : null,
     }
     return row
@@ -254,7 +257,7 @@ function orderHit(order: Order): SearchHit {
   return {
     id: order.id,
     title: tt("Order #{number}", { number: order.number }),
-    detail: [who, what, usd.format(order.totalCents / 100)].filter(Boolean).join(" · "),
+    detail: [who, what, formatOrderMoney(order.totalCents, order.currency)].filter(Boolean).join(" · "),
     href: `/app/orders?order=${encodeURIComponent(order.id)}`,
   }
 }

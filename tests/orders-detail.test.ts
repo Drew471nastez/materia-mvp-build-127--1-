@@ -119,6 +119,8 @@ async function main() {
       /* Changed on purpose (round AA, Team): storeIdFor (lib/team/server) is auth.getUser() and then
          the store this account owns, or works in as a member whose role has orders, checked in the database. */
       const who = /currentCreatorId\(\)/.test(src) || /auth\.getUser\(\)/.test(src) || (/await storeIdFor\("orders"\)/.test(src) && /if \(store\.ok === false\)/.test(src))
+        /* shopCaller("orders") (lib/physical/auth): the same sign in and store check, for a route that only reads counts. */
+        || (/await shopCaller\("orders"\)/.test(src) && /if \(c instanceof NextResponse\) return c/.test(src))
       check(`${path} asks who is signed in`, who)
       if (path.includes("[id]")) {
         check(`  and only acts on an order of theirs`, /await ownedOrderLines\(admin, creatorId, id\)/.test(src) && /if \(!lines\) return NextResponse\.json\(\{ error: "This order was not found\." \}, \{ status: 404 \}\)/.test(src))
@@ -247,6 +249,8 @@ async function main() {
         card_last4: "4242",
         buyer_notified_at: "2025-04-08T23:31:00Z",
         tip_cents: 200,
+        /* Charged in dollars: the timeline writes it in the order's own currency (lib/orders/money). */
+        currency: "USD",
       }),
     ])[0]
     const events = orderEvents(order, [{ id: "e1", type: "receipt_resent", at: "2025-04-09T15:50:00Z", by: "creator", failed: false }], [

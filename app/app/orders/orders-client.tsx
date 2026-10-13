@@ -486,14 +486,14 @@ export function OrdersClient(props: OrdersClientProps) {
         })
         if (!res.ok) throw new Error(data?.error || tt("The refund did not go through."))
         const cents = typeof data?.amount === "number" ? data.amount : action.amountCents
-        if (data?.pending) return tt("Refund of {amount} is processing. The order updates once it goes through.", { amount: formatMoney(cents) })
+        if (data?.pending) return tt("Refund of {amount} is processing. The order updates once it goes through.", { amount: formatMoney(cents, order.currency) })
         patchRows([action.line.id], {
           status: "refunded",
           refund_amount_cents: cents,
           refunded_at: typeof data?.refundedAt === "string" ? data.refundedAt : new Date().toISOString(),
           refund_reason: action.reason,
         })
-        return tt("Refunded {amount}", { amount: formatMoney(cents) })
+        return tt("Refunded {amount}", { amount: formatMoney(cents, order.currency) })
       }
       case "resend": {
         const { res, data } = await postJson(`/api/app/orders/${encodeURIComponent(order.id)}/resend`)

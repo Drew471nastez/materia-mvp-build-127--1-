@@ -17,6 +17,7 @@ import { cleanOrigin, type OrderOrigin, type OrderSource } from "./order-source"
 import { midnightOf, todayIn } from "../date-range/range"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { orderCurrency } from "./money"
 
 export interface OrderRow {
   id: string
@@ -41,6 +42,8 @@ export interface OrderRow {
   receipt_token?: string | null
   stripe_session_id?: string | null
   stripe_payment_intent_id?: string | null
+  /** What the buyer was charged in, upper case ISO (lib/orders/money orderCurrency); for an order that ships, its checkout's. */
+  currency?: string | null
   refund_reason?: string | null
   refund_amount_cents?: number | null
   refunded_at?: string | null
@@ -181,6 +184,8 @@ export interface Order {
   totalCents: number
   feeCents: number
   refundedCents: number
+  /** What every amount above is in, upper case ISO (lib/orders/money). */
+  currency: string
   itemCount: number
   payment: PaymentStatus
   fulfillment: FulfillmentStatus
@@ -313,6 +318,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       totalCents,
       feeCents: lines.reduce((n, r) => n + (r.fee_cents || 0), 0),
       refundedCents,
+      currency: orderCurrency(first.currency),
       itemCount: lines.reduce((n, r) => n + Math.max(1, r.quantity ?? 1), 0),
       payment,
       /* Something to ship: fulfilled once it has all shipped or arrived (or needs no shipping, or was cancelled). */

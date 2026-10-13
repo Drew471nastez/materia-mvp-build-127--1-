@@ -89,6 +89,7 @@ import {
 import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
 import { BuyerNoteCard, NoteComposer, PhysicalFulfillment, ShippingCard, historyOf, usePhysicalOrder } from "@/components/physical/order-panel"
 import { COD_PAYMENT_METHOD } from "@/lib/physical/cash-on-delivery"
+import { currencySymbol, minorPerUnit } from "@/lib/orders/money"
 import { useReasons } from "@/lib/store/use-reasons"
 import { OrderMessagesCard } from "@/components/support/order-messages-card"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
@@ -217,7 +218,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         await onAction(order, { kind: "refund", line, amountCents: cents, reason: "cancelled" })
         total += cents
       }
-      return total > 0 ? tt("Order cancelled and {amount} refunded", { amount: formatMoney(total) }) : tt("Order cancelled")
+      return total > 0 ? tt("Order cancelled and {amount} refunded", { amount: formatMoney(total, order.currency) }) : tt("Order cancelled")
     } catch (error) {
       return tt("Order cancelled. {value} Refund it with Refund.", { value: (error as Error)?.message || tt("The refund did not go through.") })
     } finally {
@@ -388,6 +389,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         phone={phone}
         open={dialog === "refund"}
         lines={refundable}
+        currency={order.currency}
         onClose={() => setDialog(null)}
         onSubmit={async (line, amountCents, reason) => {
           const ok = await run("refund", { kind: "refund", line, amountCents, reason })
@@ -490,8 +492,8 @@ function FulfillmentCard({
                   {line.status === "refunded" ? <span className="text-[#b42318]"> · {tt("Refunded")}</span> : null}
                 </p>
               </div>
-              <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">{formatMoney(cents)} &times; 1</span>
-              <span className="w-[76px] text-right text-[13px] font-medium tabular-nums text-[#1a1a2e]">{formatMoney(cents)}</span>
+              <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">{formatMoney(cents, order.currency)} &times; 1</span>
+              <span className="w-[76px] text-right text-[13px] font-medium tabular-nums text-[#1a1a2e]">{formatMoney(cents, order.currency)}</span>
             </li>
           )
         })}
@@ -548,19 +550,19 @@ function PaymentCard({
         <PaymentBadge status={order.payment} />
       </CardHead>
       <div className="mx-4 mt-2 rounded-xl border border-[#eceef1] px-3 py-2">
-        <Row label={tt("Subtotal")} middle={itemsLabel(order.itemCount)} value={formatMoney(order.subtotalCents)} />
-        {order.shipping || order.shippingCents > 0 ? <Row label={tt("Shipping")} middle={shippingName ?? undefined} value={order.shippingCents > 0 ? formatMoney(order.shippingCents) : "Free"} /> : null}
-        {order.tipCents > 0 ? <Row label={tt("Tip")} value={formatMoney(order.tipCents)} /> : null}
-        {order.taxCents > 0 && !order.taxIncluded ? <Row label={order.taxLabel || tt("Tax")} value={formatMoney(order.taxCents)} /> : null}
-        <Row label={tt("Total")} value={formatMoney(order.totalCents)} strong />
-        {order.taxCents > 0 && order.taxIncluded ? <Row label={includedTaxLabel(order.taxLabel)} value={formatMoney(order.taxCents)} muted /> : null}
+        <Row label={tt("Subtotal")} middle={itemsLabel(order.itemCount)} value={formatMoney(order.subtotalCents, order.currency)} />
+        {order.shipping || order.shippingCents > 0 ? <Row label={tt("Shipping")} middle={shippingName ?? undefined} value={order.shippingCents > 0 ? formatMoney(order.shippingCents, order.currency) : "Free"} /> : null}
+        {order.tipCents > 0 ? <Row label={tt("Tip")} value={formatMoney(order.tipCents, order.currency)} /> : null}
+        {order.taxCents > 0 && !order.taxIncluded ? <Row label={order.taxLabel || tt("Tax")} value={formatMoney(order.taxCents, order.currency)} /> : null}
+        <Row label={tt("Total")} value={formatMoney(order.totalCents, order.currency)} strong />
+        {order.taxCents > 0 && order.taxIncluded ? <Row label={includedTaxLabel(order.taxLabel)} value={formatMoney(order.taxCents, order.currency)} muted /> : null}
         <div className="my-1.5 border-t border-[#f0f1f3]" />
-        <Row label={order.payment === "pending" ? tt("Due") : tt("Paid")} middle={method || undefined} value={formatMoney(order.payment === "pending" ? order.totalCents : received)} />
-        {order.refundedCents > 0 ? <Row label={tt("Refunded")} value={`−${formatMoney(order.refundedCents)}`} /> : null}
+        <Row label={order.payment === "pending" || order.payment === "cash_due" ? tt("Due") : tt("Paid")} middle={method || undefined} value={formatMoney(order.payment === "pending" || order.payment === "cash_due" ? order.totalCents : received, order.currency)} />
+        {order.refundedCents > 0 ? <Row label={tt("Refunded")} value={`−${formatMoney(order.refundedCents, order.currency)}`} /> : null}
         {received > 0 ? (
           <>
-            {order.feeCents > 0 ? <Row label={tt("Storelib fee")} value={`−${formatMoney(fee)}`} muted /> : null}
-            <Row label={tt("You receive")} value={formatMoney(earnings)} strong />
+            {order.feeCents > 0 ? <Row label={tt("Storelib fee")} value={`−${formatMoney(fee, order.currency)}`} muted /> : null}
+            <Row label={tt("You receive")} value={formatMoney(earnings, order.currency)} strong />
           </>
         ) : null}
       </div>
@@ -1015,6 +1017,7 @@ function RefundDialog({
   phone,
   open,
   lines,
+  currency,
   onClose,
   onSubmit,
   busy,
@@ -1022,6 +1025,8 @@ function RefundDialog({
   phone: boolean
   open: boolean
   lines: OrderRow[]
+  /** What the order was charged in (Order.currency): the amounts are typed and shown in it. */
+  currency: string
   onClose: () => void
   onSubmit: (line: OrderRow, amountCents: number, reason: string) => void
   busy: boolean
@@ -1032,12 +1037,15 @@ function RefundDialog({
   /* The store's own refund reasons (Settings › Returns and refunds). */
   const reasons = useReasons("refund")
   const line = lines.find((l) => l.id === lineId) ?? lines[0]
-  const max = line ? (line.amount_cents || 0) / 100 : 0
+  /* Typed in whole units of the order's currency: 100 to the unit for most, 1 for yen. */
+  const unit = minorPerUnit(currency)
+  const places = Math.round(Math.log10(unit))
+  const max = line ? (line.amount_cents || 0) / unit : 0
 
   React.useEffect(() => {
     if (!open) return
     setLineId(lines[0]?.id ?? "")
-    setAmount(lines[0] ? ((lines[0].amount_cents || 0) / 100).toFixed(2) : "")
+    setAmount(lines[0] ? ((lines[0].amount_cents || 0) / unit).toFixed(places) : "")
     setReason("requested_by_customer")
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1051,9 +1059,9 @@ function RefundDialog({
       busy={busy}
       onClose={onClose}
       title={tt("Refund")}
-      description={tt("The money goes back to the buyer's original payment method, and they get an email about it.")}
+      description={line?.payment_method === COD_PAYMENT_METHOD ? tt("This records the cash you gave back. Nothing is sent to a card, and the buyer gets an email about it.") : tt("The money goes back to the buyer's original payment method, and they get an email about it.")}
       onSubmit={() => {
-        if (valid && line) onSubmit(line, Math.round(value * 100), reason)
+        if (valid && line) onSubmit(line, Math.round(value * unit), reason)
       }}
       footer={
         <>
@@ -1061,7 +1069,7 @@ function RefundDialog({
             {tt("Cancel")}
           </button>
           <button type="submit" className={buttonPrimary} disabled={!valid || busy}>
-            {busy ? tt("Refunding…") : valid ? tt("Refund {amount}", { amount: formatMoney(Math.round(value * 100)) }) : tt("Refund")}
+            {busy ? tt("Refunding…") : valid ? tt("Refund {amount}", { amount: formatMoney(Math.round(value * unit), currency) }) : tt("Refund")}
           </button>
         </>
       }
@@ -1075,13 +1083,13 @@ function RefundDialog({
               onChange={(e) => {
                 const next = lines.find((l) => l.id === e.target.value)
                 setLineId(e.target.value)
-                if (next) setAmount(((next.amount_cents || 0) / 100).toFixed(2))
+                if (next) setAmount(((next.amount_cents || 0) / unit).toFixed(places))
               }}
               className={field}
             >
               {lines.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {(l.product?.title || tt("Product")) + ", " + formatMoney(l.amount_cents || 0)}
+                  {(l.product?.title || tt("Product")) + ", " + formatMoney(l.amount_cents || 0, currency)}
                 </option>
               ))}
             </select>
@@ -1090,14 +1098,14 @@ function RefundDialog({
         <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
           {tt("Amount")}
           <div className="flex h-9 items-center rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e]">
-            <span className="text-[13px] text-[#6b7280]">$</span>
+            <span className="text-[13px] text-[#6b7280]">{currencySymbol(currency)}</span>
             <input
               inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              onChange={(e) => setAmount(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))}
               className="min-w-0 flex-1 bg-transparent pl-1 text-[16px] tabular-nums text-[#1a1a2e] outline-none sm:text-[13px]"
             />
-            <span className="text-[12px] text-[#9ca3af]">{tt("of {amount}", { amount: formatMoney(Math.round(max * 100)) })}</span>
+            <span className="text-[12px] text-[#9ca3af]">{tt("of {amount}", { amount: formatMoney(Math.round(max * unit), currency) })}</span>
           </div>
         </label>
         <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">

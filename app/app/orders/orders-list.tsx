@@ -57,6 +57,7 @@ import {
 import { HOVER_PREFETCH_MS, prefetchOrder } from "./order-prefetch"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { ordersCurrency } from "@/lib/orders/money"
 
 export interface OrdersListProps {
   allOrders: Order[]
@@ -89,6 +90,8 @@ export interface OrdersListProps {
 
 export function OrdersList(props: OrdersListProps) {
   const { allOrders, stripeConnected } = props
+  /* The metrics add many orders up: written in the currency they were charged in. */
+  const currency = React.useMemo(() => ordersCurrency(allOrders), [allOrders])
   return (
     <>
       {/* The top bar: the same bar, the pane's full width, as an order's own. */}
@@ -127,7 +130,7 @@ export function OrdersList(props: OrdersListProps) {
         <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} firstDay={props.firstDay} />
       </div>
 
-      <MetricsStrip metrics={props.metrics} comparable={props.comparable} />
+      <MetricsStrip metrics={props.metrics} comparable={props.comparable} currency={currency} />
 
       <OrdersTable {...props} />
       </div>
@@ -137,7 +140,7 @@ export function OrdersList(props: OrdersListProps) {
 
 /* ─── Metrics ─────────────────────────────────────────────────────────── */
 
-function MetricsStrip({ metrics, comparable }: { metrics: MetricReading[]; comparable: boolean }) {
+function MetricsStrip({ metrics, comparable, currency }: { metrics: MetricReading[]; comparable: boolean; currency: string }) {
   return (
     <section aria-label={tt("Order metrics")} className={cn(card, "mt-3 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
@@ -155,7 +158,7 @@ function MetricsStrip({ metrics, comparable }: { metrics: MetricReading[]; compa
               <HelpLabel label={meta.label} description={meta.help} className="text-[12px] font-medium text-[#4b5563]" />
               <div className="mt-1 flex h-6 items-baseline gap-2 whitespace-nowrap">
                 <span className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]">
-                  {meta.money ? formatMoney(reading.value) : Math.round(reading.value).toLocaleString(appLocale())}
+                  {meta.money ? formatMoney(reading.value, currency) : Math.round(reading.value).toLocaleString(appLocale())}
                 </span>
                 {comparable ? <Change reading={reading} upIsBad={!!meta.upIsBad} /> : null}
               </div>
@@ -454,7 +457,7 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
         </span>
       )
     case "total":
-      return <span className="font-medium text-[#1a1a2e]">{formatMoney(order.totalCents)}</span>
+      return <span className="font-medium text-[#1a1a2e]">{formatMoney(order.totalCents, order.currency)}</span>
     case "payment":
       return <PaymentBadge status={order.payment} />
     case "fulfillment":

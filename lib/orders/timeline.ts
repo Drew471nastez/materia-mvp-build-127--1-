@@ -21,7 +21,7 @@
 import { dayHeading, itemsLabel, startOfDay, type Order } from "./order-view"
 import { reasonLabel } from "@/lib/store/reasons"
 import { tt } from "@/lib/i18n/text"
-import { appLocale } from "@/lib/i18n/format"
+import { formatOrderMoney } from "./money"
 
 export type TimelineTone = "success" | "attention" | "critical" | "neutral" | "upcoming"
 
@@ -75,8 +75,6 @@ export interface StripeStep {
   status: string
 }
 
-const money = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
-const formatMoney = (cents: number) => money.format((cents || 0) / 100)
 
 /** "Visa •••• 4242", "PayPal", "No payment needed". Null when nothing says. */
 export function paymentMethodOf(order: Order): string | null {
@@ -109,12 +107,15 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
     events.push({ id: "failed", at: order.createdAt, text: tt("The payment failed"), tone: "critical", glyph: "failed" })
   } else if (order.payment === "pending") {
     events.push({ id: "pending", at: order.createdAt, text: tt("Waiting for the payment to go through"), tone: "attention", glyph: "pending" })
+  } else if (order.payment === "cash_due") {
+    /* Cash on delivery (lib/physical/cash-on-delivery.ts): placed, the money still to collect. */
+    events.push({ id: "cash_due", at: order.createdAt, text: tt("{amount} to collect in cash on delivery", { amount: formatOrderMoney(order.totalCents, order.currency) }), tone: "attention", glyph: "pending" })
   } else {
     const method = paymentMethodOf(order)
     events.push({
       id: "paid",
       at: order.createdAt,
-      text: order.totalCents > 0 ? tt("{amount} paid", { amount: formatMoney(order.totalCents) }) : tt("Free order, nothing to pay"),
+      text: order.totalCents > 0 ? tt("{amount} paid", { amount: formatOrderMoney(order.totalCents, order.currency) }) : tt("Free order, nothing to pay"),
       detail: order.totalCents > 0 && method ? method : undefined,
       tone: "success",
       glyph: "paid",
@@ -156,7 +157,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
       events.push({
         id: `refund-${line.id}`,
         at: line.refunded_at || null,
-        text: tt("{amount} refunded{value}", { amount: formatMoney(cents), value: product ? tt(" for {product}", { product }) : "" }),
+        text: tt("{amount} refunded{value}", { amount: formatOrderMoney(cents, order.currency), value: product ? tt(" for {product}", { product }) : "" }),
         detail: line.refund_reason ? reasonLabel(line.refund_reason, "refund") : undefined,
         tone: "critical",
         glyph: "refund",

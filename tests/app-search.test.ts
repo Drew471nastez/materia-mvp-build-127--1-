@@ -162,12 +162,12 @@ function world() {
     ],
     orders: [
       /* A's orders, oldest first: #1001, then a basket of two rows (#1002), then #1003. */
-      { id: "oa1", product_id: "pa1", created_at: day(1), stripe_session_id: "s1", amount_cents: 2900, status: "completed", buyer_email: "jane@example.com", buyer_first_name: "Jane", buyer_last_name: "Doe" },
-      { id: "oa2", product_id: "pa1", created_at: day(2), stripe_session_id: "s2", amount_cents: 2900, status: "completed", buyer_email: "sam@example.com", buyer_first_name: "Sam", buyer_last_name: "Lee" },
-      { id: "oa3", product_id: "pa3", created_at: day(2), stripe_session_id: "s2", amount_cents: 900, status: "completed", buyer_email: "sam@example.com", buyer_first_name: "Sam", buyer_last_name: "Lee" },
-      { id: "oa4", product_id: "pa3", created_at: day(3), stripe_session_id: "s3", amount_cents: 900, status: "completed", buyer_email: "jane@example.com", buyer_first_name: "Jane", buyer_last_name: "Doe" },
+      { id: "oa1", product_id: "pa1", created_at: day(1), stripe_session_id: "s1", amount_cents: 2900, status: "completed", currency: "usd", buyer_email: "jane@example.com", buyer_first_name: "Jane", buyer_last_name: "Doe" },
+      { id: "oa2", product_id: "pa1", created_at: day(2), stripe_session_id: "s2", amount_cents: 2900, status: "completed", currency: "usd", buyer_email: "sam@example.com", buyer_first_name: "Sam", buyer_last_name: "Lee" },
+      { id: "oa3", product_id: "pa3", created_at: day(2), stripe_session_id: "s2", amount_cents: 900, status: "completed", currency: "usd", buyer_email: "sam@example.com", buyer_first_name: "Sam", buyer_last_name: "Lee" },
+      { id: "oa4", product_id: "pa3", created_at: day(3), stripe_session_id: "s3", amount_cents: 900, status: "completed", currency: "usd", buyer_email: "jane@example.com", buyer_first_name: "Jane", buyer_last_name: "Doe" },
       /* B's, which match every word A's do. */
-      { id: "ob1", product_id: "pb1", created_at: day(1), stripe_session_id: "t1", amount_cents: 4900, status: "completed", buyer_email: "jane.b@example.com", buyer_first_name: "Jane", buyer_last_name: "Bee" },
+      { id: "ob1", product_id: "pb1", created_at: day(1), stripe_session_id: "t1", amount_cents: 4900, status: "completed", currency: "usd", buyer_email: "jane.b@example.com", buyer_first_name: "Jane", buyer_last_name: "Bee" },
     ],
     subscribers: [
       { id: "sa1", creator_id: A, email: "janet@list.com", name: "Janet List", subscribed_at: day(1) },
