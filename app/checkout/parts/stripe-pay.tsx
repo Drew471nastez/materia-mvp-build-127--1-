@@ -146,6 +146,8 @@ export interface StripePayProps {
   afterContact?: React.ReactNode
   /** The email is the signed in account's and cannot be changed here (Settings › Checkout, an account first). */
   emailLocked?: boolean
+  /** What is wrong with the email, said under it: a page that checks it and moves the focus here, as for any other field. */
+  emailError?: string | null
   /** Between the payment and Pay: business details, consent, a message. */
   beforePay: React.ReactNode
   /**
@@ -246,6 +248,7 @@ function StripePayInner({
   contactExtra,
   afterContact,
   emailLocked = false,
+  emailError = null,
   beforePay,
   cash = null,
 }: StripePayProps & {
@@ -454,7 +457,8 @@ function StripePayInner({
         </div>
       </section>
 
-      {failed ? (
+      {/* Paying in cash needs no card form: its failing to load is not the buyer's problem then. */}
+      {failed && !cashOn ? (
         <div data-pay-failed="" role="alert" className="checkout-rise mb-6 rounded-[10px] border border-[#e5e7eb] bg-[#f9fafb] px-4 py-4 text-center">
           <p className="text-[14px] font-medium text-[#1a1a2e]">{online ? "The payment form did not load" : "You are offline"}</p>
           <p className="mt-1 text-[13px] leading-snug text-[#6b7280]">
@@ -493,7 +497,14 @@ function StripePayInner({
             className={emailLocked ? "bg-[#f7f7f8] text-[#4b5563]" : undefined}
             aria-label="Email"
             data-checkout-email=""
+            invalid={!!emailError}
+            aria-describedby={emailError ? "checkout-email-error" : undefined}
           />
+          {emailError ? (
+            <p id="checkout-email-error" role="alert" className="mt-1.5 text-[13px] text-[#dc2626]">
+              {emailError}
+            </p>
+          ) : null}
         </div>
         <div className="mt-3.5">{contactExtra}</div>
       </section>

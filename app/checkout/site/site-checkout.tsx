@@ -1127,6 +1127,7 @@ export function SiteCheckout({
           clearError("email")
         }}
         emailLocked={!!lockedEmail}
+        emailError={errorOf("email")}
         check={(kind) => check(kind)}
         createIntent={createIntent}
         payerName={() => `${firstName} ${lastName}`.trim()}

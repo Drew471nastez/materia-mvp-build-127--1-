@@ -841,7 +841,9 @@ export function PhysicalCheckout({
 
             {cashOffered ? (
               <div>
-                <div role="radiogroup" aria-label="How to pay" data-pay-choice="" className="grid grid-cols-2 gap-2">
+                <h2 className="mb-3 text-[19px] font-semibold text-[#1a1a2e]">Payment</h2>
+                {/* One row each on a phone, as the shipping methods are; side by side where both names fit. */}
+                <div role="radiogroup" aria-label="How to pay" data-pay-choice="" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {([
                     [false, "Card"],
                     [true, "Cash on delivery"],
@@ -865,7 +867,7 @@ export function PhysicalCheckout({
                       <span aria-hidden className={cn("grid h-4 w-4 shrink-0 place-items-center rounded-full border", byCash === value ? "border-[#1a1a2e]" : "border-[#c9ccd2]")}>
                         {byCash === value ? <span className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}
                       </span>
-                      <span className="min-w-0 truncate">{label}</span>
+                      <span className="min-w-0">{label}</span>
                     </button>
                   ))}
                 </div>

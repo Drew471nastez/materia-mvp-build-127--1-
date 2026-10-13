@@ -11,6 +11,9 @@
  *   receipt         the receipt page: the store's name and logo, its business details, VAT 19%
  *   order           the physical order page: date, VAT 19%, currency, Sold by
  *   store           Settings › Store details with Business details filled in
+ *   site-cod        the website's checkout with Cash on delivery offered beside the card
+ *   physical-cod    Storelib's cart checkout with Cash on delivery offered
+ *   order-cod       the physical order page of a cash on delivery order, cash still to pay
  */
 import * as React from "react"
 import CheckoutPageClient from "@/app/checkout/checkout-client"
@@ -77,7 +80,10 @@ function stubFetch() {
       body = String(init?.body)
     }
     calls.push({ url, body })
+    /* Cash on delivery placed: the thank you page, as the route answers it. */
+    if (url.startsWith("/api/checkout/site") && (body as { action?: string } | null)?.action === "cod") return json({ receiptToken: "rt_cod", thanks: "/checkout/thanks/rt_cod" })
     if (url.startsWith("/api/checkout/site")) return json(quote)
+    if (url === "/api/physical/checkout") return json({ url: "/checkout/physical/order/rt_cod", free: false, cod: true })
     if (url.startsWith("/api/physical/checkout/quote")) return json(quote)
     if (url.startsWith("/api/store/settings")) return json(settings)
     if (url.startsWith("/api/physical/settings")) return json({ settings: { defaultLocationId: null }, locations: [] })
@@ -91,7 +97,9 @@ export function boot(render: (el: React.ReactElement) => void) {
   stubFetch()
   const which = new URLSearchParams(location.search).get("case") || "site"
   const wrap = (el: React.ReactElement) => <div data-case={which}>{el}</div>
-  if (which === "site-gate" || which === "site") {
+  const cod = which.endsWith("-cod")
+  const withCash = (c: ReturnType<typeof checkoutConfig>) => (cod ? { ...c, cashOnDelivery: true } : c)
+  if (which === "site-gate" || which === "site" || which === "site-cod") {
     const gate = which === "site-gate"
     render(
       wrap(
@@ -105,7 +113,7 @@ export function boot(render: (el: React.ReactElement) => void) {
           couponCode={null}
           initialQuote={quote}
           initialError={null}
-          config={gate ? checkoutConfig({ requireAccount: true }) : STRICT}
+          config={gate ? checkoutConfig({ requireAccount: true }) : withCash(STRICT)}
           buyer={null}
           lockedEmail={null}
           needsSignIn={gate}
@@ -114,10 +122,10 @@ export function boot(render: (el: React.ReactElement) => void) {
     )
     return
   }
-  if (which === "physical-gate" || which === "physical") {
+  if (which === "physical-gate" || which === "physical" || which === "physical-cod") {
     if (!location.search.includes("items=")) history.replaceState(null, "", `${location.pathname}?case=${which}&shop=${SHOP}&items=${encodeItems([{ productId: MUG, variantId: null, quantity: 2 }])}`)
     const gate = which === "physical-gate"
-    render(wrap(<PhysicalCheckout shopId={SHOP} shopName="Bread Studio" brand={brand} config={gate ? checkoutConfig({ requireAccount: true }) : STRICT} buyer={gate ? { signedIn: false, confirmed: false } : { signedIn: true, confirmed: true }} />))
+    render(wrap(<PhysicalCheckout shopId={SHOP} shopName="Bread Studio" brand={brand} config={gate ? checkoutConfig({ requireAccount: true }) : withCash(STRICT)} buyer={gate ? { signedIn: false, confirmed: false } : { signedIn: true, confirmed: true }} />))
     return
   }
   if (which === "digital") {
@@ -165,7 +173,7 @@ export function boot(render: (el: React.ReactElement) => void) {
     )
     return
   }
-  if (which === "order") {
+  if (which === "order" || which === "order-cod") {
     render(
       wrap(
         <OrderStatusView
@@ -186,6 +194,7 @@ export function boot(render: (el: React.ReactElement) => void) {
             pickup: null,
             processing: false,
             totals: { subtotal: 4000, discount: 0, shipping: 500, tax: 760, taxIncluded: false, taxLabel: "VAT 19%", total: 5260, refunded: 0, currency: "RON" },
+            cash: which === "order-cod" ? "due" : null,
             lines: [{ orderId: "o1", title: "Stoneware mug", variantName: null, imageUrl: null, quantity: 2, cents: 4000, type: "physical", receiptToken: null, returnable: 0 }],
             shipments: [],
             returns: [],
