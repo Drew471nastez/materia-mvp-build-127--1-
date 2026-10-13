@@ -29,6 +29,7 @@ import "server-only"
  * to reconcile two copies.
  */
 
+import { cleanStoredHtml, looksLikeHtml } from "@/lib/rich-text/html"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { STORAGE_BUCKET, getPlanLimits } from "@/lib/storage/plans"
 import { getCreatorStorageUsage } from "@/lib/storage/quota"
@@ -355,7 +356,8 @@ export async function applyAction(db: Db, o: Owner, action: string, body: Record
       const lesson = await lessonOf(db, o, body.lessonId)
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
       if (body.title !== undefined) patch.title = title(body.title, lesson.title)
-      if (body.notes !== undefined) patch.content_text = typeof body.notes === "string" ? body.notes.slice(0, MAX_NOTES_CHARS) : null
+      /* Notes written in the rich text editor are kept as HTML, through the same allow list as a description (lib/rich-text/html); plain text as it was. */
+      if (body.notes !== undefined) patch.content_text = typeof body.notes === "string" ? (looksLikeHtml(body.notes) ? cleanStoredHtml(body.notes) : body.notes).slice(0, MAX_NOTES_CHARS) : null
       if (typeof body.isPreview === "boolean") patch.is_preview = body.isPreview
       if (body.durationSeconds !== undefined) {
         const n = Number(body.durationSeconds)

@@ -81,7 +81,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     const r = await api<Loaded>(`/api/store/translations?locale=${encodeURIComponent(code)}`, { method: "GET" })
     if (!r.ok) return setError(r.error)
     /* The server answers with no language when it does not have this one: say so, rather than "no text". */
-    if (!r.data.locale) return setError(`${languageName(code, "en")} isn't saved on your website yet. Close this and try again.`)
+    if (!r.data.locale) return setError(tt("{name} isn't saved on your website yet. Close this and try again.", { name: languageName(code, activeLocale()) }))
     setData(r.data)
   }, [])
 

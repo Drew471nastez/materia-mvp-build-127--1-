@@ -402,7 +402,8 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
 
   return (
     <SheetDialog
-      open={!!email}
+      /* Open while an email is asked for. `email` keeps the last one for the way out, so it was never null again and the X could not close the sheet. */
+      open={!!asked}
       onClose={close}
       phone={phone}
       label={email?.name ?? tt("Email")}

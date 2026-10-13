@@ -9,7 +9,9 @@ import "server-only"
  * address that reaches a person, a phone if it gave one, its website. One
  * read, used everywhere, so none of them disagree.
  *
- *   name      Settings › Store details' store name, else the person's
+ *   name      Settings › Store details' store name, else the published
+ *             website's brand name (with its logo below, so an email never
+ *             pairs one name with another brand's logo), else the person's
  *             display name, else their username
  *   logo      Store details' logo (SQL part 118), else the published
  *             website's logo, else the person's photo, else none
@@ -100,7 +102,8 @@ export async function storeIdentity(db: Db, creatorId: string, opts: { skipStore
   const themeRow = Array.isArray(install?.store_theme_settings) ? install?.store_theme_settings[0] : install?.store_theme_settings
   const theme = ((themeRow as { settings?: Record<string, unknown> } | null)?.settings ?? {}) as Record<string, unknown>
 
-  const name = str(s.store_name) || str(c.display_name) || str(c.username) || "The store"
+  /* The website's name goes with the website's logo: a store called OFFGRID on its website was signed "AndrewRullz" beside OFFGRID's logo. */
+  const name = str(s.store_name) || str(theme.brand_name) || str(c.display_name) || str(c.username) || "The store"
 
   let logoUrl: string | null = null
   let logoFrom: StoreIdentity["logoFrom"] = null

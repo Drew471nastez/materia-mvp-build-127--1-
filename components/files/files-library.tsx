@@ -636,8 +636,8 @@ function VideoFrame({ file, index, hidden, onGone }: { file: LibraryFile; index:
   the photo: the controls were bigger than what they controlled.
 
     SELECTED   the picture draws in a little (a 0.92 scale, on the
-               compositor) inside a 2px violet ring on a pale violet ground,
-               and a 22px violet check with a white edge sits on its corner,
+               compositor) inside a 1.5px near-black ring on a pale grey ground,
+               and a 22px black check with a white edge sits on its corner,
                the way Google Photos and Apple Photos mark a pick. Both for a
                pick in a list and for the picture a field already uses.
     SEVERAL    an empty white ring where the check will go: on hover with a
@@ -647,7 +647,7 @@ function VideoFrame({ file, index, hidden, onGone }: { file: LibraryFile; index:
                a touch screen always, quieter. A faint shade along the top of
                the picture keeps the ring and the dots readable on a white
                photo, only while they show.
-    FOCUS      a 2px violet ring with a white edge inside the tile, from the
+    FOCUS      a 2px near-black ring with a white edge inside the tile, from the
                keyboard only (outside it, content-visibility cut it off).
 
   The same tile is the Files page's (Select) and the chooser's, on a computer
@@ -712,7 +712,7 @@ const Tile = React.memo(function Tile({
             data-file-ring={on ? "on" : "off"}
             className={cn(
               "pointer-events-none absolute inset-0 rounded-xl transition-[background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
-              on ? "bg-[#f3efff] shadow-[inset_0_0_0_2px_#8b5cf6]" : "bg-transparent shadow-[inset_0_0_0_0_#8b5cf6]",
+              on ? "bg-[#f3f4f6] shadow-[inset_0_0_0_1.5px_#1a1a2e]" : "bg-transparent shadow-[inset_0_0_0_0_#1a1a2e]",
             )}
           />
           <span
@@ -765,7 +765,7 @@ const Tile = React.memo(function Tile({
             The keyboard's focus ring, drawn inside the tile over the picture: a ring outside it is cut off,
             since an off screen tile is painted within its own box (content-visibility).
           */}
-          <span aria-hidden data-file-focus="" className="pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[inset_0_0_0_2px_#8b5cf6,inset_0_0_0_4px_#fff] group-focus-visible/btn:opacity-100" />
+          <span aria-hidden data-file-focus="" className="pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[inset_0_0_0_2px_#1a1a2e,inset_0_0_0_4px_#fff] group-focus-visible/btn:opacity-100" />
           {selecting || chosen ? (
             <span
               aria-hidden
@@ -773,7 +773,7 @@ const Tile = React.memo(function Tile({
               className={cn(
                 "pointer-events-none absolute left-2 top-2 grid h-[22px] w-[22px] place-items-center rounded-full transition-[opacity,scale,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
                 on
-                  ? "scale-100 bg-[#8b5cf6] text-white opacity-100 shadow-[0_0_0_1.5px_#fff,0_1px_3px_rgba(17,24,39,0.3)]"
+                  ? "scale-100 bg-[#1a1a2e] text-white opacity-100 shadow-[0_0_0_1.5px_#fff,0_1px_3px_rgba(17,24,39,0.3)]"
                   : "scale-90 bg-black/10 text-transparent opacity-0 shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.95),0_1px_2px_rgba(17,24,39,0.3)] [@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:scale-100 [@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:opacity-100 [@media(hover:none)]:scale-100 [@media(hover:none)]:opacity-100",
               )}
             >
@@ -791,7 +791,7 @@ const Tile = React.memo(function Tile({
         data-file-menu=""
         onClick={(e) => onMenu(file, e.currentTarget)}
         className={cn(
-          "absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-black/40 text-white outline-none transition-[opacity,background-color] duration-150 hover:bg-black/60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
+          "absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-black/40 text-white outline-none transition-[opacity,background-color] duration-150 hover:bg-black/60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-[#1a1a2e] [-webkit-tap-highlight-color:transparent]",
           /* A 40px target around the 24px mark. */
           "before:absolute before:-inset-2 before:content-['']",
           DOTS_TOUCH,

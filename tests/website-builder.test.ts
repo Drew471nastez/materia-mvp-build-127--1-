@@ -1635,7 +1635,7 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tick under the finger as it opens", /hapticTap\("soft"\)\s*setSheetOpen\(true\)/.test(menu))
   check("the editor's Actions list is memoised on what it says, and calls through a ref",
     /const actionItems = useMemo<ActionMenuItem\[\]>\(\(\) => \{/.test(editor) &&
-      /* Changed on purpose (round AE): a phone's preview language. */ /\}, \[inCode, isMobileView, connection\.online, connection\.label, connection\.kind, websiteUrl(, previewLangs, previewLocaleShown)?\]\)/.test(editor) &&
+      /* Changed on purpose (round AE): a phone's preview language. */ /\}, \[inCode, isMobileView, connection\.online, connection\.label, connection\.kind, websiteUrl(, siteLive, installId)?(, previewLangs, previewLocaleShown)?\]\)/.test(editor) &&
       /trigger=\{actionsTrigger\}\s*items=\{actionItems\}/.test(editor) && /const actionsTrigger = useMemo\(/.test(editor))
 
   check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",

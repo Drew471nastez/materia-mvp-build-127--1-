@@ -52,6 +52,7 @@ export function VariantEdit({
   title,
   busy = false,
   editable = true,
+  startOpen = false,
   onChange,
 }: {
   choices: VariantChoices | undefined
@@ -62,9 +63,11 @@ export function VariantEdit({
   busy?: boolean
   /** False once paying has started: the name, no Edit. */
   editable?: boolean
+  /** Open from the start: a line with no option chosen yet shows its choices at once. */
+  startOpen?: boolean
   onChange: (variantId: string) => void
 }) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(startOpen)
   const id = React.useId()
   const canEdit = editable && !!choices && choices.variants.length > 1
   if (!canEdit) return currentName ? <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{currentName}</p> : null

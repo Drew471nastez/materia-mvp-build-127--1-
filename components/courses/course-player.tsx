@@ -21,6 +21,7 @@
  * move the moment a lesson is done.
  */
 
+import { cleanStoredHtml, looksLikeHtml } from "@/lib/rich-text/html"
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, FileText, ListVideo, Loader2, Lock, Mail, Paperclip, Play, X } from "lucide-react"
@@ -901,6 +902,8 @@ function LessonSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 /** The lesson's text: its own line breaks kept, and its web addresses made links. */
 function Notes({ text }: { text: string }) {
+  /* Written in the rich text editor: its cleaned HTML, laid out as written text. */
+  if (looksLikeHtml(text)) return <div className="storelib-prose break-words text-[15px] leading-7 text-[#374151] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2" dangerouslySetInnerHTML={{ __html: cleanStoredHtml(text) }} />
   const parts = text.split(/(https?:\/\/[^\s<>"')]+)/g)
   return (
     <div className="whitespace-pre-wrap break-words text-[15px] leading-7 text-[#374151]">

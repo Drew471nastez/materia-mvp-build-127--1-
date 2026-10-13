@@ -99,6 +99,8 @@ export interface SiteQuote {
   short?: SiteShortLine[]
   /** Each product in the order with more than one option on sale: what its line could be changed to (./variant-choices-server). */
   choices?: ChoicesByProduct
+  /** Things in the cart with no option chosen yet: asked for on their line, and Pay waits for them. */
+  needsOption?: { productId: string; title: string; imageUrl: string | null; quantity: number }[]
   /** Lines the server lowered to the product's per order limit: the page takes these quantities. */
   adjusted?: { productId: string; variantId: string | null; quantity: number; title: string; limit: number }[]
 }
@@ -304,6 +306,9 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
     /* Short lines too: a size that sold out is changed to one in stock right there. A line at its own price keeps it. */
     variantChoices(db, items.filter((i) => typeof (i as { customPriceCents?: unknown }).customPriceCents !== "number").map((i) => i.productId)),
   ])
+  /* A line still to choose an option for, whose product has none left to choose: dropped and named, as before. */
+  const needsOption = (pc.needsOption ?? []).filter((n) => (choices[n.productId]?.variants.length ?? 0) > 1)
+  for (const n of pc.needsOption ?? []) if (!needsOption.includes(n)) pc.dropped.push(n.title)
   /* How far each line may go: the most any location that fulfils holds of it (unless it sells past zero or isn't counted), held to the per order limit shared by its options. */
   const fulfilling = pc.locations.filter((l) => l.active && l.fulfillsOrders).map((l) => l.id)
   const maxOf = (l: (typeof pc.lines)[number]): number => {
@@ -347,6 +352,7 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
         maxQuantity: maxOf(l),
       })),
       dropped: droppedBesidesOwned(priced.dropped, priced.owned),
+      needsOption,
       owned: ownedOf(priced.owned),
       stockIssues: priced.stockIssues,
       requiresShipping: priced.requiresShipping,

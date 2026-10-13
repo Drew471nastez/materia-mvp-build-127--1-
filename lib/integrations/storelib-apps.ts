@@ -32,22 +32,28 @@ export interface StorelibApp {
   href: string
   /** Only while physical commerce is on. */
   physical: boolean
+  /**
+   * Part of Storelib itself (payments, shipping, taxes...), not an app a
+   * store adds: kept for the Essentials checklist, never listed as an
+   * integration ("why are payments an integration? it doesn't make sense").
+   */
+  core?: boolean
 }
 
 export const STORELIB_APPS: StorelibApp[] = [
-  { id: "storelib-payments", name: "Payments", summary: "Take cards, Apple Pay and Google Pay. Get paid out.", href: "/app/settings?tab=payments", physical: false },
-  { id: "storelib-shipping", name: "Shipping rates", summary: "Rates by zone, free shipping over an amount, packages.", href: "/app/settings?tab=shipping", physical: true },
-  { id: "storelib-pickup", name: "Local delivery and pickup", summary: "Deliver nearby or let buyers pick up from your location.", href: "/app/settings?tab=locations", physical: true },
-  { id: "storelib-taxes", name: "Taxes", summary: "Your tax rates by country or region.", href: "/app/settings?tab=taxes", physical: false },
-  { id: "storelib-customer-emails", name: "Customer emails", summary: "Order, shipping and receipt emails, sent for you.", href: "/app/settings?tab=emails", physical: false },
-  { id: "storelib-analytics", name: "Analytics", summary: "Visits, sales and where buyers come from.", href: "/app/analytics", physical: false },
+  { id: "storelib-payments", core: true, name: "Payments", summary: "Take cards, Apple Pay and Google Pay. Get paid out.", href: "/app/settings?tab=payments", physical: false },
+  { id: "storelib-shipping", core: true, name: "Shipping rates", summary: "Rates by zone, free shipping over an amount, packages.", href: "/app/settings?tab=shipping", physical: true },
+  { id: "storelib-pickup", core: true, name: "Local delivery and pickup", summary: "Deliver nearby or let buyers pick up from your location.", href: "/app/settings?tab=locations", physical: true },
+  { id: "storelib-taxes", core: true, name: "Taxes", summary: "Your tax rates by country or region.", href: "/app/settings?tab=taxes", physical: false },
+  { id: "storelib-customer-emails", core: true, name: "Customer emails", summary: "Order, shipping and receipt emails, sent for you.", href: "/app/settings?tab=emails", physical: false },
+  { id: "storelib-analytics", core: true, name: "Analytics", summary: "Visits, sales and where buyers come from.", href: "/app/analytics", physical: false },
   { id: "storelib-email-marketing", name: "Email marketing", summary: "Newsletters and automated emails to your subscribers.", href: "/app/emails", physical: false },
-  { id: "storelib-checkout-reminders", name: "Checkout reminders", summary: "Email buyers who stopped at checkout.", href: "/app/settings?tab=checkout", physical: false },
-  { id: "storelib-discounts", name: "Discount codes", summary: "Codes for a percent or amount off.", href: "/app/coupons", physical: false },
+  { id: "storelib-checkout-reminders", core: true, name: "Checkout reminders", summary: "Email buyers who stopped at checkout.", href: "/app/settings?tab=checkout", physical: false },
+  { id: "storelib-discounts", core: true, name: "Discount codes", summary: "Codes for a percent or amount off.", href: "/app/coupons", physical: false },
   { id: "storelib-bundles", name: "Bundles and upsells", summary: "Buy together deals and checkout offers.", href: "/app/offers", physical: true },
   { id: "storelib-markets", name: "Markets and languages", summary: "Sell in more currencies and languages.", href: "/app/settings?tab=markets", physical: false },
-  { id: "storelib-accounts", name: "Customer accounts", summary: "Buyers sign in before they pay.", href: "/app/settings?tab=checkout", physical: false },
-  { id: "storelib-domain", name: "Domain", summary: "Your website on your own address.", href: "/app/settings?tab=domains", physical: false },
+  { id: "storelib-accounts", core: true, name: "Customer accounts", summary: "Buyers sign in before they pay.", href: "/app/settings?tab=checkout", physical: false },
+  { id: "storelib-domain", core: true, name: "Domain", summary: "Your website on your own address.", href: "/app/settings?tab=domains", physical: false },
   { id: "storelib-code", name: "GitHub and AI agents", summary: "Edit your website from GitHub, Claude Code or Codex.", href: "/app/website-builder", physical: false },
 ]
 

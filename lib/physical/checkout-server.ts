@@ -181,6 +181,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   const items = readItems(input.items)
   const priced = await priceCheckout(db, { items, couponCode: input.couponCode, buyerId: input.buyerId, buyerEmail: email, ownerEmail: input.ownerEmail ?? null, shopId: input.shopId })
   if (priced.ok === false) return { ok: false, status: priced.status, error: priced.error }
+  /* Never paid for without its option: the checkout asks for it on the line. */
+  if (priced.needsOption?.length) return { ok: false, status: 409, error: `Choose an option for ${priced.needsOption[0].title}.` }
   if (priced.stockIssues.length) {
     return {
       ok: false,

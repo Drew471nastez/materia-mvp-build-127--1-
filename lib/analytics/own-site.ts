@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { isNativeApp } from "@/lib/platform-utils"
 
 /**
  * ===========================================================================
@@ -44,11 +43,6 @@ let mintedAt = 0
 let asking: Promise<void> | null = null
 const waiting = new Set<() => void>()
 
-/** An absolute https address, which is every address the app builds for a site. */
-function openable(url: URL): boolean {
-  return url.protocol === "https:" && url.host.length > 0
-}
-
 /**
  * Ask for a token, at most one request at a time, and keep it for as long as
  * it is good for. Safe to call on every mount.
@@ -76,29 +70,19 @@ export function primeOwnMarker(): void {
 }
 
 /**
- * The address to open for the creator's own site: the same page, reached
- * through that host's marker route, which sets the marker and redirects to
- * the page with nothing extra in the address. The plain address whenever
- * there is no token to carry.
+ * The address to open for the creator's own site: the plain address, always.
+ *
+ * A site on Storelib's own domain is already marked when the app asks for
+ * its token (sl_own_d, set by /api/analytics/own/token), so the creator's
+ * visit is still left out of their analytics. Anything else (a connected
+ * domain, the phone app, a press before the token arrived) used to go
+ * through the marker route first: the owner watched /api/analytics/own?t=...
+ * sit in the address bar while the server answered, a whole extra round trip
+ * before the site even started loading. Now it opens at once, and such a
+ * visit is counted, which is the smaller cost.
  */
 export function ownOpen(siteUrl: string | null | undefined): string {
-  const plain = typeof siteUrl === "string" ? siteUrl : ""
-  if (!plain || !token) return plain
-  let url: URL
-  try {
-    url = new URL(plain)
-  } catch {
-    return plain
-  }
-  if (!openable(url)) return plain
-  /* A site on Storelib's own domain is already marked (sl_own_d): its plain address, with no hop through the marker route for the browser to show first. */
-  /* Not from the app's shell: it opens the site in the phone's own browser, which never had the app's cookie. */
-  if (sitesDomain && !isNativeApp() && url.hostname.toLowerCase().endsWith(`.${sitesDomain}`)) return plain
-  const to = `${url.pathname}${url.search}` || "/"
-  const marker = new URL("/api/analytics/own", url.origin)
-  marker.searchParams.set("t", token)
-  if (to !== "/") marker.searchParams.set("to", to)
-  return marker.toString()
+  return typeof siteUrl === "string" ? siteUrl : ""
 }
 
 /**
