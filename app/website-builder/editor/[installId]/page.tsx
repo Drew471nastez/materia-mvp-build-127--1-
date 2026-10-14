@@ -10369,6 +10369,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   warm={compatWarm}
                   language={compatLanguage}
                   markets={compatMarkets}
+                  storeCurrency={previewMarket.base}
                 />
               ) : (
               <EditorCanvasPage
@@ -10410,6 +10411,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 display={canvasDisplay}
                 language={canvasChoice}
                 languagePreview={canvasSwitch}
+                storeCurrency={previewMarket.base}
               />
               )}
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
@@ -11013,6 +11015,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   display,
   language,
   languagePreview,
+  storeCurrency,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -11059,6 +11062,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   language?: SiteLanguageChoice
   /** What a choice in that switch does here: change the preview. */
   languagePreview?: LanguageSwitchPreview
+  /** The store's own currency, as Settings › Languages & Currency saved it (/api/store/markets?preview=1 base); empty until read. */
+  storeCurrency?: string
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
@@ -11091,8 +11096,13 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
-  /* The store's own currency, which its cards are priced in (lib/website-builder/shop-products), as the live site gives it. */
-  const currency = shopCards?.[0]?.settings.currency || undefined
+  /*
+    THE STORE'S OWN CURRENCY, the one it saved. It was read off the first
+    product card, so a store with no products yet drew the platform's
+    currency (USD) whatever it had chosen. The cards' is the fallback only
+    until the saved one is read.
+  */
+  const currency = storeCurrency || shopCards?.[0]?.settings.currency || undefined
   const storefront = useMemo(() => ({ inEditor: true, installId, words, display, currency, language, preview: languagePreview }), [installId, words, display, currency, language, languagePreview])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
   const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])

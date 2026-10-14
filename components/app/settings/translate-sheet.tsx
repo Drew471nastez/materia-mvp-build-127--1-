@@ -12,18 +12,18 @@
  *   To translate   no translation yet: the original shows on the website
  *   Changed        the original was changed after this was written: still
  *                  shown, until it is looked at again
- *   AI draft       written by Storelib AI, not on the website until approved
+ *   Draft          translated automatically, not on the website until approved
  *   Done           on the website
  *
- * "Translate with AI" drafts the ones to translate and the changed ones
+ * "Translate the rest" drafts the ones to translate and the changed ones
  * (never a translation a person approved whose original did not change).
  * Save keeps what was typed, approved. An empty translation shows the
  * original again.
  */
 import * as React from "react"
-import { Sparkles } from "lucide-react"
+import { Languages, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, Pill, api } from "@/components/physical/ui"
+import { BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, api } from "@/components/physical/ui"
 import { Switch } from "@/components/ui/switch"
 import { languageName } from "@/lib/markets/locales"
 import { activeLocale, tt } from "@/lib/i18n/text"
@@ -56,9 +56,11 @@ interface Loaded {
 const STATUS: Record<Status, { label: string; tone: "gray" | "amber" | "blue" | "green" }> = {
   missing: { get label() { return tt("To translate") }, tone: "gray" },
   outdated: { get label() { return tt("Changed") }, tone: "amber" },
-  draft: { get label() { return tt("AI draft") }, tone: "blue" },
+  draft: { get label() { return tt("Draft") }, tone: "blue" },
   done: { get label() { return tt("Done") }, tone: "green" },
 }
+
+const DOT: Record<"gray" | "amber" | "blue" | "green", string> = { gray: "bg-[#d1d5db]", amber: "bg-[#f59e0b]", blue: "bg-[#8b5cf6]", green: "bg-[#10b981]" }
 
 type Filter = "todo" | "all"
 
@@ -88,12 +90,18 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   const [note, setNote] = React.useState<string | null>(null)
 
   const load = React.useCallback(async (code: string) => {
-    const r = await api<Loaded>(`/api/store/translations?locale=${encodeURIComponent(code)}`, { method: "GET" })
-    if (!r.ok) return setError(r.error)
-    /* The server answers with no language when it does not have this one: say so, rather than "no text". */
-    if (!r.data.locale) return setError(tt("{name} isn't saved on your website yet. Close this and try again.", { name: languageName(code, activeLocale()) }))
-    loadedCache.set(code, r.data)
-    setData(r.data)
+    /* A language saved a moment ago can take a beat to be read back (a cache, a replica): asked again twice before saying so. */
+    for (let attempt = 0; ; attempt++) {
+      const r = await api<Loaded>(`/api/store/translations?locale=${encodeURIComponent(code)}${attempt ? `&t=${attempt}` : ""}`, { method: "GET" })
+      if (!r.ok) return setError(r.error)
+      if (r.data.locale) {
+        setError(null)
+        loadedCache.set(code, r.data)
+        return setData(r.data)
+      }
+      if (attempt >= 2) return setError(tt("{name} isn't on your website's languages. Add it in Languages & Currency, then open it again.", { name: languageName(code, activeLocale()) }))
+      await new Promise((ok) => window.setTimeout(ok, 1200))
+    }
   }, [])
 
   /* A language just added is read once its save has landed (`waiting`, Settings › Markets and languages). */
@@ -152,7 +160,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   React.useEffect(() => {
     if (wasRunning.current && !jobRunning && locale) {
       void load(locale)
-      setNote(job?.status === "done" ? (job.drafted ? tt("{total} drafted. Read them, then approve.", { total: job.drafted }) : tt("Nothing left to draft.")) : null)
+      setNote(job?.status === "done" ? (job.error ? job.error : job.drafted ? tt("{total} drafted. Read them, then approve.", { total: job.drafted }) : tt("Nothing left to draft.")) : null)
       if (job?.status === "failed" && job.error) setError(job.error)
     }
     wasRunning.current = jobRunning
@@ -174,7 +182,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     await draftByRounds()
   }
 
-  /* Without the jobs table (SQL part 177): the AI drafts in rounds from this sheet, asked again until nothing is left. */
+  /* Without the jobs table (SQL part 177): drafted in rounds from this sheet, asked again until nothing is left. */
   const draftByRounds = async () => {
     if (!locale) return
     setBusy("ai")
@@ -236,26 +244,32 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
         {data ? (
           <div className="space-y-3">
             {jobRunning || (data.progress && data.progress.total > 0) ? (
-              <div data-translate-progress={jobRunning ? "running" : ""}>
-                <div className="flex items-baseline justify-between text-[13px]">
-                  <span className="font-medium text-[#1a1a2e]">
-                    {jobRunning
-                      ? tt("Translating: {done} of {total} texts", { done: shown.done, total: shown.total })
-                      : tt("{done} of {total} translated", { done: shown.done, total: shown.total })}
+              <div data-translate-progress={jobRunning ? "running" : ""} className={cn("rounded-xl px-4 py-3.5 transition-colors", jobRunning ? "bg-[#f5f3ff]" : "bg-[#f8f9fa]")}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[14px] font-semibold tabular-nums text-[#1a1a2e]">
+                    {jobRunning ? tt("Translating {done} of {total}", { done: shown.done, total: shown.total }) : tt("{done} of {total} translated", { done: shown.done, total: shown.total })}
                   </span>
-                  <span className="text-[#6b7280]">{tt("The rest shows in {name}", { name: languageName(locale === defaultLanguage ? "en" : defaultLanguage, activeLocale()) })}</span>
+                  <span className="text-[13px] tabular-nums text-[#6b7280]">{shown.total ? `${Math.min(100, Math.round((shown.done / shown.total) * 100))}%` : ""}</span>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
-                  <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${shown.total ? Math.max(jobRunning ? 3 : 0, Math.min(100, Math.round((shown.done / shown.total) * 100))) : 3}%` }} />
+                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white">
+                  <div
+                    className={cn("h-full rounded-full transition-[width] duration-700 ease-out", jobRunning ? "animate-pulse bg-[#8b5cf6]" : "bg-[#1a1a2e]")}
+                    style={{ width: `${shown.total ? Math.max(jobRunning ? 3 : 0, Math.min(100, Math.round((shown.done / shown.total) * 100))) : 3}%` }}
+                  />
                 </div>
+                <p className="mt-2 text-[12.5px] text-[#6b7280]" aria-live="polite">
+                  {jobRunning
+                    ? tt("Runs on Storelib's servers. You can close this or the tab.")
+                    : tt("The rest shows in {name}", { name: languageName(locale === defaultLanguage ? "en" : defaultLanguage, activeLocale()) })}
+                </p>
               </div>
             ) : null}
             {note && onPublish ? <p className="text-[13px] text-[#4b5563]" aria-live="polite">{note}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
               {items.some((i) => i.status === "missing" || i.status === "outdated") ? (
                 <button type="button" className={cn(BTN_PRIMARY, "h-10")} onClick={() => void draftWithAi()} disabled={!!busy || jobRunning} data-translate-ai="">
-                  <Sparkles className="h-4 w-4" />
-                  {busy === "ai" || jobRunning ? tt("Translating") : tt("Translate everything with AI")}
+                  {busy === "ai" || jobRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
+                  {busy === "ai" || jobRunning ? tt("Translating") : tt("Translate the rest")}
                 </button>
               ) : null}
               <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
@@ -295,7 +309,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
 
         {shownGroups.map((g) => (
           <section key={g.id} aria-labelledby={`tr-${g.id}`} className="space-y-2">
-            <h3 id={`tr-${g.id}`} className="text-[13px] font-semibold text-[#6b7280]">
+            <h3 id={`tr-${g.id}`} className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">
               {g.title}
             </h3>
             <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]">
@@ -304,13 +318,16 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                 const value = edits[i.key] ?? (i.rich && /<[a-z][\s\S]*>/i.test(i.value) ? plain(i.value) : i.value)
                 const st = STATUS[i.status]
                 return (
-                  <li key={i.key} className="space-y-2 px-3.5 py-3" data-translation={i.key}>
-                    <div className="flex items-center gap-2">
+                  <li key={i.key} className="px-3.5 py-3" data-translation={i.key}>
+                    <div className="mb-1.5 flex items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[#4b5563]">
                         {i.where !== g.title && i.where ? `${i.where} · ` : ""}
                         {i.label}
                       </span>
-                      <Pill tone={st.tone}>{st.label}</Pill>
+                      <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6b7280]" data-status={i.status}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full", DOT[st.tone])} aria-hidden="true" />
+                        {st.label}
+                      </span>
                       {i.status === "draft" ? (
                         <label className="flex items-center gap-1.5 text-[12.5px] text-[#4b5563]">
                           <input
@@ -330,26 +347,28 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                         </label>
                       ) : null}
                     </div>
-                    <p className="whitespace-pre-wrap break-words rounded-lg bg-[#f8f9fa] px-3 py-2 text-[13px] leading-[19px] text-[#4b5563]">{i.rich ? plain(i.source) : i.source}</p>
-                    {i.multiline ? (
-                      <textarea
-                        value={value}
-                        onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
-                        rows={Math.min(8, Math.max(2, Math.ceil(i.source.length / 70)))}
-                        placeholder={tt("In {name}", { name })}
-                        aria-label={tt("{label} in {name}", { label: i.label, name })}
-                        className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[16px] leading-6 sm:text-[14px] sm:leading-5 text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
-                      />
-                    ) : (
-                      <input
-                        value={value}
-                        onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
-                        placeholder={tt("In {name}", { name })}
-                        aria-label={tt("{label} in {name}", { label: i.label, name })}
-                        className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] sm:text-[14px] outline-none transition-colors focus:border-[#1a1a2e]"
-                      />
-                    )}
-                    {i.rich ? <p className="text-[12px] text-[#9ca3af]">{tt("Edited here, it's saved as plain text: a blank line starts a new paragraph.")}</p> : null}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <p className="whitespace-pre-wrap break-words rounded-lg bg-[#f8f9fa] px-3 py-2 text-[13px] leading-[19px] text-[#4b5563]">{i.rich ? plain(i.source) : i.source}</p>
+                      {i.multiline ? (
+                        <textarea
+                          value={value}
+                          onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
+                          rows={Math.min(8, Math.max(2, Math.ceil(i.source.length / 60)))}
+                          placeholder={tt("In {name}", { name })}
+                          aria-label={tt("{label} in {name}", { label: i.label, name })}
+                          className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[16px] leading-6 sm:text-[13.5px] sm:leading-[19px] text-[#1a1a2e] outline-none transition-colors focus:border-[#1a1a2e]"
+                        />
+                      ) : (
+                        <input
+                          value={value}
+                          onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
+                          placeholder={tt("In {name}", { name })}
+                          aria-label={tt("{label} in {name}", { label: i.label, name })}
+                          className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-[16px] text-[#1a1a2e] sm:h-auto sm:min-h-[38px] sm:text-[13.5px] outline-none transition-colors focus:border-[#1a1a2e]"
+                        />
+                      )}
+                    </div>
+                    {i.rich ? <p className="mt-1.5 text-[12px] text-[#9ca3af]">{tt("Edited here, it's saved as plain text: a blank line starts a new paragraph.")}</p> : null}
                   </li>
                 )
               })}

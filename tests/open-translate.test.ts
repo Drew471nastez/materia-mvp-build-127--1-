@@ -1,0 +1,147 @@
+/**
+ * Translating with free, open models (lib/markets/open-translate.ts):
+ * only the words leave Storelib, everything else comes back exactly as it
+ * was; LibreTranslate is asked first, with long texts detected by it and
+ * short ones sent from the language they are known to be in; Hugging Face's
+ * opus-mt model is used for a pair when it has one, else NLLB 200; a
+ * language nobody offers is said plainly; nothing set up is said plainly;
+ * and with an open model set up the paid chat model is never called.
+ *
+ * Against real HTTP servers standing in for LibreTranslate and Hugging Face.
+ */
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
+import type { AddressInfo } from "node:net"
+import { readFileSync } from "node:fs"
+import { join as joinPath } from "node:path"
+import { cut, join, wordsOf } from "../lib/markets/translate-segments"
+import { keepsFixedParts } from "../lib/markets/draft-check"
+
+let passed = 0
+let failed = 0
+function check(label: string, ok: boolean, detail?: string) {
+  if (ok) { passed++; console.log(`  ok    ${label}`) }
+  else { failed++; console.log(`  FAIL  ${label}${detail ? `\n        ${detail}` : ""}`) }
+}
+const read = (p: string) => readFileSync(joinPath(process.cwd(), p), "utf8")
+
+type Seen = { path: string; body: Record<string, unknown> }
+const seen: Seen[] = []
+let openAiCalls = 0
+
+function body(req: IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((ok) => {
+    let raw = ""
+    req.on("data", (c) => { raw += c })
+    req.on("end", () => ok(raw ? JSON.parse(raw) : {}))
+  })
+}
+const send = (res: ServerResponse, status: number, json: unknown) => {
+  res.writeHead(status, { "content-type": "application/json" })
+  res.end(JSON.stringify(json))
+}
+
+async function answer(req: IncomingMessage, res: ServerResponse) {
+  const path = req.url ?? ""
+  if (req.method === "GET" && path === "/lt/languages") return send(res, 200, [{ code: "en", targets: ["fr", "es", "de", "pb"] }, { code: "es", targets: ["en", "fr"] }, { code: "fr", targets: ["en", "es"] }])
+  const b = await body(req)
+  seen.push({ path, body: b })
+  if (path.startsWith("/v1/")) {
+    openAiCalls++
+    return send(res, 500, { error: { message: "should not be called" } })
+  }
+  if (path === "/lt/translate") {
+    const q = b.q as string[]
+    return send(res, 200, { translatedText: q.map((t) => `«${b.target}:${t}»`) })
+  }
+  if (path === "/hf/Helsinki-NLP/opus-mt-en-ro") return send(res, 404, { error: "Model Helsinki-NLP/opus-mt-en-ro does not exist" })
+  if (path === "/hf/Helsinki-NLP/opus-mt-en-de") return send(res, 200, (b.inputs as string[]).map((t) => ({ translation_text: `DE ${t}` })))
+  if (path === "/hf/facebook/nllb-200-distilled-600M") {
+    const p = b.parameters as { tgt_lang: string }
+    return send(res, 200, (b.inputs as string[]).map((t) => ({ translation_text: `${p.tgt_lang} ${t}` })))
+  }
+  return send(res, 404, { error: "not here" })
+}
+
+async function main() {
+  console.log("\nOnly the words are cut out")
+  const html = `<p>Hello {{ customer.first_name }}, welcome to <strong>Green Garden</strong>.</p><p>Visit https://shop.example.com or write to hi@shop.example.com {name}</p>`
+  const parts = cut(html, ["Green Garden"])
+  const words = wordsOf(parts)
+  check("tags, Liquid, links, addresses, slots and the shop's name are never sent", words.every((w) => !/[<>{}]|https?:|@|Green Garden/.test(w)), JSON.stringify(words))
+  check("the words between them are", words.includes("Hello") && words.includes(", welcome to") && words.includes("Visit") && words.includes("or write to"), JSON.stringify(words))
+  const back = join(parts, (w) => `X${w}X`)!
+  check("put back together, it keeps every fixed part", keepsFixedParts(html, back), back)
+  check("and the spaces around each run", back === "<p>XHelloX {{ customer.first_name }}X, welcome toX <strong>Green Garden</strong>.</p><p>XVisitX https://shop.example.com Xor write toX hi@shop.example.com {name}</p>", back)
+  check("a run with no letters is not sent", wordsOf(cut("€ 12.00 — 50%")).length === 0)
+  check("a run the translator dropped leaves the text untranslated, not half done", join(cut("Hello <b>world</b>"), (w) => (w === "Hello" ? "Bonjour" : "")) === null)
+
+  const server = createServer((req, res) => void answer(req, res))
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r))
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  process.env.OPENAI_API_KEY = "test-key"
+  process.env.OPENAI_BASE_URL = `${base}/v1`
+
+  const mod = await import("../lib/markets/open-translate")
+  const { draftTranslations } = await import("../lib/markets/translate-ai")
+
+  console.log("\nNothing set up")
+  delete process.env.LIBRETRANSLATE_URL
+  delete process.env.HF_TOKEN
+  let r = await mod.translateOpen(["Hello"], "en", "fr")
+  check("said in the merchant's words", r.out.size === 0 && r.unavailable === mod.OPEN_NOT_SET_UP)
+
+  console.log("\nLibreTranslate")
+  process.env.LIBRETRANSLATE_URL = `${base}/lt/`
+  const long = "Our linen shirts are cut in Lisbon from fabric woven two streets away."
+  const texts = ["Add to cart", `<p>${long}</p>`, "Hi {name}", "Add to cart"]
+  seen.length = 0
+  r = await mod.translateOpen(texts, "en", "fr", { keep: ["Green Garden"] })
+  check("every text is translated", r.out.size === 4 && r.unavailable === null, JSON.stringify([...r.out]))
+  check("a short label goes from the known language", seen.some((s) => s.body.source === "en" && (s.body.q as string[]).includes("Add to cart")))
+  check("a long text is detected (source auto)", seen.some((s) => s.body.source === "auto" && (s.body.q as string[]).includes(long)))
+  check("repeated words are sent once", seen.flatMap((s) => (s.body.q as string[]) ?? []).filter((q) => q === "Add to cart").length === 1)
+  check("the HTML comes back as it was", r.out.get(1) === `<p>«fr:${long}»</p>`, r.out.get(1))
+  check("the placeholder comes back as it was", r.out.get(2) === "«fr:Hi» {name}", r.out.get(2))
+  check("format text, so the server never touches markup", seen.every((s) => s.body.format === "text"))
+
+  seen.length = 0
+  r = await mod.translateOpen(["Hello"], "en", "pt-BR")
+  check("Brazilian Portuguese is asked as LibreTranslate's pb", seen.some((s) => s.body.target === "pb") && r.out.get(0) === "«pb:Hello»")
+
+  r = await mod.translateOpen(["Hello"], "en", "ja")
+  check("a language the server does not offer is said plainly", r.out.size === 0 && /can't be translated automatically/.test(r.unavailable ?? ""), r.unavailable ?? "")
+
+  const many = Array.from({ length: 130 }, (_, i) => `Item number ${i}`)
+  seen.length = 0
+  r = await mod.translateOpen(many, "en", "es")
+  check("130 texts in batches of 50 at most", r.out.size === 130 && seen.filter((s) => s.path === "/lt/translate").every((s) => (s.body.q as string[]).length <= 50) && seen.filter((s) => s.path === "/lt/translate").length === 3)
+
+  console.log("\nHugging Face")
+  delete process.env.LIBRETRANSLATE_URL
+  process.env.HF_TOKEN = "hf_test"
+  process.env.HF_INFERENCE_URL = `${base}/hf`
+  seen.length = 0
+  r = await mod.translateOpen(["Hello"], "en", "de")
+  check("the pair's opus-mt model when there is one", r.out.get(0) === "DE Hello" && seen.some((s) => s.path === "/hf/Helsinki-NLP/opus-mt-en-de"))
+  seen.length = 0
+  r = await mod.translateOpen(["Hello <b>there</b>"], "en", "ro")
+  check("NLLB 200 when there is none, with its language codes", r.out.get(0) === "ron_Latn Hello <b>ron_Latn there</b>" && seen.some((s) => s.path === "/hf/facebook/nllb-200-distilled-600M" && (s.body.parameters as { src_lang: string }).src_lang === "eng_Latn"), r.out.get(0))
+
+  console.log("\nThe paid model is not used")
+  process.env.LIBRETRANSLATE_URL = `${base}/lt`
+  openAiCalls = 0
+  const d = await draftTranslations([{ key: "a", source: "Shop now" }, { key: "b", source: "<p>Free shipping over {{ amount }}</p>" }], "en", "es", "Green Garden")
+  check("drafts come from the open model", d.drafts.get("a") === "«es:Shop now»" && d.drafts.get("b") === "<p>«es:Free shipping over» {{ amount }}</p>", JSON.stringify([...d.drafts]))
+  check("and the chat model is never called", openAiCalls === 0)
+
+  const sheet = read("components/app/settings/translate-sheet.tsx")
+  check("the sheet says the work runs on with the tab closed", /You can close this or the tab/.test(sheet))
+  check("a just-added language is asked again before saying it's missing", /attempt >= 2/.test(sheet))
+  check("memory is kept for good (part 178)", /translation_memory/.test(read("supabase/sql/run-now/178_translation_memory.sql")))
+
+  server.close()
+  console.log(`\n${passed} passed, ${failed} failed`)
+  if (failed) process.exit(1)
+}
+
+void main()

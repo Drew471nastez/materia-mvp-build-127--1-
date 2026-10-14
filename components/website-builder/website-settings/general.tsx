@@ -163,7 +163,7 @@ function LocalizationCard({ ctx, fallbackLanguage }: { ctx: SettingsContext; fal
   )
   const value = (text: string) => <span className="text-[13px] text-white/70">{text}</span>
   return (
-    <Card title={tt("Languages and currencies")} footer={tt("The editor opens in your default language and currency. Switch them with your theme's own language and currency selectors on the page, as visitors do.")}>
+    <Card title={tt("Languages and currencies")} footer={tt("The editor, the preview and your website all open in your default language and your store currency. Switch them with your theme's own selectors on the page, as visitors do.")}>
       <div data-wb-localization="">
         <Row label={tt("Default language")} hint={manage("/app/settings?tab=markets")} inline>
           {value(data === null ? "" : defaultLanguage ? languageName(defaultLanguage, activeLocale()) : tt("Set for your store"))}
@@ -171,10 +171,10 @@ function LocalizationCard({ ctx, fallbackLanguage }: { ctx: SettingsContext; fal
         <Row label={tt("Other languages")} hint={manage("/app/settings?tab=markets")} inline>
           {value(data === null ? "" : others.length ? others.map((l) => (l.published ? languageName(l.code, activeLocale()) : tt("{language} (hidden)", { language: languageName(l.code, activeLocale()) }))).join(", ") : tt("None"))}
         </Row>
-        <Row label={tt("Store currency")} hint={manage("/app/settings?tab=store")} inline>
+        <Row label={tt("Store currency")} hint={manage("/app/settings?tab=markets")} inline>
           {value(currency ? (word ? `${currency} (${word})` : currency) : "")}
         </Row>
-        <Row label={tt("Visitor currencies")} hint={manage("/app/settings?tab=markets")} inline>
+        <Row label={tt("More currencies")} hint={manage("/app/settings?tab=markets")} inline>
           {value(data === null ? "" : markets.length ? markets.map((m) => `${m.currency}${m.countries?.length ? ` · ${m.countries.length <= 2 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}` : ""}`).join("; ") : tt("None"))}
         </Row>
       </div>

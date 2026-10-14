@@ -133,7 +133,16 @@ export async function localizationOf(db: Db, creatorId: string, baseCurrency: st
   if (!data) return { ready: true, value: await fresh() }
   const row = data
   const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
-  return { ready: true, value: checked.ok ? checked.value : defaultLocalization(await homeCountryOf(db, creatorId), row.default_language), autoTranslateRun: auto.run }
+  if (checked.ok) return { ready: true, value: checked.value, autoTranslateRun: auto.run }
+  /*
+    A SAVED LIST NEVER LOST. Markets saved under another store currency can
+    stop passing the check after the currency changes; the languages did not
+    change, so they are kept and only the markets start again from the home
+    one. Losing them read as "French isn't saved on your website yet".
+  */
+  const home = defaultLocalization(await homeCountryOf(db, creatorId), row.default_language)
+  const kept = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: home.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
+  return { ready: true, value: kept.ok ? kept.value : home, autoTranslateRun: auto.run }
 }
 
 export async function saveLocalization(db: Db, creatorId: string, input: unknown, baseCurrency: string): Promise<{ ok: true; value: Localization } | { ok: false; status: number; error: string }> {

@@ -23,6 +23,7 @@
  * app/api/store/currency does the change in one transaction (SQL part 176).
  */
 import * as React from "react"
+import Link from "next/link"
 import { Check } from "lucide-react"
 import { countryName } from "@/lib/checkout/countries"
 import { countryOf } from "@/lib/account/country"
@@ -97,8 +98,8 @@ export function CountryCurrency() {
 
   return (
     <Card
-      title={tt("Country & Currency")}
-      description={tt("The country and currency your store sells in.")}
+      title={tt("Store currency")}
+      description={tt("Your prices, your website, the builder and checkout all use it.")}
       help="currency"
       action={
         editing ? null : (
@@ -133,6 +134,47 @@ export function CountryCurrency() {
           {data.lastChange ? <Undo change={data.lastChange} onDone={changed} /> : null}
         </>
       )}
+    </Card>
+  )
+}
+
+/**
+ * STORE DETAILS, ONE LINE. The currency is set in one place, Settings ›
+ * Languages & Currency, beside the extra currencies visitors can switch to;
+ * Store details says what it is and links there. A read that fails shows
+ * the link alone rather than an error badge in the middle of the page.
+ */
+export function CurrencyLink() {
+  const [data, setData] = React.useState<CurrencyState | null>(() => peekGet<CurrencyState>(PATH))
+  React.useEffect(() => {
+    let live = true
+    void api<CurrencyState>(PATH).then((r) => live && r.ok && setData(r.data))
+    const on = (e: Event) => {
+      const currency = (e as CustomEvent<string>).detail
+      if (typeof currency === "string") setData((d) => (d ? { ...d, currency } : d))
+    }
+    window.addEventListener(STORE_CURRENCY_EVENT, on)
+    return () => {
+      live = false
+      window.removeEventListener(STORE_CURRENCY_EVENT, on)
+    }
+  }, [])
+  return (
+    <Card
+      title={tt("Country & currency")}
+      action={
+        <Link href="/app/settings?tab=markets" className={BTN_SECONDARY} data-currency-link="">
+          {tt("Change")}
+        </Link>
+      }
+    >
+      <div className="flex min-h-[28px] items-center justify-between gap-3" data-selling-in="">
+        <span className="text-[14px] text-[#6b7280]">{tt("Selling in")}</span>
+        <span className="flex min-w-0 items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
+          {data?.country ? <CountryFlag code={data.country} near={false} /> : null}
+          <span className="truncate">{data ? (data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency) : ""}</span>
+        </span>
+      </div>
     </Card>
   )
 }

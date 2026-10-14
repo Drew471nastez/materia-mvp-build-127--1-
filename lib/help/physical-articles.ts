@@ -866,7 +866,7 @@ const ARTICLES: Article[] = [
     section: "Set up your store",
     slug: "country-and-currency",
     title: "Country & Currency: what your store sells in",
-    summary: "Your store's prices are in one currency and buyers pay in it. Choose it in Settings > Store details, and change it later without losing track of your prices.",
+    summary: "Your store's prices are in one currency and buyers pay in it. Choose it in Settings > Languages & Currency and change it later, prices kept.",
     keywords: ["currency", "country", "selling currency", "lei", "ron", "euro", "eur", "usd", "gbp", "change currency", "convert prices", "exchange rate", "payout currency", "minimum charge", "selling in"],
     related: ["store-details", "physical-payouts", "what-buyers-see-at-checkout", "sell-on-your-website"],
     body: [
@@ -875,8 +875,8 @@ const ARTICLES: Article[] = [
       {
         type: "steps",
         items: [
-          "Open Settings and choose Store details.",
-          "Under Country & Currency, press Edit.",
+          "Open Settings and choose Languages & Currency.",
+          "Under Store currency, press Edit.",
           "Choose your country. Your country's own currency is suggested when Storelib can take card payments in it.",
           "Check the Currency and press Save. The line Selling in shows your country and currency.",
         ],
@@ -924,7 +924,7 @@ const ARTICLES: Article[] = [
         rows: [
           ["Selling currency", "What your prices are in and what buyers pay.", "Store details, Country & Currency"],
           ["Payout currency", "What arrives in your bank. Stripe converts it when it differs, which never changes what a buyer paid.", "Payments"],
-          ["Visitor currencies", "Optional: visitors abroad see your prices in their own currency and pay in it at checkout.", "Markets and languages"],
+          ["More currencies", "Optional: visitors abroad see your prices in their own currency, switch with your website's currency selector and pay in it at checkout.", "Languages & Currency"],
         ],
       },
       { type: "p", text: "Your balance on Storelib is kept in one currency. A sale in another currency is added at that day's rate, and the sale's line says both amounts." },
@@ -2258,18 +2258,18 @@ const ARTICLES: Article[] = [
     section: "Website and integrations",
     slug: "languages-and-currencies-for-visitors",
     title: "Languages and visitor currencies on your website",
-    summary: "Add a language and Storelib AI translates your website, then review and publish it. Optionally let visitors abroad see and pay in their own currency.",
+    summary: "Add a language and Storelib translates your website, then review and publish it. Optionally let visitors abroad see and pay in their own currency.",
     keywords: ["languages", "translate", "translation", "ai translation", "multilingual", "language selector", "hreflang", "/fr", "publish language", "visitor currency", "markets", "currency selector", "exchange rate"],
     related: ["country-and-currency", "sell-on-your-website", "import-a-shopify-theme"],
     body: [
-      { type: "p", text: "Your website is written in one language, its default. You can offer it in more, each at its own address: yourstore.com/fr, yourstore.com/fr/products/mug. Settings > Languages is where you add them." },
+      { type: "p", text: "Your website is written in one language, its default. You can offer it in more, each at its own address: yourstore.com/fr, yourstore.com/fr/products/mug. Settings > Languages & Currency is where you add them." },
       { type: "h", text: "Add a language" },
       {
         type: "steps",
         items: [
           "Open Settings and choose Languages.",
           "Press Add language and pick one. Search by its name in any language.",
-          "Storelib AI starts translating your website right away. The row shows Translating with how many texts are done.",
+          "Storelib starts translating your website right away, on its servers, so you can close the page. The row shows Translating with how many texts are done.",
           "When it's done, the row says how many are translated and how many are left to review. Press Review to read them, change any, and approve.",
           "Press Publish. The language goes live on your website, with its selector.",
         ],
@@ -2279,13 +2279,13 @@ const ARTICLES: Article[] = [
         head: ["The row says", "What it means"],
         rows: [
           ["Default", "Your website as it is written."],
-          ["Translating", "Storelib AI is translating it now."],
+          ["Translating", "Storelib is translating it now."],
           ["Hidden", "Added, not live yet. Only you see it, in the editor's preview."],
           ["Published", "Live on your website at its own address."],
-          ["20 to review", "Drafts by Storelib AI waiting for you. Until they're approved, those texts show in your default language."],
+          ["20 to review", "Drafts waiting for you. Until they're approved, those texts show in your default language."],
         ],
       },
-      { type: "p", text: "The menu on each row has Review and edit, Translate the rest with AI (also to try again if it stopped), Publish or Unpublish, and Remove. A removed language keeps its translations, in case you add it again." },
+      { type: "p", text: "The menu on each row has Review and edit, Translate the rest (also to try again if it stopped), Publish or Unpublish, and Remove. A removed language keeps its translations, in case you add it again." },
       { type: "h", text: "What gets translated" },
       {
         type: "list",
@@ -2295,7 +2295,7 @@ const ARTICLES: Article[] = [
           "The words of your cart and checkout, which Storelib writes.",
           "Links, prices, codes and placeholders like {name} are kept exactly as they are.",
           "Translations are saved once and shown to every visitor. Nothing is translated while a visitor waits.",
-          "A text you change later shows as changed in Review, so you can update its translation. Storelib AI never replaces a translation you wrote or edited.",
+          "A text you change later shows as changed in Review, so you can update its translation. Automatic translation never replaces a translation you wrote or edited.",
         ],
       },
       { type: "p", text: "Under More options: Translate changes automatically translates new and changed text every hour and puts it live, and Show visitors their own language opens a first visit in the language their browser asks for, once." },
@@ -2311,12 +2311,12 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "p", text: "Each language has its own address, and every page tells search engines about the others (hreflang), so each language can be found in search." },
-      { type: "h", text: "Visitor currencies (optional)" },
-      { type: "p", text: `Your store sells in one currency (see ${link("country-and-currency", "Country & Currency")}). Under Visitor currencies you can add others for groups of countries: visitors from there see your prices converted at the day's European Central Bank rate, with the rounding you choose, and checkout charges them in that currency, the amounts they saw. Storelib charges USD, EUR, GBP, RON, CAD and AUD. A currency outside that list is shown for reference only: checkout charges your store's currency and says so next to the total.` },
+      { type: "h", text: "More currencies (optional)" },
+      { type: "p", text: `Your store sells in one currency (see ${link("country-and-currency", "Country & Currency")}). Under More currencies you can add others for groups of countries: visitors from there see your prices converted at the day's European Central Bank rate, with the rounding you choose, and checkout charges them in that currency, the amounts they saw. Storelib charges USD, EUR, GBP, RON, CAD and AUD. A currency outside that list is shown for reference only: checkout charges your store's currency and says so next to the total.` },
       {
         type: "steps",
         items: [
-          "In Settings > Languages, under Visitor currencies, press Add a currency.",
+          "In Settings > Languages & Currency, under More currencies, press Add a currency.",
           "Choose its countries, a region at a time or searched, and its currency.",
           "Optionally pick a language its visitors start in, and how converted prices are rounded.",
         ],
@@ -2326,8 +2326,8 @@ const ARTICLES: Article[] = [
         type: "table",
         head: ["You see", "What to do"],
         rows: [
-          ["Translating with AI can be used a few times an hour", "Each press translates a lot at once. Wait, then use Translate the rest with AI."],
-          ["Storelib AI isn't available right now", "Translate in Review by hand, or try again later."],
+          ["Translating can be started a few times an hour", "Each press translates a lot at once. Wait, then use Translate the rest."],
+          ["Automatic translation isn't set up on Storelib yet", "Translate in Review by hand. Storelib translates with free, open source models (LibreTranslate or Hugging Face) once they are set up."],
           ["A language doesn't show on the website", "Publish it. Texts still to review show in your default language until approved."],
           ["Prices aren't converted", "The day's rates aren't in yet or are too old, so your own prices show. They're fetched every working day."],
         ],

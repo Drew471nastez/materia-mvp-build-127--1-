@@ -102,7 +102,7 @@ const TABS = [
   { id: "taxes", get label() { return tt("Taxes") }, icon: Receipt, group: "store", get line() { return tt("Tax you charge, by country") } },
   /* The website's languages, and the countries it sells to with their currency (components/app/settings/markets-panel.tsx, lib/markets). */
   /* The id stays "markets" so every link to /app/settings?tab=markets still opens it. */
-  { id: "markets", get label() { return tt("Languages") }, icon: Languages, group: "store", get line() { return tt("Your website in more languages") } },
+  { id: "markets", get label() { return tt("Languages & Currency") }, icon: Languages, group: "store", get line() { return tt("Your store currency and your website's languages") } },
   { id: "domains", get label() { return tt("Domains") }, icon: Globe, group: "store", get line() { return tt("Your own web address") } },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
   { id: "ai_memory", get label() { return tt("AI Memory") }, icon: Brain, group: "store", get line() { return tt("What Storelib AI remembers about your store") } },

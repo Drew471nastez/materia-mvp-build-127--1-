@@ -5,12 +5,20 @@ query tab in the Supabase SQL editor and run on its own.
 
 | File | What it does |
 | --- | --- |
-| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically), 176 (a store's own selling currency) and 177 (Translate with AI in the background), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
-| `2_check.sql` | Read only. One row per thing the code needs, each `true`; then what stores sell in, the background translations and the latest currency changes. |
+| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically), 176 (a store's own selling currency), 177 (translating in the background) and 178 (translation memory), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
+| `2_check.sql` | Read only. One row per thing the code needs, each `true`; then what stores sell in, the background translations, the translation memory and the latest currency changes. |
 | `3_rollback.sql` | How to undo parts 176 and 177: put converted prices back first, then the code, then drop the schema. |
 
 The same parts are in `run-now/`, `run-four/` and `all-in-two/`. Run one route
 or the other; running both is harmless.
+
+## What part 178 adds
+
+- `translation_memory`: every run of words an open translation model
+  (LibreTranslate, or Hugging Face's opus-mt and NLLB) has translated, by
+  language pair and the sha256 of the words, kept for good. The same words are
+  never sent twice, for any store. Server only. Without it everything still
+  translates, just without the cache.
 
 ## What part 177 adds
 

@@ -396,8 +396,18 @@ async function request<T>(path: string, init?: { method?: string; body?: unknown
   })
   if (r.ok) return { ok: true, data: r.data as T }
   if (r.kind === "refused" || r.kind === "server" || r.kind === "auth")
-    return { ok: false, error: typeof r.data.error === "string" ? r.data.error : r.kind === "refused" ? tt("Something went wrong. Try again.") : tt(FAIL_COPY[r.kind]), data: r.data }
+    return { ok: false, error: typeof r.data.error === "string" ? r.data.error : r.kind === "refused" ? refusedWithoutWords(r.status) : tt(FAIL_COPY[r.kind]), data: r.data }
   return { ok: false, error: tt(FAIL_COPY[r.kind ?? "network"]) }
+}
+
+/**
+ * A refusal the server gave no words for. A 404 or 405 is an address this
+ * page knows and the server does not: the page is older or newer than the
+ * server it talks to (a deploy in between), and a refresh is the fix.
+ */
+function refusedWithoutWords(status: number): string {
+  if (status === 404 || status === 405) return tt("Storelib was just updated. Refresh the page and try again.")
+  return tt("Something went wrong. Try again.")
 }
 
 /** A random key per action, so a double press is one change. */

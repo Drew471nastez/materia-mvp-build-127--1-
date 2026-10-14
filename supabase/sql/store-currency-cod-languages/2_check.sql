@@ -15,13 +15,18 @@ union all select 'cash on delivery: provider takes cod', to_regclass('public.com
 union all select 'cash on delivery: cod_collected_at', to_regclass('public.commerce_checkouts') is null or exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'commerce_checkouts' and column_name = 'cod_collected_at')
 union all select 'translate changes automatically', to_regclass('public.store_localization') is null or exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'store_localization' and column_name = 'auto_translate')
 union all select 'translate with AI in the background', to_regclass('public.store_translation_jobs') is not null
-union all select 'nobody but the server reads translation jobs', to_regclass('public.store_translation_jobs') is null or not exists (select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'store_translation_jobs' and grantee in ('anon', 'authenticated'));
+union all select 'nobody but the server reads translation jobs', to_regclass('public.store_translation_jobs') is null or not exists (select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'store_translation_jobs' and grantee in ('anon', 'authenticated'))
+union all select 'translation memory, the permanent cache', to_regclass('public.translation_memory') is not null
+union all select 'nobody but the server reads translation memory', to_regclass('public.translation_memory') is null or not exists (select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'translation_memory' and grantee in ('anon', 'authenticated'));
 
 -- What stores sell in now (empty: the platform's currency, as before).
 select coalesce(currency, '(platform)') as currency, count(*) as stores from public.store_settings group by 1 order by 2 desc;
 
 -- Translations running in the background now, and the last of each.
 select creator_id, locale, status, done, total, drafted, error, updated_at from public.store_translation_jobs order by updated_at desc limit 50;
+
+-- How much the translation memory holds, by language pair.
+select source_lang, target_lang, provider, count(*) as words from public.translation_memory group by 1, 2, 3 order by 4 desc limit 50;
 
 -- Every currency change, newest first, and whether it was undone.
 select creator_id, from_currency, to_currency, mode, rate, rate_as_of, counts, created_at, restored_at from public.store_currency_changes order by created_at desc limit 50;

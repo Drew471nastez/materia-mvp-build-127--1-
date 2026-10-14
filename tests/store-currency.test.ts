@@ -203,11 +203,11 @@ async function main() {
     check("a change made somewhere else since is refused, not overwritten", /40001/.test(route))
     check("every page showing a price is refreshed", /revalidateTag\(storeCurrencyTag/.test(route) && /revalidatePublishedSite/.test(route))
     const card = code("components/app/settings/country-currency.tsx")
-    check("the card reads Country & Currency and Selling in", /tt\("Country & Currency"\)/.test(card) && /tt\("Selling in"\)/.test(card))
+    check("the card reads Store currency and Selling in", /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /tt\("Store currency"\)/.test(card) && /tt\("Selling in"\)/.test(card))
     check("Save waits until keep or convert is chosen", /asks && !mode/.test(card) && /useState<"keep" \| "convert" \| null>\(null\)/.test(card))
     check("the rate is shown with its day", /Rate: 1 \{from\} = \{rate\} \{to\}, \{day\}/.test(card))
     const panel = code("components/app/settings/store-details-panel.tsx")
-    check("Store details shows it in place of the old Based in row", /<CountryCurrency \/>/.test(panel) && !/function BasedIn/.test(panel))
+    check("Store details shows it in place of the old Based in row, linking to where it is set", /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /<CurrencyLink \/>/.test(panel) && /href="\/app\/settings\?tab=markets"/.test(card) && !/function BasedIn/.test(panel))
   }
 
   console.log("\nThe native platform shows and charges a product in its store's currency")

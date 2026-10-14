@@ -120,6 +120,8 @@ export interface CompatCanvasProps {
    * language and the store's prices, as before.
    */
   markets?: CompatMarkets | null
+  /** The store's own currency as Settings › Languages & Currency saved it; empty until read, when the cards' is used. */
+  storeCurrency?: string
 }
 
 /** The website's languages and countries, and the market previewed, for an imported theme's canvas. */
@@ -374,7 +376,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }, [i18nKey])
   /* Money written the market's way in the page's language, as the website writes it. */
   /* The store's own currency, which its cards are priced in (lib/website-builder/shop-products), as the live site says it (compat-site); a market converts from it. */
-  const storeCurrency = pricing?.base ?? (props.products[0] ?? props.catalog?.[0])?.settings.currency ?? SHOP_CURRENCY
+  const storeCurrency = pricing?.base || props.storeCurrency || (props.products[0] ?? props.catalog?.[0])?.settings.currency || SHOP_CURRENCY
   const shop = useMemo(() => compatShop({ name: shopName, currency: storeCurrency, moneyFormat: moneyFormatFor(storeCurrency, i18n?.locale ?? ownLanguage) }, pricing, i18n?.locale ?? ownLanguage), [shopName, storeCurrency, pricing, i18n?.locale, ownLanguage])
 
   /*

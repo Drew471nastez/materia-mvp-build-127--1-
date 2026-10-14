@@ -37,7 +37,7 @@ import { FilesLibraryChooser } from "@/components/files/files-library"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
 import { tt } from "@/lib/i18n/text"
-import { CountryCurrency } from "./country-currency"
+import { CurrencyLink } from "./country-currency"
 
 interface Settings {
   storeName: string | null
@@ -150,7 +150,7 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
         setData((d) => (d ? { ...d, settings: s, supportEmail: email } : d))
         onSupportEmail?.(email ?? "")
       }} />
-      <CountryCurrency />
+      <CurrencyLink />
       <Business data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />
       {physical ? <OrdersFrom locations={locations} value={defaultLocation} onSaved={setDefaultLocation} /> : null}
     </div>

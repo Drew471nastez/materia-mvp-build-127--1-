@@ -3,7 +3,8 @@ import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { canDraftWithAi } from "@/lib/markets/translate-ai"
-import { AI_UNAVAILABLE, translatableLocale } from "@/lib/markets/translation-press"
+import { OPEN_NOT_SET_UP } from "@/lib/markets/open-translate"
+import { translatableLocale } from "@/lib/markets/translation-press"
 import { askNextRun, readJobs, runJob, startJob } from "@/lib/markets/translation-jobs"
 import { recordActivity } from "@/lib/activity/log-server"
 
@@ -35,11 +36,11 @@ export async function POST(request: Request) {
   const started = Date.now()
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
-  if (!canDraftWithAi()) return physicalJson({ error: AI_UNAVAILABLE }, 503)
+  if (!canDraftWithAi()) return physicalJson({ error: OPEN_NOT_SET_UP }, 503)
   const body = await readBody(request)
   const locale = normalizeLocale(body?.locale)
   if (!locale || !(await translatableLocale(c.db, c.creatorId, locale)).ok) return physicalJson({ error: "Add this language to your website first." }, 400)
-  const limited = await rateLimit({ bucket: "site-translations-ai", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 12, seconds: 3600 }, { limit: 40, seconds: 86400 }], message: "Translating with AI can be used a few times an hour. Try again later." })
+  const limited = await rateLimit({ bucket: "site-translations-ai", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 12, seconds: 3600 }, { limit: 40, seconds: 86400 }], message: "Translating can be started a few times an hour. Try again later." })
   if (limited) return limited
   const begun = await startJob(c.db, c.creatorId, locale, c.userId)
   if (begun.ok === false) return begun.missing ? physicalJson({ ready: false }, 409) : physicalJson({ error: begun.error }, 500)

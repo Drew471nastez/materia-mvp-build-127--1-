@@ -1,7 +1,7 @@
 -- STORELIB: STORE CURRENCY, CASH ON DELIVERY AND LANGUAGES
 -- One file for the overhaul: run-now parts 174 (cash on delivery), 175 (translate
--- changes automatically), 176 (a store's own selling currency) and 177 (Translate
--- with AI in the background), text unchanged.
+-- changes automatically), 176 (a store's own selling currency), 177 (translating in
+-- the background) and 178 (translation memory, the permanent cache), text unchanged.
 -- HOW: paste into a NEW query tab in the Supabase SQL editor and press Run. The
 -- editor runs it as one transaction: an error changes nothing. Safe to run again.
 -- Cash on delivery's countries, fee and note, and the Languages list, need no
@@ -49,6 +49,12 @@ CREATE TABLE IF NOT EXISTS public.store_translation_jobs ( creator_id uuid NOT N
 CREATE INDEX IF NOT EXISTS store_translation_jobs_running_idx ON public.store_translation_jobs (lease_until) WHERE status = 'running';
 ALTER TABLE public.store_translation_jobs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.store_translation_jobs FROM anon, authenticated;
+
+-- part 178_translation_memory.sql
+/* Translation memory: every run of words an open translation model (LibreTranslate, or Hugging Face's opus-mt and NLLB) has translated, kept for good, so the same words are never sent twice: "Add to cart" into French is translated once for every store, a website translated again after a small edit sends only the new words, and a language translated after a failure picks up where it stopped. Keyed by the languages and the sha256 of the words; the words themselves are kept beside it for checking. Only website text that is already public goes in, never a customer's details. Server only. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.translation_memory ( source_lang text NOT NULL CHECK (length(source_lang) BETWEEN 2 AND 12), target_lang text NOT NULL CHECK (length(target_lang) BETWEEN 2 AND 12), source_hash text NOT NULL CHECK (source_hash ~ '^[0-9a-f]{64}$'), source_text text NOT NULL CHECK (length(source_text) <= 20000), translated text NOT NULL CHECK (length(translated) <= 40000), provider text NOT NULL DEFAULT 'libretranslate' CHECK (provider IN ('libretranslate', 'huggingface', 'openai')), created_at timestamptz NOT NULL DEFAULT now(), used_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (source_lang, target_lang, source_hash) );
+ALTER TABLE public.translation_memory ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.translation_memory FROM anon, authenticated;
 
 notify pgrst, 'reload schema';
 select 'Store currency, cash on delivery and languages ran. Now run 2_check.sql.' as done;

@@ -30,7 +30,7 @@ const code = (p: string) => stripComments(readFileSync(p, "utf8"))
 
 console.log("\nThe tab")
 const form = code("components/app/settings-form-new.tsx")
-check("is called Languages, at the same address", /id: "markets", get label\(\) \{ return tt\("Languages"\) \}/.test(form))
+check("is called Languages & Currency, at the same address", /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /id: "markets", get label\(\) \{ return tt\("Languages & Currency"\) \}/.test(form))
 check("the website builder links to it by that name", /* Changed on purpose (overhaul): General's Languages and currencies card links each row to it. */ /ctx\.onNavigate\(href\)/.test(code("components/website-builder/website-settings/general.tsx")) && /manage\("\/app\/settings\?tab=markets"\)/.test(code("components/website-builder/website-settings/general.tsx")))
 
 console.log("\nEach language says where it is")
@@ -41,7 +41,7 @@ check("read for every language in one call", /\/api\/store\/translations\?summar
 const route = code("app/api/store/translations/route.ts")
 check("which counts done, drafted and still to do, by the same rule as Review", /searchParams\.get\("summary"\) === "1"/.test(route) && /statusOf\(map\.get\(t\.key\), t\.source\)/.test(route))
 check("the next step is a button: Review drafts, or Publish a language that has translations", /data-translate-language=\{l\.code\}/.test(panel) && /data-publish-language=\{l\.code\}/.test(panel))
-check("the rest is in its menu: review, translate the rest, publish or unpublish, remove", /ResponsiveActionMenu/.test(panel) && /tt\("Review and edit"\)/.test(panel) && /tt\("Translate the rest with AI"\)/.test(panel) && /tt\("Remove"\)/.test(panel))
+check("the rest is in its menu: review, translate the rest, publish or unpublish, remove", /ResponsiveActionMenu/.test(panel) && /tt\("Review and edit"\)/.test(panel) && /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /tt\("Translate the rest"\)/.test(panel) && /tt\("Remove"\)/.test(panel))
 
 console.log("\nAdding a language translates it")
 check("Add language, then Storelib AI starts once the language is saved", /tt\("Add language"\)/.test(panel) && /void commit\(\{ \.\.\.draft, languages: \[\.\.\.draft\.languages, \{ code, published: false \}\] \}\)\.then\(\(ok\) => \{/.test(panel) && /else void translateWithAi\(code\)/.test(panel))
@@ -52,7 +52,7 @@ check("closing Review shows what changed on the row", /void loadProgress\(\)/.te
 
 console.log("\nLess on screen")
 check("the two rarely used switches are under More options", /<details[^>]*data-language-options/.test(panel) && /tt\("More options"\)/.test(panel) && panel.indexOf("data-visitor-language") > panel.indexOf("data-language-options"))
-check("visitor currencies are an optional card without the home market", /title=\{tt\("Visitor currencies"\)\}/.test(panel) && /\.filter\(\(m\) => !m\.primary\)/.test(panel) && /* Changed on purpose (overhaul): visitors pay in their currency when Storelib can charge it. */ /tt\("Optional\. Visitors from other countries see your prices in their currency and pay in it\."\)/.test(panel) && /Shown only, paid in \{currency\}/.test(panel))
+check("more currencies are an optional card without the home market, under the one store currency", /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /<CountryCurrency \/>/.test(panel) && /title=\{tt\("More currencies"\)\}/.test(panel) && /\.filter\(\(m\) => !m\.primary\)/.test(panel) && /* Changed on purpose (overhaul): visitors pay in their currency when Storelib can charge it. */ /tt\("Optional\. Visitors in these countries see your prices in their currency, can switch with your website's currency selector, and pay in it\."\)/.test(panel) && /Shown only, paid in \{currency\}/.test(panel))
 
 console.log("\nThe checkout's own selector")
 check("a language picked at checkout wins over the page the visitor came from", /p && langs\.others\.find/.test(code("lib/markets/checkout-language.ts")))

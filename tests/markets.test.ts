@@ -170,9 +170,9 @@ console.log("\nWired into the website\n")
   /* Changed on purpose (the owner: currency in the builder like the live site): in the editor too, where a choice changes the preview (storefront.preview), never the address. */
   check("the page's lang and dir, and the language switch under the footer (in the editor only as a preview)", /storefront\?\.language\?\.code \?\?/.test(theme) && /storefront\?\.language && \(!storefront\.inEditor \|\| storefront\.preview\) \? <LanguageSwitch choice=\{storefront\.language\} preview=\{storefront\.inEditor \? storefront\.preview : undefined\} \/>/.test(theme))
   const form = read("components/app/settings-form-new.tsx")
-  check("Settings › Languages, fetched ahead like the others", /* Changed on purpose (the owner: call it Languages & Currency; then just Languages, with the currency under Store details). */ /id: "markets", label: "Languages"/.test(form) && /markets: \(\) => \["\/api\/store\/markets"\]/.test(form) && /panelTab === "markets" && <MarketsPanel \/>/.test(form))
+  check("Settings › Languages, fetched ahead like the others", /* Changed on purpose (the owner: call it Languages & Currency; then just Languages, with the currency under Store details). */ /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /id: "markets", label: "Languages & Currency"/.test(form) && /markets: \(\) => \["\/api\/store\/markets"\]/.test(form) && /panelTab === "markets" && <MarketsPanel \/>/.test(form))
   const panel = read("components/app/settings/markets-panel.tsx")
-  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /title="Visitor currencies"\s*help="markets"/.test(panel) && !/MARKETS_ON/.test(panel))
+  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /title="More currencies"\s*help="markets"/.test(panel) && !/MARKETS_ON/.test(panel))
   const draft = read("app/api/store/translations/draft/route.ts")
   check("AI drafts are rate limited and saved as drafts", /rateLimit|limit/i.test(draft) && /* Changed on purpose (overhaul): saved by the round the press and the job share. */ /approved: false, ai: true/.test(read("lib/markets/translation-press.ts")))
   const sql = read("supabase/sql/run-now/136_markets_languages.sql")
@@ -221,7 +221,7 @@ console.log("\nThis round: Translate waits for the language, flags, and the stor
   const sheet = read("components/app/settings/translate-sheet.tsx")
   check("a language just added is read only once its save has landed (no more \"no text to translate yet\")",
     /setAdding\(code\)/.test(panel) && /waiting=\{!!translating && adding === translating\}/.test(panel) && /if \(!waiting\) void load\(locale\)/.test(sheet))
-  check("  a language the server does not have is said, not drawn as an empty website", /if \(!r\.data\.locale\) return setError/.test(sheet))
+  check("  a language the server does not have is said, not drawn as an empty website", /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /if \(attempt >= 2\) return setError/.test(sheet))
   check("languages and markets show flags from the local sprite, never purple initials or emoji",
     /const flag = languageFlag\(code\)/.test(panel) && /<CountryFlag code=\{flag\}/.test(panel) && !/bg-\[#f1ecff\]/.test(panel) && !/fromCodePoint/.test(panel))
   check("  a language's flag: its region when the tag names one, else its usual country",

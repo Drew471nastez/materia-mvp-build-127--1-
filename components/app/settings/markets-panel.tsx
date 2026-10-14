@@ -43,6 +43,8 @@ import { isEnglish } from "@/lib/markets/translate"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
+import { CountryCurrency } from "./country-currency"
+import { STORE_CURRENCY_EVENT } from "@/lib/store/currency-context"
 import { activeLocale, tt, ttx } from "@/lib/i18n/text"
 import { chargeableCurrency } from "@/lib/markets/checkout-charge"
 import { startTranslation, useTranslationJobs } from "./translation-jobs-store"
@@ -80,7 +82,7 @@ function AutoTranslateRunLine({ run }: { run: { at: string; translated: number; 
   const when = new Date(run.at)
   const at = Number.isNaN(when.getTime()) ? "" : when.toLocaleString(activeLocale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
   const text = run.error
-    ? tt("Last run {at}: Storelib AI couldn't be reached. It tries again next hour.", { at })
+    ? tt("Last run {at}: the translator couldn't be reached. It tries again next hour.", { at })
     : run.left > 0
       ? tt("Last run {at}: {translated} translated, {left} for the next run", { at, translated: run.translated, left: run.left })
       : run.translated > 0
@@ -170,13 +172,18 @@ export function MarketsPanel() {
   }
 
   React.useEffect(() => {
-    void api<Loaded>(PATH).then((r) => {
-      if (r.ok) {
-        setData(r.data)
-        setDraft(r.data.localization)
-        savedRef.current = r.data.localization
-      } else setError(r.error)
-    })
+    const read = () =>
+      void api<Loaded>(PATH, { method: "GET" }).then((r) => {
+        if (r.ok) {
+          setData(r.data)
+          setDraft(r.data.localization)
+          savedRef.current = r.data.localization
+        } else setError(r.error)
+      })
+    read()
+    /* The store's currency changed in the card above: the extra currencies are converted from it, so they are read again. */
+    window.addEventListener(STORE_CURRENCY_EVENT, read)
+    return () => window.removeEventListener(STORE_CURRENCY_EVENT, read)
   }, [])
 
   /* SAVED AS IT IS MADE: one at a time, in order; a refusal puts back what was saved last and says why. */
@@ -206,6 +213,7 @@ export function MarketsPanel() {
   if (!data || !draft) {
     return (
       <div className="space-y-4 sm:space-y-6" data-markets-panel="" aria-busy={!error}>
+        <CountryCurrency />
         <Card title={tt("Languages")} description={tt("Your website in more languages.")}>
           {error ? (
             <Notice>{error}</Notice>
@@ -236,6 +244,9 @@ export function MarketsPanel() {
     <div className="space-y-4 sm:space-y-6" data-markets-panel="">
       {!data.ready ? <Notice tone="amber">{tt("Languages aren't set up yet. Run SQL part 136 in Supabase, then come back here.")}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
+
+      {/* ONE CURRENCY FOR EVERYTHING: the store's prices, its website, the builder's canvas and checkout. The currencies below are extra ones a visitor can switch to. */}
+      <CountryCurrency />
 
       <Card
         title={tt("Languages")}
@@ -287,7 +298,7 @@ export function MarketsPanel() {
             const name = languageName(l.code, activeLocale())
             const menu: ActionMenuItem[] = [
               { label: tt("Review and edit"), onClick: () => setTranslating(l.code) },
-              ...(p && p.todo > 0 && !(run && run.state === "running") ? [{ label: tt("Translate the rest with AI"), onClick: () => void translateWithAi(l.code) }] : []),
+              ...(p && p.todo > 0 && !(run && run.state === "running") ? [{ label: tt("Translate the rest"), onClick: () => void translateWithAi(l.code) }] : []),
               { label: l.published ? tt("Unpublish") : tt("Publish"), onClick: () => setPublished(l.code, !l.published) },
               {
                 label: tt("Remove"),
@@ -400,7 +411,7 @@ export function MarketsPanel() {
               label={tt("Translate changes automatically")}
               description={
                 data.autoTranslate?.available === false
-                  ? tt("Storelib AI isn't available right now. You can still translate each text yourself.")
+                  ? tt("Automatic translation isn't set up on Storelib yet. You can still write each translation yourself.")
                   : draft.languages.length === 0
                     ? tt("Works once you add a language: each hour, text you add or change is translated and goes live.")
                     : tt("Each hour, text you add or change is translated into your other languages and goes live. Translations you wrote are never replaced.")
@@ -416,9 +427,9 @@ export function MarketsPanel() {
 
       {/* Optional: prices in a visitor's own currency, and checkout charges it (lib/markets/checkout-charge); one Storelib cannot charge is shown only. */}
       <Card
-        title={tt("Visitor currencies")}
+        title={tt("More currencies")}
         help="markets"
-        description={tt("Optional. Visitors from other countries see your prices in their currency and pay in it.")}
+        description={tt("Optional. Visitors in these countries see your prices in their currency, can switch with your website's currency selector, and pay in it.")}
       >
         {draft.markets.some((m) => !m.primary) ? (
           <ul className="mb-3 divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">

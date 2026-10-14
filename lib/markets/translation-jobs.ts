@@ -158,7 +158,8 @@ export async function runJob(db: Db, creatorId: string, locale: string, deadline
       ...(finished
         ? { status: "done", error: null, lease_until: null }
         : stuck
-          ? { status: "failed", error: "Storelib AI couldn't translate the rest right now. Try again in a few minutes.", lease_until: null }
+          ? /* What is left came back empty from the translator: done, with the rest said, rather than tried for ever. */
+            { status: "done", error: `${r.left} ${r.left === 1 ? "text" : "texts"} couldn't be translated automatically. Write them in the list.`, lease_until: null }
           : capped
             ? { status: "failed", error: "Paused after a long run. Press Translate again to carry on.", lease_until: null }
             : { lease_until: new Date(Date.now() + LEASE_MS).toISOString() }),

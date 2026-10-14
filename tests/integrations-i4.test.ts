@@ -70,9 +70,10 @@ console.log("\nThe directory\n")
 {
   const ui = read("components/app/settings/integrations-directory.tsx")
   /* Changed on purpose (the owner: "make the Storelib integrations the main thing there, and don't mix them in All"): Storelib apps first and where the page opens, Essentials after it. */
-  check("All is the first pill and where the page opens, then Installed (changed on purpose: the owner, \"Storelib apps should not be the first pill\")", /useState<Filter>\("all"\)/.test(ui) && /\["all", "installed", "essentials", "storelib"/.test(ui))
+  check("All is the first pill and where the page opens, then Installed (changed on purpose: the owner, \"Storelib apps should not be the first pill\")", /useState<Filter>\("all"\)/.test(ui) && /* Changed on purpose (the owner: "get rid of the Essential pill"). */ /\["all", "installed", "storelib"/.test(ui))
   check("  All is everything; Storelib's core settings (payments, taxes...) are never listed as integrations", /filter === "all" \? true/.test(ui) && /\["all", entries\.length\]/.test(ui) && /apps\.filter\(\(a\) => !a\.core\)/.test(ui))
-  check("  with N of M set up and a bar, waiting for the read before it counts", /`\$\{done\} of \$\{total\} set up`/.test(ui) && /progress=\{appStates \? progress : null\}/.test(ui) && /data-integration-essentials=""/.test(ui))
+  /* Changed on purpose (the owner: "in the integrations get rid of the Essential pill"): no Essentials pill, nor the checklist it opened. */
+  check("no Essentials pill, nor its checklist", !/"essentials"/.test(ui) && !/data-integration-essentials/.test(ui) && !/EssentialsPanel/.test(ui))
   check("a Storelib app card goes straight to where it is set up, with its state", /<Link href=\{hrefOf\(e\.app\)\} data-integration-card=\{e\.id\} data-storelib-app=\{e\.id\}/.test(ui) && /<AppBadge state=\{appState\(e\.id\)\} \/>/.test(ui))
   check("a search looks through everything whatever pill is on", /const shown = q\s*\? entries\.filter\(matches\)/.test(ui))
   check("on a phone one list of rows, from 640px a grid of cards", /divide-y divide-\[#f1f2f4\] overflow-hidden sm:grid sm:grid-cols-2/.test(ui) && /sm:h-full sm:flex-col/.test(ui))

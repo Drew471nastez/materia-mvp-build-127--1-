@@ -37,11 +37,11 @@ import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
 import { GaConnect } from "@/components/app/settings/ga-connect"
 import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
-import { APP_STATE_LABEL, essentialIds, essentialsProgress, storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
+import { APP_STATE_LABEL, storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
 import { tt } from "@/lib/i18n/text"
 
 /* Storelib's own apps first (the page opens on them), then the Essentials, every service, what is installed, and each category. */
-type Filter = "essentials" | "all" | "installed" | "storelib" | IntegrationCategory
+type Filter = "all" | "installed" | "storelib" | IntegrationCategory
 
 /** A card in the directory: an integration with a page of its own, or one of Storelib's apps that opens where it is set up. */
 type Entry = { kind: "integration"; id: string; item: Integration } | { kind: "app"; id: string; app: StorelibApp }
@@ -391,22 +391,19 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   /* Storelib's own: its apps and the parts of Storelib shown as integrations (payments, shipping, taxes). All is the services from elsewhere, never these again. */
   const isStorelib = (e: Entry) => e.kind === "app" || hasBuiltInArt(e.id)
   const isInstalled = (e: Entry) => (e.kind === "integration" ? installed(e.item) || e.item.builtIn : appState(e.id) === "on")
-  const essentials = essentialIds(physical)
-  const progress = essentialsProgress(physical, appStates?.states ?? {})
   const counts = new Map<Filter, number>([
     ["all", entries.length],
     ["installed", entries.filter(isInstalled).length],
     ["storelib", entries.filter(isStorelib).length],
   ])
   for (const c of CATEGORY_ORDER) counts.set(c, shownAll.filter((i) => i.category === c).length)
-  /* All first, then what is installed, then the rest (the owner: "Storelib apps should not be the first pill, not even Essentials"). */
-  const pills: Filter[] = ["all", "installed", "essentials", "storelib", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
+  /* All first, then what is installed, then the rest. No Essentials pill (the owner: "get rid of the Essential pill"): payments, shipping and taxes are under Settings, the apps under Storelib apps. */
+  const pills: Filter[] = ["all", "installed", "storelib", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
   const q = query.trim()
   const matches = (e: Entry) => (e.kind === "integration" ? searchIntegrations([e.item], q).length > 0 : `${e.app.name} ${e.app.summary} storelib`.toLowerCase().includes(q.toLowerCase()))
   const shown = q
     ? entries.filter(matches)
     : entries.filter((e) => (filter === "all" ? true : filter === "installed" ? isInstalled(e) : filter === "storelib" ? isStorelib(e) : e.kind === "integration" && e.item.category === filter))
-  const essentialEntries = essentials.map((id) => entries.find((e) => e.id === id) ?? (apps.find((a) => a.id === id) ? appEntry(apps.find((a) => a.id === id)!) : undefined)).filter((e): e is Entry => !!e)
   const hrefOf = (a: StorelibApp) => appStates?.hrefs[a.id] ?? a.href
 
   /* Installed by the store (not the built in ones every store has), for the page's own list at the top. */
@@ -475,24 +472,15 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
                 on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] active:bg-[#f3f4f6]",
               )}
             >
-              {f === "essentials" ? tt("Essentials") : f === "all" ? tt("All") : f === "installed" ? tt("Installed") : f === "storelib" ? tt("Storelib apps") : CATEGORY_NAMES[f]}
-              <span className={cn("tabular-nums", on ? "text-white/70" : "text-[#9ca3af]")}>{f === "essentials" ? (appStates ? `${progress.done}/${progress.total}` : progress.total) : (counts.get(f) ?? 0)}</span>
+              {f === "all" ? tt("All") : f === "installed" ? tt("Installed") : f === "storelib" ? tt("Storelib apps") : CATEGORY_NAMES[f]}
+              <span className={cn("tabular-nums", on ? "text-white/70" : "text-[#9ca3af]")}>{counts.get(f) ?? 0}</span>
             </button>
           )
         })}
       </div>
 
       {error ? <Notice>{error}</Notice> : null}
-      {!q && filter === "essentials" ? (
-        <EssentialsPanel
-          entries={essentialEntries}
-          progress={appStates ? progress : null}
-          stateOf={appState}
-          hrefOf={hrefOf}
-          onOpen={(id) => open(id)}
-          listRef={gridRef}
-        />
-      ) : shown.length === 0 ? (
+      {shown.length === 0 ? (
         <div className={cn(CARD, "px-5 py-10 text-center")}>
           <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "installed" && !q ? tt("Nothing installed yet") : tt("Nothing matches")}</p>
           <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setRequesting(true)}>
@@ -588,87 +576,6 @@ function AppBadge({ state }: { state: AppState | null }) {
   )
 }
 
-/*
-  ESSENTIALS (round I4). "Build a category with the most important
-  integrations... with these you get your online store 0 to 100 done." The
-  short list a store needs to sell, in the order it is done, with how many
-  are set up and a bar. Each row goes where it is set up; a row that is done
-  says On. The count waits for the store's read, so it never shows 0 first.
-*/
-function EssentialsPanel({
-  entries,
-  progress,
-  stateOf,
-  hrefOf,
-  onOpen,
-  listRef,
-}: {
-  entries: Entry[]
-  progress: { done: number; total: number } | null
-  stateOf: (id: string) => AppState | null
-  hrefOf: (a: StorelibApp) => string
-  onOpen: (id: string) => void
-  listRef: React.Ref<HTMLUListElement>
-}) {
-  const total = progress?.total ?? entries.length
-  const done = progress?.done ?? 0
-  const all = !!progress && done === total
-  return (
-    <section className={cn(CARD, "overflow-hidden")} aria-labelledby="integration-essentials" data-integration-essentials="">
-      <div className="flex items-center gap-4 border-b border-[#f1f2f4] px-4 py-3.5 sm:px-5">
-        <div className="min-w-0 flex-1">
-          <h2 id="integration-essentials" className="text-[15px] font-semibold text-[#1a1a2e]">
-            {all ? tt("Your store has the essentials") : tt("The essentials")}
-          </h2>
-          <p className="text-[13px] text-[#6b7280]" data-essentials-count="">
-            {progress ? tt("{done} of {total} set up", { done, total }) : tt("{total} things every store needs", { total })}
-          </p>
-        </div>
-        <div aria-hidden className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-[#eef0f3] sm:w-40">
-          <div className="h-full rounded-full bg-[#12b76a] transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
-        </div>
-      </div>
-      <ul ref={listRef} className="divide-y divide-[#f1f2f4]">
-        {entries.map((e) => {
-          const state = stateOf(e.id)
-          const name = e.kind === "app" ? e.app.name : e.item.name
-          const line = e.kind === "app" ? e.app.summary : e.item.summary
-          const inner = (
-            <>
-              <Mark item={e.kind === "app" ? { id: e.id, name, logo: null } : e.item} size={36} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{name}</span>
-                <span className="block truncate text-[12.5px] text-[#6b7280]">{line}</span>
-              </span>
-              {state === "on" ? (
-                <Badge tone="green">{tt("On")}</Badge>
-              ) : state ? (
-                <span className="shrink-0 text-[13px] font-medium text-[#1a1a2e]">{tt("Set up")}</span>
-              ) : null}
-              <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
-            </>
-          )
-          const row = "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] sm:px-5 [-webkit-tap-highlight-color:transparent]"
-          return (
-            <li key={e.id} data-essential={e.id} data-essential-state={state ?? "unknown"}>
-              {e.kind === "app" ? (
-                <Link href={hrefOf(e.app)} className={row} data-integration-card={e.id}>
-                  {inner}
-                </Link>
-              ) : (
-                <button type="button" onClick={() => onOpen(e.id)} className={row} data-integration-card={e.id}>
-                  {inner}
-                </button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
-
-/** Where it stands, in words a person reads at a glance: a dot and a line, with what it means under the name. */
 const STANDING: Record<IntegrationStatus, { tone: Tone; label: string; line: string }> = {
   built_in: { tone: "gray", get label() { return tt("Built into Storelib") }, get line() { return tt("Ready to use. Nothing to connect.") } },
   installed: { tone: "green", get label() { return tt("Connected") }, get line() { return tt("Working on your store.") } },

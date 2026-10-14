@@ -26,6 +26,7 @@ import { failureKind } from "@/lib/sites/agent/plain-errors"
 import { isBillingRefusal } from "@/lib/products/category-suggest-ai"
 import { languageName } from "./locales"
 import { keepsFixedParts } from "./draft-check"
+import { canTranslateOpen, OPEN_NOT_SET_UP, translateOpen } from "./open-translate"
 import { isBuiltInWordKey, reusableTranslations, sourceHash, type TranslationRow } from "./translate"
 
 const MODEL = process.env.OPENAI_TRANSLATE_MODEL || DEFAULT_MODEL
@@ -33,7 +34,8 @@ const MODEL = process.env.OPENAI_TRANSLATE_MODEL || DEFAULT_MODEL
 const BATCH_CHARS = 9_000
 const BATCH_ITEMS = 40
 
-export const canDraftWithAi = () => !!process.env.OPENAI_API_KEY
+/** A translator is set up: an open model (./open-translate.ts) first, else the paid chat model this used before. */
+export const canDraftWithAi = () => canTranslateOpen() || !!process.env.OPENAI_API_KEY
 
 const SCHEMA = {
   type: "object",
@@ -88,9 +90,16 @@ export async function draftTranslations(
    * kept rather than cut off by the function's own limit with nothing saved.
    */
   opts: { deadlineAt?: number; concurrency?: number } = {},
-): Promise<{ drafts: Map<string, string>; unavailable: boolean }> {
+): Promise<{ drafts: Map<string, string>; unavailable: boolean; reason?: string }> {
   const drafts = new Map<string, string>()
-  if (!canDraftWithAi() || Date.now() < pausedUntil) return { drafts, unavailable: true }
+  /* FREE AND OPEN FIRST. LibreTranslate or Hugging Face when either is set up; the chat model below only when neither is. */
+  if (canTranslateOpen()) {
+    const got = await translateOpen(items.map((i) => i.source), from, to, { keep: [shopName], deadlineAt: opts.deadlineAt, concurrency: opts.concurrency })
+    for (const [i, text] of got.out) if (keepsFixedParts(items[i].source, text)) drafts.set(items[i].key, text)
+    return { drafts, unavailable: got.unavailable !== null, ...(got.unavailable ? { reason: got.unavailable } : {}) }
+  }
+  if (!process.env.OPENAI_API_KEY) return { drafts, unavailable: true, reason: OPEN_NOT_SET_UP }
+  if (Date.now() < pausedUntil) return { drafts, unavailable: true }
   const wanted = new Map(items.map((i) => [i.key, i.source]))
   const batches: DraftItem[][] = []
   let batch: DraftItem[] = []
@@ -170,7 +179,7 @@ export async function draftReusing(
   to: string,
   shopName: string,
   opts: { deadlineAt?: number; concurrency?: number } = {},
-): Promise<{ drafts: Map<string, string>; unavailable: boolean; reused: number }> {
+): Promise<{ drafts: Map<string, string>; unavailable: boolean; reused: number; reason?: string }> {
   const known = reusableTranslations(rows)
   const reused = new Map<string, string>()
   const ask: DraftItem[] = []
@@ -186,11 +195,13 @@ export async function draftReusing(
   const groups = from === "en" || builtIn.length === 0 ? [{ items: ask, from }] : [{ items: theirs, from }, { items: builtIn, from: "en" }].filter((g) => g.items.length)
   const drafts = new Map<string, string>()
   let unavailable = false
+  let reason: string | undefined
   for (const g of groups) {
     const got = await draftTranslations(g.items, g.from, to, shopName, opts)
     for (const [k, v] of got.drafts) drafts.set(k, v)
     unavailable = unavailable || got.unavailable
+    reason ??= got.reason
   }
   for (const [k, v] of reused) drafts.set(k, v)
-  return { drafts, unavailable, reused: reused.size }
+  return { drafts, unavailable, reused: reused.size, ...(reason ? { reason } : {}) }
 }

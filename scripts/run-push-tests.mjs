@@ -31,6 +31,7 @@ const SUITES = [
   "tests/net-request.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
+  "tests/open-translate.test.ts",
   "tests/commerce-attention.test.ts",
   "tests/cash-on-delivery.test.ts",
   "tests/order-currency.test.ts",
