@@ -267,6 +267,10 @@ async function main() {
     check("the change is idempotent per key", /UNIQUE \(creator_id, request_key\)/i.test(sql))
     check("it refuses when the store's currency moved underneath it", /40001/.test(sql))
     check("every value is kept before it is changed, for a restore", /store_currency_snapshots/.test(sql) && /store_currency_restore/.test(sql))
+    const one = read("supabase/sql/store-currency-cod-languages/1_run.sql")
+    const parts = ["174_cash_on_delivery.sql", "175_automatic_translation.sql", "176_store_currency.sql"]
+    check("the one file holds parts 174 to 176 as they are (python3 scripts/build-currency-cod-languages-sql.py)", parts.every((f) => read(`supabase/sql/run-now/${f}`).split("\n").filter((l) => l.trim() && l.trim() !== "notify pgrst, 'reload schema';").every((l) => one.includes(l))))
+    check("its rollback puts prices back before anything is dropped, and says what can't be undone", /store_currency_restore/.test(read("supabase/sql/store-currency-cod-languages/3_rollback.sql")) && /IRREVERSIBLE/.test(read("supabase/sql/store-currency-cod-languages/3_rollback.sql")))
     check("only the server can run it", /GRANT EXECUTE ON FUNCTION public\.store_change_currency\([^)]*\) TO service_role/i.test(sql))
   }
 
