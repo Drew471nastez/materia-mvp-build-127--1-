@@ -19,8 +19,8 @@ import * as React from "react"
 import Image from "next/image"
 import { ChevronDown, Package, Tag, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Reveal, Spinner, TextInput, money } from "./ui"
-import { countryName } from "@/lib/checkout/countries"
+import { CHECKOUT_CURRENCY, CURRENCY_MARK, Reveal, Spinner, TextInput, money } from "./ui"
+import { useCheckoutLang, useCountryName, useCt } from "./words"
 
 export interface SummaryVariant {
   id: string
@@ -49,6 +49,7 @@ export function LineItem({
   priceCents: number
   isPwyw?: boolean
 }) {
+  const ct = useCt()
   return (
     <div data-line-item="" className="flex items-start gap-3.5">
       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
@@ -67,7 +68,7 @@ export function LineItem({
             {/* A native select: the phone's own picker, a keyboard's arrows,
                 and nothing to build or break. */}
             <select
-              aria-label="Option"
+              aria-label={ct("Option")}
               value={variant.id}
               onChange={(e) => {
                 const next = variants.find((v) => v.id === e.target.value)
@@ -77,7 +78,7 @@ export function LineItem({
             >
               {variants.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.name} · {v.priceCents === 0 ? "Free" : money(v.priceCents)}
+                  {v.name} · {v.priceCents === 0 ? ct("Free") : money(v.priceCents)}
                 </option>
               ))}
             </select>
@@ -86,9 +87,9 @@ export function LineItem({
         ) : variant ? (
           <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{variant.name}</p>
         ) : null}
-        <p className="mt-0.5 text-[12.5px] text-[#6b7280]">{isPwyw ? "Your price · Qty 1" : "Qty 1"}</p>
+        <p className="mt-0.5 text-[12.5px] text-[#6b7280]">{isPwyw ? ct("Your price · Qty 1") : ct("Qty {quantity}", { quantity: 1 })}</p>
       </div>
-      <p className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{priceCents === 0 ? "Free" : money(priceCents)}</p>
+      <p className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{priceCents === 0 ? ct("Free") : money(priceCents)}</p>
     </div>
   )
 }
@@ -128,6 +129,7 @@ export function DiscountForm({
   onRemove: () => void
   idSuffix: string
 }) {
+  const ct = useCt()
   const [opened, setOpened] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const addRef = React.useRef<HTMLButtonElement>(null)
@@ -157,21 +159,21 @@ export function DiscountForm({
           }}
           className="inline-flex h-8 cursor-pointer items-center rounded-[6px] bg-[#e9ebee] px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e1e3e7] active:bg-[#d9dce1] [-webkit-tap-highlight-color:transparent]"
         >
-          Add promotion code
+          {ct("Add promotion code")}
         </button>
       </Reveal>
 
       <Reveal open={state === "open"} pad>
         <div data-promo={state === "open" ? "open" : undefined}>
           <label htmlFor={id} className="sr-only">
-            Discount code
+            {ct("Discount code")}
           </label>
           <div className="relative">
             <TextInput
               ref={inputRef}
               id={id}
               value={code}
-              placeholder="Enter discount code"
+              placeholder={ct("Enter discount code")}
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}
@@ -199,12 +201,12 @@ export function DiscountForm({
               className="absolute right-1.5 top-1/2 flex h-8 -translate-y-1/2 cursor-pointer items-center gap-1.5 rounded-[6px] px-3 text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f1f2f4] disabled:cursor-not-allowed disabled:text-[#a2a7b0] disabled:hover:bg-transparent"
             >
               {busy ? <Spinner className="h-3.5 w-3.5" /> : null}
-              Apply
+              {ct("Apply")}
             </button>
           </div>
           {error ? (
             <p id={`${id}-error`} role={quiet ? "status" : "alert"} className={cn("checkout-rise mt-1.5 text-[13px]", quiet ? "text-[#6b7280]" : "text-[#dc2626]")}>
-              {error}
+              {ct(error)}
             </p>
           ) : null}
         </div>
@@ -221,13 +223,13 @@ export function DiscountForm({
                 close(true)
                 onRemove()
               }}
-              aria-label="Remove discount code"
+              aria-label={ct("Remove discount code")}
               className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-[4px] text-[#6b7280] transition-colors hover:bg-black/[0.06] hover:text-[#1a1a2e]"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </span>
-          <span className="shrink-0 text-[13px] text-[#6b7280]">{shown.label} off</span>
+          <span className="shrink-0 text-[13px] text-[#6b7280]">{ct("{amount} off", { amount: shown.label })}</span>
         </div>
       </Reveal>
     </div>
@@ -276,6 +278,7 @@ export function TipPicker({
   onCustom: (text: string) => void
   idSuffix: string
 }) {
+  const ct = useCt()
   const usingCustom = custom !== ""
   /* Closed unless a tip is actually on when it first draws; after that only the buyer opens and closes it. */
   const [open, setOpen] = React.useState(() => tipCents > 0 || usingCustom)
@@ -321,8 +324,8 @@ export function TipPicker({
         className="-mx-2 flex h-9 w-[calc(100%+1rem)] cursor-pointer items-center justify-between gap-3 rounded-[7px] px-2 text-left text-[14px] transition-colors duration-150 hover:bg-black/[0.035] active:bg-black/[0.06] [-webkit-tap-highlight-color:transparent]"
       >
         <span data-tip-label="" id={labelId} className="min-w-0 truncate">
-          <span className="font-medium text-[#1a1a2e]">Add a tip</span>
-          <span className="text-[#6b7280]"> for {creatorName}</span>
+          <span className="font-medium text-[#1a1a2e]">{ct("Add a tip")}</span>
+          <span className="text-[#6b7280]"> {ct("for {shop}", { shop: creatorName })}</span>
         </span>
         <span className="flex shrink-0 items-center gap-1.5">
           {tipCents > 0 ? (
@@ -373,7 +376,7 @@ export function TipPicker({
                     on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
                   )}
                 >
-                  {cents === OTHER ? "Other" : cents === 0 ? "None" : money(cents).replace(".00", "")}
+                  {cents === OTHER ? ct("Other") : cents === 0 ? ct("None") : money(cents).replace(".00", "")}
                 </button>
               )
             })}
@@ -381,16 +384,16 @@ export function TipPicker({
           <Reveal open={other} pad className="-mx-[3px]">
             <div className="relative pt-2">
               <label htmlFor={id} className="sr-only">
-                Your own tip, in dollars
+                {ct("Your own tip, in {currency}", { currency: CHECKOUT_CURRENCY.toUpperCase() })}
               </label>
               <span aria-hidden className="pointer-events-none absolute bottom-0 left-3.5 flex h-11 items-center text-[15px] text-[#a2a7b0]">
-                $
+                {CURRENCY_MARK}
               </span>
               <TextInput
                 ref={inputRef}
                 id={id}
                 inputMode="decimal"
-                placeholder="Amount"
+                placeholder={ct("Amount")}
                 value={custom}
                 onChange={(e) => {
                   /* Dollars and cents, up to the $1,000 the server takes: what is
@@ -400,7 +403,7 @@ export function TipPicker({
                   const capped = Number(whole || 0) > 1000 ? "1000" : whole
                   onCustom(frac !== undefined ? `${capped}.${frac.slice(0, 2)}` : capped)
                 }}
-                className="pl-7 tabular-nums"
+                className={cn("tabular-nums", CURRENCY_MARK.length > 1 ? "pl-12" : "pl-7")}
               />
             </div>
           </Reveal>
@@ -436,17 +439,18 @@ export function Totals({
   /** Settings › Taxes: the tax for the buyer's country, which they can change here. */
   tax?: TaxLine
 }) {
+  const ct = useCt()
   if (part === "top") {
     return (
       <dl data-totals="top" className="text-[14px]">
         <div className="flex justify-between gap-4">
-          <dt className="font-medium text-[#1a1a2e]">{isPwyw ? "Your price" : "Subtotal"}</dt>
+          <dt className="font-medium text-[#1a1a2e]">{isPwyw ? ct("Your price") : ct("Subtotal")}</dt>
           <dd className="font-medium tabular-nums text-[#1a1a2e]">{money(subtotal)}</dd>
         </div>
         {promo ? <div className="mt-3">{promo}</div> : null}
         {discountCents > 0 ? (
           <div className="checkout-rise mt-3 flex justify-between gap-4">
-            <dt className="text-[#6b7280]">Discount{discountLabel ? ` (${discountLabel})` : ""}</dt>
+            <dt className="text-[#6b7280]">{discountLabel ? ct("Discount ({code})", { code: discountLabel }) : ct("Discount")}</dt>
             <dd className="tabular-nums text-[#6b7280]">−{money(discountCents)}</dd>
           </div>
         ) : null}
@@ -457,7 +461,7 @@ export function Totals({
     <dl data-totals="bottom" className="text-[14px]">
       {tax && !tax.included ? <TaxRow tax={tax} /> : null}
       <div className={cn("flex items-baseline justify-between gap-4 border-t border-black/[0.07] pt-4", tax && !tax.included && "mt-4")}>
-        <dt className="text-[15px] font-semibold text-[#1a1a2e]">Total due</dt>
+        <dt className="text-[15px] font-semibold text-[#1a1a2e]">{ct("Total due")}</dt>
         <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(total)}</dd>
       </div>
       {tax && tax.included ? <TaxRow tax={tax} /> : null}
@@ -485,21 +489,24 @@ export interface TaxLine {
  * theirs, and a country with no region pays none, which is what it says.
  */
 function TaxRow({ tax }: { tax: TaxLine }) {
+  const ct = useCt()
+  const lang = useCheckoutLang()
+  const countryName = useCountryName()
   const names = React.useMemo(() => {
     const list = tax.countries.map((code) => ({ code, name: countryName(code) }))
     if (tax.country && !tax.countries.includes(tax.country)) list.push({ code: tax.country, name: countryName(tax.country) })
-    return list.sort((a, b) => a.name.localeCompare(b.name))
-  }, [tax.countries, tax.country])
+    return list.sort((a, b) => a.name.localeCompare(b.name, lang))
+  }, [tax.countries, tax.country, countryName, lang])
   const id = `checkout-tax-country${tax.suffix ? `-${tax.suffix}` : ""}`
-  const named = tax.cents > 0 && tax.label ? tax.label : "Tax"
-  const label = tax.included ? (tax.cents > 0 ? `Includes ${money(tax.cents)} ${named.replace(/^Tax\b/, "tax")}` : "No tax included") : named
+  const named = tax.cents > 0 && tax.label ? ct(tax.label) : ct("Tax")
+  const label = tax.included ? (tax.cents > 0 ? (tax.label ? ct("Includes {amount} {tax}", { amount: money(tax.cents), tax: named }) : ct("Includes {amount} tax", { amount: money(tax.cents) })) : ct("No tax included")) : named
   return (
     <div data-tax-line="" className={cn("flex items-baseline justify-between gap-4", tax.included && "mt-2")}>
       <dt className={cn(tax.included ? "text-[13px] text-[#6b7280]" : "text-[#6b7280]")}>
         {label}
         <span className="text-[#9ca3af]"> · </span>
         <label htmlFor={id} className="sr-only">
-          Country for tax
+          {ct("Country for tax")}
         </label>
         <select
           id={id}
@@ -507,7 +514,7 @@ function TaxRow({ tax }: { tax: TaxLine }) {
           onChange={(e) => tax.onCountry(e.target.value || null)}
           className="cursor-pointer appearance-none rounded-md bg-transparent pr-1 text-inherit underline decoration-black/20 underline-offset-[3px] outline-none hover:decoration-black/40 focus-visible:ring-2 focus-visible:ring-black/10"
         >
-          <option value="">Another country</option>
+          <option value="">{ct("Another country")}</option>
           {names.map((c) => (
             <option key={c.code} value={c.code}>
               {c.name}

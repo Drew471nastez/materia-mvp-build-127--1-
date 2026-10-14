@@ -216,7 +216,7 @@ async function main() {
     check("the held checkout reads the address with the same settings", /readAddress\(input\.address, config\)/.test(code("lib/physical/checkout-server.ts")))
     const page = code("app/checkout/site/site-checkout.tsx")
     check("the page draws the phone for a physical order that ships nothing", /!ships && physical && plan\.phone !== "off"/.test(page))
-    check("the page lists only the shop's countries and says when it doesn't ship there", /shipsTo\.includes\(c\.code\) \|\| c\.code === address\.country/.test(page) && /We don't ship to \$\{countryName\(address\.country\)\}/.test(page))
+    check("the page lists only the shop's countries and says when it doesn't ship there", /shipsTo\.includes\(c\.code\) \|\| c\.code === address\.country/.test(page) && /* Changed on purpose: in the visitor's language, the country named in it too. */ /ct\("We don't ship to \{country\}\.", \{ country: countryName\(address\.country\) \}\)/.test(page))
     check("each line has - / + and Remove, + held to the server's max", /data-qty-plus="" disabled=\{atMax\}/.test(page) && /data-line-remove=""/.test(page) && /max=\{l\.maxQuantity \?\? l\.quantity\}/.test(page))
     check("a change keeps the address bar, the site's cart and the theme's cookie in step", /url\.searchParams\.set\("items", encodeItems\(next\)\)/.test(page) && /window\.localStorage\.setItem\(key, serializeCart\(kept\)\)/.test(page) && /call\(\{ action: "cart", items: next \}\)/.test(page))
     check("the order can't change once paying has started", /const editable = !busy && !paid && !settled && !arriving/.test(page))

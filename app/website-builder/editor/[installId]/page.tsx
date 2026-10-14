@@ -171,7 +171,7 @@ import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/web
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { PreviewLanguageSwitch } from "@/components/website-builder/preview-language-switch"
-import { localizeCards, localizeMenus, localizeSections, localizeTheme } from "@/lib/markets/translate"
+import { localizeCards, localizeMenus, localizeOptions, localizeSections, localizeTheme } from "@/lib/markets/translate"
 import { languageName } from "@/lib/markets/locales"
 import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
@@ -7985,7 +7985,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
             (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields,
             { approvedOnly: true, fresh: true },
-          )
+          ).map((s) => {
+            /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx). */
+            const data = (s.settings as Record<string, unknown> | undefined)?._product_data
+            return data ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
+          })
         : drawnSections,
     [drawnSections, previewMap, storelibSources, librarySchemas],
   )

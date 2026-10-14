@@ -28,7 +28,7 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import { localizationTag, marketsMissing, cachedTranslations } from "./server"
 import { languageName, localizedPath, normalizeLocale } from "./locales"
-import { localizeCards, localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
+import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
 import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
 import { chargeNote, currencyCode, fxFresh, type PriceRounding } from "./money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
@@ -115,6 +115,8 @@ export interface Localizer {
   /** A collection's name and description (`collection:<id>:title|description`). They were translated in Settings and never shown. */
   collection<T extends { id?: unknown }>(c: T): T
   cards<T extends ProductCard>(list: T[]): T[]
+  /** A product's options and variants' names (the product page's data): translate.ts localizeOptions. */
+  options<T>(data: T): T
   /** The theme's settings: its menus, and its and its pages' search engine text. */
   theme<T extends Record<string, unknown>>(settings: T): T
   /** The shop's own words in this language (lib/markets/ui-words.ts), the approved ones only; empty in the website's own language. */
@@ -125,16 +127,19 @@ export interface Localizer {
 
 /**
  * The overlay for one language of one store, or null when there is nothing
- * to lay over: no language asked for, one that is not published, or no
- * approved translation in it yet.
+ * to lay over: no language asked for on a website written in English, one
+ * that is not published, or no approved translation in it yet.
  */
 export async function siteLocalizer(creatorId: string, locale: string | null | undefined, market: string | null = null, base: string = SHOP_CURRENCY): Promise<Localizer | null> {
-  if (!locale && !market) return null
+  /* No language asked for: the website's own, which still has its shop words when it is not written in English (below). */
   const langs = await siteLanguages(creatorId)
   const code = locale ? (langs.others.find((l) => l.toLowerCase() === locale.toLowerCase()) ?? null) : null
   const pricing = market ? await marketPricing(creatorId, market, base) : null
-  if (!code && !pricing) return null
-  const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : []
+  /* In the website's own language, when it is not English: the shop's own words in it (translate.ts BUILT_IN_GROUPS), and nothing else to lay over. */
+  const ownWords = !code && !isEnglish(langs.defaultLanguage)
+  if (!code && !pricing && !ownWords) return null
+  const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : ownWords ? (await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => isBuiltInWordKey(r.key)) : []
+  if (!code && !pricing && rows.length === 0) return null
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
   const opts = { approvedOnly: true, fresh: true }
   const moneyLocale = code ?? langs.defaultLanguage
@@ -172,6 +177,9 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
     },
     theme(settings) {
       return localizeTheme(settings, map, opts)
+    },
+    options(data) {
+      return localizeOptions(data, map, opts)
     },
     cards(list) {
       if (map.size === 0 && !pricing) return list

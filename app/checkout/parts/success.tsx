@@ -12,6 +12,7 @@
  */
 
 import { money } from "./ui"
+import { useCt } from "./words"
 
 export type PaidState = "finishing" | "paid" | null
 
@@ -31,9 +32,10 @@ export function PaidOverlay({
   /** The creator's website the buyer is going back to, when checkout was started there. */
   returningTo?: string | null
 }) {
+  const ct = useCt()
   if (!state) return null
   const finishing = state === "finishing"
-  const next = returningTo ? `Taking you back to ${returningTo}` : "Opening your receipt"
+  const next = returningTo ? ct("Taking you back to {site}", { site: returningTo }) : ct("Opening your receipt")
   return (
     <div
       data-paid-overlay=""
@@ -59,14 +61,14 @@ export function PaidOverlay({
         </svg>
         {finishing ? (
           <>
-            <p className="mt-5 text-[20px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">Finishing your order</p>
-            <p className="mt-1 text-[14px] text-[#6b7280]">Your payment went through.</p>
+            <p className="mt-5 text-[20px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{ct("Finishing your order")}</p>
+            <p className="mt-1 text-[14px] text-[#6b7280]">{ct("Your payment went through.")}</p>
           </>
         ) : (
           <>
-            <p className="checkout-paid-text mt-5 text-[20px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{free ? "It's yours" : cash ? "Order placed" : "Payment complete"}</p>
-            <p className="checkout-paid-text mt-1 text-[14px] text-[#6b7280]">{free ? next : cash ? `${money(total)} to pay in cash. ${next}` : `${money(total)} paid. ${next}`}</p>
-            {returningTo && <p className="checkout-paid-text mt-1 text-[13px] text-[#6b7280]">Your receipt is in your email.</p>}
+            <p className="checkout-paid-text mt-5 text-[20px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{free ? ct("It's yours") : cash ? ct("Order placed") : ct("Payment complete")}</p>
+            <p className="checkout-paid-text mt-1 text-[14px] text-[#6b7280]">{free ? next : cash ? `${ct("{amount} to pay in cash.", { amount: money(total) })} ${next}` : `${ct("{amount} paid.", { amount: money(total) })} ${next}`}</p>
+            {returningTo && <p className="checkout-paid-text mt-1 text-[13px] text-[#6b7280]">{ct("Your receipt is in your email.")}</p>}
           </>
         )}
       </div>

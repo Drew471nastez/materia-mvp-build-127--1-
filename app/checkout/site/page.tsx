@@ -23,6 +23,10 @@ import { gaCheckoutOf } from "@/lib/store/ga"
 import { pricingFor } from "@/lib/markets/pricing"
 import { cachedRates } from "@/lib/markets/fx-server"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { checkoutMsg, checkoutT } from "@/lib/markets/checkout-words"
+import { localizeQuote } from "@/lib/markets/checkout-quote"
+import { CheckoutWords } from "../parts/words"
 
 export const dynamic = "force-dynamic"
 
@@ -120,9 +124,12 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const noteRead = siteLanguages(site.creatorId)
     .then((langs) => marketOfCountry(langs, visitorCountry))
     /* Only when the pages really showed that currency: rates fresh and the market's currency one they convert to (the same test as the cards, pricingFor). */
-    .then(async (m) => (m && pricingFor(m, SHOP_CURRENCY, await cachedRates().catch(() => null)) ? chargeNote(m.currency, platformChargeCurrencyUpper()) : null))
+    /* The currencies, for the note to be said in the checkout's language below. */
+    .then(async (m) => (m && pricingFor(m, SHOP_CURRENCY, await cachedRates().catch(() => null)) && chargeNote(m.currency, platformChargeCurrencyUpper()) ? { display: m.currency, charge: platformChargeCurrencyUpper() } : null))
     .catch(() => null)
-  const [brand, config, buyer, ready, answer, currencyNote] = await Promise.all([
+  /* The checkout in the language of the page the visitor came from, or the one they chose on the website (lib/markets/checkout-language.ts). */
+  const languageRead = checkoutLanguage(site.creatorId, params.back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null }))
+  const [brand, config, buyer, ready, answer, currencies, language] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     checkoutBrandOf(site.creatorId),
     loadCheckoutConfig(admin, site.creatorId),
@@ -130,7 +137,10 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     checkoutReadyForCreator(site.creatorId).catch(() => false),
     quoteRead,
     noteRead,
+    languageRead,
   ])
+  const t = checkoutT(language.lang, language.words)
+  const currencyNote = currencies ? t(checkoutMsg("Prices in {display} are an estimate. You'll pay in {charge} at checkout; your bank converts it."), currencies) : null
   const shopUrl = `${site.origin}/`
   /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
   const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
@@ -139,12 +149,16 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   /* Priced (above, beside the rest) for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
   /* A cart that cannot be paid at all is said here, styled, with the way back. A free one needs no card, so no readiness. */
   if (answer && answer.ok && answer.quote.totals.totalCents > 0 && !ready) {
-    return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="Checkout is closed" message={BUYER_UNAVAILABLE} />
+    return (
+      <CheckoutWords lang={language.lang} words={language.words}>
+        <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title={checkoutMsg("Checkout is closed")} message={BUYER_UNAVAILABLE} />
+      </CheckoutWords>
+    )
   }
   const gate = siteGate(config, buyer)
 
   return (
-    <>
+    <CheckoutWords lang={language.lang} words={language.words}>
     {/* The store's own Google Analytics and pixels on its checkout: begin_checkout with what is in it (lib/store/ga.ts). */}
     <StoreTracking creatorId={site.creatorId} checkout={answer?.ok ? gaCheckoutOf(answer.quote.lines, null) : null} />
     <SiteCheckout
@@ -157,7 +171,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       couponCode={params.couponCode}
       initialNote={params.note}
       cartAttributes={params.attributes}
-      initialQuote={answer?.ok ? answer.quote : null}
+      initialQuote={answer?.ok ? localizeQuote(answer.quote, language.map) : null}
       initialError={answer && answer.ok === false ? answer.error : null}
       config={config}
       buyer={buyer ? { email: buyer.email, name: buyer.name } : null}
@@ -165,7 +179,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
       currencyNote={currencyNote}
+      lang={language.lang}
     />
-    </>
+    </CheckoutWords>
   )
 }

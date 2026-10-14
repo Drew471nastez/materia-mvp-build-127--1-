@@ -17,6 +17,7 @@
  *   (lib/checkout/brand-server);
  *   the session keeps every guard it had, made inside the page.
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { priceCart } from "@/lib/checkout/pricing"
 import { ONE_SHOP_ONLY, basketDecision } from "@/lib/checkout/basket-decision"
@@ -217,7 +218,7 @@ async function main() {
   check("  something that ships is priced by the physical checkout, on the same page", /if \(decision\.kind === "ships"\) return shippedQuote\(db, creatorId, body, owner\)/.test(quote))
   check("  a shop that cannot take payments is said on the page, never sent to Stripe", /checkoutReadyForCreator\(site\.creatorId\)/.test(page) && /BUYER_UNAVAILABLE/.test(page))
   check("the client pays in Storelib's own form with the lines, never Stripe's embedded or hosted page", /<StripePay/.test(client) && !/EmbeddedCheckout/.test(client) && /action: "intent", \.\.\.body/.test(client) && /origin: checkoutOrigin\(shopId\)/.test(client))
-  check("  a cart that cannot be paid is a styled message with the way back to the shop", /title="This cart can't be paid for yet"/.test(client) && /Continue shopping/.test(client))
+  check("  a cart that cannot be paid is a styled message with the way back to the shop", /* Changed on purpose: the checkout's words go through ct() (lib/markets/checkout-words). */ /title=\{ct\("This cart can't be paid for yet"\)\}/.test(client) && /ct\("Continue shopping"\)/.test(client))
 
   console.log("\nThe physical checkout, branded and paid in the page")
   const phys = code("lib/physical/checkout-server.ts")

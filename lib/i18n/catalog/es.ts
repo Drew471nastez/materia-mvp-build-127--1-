@@ -6298,6 +6298,7 @@ const words: Record<string, string> = {
  "The video did not upload. Try again.": "El vídeo no se subió. Inténtalo de nuevo.",
  "The website": "El sitio web",
  "The website you published": "El sitio web que publicaste",
+ "The words of your cart and checkout": "Las palabras de tu carrito y del pago",
  "The {branch} branch was deleted": "Se eliminó la rama {branch}",
  "The {value} could not be downloaded.": "No se pudo descargar {value}.",
  "Theft or loss": "Robo o pérdida",

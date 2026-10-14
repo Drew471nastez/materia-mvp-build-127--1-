@@ -39,6 +39,7 @@ import { REGIONS } from "@/lib/markets/regions"
 import { SITE_LANGUAGE_CODES, languageFlag, languageName } from "@/lib/markets/locales"
 import { CountryFlag } from "./country-picker"
 import type { Localization, Market } from "@/lib/markets/model"
+import { isEnglish } from "@/lib/markets/translate"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
@@ -166,6 +167,12 @@ export function MarketsPanel() {
               <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(draft.defaultLanguage)}</span>
               <span className="block text-[12.5px] text-[#6b7280]">{tt("Default · your website as it is written")}</span>
             </span>
+            {/* Written in another language than English: the cart's and the checkout's words, which Storelib writes in English, are translated here (lib/markets/translate BUILT_IN_GROUPS). */}
+            {isEnglish(draft.defaultLanguage) ? null : (
+              <button type="button" className={cn(BTN_SECONDARY, "ml-12 h-9 px-3 sm:ml-0")} onClick={() => setTranslating(draft.defaultLanguage)} data-translate-language={draft.defaultLanguage} title={tt("The words of your cart and checkout")}>
+                {tt("Translate")}
+              </button>
+            )}
             <label className="relative ml-12 inline-flex sm:ml-0">
               <span className="sr-only">{tt("Default language")}</span>
               <select
@@ -332,7 +339,8 @@ export function MarketsPanel() {
         locale={translating}
         defaultLanguage={draft.defaultLanguage}
         published={!!draft.languages.find((l) => l.code === translating)?.published}
-        onPublish={translating ? (v) => setPublished(translating, v) : undefined}
+        /* The website's own language has no publish switch: it is always live. */
+        onPublish={translating && translating !== draft.defaultLanguage ? (v) => setPublished(translating, v) : undefined}
         onClose={() => setTranslating(null)}
       />
     </div>

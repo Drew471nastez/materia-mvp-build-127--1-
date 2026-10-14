@@ -366,7 +366,9 @@ export async function renderProduct(
      their options, pictures and stock, its pay what you want terms and its
      description cleaned for the page. The same read the builder's canvas
      makes for the product it previews (lib/products/product-section-data.ts). */
-  const productData = await (productDataEarly ?? productSectionData(admin, { ...product, ...extra, slug: product.slug ?? slug }, { files: true }))
+  const productRead = await (productDataEarly ?? productSectionData(admin, { ...product, ...extra, slug: product.slug ?? slug }, { files: true }))
+  /* Its options and variants' names in the page's language (lib/markets/translate.ts localizeOptions). */
+  const productData = localizer ? localizer.options(productRead) : productRead
 
   /* The site's owner and shop, read here because which sections the theme
      has decides whether the built-in product section is added below. */

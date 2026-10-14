@@ -11,6 +11,10 @@
  *   collection:<collectionId>:<field>          title, description
  *   menu:<menuId>:<itemId>                     a navigation link's label
  *   page:<pageKey>:<field>                     a page's SEO title, description
+ *   option:<hash>                              an option's name or value ("Size",
+ *                                              "Small"), once for the whole shop
+ *   checkout:<hash>                            a sentence of the website's checkout
+ *                                              (lib/markets/checkout-words.ts)
  *
  * Drawing a page in a language lays its values over the original
  * (localizeSections, localizeRecord); a key with no value, or a value that is
@@ -63,7 +67,7 @@ export const blockKey = (sectionId: string, blockId: string, settingId: string) 
 
 /** A key that is one of the shapes above, at a sane length, and nothing else. */
 export function isTranslationKey(key: unknown): key is string {
-  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+|theme:[a-z_]+|ui:[a-z_]+)$/i.test(key)
+  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+|theme:[a-z_]+|ui:[a-z_]+|option:[0-9a-f]{8}|checkout:[0-9a-f]{8})$/i.test(key)
 }
 
 /** Where a key's value is shown, in words, for the translations list. */
@@ -132,6 +136,16 @@ export function statusOf(row: TranslationRow | undefined, source: string): "miss
   if (row.sourceHash !== sourceHash(source)) return "outdated"
   return row.status === "approved" ? "done" : "draft"
 }
+
+/**
+ * THE WORDS STORELIB WRITES ITSELF are English: the shop's own words (a cart,
+ * Add to cart, `ui:`) and the checkout's (`checkout:`). A website written in
+ * another language translates those two groups into its own language too,
+ * and only those: the rest of its text is already in it.
+ */
+export const isEnglish = (locale: string) => /^en(-|$)/i.test(locale)
+export const BUILT_IN_GROUPS: ReadonlySet<string> = new Set(["ui", "checkout"])
+export const isBuiltInWordKey = (key: string) => /^(ui|checkout):/.test(key)
 
 /** What Storelib AI may write, by the press or the hourly job: missing, or outdated and its own. Never the merchant's words. */
 export function aiMayWrite(row: TranslationRow | undefined, source: string): boolean {
@@ -212,9 +226,72 @@ export function localizeCards<T extends { id: string; settings: unknown }>(list:
     const title = typeof own.title === "string" ? valueFor(map, `product:${c.id}:title`, opts, own.title) : null
     /* The card holds a plain excerpt of the description, not the text it was translated from: no freshness to compare here. */
     const description = typeof own.description === "string" ? valueFor(map, `product:${c.id}:description`, opts) : null
-    if (title === null && description === null) return c
-    return { ...c, settings: { ...own, ...(title !== null ? { title } : {}), ...(description !== null ? { description: plainDescription(description) } : {}) } }
+    /* Its options and variants' names, from the shop's option words (localizeOptions). */
+    const optioned = localizeOptions(own, map, opts)
+    if (title === null && description === null && optioned === own) return c
+    return { ...c, settings: { ...optioned, ...(title !== null ? { title } : {}), ...(description !== null ? { description: plainDescription(description) } : {}) } }
   })
+}
+
+/* ── Product options ───────────────────────────────────────────────────── */
+
+/** An option's name or value, keyed by its words: "Small" is translated once for every product that has it. */
+export const optionKey = (text: string) => `option:${sourceHash(text.trim())}`
+
+type OptionList = { name: string; values: string[] }[]
+
+/** Every distinct option name and value of these products, in order, for the translations list. */
+export function optionTranslatables(lists: OptionList[]): Translatable[] {
+  const out: Translatable[] = []
+  const seen = new Set<string>()
+  const add = (text: string, label: string, where: string) => {
+    const t = text.trim()
+    if (!t || seen.has(t)) return
+    seen.add(t)
+    out.push({ key: optionKey(t), source: t, label, where, multiline: false })
+  }
+  for (const list of lists) {
+    for (const o of list) {
+      add(o.name, "Option", o.name)
+      for (const v of o.values) add(v, "Value", o.name)
+    }
+  }
+  return out
+}
+
+/**
+ * A product's options and variants in a language: the option names and
+ * values, each variant's values, and its name when it is made of them
+ * ("S / Red", as the product editor names a variant). Card settings and the
+ * product page's data alike. Variant ids and prices are untouched, so the
+ * chips still match the variant they buy.
+ */
+export function localizeOptions<T>(data: T, map: TranslationMap | null | undefined, opts: TranslateOpts = {}): T {
+  if (!map || map.size === 0 || !data || typeof data !== "object") return data
+  const own = data as Record<string, unknown>
+  const word = (text: unknown): unknown => (typeof text === "string" && text.trim() ? (valueFor(map, optionKey(text), opts, text.trim()) ?? text) : text)
+  let changed = false
+  const out: Record<string, unknown> = { ...own }
+  if (Array.isArray(own.options)) {
+    out.options = (own.options as { name?: unknown; values?: unknown }[]).map((o) => (o && typeof o === "object" ? { ...o, name: word(o.name), values: Array.isArray(o.values) ? o.values.map(word) : o.values } : o))
+    changed = true
+  }
+  if (Array.isArray(own.variants)) {
+    out.variants = (own.variants as Record<string, unknown>[]).map((v) => {
+      if (!v || typeof v !== "object") return v
+      const values = Array.isArray(v.options) ? (v.options as unknown[]).filter((x): x is string => typeof x === "string" && x.trim() !== "") : []
+      const parts = typeof v.name === "string" ? v.name.split(" / ").map((p) => p.trim()) : []
+      /* Named from its values: written again from their translations. Named by the merchant: left as named, unless it is one value. */
+      const madeOfValues = parts.length > 0 && (values.length ? parts.length === values.length && parts.every((p, i) => p === values[i].trim()) : parts.length === 1)
+      return {
+        ...v,
+        ...(madeOfValues ? { name: parts.map((p) => word(p)).join(" / ") } : {}),
+        ...(Array.isArray(v.options) ? { options: (v.options as unknown[]).map((x) => (typeof x === "string" ? word(x) : x)) } : {}),
+      }
+    })
+    changed = true
+  }
+  return (changed ? out : data) as T
 }
 
 /** Rows as a map, the last of any duplicate kept. */

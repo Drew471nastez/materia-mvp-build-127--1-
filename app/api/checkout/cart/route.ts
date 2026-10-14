@@ -1,4 +1,5 @@
 import { statementParams } from "@/lib/payments/platform-descriptor"
+import { shopMoney } from "@/lib/store/shop-money"
 import { NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
@@ -257,7 +258,7 @@ async function handlePOST(request: Request) {
   if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin: siteServes ? siteOrigin : undefined, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
 
   /* Refused by basketDecision already; said again here so nothing under it can reach Stripe. */
-  if (totalCents < MIN_CHARGE_CENTS) return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
+  if (totalCents < MIN_CHARGE_CENTS) return NextResponse.json({ error: `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}.` }, { status: 400 })
 
   /*
    * Storelib's one readiness rule (lib/payments/stripe/readiness). This used

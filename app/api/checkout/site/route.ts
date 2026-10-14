@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server"
+import { shopMoney } from "@/lib/store/shop-money"
 import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -148,7 +149,14 @@ async function quote(request: Request, admin: Admin, site: SiteOfCheckout, body:
   if (limited) return limited
   const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
   const answer = await siteQuote(admin, site.creatorId, body, detectedCountry(request.headers), owner ? { email: owner.email } : null)
-  return answer.ok ? json(answer.quote) : json({ error: answer.error }, answer.status)
+  if (!answer.ok) return json({ error: answer.error }, answer.status)
+  /* The order's titles and option names in the checkout's language, when it is one of the website's (lib/markets/checkout-quote.ts). */
+  if (typeof body.lang === "string" && body.lang) {
+    const [{ checkoutLanguage }, { localizeQuote }] = await Promise.all([import("@/lib/markets/checkout-language"), import("@/lib/markets/checkout-quote")])
+    const language = await checkoutLanguage(site.creatorId, null, body.lang).catch(() => null)
+    if (language?.map) return json(localizeQuote(answer.quote, language.map))
+  }
+  return json(answer.quote)
 }
 
 /* ── Already yours ────────────────────────────────────────────────────── */
@@ -309,7 +317,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   if (decision.kind === "refuse" || priced.ok === false) return json({ error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }, decision.kind === "refuse" ? decision.status : 400)
   if (decision.kind === "free") return json({ error: "This order is free. Press Get it free.", free: true }, 409)
   if (decision.kind !== "pay") return json({ error: "Refresh the page and try again." }, 409)
-  if (priced.totalCents < MIN_CHARGE_CENTS) return json({ error: "Minimum payment amount is $0.50" }, 400)
+  if (priced.totalCents < MIN_CHARGE_CENTS) return json({ error: `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}.` }, 400)
 
   const { data: creator } = await admin
     .from("creators")

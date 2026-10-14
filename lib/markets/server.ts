@@ -19,6 +19,7 @@ import "server-only"
  * end, invalidated by tag when the settings or a translation is saved.
  */
 import { uiTranslatables } from "./ui-words"
+import { checkoutTranslatables } from "./checkout-words"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { pageSections } from "@/lib/website-builder/preview-link"
@@ -29,7 +30,7 @@ import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
 import { defaultLocalization, validateLocalization, type Localization } from "./model"
 import { normalizeLocale } from "./locales"
-import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, optionTranslatables, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
@@ -362,6 +363,21 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (typeof p.seo_description === "string" && p.seo_description.trim()) productItems.push({ key: `product:${p.id}:seo_description`, source: p.seo_description, label: "Search engine description", where, multiline: true })
   }
   if (productItems.length) groups.push({ id: "products", title: "Products", items: productItems })
+  /* Their option names and values (Size, Small), once each for the whole shop (translate.ts optionKey). */
+  const productIds = ((products ?? []) as { id?: unknown }[]).map((p) => p.id).filter((id): id is string => typeof id === "string")
+  if (productIds.length) {
+    const { data: optionRows } = await db.from("product_options").select("product_id, name, values, position").in("product_id", productIds).order("position", { ascending: true }).then(
+      (r: { data: unknown }) => r,
+      () => ({ data: [] }),
+    )
+    const lists = productIds.map((id) =>
+      ((optionRows ?? []) as { product_id?: unknown; name?: unknown; values?: unknown }[])
+        .filter((o) => o.product_id === id && typeof o.name === "string" && Array.isArray(o.values))
+        .map((o) => ({ name: o.name as string, values: (o.values as unknown[]).filter((v): v is string => typeof v === "string") })),
+    )
+    const optionItems = optionTranslatables(lists)
+    if (optionItems.length) groups.push({ id: "options", title: "Product options", items: optionItems })
+  }
 
   const { data: collections } = await collectionsRead
   const collectionItems: Translatable[] = []
@@ -373,6 +389,8 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
   if (collectionItems.length) groups.push({ id: "collections", title: "Collections", items: collectionItems })
   /* The words the theme draws itself: the cart's, the buy buttons' (lib/markets/ui-words.ts). */
   groups.push({ id: "ui", title: "Shop words", items: uiTranslatables() })
+  /* The website's checkout, sentence by sentence (lib/markets/checkout-words.ts). */
+  groups.push({ id: "checkout", title: "Checkout", items: checkoutTranslatables() })
   return groups
 }
 

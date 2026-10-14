@@ -29,7 +29,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { autoTranslateMissing, localizationOf, marketsMissing, saveTranslations, siteTexts, translationsOf, type AutoTranslateRun } from "./server"
-import { aiMayWrite, translationMap } from "./translate"
+import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, translationMap } from "./translate"
 import { canDraftWithAi, draftReusing } from "./translate-ai"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,15 +45,18 @@ export async function autoTranslateStore(db: Db, creatorId: string, deadlineAt: 
   const loc = (await localizationOf(db, creatorId, SHOP_CURRENCY)).value
   if (!loc.autoTranslate) return null
   const locales = loc.languages.map((l) => l.code).filter((c) => c !== loc.defaultLanguage)
+  /* A website written in another language than English takes the shop's own words and the checkout's in it too (translate.ts BUILT_IN_GROUPS). */
+  const own = isEnglish(loc.defaultLanguage) ? [] : [loc.defaultLanguage]
   const run: AutoTranslateRun = { at: new Date().toISOString(), translated: 0, left: 0 }
-  if (locales.length === 0) return run
+  if (locales.length === 0 && own.length === 0) return run
   const [groups, store] = await Promise.all([siteTexts(db, creatorId), storeIdentity(db, creatorId).catch(() => null)])
   const texts = groups.flatMap((g) => g.items)
+  const builtIn = groups.filter((g) => BUILT_IN_GROUPS.has(g.id)).flatMap((g) => g.items)
   let unreachable = false
-  for (const locale of locales) {
+  for (const locale of [...own, ...locales]) {
     const saved = await translationsOf(db, creatorId, locale)
     const map = translationMap(saved.rows)
-    const todo = texts.filter((t) => aiMayWrite(map.get(t.key), t.source))
+    const todo = (locale === loc.defaultLanguage ? builtIn : texts).filter((t) => aiMayWrite(map.get(t.key), t.source))
     if (todo.length === 0) continue
     /* No time for another call, or Storelib AI already said no: counted for the next run. */
     if (unreachable || Date.now() > deadlineAt - 20_000) {

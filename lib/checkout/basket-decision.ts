@@ -19,6 +19,7 @@
  * Whether the seller can take payments is a database read and is asked
  * after this, by the caller (lib/payments/service checkoutReadyForCreator).
  */
+import { shopMoney } from "@/lib/store/shop-money"
 import { MIN_CHARGE_CENTS, type PricedCart } from "./pricing"
 
 export type BasketDecision =
@@ -69,7 +70,7 @@ export function basketDecision(priced: PricedCart, opts: { shopId?: string | nul
     return {
       kind: "refuse",
       status: 400,
-      error: priced.coupon ? "The smallest card payment is $0.50. Remove the code or add to the cart." : "Minimum payment amount is $0.50",
+      error: priced.coupon ? `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}. Remove the code or add to the cart.` : `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}.`,
     }
   }
   return { kind: "pay", creatorId }

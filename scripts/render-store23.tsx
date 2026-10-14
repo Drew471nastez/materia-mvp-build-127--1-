@@ -12,12 +12,14 @@
  *   order           the physical order page: date, VAT 19%, currency, Sold by
  *   store           Settings › Store details with Business details filled in
  *   site-cod        the website's checkout with Cash on delivery offered beside the card
+ *   site-fr         the same, in French: the store's approved translations of the checkout's words (lib/markets/checkout-words)
  *   physical-cod    Storelib's cart checkout with Cash on delivery offered
  *   order-cod       the physical order page of a cash on delivery order, cash still to pay
  */
 import * as React from "react"
 import CheckoutPageClient from "@/app/checkout/checkout-client"
 import { SiteCheckout } from "@/app/checkout/site/site-checkout"
+import { CheckoutWords } from "@/app/checkout/parts/words"
 import { PhysicalCheckout } from "@/app/checkout/physical/physical-checkout"
 import { ReceiptView } from "@/app/receipt/[token]/receipt-view"
 import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
@@ -93,16 +95,47 @@ function stubFetch() {
 
 const brand = { name: "Bread Studio", imageUrl: null, kind: null } as never
 
+/** What a French store's Translate › Checkout holds once approved. */
+const FRENCH: Record<string, string> = {
+  "Contact information": "Coordonnées",
+  "Payment method": "Moyen de paiement",
+  "Card": "Carte",
+  "Cash on delivery": "Paiement à la livraison",
+  "Delivery": "Livraison",
+  "Shipping method": "Mode de livraison",
+  "Pay {amount}": "Payer {amount}",
+  "Pay {shop}": "Payer {shop}",
+  "Subtotal": "Sous-total",
+  "Total due": "Total à payer",
+  "Order summary": "Récapitulatif",
+  "First name": "Prénom",
+  "Last name": "Nom",
+  "Address": "Adresse",
+  "City": "Ville",
+  "Country/region": "Pays ou région",
+  "Phone": "Téléphone",
+  "Email me with news and offers": "Recevoir les nouveautés et les offres par e-mail",
+  "I agree to the [Terms and Conditions] and the [Refund policy]": "J'accepte les [Conditions générales] et la [Politique de remboursement]",
+  "Add a note for the shop": "Ajouter une note pour la boutique",
+  "Continue shopping": "Continuer mes achats",
+  "Powered by": "Fourni par",
+  "Pay {amount} in cash when it's delivered.": "Payez {amount} en espèces à la livraison.",
+  "Place order": "Passer la commande",
+  "Enter a valid email address.": "Saisissez une adresse e-mail valide.",
+}
+
 export function boot(render: (el: React.ReactElement) => void) {
   stubFetch()
   const which = new URLSearchParams(location.search).get("case") || "site"
   const wrap = (el: React.ReactElement) => <div data-case={which}>{el}</div>
   const cod = which.endsWith("-cod")
   const withCash = (c: ReturnType<typeof checkoutConfig>) => (cod ? { ...c, cashOnDelivery: true } : c)
-  if (which === "site-gate" || which === "site" || which === "site-cod") {
+  if (which === "site-gate" || which === "site" || which === "site-cod" || which === "site-fr") {
     const gate = which === "site-gate"
+    const fr = which === "site-fr"
     render(
       wrap(
+        <CheckoutWords lang={fr ? "fr" : "en"} words={fr ? FRENCH : {}}>
         <SiteCheckout
           shopId={SHOP}
           brand={brand}
@@ -113,11 +146,13 @@ export function boot(render: (el: React.ReactElement) => void) {
           couponCode={null}
           initialQuote={quote}
           initialError={null}
-          config={gate ? checkoutConfig({ requireAccount: true }) : withCash(STRICT)}
+          config={gate ? checkoutConfig({ requireAccount: true }) : fr ? { ...STRICT, cashOnDelivery: true } : withCash(STRICT)}
           buyer={null}
           lockedEmail={null}
           needsSignIn={gate}
-        />,
+          lang={fr ? "fr" : undefined}
+        />
+        </CheckoutWords>,
       ),
     )
     return

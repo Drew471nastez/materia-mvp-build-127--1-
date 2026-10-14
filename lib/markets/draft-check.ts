@@ -32,6 +32,8 @@ export function fixedParts(text: string): Map<string, number> {
     add(`tag:${m[1]}${m[2].toLowerCase()}`)
     for (const a of m[3].matchAll(/\b(href|src)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi)) add(`attr:${a[1].toLowerCase()}=${a[3] ?? a[4] ?? a[5]}`)
   }
+  /* A sentence's links written as [words] (the checkout's "I agree to the [Terms and Conditions]"): as many as the original has. */
+  for (const _ of rest.matchAll(/\[[^\]\n]+\]/g)) add("bracket")
   const words = rest.replace(/<[^>]*>/g, " ")
   for (const m of words.matchAll(/\bhttps?:\/\/[^\s"'<>]+/g)) add(`url:${m[0].replace(/[.,;:!?)]+$/, "")}`)
   for (const m of words.matchAll(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g)) add(`email:${m[0].toLowerCase()}`)

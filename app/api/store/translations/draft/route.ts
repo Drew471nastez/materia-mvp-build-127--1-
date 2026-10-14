@@ -6,7 +6,7 @@ import { storeIdentity } from "@/lib/store/identity-server"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
-import { aiMayWrite, translationMap } from "@/lib/markets/translate"
+import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, translationMap } from "@/lib/markets/translate"
 import { canDraftWithAi, draftReusing } from "@/lib/markets/translate-ai"
 import { recordActivity } from "@/lib/activity/log-server"
 
@@ -46,9 +46,12 @@ export async function POST(request: Request) {
   const body = await readBody(request)
   const loc = (await localizationOf(c.db, c.creatorId, SHOP_CURRENCY)).value
   const locale = normalizeLocale(body?.locale)
-  if (!locale || locale === loc.defaultLanguage || !editorLanguages(loc).includes(locale)) return physicalJson({ error: "Add this language to your website first." }, 400)
+  /* The website's own language, when it is not English: the shop's own words and the checkout's only (translate.ts BUILT_IN_GROUPS). */
+  const own = !!locale && locale === loc.defaultLanguage && !isEnglish(locale)
+  if (!locale || (!own && (locale === loc.defaultLanguage || !editorLanguages(loc).includes(locale)))) return physicalJson({ error: "Add this language to your website first." }, 400)
 
-  const [groups, saved, store] = await Promise.all([siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale), storeIdentity(c.db, c.creatorId).catch(() => null)])
+  const [allGroups, saved, store] = await Promise.all([siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale), storeIdentity(c.db, c.creatorId).catch(() => null)])
+  const groups = own ? allGroups.filter((g) => BUILT_IN_GROUPS.has(g.id)) : allGroups
   const map = translationMap(saved.rows)
   const todo = groups
     .flatMap((g) => g.items)

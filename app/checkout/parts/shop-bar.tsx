@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { Spinner } from "./ui"
 import { backThen } from "@/lib/navigation/go-back"
+import { useCt } from "./words"
 
 export interface ShopBrand {
   name: string
@@ -66,9 +67,10 @@ export function ShopBar({
   /** Told when the buyer leaves, so the page can ease back as it goes. */
   onLeave?: () => void
 }) {
+  const ct = useCt()
   const [leaving, setLeaving] = React.useState(false)
   const site = hostOf(backTo ?? shopUrl)
-  const backLabel = site ? `Back to ${site}` : "Back"
+  const backLabel = site ? ct("Back to {site}", { site }) : ct("Back")
 
   const plain = (e: React.MouseEvent) => !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
   const goBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -137,13 +139,13 @@ export function ShopBar({
         {shopUrl ? (
           <a href={shopUrl} data-continue="" className="group/shop ml-auto mr-1 hidden min-h-[44px] shrink-0 place-items-center outline-none [-webkit-tap-highlight-color:transparent] sm:grid">
             <span className="inline-flex h-9 items-center rounded-[9px] border border-[#e1e3e7] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04)] transition-[scale] duration-150 ease-out group-hover/shop:border-[#d2d5da] group-hover/shop:bg-[#fafafb] group-active/shop:scale-[0.97] group-active/shop:bg-[#f3f4f6] group-focus-visible/shop:outline-2 group-focus-visible/shop:outline-offset-2 group-focus-visible/shop:outline-[#1a1a2e] motion-reduce:transition-none">
-              Continue shopping
+              {ct("Continue shopping")}
             </span>
           </a>
         ) : (
           <span className="ml-auto mr-1 flex items-center gap-1.5 text-[13px] text-[#6b7280]">
             <Lock className="h-3.5 w-3.5" aria-hidden />
-            Secure checkout
+            {ct("Secure checkout")}
           </span>
         )}
       </div>

@@ -26,7 +26,7 @@ import { failureKind } from "@/lib/sites/agent/plain-errors"
 import { isBillingRefusal } from "@/lib/products/category-suggest-ai"
 import { languageName } from "./locales"
 import { keepsFixedParts } from "./draft-check"
-import { reusableTranslations, sourceHash, type TranslationRow } from "./translate"
+import { isBuiltInWordKey, reusableTranslations, sourceHash, type TranslationRow } from "./translate"
 
 const MODEL = process.env.OPENAI_TRANSLATE_MODEL || DEFAULT_MODEL
 /** One call's worth: enough to keep calls few, small enough that one answer stays well inside the model's output. */
@@ -180,7 +180,17 @@ export async function draftReusing(
     else ask.push(it)
   }
   if (ask.length === 0) return { drafts: reused, unavailable: false, reused: reused.size }
-  const { drafts, unavailable } = await draftTranslations(ask, from, to, shopName, opts)
+  /* The shop's own words and the checkout's are written in English whatever the website is written in (translate.ts isBuiltInWordKey). */
+  const builtIn = ask.filter((i) => isBuiltInWordKey(i.key))
+  const theirs = ask.filter((i) => !isBuiltInWordKey(i.key))
+  const groups = from === "en" || builtIn.length === 0 ? [{ items: ask, from }] : [{ items: theirs, from }, { items: builtIn, from: "en" }].filter((g) => g.items.length)
+  const drafts = new Map<string, string>()
+  let unavailable = false
+  for (const g of groups) {
+    const got = await draftTranslations(g.items, g.from, to, shopName, opts)
+    for (const [k, v] of got.drafts) drafts.set(k, v)
+    unavailable = unavailable || got.unavailable
+  }
   for (const [k, v] of reused) drafts.set(k, v)
   return { drafts, unavailable, reused: reused.size }
 }

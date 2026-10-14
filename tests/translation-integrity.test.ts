@@ -7,7 +7,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { localizeCards, localizeRecord, localizeSections, localizeTheme, sourceHash, themeTextTranslatables, translationMap, valueFor, type TranslationRow } from "@/lib/markets/translate"
+import { isTranslationKey, localizeCards, localizeOptions, localizeRecord, localizeSections, localizeTheme, optionKey, optionTranslatables, sourceHash, themeTextTranslatables, translationMap, valueFor, type TranslationRow } from "@/lib/markets/translate"
 import { saveTranslations } from "@/lib/markets/server"
 import { plainDescription } from "@/lib/products/plain-description"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -66,6 +66,20 @@ async function main() {
   check("the translations list reads them from the theme settings schema", /themeTextTranslatables\(theme, THEME_SETTINGS_GROUPS\.flatMap/.test(read("lib/markets/server.ts")))
   check("every live page lays the theme over in its language, not only the home page", ["products/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "search/page.tsx", "cart/page.tsx", "render-account.tsx"].every((f) => /themeSettings: localizer\.theme\(/.test(read(`app/(site)/w/[username]/${f}`))))
   check("and the editor's language preview does too", /const canvasThemeShown = useMemo\(\(\) => \(previewMap \? \(localizeTheme\(/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /theme=\{canvasThemeShown\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+
+  console.log("\nOptions and variants")
+  const listed = optionTranslatables([[{ name: "Size", values: ["Small", "Large"] }, { name: "Colour", values: ["Red"] }], [{ name: "Size", values: ["Small"] }]])
+  check("each option word is listed once for the whole shop", listed.map((i) => i.source).join() === "Size,Small,Large,Colour,Red" && listed.every((i) => isTranslationKey(i.key)), listed.map((i) => i.source))
+  const optMap = translationMap([row(optionKey("Size"), "Taille", "Size"), row(optionKey("Small"), "Petit", "Small"), row(optionKey("Red"), "Rouge", "Red"), row(optionKey("Large"), "Grand", "Large (old)")])
+  const [shirt] = localizeCards([{ id: P1, settings: { title: "Tee", options: [{ name: "Size", values: ["Small", "Large"] }, { name: "Colour", values: ["Red"] }], variants: [{ id: "v1", name: "Small / Red", options: ["Small", "Red", null], price: "$20.00" }, { id: "v2", name: "Large / Red", options: ["Large", "Red", null] }, { id: "v3", name: "Gift box", options: ["Small", "Red", null] }] } }], optMap, { approvedOnly: true, fresh: true })
+  const ss = shirt.settings as { options: { name: string; values: string[] }[]; variants: { id: string; name: string; options: (string | null)[]; price?: string }[] }
+  check("a card's option names and values in the language", ss.options[0].name === "Taille" && ss.options[0].values.join() === "Petit,Large" && ss.options[1].values[0] === "Rouge", ss.options)
+  check("  one written for an older word is not shown", ss.options[0].values[1] === "Large")
+  check("a variant named from its values is named again from theirs, its id and price kept", ss.variants[0].name === "Petit / Rouge" && ss.variants[0].id === "v1" && ss.variants[0].price === "$20.00" && ss.variants[0].options.join() === "Petit,Rouge,", ss.variants[0])
+  check("  one the merchant named themselves keeps its name, its values translated", ss.variants[2].name === "Gift box" && ss.variants[2].options[0] === "Petit")
+  check("the product page's data the same way", (localizeOptions({ options: [{ name: "Size", values: ["Small"] }], variants: [{ id: "v", name: "Small", options: ["Small", null, null] }] }, optMap, { approvedOnly: true, fresh: true }) as { variants: { name: string }[] }).variants[0].name === "Petit")
+  check("  on the live product page, and in the editor's preview", /productData = localizer \? localizer\.options\(productRead\)/.test(read("components/website-builder/theme/render-product.tsx")) && /_product_data: localizeOptions\(data, previewMap/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("the translations list has them, read from the products' options", /optionTranslatables\(lists\)/.test(read("lib/markets/server.ts")) && /title: "Product options"/.test(read("lib/markets/server.ts")))
 
   console.log("\nStorelib AI never replaces what the merchant wrote")
   const draft = read("app/api/store/translations/draft/route.ts")

@@ -20,6 +20,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
+import { useCt } from "./words"
 
 export const INK = "#1a1a2e"
 
@@ -312,11 +313,12 @@ const STRIPE_WORDMARK =
  * order is still here after reading them.
  */
 export function PoweredByStripe() {
+  const ct = useCt()
   const link = "rounded-[4px] px-1 py-1.5 transition-colors hover:text-[#1a1a2e] focus-visible:outline-2 focus-visible:outline-[#1a1a2e]/40"
   return (
     <p data-powered-by="" className="mt-3.5 flex flex-wrap items-center justify-center gap-x-1 text-[12.5px] text-[#8b919a]">
       <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className={cn(link, "inline-flex items-center gap-1")}>
-        Powered by
+        {ct("Powered by")}
         <svg viewBox="0 120 640 272" aria-label="Stripe" role="img" className="mt-[1px] h-[14px] w-auto" fill="currentColor">
           <path d={STRIPE_WORDMARK} />
         </svg>
@@ -325,13 +327,13 @@ export function PoweredByStripe() {
         ·
       </span>
       <a href="/terms" target="_blank" className={link}>
-        Terms
+        {ct("Terms")}
       </a>
       <span aria-hidden className="text-[#c4c8ce]">
         ·
       </span>
       <a href="/privacy" target="_blank" className={link}>
-        Privacy
+        {ct("Privacy")}
       </a>
     </p>
   )
@@ -348,3 +350,12 @@ export const CHECKOUT_CURRENCY = PLATFORM_CURRENCY
 
 export const money = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: CHECKOUT_CURRENCY.toUpperCase() }).format((cents || 0) / 100)
+
+/** The charge currency's own mark for an amount field ("$", "RON"), as money() writes it. */
+export const CURRENCY_MARK = (() => {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: CHECKOUT_CURRENCY.toUpperCase() }).formatToParts(1).find((p) => p.type === "currency")?.value ?? CHECKOUT_CURRENCY.toUpperCase()
+  } catch {
+    return CHECKOUT_CURRENCY.toUpperCase()
+  }
+})()

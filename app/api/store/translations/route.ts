@@ -6,7 +6,7 @@ import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
-import { statusOf, translationMap } from "@/lib/markets/translate"
+import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, statusOf, translationMap } from "@/lib/markets/translate"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,6 +22,9 @@ export const dynamic = "force-dynamic"
  *
  * The store's own, through its owner (lib/team: the website is not open to
  * team members yet). Only a language the website has may be read or written.
+ * The website's own language, when it is not English, holds the shop's own
+ * words and the checkout's only (translate.ts BUILT_IN_GROUPS): the rest of
+ * its text is already written in it.
  */
 async function storeLanguages(c: { db: any; creatorId: string }) {
   const loc = await localizationOf(c.db, c.creatorId, SHOP_CURRENCY)
@@ -37,7 +40,8 @@ export async function GET(request: Request) {
   const textsRead = asked && url.searchParams.get("values") !== "1" ? siteTexts(c.db, c.creatorId) : null
   textsRead?.catch(() => undefined)
   const { ready, loc, languages } = await storeLanguages(c)
-  const locale = asked && asked !== loc.defaultLanguage && languages.includes(asked) ? asked : null
+  const own = !!asked && asked === loc.defaultLanguage && !isEnglish(asked)
+  const locale = asked && (own || (asked !== loc.defaultLanguage && languages.includes(asked))) ? asked : null
   /*
     ?values=1, THE BUILDER'S PREVIEW IN ANOTHER LANGUAGE: the approved
     translations only, by key, as the live site lays them over (lib/markets
@@ -57,7 +61,7 @@ export async function GET(request: Request) {
   const map = translationMap(saved.rows)
   let done = 0
   let total = 0
-  const out = groups.map((g) => ({
+  const out = groups.filter((g) => !own || BUILT_IN_GROUPS.has(g.id)).map((g) => ({
     id: g.id,
     title: g.title,
     items: g.items.map((t) => {
@@ -80,7 +84,10 @@ export async function PUT(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const { loc, languages } = await storeLanguages(c)
   const locale = normalizeLocale(body.locale)
-  if (!locale || locale === loc.defaultLanguage || !languages.includes(locale)) return physicalJson({ error: "Add this language to your website first." }, 400)
+  const own = !!locale && locale === loc.defaultLanguage && !isEnglish(locale)
+  if (!locale || (!own && (locale === loc.defaultLanguage || !languages.includes(locale)))) return physicalJson({ error: "Add this language to your website first." }, 400)
+  /* In the website's own language, only the words Storelib writes in English. */
+  if (own && Array.isArray(body.items) && (body.items as { key?: unknown }[]).some((i) => typeof i?.key !== "string" || !isBuiltInWordKey(i.key))) return physicalJson({ error: "Your website is already written in this language." }, 400)
   const saved = await saveTranslations(c.db, c.creatorId, locale, body.items, c.userId)
   if (saved.ok === false) return physicalJson({ error: saved.error }, saved.status)
   await recordActivity(c.db, c, { action: "website.translations", meta: { locale, saved: saved.saved, removed: saved.removed } })

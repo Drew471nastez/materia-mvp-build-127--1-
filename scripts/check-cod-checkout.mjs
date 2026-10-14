@@ -185,6 +185,31 @@ for (const [label, vp] of sizes) {
     await p.close()
   }
 
+  if (want("site-fr")) {
+    const p = await open(vp, "site-fr")
+    const fr = await p.evaluate(() => ({
+      lang: document.documentElement.lang,
+      body: document.body.innerText,
+      radios: [...document.querySelectorAll('[data-pay-choice] [role="radio"]')].map((r) => r.textContent.trim()),
+      button: [...document.querySelectorAll("button")].map((b) => b.textContent.trim()).find((t) => /^Payer |^Passer la commande/.test(t)) || null,
+      links: [...document.querySelectorAll("#checkout-terms a")].map((a) => [a.textContent.trim(), a.getAttribute("href")]),
+      germany: [...document.querySelectorAll("#checkout-country option")].some((o) => o.textContent.trim() === "Allemagne"),
+    }))
+    expect(fr.lang === "fr", "in French: the page says it is French", fr.lang)
+    expect(["Coordonnées", "Moyen de paiement", "Mode de livraison", "Sous-total", "Total à payer"].every((w) => fr.body.includes(w)), "  its headings and totals in French", fr.body.slice(0, 300))
+    expect(fr.radios.join("|") === "Carte|Paiement à la livraison", "  how to pay, in French", fr.radios)
+    expect(/^Payer /.test(fr.button || ""), "  the button says Payer with the amount", fr.button)
+    expect(JSON.stringify(fr.links) === JSON.stringify([["Conditions générales", "/terms"], ["Politique de remboursement", "/refund-policy"]]), "  the agreement's two links, in French, each to its page", fr.links)
+    expect(fr.germany, "  the countries named in French")
+    expect(fr.body.includes("Saisissez") === false && /Email|E-mail/i.test(fr.body), "  a sentence nobody translated reads in English, never a key")
+    const cutFr = await p.evaluate(() => [...document.querySelectorAll('[data-pay-choice] [role="radio"] span:last-child')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent))
+    expect(cutFr.length === 0, "  longer French names whole, never cut off", cutFr)
+    await shot(p, `site-fr-${tag}`)
+    expect((await sideways(p)) === 0, "  nothing scrolls sideways", await sideways(p))
+    expect((await errors(p)).length === 0, "  no errors", await errors(p))
+    await p.close()
+  }
+
   if (want("site")) {
     const p = await open(vp, "site")
     expect(!(await p.$("[data-pay-choice]")), "website, cash off: no choice, the card form as before")
