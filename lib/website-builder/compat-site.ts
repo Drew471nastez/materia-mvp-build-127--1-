@@ -14,6 +14,7 @@
  * so a page is drawn without parsing anything. A preview reads the drafts
  * and holds nothing.
  */
+import { siteOrigin } from "./site-seo-data"
 import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
@@ -263,6 +264,11 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   const key = name.toLowerCase()
   try {
     const found = await compatSiteFresh(name, host, previewToken)
+    /* Its own address (its primary domain), for the canonical and the languages: a page reached at its storelib.com name still names the domain. */
+    if (found.kind === "site" && previewToken === null) {
+      const origin = await siteOrigin(found.site.creatorId, name).catch(() => null)
+      if (origin) found.site.canonicalHost = new URL(origin).host
+    }
     if (found.kind === "site" && previewToken === null) {
       if (lastGoodSite.size >= 200 && !lastGoodSite.has(key)) lastGoodSite.delete(lastGoodSite.keys().next().value as string)
       lastGoodSite.set(key, found.site)

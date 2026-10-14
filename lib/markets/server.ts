@@ -19,7 +19,7 @@ import "server-only"
  * end, invalidated by tag when the settings or a translation is saved.
  */
 import { uiTranslatables } from "./ui-words"
-import { checkoutTranslatables } from "./checkout-words"
+import { checkoutTranslatables, emailTranslatables } from "./checkout-words"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { pageSections } from "@/lib/website-builder/preview-link"
@@ -391,6 +391,8 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
   groups.push({ id: "ui", title: "Shop words", items: uiTranslatables() })
   /* The website's checkout, sentence by sentence (lib/markets/checkout-words.ts). */
   groups.push({ id: "checkout", title: "Checkout", items: checkoutTranslatables() })
+  /* A buyer's emails: order confirmed, shipped, a return, a refund (lib/emails/words.ts). */
+  groups.push({ id: "emails", title: "Order emails", items: emailTranslatables() })
   return groups
 }
 

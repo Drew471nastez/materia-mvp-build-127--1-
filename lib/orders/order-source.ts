@@ -80,6 +80,8 @@ export interface OrderOrigin {
   from?: string
   utm_source?: string
   utm_campaign?: string
+  /** The language the checkout was in ("fr"), so the buyer's emails are written in it (lib/emails/words.ts). */
+  lang?: string
 }
 
 export const SURFACE_LABEL: Record<OrderSurface, string> = {
@@ -171,6 +173,7 @@ export function cleanOrigin(input: unknown): OrderOrigin | null {
   if (us) out.utm_source = us
   const uc = cleanUtm(raw.utm_campaign)
   if (uc) out.utm_campaign = uc
+  if (typeof raw.lang === "string" && /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(raw.lang.trim())) out.lang = raw.lang.trim()
   return Object.keys(out).length > 0 ? out : null
 }
 
@@ -182,6 +185,7 @@ const SHORT: Array<[keyof OrderOrigin, string]> = [
   ["from", "f"],
   ["utm_source", "us"],
   ["utm_campaign", "uc"],
+  ["lang", "l"],
 ]
 
 export function encodeOrigin(origin: OrderOrigin | null | undefined): string {

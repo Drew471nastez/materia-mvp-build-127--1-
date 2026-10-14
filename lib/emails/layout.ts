@@ -43,6 +43,7 @@
  */
 import { STORELIB_EMAIL_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
 import { contrast, hexColor, textOn } from "@/lib/email-campaigns/brand"
+import { emailLanguage, et } from "./words"
 
 export const EMAIL_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 const MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
@@ -325,7 +326,7 @@ export function emailKit(sender: EmailSender): EmailKit {
     },
     fallback(url) {
       return row(
-        `<p class="e-muted" style="${P(13, 20, K.muted)}">Button not working? Paste this link into your browser:</p><p class="e-muted" style="${P(13, 20, K.muted, "margin:2px 0 0 0;word-break:break-all;")}"><a class="e-link" href="${esc(url)}" target="_blank" style="color:${K.muted};text-decoration:underline;">${esc(url)}</a></p>`,
+        `<p class="e-muted" style="${P(13, 20, K.muted)}">${et("Button not working? Paste this link into your browser:")}</p><p class="e-muted" style="${P(13, 20, K.muted, "margin:2px 0 0 0;word-break:break-all;")}"><a class="e-link" href="${esc(url)}" target="_blank" style="color:${K.muted};text-decoration:underline;">${esc(url)}</a></p>`,
         16,
       )
     },
@@ -475,9 +476,9 @@ ${amount}
     tracking(carrier, number, url) {
       if (!number && !url) return ""
       const num = number ? `<p class="e-ink" style="margin:2px 0 0 0;font-family:${MONO};font-size:15px;line-height:22px;font-weight:600;color:${K.ink};word-break:break-all;">${esc(number)}</p>` : ""
-      const track = url ? `<td align="right" valign="middle" style="padding:14px 16px;white-space:nowrap;"><p style="${P(14, 20, K.ink, "font-weight:600;")}">${linkHtml("Track", url)}</p></td>` : ""
+      const track = url ? `<td align="right" valign="middle" style="padding:14px 16px;white-space:nowrap;"><p style="${P(14, 20, K.ink, "font-weight:600;")}">${linkHtml(et("Track"), url)}</p></td>` : ""
       return row(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;"><tr><td valign="middle" style="padding:14px 16px;"><p class="e-muted" style="${P(13, 18, K.muted)}">${esc(carrier || "Tracking number")}</p>${num}</td>${track}</tr></table>`,
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;"><tr><td valign="middle" style="padding:14px 16px;"><p class="e-muted" style="${P(13, 18, K.muted)}">${esc(carrier || et("Tracking number"))}</p>${num}</td>${track}</tr></table>`,
         20,
       )
     },
@@ -665,7 +666,7 @@ export function emailDocument(input: EmailDocumentInput): string {
   const rows = Array.isArray(input.rows) ? input.rows.filter(Boolean).join("\n") : input.rows
   const foot = footerHtml(input.sender, input.footer)
   return `<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="${esc(emailLanguage())}" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -681,7 +682,7 @@ export function emailDocument(input: EmailDocumentInput): string {
 </head>
 <body class="e-bg" style="margin:0;padding:0;background-color:${K.page};word-spacing:normal;" bgcolor="${K.page}">
 ${preheader(input.preview)}
-<div role="article" aria-roledescription="email" aria-label="${esc(input.subject)}" lang="en" class="e-bg" style="background-color:${K.page};">
+<div role="article" aria-roledescription="email" aria-label="${esc(input.subject)}" lang="${esc(emailLanguage())}" class="e-bg" style="background-color:${K.page};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-bg" bgcolor="${K.page}" style="width:100%;background-color:${K.page};">
 <tr><td align="center" class="e-outer" style="padding:40px 24px 48px;">
 <!--[if mso]><table role="presentation" width="560" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->

@@ -134,20 +134,55 @@ export function siteSameAs(settings: Record<string, unknown>): string[] {
   return sameAsUrls(SOCIAL_SETTING_IDS.map((id) => settings[id]))
 }
 
+function sitemapRow(e: SitemapEntry): string {
+  const images = (e.images ?? []).slice(0, MAX_IMAGES_PER_PAGE).map(
+    (i) => `    <image:image><image:loc>${xmlEscape(i.loc)}</image:loc>${i.title ? `<image:title>${xmlEscape(i.title)}</image:title>` : ""}</image:image>`,
+  )
+  return [
+    "  <url>",
+    `    <loc>${xmlEscape(e.loc)}</loc>`,
+    ...(e.lastmod ? [`    <lastmod>${xmlEscape(e.lastmod)}</lastmod>`] : []),
+    ...(e.alternates ?? []).map((a) => `    <xhtml:link rel="alternate" hreflang="${xmlEscape(a.hreflang)}" href="${xmlEscape(a.href)}"/>`),
+    ...images,
+    "  </url>",
+  ].join("\n")
+}
+
+/** A sitemap file's limits as search engines read them: 50,000 addresses and 50MB; kept under both. */
+export const SITEMAP_CHUNK_URLS = 45_000
+export const SITEMAP_CHUNK_BYTES = 45_000_000
+
+/**
+ * The addresses split into files that each stay under the limits. A website
+ * in many languages repeats each address once per language, every one naming
+ * all the others, so a large shop passes 50MB long before 50,000 addresses;
+ * the addresses past the first file were dropped before.
+ */
+export function sitemapChunks(entries: SitemapEntry[]): SitemapEntry[][] {
+  const out: SitemapEntry[][] = []
+  let chunk: SitemapEntry[] = []
+  let bytes = 0
+  for (const e of entries) {
+    const size = sitemapRow(e).length + 1
+    if (chunk.length && (chunk.length >= SITEMAP_CHUNK_URLS || bytes + size > SITEMAP_CHUNK_BYTES)) {
+      out.push(chunk)
+      chunk = []
+      bytes = 0
+    }
+    chunk.push(e)
+    bytes += size
+  }
+  if (chunk.length) out.push(chunk)
+  return out
+}
+
+/** The index naming each file, for a website whose addresses do not fit in one. */
+export function sitemapIndexXml(locs: string[]): string {
+  return ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', ...locs.map((l) => `  <sitemap><loc>${xmlEscape(l)}</loc></sitemap>`), "</sitemapindex>", ""].join("\n")
+}
+
 export function sitemapXml(entries: SitemapEntry[]): string {
-  const rows = entries.slice(0, MAX_SITEMAP_URLS).map((e) => {
-    const images = (e.images ?? []).slice(0, MAX_IMAGES_PER_PAGE).map(
-      (i) => `    <image:image><image:loc>${xmlEscape(i.loc)}</image:loc>${i.title ? `<image:title>${xmlEscape(i.title)}</image:title>` : ""}</image:image>`,
-    )
-    return [
-      "  <url>",
-      `    <loc>${xmlEscape(e.loc)}</loc>`,
-      ...(e.lastmod ? [`    <lastmod>${xmlEscape(e.lastmod)}</lastmod>`] : []),
-      ...(e.alternates ?? []).map((a) => `    <xhtml:link rel="alternate" hreflang="${xmlEscape(a.hreflang)}" href="${xmlEscape(a.href)}"/>`),
-      ...images,
-      "  </url>",
-    ].join("\n")
-  })
+  const rows = entries.slice(0, MAX_SITEMAP_URLS).map(sitemapRow)
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     entries.some((e) => e.alternates?.length)

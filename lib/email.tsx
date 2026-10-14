@@ -11,6 +11,7 @@
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { emailImageSrc, senderPicture, type SenderPicture } from "@/lib/email-campaigns/sender"
 import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
+import { et, inEmailLanguage } from "@/lib/emails/words"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 import { creatorTimeZone, formatForCreator } from "@/lib/account/time-zone"
 import type { MailAttachment } from "./mailgun"
@@ -152,6 +153,8 @@ export interface SendBuyerEmailParams {
    * (getStableBaseUrl), so this is taken as it is.
    */
   receiptBaseUrl?: string | null
+  /** The language the order was placed in (its origin's `lang`): the email is written in it (lib/emails/words.ts). */
+  lang?: string | null
 }
 
 export interface SendSellerEmailParams {
@@ -872,12 +875,22 @@ export async function sendBuyerDownloadEmail(
     }
   }
   const firstTitle = model.items[0]?.title ?? productTitle
-  const subject = await withReceiptCopy(
-    admin,
-    creatorId,
-    model,
-    model.items.length > 1 ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items` : `Your receipt for ${safeText(firstTitle)}`,
-  )
+  /* In the language the order was placed in (lib/emails/words.ts): the model's own words, the subject and the email are built in it. */
+  const language = creatorId ? await import("@/lib/emails/words-server").then((m) => m.emailLanguageFor(creatorId, params.lang)).catch(() => null) : null
+  const say = <T,>(build: () => T): T => inEmailLanguage(language?.lang, language?.words, build)
+  const standard = say(() => {
+    const word = (v: string | null | undefined) =>
+      v === "Free" ? et("Free") : v === "Download your files" ? et("Download your files") : v === "View your receipt" ? et("View your receipt") : v === "Waiting for payment" ? et("Waiting for payment") : v === "Refunded" ? et("Refunded") : v === "Payment failed" ? et("Payment failed") : v === "On hold" ? et("On hold") : v
+    model.buttonLabel = word(model.buttonLabel) ?? model.buttonLabel
+    model.totalText = word(model.totalText) ?? model.totalText
+    model.subtotalText = word(model.subtotalText) ?? model.subtotalText
+    model.items = model.items.map((i) => ({ ...i, note: word(i.note) ?? null, amountText: word(i.amountText) ?? i.amountText }))
+    return model.items.length > 1 ? et("Your receipt from {shop}: {count} items", { shop: safeText(model.sellerName), count: model.items.length }) : et("Your receipt for {title}", { title: safeText(firstTitle) })
+  })
+  /* The store's own words (Settings › Customer emails) are in its website's language: a buyer in another gets the standard ones in theirs. */
+  const subject = language && !language.own ? standard : await withReceiptCopy(admin, creatorId, model, standard)
+  const html = say(() => buyerReceiptEmailHtml(model))
+  const text = say(() => buyerReceiptEmailText(model))
 
   try {
     const result = await withRetry(
@@ -887,8 +900,8 @@ export async function sendBuyerDownloadEmail(
           to: customerEmail,
           replyTo,
           subject,
-          html: buyerReceiptEmailHtml(model),
-          text: buyerReceiptEmailText(model),
+          html,
+          text,
           attachments,
         })
 

@@ -95,7 +95,7 @@ function main() {
   check("a card order's email has no cash line", !/in cash/.test(paidMail.text))
   const jobs = read("lib/physical/jobs-server.ts")
   check("the job tells the email when the cash is still due", /cashDue: co\.provider === COD_PROVIDER && !co\.cod_collected_at/.test(jobs))
-  check("the payment label names it", /\[COD_PAYMENT_METHOD\]: "Cash on delivery"/.test(jobs))
+  check("the payment label names it", /* Changed on purpose: in the buyer's language (lib/emails/words.ts). */ /\[COD_PAYMENT_METHOD\]: et\("Cash on delivery"\)/.test(jobs))
 
   console.log("\nPlacing the order (lib/physical/checkout-server.ts)")
   const server = read("lib/physical/checkout-server.ts")

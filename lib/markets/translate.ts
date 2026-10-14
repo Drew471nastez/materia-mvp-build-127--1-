@@ -15,6 +15,8 @@
  *                                              "Small"), once for the whole shop
  *   checkout:<hash>                            a sentence of the website's checkout
  *                                              (lib/markets/checkout-words.ts)
+ *   email:<hash>                               a sentence of a buyer's emails
+ *                                              (lib/emails/words.ts)
  *
  * Drawing a page in a language lays its values over the original
  * (localizeSections, localizeRecord); a key with no value, or a value that is
@@ -67,7 +69,7 @@ export const blockKey = (sectionId: string, blockId: string, settingId: string) 
 
 /** A key that is one of the shapes above, at a sane length, and nothing else. */
 export function isTranslationKey(key: unknown): key is string {
-  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+|theme:[a-z_]+|ui:[a-z_]+|option:[0-9a-f]{8}|checkout:[0-9a-f]{8})$/i.test(key)
+  return typeof key === "string" && key.length <= 300 && /^(section:[^:\s]+:[^:\s]+|block:[^:\s]+:[^:\s]+:[^:\s]+|product:[0-9a-f-]{36}:[a-z_]+|collection:[0-9a-f-]{36}:[a-z_]+|menu:[^:\s]+:[^:\s]+|page:[^:\s]+:[a-z_]+|theme:[a-z_]+|ui:[a-z_]+|option:[0-9a-f]{8}|checkout:[0-9a-f]{8}|email:[0-9a-f]{8})$/i.test(key)
 }
 
 /** Where a key's value is shown, in words, for the translations list. */
@@ -139,13 +141,14 @@ export function statusOf(row: TranslationRow | undefined, source: string): "miss
 
 /**
  * THE WORDS STORELIB WRITES ITSELF are English: the shop's own words (a cart,
- * Add to cart, `ui:`) and the checkout's (`checkout:`). A website written in
+ * Add to cart, `ui:`), the checkout's (`checkout:`) and a buyer's emails'
+ * (`email:`). A website written in
  * another language translates those two groups into its own language too,
  * and only those: the rest of its text is already in it.
  */
 export const isEnglish = (locale: string) => /^en(-|$)/i.test(locale)
-export const BUILT_IN_GROUPS: ReadonlySet<string> = new Set(["ui", "checkout"])
-export const isBuiltInWordKey = (key: string) => /^(ui|checkout):/.test(key)
+export const BUILT_IN_GROUPS: ReadonlySet<string> = new Set(["ui", "checkout", "emails"])
+export const isBuiltInWordKey = (key: string) => /^(ui|checkout|email):/.test(key)
 
 /** What Storelib AI may write, by the press or the hourly job: missing, or outdated and its own. Never the merchant's words. */
 export function aiMayWrite(row: TranslationRow | undefined, source: string): boolean {

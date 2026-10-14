@@ -68,6 +68,8 @@ export interface SiteData {
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shop: CompatPage["shop"]
   host: string
+  /** The website's own address (its primary domain), which its canonical and its languages name whatever host the page was reached at. */
+  canonicalHost?: string
   /** The page as Shopify's theme editor shows it: the builder's preview. */
   designMode?: boolean
   /** A product's own page data (its description as markup), when the catalogue's card is not enough. */
@@ -348,8 +350,9 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
 /** The same page in every language of the website, for search engines (hreflang, x-default the website's own). */
 function languageLinks(site: SiteData, path: string): string {
   const i18n = site.i18n
-  if (!i18n || i18n.languages.length < 2 || !site.host) return ""
-  const at = (code: string) => `https://${site.host}${localeRoot(i18n, code)}${path === "/" && localeRoot(i18n, code) ? "" : path}`
+  const host = site.canonicalHost ?? site.host
+  if (!i18n || i18n.languages.length < 2 || !host) return ""
+  const at = (code: string) => `https://${host}${localeRoot(i18n, code)}${path === "/" && localeRoot(i18n, code) ? "" : path}`
   const links = i18n.languages.map((l) => `<link rel="alternate" hreflang="${escapeHtml(l)}" href="${escapeHtml(at(l))}">`)
   links.push(`<link rel="alternate" hreflang="x-default" href="${escapeHtml(at(i18n.defaultLanguage))}">`)
   return links.join("")
@@ -628,6 +631,7 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     designMode: site.designMode === true,
     pageKeys: siteKeys(site),
     host: site.host,
+    canonicalHost: site.canonicalHost,
     query: Object.fromEntries(req.query.entries()),
     products: site.products,
     pickable: site.pickable,

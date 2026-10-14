@@ -424,7 +424,7 @@ function main() {
   check("escapeHtml escapes quotes as well as brackets", /\.replace\(\/"\/g, "&quot;"\)/.test(email))
   check("no gradient and no em dash in the receipt email", !/gradient/.test(tpl) && !/—/.test(tpl))
   check("it lists every line of the payment from the receipt loader", /loadReceiptByToken\(admin, params\.receiptToken\)/.test(email))
-  check("it shows the order number and the total", /Order \$\{m\.orderNumber\}/.test(tpl) && /\{ label: "Total", value: m\.totalText, strong: true \}/.test(tpl) && /Order #1 ·/.test(hostile) && />\$1\.00</.test(hostile))
+  check("it shows the order number and the total", /* Changed on purpose: in the buyer's language (lib/emails/words.ts). */ /et\("Order \{number\}", \{ number: m\.orderNumber \}\)/.test(tpl) && /\{ label: et\("Total"\), value: m\.totalText, strong: true \}/.test(tpl) && /Order #1 ·/.test(hostile) && />\$1\.00</.test(hostile))
   const sender = email.slice(email.indexOf("export async function sendBuyerDownloadEmail"), email.indexOf("export async function sendSellerNotificationEmail"))
   check("the buyer's address is never logged in full", !/console\.(log|error)\([^)]*customerEmail\b(?!\))/.test(sender.replace(/maskEmail\(customerEmail\)/g, "")))
 

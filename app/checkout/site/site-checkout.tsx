@@ -594,7 +594,8 @@ export function SiteCheckout({
       buyerNote: note,
       cartAttributes,
       wholeCart,
-      origin: checkoutOrigin(shopId),
+      /* With the language this page is in, so the buyer's emails are written in it (lib/emails/words.ts). */
+      origin: pageLang ? { ...(checkoutOrigin(shopId) ?? {}), lang: pageLang } : checkoutOrigin(shopId),
     }
   }
 

@@ -39,7 +39,7 @@ import { randomBytes } from "node:crypto"
 import { unpackItems, packedTotalCents, apportionFee, lineTotalCents, type PackedItem } from "./cart-items"
 import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
 import { recordCouponUse } from "./coupons"
-import { orderOriginFrom } from "@/lib/orders/order-source"
+import { ORIGIN_METADATA_KEY, decodeOrigin, orderOriginFrom } from "@/lib/orders/order-source"
 import { attributionFromMetadata } from "@/lib/attribution/server"
 import { paymentFacts, recordSale, sameSecret } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
@@ -264,6 +264,8 @@ export async function fulfilCartPayment(
     consent: metadata.email_opt_in === "true" ? "ticked" : "none",
     /* The website's own address (app/api/checkout/site wrote the request's host, a website of this shop), so the emailed receipt opens there. */
     buyerBaseUrl: /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(metadata.site_origin || "") ? metadata.site_origin : null,
+    /* The language the checkout was in (the order's origin, lib/orders/order-source.ts): the receipt email is written in it. */
+    buyerLang: decodeOrigin(metadata[ORIGIN_METADATA_KEY])?.lang ?? null,
   })
   if (!written.receiptToken) return { ok: false, status: 500, reason: "failed" }
   return { ok: true, created: written.created, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, creatorId }
@@ -290,6 +292,8 @@ async function writeBasket(
     consent?: "ticked" | "none"
     /** Where the buyer's receipt link points: the website the checkout was on, when it was one. The seller's links stay on Storelib. */
     buyerBaseUrl?: string | null
+    /** The language the checkout was in, for the buyer's receipt email. */
+    buyerLang?: string | null
   },
 ): Promise<{ created: boolean; receiptToken: string | null; complete: boolean }> {
   /* The fee, apportioned once for the whole basket over what each line was
@@ -329,6 +333,7 @@ async function writeBasket(
       business: s.business ?? null,
       consent: s.consent ?? "none",
       buyerBaseUrl: s.buyerBaseUrl ?? null,
+      buyerLang: s.buyerLang ?? null,
       items,
     })
   }
@@ -466,6 +471,7 @@ async function sideEffects(
     business: BusinessDetails | null
     consent?: "ticked" | "none"
     buyerBaseUrl?: string | null
+    buyerLang?: string | null
     items: PackedItem[]
   },
 ) {
@@ -538,6 +544,7 @@ async function sideEffects(
           sellerReplyTo: sellerEmail,
           baseUrl: s.baseUrl,
           receiptBaseUrl: s.buyerBaseUrl ?? null,
+          lang: s.buyerLang ?? null,
           amountCents: s.paidTotal,
         }),
       )

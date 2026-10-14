@@ -243,6 +243,8 @@ export interface CompatPage {
   query?: Record<string, string>
   designMode: boolean
   host?: string
+  /** The website's own address, for its canonical (SiteData canonicalHost). */
+  canonicalHost?: string
   title?: string
   description?: string
   products: CardLike[]
@@ -643,7 +645,8 @@ export class CompatTheme {
       template,
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
-      canonical_url: page.host ? `https://${page.host}${page.path}` : page.path,
+      /* The website's own address, as its built pages name it, whatever host this page was reached at. */
+      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${page.path}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
       content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
       collections,

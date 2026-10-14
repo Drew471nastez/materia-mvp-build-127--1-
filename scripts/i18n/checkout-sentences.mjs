@@ -63,11 +63,36 @@ export function scan() {
   return out
 }
 
-function render(list) {
-  return `/* Written by scripts/i18n/checkout-sentences.mjs from the ct("…") calls under ${DIRS.join(" and ")} and the answers of the checkout's server code. Do not edit: run it again. */\nexport const CHECKOUT_SENTENCES: readonly string[] = [\n${list.map(([t]) => `  ${JSON.stringify(t)},`).join("\n")}\n]\n`
+/* A buyer's emails (lib/emails/words.ts): every et("…") in the files that build them. */
+const EMAIL_FILES = ["lib/physical/email-templates.ts", "lib/emails/layout.ts", "lib/receipts/email.ts", "lib/email.tsx", "lib/physical/jobs-server.ts"]
+const EMAIL_CALL = /\bet\(\s*("(?:[^"\\\n]|\\.)*"|`(?:[^`\\$]|\\.)*`)/g
+
+export function scanEmails() {
+  const seen = new Set()
+  const out = []
+  for (const rel of EMAIL_FILES) {
+    let src = ""
+    try {
+      src = readFileSync(join(ROOT, rel), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+    } catch {
+      continue
+    }
+    for (const m of src.matchAll(EMAIL_CALL)) {
+      const lit = m[1]
+      const text = lit[0] === "`" ? lit.slice(1, -1).replace(/\\(.)/g, "$1") : JSON.parse(lit)
+      if (!text.trim() || seen.has(text)) continue
+      seen.add(text)
+      out.push(text)
+    }
+  }
+  return out
 }
 
-const want = render(scan())
+function render(list, emails) {
+  return `/* Written by scripts/i18n/checkout-sentences.mjs from the ct("…") calls under ${DIRS.join(" and ")} and the answers of the checkout's server code, and the et("…") calls of a buyer's emails. Do not edit: run it again. */\nexport const CHECKOUT_SENTENCES: readonly string[] = [\n${list.map(([t]) => `  ${JSON.stringify(t)},`).join("\n")}\n]\n\nexport const EMAIL_SENTENCES: readonly string[] = [\n${emails.map((t) => `  ${JSON.stringify(t)},`).join("\n")}\n]\n`
+}
+
+const want = render(scan(), scanEmails())
 if (process.argv.includes("--check")) {
   let have = ""
   try {
@@ -82,5 +107,5 @@ if (process.argv.includes("--check")) {
   console.log("checkout sentences up to date")
 } else {
   writeFileSync(OUT, want)
-  console.log(`checkout sentences: ${scan().length}`)
+  console.log(`checkout sentences: ${scan().length}, email sentences: ${scanEmails().length}`)
 }

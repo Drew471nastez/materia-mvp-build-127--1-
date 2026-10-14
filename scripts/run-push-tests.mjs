@@ -39,6 +39,8 @@ const SUITES = [
   "tests/shop-money.test.ts",
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
+  "tests/order-emails-language.test.ts",
+  "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
   "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",

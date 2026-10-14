@@ -13,6 +13,7 @@ import { finalizeEmailHtml } from "@/lib/mail-document"
 import { emailDocument, emailKit, plainOf, type EmailKit, type EmailSender } from "@/lib/emails/layout"
 import { itemsText, type ResolvedCopy } from "@/lib/emails/customer-custom"
 import { addressLines } from "./address"
+import { emailLanguage, et } from "@/lib/emails/words"
 import type { Address } from "./types"
 
 export interface EmailLine {
@@ -92,7 +93,9 @@ export function orderDateText(value: string | number | Date | null | undefined, 
   const d = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(d.getTime())) return ""
   try {
-    return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", ...(timeZone ? { timeZone } : {}) }).format(d)
+    /* In the email's language when it is built in one (lib/emails/words.ts); "10 October 2026" in English. */
+    const lang = emailLanguage()
+    return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : lang, { day: "numeric", month: "long", year: "numeric", ...(timeZone ? { timeZone } : {}) }).format(d)
   } catch {
     return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(d)
   }
@@ -111,8 +114,8 @@ function kitFor(shopName: string, brand: EmailBrand | undefined): EmailKit {
 function legalLine(shopName: string, brand: EmailBrand | undefined): string {
   const l = brand?.legal
   if (!l?.name?.trim()) return shopName
-  const parts = [`Sold by ${l.name.trim()}`, ...(l.address ?? []).map((a) => a.trim()).filter(Boolean)]
-  const tax = l.taxId?.trim() ? `${l.taxIdLabel?.trim() || "Tax ID"} ${l.taxId.trim()}` : ""
+  const parts = [et("Sold by {name}", { name: l.name.trim() }), ...(l.address ?? []).map((a) => a.trim()).filter(Boolean)]
+  const tax = l.taxId?.trim() ? `${l.taxIdLabel?.trim() || et("Tax ID")} ${l.taxId.trim()}` : ""
   return [parts.join(", "), tax].filter(Boolean).join(" · ")
 }
 
@@ -123,8 +126,8 @@ function brandFooter(shopName: string, brand: EmailBrand | undefined, footer: st
   if (brand?.email) reach.push(a(`mailto:${brand.email}`, esc(brand.email)))
   if (brand?.phone) reach.push(a(`tel:${brand.phone.replace(/[^+\d]/g, "")}`, esc(brand.phone)))
   if (brand?.websiteUrl && /^https:\/\//.test(brand.websiteUrl)) reach.push(a(brand.websiteUrl, esc(brand.websiteUrl.replace(/^https:\/\//, "").replace(/\/$/, ""))))
-  const first = footer ?? `Questions about this order? Reply to this email and it goes to ${esc(shopName)}.`
-  const help = brand?.helpUrl ? `<br>Something wrong with your order? ${a(brand.helpUrl, "Get help with this order")}.` : ""
+  const first = footer ?? et("Questions about this order? Reply to this email and it goes to {shop}.", { shop: esc(shopName) })
+  const help = brand?.helpUrl ? `<br>${et("Something wrong with your order? {link}.", { link: a(brand.helpUrl, et("Get help with this order")) })}` : ""
   return `${first}${reach.length ? `<br>${reach.join(" &nbsp;&middot;&nbsp; ")}` : ""}${help}`
 }
 
@@ -138,7 +141,7 @@ function brandFooter(shopName: string, brand: EmailBrand | undefined, footer: st
  */
 function shell(shopName: string, heading: string, intro: string, body: string, subject: string, opts: { aside?: string; footer?: string; brand?: EmailBrand; date?: string | null; reason?: string | null } = {}): string {
   const k = kitFor(shopName, opts.brand)
-  const reason = opts.reason === null ? null : opts.reason ?? `You're getting this email because of your order with ${shopName}.`
+  const reason = opts.reason === null ? null : opts.reason ?? et("You're getting this email because of your order with {shop}.", { shop: shopName })
   const html = emailDocument({
     sender: storeSender(shopName, opts.brand),
     subject,
@@ -152,19 +155,19 @@ function shell(shopName: string, heading: string, intro: string, body: string, s
 
 /** The plain text part's last lines: the legal line and why it came. */
 function legalText(shopName: string, brand: EmailBrand | undefined, reason?: string | null): string[] {
-  const why = reason === null ? "" : reason ?? `You're getting this email because of your order with ${shopName}.`
+  const why = reason === null ? "" : reason ?? et("You're getting this email because of your order with {shop}.", { shop: shopName })
   return ["", "--", legalLine(shopName, brand), ...(why ? [why] : [])]
 }
 
 /** Plain-text footer lines: the same ways to reach the store. */
 function brandText(brand: EmailBrand | undefined): string[] {
   const out = [brand?.email, brand?.phone, brand?.websiteUrl].filter((x): x is string => !!x)
-  return [...(out.length ? ["", ...out] : []), ...(brand?.helpUrl ? ["", `Get help with this order: ${brand.helpUrl}`] : [])]
+  return [...(out.length ? ["", ...out] : []), ...(brand?.helpUrl ? ["", `${et("Get help with this order")}: ${brand.helpUrl}`] : [])]
 }
 
 /** Where the parcel is, as four steps: confirmed, on its way, out for delivery, delivered. */
 function progressBar(k: EmailKit, at: 0 | 1 | 2 | 3): string {
-  return k.steps(["Confirmed", "On its way", "Out for delivery", "Delivered"], at)
+  return k.steps([et("Confirmed"), et("On its way"), et("Out for delivery"), et("Delivered")], at)
 }
 
 /** The carrier and the number, with the number large enough to read off, and a Track link. */
@@ -174,7 +177,7 @@ function trackingBox(k: EmailKit, carrier: string | null, number: string | null,
 
 /** A second way on, as a link under the button. */
 function textLink(k: EmailKit, href: string, label: string): string {
-  return k.link(label, href, { prefix: "or" })
+  return k.link(label, href, { prefix: et("or") })
 }
 
 /** The items: picture, name, variant and quantity, and what was paid for each when `prices`. */
@@ -182,7 +185,7 @@ function linesTable(k: EmailKit, lines: EmailLine[], currency: string, prices = 
   return k.items(
     lines.map((l) => ({
       title: l.title,
-      detail: [l.variantName, `Qty ${l.quantity}`].filter(Boolean).join(" · "),
+      detail: [l.variantName, et("Qty {quantity}", { quantity: l.quantity })].filter(Boolean).join(" · "),
       amount: prices ? formatMoney(l.cents, currency) : null,
       imageUrl: l.imageUrl && /^https:\/\//.test(l.imageUrl) ? l.imageUrl : null,
     })),
@@ -192,11 +195,11 @@ function linesTable(k: EmailKit, lines: EmailLine[], currency: string, prices = 
 function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value: string; tone?: "good" }[] = []): string {
   const shipping = t.shipping - t.shippingDiscount
   return k.totals([
-    { label: "Subtotal", value: formatMoney(t.subtotal, t.currency) },
-    ...(t.discount > 0 ? [{ label: "Discount", value: `-${formatMoney(t.discount, t.currency)}` }] : []),
-    ...(t.shipping > 0 || t.shippingDiscount > 0 ? [{ label: "Shipping", value: shipping === 0 ? "Free" : formatMoney(shipping, t.currency) }] : []),
+    { label: et("Subtotal"), value: formatMoney(t.subtotal, t.currency) },
+    ...(t.discount > 0 ? [{ label: et("Discount"), value: `-${formatMoney(t.discount, t.currency)}` }] : []),
+    ...(t.shipping > 0 || t.shippingDiscount > 0 ? [{ label: et("Shipping"), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
     ...taxRows(t),
-    { label: "Total", value: formatMoney(t.total, t.currency), strong: true },
+    { label: et("Total"), value: formatMoney(t.total, t.currency), strong: true },
     ...extra,
   ])
 }
@@ -209,8 +212,10 @@ function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value:
 function taxRows(t: EmailTotals): { label: string; value: string }[] {
   const name = (l: string) => {
     // eslint-disable-next-line no-control-regex
-    const clean = l.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 60) || "Tax"
-    return t.taxIncluded ? `Including ${/^tax\b/i.test(clean) ? "tax" + clean.slice(3) : clean}` : clean
+    const named = l.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 60)
+    /* Unnamed, it is the email's word for tax; named ("VAT 19%"), the checkout's name for it. */
+    if (!named || /^tax$/i.test(named)) return t.taxIncluded ? et("Including tax") : et("Tax")
+    return t.taxIncluded ? et("Including {tax}", { tax: /^tax\b/i.test(named) ? "tax" + named.slice(3) : named }) : named
   }
   const lines = (t.taxLines ?? []).filter((l) => l && l.cents > 0 && typeof l.label === "string" && l.label.trim())
   if (lines.length) return lines.map((l) => ({ label: name(l.label), value: formatMoney(l.cents, t.currency) }))
@@ -221,11 +226,11 @@ function taxRows(t: EmailTotals): { label: string; value: string }[] {
 function totalsText(t: EmailTotals): string[] {
   const shipping = t.shipping - t.shippingDiscount
   return [
-    `Subtotal: ${formatMoney(t.subtotal, t.currency)}`,
-    ...(t.discount > 0 ? [`Discount: -${formatMoney(t.discount, t.currency)}`] : []),
-    ...(t.shipping > 0 || t.shippingDiscount > 0 ? [`Shipping: ${shipping === 0 ? "Free" : formatMoney(shipping, t.currency)}`] : []),
+    `${et("Subtotal")}: ${formatMoney(t.subtotal, t.currency)}`,
+    ...(t.discount > 0 ? [`${et("Discount")}: -${formatMoney(t.discount, t.currency)}`] : []),
+    ...(t.shipping > 0 || t.shippingDiscount > 0 ? [`${et("Shipping")}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
     ...taxRows(t).map((r) => `${r.label}: ${r.value}`),
-    `Total: ${formatMoney(t.total, t.currency)}`,
+    `${et("Total")}: ${formatMoney(t.total, t.currency)}`,
   ]
 }
 
@@ -279,8 +284,8 @@ export interface PickupPlace {
 
 function pickupBlock(k: EmailKit, p: PickupPlace): string {
   const lines = [p.name, ...p.address].map(esc).join("<br>")
-  const extra = [p.ready ? esc(p.ready) : "", p.hours ? `Opening hours: ${esc(p.hours)}` : "", p.instructions ? esc(p.instructions).replace(/\n/g, "<br>") : ""].filter(Boolean).join("<br><br>")
-  return k.labeled("Pick up at", `${lines}${extra ? `<br><br>${extra}` : ""}`)
+  const extra = [p.ready ? esc(p.ready) : "", p.hours ? et("Opening hours: {hours}", { hours: esc(p.hours) }) : "", p.instructions ? esc(p.instructions).replace(/\n/g, "<br>") : ""].filter(Boolean).join("<br><br>")
+  return k.labeled(et("Pick up at"), `${lines}${extra ? `<br><br>${extra}` : ""}`)
 }
 
 /** A heading over a part of the email, with a rule above it. */
@@ -303,52 +308,59 @@ function infoGrid(k: EmailKit, cells: { label: string; html: string }[]): string
  */
 export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; html: string; text: string } {
   const k = kitFor(m.shopName, m.brand)
-  const subject = m.copy?.subject ?? `Order ${m.orderNumber} confirmed`
-  const hello = m.buyerFirstName ? `Hi ${esc(m.buyerFirstName)}, ` : ""
-  const next = m.pickup ? "we're getting your order ready. We'll email you when it's ready to pick up." : m.address?.line1 ? "we're getting your order ready to be shipped. We'll let you know when it's on its way." : "your order is confirmed and everything is on your order page."
-  const cash = m.cashDue ? ` Pay ${formatMoney(m.totals.total, m.totals.currency)} in cash when ${m.pickup ? "you pick it up" : "it's delivered"}.` : ""
-  const intro = (m.copy?.introHtml ?? `${hello}${hello ? next : next.charAt(0).toUpperCase() + next.slice(1)}${m.hasDownloads ? " Your downloads are on your order page." : ""}`) + esc(cash)
+  const subject = m.copy?.subject ?? et("Order {number} confirmed", { number: m.orderNumber })
+  /* Whole sentences, with and without the name, so a translation can put the name where its language does. */
+  const name = m.buyerFirstName ? esc(m.buyerFirstName) : null
+  const next = m.pickup
+    ? name ? et("Hi {name}, we're getting your order ready. We'll email you when it's ready to pick up.", { name }) : et("We're getting your order ready. We'll email you when it's ready to pick up.")
+    : m.address?.line1
+      ? name ? et("Hi {name}, we're getting your order ready to be shipped. We'll let you know when it's on its way.", { name }) : et("We're getting your order ready to be shipped. We'll let you know when it's on its way.")
+      : name ? et("Hi {name}, your order is confirmed and everything is on your order page.", { name }) : et("Your order is confirmed and everything is on your order page.")
+  const amount = formatMoney(m.totals.total, m.totals.currency)
+  const cash = m.cashDue ? ` ${m.pickup ? et("Pay {amount} in cash when you pick it up.", { amount }) : et("Pay {amount} in cash when it's delivered.", { amount })}` : ""
+  const intro = (m.copy?.introHtml ?? `${next}${m.hasDownloads ? ` ${et("Your downloads are on your order page.")}` : ""}`) + esc(cash)
   const saved = m.totals.discount + m.totals.shippingDiscount
   const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `<br>${esc(m.deliveryEstimate)}` : ""}` : null
   const info: { label: string; html: string }[] = []
-  if (m.pickup) info.push({ label: "Pick up at", html: [m.pickup.name, ...m.pickup.address].map(esc).join("<br>") + (m.pickup.ready ? `<br><br>${esc(m.pickup.ready)}` : "") + (m.pickup.hours ? `<br><br>Opening hours: ${esc(m.pickup.hours)}` : "") + (m.pickup.instructions ? `<br><br>${esc(m.pickup.instructions).replace(/\n/g, "<br>")}` : "") })
-  else if (m.address?.line1) info.push({ label: "Shipping address", html: addressLines(m.address).map(esc).join("<br>") })
-  if (!m.pickup && delivery) info.push({ label: "Shipping method", html: delivery })
-  if (m.paymentLabel) info.push({ label: "Payment method", html: `${esc(m.paymentLabel)}<br>${esc(formatMoney(m.totals.total, m.totals.currency))}` })
+  if (m.pickup) info.push({ label: et("Pick up at"), html: [m.pickup.name, ...m.pickup.address].map(esc).join("<br>") + (m.pickup.ready ? `<br><br>${esc(m.pickup.ready)}` : "") + (m.pickup.hours ? `<br><br>${et("Opening hours: {hours}", { hours: esc(m.pickup.hours) })}` : "") + (m.pickup.instructions ? `<br><br>${esc(m.pickup.instructions).replace(/\n/g, "<br>")}` : "") })
+  else if (m.address?.line1) info.push({ label: et("Shipping address"), html: addressLines(m.address).map(esc).join("<br>") })
+  if (!m.pickup && delivery) info.push({ label: et("Shipping method"), html: delivery })
+  if (m.paymentLabel) info.push({ label: et("Payment method"), html: `${esc(m.paymentLabel)}<br>${esc(formatMoney(m.totals.total, m.totals.currency))}` })
 
-  const actions = k.button(m.copy?.button ?? "View your order", m.statusUrl, { secondary: m.storeUrl && /^https:\/\//.test(m.storeUrl) ? { label: "Visit our store", url: m.storeUrl } : null })
+  const viewOrder = m.copy?.button ?? et("View your order")
+  const actions = k.button(viewOrder, m.statusUrl, { secondary: m.storeUrl && /^https:\/\//.test(m.storeUrl) ? { label: et("Visit our store"), url: m.storeUrl } : null })
   const body = [
     actions,
-    sectionHeading(k, "Order summary"),
+    sectionHeading(k, et("Order summary")),
     linesTable(k, m.lines, m.totals.currency, true),
-    totalsTable(k, m.totals, saved > 0 ? [{ label: "You saved", value: formatMoney(saved, m.totals.currency), tone: "good" }] : []),
-    info.length ? sectionHeading(k, "Customer information") + infoGrid(k, info) : "",
+    totalsTable(k, m.totals, saved > 0 ? [{ label: et("You saved"), value: formatMoney(saved, m.totals.currency), tone: "good" }] : []),
+    info.length ? sectionHeading(k, et("Customer information")) + infoGrid(k, info) : "",
   ].join("")
   const text = [
-    `${m.shopName}: order ${m.orderNumber} confirmed${m.orderDate ? ` (${m.orderDate})` : ""}`,
+    `${et("{shop}: order {number} confirmed", { shop: m.shopName, number: m.orderNumber })}${m.orderDate ? ` (${m.orderDate})` : ""}`,
     "",
     m.copy?.introText != null ? `${m.copy.introText}${cash}` : intro.replace(/<[^>]+>/g, ""),
     "",
-    "Order summary",
+    et("Order summary"),
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
     "",
     ...totalsText(m.totals),
-    ...(saved > 0 ? [`You saved ${formatMoney(saved, m.totals.currency)}`] : []),
+    ...(saved > 0 ? [et("You saved {amount}", { amount: formatMoney(saved, m.totals.currency) })] : []),
     ...(m.pickup
-      ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.hours ? [`Opening hours: ${m.pickup.hours}`] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
+      ? ["", `${et("Pick up at")}:`, m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.hours ? [et("Opening hours: {hours}", { hours: m.pickup.hours })] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
       : m.address?.line1
-        ? ["", "Shipping address:", ...addressLines(m.address), ...(m.deliveryName ? ["", `Shipping method: ${m.deliveryName}`] : [])]
+        ? ["", `${et("Shipping address")}:`, ...addressLines(m.address), ...(m.deliveryName ? ["", `${et("Shipping method")}: ${m.deliveryName}`] : [])]
         : []),
-    ...(m.paymentLabel ? ["", `Payment method: ${m.paymentLabel}`] : []),
+    ...(m.paymentLabel ? ["", `${et("Payment method")}: ${m.paymentLabel}`] : []),
     "",
-    `${m.copy?.button ?? "View your order"}: ${m.statusUrl}`,
-    ...(m.storeUrl ? [`Visit our store: ${m.storeUrl}`] : []),
+    `${viewOrder}: ${m.statusUrl}`,
+    ...(m.storeUrl ? [`${et("Visit our store")}: ${m.storeUrl}`] : []),
     ...brandText(m.brand),
     ...legalText(m.shopName, m.brand),
   ].join("\n")
   const brand: EmailBrand = { ...m.brand, email: m.brand?.email ?? m.supportEmail ?? null }
-  const footer = brand.email ? "If you have any questions, reply to this email or write to the store:" : undefined
-  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer, brand, date: m.orderDate }), text }
+  const footer = brand.email ? et("If you have any questions, reply to this email or write to the store:") : undefined
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? et("Thank you for your purchase!"), intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), footer, brand, date: m.orderDate }), text }
 }
 
 /** "Get directions": the pickup address in a maps search, which opens the phone's maps app. */
@@ -371,18 +383,19 @@ export function pickupEmail(m: {
   orderDate?: string | null
 }): { subject: string; html: string; text: string } {
   const k = kitFor(m.shopName, m.brand)
-  const heading = m.copy?.heading ?? (m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up")
-  const subject = m.copy?.subject ?? (m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up").replace("Your order", `Order ${m.orderNumber}`)
+  const heading = m.copy?.heading ?? (m.kind === "ready" ? et("Your order is ready to pick up") : et("Your order was picked up"))
+  const subject = m.copy?.subject ?? (m.kind === "ready" ? et("Order {number} is ready to pick up", { number: m.orderNumber }) : et("Order {number} was picked up", { number: m.orderNumber }))
+  const name = m.buyerFirstName ? esc(m.buyerFirstName) : null
   const intro = m.copy?.introHtml ?? (
     m.kind === "ready"
-      ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is waiting for you. Bring your order number, ${esc(m.orderNumber)}, and we'll hand it over.`
-      : `${m.buyerFirstName ? `Thanks, ${esc(m.buyerFirstName)}. ` : ""}Your order was collected. We hope you love it.`)
+      ? `${name ? `${et("Good news, {name}.", { name })} ` : ""}${et("Your order is waiting for you. Bring your order number, {number}, and we'll hand it over.", { number: esc(m.orderNumber) })}`
+      : `${name ? `${et("Thanks, {name}.", { name })} ` : ""}${et("Your order was collected. We hope you love it.")}`)
   const directions = m.kind === "ready" ? directionsUrl(m.pickup) : null
   const body = [
     m.kind === "ready" ? pickupBlock(k, { ...m.pickup, ready: null }) : "",
-    m.kind === "ready" && directions ? button(k, directions, m.copy?.button ?? "Get directions") : button(k, m.statusUrl, m.copy?.button ?? "View your order"),
-    m.kind === "ready" && directions ? textLink(k, m.statusUrl, "View your order") : "",
-    sectionHeading(k, m.kind === "ready" ? "Ready for you" : "Picked up"),
+    m.kind === "ready" && directions ? button(k, directions, m.copy?.button ?? et("Get directions")) : button(k, m.statusUrl, m.copy?.button ?? et("View your order")),
+    m.kind === "ready" && directions ? textLink(k, m.statusUrl, et("View your order")) : "",
+    sectionHeading(k, m.kind === "ready" ? et("Ready for you") : et("Picked up")),
     linesTable(k, m.lines, "USD", false),
   ].join("")
   const text = [
@@ -391,13 +404,13 @@ export function pickupEmail(m: {
     m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
-    ...(m.kind === "ready" ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.hours ? [`Opening hours: ${m.pickup.hours}`] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : []), ...(directions ? ["", `Directions: ${directions}`] : [])] : []),
+    ...(m.kind === "ready" ? ["", `${et("Pick up at")}:`, m.pickup.name, ...m.pickup.address, ...(m.pickup.hours ? [et("Opening hours: {hours}", { hours: m.pickup.hours })] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : []), ...(directions ? ["", `${et("Directions")}: ${directions}`] : [])] : []),
     "",
-    `View your order: ${m.statusUrl}`,
+    `${et("View your order")}: ${m.statusUrl}`,
     ...brandText(m.brand),
     ...legalText(m.shopName, m.brand),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), brand: m.brand, date: m.orderDate }), text }
 }
 
 export interface ShipmentEmailModel {
@@ -439,55 +452,72 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
   /* Brought by the store itself (local delivery): no carrier, no tracking, the store's own words for when. */
   const local = !!m.local
   const own = issue
-    ? "There's a problem with your delivery"
+    ? et("There's a problem with your delivery")
     : m.kind === "delivered"
-      ? "Your order was delivered"
+      ? et("Your order was delivered")
       : m.kind === "out_for_delivery"
-        ? "Your order is out for delivery"
+        ? et("Your order is out for delivery")
         : m.kind === "tracking"
-          ? "Your tracking number changed"
+          ? et("Your tracking number changed")
           : m.partial
-            ? "Part of your order is on the way"
-            : "Your order is on the way"
+            ? et("Part of your order is on the way")
+            : et("Your order is on the way")
   const heading = m.copy?.heading ?? own
+  const number = m.orderNumber
   const subject =
     m.copy?.subject ??
-    (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : issue ? `A problem delivering order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
-  const hi = m.buyerFirstName ? `${esc(m.buyerFirstName)}, ` : ""
+    (m.kind === "tracking"
+      ? et("New tracking number for order {number}", { number })
+      : issue
+        ? et("A problem delivering order {number}", { number })
+        : m.kind === "delivered"
+          ? et("Order {number} was delivered", { number })
+          : m.kind === "out_for_delivery"
+            ? et("Order {number} is out for delivery", { number })
+            : m.partial
+              ? et("Part of order {number} is on the way", { number })
+              : et("Order {number} is on the way", { number }))
+  /* Whole sentences, with and without the name, so a translation can put the name where its language does. */
+  const name = m.buyerFirstName ? esc(m.buyerFirstName) : null
   const note = local && m.localNote ? ` ${esc(m.localNote)}` : ""
+  const goodNews = name ? `${et("Good news, {name}.", { name })} ` : ""
   const intro =
     m.copy?.introHtml ??
     (issue
-      ? `${local ? `${hi ? `${hi}we` : "We"} couldn't deliver your order` : `${hi ? `${hi}the` : "The"} carrier couldn't deliver your package`}${m.problem ? `: ${esc(m.problem)}` : ""}. We're looking into it and will email you as soon as we know more. Nothing is needed from you yet; if you have a question, reply to this email.`
+      ? `${local ? (name ? et("{name}, we couldn't deliver your order", { name }) : et("We couldn't deliver your order")) : name ? et("{name}, the carrier couldn't deliver your package", { name }) : et("The carrier couldn't deliver your package")}${m.problem ? `: ${esc(m.problem)}` : ""}. ${et("We're looking into it and will email you as soon as we know more. Nothing is needed from you yet; if you have a question, reply to this email.")}`
       : m.kind === "delivered"
-      ? `${hi ? `${hi}your` : "Your"} ${local ? "order was handed over" : "package was delivered"}. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
+      ? local
+        ? name ? et("{name}, your order was handed over. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.", { name }) : et("Your order was handed over. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.")
+        : name ? et("{name}, your package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.", { name }) : et("Your package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.")
       : m.kind === "out_for_delivery"
         ? local
-          ? `${hi ? `${hi}we're` : "We're"} bringing your order to you today.${note}`
-          : `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
+          ? `${name ? et("{name}, we're bringing your order to you today.", { name }) : et("We're bringing your order to you today.")}${note}`
+          : name ? et("{name}, your package is with the driver and should arrive today.", { name }) : et("Your package is with the driver and should arrive today.")
         : m.kind === "tracking"
-          ? "The carrier gave your package a new tracking number. Use this one to follow it from now on."
+          ? et("The carrier gave your package a new tracking number. Use this one to follow it from now on.")
           : local
-            ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is on its way. We're delivering it to you ourselves.${note}`
-            : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`)
+            ? `${goodNews}${et("Your order is on its way. We're delivering it to you ourselves.")}${note}`
+            : `${goodNews}${m.partial ? et("Some of your items have shipped. The rest follow in another package, and we'll email you when they do.") : et("Your order has shipped.")}${m.trackingUrl ? ` ${et("Track it any time with the link below.")}` : ""}`)
   const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" ? 2 : 1
   const primary =
     m.trackingUrl && m.kind !== "delivered" && !local
-      ? button(k, m.trackingUrl, m.copy?.button ?? "Track your package") + textLink(k, m.statusUrl, "View your order")
-      : button(k, m.statusUrl, m.copy?.button ?? "View your order")
+      ? button(k, m.trackingUrl, m.copy?.button ?? et("Track your package")) + textLink(k, m.statusUrl, et("View your order"))
+      : button(k, m.statusUrl, m.copy?.button ?? et("View your order"))
+  const toLabel = m.kind === "delivered" ? et("Delivered to") : local ? et("Delivering to") : et("Shipping to")
+  const howLabel = local ? et("Delivery") : et("Shipping method")
   const info: { label: string; html: string }[] = []
-  if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : local ? "Delivering to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
-  if (m.deliveryName) info.push({ label: local ? "Delivery" : "Shipping method", html: esc(m.deliveryName) })
+  if (m.address?.line1) info.push({ label: toLabel, html: addressLines(m.address).map(esc).join("<br>") })
+  if (m.deliveryName) info.push({ label: howLabel, html: esc(m.deliveryName) })
   const body = [
     /* A delivery that went wrong is not a step along the way: no progress bar. */
     issue ? "" : progressBar(k, at),
     m.kind === "delivered" || local ? "" : trackingBox(k, m.carrier, m.trackingNumber, m.trackingUrl),
     primary,
-    sectionHeading(k, m.kind === "delivered" ? "In your package" : m.partial ? "Items in this package" : issue ? "Items in this delivery" : "Items in this shipment"),
+    sectionHeading(k, m.kind === "delivered" ? et("In your package") : m.partial ? et("Items in this package") : issue ? et("Items in this delivery") : et("Items in this shipment")),
     linesTable(k, m.lines, "USD", false),
-    info.length ? sectionHeading(k, "Delivery") + infoGrid(k, info) : "",
+    info.length ? sectionHeading(k, et("Delivery")) + infoGrid(k, info) : "",
   ].join("")
-  const tracking = m.trackingNumber && !local ? `${m.carrier ? `${m.carrier} ` : ""}tracking number ${m.trackingNumber}` : null
+  const tracking = m.trackingNumber && !local ? (m.carrier ? et("{carrier} tracking number {number}", { carrier: m.carrier, number: m.trackingNumber }) : et("tracking number {number}", { number: m.trackingNumber })) : null
   const text = [
     `${m.shopName}: ${subject}`,
     "",
@@ -495,15 +525,15 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
     ...(tracking ? ["", tracking] : []),
-    ...(m.trackingUrl && !local ? [`Track: ${m.trackingUrl}`] : []),
-    ...(m.address?.line1 ? ["", `${m.kind === "delivered" ? "Delivered to" : local ? "Delivering to" : "Shipping to"}:`, ...addressLines(m.address)] : []),
-    ...(m.deliveryName ? [`${local ? "Delivery" : "Shipping method"}: ${m.deliveryName}`] : []),
+    ...(m.trackingUrl && !local ? [`${et("Track")}: ${m.trackingUrl}`] : []),
+    ...(m.address?.line1 ? ["", `${toLabel}:`, ...addressLines(m.address)] : []),
+    ...(m.deliveryName ? [`${howLabel}: ${m.deliveryName}`] : []),
     "",
-    `View your order: ${m.statusUrl}`,
+    `${et("View your order")}: ${m.statusUrl}`,
     ...brandText(m.brand),
     ...legalText(m.shopName, m.brand),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), brand: m.brand, date: m.orderDate }), text }
 }
 
 export function returnEmail(m: {
@@ -529,51 +559,51 @@ export function returnEmail(m: {
   const k = kitFor(m.shopName, m.brand)
   const own =
     m.status === "requested"
-      ? "We got your return request"
+      ? et("We got your return request")
       : m.status === "approved"
-        ? "Your return was approved"
+        ? et("Your return was approved")
         : m.status === "rejected"
-          ? "About your return"
+          ? et("About your return")
           : m.status === "received"
-            ? "We received your return"
-            : "Your return is complete"
+            ? et("We received your return")
+            : et("Your return is complete")
   const heading = m.copy?.heading ?? own
   /* A refund is said whatever the store wrote above it. */
-  const refundLine = m.status === "completed" && m.refundedCents > 0 ? `A refund of ${esc(formatMoney(m.refundedCents, m.currency))} is on its way to your original payment method. Banks usually take 5 to 10 business days to show it.` : ""
+  const refundLine = m.status === "completed" && m.refundedCents > 0 ? et("A refund of {amount} is on its way to your original payment method. Banks usually take 5 to 10 business days to show it.", { amount: esc(formatMoney(m.refundedCents, m.currency)) }) : ""
   const stock =
     m.status === "requested"
-      ? "The store will look at your request and email you what happens next. Please don't send anything back until it's approved."
+      ? et("The store will look at your request and email you what happens next. Please don't send anything back until it's approved.")
       : m.status === "approved"
       ? m.returnAddress?.length
-        ? "Pack the items securely and send them back to the address below. Keep the shipping receipt until your refund arrives."
-        : "Pack the items securely and follow the store's note below. Keep the shipping receipt until your refund arrives."
+        ? et("Pack the items securely and send them back to the address below. Keep the shipping receipt until your refund arrives.")
+        : et("Pack the items securely and follow the store's note below. Keep the shipping receipt until your refund arrives.")
       : m.status === "rejected"
-        ? "The store couldn't accept this return. Their note says why. If you think it's a mistake, reply to this email."
+        ? et("The store couldn't accept this return. Their note says why. If you think it's a mistake, reply to this email.")
         : m.status === "received"
-          ? "Your items arrived back at the store. They'll check them and send your refund."
+          ? et("Your items arrived back at the store. They'll check them and send your refund.")
           : m.refundedCents > 0
             ? refundLine
-            : "Your return is closed."
+            : et("Your return is closed.")
   const intro = m.copy?.introHtml !== undefined ? [m.copy.introHtml, refundLine].filter(Boolean).join("<br><br>") : stock
-  const subject = m.copy?.subject ?? `${own} (order ${m.orderNumber})`
+  const subject = m.copy?.subject ?? et("{heading} (order {number})", { heading: own, number: m.orderNumber })
   const body = [
-    m.note ? addressBlock(k, "From the store", null, esc(m.note).replace(/\n/g, "<br>")) : "",
-    m.status === "approved" && m.returnAddress?.length ? addressBlock(k, "Send it to", null, m.returnAddress.map(esc).join("<br>")) : "",
-    button(k, m.statusUrl, m.copy?.button ?? "View your order"),
-    m.lines?.length ? sectionHeading(k, "Items in this return") + linesTable(k, m.lines, m.currency, false) : "",
+    m.note ? addressBlock(k, et("From the store"), null, esc(m.note).replace(/\n/g, "<br>")) : "",
+    m.status === "approved" && m.returnAddress?.length ? addressBlock(k, et("Send it to"), null, m.returnAddress.map(esc).join("<br>")) : "",
+    button(k, m.statusUrl, m.copy?.button ?? et("View your order")),
+    m.lines?.length ? sectionHeading(k, et("Items in this return")) + linesTable(k, m.lines, m.currency, false) : "",
   ].join("")
   return {
     subject,
-    html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }),
+    html: shell(m.shopName, heading, intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), brand: m.brand, date: m.orderDate }),
     text: [
       `${m.shopName}: ${heading}`,
       "",
       m.copy?.introText !== undefined ? [m.copy.introText, refundLine.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"),
       ...(m.note ? ["", m.note] : []),
-      ...(m.status === "approved" && m.returnAddress?.length ? ["", "Send it to:", ...m.returnAddress] : []),
-      ...(m.lines?.length ? ["", "Items in this return:", ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`)] : []),
+      ...(m.status === "approved" && m.returnAddress?.length ? ["", `${et("Send it to")}:`, ...m.returnAddress] : []),
+      ...(m.lines?.length ? ["", `${et("Items in this return")}:`, ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`)] : []),
       "",
-      `View your order: ${m.statusUrl}`,
+      `${et("View your order")}: ${m.statusUrl}`,
       ...brandText(m.brand),
       ...legalText(m.shopName, m.brand),
     ].join("\n"),
@@ -587,23 +617,24 @@ export function orderCancelledEmail(m: { shopName: string; orderNumber: string; 
   text: string
 } {
   const k = kitFor(m.shopName, m.brand)
-  const subject = m.copy?.subject ?? `Order ${m.orderNumber} was cancelled`
+  const subject = m.copy?.subject ?? et("Order {number} was cancelled", { number: m.orderNumber })
+  const amount = esc(formatMoney(m.refundedCents, m.currency))
   const money =
     m.refundedCents >= m.totalCents && m.totalCents > 0
-      ? `Your payment of ${esc(formatMoney(m.refundedCents, m.currency))} was refunded to your original payment method. Banks usually take 5 to 10 business days to show it.`
+      ? et("Your payment of {amount} was refunded to your original payment method. Banks usually take 5 to 10 business days to show it.", { amount })
       : m.refundedCents > 0
-        ? `${esc(formatMoney(m.refundedCents, m.currency))} was refunded to your original payment method.`
-        : "If you were charged, the store will refund you and we'll email you when it's sent."
+        ? et("{amount} was refunded to your original payment method.", { amount })
+        : et("If you were charged, the store will refund you and we'll email you when it's sent.")
   /* The money is said whatever the store wrote above it. */
-  const intro = m.copy?.introHtml !== undefined ? [m.copy.introHtml, money].filter(Boolean).join("<br><br>") : `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, your` : "Your"} order was cancelled and won't be shipped. ${money}`
+  const intro = m.copy?.introHtml !== undefined ? [m.copy.introHtml, money].filter(Boolean).join("<br><br>") : `${m.buyerFirstName ? et("{name}, your order was cancelled and won't be shipped.", { name: esc(m.buyerFirstName) }) : et("Your order was cancelled and won't be shipped.")} ${money}`
   const body = [
-    m.reason ? addressBlock(k, "Reason", null, esc(m.reason)) : "",
-    button(k, m.statusUrl, m.copy?.button ?? "View your order"),
-    sectionHeading(k, "Cancelled items"),
+    m.reason ? addressBlock(k, et("Reason"), null, esc(m.reason)) : "",
+    button(k, m.statusUrl, m.copy?.button ?? et("View your order")),
+    sectionHeading(k, et("Cancelled items")),
     linesTable(k, m.lines, m.currency, true),
   ].join("")
-  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText !== undefined ? [m.copy.introText, money.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"), ...(m.reason ? ["", `Reason: ${m.reason}`] : []), "", ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.currency)}`), "", `View your order: ${m.statusUrl}`, ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
-  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Your order was cancelled", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
+  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText !== undefined ? [m.copy.introText, money.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"), ...(m.reason ? ["", `${et("Reason")}: ${m.reason}`] : []), "", ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.currency)}`), "", `${et("View your order")}: ${m.statusUrl}`, ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? et("Your order was cancelled"), intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), brand: m.brand, date: m.orderDate }), text }
 }
 
 /** Money went back: how much this time, how much in all, and when it shows. */
@@ -614,16 +645,25 @@ export function refundEmail(m: { shopName: string; orderNumber: string; buyerFir
 } {
   const k = kitFor(m.shopName, m.brand)
   const full = m.refundedCents >= m.totalCents && m.totalCents > 0
-  const subject = m.copy?.subject ?? `Refund for order ${m.orderNumber}`
-  const intro = m.copy?.introHtml ?? `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, we` : "We"} sent you a refund of ${esc(formatMoney(m.amountCents, m.currency))}${m.paymentLabel ? ` to your ${esc(m.paymentLabel)}` : " to your original payment method"}. Banks usually take 5 to 10 business days to show it.`
+  const subject = m.copy?.subject ?? et("Refund for order {number}", { number: m.orderNumber })
+  const r = { name: m.buyerFirstName ? esc(m.buyerFirstName) : "", amount: esc(formatMoney(m.amountCents, m.currency)), method: m.paymentLabel ? esc(m.paymentLabel) : "" }
+  const intro =
+    m.copy?.introHtml ??
+    (m.buyerFirstName
+      ? m.paymentLabel
+        ? et("{name}, we sent you a refund of {amount} to your {method}. Banks usually take 5 to 10 business days to show it.", r)
+        : et("{name}, we sent you a refund of {amount} to your original payment method. Banks usually take 5 to 10 business days to show it.", r)
+      : m.paymentLabel
+        ? et("We sent you a refund of {amount} to your {method}. Banks usually take 5 to 10 business days to show it.", r)
+        : et("We sent you a refund of {amount} to your original payment method. Banks usually take 5 to 10 business days to show it.", r))
   const table = k.totals([
-    { label: "This refund", value: formatMoney(m.amountCents, m.currency), strong: true },
-    ...(m.refundedCents !== m.amountCents ? [{ label: "Refunded in all", value: formatMoney(m.refundedCents, m.currency) }] : []),
-    { label: "Order total", value: formatMoney(m.totalCents, m.currency) },
+    { label: et("This refund"), value: formatMoney(m.amountCents, m.currency), strong: true },
+    ...(m.refundedCents !== m.amountCents ? [{ label: et("Refunded in all"), value: formatMoney(m.refundedCents, m.currency) }] : []),
+    { label: et("Order total"), value: formatMoney(m.totalCents, m.currency) },
   ])
-  const body = [table, button(k, m.statusUrl, m.copy?.button ?? "View your order")].join("")
-  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText ?? intro.replace(/&amp;/g, "&"), "", `This refund: ${formatMoney(m.amountCents, m.currency)}`, ...(m.refundedCents !== m.amountCents ? [`Refunded in all: ${formatMoney(m.refundedCents, m.currency)}`] : []), `Order total: ${formatMoney(m.totalCents, m.currency)}`, "", `View your order: ${m.statusUrl}`, ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
-  return { subject, html: shell(m.shopName, m.copy?.heading ?? (full ? "Your order was refunded" : "You were sent a refund"), intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
+  const body = [table, button(k, m.statusUrl, m.copy?.button ?? et("View your order"))].join("")
+  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText ?? intro.replace(/&amp;/g, "&"), "", `${et("This refund")}: ${formatMoney(m.amountCents, m.currency)}`, ...(m.refundedCents !== m.amountCents ? [`${et("Refunded in all")}: ${formatMoney(m.refundedCents, m.currency)}`] : []), `${et("Order total")}: ${formatMoney(m.totalCents, m.currency)}`, "", `${et("View your order")}: ${m.statusUrl}`, ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? (full ? et("Your order was refunded") : et("You were sent a refund")), intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), brand: m.brand, date: m.orderDate }), text }
 }
 
 /**
@@ -639,12 +679,16 @@ export function checkoutReminderEmail(m: { shopName: string; buyerFirstName: str
   text: string
 } {
   const k = kitFor(m.shopName, m.brand)
-  const subject = m.copy?.subject ?? `You left ${itemsText(m.lines.map((l) => l.title))} at checkout`
-  const heading = m.copy?.heading ?? "Still thinking it over?"
-  const intro = m.copy?.introHtml ?? `Hi ${esc(m.buyerFirstName || "there")}, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.`
-  const label = m.copy?.button ?? "Finish checkout"
-  const body = [button(k, m.checkoutUrl, label), sectionHeading(k, "In your checkout"), linesTable(k, m.lines, "USD", false)].join("")
-  const footer = `You're getting this because you asked ${esc(m.shopName)} for news. <a href="${esc(m.unsubscribeUrl)}" style="color:${INK};text-decoration:underline;">Unsubscribe</a>.`
+  const subject = m.copy?.subject ?? et("You left {items} at checkout", { items: itemsText(m.lines.map((l) => l.title)) })
+  const heading = m.copy?.heading ?? et("Still thinking it over?")
+  const intro =
+    m.copy?.introHtml ??
+    (m.buyerFirstName
+      ? et("Hi {name}, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.", { name: esc(m.buyerFirstName) })
+      : et("Hi there, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off."))
+  const label = m.copy?.button ?? et("Finish checkout")
+  const body = [button(k, m.checkoutUrl, label), sectionHeading(k, et("In your checkout")), linesTable(k, m.lines, "USD", false)].join("")
+  const footer = et("You're getting this because you asked {shop} for news. {link}.", { shop: esc(m.shopName), link: `<a href="${esc(m.unsubscribeUrl)}" style="color:${INK};text-decoration:underline;">${et("Unsubscribe")}</a>` })
   const text = [
     `${m.shopName}: ${subject}`,
     "",
@@ -654,7 +698,7 @@ export function checkoutReminderEmail(m: { shopName: string; buyerFirstName: str
     "",
     `${label}: ${m.checkoutUrl}`,
     "",
-    `Unsubscribe: ${m.unsubscribeUrl}`,
+    `${et("Unsubscribe")}: ${m.unsubscribeUrl}`,
     ...legalText(m.shopName, m.brand, null),
   ].join("\n")
   return { subject, html: shell(m.shopName, heading, intro, body, subject, { footer, brand: m.brand ? { ...m.brand, helpUrl: null } : undefined, reason: null }), text }
@@ -679,28 +723,30 @@ export function orderUpdatedEmail(m: {
   orderDate?: string | null
 }): { subject: string; html: string; text: string } {
   const k = kitFor(m.shopName, m.brand)
-  const subject = m.copy?.subject ?? `Order ${m.orderNumber} was updated`
-  const heading = m.copy?.heading ?? "Your order was updated"
+  const subject = m.copy?.subject ?? et("Order {number} was updated", { number: m.orderNumber })
+  const heading = m.copy?.heading ?? et("Your order was updated")
   const intro =
     m.copy?.introHtml ??
-    `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, the` : "The"} shipping address on your order was changed. It will be sent to the address below. If that doesn't look right, reply to this email before it ships.`
+    (m.buyerFirstName
+      ? et("{name}, the shipping address on your order was changed. It will be sent to the address below. If that doesn't look right, reply to this email before it ships.", { name: esc(m.buyerFirstName) })
+      : et("The shipping address on your order was changed. It will be sent to the address below. If that doesn't look right, reply to this email before it ships."))
   const lines = addressLines(m.address ?? {})
   const body = [
-    lines.length ? addressBlock(k, "Shipping to", null, lines.map(esc).join("<br>")) : "",
-    button(k, m.statusUrl, m.copy?.button ?? "View your order"),
-    m.lines.length ? sectionHeading(k, "In your order") + linesTable(k, m.lines, "USD", false) : "",
+    lines.length ? addressBlock(k, et("Shipping to"), null, lines.map(esc).join("<br>")) : "",
+    button(k, m.statusUrl, m.copy?.button ?? et("View your order")),
+    m.lines.length ? sectionHeading(k, et("In your order")) + linesTable(k, m.lines, "USD", false) : "",
   ].join("")
   const text = [
     `${m.shopName}: ${subject}`,
     "",
     m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'"),
-    ...(lines.length ? ["", "Shipping to:", ...lines] : []),
+    ...(lines.length ? ["", `${et("Shipping to")}:`, ...lines] : []),
     "",
-    `View your order: ${m.statusUrl}`,
+    `${et("View your order")}: ${m.statusUrl}`,
     ...brandText(m.brand),
     ...legalText(m.shopName, m.brand),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), brand: m.brand, date: m.orderDate }), text }
 }
 
 /**
@@ -711,15 +757,17 @@ export function orderUpdatedEmail(m: {
  */
 export function paymentFailedEmail(m: { shopName: string; buyerFirstName: string | null; lines: EmailLine[]; checkoutUrl: string; brand?: EmailBrand; copy?: ResolvedCopy }): { subject: string; html: string; text: string } {
   const k = kitFor(m.shopName, m.brand)
-  const subject = m.copy?.subject ?? `Your payment to ${m.shopName} didn't go through`
-  const heading = m.copy?.heading ?? "Your payment didn't go through"
+  const subject = m.copy?.subject ?? et("Your payment to {shop} didn't go through", { shop: m.shopName })
+  const heading = m.copy?.heading ?? et("Your payment didn't go through")
   const intro =
     m.copy?.introHtml ??
-    `${m.buyerFirstName ? `Hi ${esc(m.buyerFirstName)}, your` : "Your"} bank declined the payment, so nothing was charged and your order wasn't placed. Your cart is saved: try again with the same card or another one.`
-  const label = m.copy?.button ?? "Try again"
+    (m.buyerFirstName
+      ? et("Hi {name}, your bank declined the payment, so nothing was charged and your order wasn't placed. Your cart is saved: try again with the same card or another one.", { name: esc(m.buyerFirstName) })
+      : et("Your bank declined the payment, so nothing was charged and your order wasn't placed. Your cart is saved: try again with the same card or another one."))
+  const label = m.copy?.button ?? et("Try again")
   /* No order was placed, so the footer says why it came without calling it one. */
-  const reason = `You're getting this email because you tried to pay at ${m.shopName}.`
-  const body = [button(k, m.checkoutUrl, label), m.lines.length ? sectionHeading(k, "In your cart") + linesTable(k, m.lines, "USD", false) : ""].join("")
+  const reason = et("You're getting this email because you tried to pay at {shop}.", { shop: m.shopName })
+  const body = [button(k, m.checkoutUrl, label), m.lines.length ? sectionHeading(k, et("In your cart")) + linesTable(k, m.lines, "USD", false) : ""].join("")
   const text = [
     `${m.shopName}: ${subject}`,
     "",
@@ -792,18 +840,18 @@ export function orderLinkEmail(m: { shopName: string; orders: { number: string; 
   const k = kitFor(m.shopName, m.brand)
   const list = m.orders.slice(0, 5)
   const one = list.length === 1
-  const subject = one ? `Your order ${list[0].number} from ${m.shopName}` : `Your orders from ${m.shopName}`
-  const intro = one ? "Here's the link to your order. It shows where it is and its tracking." : "Here are the links to your orders. Each shows where it is and its tracking."
+  const subject = one ? et("Your order {number} from {shop}", { number: list[0].number, shop: m.shopName }) : et("Your orders from {shop}", { shop: m.shopName })
+  const intro = one ? et("Here's the link to your order. It shows where it is and its tracking.") : et("Here are the links to your orders. Each shows where it is and its tracking.")
   const body = list
     .map((o, i) =>
       one
-        ? button(k, o.url, "View your order")
-        : k.html(`<strong class="e-ink" style="color:${INK};">Order ${esc(o.number)}</strong>${[o.date, o.status].filter(Boolean).length ? `<br><span class="e-muted" style="font-size:14px;color:#6b7280;">${esc([o.date, o.status].filter(Boolean).join(" · "))}</span>` : ""}`, { below: 4 }) + k.link("View order", o.url, { below: i === list.length - 1 ? 8 : 20 }),
+        ? button(k, o.url, et("View your order"))
+        : k.html(`<strong class="e-ink" style="color:${INK};">${et("Order {number}", { number: esc(o.number) })}</strong>${[o.date, o.status].filter(Boolean).length ? `<br><span class="e-muted" style="font-size:14px;color:#6b7280;">${esc([o.date, o.status].filter(Boolean).join(" · "))}</span>` : ""}`, { below: 4 }) + k.link(et("View order"), o.url, { below: i === list.length - 1 ? 8 : 20 }),
     )
     .join("")
-  const heading = one ? `Order ${list[0].number}` : "Your orders"
-  const footer = `You asked for this on ${esc(m.shopName)}'s website. If you didn't, you can ignore it.`
+  const heading = one ? et("Order {number}", { number: list[0].number }) : et("Your orders")
+  const footer = et("You asked for this on {shop}'s website. If you didn't, you can ignore it.", { shop: esc(m.shopName) })
   const html = shell(m.shopName, heading, esc(intro), body, subject, { footer, brand: { ...m.brand, helpUrl: null }, reason: null })
-  const text = [`${m.shopName}: ${subject}`, "", intro, "", ...list.map((o) => `Order ${o.number}${o.date ? ` (${o.date})` : ""}: ${o.url}`), "", `You asked for this on ${m.shopName}'s website. If you didn't, you can ignore it.`, ...brandText({ ...m.brand, helpUrl: null })].join("\n")
+  const text = [`${m.shopName}: ${subject}`, "", intro, "", ...list.map((o) => `${et("Order {number}", { number: o.number })}${o.date ? ` (${o.date})` : ""}: ${o.url}`), "", et("You asked for this on {shop}'s website. If you didn't, you can ignore it.", { shop: m.shopName }), ...brandText({ ...m.brand, helpUrl: null })].join("\n")
   return { subject, html, text }
 }

@@ -23,7 +23,8 @@ import { addressWordsFor, inSentence, taxIdFor } from "@/lib/checkout/business"
 import { FAIL_COPY } from "@/lib/net/request"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { formatMessage, type Vars } from "@/lib/i18n/text"
-import { CHECKOUT_SENTENCES } from "./checkout-words.generated"
+import { CHECKOUT_SENTENCES, EMAIL_SENTENCES } from "./checkout-words.generated"
+import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { sourceHash, valueFor, type Translatable, type TranslateOpts, type TranslationMap } from "./translate"
 
 /** "zip code", "ZIP code" kept: a label put inside a sentence, lowered only where that reads right. */
@@ -96,6 +97,31 @@ export function checkoutT(language: string, words: Record<string, string>): Chec
     if (!vars && template.indexOf("{") === -1) return template
     return formatMessage(template, vars ?? {}, locale)
   }
+}
+
+/* ── A buyer's emails (lib/emails/words.ts) ───────────────────────────── */
+
+export const emailKey = (sentence: string) => `email:${sourceHash(sentence)}`
+
+/** Every sentence a buyer's emails can say, once each: the templates', and when a pickup is usually ready. */
+export function emailSentences(): string[] {
+  return [...new Set([...EMAIL_SENTENCES, ...Object.values(PICKUP_READY_LABEL)])]
+}
+
+/** Every sentence of a buyer's emails as a line in Translate › Order emails. */
+export function emailTranslatables(): Translatable[] {
+  return emailSentences().map((s) => ({ key: emailKey(s), source: s, label: s.length > 60 ? `${s.slice(0, 57)}...` : s, where: "Order emails", multiline: s.length > 80 }))
+}
+
+/** The approved, current translation of each email sentence that has one, by its English. */
+export function emailWordsFrom(map: TranslationMap | null | undefined, opts: TranslateOpts = { approvedOnly: true, fresh: true }): Record<string, string> {
+  const words: Record<string, string> = {}
+  if (!map || map.size === 0) return words
+  for (const s of emailSentences()) {
+    const v = valueFor(map, emailKey(s), opts, s)
+    if (v) words[s] = v
+  }
+  return words
 }
 
 /** A sentence a server route sends to the checkout, marked so it is listed and translated where it is shown. */

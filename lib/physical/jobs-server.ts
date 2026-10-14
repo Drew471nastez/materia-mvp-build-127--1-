@@ -18,6 +18,8 @@ import { createHmac } from "node:crypto"
 import https from "node:https"
 import type net from "node:net"
 import { after } from "next/server"
+import { et, inEmailLanguage } from "@/lib/emails/words"
+import { emailLanguageFor } from "@/lib/emails/words-server"
 import { publicLookup, publicUrlProblem } from "@/lib/api/public-fetch"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
@@ -413,7 +415,7 @@ function pickupOf(co: CheckoutForEmail) {
   return {
     name: co.pickup.name,
     address: Array.isArray(co.pickup.address) ? co.pickup.address : [],
-    ready: PICKUP_READY_LABEL[co.pickup.ready as PickupReady] ?? null,
+    ready: PICKUP_READY_LABEL[co.pickup.ready as PickupReady] ? et(PICKUP_READY_LABEL[co.pickup.ready as PickupReady]) : null,
     instructions: co.pickup.instructions ?? null,
     /* The location's opening hours (part 154, recorded on the order): their own line, "Opening hours: ...". */
     hours: typeof co.pickup.hours === "string" && co.pickup.hours.trim() ? co.pickup.hours.trim().slice(0, 300) : null,
@@ -431,9 +433,9 @@ function paymentLabelOf(row: { payment_method?: string | null; card_brand?: stri
   if (!row?.payment_method) return null
   if (row.payment_method === "card") {
     const brand = row.card_brand ? row.card_brand.charAt(0).toUpperCase() + row.card_brand.slice(1) : "Card"
-    return row.card_last4 ? `${brand} ending ${row.card_last4}` : brand
+    return row.card_last4 ? et("{brand} ending {last4}", { brand: brand === "Card" ? et("Card") : brand, last4: row.card_last4 }) : brand === "Card" ? et("Card") : brand
   }
-  const named: Record<string, string> = { paypal: "PayPal", apple_pay: "Apple Pay", google_pay: "Google Pay", link: "Link", klarna: "Klarna", [COD_PAYMENT_METHOD]: "Cash on delivery" }
+  const named: Record<string, string> = { paypal: "PayPal", apple_pay: "Apple Pay", google_pay: "Google Pay", link: "Link", klarna: "Klarna", [COD_PAYMENT_METHOD]: et("Cash on delivery") }
   return named[row.payment_method] ?? row.payment_method.replace(/_/g, " ")
 }
 
@@ -525,9 +527,11 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "email.held", message: `An email to the buyer was held: this order already sent ${BUYER_EMAILS_PER_ORDER_PER_DAY} today.`, key: `email_held:${co.id}:${new Date().toISOString().slice(0, 13)}` })
     return
   }
-  const [identity, store, zone, look] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id), creatorTimeZone(db, co.creator_id), loadBrand(db, co.creator_id).catch(() => null)])
+  const [identity, store, zone, look, language] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id), creatorTimeZone(db, co.creator_id), loadBrand(db, co.creator_id).catch(() => null), emailLanguageFor(co.creator_id, co.origin?.lang)])
+  /* In the language the order was placed in (lib/emails/words.ts): each email is built inside it. */
+  const say = <T,>(build: () => T): T => inEmailLanguage(language.lang, language.words, build)
   /* When it was placed, in the store's own time zone, on every email about it. */
-  const orderDate = orderDateText(co.paid_at ?? co.created_at ?? null, zone) || null
+  const orderDate = say(() => orderDateText(co.paid_at ?? co.created_at ?? null, zone)) || null
   const shopName = store.name || identity.fromName || "Storelib"
   const firstName = co.buyer_name ? co.buyer_name.split(/\s+/)[0] : null
   const number = orderNumber(co.id)
@@ -538,13 +542,15 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   let mail: { subject: string; html: string; text: string }
   /* Settings › Customer emails: the store's own words for this one, if it changed any (lib/emails/customer-custom.ts). */
   const saved = await loadCustomerEmailCopy(db, co.creator_id)
+  /* The store's own words are in its website's language: a buyer who bought in another gets the standard words in theirs. */
   const copyFor = (id: string | null, lines: { title?: string | null }[]) =>
-    id ? resolveCopy(saved[id], { customer_name: firstName, order_number: number, shop_name: shopName, items: itemsText(lines.map((l) => l.title)) }) : undefined
+    id && language.own ? resolveCopy(saved[id], { customer_name: firstName, order_number: number, shop_name: shopName, items: itemsText(lines.map((l) => l.title)) }) : undefined
 
   if (p.template === "confirmation") {
     /* How it was paid: optional, the email reads without it. */
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
-    mail = orderConfirmationEmail({
+    mail = say(() =>
+      orderConfirmationEmail({
       storeUrl: store.websiteUrl,
       paymentLabel: paymentLabelOf(paidRow),
       supportEmail: store.email || identity.replyTo || null,
@@ -575,7 +581,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       copy: copyFor("order_confirmation", co.lines),
       orderDate,
       cashDue: co.provider === COD_PROVIDER && !co.cod_collected_at,
-    })
+    }),
+    )
   } else if (p.template === "shipment") {
     const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer, status").eq("id", p.fulfillmentId).maybeSingle()
     if (!f || f.notify_buyer === false || f.status === "cancelled") return
@@ -584,13 +591,14 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     const pickup = pickupOf(co)
     if (pickup) {
       if (p.kind === "out_for_delivery" || p.kind === "tracking" || p.kind === "issue") return
-      mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: orderUrl, brand, copy: copyFor(emailIdForJob("shipment", p.kind, null, true), shipped), orderDate })
+      mail = say(() => pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: orderUrl, brand, copy: copyFor(emailIdForJob("shipment", p.kind, null, true), shipped), orderDate }))
     } else {
       /* Part of the order: what still has to ship after every live shipment so far. */
       const { data: all } = await db.from("fulfillments").select("id, status, fulfillment_items ( quantity )").eq("checkout_id", co.id)
       const sent = ((all ?? []) as { status: string; fulfillment_items: { quantity: number }[] | null }[]).filter((x) => x.status !== "cancelled").reduce((n, x) => n + (x.fulfillment_items ?? []).reduce((m, i) => m + i.quantity, 0), 0)
       const owed = co.lines.filter((l) => l.requires_shipping).reduce((n, l) => n + (l.quantity ?? 0), 0)
-      mail = shipmentEmail({
+      mail = say(() =>
+      shipmentEmail({
         shopName,
         orderNumber: number,
         buyerFirstName: firstName,
@@ -610,7 +618,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         brand,
         copy: copyFor(emailIdForJob("shipment", p.kind, null, false), shipped),
         orderDate,
-      })
+      }),
+      )
     }
   } else if (p.template === "return") {
     const [{ data: r }, { data: items }] = await Promise.all([
@@ -618,7 +627,9 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       db.from("commerce_return_items").select("order_id, quantity").eq("return_id", p.returnId),
     ])
     const returned = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
-    mail = returnEmail({
+    const returnAddress = p.status === "approved" ? await returnAddressOf(db, co.creator_id) : null
+    mail = say(() =>
+      returnEmail({
       shopName,
       orderNumber: number,
       status: p.status,
@@ -627,13 +638,14 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       currency: co.currency,
       statusUrl: orderUrl,
       lines: returned,
-      returnAddress: p.status === "approved" ? await returnAddressOf(db, co.creator_id) : null,
+      returnAddress,
       brand,
       copy: copyFor(emailIdForJob("return", null, p.status), returned),
       orderDate,
-    })
+    }),
+    )
   } else if (p.template === "order_updated") {
-    mail = orderUpdatedEmail({ shopName, orderNumber: number, buyerFirstName: firstName, change: "address", address: addressOf(co.shipping_address), lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_updated", co.lines), orderDate })
+    mail = say(() => orderUpdatedEmail({ shopName, orderNumber: number, buyerFirstName: firstName, change: "address", address: addressOf(co.shipping_address), lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_updated", co.lines), orderDate }))
   } else if (p.template === "payment_failed") {
     /* Back to the same cart on the store's own website when it has one, else on storelib.com. */
     const items = (co.lines ?? [])
@@ -643,12 +655,12 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     const origin = await storeOriginFor(db, co.creator_id, co.origin)
     const site = origin !== `https://${getMainDomain()}`
     const checkoutUrl = site ? siteCheckoutHref({ origin, items }) : physicalCheckoutHref(co.creator_id, items, null, origin)
-    mail = paymentFailedEmail({ shopName, buyerFirstName: firstName, lines: emailLines(co.lines), checkoutUrl, brand, copy: copyFor("payment_failed", co.lines) })
+    mail = say(() => paymentFailedEmail({ shopName, buyerFirstName: firstName, lines: emailLines(co.lines), checkoutUrl, brand, copy: copyFor("payment_failed", co.lines) }))
   } else if (p.template === "cancelled") {
-    mail = orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate })
+    mail = say(() => orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate }))
   } else if (p.template === "refund") {
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
-    mail = refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate })
+    mail = say(() => refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate }))
   } else {
     return
   }
