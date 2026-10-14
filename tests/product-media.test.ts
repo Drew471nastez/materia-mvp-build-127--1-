@@ -94,14 +94,15 @@ check(
 
 console.log("\nThe product's own pictures\n")
 
+/* Changed on purpose (the owner: "cleaner and calmer", no fade for a picture already loaded or cached, at most a short one for a new one). */
 check(
-  "a slide is transparent until its picture has decoded",
-  /loaded\[index\] \? "opacity-100" : "opacity-0"/.test(gallery),
+  "a new slide waits on its grey box until its picture has loaded; one in the HTML, drawn before or complete is shown at once",
+  /loaded\[index\] \|\| fromServer \|\| drawnSlides\.has\(media\.url\) \? "opacity-100" : "opacity-0"/.test(gallery),
   "painted at full opacity it snaps in the instant it decodes",
 )
 check(
-  "and it fades rather than appearing",
-  /transition-opacity duration-\[400ms\]/.test(gallery),
+  "and only a picture that arrived after its box was painted fades, over 150ms",
+  /loaded\[index\] === "in" && "transition-opacity duration-150/.test(gallery) && !/duration-\[400ms\]/.test(gallery),
 )
 /*
   AND THE NEIGHBOURS ARE FETCHED WITH IT NOW, which is the second half of
