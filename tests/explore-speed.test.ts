@@ -191,7 +191,7 @@ async function main() {
   {
     const card = code("components/explore/community-card.tsx")
     check("22px squares with a 7px corner, not circles", /STAT_WELL_CLASS = "inline-flex h-\[22px\] w-\[22px\] shrink-0 items-center justify-center rounded-\[7px\]"/.test(card) && /STAT_WELL_CLASS,\s*storefront/.test(card))
-    const drops = [...card.matchAll(/data-stat-well[\s\S]{0,700}/g)][0]?.[0].match(/rgba\(16,24,40,([\d.]+)\)/g) ?? []
+    const drops = [...card.matchAll(/data-stat-well[\s\S]{0,700}/g)][0]?.[0].match(/rgba\(16,24,40,([\d.]+)\)/g) ?? ([] as string[])
     check("an even subtler depth: nothing over 5%", drops.length >= 3 && drops.every((d) => parseFloat(d.split(",")[3]) <= 0.05), drops)
   }
 

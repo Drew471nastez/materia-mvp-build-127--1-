@@ -135,7 +135,7 @@ function readNodes(text: string): Node[] {
 
 /** A `url(...)` that loads from https or the site itself. */
 function urlsAllowed(value: string): boolean {
-  const urls = value.match(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/gi) ?? []
+  const urls: string[] = value.match(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/gi) ?? []
   if (/url\s*\(/i.test(value) && urls.length === 0) return false
   return urls.every((u) => {
     const m = u.match(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/i)
