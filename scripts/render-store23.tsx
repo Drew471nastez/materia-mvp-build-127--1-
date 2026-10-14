@@ -15,6 +15,8 @@
  *   site-fr         the same, in French: the store's approved translations of the checkout's words (lib/markets/checkout-words)
  *   physical-cod    Storelib's cart checkout with Cash on delivery offered
  *   order-cod       the physical order page of a cash on delivery order, cash still to pay
+ *   order-fr        the physical order page in French, with its help panel
+ *   receipt-fr      the receipt page in French
  */
 import * as React from "react"
 import CheckoutPageClient from "@/app/checkout/checkout-client"
@@ -122,6 +124,27 @@ const FRENCH: Record<string, string> = {
   "Pay {amount} in cash when it's delivered.": "Payez {amount} en espèces à la livraison.",
   "Place order": "Passer la commande",
   "Enter a valid email address.": "Saisissez une adresse e-mail valide.",
+  /* The order page and the receipt (app/checkout/physical/order, app/receipt). */
+  "Order {number}": "Commande {number}",
+  "Your order is confirmed": "Votre commande est confirmée",
+  "Confirmed": "Confirmée",
+  "Processing": "En préparation",
+  "Shipped": "Expédiée",
+  "Delivered": "Livrée",
+  "{method}, usually {estimate} after it ships.": "{method}, en général {estimate} après l'expédition.",
+  "{min} to {max} business days": "{min} à {max} jours ouvrés",
+  "Items": "Articles",
+  "Qty {quantity}": "Qté {quantity}",
+  "Shipping": "Livraison",
+  "Total": "Total",
+  "Shipping address": "Adresse de livraison",
+  "Need help with this order?": "Besoin d'aide pour cette commande ?",
+  "Write to {shop} about anything with this order.": "Écrivez à {shop} pour toute question sur cette commande.",
+  "Contact the shop": "Contacter la boutique",
+  "Thanks, {name}": "Merci, {name}",
+  "Order {number} · {date}": "Commande {number} · {date}",
+  "Sold by {name} (trading as {store})": "Vendu par {name} (sous le nom {store})",
+  "Download invoice (PDF)": "Télécharger la facture (PDF)",
 }
 
 export function boot(render: (el: React.ReactElement) => void) {
@@ -178,11 +201,13 @@ export function boot(render: (el: React.ReactElement) => void) {
     )
     return
   }
-  if (which === "receipt") {
+  if (which === "receipt" || which === "receipt-fr") {
+    const fr = which === "receipt-fr"
     render(
       wrap(
+        <CheckoutWords lang={fr ? "fr" : "en"} words={fr ? FRENCH : {}}>
         <ReceiptView
-          locale="en-US"
+          locale={fr ? "fr" : "en-US"}
           viewer={{ signedIn: false, isBuyer: false }}
           receipt={{
             number: "1042",
@@ -203,15 +228,19 @@ export function boot(render: (el: React.ReactElement) => void) {
             primary: { orderId: "o1", token: "rt_" + "a".repeat(40) },
             invoice: true,
           }}
-        />,
+        />
+        </CheckoutWords>,
       ),
     )
     return
   }
-  if (which === "order" || which === "order-cod") {
+  if (which === "order" || which === "order-cod" || which === "order-fr") {
+    const fr = which === "order-fr"
     render(
       wrap(
+        <CheckoutWords lang={fr ? "fr" : "en"} words={fr ? FRENCH : {}}>
         <OrderStatusView
+          help={fr ? { openCase: null } : null}
           token={"t".repeat(30)}
           justPaid={false}
           canReturn={false}
@@ -234,7 +263,8 @@ export function boot(render: (el: React.ReactElement) => void) {
             shipments: [],
             returns: [],
           }}
-        />,
+        />
+        </CheckoutWords>,
       ),
     )
     return

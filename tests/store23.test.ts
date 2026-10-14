@@ -149,7 +149,8 @@ async function receipts(db: ReturnType<typeof pgDb>) {
   check("logo, name, email, phone, website and the business, from storeIdentity", /shop=\{\{ name: store\.name, avatar: store\.logoUrl, email: store\.email, phone: store\.phone, websiteUrl: store\.websiteUrl, legal: store\.legal \}\}/.test(page))
   /* Changed on purpose: in the buyer's language (ct). */
   check("  its tax line by name, its currency, its date, and Sold by", /taxLabel: order\.taxLabel/.test(page) && /currency: order\.currency/.test(page) && /order\.totals\.taxLabel \? ct\(order\.totals\.taxLabel\) : ct\("Tax"\)/.test(osv) && /\{day\(order\.createdAt, lang\)\}/.test(osv) && /data-order-seller/.test(osv))
-  check("  every amount in the currency it was charged in (the platform's RON), never a bare $", /const money = \(c: number\) => moneyIn\(c, order\.totals\.currency\)/.test(osv) && !/`\$\$\{\(c \/ 100\)/.test(osv))
+  /* Changed on purpose: written the page language's way (ct). */
+  check("  every amount in the currency it was charged in (the platform's RON), never a bare $", /const money = \(c: number\) => moneyIn\(c, order\.totals\.currency, lang\)/.test(osv) && !/`\$\$\{\(c \/ 100\)/.test(osv))
 }
 
 async function checkoutGates() {

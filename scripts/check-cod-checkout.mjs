@@ -245,6 +245,35 @@ for (const [label, vp] of sizes) {
     expect((await sideways(p)) === 0, "  nothing scrolls sideways", await sideways(p))
     await p.close()
   }
+
+  if (want("order-fr")) {
+    const p = await open(vp, "order-fr")
+    const said = await text(p)
+    const lang = await p.evaluate(() => document.documentElement.lang)
+    expect(lang === "fr", "order page in French: the page says it is French", lang)
+    expect(["Commande #", "Votre commande est confirmée", "Confirmée", "En préparation", "Expédiée", "Livrée", "Articles", "Qté 2", "Adresse de livraison"].every((w) => said.includes(w)), "  its heading, steps and items in French", said.slice(0, 400))
+    expect(said.includes("Standard, en général 3 à 5 jours ouvrés après l'expédition."), "  the delivery estimate said again in French from its numbers", said.match(/Standard[^\n]*/)?.[0])
+    expect(/52,60\s?RON/.test(said), "  the amounts written the French way", said.match(/[\d,.]+\s?RON|RON\s?[\d,.]+/)?.[0])
+    expect(/11 oct\.? 2026/.test(said), "  the date written the French way", said.match(/\d+ \S+ 2026/)?.[0])
+    expect(said.includes("Besoin d'aide pour cette commande ?") && said.includes("Contacter la boutique"), "  the help panel in French too")
+    expect(said.includes("Visit the store") && !/checkout:|\{\w+\}/.test(said), "  a sentence nobody translated reads in English, never a key or a placeholder")
+    await shot(p, `order-fr-${tag}`)
+    expect((await sideways(p)) === 0, "  nothing scrolls sideways", await sideways(p))
+    expect((await errors(p)).length === 0, "  no errors", await errors(p))
+    await p.close()
+  }
+
+  if (want("receipt-fr")) {
+    const p = await open(vp, "receipt-fr")
+    const said = await text(p)
+    expect(["Merci, Maria", "Commande 1042", "Vendu par Bread Studio SRL (sous le nom Bread Studio)", "Télécharger la facture (PDF)"].every((w) => said.includes(w)), "receipt in French: its heading, number, seller and invoice", said.slice(0, 400))
+    expect(said.includes("Paid with Visa ending 4242") && !/checkout:|\{\w+\}/.test(said), "  a sentence nobody translated reads in English, never a key or a placeholder")
+    expect(/octobre 2026/.test(said), "  the date in French", said.match(/\d+ \S+ 2026/)?.[0])
+    await shot(p, `receipt-fr-${tag}`)
+    expect((await sideways(p)) === 0, "  nothing scrolls sideways", await sideways(p))
+    expect((await errors(p)).length === 0, "  no errors", await errors(p))
+    await p.close()
+  }
 }
 
 await browser.close()

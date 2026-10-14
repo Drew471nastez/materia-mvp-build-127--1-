@@ -66,16 +66,17 @@ interface Props {
   cancel?: BuyerCancelState
 }
 
-/* In the currency the order was charged in (commerce_checkouts.currency, the platform's: RON or USD), never a bare dollar sign. */
-const moneyIn = (c: number, currency?: string) => {
+/* The page's language as a locale for dates and amounts; English as before. */
+const dateLocale = (lang: string) => (lang === "en" ? "en-US" : lang)
+/* In the currency the order was charged in (commerce_checkouts.currency, the platform's: RON or USD), never a bare dollar sign, written the page language's way. */
+const moneyIn = (c: number, currency?: string, lang = "en") => {
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || "USD").toUpperCase() }).format(c / 100)
+    return new Intl.NumberFormat(dateLocale(lang), { style: "currency", currency: (currency || "USD").toUpperCase() }).format(c / 100)
   } catch {
     return `${(c / 100).toFixed(2)} ${(currency || "").toUpperCase()}`.trim()
   }
 }
 /* Dates in the page's language (the order's, ../parts/words.tsx); English as before. */
-const dateLocale = (lang: string) => (lang === "en" ? "en-US" : lang)
 const day = (iso: string | null, lang: string) => (iso ? new Date(iso).toLocaleDateString(dateLocale(lang), { month: "short", day: "numeric", year: "numeric" }) : "")
 const dayTime = (iso: string, lang: string) => new Date(iso).toLocaleString(dateLocale(lang), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 
@@ -138,7 +139,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
     window.setTimeout(() => document.getElementById(`order-${which}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50)
   }
   const local = order.delivery?.kind === "local"
-  const money = (c: number) => moneyIn(c, order.totals.currency)
+  const money = (c: number) => moneyIn(c, order.totals.currency, lang)
   const shipped = order.shipments.some((s) => s.shippedAt)
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
