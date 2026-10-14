@@ -47,7 +47,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { isBanned } from "@/lib/seo/bans"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
-import { siteLocalizer } from "@/lib/markets/live"
+import { siteLocalizer, type Localizer } from "@/lib/markets/live"
 import { shopCatalogue, shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
@@ -74,7 +74,7 @@ import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/websi
 import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
-import type { StorefrontData } from "@/lib/storelib-theme/types"
+import type { StorefrontCollection, StorefrontData } from "@/lib/storelib-theme/types"
 import { siteStoreName, siteTabTitle } from "./tab-title"
 
 /** The product a product page is about, as a section reads it. */
@@ -480,8 +480,9 @@ export async function dressPage(
    * held in a cache anybody else reads, so its picked products are read
    * directly. Everything published is cached with the shop.
    */
-  opts: { cached: boolean; localizer?: { collection<T extends { id?: unknown }>(c: T): T; cards<T extends ProductCard>(list: T[]): T[] } | null } = { cached: true },
+  opts: { cached: boolean; localizer?: Localizer | null } = { cached: true },
 ): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
+  const localizer = opts.localizer ?? null
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
   const missing = missingReferences(productReferences(sections, schemaOf), products)
   const read = () => pickedProducts(createAdminClient() as never, site.creatorId, missing)
@@ -527,7 +528,7 @@ export async function dressPage(
     whatever kind of product it sells.
   */
   const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
-  const collections = pageWantsCollections(sections, schemaOf, sourceOf)
+  const collectionsRead = pageWantsCollections(sections, schemaOf, sourceOf)
     ? await (async () => {
         const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
         const read = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
@@ -536,6 +537,12 @@ export async function dressPage(
           : read()
       })().catch(() => undefined)
     : undefined
+  /* In the visitor's language and currency: each collection's title and description (collection:<id>), its products as the page's cards. */
+  const collections = localizer && collectionsRead
+    ? Object.fromEntries(
+        Object.entries(collectionsRead as Record<string, StorefrontCollection>).map(([id, c]) => [id, { ...localizer.collection(c as unknown as Record<string, unknown> & { id: string }), products: localizer.cards(c.products as never) } as unknown as StorefrontCollection]),
+      )
+    : collectionsRead
   /* Storelib Reviews, for a page with a review section: the shop's, and the product's on its page (lib/reviews/storefront-server.ts). */
   const reviews = pageWantsReviews(sections, sourceOf)
     ? await (async () => {

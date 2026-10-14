@@ -53,7 +53,7 @@ export const translationsTag = (creatorId: string, locale: string) => `site-tran
 
 /** The store's own country (Store details), the home market's first country when nothing is set. */
 async function homeCountryOf(db: Db, creatorId: string): Promise<string | null> {
-  /* Store details' country (SQL part 109): the table has no column named plain `country`, so this read always came back empty. */
+  /* The column is default_country (supabase/migrations/20261201_store_settings.sql): reading "country" errored and the home market never had one. */
   const { data } = await db.from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle().then(
     (r: { data: unknown }) => r,
     () => ({ data: null }),

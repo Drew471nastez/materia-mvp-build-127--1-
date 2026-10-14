@@ -30,7 +30,7 @@
 import { SiteIntro } from "./site-intro"
 import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
-import { StorefrontProvider, useStorefront, type Storefront } from "./storefront-context"
+import { StorefrontProvider, useMoney, type Storefront } from "./storefront-context"
 import { ReturnFacts, useShopCommerce } from "./shop-commerce"
 import { freeShippingLine, siteCommerce } from "@/lib/website-builder/site-commerce"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
@@ -304,13 +304,13 @@ function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
  */
 function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
   const c = siteCommerce(theme as Record<string, unknown>)
-  /* In the store's own currency (Settings › Country & Currency), the one free shipping is set in. */
-  const storeCurrency = useStorefront().currency
   const subtotalCents = useSiteCart().subtotalCents
   /* No amount typed: where the shop's own rates make shipping free (Settings › Shipping and delivery), so the banner and the checkout agree. */
   const facts = useShopCommerce(c.freeShippingBar && c.freeShippingAmount === null)
   const fromCents = c.freeShippingAmount !== null ? Math.round(c.freeShippingAmount * 100) : (facts?.freeShippingFromCents ?? null)
-  const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents, storeCurrency) : null
+  /* The amount left in the visitor's market's currency when the page shows one, else the store's own, as the cart's totals are (storefront-context useMoney). */
+  const money = useMoney()
+  const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents, money) : null
 
   if (!said) return null
   const progress = said.progress
@@ -636,7 +636,8 @@ export function ThemePage({
 
       {footers.map((section) => render(section, "footer", false))}
       {/* The website's other languages, under its footer (./language-switch). */}
-      {storefront?.language && !storefront.inEditor ? <LanguageSwitch choice={storefront.language} /> : null}
+      {/* In the builder's canvas too, as the website draws it, where a choice changes the preview (storefront.preview). */}
+      {storefront?.language && (!storefront.inEditor || storefront.preview) ? <LanguageSwitch choice={storefront.language} preview={storefront.inEditor ? storefront.preview : undefined} /> : null}
       {/* The Overlay group: what floats over every page (a popup, a bar fixed to the bottom of a phone), after everything it floats over. */}
       {overlays.map((section) => render(section, "overlay", false))}
 

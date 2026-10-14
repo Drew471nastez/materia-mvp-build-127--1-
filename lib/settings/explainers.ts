@@ -165,10 +165,9 @@ export const EXPLAINERS = {
     get title() { return tt("How languages work") },
     art: "languages",
     get lines() { return [
-      tt("Your website stays at its own address in your default language. Every other language gets the same pages under its code: yourstore.com/fr, yourstore.com/fr/products/mug."),
-      tt("Visitors switch with the language selector. On a Storelib theme it sits under the footer by itself. On a theme you imported from Shopify it is the theme's own selector, turned on in the editor (Show language, usually in the header or footer)."),
-      tt("With Show visitors their own language on, a first visit opens in the published language the browser asks for, once. A close match, or only the country to go by, gets a small offer on the page instead. A market can also start its countries in its own language. After that the visitor's choice wins, and search engines still see every language at its own address."),
-      tt("Only approved translations show, and only once a language is published. Anything not translated yet shows in your default language, never blank."),
+      tt("Each language gets its own address, like yourstore.com/fr."),
+      tt("Visitors switch with your theme's language selector. Turn on Show visitors their own language to open a first visit in their browser's language."),
+      tt("Only approved translations go live, once the language is published. The rest shows in your default language."),
     ] },
     guide: "/help/physical-products/languages-and-currencies-for-visitors",
   },
@@ -188,7 +187,7 @@ export const EXPLAINERS = {
     get lines() { return [
       tt("Add a currency for a group of countries, and visitors from there see your prices converted at the day's European Central Bank rate, with the rounding you pick."),
       tt("Visitors are matched by the country they browse from, and can change it with the currency selector. Their choice is remembered."),
-      tt("Checkout always charges your store's own currency and says so next to the total, so a converted price is shown as an estimate."),
+      tt("Checkout charges the visitor's currency, the amounts they saw. A currency Storelib can't charge yet is shown for reference, and checkout says it charges yours."),
     ] },
     guide: "/help/physical-products/languages-and-currencies-for-visitors",
   },

@@ -150,3 +150,46 @@ export function examplePhone(country: string): string {
   const sample = cc === "IT" ? "3123456789" : cc === "GB" ? "7700900123" : cc === "FR" ? "612345678" : cc === "DE" ? "15123456789" : cc === "IN" ? "9876543210" : "712345678"
   return formatNational(sample, cc)
 }
+
+/**
+ * A phone number as it is kept with an order (checkout, lib/physical/address):
+ * one written with its code ("+40 712 345 678", "0040 712...", what the
+ * checkout field sends) becomes E.164, "+40712345678", which a carrier, an
+ * SMS or a payment provider reads without guessing. One written without a
+ * code (an older page, a paste) is kept as typed, since its country can't be
+ * known. Null for something that is not a phone number: fewer than five
+ * digits, more than fifteen (E.164's limit), or letters in it.
+ *
+ * Deliberately loose about lengths inside those limits: country plans change
+ * and differ by line type, and refusing a real number costs a sale.
+ */
+export function phoneForStorage(raw: string | null | undefined): string | null {
+  const typed = (raw ?? "").trim()
+  if (!typed) return null
+  if (!/^[+()0-9 .\-/]+$/.test(typed)) return null
+  let digits = typed.replace(/\D/g, "")
+  if (/^(\+|00)/.test(typed)) {
+    if (typed.startsWith("00")) digits = digits.slice(2)
+    /* A code and at least four digits after it; fifteen in all at most. */
+    return digits.length >= 6 && digits.length <= 15 && !digits.startsWith("0") ? `+${digits}` : null
+  }
+  return digits.length >= 5 && digits.length <= 15 ? typed.replace(/\s+/g, " ") : null
+}
+
+/* Where several countries share a code, the one a number with it most likely belongs to. */
+const MAIN: Record<string, string> = { "1": "US", "7": "RU", "44": "GB", "47": "NO", "61": "AU", "39": "IT", "358": "FI", "212": "MA", "262": "RE", "590": "GP", "599": "CW", "672": "NF", "64": "NZ", "500": "FK" }
+
+/** The country a number written with its code is from ("+44 7700...", "0044..."), the buyer's own countries first (`prefer`); null for one written without a code. */
+export function countryOfInternational(typed: string, prefer: string[]): string | null {
+  if (!/^\s*(\+|00)/.test(typed)) return null
+  let digits = typed.replace(/\D/g, "")
+  if (/^\s*00/.test(typed)) digits = digits.slice(2)
+  for (const len of [3, 2, 1]) {
+    const dial = digits.slice(0, len)
+    if (dial.length < len) continue
+    const all = Object.keys(CALLING).filter((c) => CALLING[c] === dial)
+    if (!all.length) continue
+    return prefer.find((p) => all.includes(p.toUpperCase()))?.toUpperCase() ?? MAIN[dial] ?? all.sort()[0]
+  }
+  return null
+}

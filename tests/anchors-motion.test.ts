@@ -209,7 +209,7 @@ function main() {
   check("  only what the plan animates: never the first section, the chrome or None", /const s = plan\[i\]\s*if \(!s \|\| b\.hasAttribute\("data-reveal"\)\) return/.test(revealCode))
   const motionHook = read("components/website-builder/theme/use-site-motion.ts")
   check("  the editor plays it after a change, never on first load or on the live page", /if \(!inEditor \|\| !before\) return/.test(motionHook) && /if \(before\.theme !== now\.theme\) return r\.preview\(null\)/.test(motionHook) && /if \(changed\.length\) r\.preview\(changed\)/.test(motionHook))
-  check("  and the plan's key reads the same entrance the renderer does", /body\.map\(\(s\) => entranceSetting\(s\) \?\? null\)/.test(motionHook))
+  check("  and the plan's key reads the same entrance the renderer does", /* Changed on purpose (merge with main): only the sections that chose their own entrance are named, by id. */ /const own = entranceSetting\(s\)\s*return own == null \? \[\] : \[\[s\.id, own\]\]/.test(motionHook))
   const themePage = read("components/website-builder/theme/ThemePage.tsx")
   check("the published box keeps its section-<id> id", /wrapperId=\{`section-\$\{section\.id\}`\}/.test(themePage))
   check("ThemePage runs the motion for every surface", /useSiteMotion\(rootRef, theme, sections, storefront\?\.inEditor === true\)/.test(themePage) && /ref=\{rootRef\}/.test(themePage))
@@ -222,6 +222,11 @@ function main() {
   check("the address changes without a jump", /window\.history\.pushState\(window\.history\.state, "", url\.hash\)/.test(motion))
   check("a stylesheet's smooth scrolling is off while it runs", /styled\.style\.scrollBehavior = "auto"/.test(motion))
   check("sections are hidden only below the screen, and observed once", /if \(b\.getBoundingClientRect\(\)\.top < bottom\) return/.test(motion) && /io\.unobserve\(e\.target\)/.test(motion))
+  /* Changed on purpose (the owner: the builder plays the theme's animations like the live site). Measured in scripts/check-section-reveal.mjs, "The builder's canvas, edited". */
+  check("in the builder too: after an edit, a box not seen before is planned like any other, and none already seen is touched",
+    /const rescan = \(\) => \{/.test(motion) && /if \(seen\.has\(b\)\) return\s*seen\.add\(b\)/.test(motion) && !/for \(const b of boxes\) seen\.add\(b\)/.test(motion) && /reveal\.current\?\.rescan\(\)/.test(hook))
+  check("  a section added, removed or moved is not a new plan: only the sections that chose their own animation are named, by id",
+    /* Changed on purpose (merge): read through entranceSetting, which a tabs section's own animation goes by. */ /body\.flatMap\(\(s\) => \{\s*const own = entranceSetting\(s\)\s*return own == null \? \[\] : \[\[s\.id, own\]\]/.test(hook))
   check("on opacity and transforms only", /fill: "backwards"/.test(motion) && !/(height|top|margin)\s*:/.test(motion.slice(motion.indexOf("function keyframesFor"), motion.indexOf("export interface Reveal"))))
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
   check("the menu drawer closes, then scrolls", /window\.setTimeout\(go, CLOSE_MS\)/.test(header) && /if \(!followSectionLink\(href\)\) window\.location\.assign\(href\)/.test(header))

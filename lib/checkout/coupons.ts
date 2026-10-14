@@ -19,6 +19,7 @@
 
 import { apportionFee } from "./cart-items"
 import { CODE_PATTERN } from "./coupon-state"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 /* What the Coupons page also draws in the browser lives in ./coupon-state, which
    has no server import; this file reaches the admin cookie (adminSignedIn), so a
@@ -75,9 +76,10 @@ export function discountFor(coupon: Pick<CouponRow, "discount_type" | "discount_
   return Math.max(0, Math.min(cents, priceCents))
 }
 
-export function couponLabel(coupon: Pick<CouponRow, "discount_type" | "discount_value">): string {
+/** "10%", or a fixed amount in the store's own currency ("$5.00", "5.00 lei"). */
+export function couponLabel(coupon: Pick<CouponRow, "discount_type" | "discount_value">, currency: string = SHOP_CURRENCY): string {
   const value = Number(coupon.discount_value)
-  return coupon.discount_type === "percentage" ? `${value}%` : `$${value.toFixed(2)}`
+  return coupon.discount_type === "percentage" ? `${value}%` : shopMoneyIn(Math.round(value * 100), currency)
 }
 
 /** Whether a found code can be used at all right now, whatever it is used on. */
@@ -139,7 +141,7 @@ export function lineDiscounts(coupon: Pick<CouponRow, "discount_type" | "discoun
 export function checkCouponLines(
   coupon: CouponRow | null,
   lines: CouponLine[],
-  opts: { now?: Date; notCovered?: string } = {},
+  opts: { now?: Date; notCovered?: string; currency?: string } = {},
 ): CouponLinesCheck {
   const standing = couponStanding(coupon, opts.now)
   if (standing.ok === false) return standing
@@ -148,12 +150,12 @@ export function checkCouponLines(
   if (!applies.some(Boolean)) return { ok: false, error: opts.notCovered ?? "That code does not apply to anything in your cart." }
   const eligibleCents = lines.reduce((n, l, i) => n + (applies[i] ? l.cents : 0), 0)
   if (c.min_purchase_cents && eligibleCents < c.min_purchase_cents) {
-    return { ok: false, error: `That code needs an order of at least $${(c.min_purchase_cents / 100).toFixed(2)}.` }
+    return { ok: false, error: `That code needs an order of at least ${shopMoneyIn(c.min_purchase_cents, opts.currency ?? SHOP_CURRENCY)}.` }
   }
   const discounts = lineDiscounts(c, lines.map((l) => l.cents), applies)
   const discountCents = discounts.reduce((n, d) => n + d, 0)
   if (discountCents <= 0) return { ok: false, error: "That code takes nothing off this price." }
-  return { ok: true, coupon: c, discounts, discountCents, label: couponLabel(c) }
+  return { ok: true, coupon: c, discounts, discountCents, label: couponLabel(c, opts.currency) }
 }
 
 /** Every rule a found code must pass for one product, without a database: one line of the above. */

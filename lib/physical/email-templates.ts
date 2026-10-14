@@ -15,6 +15,7 @@ import { itemsText, type ResolvedCopy } from "@/lib/emails/customer-custom"
 import { addressLines } from "./address"
 import { emailLanguage, et } from "@/lib/emails/words"
 import type { Address } from "./types"
+import { formatCurrency } from "@/lib/markets/money"
 
 export interface EmailLine {
   title: string
@@ -56,11 +57,7 @@ function esc(value: unknown): string {
 }
 
 export function formatMoney(cents: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
-  } catch {
-    return `$${(cents / 100).toFixed(2)}`
-  }
+  return formatCurrency(cents / 100, currency || "USD", "en-US")
 }
 
 const INK = "#111827"

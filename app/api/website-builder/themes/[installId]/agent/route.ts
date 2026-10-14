@@ -30,6 +30,16 @@ import { recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme
 import { compileSection } from "@/lib/storelib-theme"
 import { agentMayWrite } from "@/lib/agent-access/protected"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
+import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import {
+  SETTINGS_SCHEMA_FILE,
+  buildSettingsPanel,
+  compatBlockTypes,
+  compatFileErrors,
+  compatSchemaWords,
+  syncCompatFile,
+  type SchemaWords,
+} from "@/lib/storelib-theme/compat/schema-sync"
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
@@ -425,12 +435,45 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          *   product   drawn by the product with no file at all
          */
         const pathOf = (type: string) => `sections/${type}.storelib`
+        /**
+         * AN IMPORTED THEME has no Storelib built-ins: every section in it is
+         * its own, whatever its name, so a "slideshow" of its own is not
+         * refused as Storelib's (the same rule a push to GitHub follows,
+         * lib/agent-access/protected.ts, repoMayWrite).
+         */
+        const importedTheme = isCompatSource(agentSources["layout/theme.storelib"])
         const origin = (type: string): SectionOrigin => {
           if (!SECTION_TYPE.test(type)) return "product"
           const path = pathOf(type)
+          if (importedTheme) return isCompatSource(agentSources[path]) ? "own" : "product"
           if (path in agentSources && agentMayWrite(path).ok) return "own"
           return agentSources[path] !== undefined || DEFAULT_THEME_SOURCES[path] !== undefined ? "builtin" : "product"
         }
+        /**
+         * What an imported theme's builder settings are made with (its words
+         * for `t:` labels, its block types) and its settings schema, read once,
+         * the first time this run writes one of its files. The same reading the
+         * save makes (lib/storelib-theme/compat/schema-sync.ts), so what this run
+         * reads back is what the builder will show.
+         */
+        let compatRead: Promise<{ tr: SchemaWords; settingsSchema: string | null }> | null = null
+        const loadCompat = async (): Promise<{ tr: SchemaWords; settingsSchema: string | null }> => {
+          try {
+            const [words, schema] = await Promise.all([
+              supabase.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).like("path", "shopify/locales/%default%"),
+              supabase.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", SETTINGS_SCHEMA_FILE),
+            ])
+            const files = sourceMap([...(words.data ?? []), ...(schema.data ?? [])] as { path: string; content: string; draft_content?: string | null }[])
+            return { tr: compatSchemaWords(files), settingsSchema: files[SETTINGS_SCHEMA_FILE] ?? null }
+          } catch {
+            return { tr: compatSchemaWords({}), settingsSchema: null }
+          }
+        }
+        const readCompat = () => (compatRead ??= loadCompat())
+        /* The theme's settings schema as this run has it: what it read, then what it wrote. */
+        let settingsSchemaNow: string | null = importedTheme ? (await readCompat()).settingsSchema : null
+        /* What a rollback puts back, like every section file this run may write. */
+        if (settingsSchemaNow !== null) startedWith[SETTINGS_SCHEMA_FILE] = settingsSchemaNow
         /**
          * A RUN'S CODE CHANGES ARE KEPT TOGETHER (lib/website-builder/agent/code-journal).
          * Each write the loop has checked is staged here; nothing reaches the
@@ -457,12 +500,34 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           read(sectionType: string): string | null {
             if (!SECTION_TYPE.test(sectionType)) return null
             const path = pathOf(sectionType)
+            /* An imported theme draws none of Storelib's sections, so none is offered to read as if it were its own. */
+            if (importedTheme) return agentSources[path] ?? null
             return agentSources[path] ?? DEFAULT_THEME_SOURCES[path] ?? null
           },
           origin,
-          async write(sectionType: string, source: string, opts: { create?: boolean } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
+          async write(sectionType: string, source: string, opts: { create?: boolean } = {}): Promise<{ ok: true; source?: string; notes?: string[] } | { ok: false; error: string }> {
             if (!SECTION_TYPE.test(sectionType)) return { ok: false, error: "That is not a section type." }
             const path = pathOf(sectionType)
+            /*
+              AN IMPORTED THEME'S SECTION: read by the theme engine's parser,
+              not Storelib's compiler, and kept with the builder's panel made
+              again from the theme's own schema, the way every save keeps it
+              (lib/website-builder/save-theme-file.ts). What is kept goes back
+              to the loop, so its next read and update_section see the
+              settings the sidebar will show.
+            */
+            if (importedTheme) {
+              if (opts.create) return { ok: false, error: "A new section of an imported theme is not written here. Change one of its own sections instead." }
+              if (!isCompatSource(agentSources[path])) return { ok: false, error: `There is no ${path} in this theme to replace.` }
+              if (!isCompatSource(source)) return { ok: false, error: `${path} belongs to an imported theme: keep its first line, <template compat="shopify">, and its <schema> after </template>.` }
+              const { tr } = await readCompat()
+              const synced = syncCompatFile(path, source, agentSources[path] ?? null, { tr, blockTypes: compatBlockTypes(Object.keys(agentSources)) })
+              const problems = synced.ok === false ? synced.errors : compatFileErrors(path, synced.source)
+              if (synced.ok === false || problems.length) return { ok: false, error: problems.map((e) => `${e.line ? `line ${e.line}: ` : ""}${e.path ? `${e.path}: ` : ""}${e.message}`).slice(0, 5).join("; ") }
+              journal.stage(path, synced.source)
+              agentSources[path] = synced.source
+              return { ok: true, ...(synced.source !== source ? { source: synced.source } : {}), ...(synced.notes.length ? { notes: synced.notes } : {}) }
+            }
             /* The same rule every agent is held to: a section file, and never one of Storelib's built in sections. */
             const allowed = agentMayWrite(path)
             if (allowed.ok === false) return { ok: false, error: allowed.error }
@@ -477,6 +542,26 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             agentSources[path] = source
             return { ok: true }
           },
+          /*
+            AN IMPORTED THEME'S SETTINGS SCHEMA (its Theme settings): read, and
+            staged like a section, so it is saved with the run's other files or
+            not at all. The save makes the builder's Theme settings from it.
+            A theme of Storelib's own has none: its settings are Storelib's.
+          */
+          ...(importedTheme && settingsSchemaNow !== null
+            ? {
+                readSettingsSchema: () => settingsSchemaNow,
+                async writeSettingsSchema(source: string): Promise<{ ok: true; notes?: string[] } | { ok: false; error: string }> {
+                  const { tr } = await readCompat()
+                  const values = (body.settings as Record<string, unknown>).shopify
+                  const built = buildSettingsPanel(source, values && typeof values === "object" ? (values as Record<string, unknown>) : {}, tr)
+                  if (built.ok === false) return { ok: false, error: built.errors.map((e) => `${e.line ? `line ${e.line}: ` : ""}${e.message}`).join("; ") }
+                  journal.stage(SETTINGS_SCHEMA_FILE, source)
+                  settingsSchemaNow = source
+                  return { ok: true, ...(built.notes.length ? { notes: built.notes } : {}) }
+                },
+              }
+            : {}),
         }
 
         /**

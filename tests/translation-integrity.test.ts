@@ -65,7 +65,7 @@ async function main() {
   check("  one written for an older text is not", shown.cookie_banner_text === "We use cookies.")
   check("the translations list reads them from the theme settings schema", /themeTextTranslatables\(theme, THEME_SETTINGS_GROUPS\.flatMap/.test(read("lib/markets/server.ts")))
   check("every live page lays the theme over in its language, not only the home page", ["products/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "search/page.tsx", "cart/page.tsx", "render-account.tsx"].every((f) => /themeSettings: localizer\.theme\(/.test(read(`app/(site)/w/[username]/${f}`))))
-  check("and the editor's language preview does too", /const canvasThemeShown = useMemo\(\(\) => \(previewMap \? \(localizeTheme\(/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /theme=\{canvasThemeShown\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("and the editor's language preview does too", /* Changed on purpose (merge with main): the theme in the language and the market previewed. */ /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /theme=\{canvasThemeShown\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 
   console.log("\nOptions and variants")
   const listed = optionTranslatables([[{ name: "Size", values: ["Small", "Large"] }, { name: "Colour", values: ["Red"] }], [{ name: "Size", values: ["Small"] }]])
@@ -78,13 +78,13 @@ async function main() {
   check("a variant named from its values is named again from theirs, its id and price kept", ss.variants[0].name === "Petit / Rouge" && ss.variants[0].id === "v1" && ss.variants[0].price === "$20.00" && ss.variants[0].options.join() === "Petit,Rouge,", ss.variants[0])
   check("  one the merchant named themselves keeps its name, its values translated", ss.variants[2].name === "Gift box" && ss.variants[2].options[0] === "Petit")
   check("the product page's data the same way", (localizeOptions({ options: [{ name: "Size", values: ["Small"] }], variants: [{ id: "v", name: "Small", options: ["Small", null, null] }] }, optMap, { approvedOnly: true, fresh: true }) as { variants: { name: string }[] }).variants[0].name === "Petit")
-  check("  on the live product page, and in the editor's preview", /productData = localizer \? localizer\.options\(productRead\)/.test(read("components/website-builder/theme/render-product.tsx")) && /_product_data: withDisplay\(localizeOptions\(data, previewMap/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("  on the live product page, and in the editor's preview", /productData = localizer \? localizer\.options\(productRead\)/.test(read("components/website-builder/theme/render-product.tsx")) && /* Changed on purpose (merge with main): the market's conversion is handed over after (drawnShown). */ /_product_data: localizeOptions\(data, previewMap/.test(read("app/website-builder/editor/[installId]/page.tsx")))
   check("the translations list has them, read from the products' options", /optionTranslatables\(lists\)/.test(read("lib/markets/server.ts")) && /title: "Product options"/.test(read("lib/markets/server.ts")))
 
   console.log("\nStorelib AI never replaces what the merchant wrote")
   const draft = read("app/api/store/translations/draft/route.ts")
-  check("the merchant's own are never sent to AI, outdated or not", /if \(row\?\.source === "manual"\) return false/.test(read("lib/markets/translate.ts")) && /aiMayWrite\(map\.get\(t\.key\), t\.source\)/.test(draft))
-  check("its write keeps the merchant's, read again just before writing", /saveTranslations\(c\.db, c\.creatorId, locale, items, c\.userId, \{ keepManual: true \}\)/.test(draft))
+  check("the merchant's own are never sent to AI, outdated or not", /if \(row\?\.source === "manual"\) return false/.test(read("lib/markets/translate.ts")) && /* Changed on purpose (checkout, currency and translation overhaul): the rule now lives in the shared round. */ /aiMayWrite\(map\.get\(t\.key\), t\.source\)/.test(read("lib/markets/translation-press.ts")))
+  check("its write keeps the merchant's, read again just before writing", /* Changed on purpose (checkout, currency and translation overhaul): in the shared round. */ /saveTranslations\(db, creatorId, locale, items, userId, \{ keepManual: true \}\)/.test(read("lib/markets/translation-press.ts")))
   /* The write, against a table where the merchant saved "Bonjour" a moment ago. */
   const written: Record<string, unknown>[] = []
   const db = {

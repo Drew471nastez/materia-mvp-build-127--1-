@@ -8,7 +8,7 @@
  * An amount stored with no currency is the platform's charge currency, the
  * one every checkout charges in (lib/payments/fees/currency-rules).
  */
-import { currencyCode, minorUnits } from "@/lib/markets/money"
+import { currencyCode, currencyWord, minorUnits } from "@/lib/markets/money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -63,7 +63,9 @@ export function minorPerUnit(currency?: string | null): number {
 export function currencySymbol(currency?: string | null): string {
   const code = orderCurrency(currency)
   try {
-    return new Intl.NumberFormat(appLocale(), { style: "currency", currency: code, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")?.value ?? code
+    const narrow = new Intl.NumberFormat(appLocale(), { style: "currency", currency: code, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")?.value ?? code
+    /* "lei", never a German "L" (lib/markets/money currencyWord). */
+    return /^\p{L}+$/u.test(narrow) ? (currencyWord(code) ?? code) : narrow
   } catch {
     return code
   }

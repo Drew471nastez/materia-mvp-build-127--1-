@@ -299,14 +299,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   const src = await readSources(entries, root, report)
   if (!src.text.has("layout/theme.liquid")) return { ok: false, error: "This theme has no layout (the layout folder's theme file), the shell every page is drawn in" }
 
-  const schemaLocale = (parseJson(src.text.get(defaultLocale(src, true) ?? "") ?? "") as Tree | undefined) ?? null
-  const textLocale = (parseJson(src.text.get(defaultLocale(src, false) ?? "") ?? "") as Tree | undefined) ?? null
-  const tr = (value: unknown, fallback: string): string => {
-    if (typeof value !== "string") return fallback
-    if (!value.startsWith("t:")) return value
-    const key = value.slice(2)
-    return lookupKey(schemaLocale, key) ?? lookupKey(textLocale, key) ?? fallback
-  }
+  const tr = wordsOf(src)
 
   const files: Record<string, string> = {}
   const binaries: ThemeBinary[] = []
@@ -531,6 +524,20 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   }
   if (typeof info?.theme_author === "string" && info.theme_author.trim()) theme.author = info.theme_author.trim().slice(0, 80)
   return { ok: true, theme, report: report.done() }
+}
+
+/** A schema's words as the theme's default locales say them: a `t:` key looked up, any other text as it is. */
+export type SchemaWords = (value: unknown, fallback: string) => string
+
+function wordsOf(src: SourceFiles): SchemaWords {
+  const schemaLocale = (parseJson(src.text.get(defaultLocale(src, true) ?? "") ?? "") as Tree | undefined) ?? null
+  const textLocale = (parseJson(src.text.get(defaultLocale(src, false) ?? "") ?? "") as Tree | undefined) ?? null
+  return (value: unknown, fallback: string): string => {
+    if (typeof value !== "string") return fallback
+    if (!value.startsWith("t:")) return value
+    const key = value.slice(2)
+    return lookupKey(schemaLocale, key) ?? lookupKey(textLocale, key) ?? fallback
+  }
 }
 
 /** locales/en.default.json, or whichever locale the theme marks as its default. */
@@ -1160,4 +1167,71 @@ function themeValues(data: unknown): Record<string, unknown> {
   if (typeof current === "string" && d.presets && typeof d.presets === "object") current = (d.presets as Tree)[current]
   if (!current || typeof current !== "object") return {}
   return { ...(current as Tree) }
+}
+
+// ── The same reading, after the import ──────────────────────────────────────
+
+/**
+ * ===========================================================================
+ *  A THEME'S SCHEMA CHANGED AFTER IT CAME IN, READ AS THE IMPORT READ IT
+ * ===========================================================================
+ * The builder's panel for a section, a block and the theme settings is made
+ * from the theme's own schema by the functions above, at import. A schema
+ * changed later (a push to the site's GitHub repository, the code editor,
+ * Storelib AI) was refused, or kept while the panel went on showing the old
+ * settings. These are the import's own functions, so the panel after a
+ * change is exactly what an import of the changed theme would show, with the
+ * same notes for what it cannot show (lib/storelib-theme/compat/schema-sync.ts).
+ */
+
+/** The theme's words, from an install's own files (shopify/locales/…). */
+export function compatSchemaWords(files: Record<string, string>): SchemaWords {
+  const text = new Map<string, string>()
+  for (const [path, content] of Object.entries(files)) {
+    if (path.startsWith(`${COMPAT_PREFIX}locales/`) && typeof content === "string") text.set(path.slice(COMPAT_PREFIX.length), content)
+  }
+  return wordsOf({ text, binary: new Map() })
+}
+
+/** The name the theme gave a section Storelib stores under another one (theme-header is the theme's header). */
+function originalName(type: string): string {
+  return Object.keys(RENAMED).find((k) => RENAMED[k] === type) ?? type
+}
+
+/** A section's or block's panel schema from the theme's own schema, and every note the import would write about it. The theme's schema is not changed. */
+export function compatPanelSchema(
+  raw: Record<string, unknown>,
+  opts: { path: string; mode: "section" | "block"; type: string; tr: SchemaWords; blockTypes: Iterable<string> },
+): { schema: Record<string, unknown>; notes: string[] } {
+  const notes: string[] = []
+  const job: FileJob = {
+    path: opts.path,
+    mode: opts.mode,
+    type: opts.type,
+    original: opts.mode === "section" ? originalName(opts.type) : opts.type,
+    tr: opts.tr,
+    blockTypes: new Set(opts.blockTypes),
+    note: (m) => {
+      if (!notes.includes(m)) notes.push(m)
+    },
+  }
+  return { schema: editorSchema(JSON.parse(JSON.stringify(raw)) as Tree, job), notes }
+}
+
+/** The theme settings panel from settings_schema.json and the theme's values: what the import writes to shopify/config/settings_panel.json. */
+export function compatThemeSettingsPanel(
+  schema: unknown,
+  values: Record<string, unknown>,
+  tr: SchemaWords,
+): { panel: { name: string; settings: Record<string, unknown>[] }[]; notes: string[] } {
+  const notes: string[] = []
+  const panel = settingsPanel(schema, values, tr, (m) => {
+    if (!notes.includes(m)) notes.push(m)
+  })
+  return { panel, notes }
+}
+
+/** JSON as a theme writes it (comments and a byte order mark allowed), or undefined. */
+export function parseThemeJson(text: string): unknown {
+  return parseJson(text)
 }

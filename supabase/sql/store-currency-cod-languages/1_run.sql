@@ -1,6 +1,7 @@
 -- STORELIB: STORE CURRENCY, CASH ON DELIVERY AND LANGUAGES
 -- One file for the overhaul: run-now parts 174 (cash on delivery), 175 (translate
--- changes automatically) and 176 (a store's own selling currency), text unchanged.
+-- changes automatically), 176 (a store's own selling currency) and 177 (Translate
+-- with AI in the background), text unchanged.
 -- HOW: paste into a NEW query tab in the Supabase SQL editor and press Run. The
 -- editor runs it as one transaction: an error changes nothing. Safe to run again.
 -- Cash on delivery's countries, fee and note, and the Languages list, need no
@@ -41,6 +42,13 @@ REVOKE ALL ON FUNCTION public.store_currency_restore(uuid, uuid) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.store_currency_targets() TO service_role;
 GRANT EXECUTE ON FUNCTION public.store_change_currency(uuid, text, text, text, numeric, date, text, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.store_currency_restore(uuid, uuid) TO service_role;
+
+-- part 177_translation_jobs.sql
+/* Translate with AI in the background. `store_translation_jobs`: one row per store and language while Storelib AI translates its website into it (Settings › Languages, the translation sheet), so the work goes on after the page is closed, a refresh shows where it is, and a second press joins the running job instead of starting another. `status` is running, done or failed; `done` and `total` are the language's texts that have a translation and all of them, for a progress bar that counts real work; `drafted` is what this job wrote; `lease_until` is how long the run that holds it may keep it, so a run cut off is picked up again by the next (/api/cron/translation-jobs) and never two at once. Server only. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.store_translation_jobs ( creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, locale text NOT NULL CHECK (locale ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,4})?$'), status text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'done', 'failed')), done integer NOT NULL DEFAULT 0 CHECK (done >= 0), total integer NOT NULL DEFAULT 0 CHECK (total >= 0), drafted integer NOT NULL DEFAULT 0 CHECK (drafted >= 0), rounds integer NOT NULL DEFAULT 0 CHECK (rounds >= 0), error text CHECK (error IS NULL OR length(error) <= 500), started_by uuid REFERENCES auth.users(id) ON DELETE SET NULL, started_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), lease_until timestamptz, PRIMARY KEY (creator_id, locale) );
+CREATE INDEX IF NOT EXISTS store_translation_jobs_running_idx ON public.store_translation_jobs (lease_until) WHERE status = 'running';
+ALTER TABLE public.store_translation_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.store_translation_jobs FROM anon, authenticated;
 
 notify pgrst, 'reload schema';
 select 'Store currency, cash on delivery and languages ran. Now run 2_check.sql.' as done;

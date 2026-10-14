@@ -21,7 +21,6 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
-  "tests/claude-integration.test.ts",
   "tests/community-profile-j1.test.ts",
   "tests/surfaces25.test.ts",
   "tests/variants25.test.ts",
@@ -39,6 +38,7 @@ const SUITES = [
   "tests/translation-integrity.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
+  "tests/checkout-market-overhaul.test.ts",
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
@@ -391,6 +391,7 @@ const SUITES = [
   "tests/github-sync.test.ts",
   "tests/github-theme-sync.test.ts",
   "tests/github-publish-sync.test.ts",
+  "tests/schema-edits-sidebar.test.ts",
   "tests/date-range.test.ts",
   "tests/cookie-consent.test.ts",
   "tests/marketing-footer.test.ts",
@@ -454,6 +455,8 @@ const SUITES = [
   "tests/settings-account-fixes.test.ts",
   "tests/settings-country.test.ts",
   "tests/payouts-phone.test.ts",
+  "tests/checkout-phone.test.ts",
+  "tests/translation-coverage.test.ts",
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
@@ -475,6 +478,7 @@ const SUITES = [
   "tests/markets.test.ts",
   "tests/visitors25.test.ts",
   "tests/compat-languages.test.ts",
+  "tests/canvas-currency.test.ts",
   "tests/analytics-ad.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",
@@ -630,6 +634,14 @@ const STRICT_SUITES = [
   "tests/e2e-store-currency.test.ts",
   /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
   "tests/e2e-cash-on-delivery.test.ts",
+  /*
+    The Claude provider's suite, here and not in the list above: its imports
+    (the Anthropic SDK's types) change how the loose compile reads other
+    files, and `value.match(...) ?? []` in a dozen of them became `never`,
+    stopping the whole run before any suite. Compiled strict on its own it is
+    clean.
+  */
+  "tests/claude-integration.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

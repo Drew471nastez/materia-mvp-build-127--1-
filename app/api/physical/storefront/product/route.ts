@@ -8,6 +8,7 @@ import { loadLocations, loadProfiles } from "@/lib/physical/config-server"
 import { deliveryPromise, deliveryPromiseLines } from "@/lib/physical/delivery-promise"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import { loadStoreSettings } from "@/lib/store/settings-server"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       product: { id: p.id, creatorId: p.creator_id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url },
-      delivery: promise ? { ...promise, lines: deliveryPromiseLines(promise) } : null,
+      delivery: promise ? { ...promise, lines: deliveryPromiseLines(promise, await cachedStoreCurrency(p.creator_id)) } : null,
       options: ((options ?? []) as { position: number; name: string; values: string[] }[]).map((o) => ({ name: o.name, values: o.values })),
       variants: live.map((v) => {
         const { soldOut, left, maxQuantity } = stock.get(v.id) ?? { soldOut: true, left: null, maxQuantity: 0 }

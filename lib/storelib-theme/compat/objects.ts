@@ -18,6 +18,7 @@ import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
+import { currencyWord } from "@/lib/markets/money"
 import { isVideoUrl, videoDuration, videoMime, videoPosterUrl } from "@/lib/media/video"
 
 type O = Record<string, unknown>
@@ -1142,7 +1143,8 @@ function anyCase(o: O): O {
 export function currencySymbol(iso: string): string {
   try {
     const part = new Intl.NumberFormat("en", { style: "currency", currency: iso, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")
-    return part?.value ?? iso
+    /* A sign in letters is the currency's own word, never a lone letter (lib/markets/money currencyWord). */
+    return part && !/^\p{L}+$/u.test(part.value) ? part.value : (currencyWord(iso) ?? iso)
   } catch {
     return iso
   }

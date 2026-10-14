@@ -8,6 +8,7 @@ import { COUNTRY_CODES, countryName } from "@/lib/checkout/countries"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import type { Address } from "./types"
 import { addressFormat } from "@/lib/address/format"
+import { phoneForStorage } from "@/lib/account/phone"
 
 /** Countries whose post works without postal codes; everywhere else one is required. */
 const NO_POSTAL_CODE = new Set(
@@ -40,7 +41,8 @@ export function readAddress(input: unknown, rules: Pick<CheckoutConfig, "nameFie
     region: text(raw.region, 120) || null,
     postalCode: text(raw.postalCode, 20).toUpperCase() || null,
     country,
-    phone: rules.phone === "off" ? null : text(raw.phone, 40) || null,
+    /* E.164 when it was written with its code (lib/account/phone); checked below. */
+    phone: rules.phone === "off" ? null : phoneForStorage(text(raw.phone, 40)) || text(raw.phone, 40) || null,
     ...(rules.company === "off" ? {} : { company: text(raw.company, 120) || null }),
   }
   if (!address.name) return { ok: false, error: "Enter the name for delivery.", field: "name" }
@@ -55,7 +57,7 @@ export function readAddress(input: unknown, rules: Pick<CheckoutConfig, "nameFie
   /* The US, Canada, Australia and the rest whose post needs the state or province (lib/address/format): a label can't be bought without it. */
   if (addressFormat(country).region?.required && !address.region) return { ok: false, error: `Choose the ${addressFormat(country).region!.label.toLowerCase()}.`, field: "region" }
   if (rules.phone === "required" && !address.phone) return { ok: false, error: "Enter a phone number for the delivery.", field: "phone" }
-  if (address.phone && !/^[+()0-9 .-]{5,40}$/.test(address.phone)) return { ok: false, error: "Check the phone number.", field: "phone" }
+  if (address.phone && !phoneForStorage(address.phone)) return { ok: false, error: "Check the phone number.", field: "phone" }
   return { ok: true, address }
 }
 

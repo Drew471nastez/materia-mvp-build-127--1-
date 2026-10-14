@@ -20,6 +20,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
+import { currencyMarkOf, formatCurrency } from "@/lib/markets/money"
 import { useCt } from "./words"
 
 export const INK = "#1a1a2e"
@@ -349,28 +350,19 @@ export function PoweredByStripe() {
 export const CHECKOUT_CURRENCY = PLATFORM_CURRENCY
 
 /* `currency`: a checkout that knows its store's currency can pass it; inside <CheckoutCurrency>, useMoney() reads it for you. */
-export const money = (cents: number, currency: string = CHECKOUT_CURRENCY) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || CHECKOUT_CURRENCY).toUpperCase() }).format((cents || 0) / 100)
+export const money = (cents: number, currency: string = CHECKOUT_CURRENCY) => formatCurrency((cents || 0) / 100, (currency || CHECKOUT_CURRENCY).toUpperCase(), "en-US")
 
 /** The charge currency's own mark for an amount field ("$", "RON"), as money() writes it. */
 export const CURRENCY_MARK = markOf(CHECKOUT_CURRENCY)
 
 /** An amount in a given currency, written as money() writes the platform's. */
 export function moneyIn(cents: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format((cents || 0) / 100)
-  } catch {
-    return `${((cents || 0) / 100).toFixed(2)} ${currency.toUpperCase()}`
-  }
+  return formatCurrency((cents || 0) / 100, currency.toUpperCase(), "en-US")
 }
 
-/** A currency's own mark for an amount field ("$", "RON", "€"). */
+/** A currency's own mark for an amount field ("$", "lei", "€"), as money() writes it. */
 export function markOf(currency: string): string {
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).formatToParts(1).find((p) => p.type === "currency")?.value ?? currency.toUpperCase()
-  } catch {
-    return currency.toUpperCase()
-  }
+  return currencyMarkOf(currency, "en-US").mark
 }
 
 /*

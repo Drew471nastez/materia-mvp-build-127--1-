@@ -27,6 +27,7 @@ import { BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, Pill, api } from "@/componen
 import { Switch } from "@/components/ui/switch"
 import { languageName } from "@/lib/markets/locales"
 import { activeLocale, tt } from "@/lib/i18n/text"
+import { startTranslation, useTranslationJobs } from "./translation-jobs-store"
 
 type Status = "missing" | "outdated" | "draft" | "done"
 interface Item {
@@ -64,6 +65,12 @@ type Filter = "todo" | "all"
 /** How long one AI press is waited for: the route stops starting batches at 85s and is allowed 120s in all. */
 const DRAFT_WAIT_MS = 125_000
 
+/*
+  OPENED AGAIN, AT ONCE. What a language last loaded is kept for the visit:
+  the sheet opens on it while it is read again, never on an empty box.
+*/
+const loadedCache = new Map<string, Loaded>()
+
 /** The words of a rich text original, for reading above the field. */
 const plain = (html: string) => html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6])>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\n{3,}/g, "\n\n").trim()
 
@@ -85,13 +92,14 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     if (!r.ok) return setError(r.error)
     /* The server answers with no language when it does not have this one: say so, rather than "no text". */
     if (!r.data.locale) return setError(tt("{name} isn't saved on your website yet. Close this and try again.", { name: languageName(code, activeLocale()) }))
+    loadedCache.set(code, r.data)
     setData(r.data)
   }, [])
 
   /* A language just added is read once its save has landed (`waiting`, Settings › Markets and languages). */
   React.useEffect(() => {
     if (!locale) return
-    setData(null)
+    setData(loadedCache.get(locale) ?? null)
     setEdits({})
     setApprove(new Set())
     setError(null)
@@ -132,8 +140,42 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     window.setTimeout(() => setNote(null), 1800)
   }
 
-  /* EVERYTHING AT ONCE: the AI drafts in batches, so it is asked again until nothing is left (or it stops making progress). */
+  /*
+    TRANSLATE EVERYTHING, ON THE SERVER (./translation-jobs-store.ts): the job
+    runs whether this sheet stays open or not, and its bar is the job's own
+    count. When it finishes the texts are read again here.
+  */
+  const { jobs } = useTranslationJobs()
+  const job = locale ? jobs[locale] : undefined
+  const jobRunning = job?.status === "running"
+  const wasRunning = React.useRef(jobRunning)
+  React.useEffect(() => {
+    if (wasRunning.current && !jobRunning && locale) {
+      void load(locale)
+      setNote(job?.status === "done" ? (job.drafted ? tt("{total} drafted. Read them, then approve.", { total: job.drafted }) : tt("Nothing left to draft.")) : null)
+      if (job?.status === "failed" && job.error) setError(job.error)
+    }
+    wasRunning.current = jobRunning
+  }, [jobRunning, job, locale, load])
+  /* Each round in while it runs: the new drafts appear in the list, unless something typed here would be read over. */
+  const jobDone = job?.done ?? 0
+  const typing = Object.keys(edits).length > 0
+  React.useEffect(() => {
+    if (jobRunning && locale && !typing && jobDone > 0) void load(locale)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobDone])
   const draftWithAi = async () => {
+    if (!locale) return
+    setError(null)
+    setNote(null)
+    const r = await startTranslation(locale)
+    if (r.ok) return
+    if (!("fallback" in r)) return setError(r.error)
+    await draftByRounds()
+  }
+
+  /* Without the jobs table (SQL part 177): the AI drafts in rounds from this sheet, asked again until nothing is left. */
+  const draftByRounds = async () => {
     if (!locale) return
     setBusy("ai")
     setError(null)
@@ -155,6 +197,8 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   }
 
   const name = locale ? languageName(locale, activeLocale()) : ""
+  /* The bar: the running job's own count once its first round is in, else where the language stands. */
+  const shown = jobRunning && job && job.total > 0 ? { done: job.done, total: job.total } : (data?.progress ?? { done: 0, total: 0 })
   const shownGroups = (data?.groups ?? [])
     .map((g) => ({ ...g, items: g.items.filter((i) => filter === "all" || i.status !== "done" || i.key in edits) }))
     .filter((g) => g.items.length)
@@ -191,25 +235,27 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
         {error ? <Notice>{error}</Notice> : null}
         {data ? (
           <div className="space-y-3">
-            {data.progress && data.progress.total > 0 ? (
-              <div data-translate-progress="">
+            {jobRunning || (data.progress && data.progress.total > 0) ? (
+              <div data-translate-progress={jobRunning ? "running" : ""}>
                 <div className="flex items-baseline justify-between text-[13px]">
                   <span className="font-medium text-[#1a1a2e]">
-                    {tt("{done} of {total} translated", { done: data.progress.done, total: data.progress.total })}
+                    {jobRunning
+                      ? tt("Translating: {done} of {total} texts", { done: shown.done, total: shown.total })
+                      : tt("{done} of {total} translated", { done: shown.done, total: shown.total })}
                   </span>
                   <span className="text-[#6b7280]">{tt("The rest shows in {name}", { name: languageName(locale === defaultLanguage ? "en" : defaultLanguage, activeLocale()) })}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
-                  <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${Math.round((data.progress.done / data.progress.total) * 100)}%` }} />
+                  <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${shown.total ? Math.max(jobRunning ? 3 : 0, Math.min(100, Math.round((shown.done / shown.total) * 100))) : 3}%` }} />
                 </div>
               </div>
             ) : null}
             {note && onPublish ? <p className="text-[13px] text-[#4b5563]" aria-live="polite">{note}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
               {items.some((i) => i.status === "missing" || i.status === "outdated") ? (
-                <button type="button" className={cn(BTN_PRIMARY, "h-10")} onClick={() => void draftWithAi()} disabled={!!busy} data-translate-ai="">
+                <button type="button" className={cn(BTN_PRIMARY, "h-10")} onClick={() => void draftWithAi()} disabled={!!busy || jobRunning} data-translate-ai="">
                   <Sparkles className="h-4 w-4" />
-                  {busy === "ai" ? tt("Translating") : tt("Translate everything with AI")}
+                  {busy === "ai" || jobRunning ? tt("Translating") : tt("Translate everything with AI")}
                 </button>
               ) : null}
               <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
@@ -229,7 +275,20 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
             </div>
           </div>
         ) : !error ? (
-          <div className="h-40" aria-busy="true" />
+          /* The sheet's own shape while the texts are read: the bar, then a few rows, never an empty white box. */
+          <div aria-busy="true" data-translate-loading="" className="space-y-3">
+            <div className="h-4 w-44 rounded-md bg-[#f1f2f4]" />
+            <div className="h-1.5 rounded-full bg-[#f1f2f4]" />
+            <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]">
+              {[0, 1, 2, 3].map((n) => (
+                <li key={n} className="space-y-2 px-3.5 py-3">
+                  <div className="h-3 w-32 rounded bg-[#f1f2f4]" />
+                  <div className="h-3 w-3/4 rounded bg-[#f5f6f7]" />
+                  <div className="h-9 rounded-lg bg-[#f7f8f9]" />
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         {data && shownGroups.length === 0 ? <p className="py-6 text-center text-[13.5px] text-[#6b7280]">{items.length ? tt("Everything is translated.") : tt("Your website has no text to translate yet.")}</p> : null}

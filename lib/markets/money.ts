@@ -114,16 +114,86 @@ export function convertMinor(
   return Math.max(0, out)
 }
 
+/*
+  ONE WAY TO WRITE A CURRENCY'S MARK, EVERYWHERE MONEY IS WRITTEN. Intl
+  writes a currency without a sign of its own as its code ("RON 48.00"),
+  and its narrow form depends on the language: lei in English and Romanian,
+  but a bare "L" in German, which reads as another currency's sign. So a
+  currency whose sign is its code is written with its own short word after
+  the amount, the way its prices are written where it is spent: "48.00 lei",
+  "48,00 zł", "48,00 kr". A word of one letter (L, R) is never used: the code
+  stays. A currency with a sign keeps Intl's, which tells $ from CA$.
+*/
+const wordsOf = new Map<string, string | null>()
+/** "lei" for RON, "zł" for PLN, "kr" for SEK; null when the code itself is the clearest mark (or the currency has a sign of its own). */
+export function currencyWord(currency: string): string | null {
+  const code = currency.toUpperCase()
+  if (wordsOf.has(code)) return wordsOf.get(code) ?? null
+  let word: string | null = null
+  try {
+    const narrow = new Intl.NumberFormat("en", { style: "currency", currency: code, currencyDisplay: "narrowSymbol" }).formatToParts(1).find((p) => p.type === "currency")?.value ?? ""
+    word = narrow && narrow !== code && !narrow.includes("$") && !/^[A-Za-z]$/.test(narrow) ? narrow : null
+  } catch {
+    word = null
+  }
+  wordsOf.set(code, word)
+  return word
+}
+
+const numberFormats = new Map<string, Intl.NumberFormat>()
+/**
+ * An amount in major units ("48.5") written in `locale`'s way, with the
+ * currency's mark as above: "$48.50", "€48.50", "48,50 €", "48.50 lei",
+ * "48,50 lei". Every formatter of money goes through this one.
+ */
+export function formatCurrency(major: number, currency: string, locale = "en", opts: { minimumFractionDigits?: number; maximumFractionDigits?: number; useGrouping?: boolean } = {}): string {
+  const code = currency.toUpperCase()
+  const value = Number.isFinite(major) ? major : 0
+  try {
+    const key = `${locale}|${code}|${opts.minimumFractionDigits ?? ""}|${opts.maximumFractionDigits ?? ""}|${opts.useGrouping ?? ""}`
+    let f = numberFormats.get(key)
+    if (!f) {
+      f = new Intl.NumberFormat(locale, { style: "currency", currency: code, ...opts })
+      if (numberFormats.size > 400) numberFormats.clear()
+      numberFormats.set(key, f)
+    }
+    const parts = f.formatToParts(value)
+    const mark = parts.find((p) => p.type === "currency")
+    const word = mark && mark.value === code ? currencyWord(code) : null
+    if (!word) return parts.map((p) => p.value).join("")
+    /* The code and the space beside it out, the word after the amount. */
+    const amount = parts
+      .filter((p) => p.type !== "currency")
+      .map((p) => p.value)
+      .join("")
+      .trim()
+    return `${amount}\u00a0${word}`
+  } catch {
+    const dec = opts.maximumFractionDigits ?? 2
+    return `${value.toFixed(dec)} ${code}`
+  }
+}
+
+/** The mark an amount field shows beside it, as formatCurrency writes it: "$", "€", "lei", "CA$". */
+export function currencyMarkOf(currency: string, locale = "en"): { mark: string; after: boolean } {
+  const code = currency.toUpperCase()
+  const word = currencyWord(code)
+  if (word) return { mark: word, after: true }
+  try {
+    const parts = new Intl.NumberFormat(locale, { style: "currency", currency: code }).formatToParts(1)
+    const at = parts.findIndex((p) => p.type === "currency")
+    return { mark: parts[at]?.value ?? code, after: at > parts.findIndex((p) => p.type === "integer") }
+  } catch {
+    return { mark: code, after: true }
+  }
+}
+
 /** "€25.00", "25,00 €", "¥2,500", "25,00 lei": the amount in the visitor's language's way of writing it. */
 export function formatMinor(amount: number, currency: string, locale = "en", opts: { wholeAsWhole?: boolean } = {}): string {
   const full = minorUnits(currency)
   /* `wholeAsWhole`: a whole amount is written without its decimals ("439 lei", never "439,00 lei"); for a market rounded up to whole numbers. */
   const dec = opts.wholeAsWhole && amount % 10 ** full === 0 ? 0 : full
-  try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: dec, maximumFractionDigits: dec }).format(amount / 10 ** full)
-  } catch {
-    return `${(amount / 10 ** full).toFixed(dec)} ${currency}`
-  }
+  return formatCurrency(amount / 10 ** full, currency, locale, { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
 
 /**
@@ -132,5 +202,5 @@ export function formatMinor(amount: number, currency: string, locale = "en", opt
  */
 export function chargeNote(display: string, charge: string): string | null {
   if (display === charge) return null
-  return `Prices in ${display} are an estimate. You'll pay in ${charge} at checkout; your bank converts it.`
+  return `Prices in ${display} are for reference. You'll pay in ${charge}; your bank converts it.`
 }

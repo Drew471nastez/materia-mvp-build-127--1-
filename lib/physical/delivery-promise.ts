@@ -19,6 +19,7 @@ import { countryName } from "@/lib/checkout/countries"
 import { PICKUP_READY_LABEL } from "./pickup"
 import { deliveryEstimate, ratePrice, zoneFor } from "./rates"
 import type { Location, ShippingProfile } from "./types"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 export interface DeliveryPromise {
   /** The country quoted for: the buyer's, as their browser says, else the shop's own. */
@@ -70,10 +71,9 @@ export function deliveryPromise(input: {
   return { country, shipping, freeOverCents, pickups, localDelivery }
 }
 
-const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
-
-/** The promise in lines a product page prints, plain and short. */
-export function deliveryPromiseLines(p: DeliveryPromise): string[] {
+/** The promise in lines a product page prints, plain and short, its amounts in the store's own currency. */
+export function deliveryPromiseLines(p: DeliveryPromise, currency: string = SHOP_CURRENCY): string[] {
+  const money = (cents: number) => shopMoneyIn(cents, currency)
   const place = p.country ? countryName(p.country) || p.country : null
   const lines: string[] = []
   if (p.shipping) {

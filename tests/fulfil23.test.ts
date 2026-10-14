@@ -298,12 +298,12 @@ async function main() {
     const profiles: ShippingProfile[] = [{ id: "general", name: "General", isDefault: true, zones: [{ id: "z", profileId: "general", name: "Romania", countries: ["RO"], regions: [], restOfWorld: false, rates: [{ id: "r", zoneId: "z", name: "Standard", kind: "flat", priceCents: 1500, minValue: null, maxValue: null, tiers: [], freeOverCents: 10000, minDays: 2, maxDays: 4, active: true, position: 0 }] }] }]
     const studio = loc({ id: STUDIO, name: "Studio", pickupEnabled: true, pickupReady: "2h", localDelivery: { enabled: true, codes: ["400"], priceCents: 500, minOrderCents: null, freeOverCents: null, note: null } })
     const p = deliveryPromise({ profiles, profileId: null, country: "RO", priceCents: 2500, weightGrams: 400, locations: [studio], shipsItself: true })
-    check("Romania: price, estimate, free over, local delivery, pickup", JSON.stringify(deliveryPromiseLines(p)) === JSON.stringify(["Delivery $15.00 to Romania, 2 to 4 business days", "Free delivery on orders over $100.00", "Local delivery available near the shop", "Free pickup at Studio. Usually ready in 2 hours"]), deliveryPromiseLines(p))
+    check("Romania: price, estimate, free over, local delivery, pickup", /* Changed on purpose (overhaul): in the store's currency, named. */ JSON.stringify(deliveryPromiseLines(p, "USD")) === JSON.stringify(["Delivery $15.00 to Romania, 2 to 4 business days", "Free delivery on orders over $100.00", "Local delivery available near the shop", "Free pickup at Studio. Usually ready in 2 hours"]), deliveryPromiseLines(p))
     const fr = deliveryPromise({ profiles, profileId: null, country: "FR", priceCents: 2500, weightGrams: 400, locations: [studio], shipsItself: true })
     check("France, no rate: says it doesn't ship there yet, promises nothing", JSON.stringify(deliveryPromiseLines(fr)) === '["Doesn\'t ship to France yet"]', deliveryPromiseLines(fr))
     const pod = deliveryPromise({ profiles, profileId: null, country: "RO", priceCents: 2500, weightGrams: 400, locations: [studio], shipsItself: false })
     check("a printed on demand product offers no pickup or local delivery", pod.pickups.length === 0 && !pod.localDelivery)
-    check("the product route sends it and the buy box draws it", /delivery: promise \? \{ \.\.\.promise, lines: deliveryPromiseLines\(promise\) \}/.test(read("app/api/physical/storefront/product/route.ts")) && /data-delivery-promise/.test(read("components/physical/buy-box.tsx")))
+    check("the product route sends it and the buy box draws it", /* Changed on purpose (overhaul): in the store's own currency. */ /delivery: promise \? \{ \.\.\.promise, lines: deliveryPromiseLines\(promise, await cachedStoreCurrency\(p\.creator_id\)\) \}/.test(read("app/api/physical/storefront/product/route.ts")) && /data-delivery-promise/.test(read("components/physical/buy-box.tsx")))
   }
 
   section("Stock per location and the low stock line")

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
-import { SITE_LANGUAGES, siteLanguage } from "@/lib/website-builder/site-language"
+import { siteLanguage } from "@/lib/website-builder/site-language"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import { siteTabTitle } from "@/lib/website-builder/tab-title"
 import { siteIconUrl } from "@/lib/website-builder/site-icon"
@@ -11,7 +11,10 @@ import { storeNameFor } from "./seo"
 import { AddressValue, Badge, BrowserTabPreview, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import { activeLocale, tt } from "@/lib/i18n/text"
+import { languageName } from "@/lib/markets/locales"
+import { currencyWord } from "@/lib/markets/money"
+import { countryName } from "@/lib/checkout/countries"
 
 export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
   const [draft, setDraft] = useState(ctx.name)
@@ -109,26 +112,72 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
       </Card>
 
       {/*
-        ONE PLACE FOR LANGUAGES. The website's language used to be chosen
-        here as well as in Settings › Markets and languages, two settings for
-        one thing. It is set there now, with the website's other languages
-        and their translations; an old choice made here is still read as the
-        default until that page is saved.
+        LANGUAGES AND CURRENCIES, AS VISITORS GET THEM. What the website opens
+        in (its default language and the store's currency) and what else a
+        visitor can switch to, read from Settings › Languages and Store
+        details, where they are changed. The builder's canvas opens on the
+        defaults, and the theme's own selectors switch it, as on the website.
       */}
-      <Card>
-        <Row
-          label={tt("Languages")}
-          hint={
-            <a href="/app/settings?tab=markets" className={textLinkClass}>
-              {tt("Manage in Languages")}
-            </a>
-          }
-          inline
-        >
-          <span className="text-[13px] text-white/70">{language ? (SITE_LANGUAGES.find((l) => l.code === language)?.label ?? language) : tt("Set for your store")}</span>
-        </Row>
-      </Card>
+      <LocalizationCard ctx={ctx} fallbackLanguage={language} />
       {error && <ErrorNote>{error}</ErrorNote>}
     </>
+  )
+}
+
+type MarketsAnswer = {
+  ready?: boolean
+  baseCurrency?: string
+  localization?: {
+    defaultLanguage?: string
+    languages?: { code: string; published?: boolean }[]
+    markets?: { id: string; name?: string; currency?: string | null; countries?: string[]; active?: boolean; primary?: boolean }[]
+  }
+}
+
+function LocalizationCard({ ctx, fallbackLanguage }: { ctx: SettingsContext; fallbackLanguage: string }) {
+  const [data, setData] = useState<MarketsAnswer | null>(null)
+  useEffect(() => {
+    let live = true
+    void fetch("/api/store/markets", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<MarketsAnswer>) : null))
+      .then((d) => {
+        if (live) setData(d ?? {})
+      })
+      .catch(() => {
+        if (live) setData({})
+      })
+    return () => {
+      live = false
+    }
+  }, [])
+  const loc = data?.localization
+  const defaultLanguage = loc?.defaultLanguage || fallbackLanguage
+  const others = (loc?.languages ?? []).filter((l) => l.code !== defaultLanguage)
+  const currency = data?.baseCurrency ?? ""
+  const markets = (loc?.markets ?? []).filter((m) => !m.primary && m.active !== false && m.currency && m.currency !== currency)
+  const word = currency ? currencyWord(currency) : null
+  const manage = (href: string) => (
+    <button type="button" onClick={() => ctx.onNavigate(href)} className={textLinkClass}>
+      {tt("Change")}
+    </button>
+  )
+  const value = (text: string) => <span className="text-[13px] text-white/70">{text}</span>
+  return (
+    <Card title={tt("Languages and currencies")} footer={tt("The editor opens in your default language and currency. Switch them with your theme's own language and currency selectors on the page, as visitors do.")}>
+      <div data-wb-localization="">
+        <Row label={tt("Default language")} hint={manage("/app/settings?tab=markets")} inline>
+          {value(data === null ? "" : defaultLanguage ? languageName(defaultLanguage, activeLocale()) : tt("Set for your store"))}
+        </Row>
+        <Row label={tt("Other languages")} hint={manage("/app/settings?tab=markets")} inline>
+          {value(data === null ? "" : others.length ? others.map((l) => (l.published ? languageName(l.code, activeLocale()) : tt("{language} (hidden)", { language: languageName(l.code, activeLocale()) }))).join(", ") : tt("None"))}
+        </Row>
+        <Row label={tt("Store currency")} hint={manage("/app/settings?tab=store")} inline>
+          {value(currency ? (word ? `${currency} (${word})` : currency) : "")}
+        </Row>
+        <Row label={tt("Visitor currencies")} hint={manage("/app/settings?tab=markets")} inline>
+          {value(data === null ? "" : markets.length ? markets.map((m) => `${m.currency}${m.countries?.length ? ` · ${m.countries.length <= 2 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}` : ""}`).join("; ") : tt("None"))}
+        </Row>
+      </div>
+    </Card>
   )
 }

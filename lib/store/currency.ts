@@ -17,6 +17,7 @@
  *
  * Pure, so the editor, its physical cards and tests read it the same way.
  */
+import { currencyWord } from "@/lib/markets/money"
 
 export const DEFAULT_STORE_CURRENCY = "USD"
 
@@ -63,8 +64,7 @@ export function currencyMark(raw: unknown): CurrencyMark {
       position = parts.findIndex((p) => p.type === "currency") < parts.findIndex((p) => p.type === "integer") ? "prefix" : "suffix"
     } else {
       /* A code (RON, SEK): its short local word after the number (lei, kr), which is how those prices are written. */
-      const narrow = new Intl.NumberFormat("en-US", { style: "currency", currency: code, currencyDisplay: "narrowSymbol" }).formatToParts(1).find((p) => p.type === "currency")?.value
-      symbol = narrow && /^\p{L}{1,4}$/u.test(narrow) ? narrow : code
+      symbol = currencyWord(code) ?? code
       position = "suffix"
     }
   } catch {

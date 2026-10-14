@@ -45,6 +45,7 @@ import { unpackItems, type PackedItem } from "./cart-items"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { includedTaxLabel, percentText } from "@/lib/tax/rules"
+import { formatCurrency } from "@/lib/markets/money"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -416,11 +417,7 @@ function latin1(text: string): string {
 }
 
 export function moneyText(cents: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format((cents || 0) / 100)
-  } catch {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents || 0) / 100)
-  }
+  return formatCurrency((cents || 0) / 100, currency || "USD", "en-US")
 }
 
 const dateText = (d: Date) => new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(d)

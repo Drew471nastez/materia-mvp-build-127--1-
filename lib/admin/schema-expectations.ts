@@ -80,6 +80,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/fx-rates", schedule: "35 15 * * 1-5", what: "Keeps the European Central Bank's exchange rates for the day (Markets and languages)" },
   { path: "/api/cron/community", schedule: "*/5 * * * *", what: "Community jobs: announcement and event fan outs, reminders, recounts, the daily rollup and trending" },
   { path: "/api/cron/translations", schedule: "47 * * * *", what: "Translate changes automatically: each store's new and changed website text translated into its other languages (Markets and languages)" },
+  { path: "/api/cron/translation-jobs", schedule: "*/3 * * * *", what: "Translate with AI in the background: carries on a language's translation that a run let go of or was cut off from (store_translation_jobs)" },
 ] as const
 
 /**

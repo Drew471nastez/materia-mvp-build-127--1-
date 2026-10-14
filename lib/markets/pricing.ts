@@ -11,7 +11,7 @@
  *
  * Pure: the rates and the market are handed in.
  */
-import { convertMinor, formatMinor, minorUnits, type FxRates, type PriceRounding } from "./money"
+import { chargeNote, convertMinor, currencyWord, formatMinor, minorUnits, type FxRates, type PriceRounding } from "./money"
 
 export interface MarketPrice {
   id: string
@@ -45,7 +45,7 @@ export interface StorefrontDisplay {
   base: string
   fx: FxRates
   locale: string
-  /** "Prices in EUR are an estimate. You'll pay in USD at checkout…" */
+  /** "Prices in PLN are for reference. You'll pay in RON…": only for a market whose currency the checkout cannot charge (lib/markets/checkout-charge). */
   note: string | null
 }
 
@@ -134,6 +134,36 @@ export function convertPriceText(text: string, pricing: Pricing, locale = "en"):
   return `${shown}${suffix}`
 }
 
+/** A product card's prices, as a page is handed them: the written amounts ("$48.00", "$9.00/month") and each variant's. */
+export interface CardPrices {
+  price?: string
+  compare_price?: string
+  currency?: string
+  variants?: { price?: string; compare_price?: string }[]
+}
+
+/**
+ * A card's prices in the market's currency, written the way a reader of
+ * `locale` reads money: what the live site hands a page of a builder theme
+ * (lib/markets/live.ts Localizer.cards), and what the builder's canvas draws
+ * for the market it previews. Display only: checkout charges the store's.
+ */
+export function pricesInMarket<S extends CardPrices>(settings: S, pricing: Pricing, locale: string): S {
+  const price = (t: string | undefined) => (t ? convertPriceText(t, pricing, locale) : t)
+  return {
+    ...settings,
+    price: price(settings.price),
+    compare_price: price(settings.compare_price),
+    currency: pricing.currency,
+    variants: (settings.variants ?? []).map((v) => ({ ...v, price: price(v.price), compare_price: price(v.compare_price) })),
+  } as S
+}
+
+/** The conversion as plain data for the page (StorefrontContext display): the cart, the drawer and the product page convert their amounts with it, in the browser, as the cards were. */
+export function storefrontDisplay(pricing: Pricing, locale: string, chargeCurrency: string): StorefrontDisplay {
+  return { market: pricing.market, base: pricing.base, fx: pricing.fx, locale, note: chargeNote(pricing.currency, chargeCurrency) }
+}
+
 /** A converted amount in "cents" (hundredths of the major unit), as an imported theme's money filter counts, for any currency. */
 export function convertedCents(minorBase: number, pricing: Pricing): number | null {
   const out = pricing.convert(minorBase)
@@ -148,8 +178,10 @@ export function moneyFormatFor(currency: string, locale = "en"): string {
     const parts = new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: "narrowSymbol" }).formatToParts(1)
     const i = parts.findIndex((p) => p.type === "currency")
     const n = parts.findIndex((p) => p.type === "integer")
-    const symbol = parts[i]?.value ?? currency
-    return i < n ? `${symbol}${amount}` : `${amount} ${symbol}`
+    const narrow = parts[i]?.value ?? currency
+    /* A sign written in letters ("L" for lei in German, or the code) is the currency's own word after the amount, as every price is written (money.ts currencyWord). */
+    if (/^\p{L}+$/u.test(narrow)) return `${amount} ${currencyWord(currency) ?? currency.toUpperCase()}`
+    return i < n ? `${narrow}${amount}` : `${amount} ${narrow}`
   } catch {
     return `${amount} ${currency}`
   }

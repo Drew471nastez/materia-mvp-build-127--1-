@@ -23,6 +23,7 @@ import { priceCart } from "@/lib/checkout/pricing"
 import { CART_DISCOUNTS_KEY, apportionFee, chargeUnits, lineTotalCents, packItems, packedTotalCents, unpackItems, type PackedItem } from "@/lib/checkout/cart-items"
 import { holdCouponUse, holderForEmail, isHolder, needsHold, newHolder, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { stripComments } from "./_source"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 let passed = 0
 let failed = 0
@@ -205,7 +206,7 @@ async function main() {
   check("not started: refused", why(checkCouponLines(coupon({ starts_at: "2026-09-26T00:00:00Z" }), lines2, { now: NOW })) === "That code is not active yet.")
   check("switched off: not valid", why(checkCouponLines(coupon({ is_active: false }), lines2, { now: NOW })) === "That code is not valid.")
   check("a minimum is met by the lines it applies to together ($25)", checkCouponLines(coupon({ min_purchase_cents: 2500 }), lines2, { now: NOW }).ok)
-  check("and not by another creator's lines", why(checkCouponLines(coupon({ min_purchase_cents: 2500 }), [line(A, "c1", 1500), line(B, "c2", 5000)], { now: NOW })) === "That code needs an order of at least $25.00.")
+  check("and not by another creator's lines", why(checkCouponLines(coupon({ min_purchase_cents: 2500 }), [line(A, "c1", 1500), line(B, "c2", 5000)], { now: NOW })) === `That code needs an order of at least ${shopMoneyIn(2500, SHOP_CURRENCY)}.`)
 
   /* ─────────────────────────────────────────────────────────────────── */
   console.log("\nThe basket, priced from the database")

@@ -71,11 +71,17 @@ import { lineProperties, physicalCheckoutHref } from "./cart-link"
 import { cartAttributes } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./cash-on-delivery"
+import { phoneForStorage } from "@/lib/account/phone"
+import { formatCurrency } from "@/lib/markets/money"
+import { checkoutMarket } from "@/lib/markets/checkout-market-server"
+import { convertOrder } from "@/lib/markets/checkout-charge"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
 
 export interface StartInput {
+  /** A website's checkout: the visitor's country, for the market it charges in (lib/markets/checkout-market-server). Absent: the store's own currency. */
+  marketCountry?: string | null
   shopId: string | null
   items: unknown
   couponCode: unknown
@@ -223,6 +229,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (wantsPickup && !clean(input.name, 200)) return { ok: false, status: 400, error: "Enter the name the order is under.", field: "name" }
   if (wantsPickup && config.nameFields === "first_and_last" && !/\S+\s+\S+/.test(clean(input.name, 200))) return { ok: false, status: 400, error: "Enter your first and last name.", field: "name" }
   if (wantsPickup && config.phone === "required" && !clean(input.phone, 40)) return { ok: false, status: 400, error: "Enter a phone number for the pickup.", field: "phone" }
+  /* The phone outside an address (a pickup, a thing handed over): kept as E.164 when written with its code, refused when it is not a number at all. */
+  const ownPhone = config.phone === "off" ? "" : clean(input.phone, 40)
+  if (ownPhone && !phoneForStorage(ownPhone)) return { ok: false, status: 400, error: "Check the phone number.", field: "phone" }
   /* Paying on delivery, in a shop that takes it: its fee is in the total from the start, as the page showed it (Settings › Checkout). */
   const wantsCod = input.cashOnDelivery === true && config.cashOnDelivery
   let q = await quoteCheckout(db, priced, address, input.deliveryOptionId, { codFeeCents: wantsCod ? config.codFeeCents : 0 })
@@ -241,6 +250,18 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       }
     }
   }
+  /*
+    A WEBSITE'S CHECKOUT IN THE VISITOR'S MARKET (lib/markets/checkout-market-
+    server): the currency its pages showed them, when Storelib can charge it.
+    Every line, the delivery and the totals are converted as the page's quote
+    converted them (lib/markets/checkout-charge), and the order is kept in it.
+  */
+  const market = input.marketCountry !== undefined ? await checkoutMarket(priced.creatorId, input.marketCountry, db) : null
+  if (market?.charge) {
+    const charge = market.charge
+    const converted = convertOrder(q.lines, q.totals, charge)
+    q = { ...q, lines: converted.lines, totals: converted.totals, option: q.option ? { ...q.option, priceCents: charge.amount(q.option.priceCents) } : q.option }
+  }
   const totals = q.totals
   const pickup = q.option?.kind === "pickup" ? (q.option.pickup ?? null) : null
 
@@ -253,7 +274,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const free = totals.totalCents === 0
   /* The store's own currency (Settings › Country & Currency): what every price in the cart is in, and what the card is charged in. Read straight from the database, never a cached copy, so a store that has just changed it is never charged in the old one. */
-  const storeCurrency = (await readStoreCurrency(db, priced.creatorId)).currency
+  const ownCurrency = (await readStoreCurrency(db, priced.creatorId)).currency
+  /* What the card is charged in: the market's when it charges it, else the store's own. */
+  const storeCurrency = market?.charge ? market.chargeCurrency : ownCurrency
   /*
     CASH ON DELIVERY (lib/physical/cash-on-delivery.ts): the shop has it on,
     everything in the cart is delivered or picked up, and there is something
@@ -350,7 +373,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       buyer_id: input.buyerId,
       buyer_email: email,
       buyer_name: clean(input.name, 200) || address?.name || null,
-      buyer_phone: clean(input.phone, 40) || address?.phone || null,
+      buyer_phone: phoneForStorage(ownPhone) || address?.phone || null,
       status: "pending",
       fulfillment_status: priced.requiresShipping ? "unfulfilled" : "not_required",
       delivery_method: !priced.requiresShipping ? "none" : pickup ? "pickup" : "ship",
@@ -1077,11 +1100,7 @@ function taxSharesOf(taxCents: number, co: Record<string, any>, lines: LineSnaps
 }
 
 function money(cents: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: String(currency || "USD").toUpperCase() }).format(cents / 100)
-  } catch {
-    return `$${(cents / 100).toFixed(2)}`
-  }
+  return formatCurrency(cents / 100, String(currency || "USD"), "en-US")
 }
 
 async function onceForOrder(

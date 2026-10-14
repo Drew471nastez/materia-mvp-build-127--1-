@@ -5,12 +5,21 @@ query tab in the Supabase SQL editor and run on its own.
 
 | File | What it does |
 | --- | --- |
-| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically) and 176 (a store's own selling currency), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
-| `2_check.sql` | Read only. One row per thing the code needs, each `true`; then what stores sell in and the latest currency changes. |
-| `3_rollback.sql` | How to undo part 176: put converted prices back first, then the code, then drop the schema. |
+| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically), 176 (a store's own selling currency) and 177 (Translate with AI in the background), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
+| `2_check.sql` | Read only. One row per thing the code needs, each `true`; then what stores sell in, the background translations and the latest currency changes. |
+| `3_rollback.sql` | How to undo parts 176 and 177: put converted prices back first, then the code, then drop the schema. |
 
 The same parts are in `run-now/`, `run-four/` and `all-in-two/`. Run one route
 or the other; running both is harmless.
+
+## What part 177 adds
+
+- `store_translation_jobs`: one row per store and language while Storelib AI
+  translates the website in the background, with how many texts are
+  translated out of all of them, done or failed and why. A run holds a job by
+  its lease, so two never translate the same language; one cut off is picked
+  up by `/api/cron/translation-jobs` (every three minutes). Server only.
+  Without it, Settings translates round by round from the page, as before.
 
 ## What part 176 adds
 

@@ -924,7 +924,7 @@ const ARTICLES: Article[] = [
         rows: [
           ["Selling currency", "What your prices are in and what buyers pay.", "Store details, Country & Currency"],
           ["Payout currency", "What arrives in your bank. Stripe converts it when it differs, which never changes what a buyer paid.", "Payments"],
-          ["Visitor currencies", "Optional: visitors abroad see an estimate in their own currency, and checkout says what they will pay in your currency before they pay.", "Markets and languages"],
+          ["Visitor currencies", "Optional: visitors abroad see your prices in their own currency and pay in it at checkout.", "Markets and languages"],
         ],
       },
       { type: "p", text: "Your balance on Storelib is kept in one currency. A sale in another currency is added at that day's rate, and the sale's line says both amounts." },
@@ -2258,7 +2258,7 @@ const ARTICLES: Article[] = [
     section: "Website and integrations",
     slug: "languages-and-currencies-for-visitors",
     title: "Languages and visitor currencies on your website",
-    summary: "Add a language and Storelib AI translates your website, then review and publish it. Optionally show visitors abroad an estimate in their own currency.",
+    summary: "Add a language and Storelib AI translates your website, then review and publish it. Optionally let visitors abroad see and pay in their own currency.",
     keywords: ["languages", "translate", "translation", "ai translation", "multilingual", "language selector", "hreflang", "/fr", "publish language", "visitor currency", "markets", "currency selector", "exchange rate"],
     related: ["country-and-currency", "sell-on-your-website", "import-a-shopify-theme"],
     body: [
@@ -2312,7 +2312,7 @@ const ARTICLES: Article[] = [
       },
       { type: "p", text: "Each language has its own address, and every page tells search engines about the others (hreflang), so each language can be found in search." },
       { type: "h", text: "Visitor currencies (optional)" },
-      { type: "p", text: `Your store sells in one currency (see ${link("country-and-currency", "Country & Currency")}). Under Visitor currencies you can add others for groups of countries: visitors from there see your prices converted at the day's European Central Bank rate, with the rounding you choose. It's an estimate. Checkout always charges your store's currency and says so next to the total.` },
+      { type: "p", text: `Your store sells in one currency (see ${link("country-and-currency", "Country & Currency")}). Under Visitor currencies you can add others for groups of countries: visitors from there see your prices converted at the day's European Central Bank rate, with the rounding you choose, and checkout charges them in that currency, the amounts they saw. Storelib charges USD, EUR, GBP, RON, CAD and AUD. A currency outside that list is shown for reference only: checkout charges your store's currency and says so next to the total.` },
       {
         type: "steps",
         items: [

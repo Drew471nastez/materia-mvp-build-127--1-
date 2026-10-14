@@ -23,6 +23,7 @@
 --    currency they were made in.
 
 begin;
+drop table if exists public.store_translation_jobs;
 drop function if exists public.store_currency_restore(uuid, uuid);
 drop function if exists public.store_change_currency(uuid, text, text, text, numeric, date, text, uuid);
 drop function if exists public.store_currency_targets();
@@ -30,10 +31,14 @@ drop table if exists public.store_currency_snapshots;
 drop table if exists public.store_currency_changes;
 alter table public.store_settings drop constraint if exists store_settings_currency_code;
 alter table public.store_settings drop column if exists currency;
-do $do$ begin if to_regclass('public.storelib_applied_parts') is not null then delete from public.storelib_applied_parts where part = '176'; end if; end $do$;
+do $do$ begin if to_regclass('public.storelib_applied_parts') is not null then delete from public.storelib_applied_parts where part in ('176', '177'); end if; end $do$;
 commit;
 notify pgrst, 'reload schema';
 
+-- Part 177's table only says where background translations stand: dropping it
+-- loses that, never a translation (they are in store_translations), and the
+-- page translates round by round again.
+--
 -- Parts 174 (cash on delivery) and 175 (translate automatically) are left in
 -- place: they only allow more (a provider value, a column defaulting to off)
 -- and the code before this overhaul already used them.

@@ -89,11 +89,11 @@ async function main() {
 
   console.log("\nThe route and the sheet")
   const route = read("app/api/store/translations/draft/route.ts")
-  check("the route hands the press its deadline, inside its own limit", /deadlineAt: started \+ DRAFT_WINDOW_MS/.test(route) && /const DRAFT_WINDOW_MS = 85_000/.test(route) && /export const maxDuration = 120/.test(route))
+  check("the route hands the press its deadline, inside its own limit", /* Changed on purpose (checkout, currency and translation overhaul): the round is shared with the background job (lib/markets/translation-press.ts). */ /draftRound\(c\.db, c\.creatorId, locale, c\.userId, started \+ DRAFT_WINDOW_MS\)/.test(route) && /const DRAFT_WINDOW_MS = 85_000/.test(route) && /export const maxDuration = 120/.test(route))
   check("one whole Translate everything fits in the hour", /limit: 12, seconds: 3600/.test(route))
   const sheet = read("components/app/settings/translate-sheet.tsx")
   check("the sheet waits for the press, not the 25s a save gets", /timeoutMs: DRAFT_WAIT_MS/.test(sheet) && /const DRAFT_WAIT_MS = 125_000/.test(sheet))
-  check("and cannot press twice", /disabled=\{!!busy\} data-translate-ai/.test(sheet))
+  check("and cannot press twice", /* Changed on purpose (checkout, currency and translation overhaul): nor while its job runs. */ /disabled=\{!!busy \|\| jobRunning\} data-translate-ai/.test(sheet))
   const texts = read("lib/markets/server.ts")
   check("the texts' independent reads start together", /const menusRead = storeMenusOrNull/.test(texts) && /await productsRead/.test(texts) && /await collectionsRead/.test(texts))
   check("and beside the languages in the sheet's read", /const textsRead = asked && /.test(read("app/api/store/translations/route.ts")))

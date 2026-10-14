@@ -15,6 +15,9 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { CheckoutCurrency } from "../parts/ui"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { platformSellingCurrency } from "@/lib/store/selling-currency"
+import { cookies, headers } from "next/headers"
+import { countryCode } from "@/lib/checkout/countries"
+import { CHECKOUT_COUNTRY_COOKIE } from "@/lib/checkout/checkout-country"
 
 export const dynamic = "force-dynamic"
 
@@ -76,9 +79,12 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null
+  /* The delivery country before the first frame: the buyer's last pick at a checkout, else where their connection is (no guess, no jump). */
+  const [jar, h] = await Promise.all([cookies(), headers()])
+  const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(h.get("x-vercel-ip-country") || h.get("cf-ipcountry"))
   return (
     <CheckoutCurrency currency={currency}>
-      <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} />
+      <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} initialCountry={initialCountry} />
     </CheckoutCurrency>
   )
 }

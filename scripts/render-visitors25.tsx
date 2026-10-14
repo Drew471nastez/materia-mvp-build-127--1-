@@ -28,7 +28,6 @@ import { CreatorLanguage } from "@/components/storefront/creator-language"
 import { GaConnect, type GaStatusView } from "@/components/app/settings/ga-connect"
 import { CommerceSettings } from "@/components/website-builder/website-settings/commerce"
 import { MarketsPanel } from "@/components/app/settings/markets-panel"
-import { PreviewLanguageSwitch } from "@/components/website-builder/preview-language-switch"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { starterRows } from "@/lib/website-builder/starter-website"
@@ -266,22 +265,7 @@ function Markets() {
   )
 }
 
-/* The builder's preview switch over the canvas, with a website in two languages and a market in euro (components/website-builder/preview-language-switch.tsx). */
-function PreviewSwitch() {
-  const [locale, setLocale] = React.useState<string | null>(null)
-  const [market, setMarket] = React.useState<string | null>(null)
-  const lang = { languages: ["en", "fr"], published: ["fr"], defaultLanguage: "en", locale, setLocale, map: null, words: {} }
-  const fx = { asOf: new Date().toISOString().slice(0, 10), rates: { RON: 5, USD: 1.1 } }
-  const eu = { id: "eu", name: "Europe", currency: "EUR", rounding: "none" as const, adjustBps: 0 }
-  const markets = { markets: [{ id: "eu", name: "Europe", currency: "EUR" }], base: "RON", market, setMarket, display: market ? { market: eu, base: "RON", fx, locale: locale ?? "en", note: null } : null }
-  return (
-    <div className="flex min-h-dvh items-start justify-center bg-[#141414] pt-6" style={{ ["--wb-chrome-fg" as string]: "#fff" }}>
-      <PreviewLanguageSwitch lang={lang} market={markets} />
-    </div>
-  )
-}
-
 stubFetch()
-const views: Record<string, () => React.ReactElement> = { site: Site, creator: Creator, onepage: OnePage, checkout: Checkout, thanks: Thanks, settings: Settings, commerce: Commerce, markets: Markets, preview: PreviewSwitch }
+const views: Record<string, () => React.ReactElement> = { site: Site, creator: Creator, onepage: OnePage, checkout: Checkout, thanks: Thanks, settings: Settings, commerce: Commerce, markets: Markets }
 const View = views[view] ?? Site
 createRoot(document.getElementById("root")!).render(<View />)

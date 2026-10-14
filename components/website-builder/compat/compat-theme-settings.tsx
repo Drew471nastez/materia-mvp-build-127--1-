@@ -10,7 +10,7 @@
  * Values are the theme's own, under `shopify` in the install's settings, by
  * the ids the theme's markup reads them by.
  */
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { loadCompatFiles } from "./compat-files"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
@@ -67,16 +67,32 @@ interface Group {
   settings: SchemaField[]
 }
 
+/** The panel's own file, made from the theme's settings_schema.json at import and again whenever that changes. */
+const PANEL_FILE = "shopify/config/settings_panel.json"
+
 export function CompatThemeSettings({
   installId,
+  panelVersion = 0,
   values,
   open,
   onOpen,
   onChange,
   renderField,
   back,
+  focusScheme = null,
 }: {
+  /**
+   * A section's Edit beside its scheme: the scheme to open, in the group it
+   * is edited in, scrolled to. `n` makes the same scheme asked twice count.
+   */
+  focusScheme?: { id: string; n: number } | null
   installId: string
+  /**
+   * Raised when the panel may have been made again on the server (a push or
+   * Storelib AI changed settings_schema.json or the theme's values): its one
+   * file is read again and the groups change in place.
+   */
+  panelVersion?: number
   /** The theme's settings: `shopify` of the install's settings. */
   values: Record<string, unknown>
   /** The open group's name, or null for the list. */
@@ -90,12 +106,14 @@ export function CompatThemeSettings({
   const [groups, setGroups] = useState<Group[] | null>(null)
   /* The colour scheme open in its group (group::scheme); the first one until another is chosen. */
   const [openScheme, setOpenScheme] = useState<string | null>(null)
+  /** The panel was read afresh below: the theme's files, read once for the canvas, may hold an older one. */
+  const fresh = useRef(false)
   useEffect(() => {
     let live = true
     void loadCompatFiles(installId).then((files) => {
-      if (!live) return
+      if (!live || fresh.current) return
       try {
-        const parsed = JSON.parse(files["shopify/config/settings_panel.json"] ?? "[]") as Group[]
+        const parsed = JSON.parse(files[PANEL_FILE] ?? "[]") as Group[]
         /* The theme's own groups, then Storelib's Hover and focus (lib/storelib-theme/compat/overrides.ts). */
         setGroups([...(Array.isArray(parsed) ? parsed : []), OVERRIDE_GROUP as unknown as Group])
       } catch {
@@ -107,6 +125,53 @@ export function CompatThemeSettings({
     })
     return () => { live = false }
   }, [installId])
+
+  /*
+    MADE AGAIN ON THE SERVER: settings_schema.json changed (a push, Storelib
+    AI, the code editor), so the panel beside it was made again from it
+    (lib/storelib-theme/compat/schema-sync.ts). Only that one file is asked
+    for, its draft, and the groups shown change in place: a new setting gets
+    its control, a removed one goes, and every value stays where it is. A
+    read that fails keeps what is shown.
+  */
+  const readPanel = useRef(0)
+  useEffect(() => {
+    if (readPanel.current === panelVersion) return
+    readPanel.current = panelVersion
+    let live = true
+    fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/files?path=${encodeURIComponent(PANEL_FILE)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { content?: unknown } | null) => {
+        if (!live || typeof d?.content !== "string") return
+        const parsed = JSON.parse(d.content) as Group[]
+        if (!Array.isArray(parsed)) return
+        fresh.current = true
+        setGroups([...parsed, OVERRIDE_GROUP as unknown as Group])
+      })
+      .catch(() => {
+        /* the groups already shown stay */
+      })
+    return () => { live = false }
+  }, [installId, panelVersion])
+
+  /* Edit from a section: the group that holds the scheme opened, the scheme open in it and in view. */
+  const focused = useRef(0)
+  useEffect(() => {
+    if (!focusScheme || !groups || focused.current === focusScheme.n) return
+    for (const g of groups) {
+      const field = g.settings.find((f) => {
+        const parts = f.id.split(SEP)
+        return parts.length >= 4 && parts[1] === focusScheme.id && parts[2] === "settings"
+      })
+      if (!field) continue
+      focused.current = focusScheme.n
+      const key = field.id.split(SEP).slice(0, 2).join(SEP)
+      setOpenScheme(key)
+      if (open !== g.name) onOpen(g.name)
+      requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector(`[data-compat-scheme="${CSS.escape(key)}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" })))
+      return
+    }
+  }, [focusScheme, groups, open, onOpen])
 
   const group = open ? groups?.find((g) => g.name === open) ?? null : null
   if (group) {

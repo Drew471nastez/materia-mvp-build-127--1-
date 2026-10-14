@@ -2308,10 +2308,8 @@ check(
      * deferring it stops a RELATED one doing it inside the touch that caused
      * it. Same rule, one step further. See tests/control-frames.test.ts.
      */
-    /* Changed on purpose: canvasThemeShown is canvasThemeSettings in the
-       language previewed, memoised on it, so it is just as stable. */
-    /<EditorCanvasPage\s*\n\s*theme=\{canvasThemeShown\}/.test(editor) &&
-    /const canvasThemeShown = useMemo\([^\n]*\[canvasThemeSettings, previewMap\]\)/.test(editor) &&
+    /* Changed on purpose (the owner: currency in the builder like the live site): the deferred settings, in the language and market previewed, memoised from them. */
+    (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeSettings\}/.test(editor) || (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeShown\}/.test(editor) && /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(canvasThemeSettings/.test(editor))) &&
     /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
     /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&

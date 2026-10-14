@@ -101,7 +101,8 @@ function main() {
       && /withWritingPlaceholder\(deferredSections, [^)]*\) : deferredSections\)/.test(editor))
   check(
     "and hands the canvas those, not the live ones",
-    (/theme=\{canvasThemeSettings\}/.test(editor) || /* Changed on purpose: canvasThemeShown is canvasThemeSettings in the language previewed, memoised on it. */ (/theme=\{canvasThemeShown\}/.test(editor) && /const canvasThemeShown = useMemo\(\(\) => \(previewMap \? \(localizeTheme\(canvasThemeSettings[^\n]*: canvasThemeSettings\), \[canvasThemeSettings, previewMap\]\)/.test(editor)))
+    /* Changed on purpose (the owner: currency in the builder like the live site): canvasThemeShown is canvasThemeSettings in the language and market previewed. */
+    (/theme=\{canvasThemeSettings\}/.test(editor) || (/theme=\{canvasThemeShown\}/.test(editor) && /localizeTheme\(canvasThemeSettings/.test(editor)))
       && (/sections=\{canvasSections\}/.test(editor) || /* Changed on purpose (round AE): drawnShown is drawnSections in the language previewed. */ ((/sections=\{drawnSections\}/.test(editor) || (/sections=\{drawnShown\}/.test(editor) && /localizeSections\(\s*drawnSections,/.test(editor))) && /withDynamicSources\((?:searchListsTheShop\()?canvasSections\)?,/.test(editor))),
   )
   check(

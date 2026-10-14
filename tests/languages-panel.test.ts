@@ -31,7 +31,7 @@ const code = (p: string) => stripComments(readFileSync(p, "utf8"))
 console.log("\nThe tab")
 const form = code("components/app/settings-form-new.tsx")
 check("is called Languages, at the same address", /id: "markets", get label\(\) \{ return tt\("Languages"\) \}/.test(form))
-check("the website builder links to it by that name", /tt\("Manage in Languages"\)/.test(code("components/website-builder/website-settings/general.tsx")))
+check("the website builder links to it by that name", /* Changed on purpose (overhaul): General's Languages and currencies card links each row to it. */ /ctx\.onNavigate\(href\)/.test(code("components/website-builder/website-settings/general.tsx")) && /manage\("\/app\/settings\?tab=markets"\)/.test(code("components/website-builder/website-settings/general.tsx")))
 
 console.log("\nEach language says where it is")
 const panel = code("components/app/settings/markets-panel.tsx")
@@ -52,7 +52,7 @@ check("closing Review shows what changed on the row", /void loadProgress\(\)/.te
 
 console.log("\nLess on screen")
 check("the two rarely used switches are under More options", /<details[^>]*data-language-options/.test(panel) && /tt\("More options"\)/.test(panel) && panel.indexOf("data-visitor-language") > panel.indexOf("data-language-options"))
-check("visitor currencies are an optional card without the home market", /title=\{tt\("Visitor currencies"\)\}/.test(panel) && /\.filter\(\(m\) => !m\.primary\)/.test(panel) && /Checkout always charges \{currency\}/.test(panel))
+check("visitor currencies are an optional card without the home market", /title=\{tt\("Visitor currencies"\)\}/.test(panel) && /\.filter\(\(m\) => !m\.primary\)/.test(panel) && /* Changed on purpose (overhaul): visitors pay in their currency when Storelib can charge it. */ /tt\("Optional\. Visitors from other countries see your prices in their currency and pay in it\."\)/.test(panel) && /Shown only, paid in \{currency\}/.test(panel))
 
 console.log("\nThe checkout's own selector")
 check("a language picked at checkout wins over the page the visitor came from", /p && langs\.others\.find/.test(code("lib/markets/checkout-language.ts")))
@@ -64,7 +64,8 @@ check("the back address still decides when nothing was picked", pickCheckoutLang
 
 console.log("\nHow it works, and the guide")
 check("Languages and Visitor currencies each link to the guide", EXPLAINERS.languages.guide === "/help/physical-products/languages-and-currencies-for-visitors" && EXPLAINERS.markets.guide === "/help/physical-products/languages-and-currencies-for-visitors")
-check("Visitor currencies says checkout charges the store's currency", EXPLAINERS.markets.lines.some((l) => /always charges your store's own currency/.test(l)))
+/* Changed on purpose (overhaul): checkout charges the visitor's currency, the store's only for one it cannot charge. */
+check("Visitor currencies says checkout charges the visitor's currency", EXPLAINERS.markets.lines.some((l) => /Checkout charges the visitor's currency/.test(l)))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

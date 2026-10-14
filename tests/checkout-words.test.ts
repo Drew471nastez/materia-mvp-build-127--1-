@@ -33,7 +33,7 @@ try {
 }
 check("the list is the sentences the checkout code says (scripts/i18n/checkout-sentences.mjs --check)", fresh)
 const all = checkoutSentences()
-for (const s of ["Pay {amount}", "Enter a valid email address.", "Shipping method", "I agree to the [Terms and Conditions] and the [Refund policy]", "Tick the box to agree to the Terms and Conditions.", "Thank you for your order", "Prices in {display} are an estimate. You'll pay in {charge} at checkout; your bank converts it.", "That code has expired."]) check(`  "${s}"`, all.includes(s))
+for (const s of ["Pay {amount}", "Enter a valid email address.", "Shipping method", "I agree to the [Terms and Conditions] and the [Refund policy]", "Tick the box to agree to the Terms and Conditions.", "Thank you for your order", "Prices in {display} are for reference. You'll pay in {charge}; your bank converts it.", "That code has expired."]) check(`  "${s}"`, all.includes(s))
 check("each country's address fields, by name and in their sentences", all.includes("ZIP code") && all.includes("Enter the ZIP code.") && all.includes("Prefecture") && all.includes("Choose your prefecture."))
 check("buying for a business, each country's tax number", all.includes("VAT number") || all.some((s) => /VAT/.test(s)))
 check("the connection's own sentences", all.includes("The connection dropped. Try again."))

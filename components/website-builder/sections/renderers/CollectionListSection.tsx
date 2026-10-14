@@ -36,7 +36,7 @@ export function CollectionListSection({ section, theme, isEditing, isSelected, o
               {!!s.description && <p className="text-base" style={{ color: c.paragraph }}>{str(s.description)}</p>}
             </div>
             {bool(s.show_view_all_button) && (
-              <a className="text-sm font-semibold underline" style={{ color: c.heading }} href="#">View all</a>
+              <a className="text-sm font-semibold underline" style={{ color: c.heading }} href="/collections" onClick={insideEditor ? (e) => e.preventDefault() : undefined}>View all</a>
             )}
           </div>
         )}
@@ -54,10 +54,11 @@ export function CollectionListSection({ section, theme, isEditing, isSelected, o
           style={{ gap: `${gap}px` }}
         >
           {demoBlocks.map(block => {
-            const url = str(block.settings.url, "#")
+            /* Where the card goes: the link it was given, else the shop's collections. Inert only in the builder, where a click selects. */
+            const url = str(block.settings.url) || "/collections"
             const img = str(block.settings.collection_image)
             return (
-              <a key={block.id} href={url} className="group block" onClick={(e) => e.preventDefault()}>
+              <a key={block.id} href={url} className="group block" onClick={insideEditor ? (e) => e.preventDefault() : undefined}>
                 <div className={cn("overflow-hidden rounded-lg bg-gradient-to-br from-neutral-800 to-neutral-900 relative", ratioClass[ratio] ?? "aspect-square")}>
                   {img ? (
                     <img src={img} alt={str(block.settings.collection_title)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />

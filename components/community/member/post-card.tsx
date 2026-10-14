@@ -223,6 +223,11 @@ export const PHONE_ROW =
 export const FIRST_CARDS = 8
 /** How long a finger rests on a card before it counts as a press worth reading ahead for (a scroll cancels it sooner). */
 export const READ_AHEAD_TOUCH_MS = 90
+/**
+ * How long a mouse rests on a card before its opened post's pictures are fetched ahead (round 13 of the desktop post: the
+ * picture is in hand when the panel opens, not grey). Long enough that a pointer crossing the feed fetches nothing.
+ */
+export const WARM_ON_HOVER_MS = 120
 /*
   NO LINK IN A CARD FETCHES AHEAD (round 25, scrolling "smooth ... and good on slow networks"). Next fetches a page ahead
   for every link that scrolls into view; a card has six (the author twice, the post twice, its space, its comments), and
@@ -364,6 +369,9 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     void readAheadComments(post.communityId, post.id)
   }
   useEffect(() => () => window.clearTimeout(aheadTimer.current), [])
+  /* A mouse resting on the card: its pictures only (the comments still wait for the press). */
+  const hoverTimer = useRef(0)
+  useEffect(() => () => window.clearTimeout(hoverTimer.current), [])
 
   /* The card opens its post over the feed; a link or a button inside it does its own thing. */
   const openPost = (e: React.MouseEvent) => {
@@ -636,6 +644,12 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           window.clearTimeout(aheadTimer.current)
           aheadTimer.current = 0
         }}
+        onPointerEnter={(e) => {
+          if (e.pointerType !== "mouse" || !media.length) return
+          window.clearTimeout(hoverTimer.current)
+          hoverTimer.current = window.setTimeout(() => warmPostMedia(media, post.communityId, post.id), WARM_ON_HOVER_MS)
+        }}
+        onPointerLeave={() => window.clearTimeout(hoverTimer.current)}
       >
         {pinnedLine}
         {head}

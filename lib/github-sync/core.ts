@@ -268,8 +268,31 @@ README.md says what each folder is and which ones Storelib reads back.
 5. Nothing is live until the creator presses Publish in the builder.
 
 ${shopify
-    ? "Every section here is the theme's own; change it in place. Keep the `<template compat=\"shopify\">` line and the schema block as they are."
+    ? "Every section here is the theme's own; change it in place. Keep the `<template compat=\"shopify\">` line and the schema block after it."
     : "A built-in section (one Storelib ships, such as `sections/hero.storelib`) can be edited in place here. Storelib keeps your version as this site's own copy, draws it on this site only, and the creator can reset it to Storelib's version. `sections/header.storelib` and `sections/footer.storelib` cannot be replaced; a header of your own is a new section with `\"kind\": \"header\"`."}
+${shopify
+    ? `## Settings in the builder's sidebar
+
+A section's or block's settings, blocks and presets are the theme's own
+schema: the \`"shopify"\` object inside its \`<schema>\`. Change them there,
+written the way the theme writes them. When the push comes in, Storelib makes
+the builder's panel (the rest of \`<schema>\`) from it again, so a new setting
+gets its control and a removed one loses it; a hand edit to that part is
+replaced. The theme settings are \`shopify/config/settings_schema.json\`,
+read the same way into the builder's Theme settings, with their values in
+\`config/settings.json\` under \`shopify\`. A setting the builder has no
+control for keeps its value on the page, and the commit comment names it.`
+    : `## Settings in the builder's sidebar
+
+A section's settings, blocks and presets are its \`<schema>\`: add, change or
+remove one there and the section's panel in the builder follows when the push
+comes in. Keep each setting's id, because the creator's content is stored
+under it. The theme settings in \`config/settings_schema.json\` are
+Storelib's own, the same on every Storelib theme: change their values in
+\`config/settings.json\`, and give a section a new setting in its own
+\`<schema>\` rather than adding one there. A change to that file, or to a
+\`sections/<type>.json\`, is refused and the commit says so.`}
+
 README.md, AGENTS.md, CLAUDE.md and storelib.json are rewritten by Storelib,
 so a change to them is not kept. Deleting a section file here does not remove
 the section from the site, because a page may be using it. Files outside the

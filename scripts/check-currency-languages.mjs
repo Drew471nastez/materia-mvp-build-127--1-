@@ -93,6 +93,7 @@ const API = {
   "PUT /api/store/currency": { ...CURRENCY, currency: "EUR", chosen: "EUR" },
   "GET /api/store/markets": MARKETS,
   "GET /api/store/translations": SUMMARY,
+  "GET /api/store/translations/jobs": { ready: true, jobs: {} },
 }
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--force-device-scale-factor=1"] })
@@ -198,14 +199,17 @@ for (const [label, vp] of [
 
 /* A language being translated: its row says so with the count and a bar. */
 console.log("\nA translation in progress")
-const SLOW = { ...API, "POST /api/store/translations/draft": { drafted: 60, left: 80 } }
+/* Translate with AI on the server (lib/markets/translation-jobs.ts): the job answers at once, and the row reads its count. */
+const JOB = { locale: "de", status: "running", done: 60, total: 140, drafted: 60, error: null, startedAt: "", updatedAt: "" }
+const SLOW = { ...API, "POST /api/store/translations/jobs": { ready: true, job: JOB }, "GET /api/store/translations/jobs": { ready: true, jobs: {} } }
 await open("markets", { width: 1280, height: 900 }, SLOW)
 /* Each batch takes a while, as Storelib AI's do: the row is measured while one is out. */
 await page.evaluate(() => {
   const real = window.fetch
   window.fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input.url
-    if (url.includes("/api/store/translations/draft")) await new Promise((r) => setTimeout(r, 1500))
+    if (url.includes("/api/store/translations/jobs") && (!init || !init.method || init.method === "GET")) return new Response(JSON.stringify({ ready: true, jobs: window.__started ? { de: { locale: "de", status: "running", done: 60, total: 140, drafted: 60, error: null, startedAt: "", updatedAt: "" } } : {} }), { status: 200, headers: { "Content-Type": "application/json" } })
+    if (url.includes("/api/store/translations/jobs")) window.__started = true
     return real(input, init)
   }
 })
@@ -215,7 +219,7 @@ const running = await page.evaluate(() => {
   const li = document.querySelector("[data-language=de]")
   return { state: li?.getAttribute("data-language-state"), bar: !!li?.querySelector("[role=progressbar]"), line: (li?.querySelector("[data-language-progress]")?.textContent || "").trim() }
 })
-say(running.state === "translating" && running.bar && /of 140 texts/.test(running.line), `German shows Translating with its count and a bar (${JSON.stringify(running)})`)
+say(running.state === "translating" && running.bar && /60 of 140 texts/.test(running.line), `German shows Translating with the job's own count and a bar (${JSON.stringify(running)})`)
 await shot("languages-translating", { width: 1280 })
 
 await browser.close()

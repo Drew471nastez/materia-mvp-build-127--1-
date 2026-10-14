@@ -169,13 +169,15 @@ async function main() {
     const cart = code("app/api/checkout/cart/route.ts")
     const physical = code("lib/physical/checkout-server.ts")
     for (const [name, src] of [["the website checkout", site], ["the basket checkout", cart], ["the shipped checkout", physical]] as const) {
-      check(`${name} reads the store's currency and charges it`, /readStoreCurrency\(/.test(src) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(src))
-      check(`${name} holds it to that currency's Stripe minimum`, /minimumChargeMinor\(storeCurrency\)/.test(src) && !/MIN_CHARGE_CENTS/.test(src))
+      /* Changed on purpose (checkout, currency and translation overhaul): the website checkout reads it through its market (lib/markets/checkout-market-server), the store's currency or the market's it can charge. */
+      const viaMarket = /checkoutMarket\(site\.creatorId, countryOfRequest\(request\), admin\)/.test(src) && /const chargeCurrency = chargeCurrencyUpper\.toLowerCase\(\)/.test(src)
+      check(`${name} reads the store's currency and charges it`, viaMarket || (/readStoreCurrency\(/.test(src) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(src)))
+      check(`${name} holds it to that currency's Stripe minimum`, (/minimumChargeMinor\(storeCurrency\)/.test(src) || /minimumChargeMinor\(chargeCurrencyUpper\)/.test(src)) && !/MIN_CHARGE_CENTS/.test(src))
       check(`${name} charges no platform currency`, !/platformChargeCurrency\(/.test(src))
     }
     check("a checkout started in one currency is never reused for another", /pi\.currency/.test(physical))
     const page = code("app/checkout/site/page.tsx")
-    check("the checkout page draws its amounts in the store's currency", /<CheckoutCurrency currency=\{store\.currency\}/.test(page))
+    check("the checkout page draws its amounts in the store's currency", /* Changed on purpose (checkout, currency and translation overhaul): the currency it is charged in: the store's, or the visitor's market's. */ /<CheckoutCurrency currency=\{market\.chargeCurrency\}/.test(page))
     check("and only notes a charge currency when a visitor's market shows another", /chargeNote\(/.test(page) && chargeNote("RON", "RON") === null)
     const pay = code("app/checkout/parts/stripe-pay.tsx")
     check("the card form is set up in the charge's currency", /chargeCurrency/.test(pay))

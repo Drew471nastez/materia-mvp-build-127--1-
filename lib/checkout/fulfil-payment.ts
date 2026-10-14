@@ -264,7 +264,8 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     variant_id: variantId,
     variant_name: variantName,
     variant_price_cents: variantPriceCents,
-    variant_currency: "USD",
+    /* What the buyer was charged in, not a fixed USD. */
+    variant_currency: (paid.currency || m.currency || "usd").toUpperCase(),
     variant_snapshot: variantId && variantName ? { id: variantId, name: variantName, price_cents: variantPriceCents } : null,
     agreed_to_terms: m.agreed_to_terms === "true",
     agreed_at: m.agreed_at || new Date(paid.createdSeconds * 1000).toISOString(),

@@ -3145,5 +3145,13 @@ GRANT EXECUTE ON FUNCTION public.store_change_currency(uuid, text, text, text, n
 GRANT EXECUTE ON FUNCTION public.store_currency_restore(uuid, uuid) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('176', '176_store_currency.sql', '5fb8d6d92a03988dde5a5d25abb4ba48386afbb000d9b854d8dd62645258a4ec') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 177_translation_jobs.sql
+/* Translate with AI in the background. `store_translation_jobs`: one row per store and language while Storelib AI translates its website into it (Settings › Languages, the translation sheet), so the work goes on after the page is closed, a refresh shows where it is, and a second press joins the running job instead of starting another. `status` is running, done or failed; `done` and `total` are the language's texts that have a translation and all of them, for a progress bar that counts real work; `drafted` is what this job wrote; `lease_until` is how long the run that holds it may keep it, so a run cut off is picked up again by the next (/api/cron/translation-jobs) and never two at once. Server only. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.store_translation_jobs ( creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, locale text NOT NULL CHECK (locale ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,4})?$'), status text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'done', 'failed')), done integer NOT NULL DEFAULT 0 CHECK (done >= 0), total integer NOT NULL DEFAULT 0 CHECK (total >= 0), drafted integer NOT NULL DEFAULT 0 CHECK (drafted >= 0), rounds integer NOT NULL DEFAULT 0 CHECK (rounds >= 0), error text CHECK (error IS NULL OR length(error) <= 500), started_by uuid REFERENCES auth.users(id) ON DELETE SET NULL, started_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), lease_until timestamptz, PRIMARY KEY (creator_id, locale) );
+CREATE INDEX IF NOT EXISTS store_translation_jobs_running_idx ON public.store_translation_jobs (lease_until) WHERE status = 'running';
+ALTER TABLE public.store_translation_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.store_translation_jobs FROM anon, authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('177', '177_translation_jobs.sql', '18b0172c415ba12483c37e036aacc24d62831504f1716d509da7af07f36888ae') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

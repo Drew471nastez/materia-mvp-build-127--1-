@@ -450,6 +450,41 @@ export const CANVAS_BRIDGE = `
     post({ type: "pick", sectionId: id, blockPath: path });
   }, true);
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
+  /*
+    A SECTION PUT IN BELOW THE SCREEN STILL ARRIVES AS IT DOES LIVE. Told
+    shopify:section:load, a Dawn family theme (animations.js) marks every
+    .scroll-trigger in the section scroll-trigger--design-mode, which
+    turns its reveal off for good: in the canvas, nothing below the screen
+    rose or faded in once the section had been edited. The mark is the theme
+    editor's, so it stays on what is on screen or above (nothing there hides
+    or plays again under an edit); one wholly below the screen goes back to
+    waiting off screen (scroll-trigger--offscreen, as the theme's own
+    observer leaves it on the website) and comes in when it is scrolled to,
+    exactly as the theme's onIntersection does it. Never under reduced
+    motion, where the theme shows everything as it is.
+  */
+  var waking = null;
+  var wake = function (scope) {
+    if (!scope || !scope.querySelectorAll || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var marked = Array.prototype.slice.call(scope.querySelectorAll(".scroll-trigger--design-mode"));
+    if (!marked.length) return;
+    if (!waking) waking = new IntersectionObserver(function (entries) {
+      entries.filter(function (e) { return e.isIntersecting; }).forEach(function (e, i) {
+        var el = e.target;
+        waking.unobserve(el);
+        if (!el.classList.contains("scroll-trigger--offscreen")) return;
+        el.classList.remove("scroll-trigger--offscreen");
+        if (el.hasAttribute("data-cascade")) el.style.setProperty("--animation-order", String(i));
+      });
+    }, { rootMargin: "0px 0px -50px 0px" });
+    marked.forEach(function (el) {
+      if (el.getBoundingClientRect().top < innerHeight) return;
+      el.classList.remove("scroll-trigger--design-mode");
+      el.classList.add("scroll-trigger--offscreen");
+      waking.observe(el);
+    });
+  };
   var selected = { section: null, block: null };
   /* Where the selected section is on screen, for the builder's toolbar over the canvas. */
   var boxFrame = 0;
@@ -599,6 +634,7 @@ export const CANVAS_BRIDGE = `
       if (scrollY !== y) scrollTo(0, y);
       drawn[id] = html;
       fire(next, "shopify:section:load", { sectionId: id, load: true });
+      wake(next);
       if (selected.section === id) mark(selected.section, selected.block, false);
       reportSoon();
     });
@@ -841,6 +877,7 @@ export const CANVAS_BRIDGE = `
       var id = el.getAttribute("data-section-id");
       runScripts(el);
       fire(el, "shopify:section:load", { sectionId: id, load: true });
+      wake(el);
     });
     if (scrollY !== y) scrollTo(0, y);
     if (selected.section) mark(selected.section, selected.block, false);

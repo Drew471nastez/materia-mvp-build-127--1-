@@ -339,7 +339,11 @@ function PayWhatYouWant({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const amounts = suggestedAmounts(str(s.amounts), facts.minCents, facts.suggestedCents)
   const accent = colorOf(s.accent, ctx.palette, "heading")
   const ink = ctx.palette.heading
-  const typedCents = Math.round(parseFloat(ctx.pwywInput.replace(/[$,\s]/g, "")) * 100)
+  const typedCents = Math.round(parseFloat(ctx.pwywInput.replace(/[^0-9.]/g, "")) * 100)
+  /* The store's currency mark, as its prices write it ("$" before, "lei" after): read off the shop's own money, so the field never says $ over lei. */
+  const zero = ctx.money(0)
+  const mark = zero.replace(/[\d.,\s\u00a0-]/g, "") || "$"
+  const markAfter = zero.search(/\d/) < zero.indexOf(mark)
   return (
     <div className="space-y-2.5" data-pwyw="">
       <label htmlFor="pwyw-amount" className="block text-[14px] font-medium" style={{ color: ink }}>
@@ -365,7 +369,7 @@ function PayWhatYouWant({ s, ctx }: { s: S; ctx: ProductCtx }) {
         </div>
       ) : null}
       <div className="relative">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[16px]" style={{ color: ctx.palette.text_muted ?? ctx.palette.paragraph }} aria-hidden>$</span>
+        <span className={cn("pointer-events-none absolute top-1/2 -translate-y-1/2 text-[16px]", markAfter ? "right-3.5" : "left-3.5")} style={{ color: ctx.palette.text_muted ?? ctx.palette.paragraph }} aria-hidden>{mark}</span>
         <input
           id="pwyw-amount"
           inputMode="decimal"
@@ -376,7 +380,7 @@ function PayWhatYouWant({ s, ctx }: { s: S; ctx: ProductCtx }) {
           onClick={(e) => e.stopPropagation()}
           aria-invalid={ctx.pwywError ? true : undefined}
           aria-describedby="pwyw-help"
-          className="h-12 w-full border bg-transparent pl-8 pr-3.5 text-[16px] tabular-nums outline-none"
+          className={cn("h-12 w-full border bg-transparent text-[16px] tabular-nums outline-none", markAfter ? "pl-3.5 pr-12" : "pl-8 pr-3.5")}
           style={{ borderRadius: `var(--theme-input-radius, ${ctx.radius})`, borderColor: ctx.pwywError ? "#dc2626" : ctx.palette.border, color: ink }}
         />
       </div>

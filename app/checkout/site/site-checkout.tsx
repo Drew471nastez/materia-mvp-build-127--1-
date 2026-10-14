@@ -60,6 +60,7 @@ import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
 import { StripePay, type IntentResult } from "../parts/stripe-pay"
 import { VariantEdit } from "../parts/variant-edit"
+import { CheckoutPhone } from "../parts/phone-input"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { HtmlClass } from "@/components/platform/html-class"
 import { OwnedNote, SiteOwned } from "./owned"
@@ -67,6 +68,8 @@ import { AccessLink } from "../parts/access-link"
 import { FAIL_COPY, WAIT_MS, requestJson } from "@/lib/net/request"
 import { checkoutMsg, lowerLabel } from "@/lib/markets/checkout-words"
 import { estimateText, useCheckoutLang, useCountryName, useCt } from "../parts/words"
+import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
+import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -94,8 +97,12 @@ export interface SiteCheckoutProps {
   needsSignIn: boolean
   /** The website's own account page, where a signed in customer's downloads are (never storelib.com). */
   accountUrl?: string
-  /** The visitor browsed in a market's currency (Markets and languages): what the card is charged in, said under the total. */
+  /** The visitor browsed in a market's currency the checkout cannot charge: what the card is charged in, said under the total. */
   currencyNote?: string | null
+  /** The delivery country before the first frame: the buyer's last pick here, else the website's selector's, else where they are (./page.tsx). */
+  initialCountry?: string | null
+  /** No page to go back to was named: the last line removed goes back where the browser came from, when that is this website. */
+  backIsDefault?: boolean
   /** The language the page is drawn in (../parts/words.tsx): the route translates the order's titles into it. */
   lang?: string
   /** The website's languages, when it has more than one: the checkout's own selector under the payment. */
@@ -139,6 +146,13 @@ const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", region: "", pos
 
 function newKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+/** A field's placeholder: one plain word from its label ("ZIP code" → "ZIP", "Postal code" → "Postcode", "State" → "State"). */
+function oneWord(label: string): string {
+  const head = label.replace(/\s*\(.*\)$/, "").replace(/ code$/i, "").trim()
+  if (/^postal$/i.test(head)) return "Postcode"
+  return head.split(/\s+/)[0] || label
 }
 
 function guessCountry(): string {
@@ -202,6 +216,8 @@ export function SiteCheckout({
   needsSignIn,
   accountUrl = "/account",
   currencyNote = null,
+  initialCountry = null,
+  backIsDefault = false,
   lang: pageLang,
   languages,
 }: SiteCheckoutProps) {
@@ -244,6 +260,8 @@ export function SiteCheckout({
   /* `swap`: a line changed to another option here, so this browser's cart line follows it rather than being dropped. */
   const commitItems = (next: LinkItem[], swap?: { productId: string; from: string | null; to: { variantId: string; variantName: string | null; priceCents: number } }) => {
     setItems(next)
+    /* The new amounts at once (lib/checkout/optimistic-quote): no fade, no wait. The server's quote replaces them when it answers. */
+    if (!swap) setQuote((q) => (q ? (optimisticQuote(q, next) ?? q) : q))
     try {
       const url = new URL(window.location.href)
       if (url.searchParams.has("items")) {
@@ -306,11 +324,18 @@ export function SiteCheckout({
   }, [email, lockedEmail])
 
   /* ── Delivery ────────────────────────────────────────────────────── */
-  const [address, setAddress] = React.useState<Address>(EMPTY_ADDRESS)
+  /* The country the server already priced the first frame with (./page.tsx): no guess, no jump. The browser's language only when nothing was known. */
+  const [address, setAddress] = React.useState<Address>(() => ({ ...EMPTY_ADDRESS, country: initialCountry ?? "" }))
   const [mode, setMode] = React.useState<"ship" | "pickup">("ship")
-  const [optionId, setOptionId] = React.useState<string | null>(null)
+  /* The delivery the first quote chose, so it is not asked for again. */
+  const [optionId, setOptionId] = React.useState<string | null>(initialQuote?.requiresShipping ? (initialQuote.delivery.selectedId ?? null) : null)
   const [note, setNote] = React.useState(initialNote ?? "")
   React.useEffect(() => setAddress((a) => (a.country ? a : { ...a, country: guessCountry() })), [])
+  /* A country the buyer picks is the one their next checkout opens on (lib/checkout/checkout-country). */
+  const firstCountry = React.useRef(address.country)
+  React.useEffect(() => {
+    if (address.country && address.country !== firstCountry.current) rememberCheckoutCountry(address.country)
+  }, [address.country])
   /* Settings › Shipping: the countries this cart can go to. A shop that ships to one country starts there. */
   const shipsTo = quote?.shipsTo ?? null
   const shipsToKey = shipsTo ? shipsTo.join(",") : ""
@@ -340,13 +365,17 @@ export function SiteCheckout({
 
   const asked = React.useRef(0)
   const firstAsk = React.useRef(!!initialQuote)
+  /* What the first frame's quote was priced with: the country, and nothing typed yet. */
+  const pricedWith = React.useRef(initialQuote?.requiresShipping ? `${initialCountry ?? ""}||` : "")
   React.useEffect(() => {
     if (!items || items.length === 0) return
-    /* The server already priced this cart for the first frame: asked again only once something changes. */
-    if (firstAsk.current && !ships) {
+    /* The server already priced this cart for the first frame, for this country: asked again only once something changes. */
+    if (firstAsk.current && shipsKey === pricedWith.current) {
       firstAsk.current = false
       return
     }
+    /* Nothing priced yet (a cart only this browser has): asked at once, not after the pause that gathers presses. */
+    const wait = quote ? 150 : 0
     firstAsk.current = false
     const n = ++asked.current
     setQuoting(true)
@@ -384,7 +413,7 @@ export function SiteCheckout({
       } finally {
         if (n === asked.current) setQuoting(false)
       }
-    }, 200)
+    }, wait)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, appliedCode, shipsKey, optionId, byCash])
@@ -579,7 +608,7 @@ export function SiteCheckout({
       if (m === "name") return missing(splitName ? "first" : "name", ct("Enter your name."))
       if (m === "last") return missing(splitName ? "last" : "name", ct("Enter your first and last name."))
       if (m === "company") return missing("company", ct("Enter the company name."))
-      if (m === "phone") return missing("phone", ct("Enter a phone number."))
+      if (m === "phone") return missing("phone", address.phone.trim() ? ct("Check the phone number.") : ct("Enter a phone number."))
       if (m === "line2") return missing("line2", ct("Enter the apartment, suite or unit."))
     }
     if (ships && mode === "ship") {
@@ -791,6 +820,23 @@ export function SiteCheckout({
     </Field>
   )
 
+  /* The phone with its country's code in front (../parts/phone-input), following the address's country until the buyer picks one. */
+  const phoneField = (
+    <Field id="checkout-phone" label={plan.phone === "required" ? ct("Phone") : ct("Phone (optional)")} error={errorOf("phone")}>
+      <CheckoutPhone
+        id="checkout-phone"
+        value={address.phone}
+        country={address.country}
+        placeholder={ct("Phone")}
+        invalid={!!errorOf("phone")}
+        onChange={(v) => {
+          setAddress((a) => ({ ...a, phone: v.slice(0, 40) }))
+          clearError("phone")
+        }}
+      />
+    </Field>
+  )
+
   /* Under the email: the news box, the account, then the name (an order that ships asks the name with its address). */
   const contactExtra = (
     <div className="space-y-3">
@@ -800,7 +846,7 @@ export function SiteCheckout({
       {!buyer && !lockedEmail && !needsSignIn && hasDownloads ? <AccessLink email={email} send={sendAccess} /> : null}
       {ships ? null : nameFields}
       {/* A physical product handed over in person: no address, and still the phone Settings › Checkout asks for. */}
-      {!ships && physical && plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? ct("Phone") : ct("Phone (optional)"), { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+      {!ships && physical && plan.phone !== "off" ? phoneField : null}
     </div>
   )
 
@@ -885,25 +931,25 @@ export function SiteCheckout({
               ))}
             </div>
             {nameFields}
-            {plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? ct("Phone") : ct("Phone (optional)"), { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+            {plan.phone !== "off" ? phoneField : null}
           </div>
         ) : (
           <div className="space-y-3">
             {select("checkout-country", ct("Country/region"), address.country, countryChoices, (v) => setAddress((a) => ({ ...a, country: v, region: "" })), "country")}
             {nameFields}
-            {plan.company !== "off" ? addressField("company", plan.company === "required" ? ct("Company") : ct("Company (optional)"), { id: "checkout-company", autoComplete: "organization" }) : null}
-            {addressField("line1", ct("Address"), { id: "checkout-line1", autoComplete: "address-line1" })}
-            {plan.address2 !== "off" ? addressField("line2", plan.address2 === "required" ? ct("Apartment, suite or unit") : ct("Apartment, suite, etc. (optional)"), { id: "checkout-line2", autoComplete: "address-line2" }) : null}
+            {plan.company !== "off" ? addressField("company", plan.company === "required" ? ct("Company") : ct("Company (optional)"), { id: "checkout-company", autoComplete: "organization", placeholder: ct("Company") }) : null}
+            {addressField("line1", ct("Address"), { id: "checkout-line1", autoComplete: "address-line1", placeholder: ct("Address") })}
+            {plan.address2 !== "off" ? addressField("line2", plan.address2 === "required" ? ct("Apartment, suite or unit") : ct("Apartment, suite, etc. (optional)"), { id: "checkout-line2", autoComplete: "address-line2", placeholder: ct("Apartment") }) : null}
             <div className={cn("grid gap-3", fmt.region ? "grid-cols-2 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1" : "grid-cols-2")}>
-              {addressField("city", ct("City"), { id: "checkout-city", autoComplete: "address-level2" })}
+              {addressField("city", ct("City"), { id: "checkout-city", autoComplete: "address-level2", placeholder: ct("City") })}
               {!fmt.region
                 ? null
                 : regions.length
                   ? select("checkout-region", ct(fmt.region.label), address.region, regions.map((r) => ({ code: r.code, name: r.name })), (v) => setAddress((a) => ({ ...a, region: v })), "address-level1")
-                  : addressField("region", fmt.region.required ? ct(fmt.region.label) : ct("{field} (optional)", { field: ct(fmt.region.label) }), { id: "checkout-region", autoComplete: "address-level1" })}
-              {addressField("postalCode", postalCodeRequired(address.country || "US") ? ct(fmt.postal.label) : ct("{field} (optional)", { field: ct(fmt.postal.label) }), { id: "checkout-postal", autoComplete: "postal-code" })}
+                  : addressField("region", fmt.region.required ? ct(fmt.region.label) : ct("{field} (optional)", { field: ct(fmt.region.label) }), { id: "checkout-region", autoComplete: "address-level1", placeholder: oneWord(ct(fmt.region.label)) })}
+              {addressField("postalCode", postalCodeRequired(address.country || "US") ? ct(fmt.postal.label) : ct("{field} (optional)", { field: ct(fmt.postal.label) }), { id: "checkout-postal", autoComplete: "postal-code", placeholder: oneWord(ct(fmt.postal.label)) })}
             </div>
-            {plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? ct("Phone") : ct("Phone (optional)"), { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+            {plan.phone !== "off" ? phoneField : null}
           </div>
         )}
       </section>
@@ -1174,7 +1220,7 @@ export function SiteCheckout({
   /* ── Nothing to pay for ──────────────────────────────────────────── */
   /* The last line removed (or an empty cart): straight back to the website, where the buyer came from, never a "Your cart is empty" page on its own. */
   if (items !== null && items.length === 0) {
-    return <BackToShop to={backTo} />
+    return <BackToShop to={backTo} orReferrer={backIsDefault} />
   }
   if (!quote && quoteError && !quoting) {
     return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title={ct("This cart can't be paid for yet")} message={quoteError} />
@@ -1269,7 +1315,7 @@ export function SiteCheckout({
             <div className="mx-auto w-full max-w-[440px] lg:ml-auto lg:mr-0 lg:sticky lg:top-12">
               <div>
                 <p className="text-[15px] font-medium text-[#6b7280]">{ct("Pay {shop}", { shop: brand.name })}</p>
-                <p data-total="" className={cn("mt-1 text-[32px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-[#1a1a2e] transition-opacity duration-150 sm:text-[36px]", quoting && "opacity-60")}>
+                <p data-total="" className="mt-1 text-[32px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-[#1a1a2e] sm:text-[36px]">
                   {quote ? money(total) : " "}
                 </p>
               </div>
@@ -1335,10 +1381,20 @@ export function SiteCheckout({
  * back, never a blank page.
  */
 /** Sends the buyer back to the website at once, with the page's own grey while it goes. */
-function BackToShop({ to }: { to: string }) {
+function BackToShop({ to, orReferrer = false }: { to: string; orReferrer?: boolean }) {
   React.useEffect(() => {
-    window.location.replace(to)
-  }, [to])
+    /* No page was named: the page of this website the buyer came from, when the browser says it (never another site, never a checkout). */
+    let back = to
+    if (orReferrer) {
+      try {
+        const from = new URL(document.referrer)
+        if (from.host === window.location.host && !from.pathname.startsWith("/checkout")) back = from.href
+      } catch {
+        /* the website's own page, as named */
+      }
+    }
+    window.location.replace(back)
+  }, [to, orReferrer])
   return <div aria-busy className="min-h-[60vh]" data-checkout-leaving="" />
 }
 
@@ -1382,7 +1438,7 @@ function LineImage({ url, muted = false }: { url: string | null; muted?: boolean
  * limit); a download is one, so it only has Remove. Every change is priced
  * again by the server.
  */
-function LineControls({ title, quantity, max, stepper, busy, onChange, fix }: { title: string; quantity: number; max: number; stepper: boolean; busy: boolean; onChange: (quantity: number) => void; fix?: () => void }) {
+function LineControls({ title, quantity, max, stepper, onChange, fix }: { title: string; quantity: number; max: number; stepper: boolean; busy?: boolean; onChange: (quantity: number) => void; fix?: () => void }) {
   const ct = useCt()
   const atMax = quantity >= max
   const btn = "grid h-8 w-8 place-items-center text-[#4b5563] transition-colors hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:text-[#c4c7cd] [-webkit-tap-highlight-color:transparent]"
@@ -1393,7 +1449,7 @@ function LineControls({ title, quantity, max, stepper, busy, onChange, fix }: { 
           <button type="button" aria-label={ct("One fewer {title}", { title })} data-qty-minus="" disabled={quantity <= 1} onClick={() => onChange(quantity - 1)} className={btn}>
             <Minus className="h-3.5 w-3.5" aria-hidden />
           </button>
-          <span aria-live="polite" aria-label={ct("Quantity {quantity}", { quantity })} data-qty="" className={cn("min-w-7 text-center text-[13.5px] font-medium tabular-nums text-[#1a1a2e]", busy && "opacity-60")}>
+          <span aria-live="polite" aria-label={ct("Quantity {quantity}", { quantity })} data-qty="" className="min-w-7 text-center text-[13.5px] font-medium tabular-nums text-[#1a1a2e]">
             {quantity}
           </span>
           <button type="button" aria-label={ct("One more {title}", { title })} data-qty-plus="" disabled={atMax} onClick={() => onChange(quantity + 1)} className={btn}>

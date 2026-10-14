@@ -38,6 +38,7 @@ import { orderLimits, overLimit } from "./order-limit"
 import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 import { liveCarrierQuotes } from "@/lib/integrations/shipping/checkout-rates-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { shopMoneyIn } from "@/lib/store/shop-money"
 
 export const MAX_CHECKOUT_LINES = 50
 export const MAX_LINE_QUANTITY = 999
@@ -392,7 +393,7 @@ export async function priceCheckout(
   if (!applies.some(Boolean)) return { ok: false, status: 400, error: "That code does not apply to anything in your cart." }
   const eligible = lines.reduce((n, l, i) => n + (applies[i] ? l.unitCents * l.quantity : 0), 0)
   if (c.min_purchase_cents && eligible < c.min_purchase_cents) {
-    return { ok: false, status: 400, error: `That code needs an order of at least $${(c.min_purchase_cents / 100).toFixed(2)}.` }
+    return { ok: false, status: 400, error: `That code needs an order of at least ${shopMoneyIn(c.min_purchase_cents, (await readStoreCurrency(db, creatorId)).currency)}.` }
   }
   if (c.per_customer_limit && c.per_customer_limit > 0 && req.buyerEmail) {
     const { count } = await db
@@ -409,7 +410,7 @@ export async function priceCheckout(
   discounts.forEach((d, i) => (lines[i].discountCents += d))
   const freeShipping = c.free_shipping === true
   if (!freeShipping && discounts.every((d) => d <= 0)) return { ok: false, status: 400, error: "That code takes nothing off this order." }
-  const label = [Number(c.discount_value) > 0 ? couponLabel(c) : null, freeShipping ? "free shipping" : null].filter(Boolean).join(" and ")
+  const label = [Number(c.discount_value) > 0 ? couponLabel(c, (await readStoreCurrency(db, creatorId)).currency) : null, freeShipping ? "free shipping" : null].filter(Boolean).join(" and ")
   return { ...base, coupon: c, couponLabel: label, freeShipping }
 }
 

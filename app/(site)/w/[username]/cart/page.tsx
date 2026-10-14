@@ -54,7 +54,7 @@ export default async function SiteCartPage({ params }: PageProps) {
   const site = localizer ? { ...own, themeSettings: localizer.theme(own.themeSettings as Record<string, unknown>) as typeof own.themeSettings } : own
   /* The header and footer, with any placeholder in them filled in, in the page's language. */
   const chrome = chromeSections(site.pages.home ?? site.sections)
-  const { sections } = await dressPage(site, localizer ? localizer.sections(chrome, site.sources) : chrome, localizer ? localizer.cards(products) : products, productCount, "cart", "Cart")
+  const { sections } = await dressPage(site, localizer ? localizer.sections(chrome, site.sources) : chrome, localizer ? localizer.cards(products) : products, productCount, "cart", "Cart", undefined, { cached: true, localizer })
 
   /* The theme's default surface, resolved on the server: the cart is not a
      section and has no section settings of its own to resolve from. */

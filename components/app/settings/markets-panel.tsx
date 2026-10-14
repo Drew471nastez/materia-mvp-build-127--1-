@@ -44,6 +44,8 @@ import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
 import { activeLocale, tt, ttx } from "@/lib/i18n/text"
+import { chargeableCurrency } from "@/lib/markets/checkout-charge"
+import { startTranslation, useTranslationJobs } from "./translation-jobs-store"
 
 const PATH = "/api/store/markets"
 
@@ -116,8 +118,33 @@ export function MarketsPanel() {
     void loadProgress()
   }, [loadProgress])
 
-  /* TRANSLATE WITH AI: the drafts in batches until nothing is left, as the sheet does (app/api/store/translations/draft), with the count on the row. */
+  /*
+    TRANSLATE WITH AI, ON THE SERVER (./translation-jobs-store.ts): the job
+    goes on whatever this page does, and its row shows how many texts are
+    translated out of all of them, read from the job itself. Closing
+    Settings or refreshing shows the same row. A finished job reads the
+    language's counts again.
+  */
+  const { jobs } = useTranslationJobs()
+  const jobStates = JSON.stringify(Object.values(jobs).map((j) => [j.locale, j.status]))
+  const lastStates = React.useRef(jobStates)
+  React.useEffect(() => {
+    if (lastStates.current !== jobStates) void loadProgress()
+    lastStates.current = jobStates
+  }, [jobStates, loadProgress])
   const translateWithAi = async (code: string) => {
+    setDrafting((d) => {
+      const next = { ...d }
+      delete next[code]
+      return next
+    })
+    const r = await startTranslation(code)
+    if (r.ok) return
+    if ("fallback" in r) return translateByRounds(code)
+    setDrafting((d) => ({ ...d, [code]: { state: "error", message: r.error } }))
+  }
+  /* Without the jobs table (SQL part 177): the drafts in rounds from this page, as before, with the count on the row. */
+  const translateByRounds = async (code: string) => {
     const before = progress?.[code]
     let total = before ? before.total : 0
     let done = before ? before.done + before.draft : 0
@@ -180,7 +207,20 @@ export function MarketsPanel() {
     return (
       <div className="space-y-4 sm:space-y-6" data-markets-panel="" aria-busy={!error}>
         <Card title={tt("Languages")} description={tt("Your website in more languages.")}>
-          {error ? <Notice>{error}</Notice> : <div className="h-24" />}
+          {error ? (
+            <Notice>{error}</Notice>
+          ) : (
+            /* The list's own shape while it is read: a row for the website's language, never an empty box. */
+            <div className="overflow-hidden rounded-xl border border-[#eceef1]" data-languages-loading="">
+              <div className="flex items-center gap-3 px-3.5 py-3">
+                <span className="h-8 w-8 shrink-0 rounded-full bg-[#f1f2f4]" />
+                <span className="flex-1 space-y-1.5">
+                  <span className="block h-3.5 w-28 rounded bg-[#f1f2f4]" />
+                  <span className="block h-3 w-40 rounded bg-[#f5f6f7]" />
+                </span>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     )
@@ -240,7 +280,10 @@ export function MarketsPanel() {
           </li>
           {draft.languages.map((l) => {
             const p = progress?.[l.code] ?? null
-            const run = drafting[l.code] ?? null
+            const job = jobs[l.code]
+            /* The job's own count once its first round is in; before it, where the language stood. */
+            const fromJob = job?.status === "running" ? { state: "running" as const, done: job.total ? job.done : (p ? p.done + p.draft : 0), total: job.total || p?.total || 0 } : job?.status === "failed" && job.error ? { state: "error" as const, message: job.error } : null
+            const run = drafting[l.code] ?? fromJob
             const name = languageName(l.code, activeLocale())
             const menu: ActionMenuItem[] = [
               { label: tt("Review and edit"), onClick: () => setTranslating(l.code) },
@@ -371,11 +414,11 @@ export function MarketsPanel() {
         </details>
       </Card>
 
-      {/* Optional: prices shown in a visitor's own currency, an estimate; checkout always charges the store's (Store details › Country & Currency). */}
+      {/* Optional: prices in a visitor's own currency, and checkout charges it (lib/markets/checkout-charge); one Storelib cannot charge is shown only. */}
       <Card
         title={tt("Visitor currencies")}
         help="markets"
-        description={tt("Optional. Visitors from other countries see prices converted to their currency. Checkout always charges {currency}.", { currency: data.chargeCurrency })}
+        description={tt("Optional. Visitors from other countries see your prices in their currency and pay in it.")}
       >
         {draft.markets.some((m) => !m.primary) ? (
           <ul className="mb-3 divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
@@ -395,6 +438,7 @@ export function MarketsPanel() {
                       <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">
                         {m.countries.length === 0 ? tt("No countries yet") : m.countries.length <= 3 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}
                         {m.language ? ` · ${languageName(m.language, activeLocale())}` : ""}
+                        {m.currency && m.currency !== data.chargeCurrency && !chargeableCurrency(m.currency) ? ` · ${tt("Shown only, paid in {currency}", { currency: data.chargeCurrency })}` : ""}
                       </span>
                     </span>
                     <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />

@@ -14,6 +14,10 @@ import { isVideoUrl, videoPosterUrl } from "@/lib/media/video"
 import { onVariantPhoto } from "@/lib/physical/variant-photo"
 import { imageKey } from "@/lib/products/product-page-model"
 import { mediaUrl } from "@/lib/storage/media-url"
+import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
+
+/** Pictures this tab has already drawn in a gallery: opening the product again shows them at once. */
+const drawnSlides = new Set<string>()
 
 interface MediaItem {
   url: string
@@ -71,12 +75,13 @@ export function ProductGallery({
   /* A chosen variant's photo the gallery did not have, added at its end. */
   const [variantExtra, setVariantExtra] = useState<string[]>([])
   /**
-   * Which pictures have actually arrived. A slide is painted transparent
-   * until its own image has decoded and then fades, so the first frame of a
-   * product page is a calm grey box rather than a flash of nothing followed
-   * by a picture snapping in. See the note where this is read.
+   * Which pictures have actually arrived, and how. "now": complete before
+   * the first paint, shown at once. "in": arrived after its grey box was
+   * painted, and comes up over 150ms. See the note where this is read.
    */
-  const [loaded, setLoaded] = useState<Record<number, boolean>>({})
+  const [loaded, setLoaded] = useState<Record<number, "now" | "in">>({})
+  /* In the page's HTML: shown as the browser has it, never hidden until the scripts run (lib/ui/drawn-by-server). */
+  const fromServer = useDrawnByServer()
   /** Full screen, phone only. */
   const [viewerOpen, setViewerOpen] = useState(false)
   const isPhone = useIsPhone()
@@ -444,14 +449,13 @@ export function ProductGallery({
           <SwiperSlide key={index} className="relative h-full w-full">
             {media.type === "image" && (
               /**
-               * IT ARRIVES RATHER THAN APPEARING.
-               *
-               * Every slide was painted at full opacity from the first frame,
-               * so the picture snapped in the instant it decoded — on a phone
-               * on mobile data that is a visible pop on the largest element
-               * of the page. Held transparent until its own `onLoad`, then
-               * faded over 400ms, it reads as the picture settling onto the
-               * grey box that was already there.
+               * THERE AT ONCE, OR A SHORT ARRIVAL (the owner: "cleaner and
+               * calmer"). A picture in the page's HTML, one this tab has
+               * drawn before, or one complete before the first paint is
+               * shown at once with no transition. A new one fetched after
+               * the grey box was painted comes up over 150ms. It used to be
+               * 400ms, played on the server rendered page as soon as the
+               * scripts ran, which was a picture already there fading in.
                *
                * `priority` on the first one, so the browser starts it from
                * the document head instead of after hydration; the rest are
@@ -466,8 +470,8 @@ export function ProductGallery({
                 className={cn(
                   shape === "square" ? "object-contain" : "object-cover",
                   "pointer-events-none select-none",
-                  "transition-opacity duration-[400ms] ease-out",
-                  loaded[index] ? "opacity-100" : "opacity-0",
+                  loaded[index] === "in" && "transition-opacity duration-150 ease-out motion-reduce:transition-none",
+                  loaded[index] || fromServer || drawnSlides.has(media.url) ? "opacity-100" : "opacity-0",
                 )}
                 priority={index === 0}
                 /**
@@ -503,16 +507,21 @@ export function ProductGallery({
                   fade over something that could simply have been there.
 
                   `complete` is true for a cached image before the first
-                  paint, so this marks it loaded in the same commit and the
-                  transition has nothing to animate.
+                  paint, so this marks it loaded in the same commit, with no
+                  transition on it. Only `onLoad` for a picture still hidden
+                  gives it one.
                 */
                 ref={(el) => {
                   const img = el as HTMLImageElement | null
                   if (img?.complete && img.naturalWidth > 0) {
-                    setLoaded((m) => (m[index] ? m : { ...m, [index]: true }))
+                    drawnSlides.add(media.url)
+                    setLoaded((m) => (m[index] ? m : { ...m, [index]: "now" }))
                   }
                 }}
-                onLoad={() => setLoaded((m) => (m[index] ? m : { ...m, [index]: true }))}
+                onLoad={() => {
+                  drawnSlides.add(media.url)
+                  setLoaded((m) => (m[index] ? m : { ...m, [index]: "in" }))
+                }}
                 draggable={false}
               />
             )}

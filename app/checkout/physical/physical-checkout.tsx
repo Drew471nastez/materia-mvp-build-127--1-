@@ -29,6 +29,7 @@ import { codCountryAllowed } from "@/lib/physical/cash-on-delivery"
 import * as React from "react"
 import { includedTaxLabel } from "@/lib/tax/rules"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
+import { CheckoutPhone } from "../parts/phone-input"
 import { ChevronDown, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
@@ -49,6 +50,8 @@ import { VariantEdit } from "../parts/variant-edit"
 import type { ChoicesByProduct } from "@/lib/checkout/variant-choices"
 import { useCheckoutCurrency, useMoney } from "../parts/ui"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
+import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
+import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 
 interface QuoteLine {
   productId: string
@@ -114,7 +117,10 @@ export function PhysicalCheckout({
   config = DEFAULT_CHECKOUT,
   buyer = { signedIn: true, confirmed: true },
   backTo = null,
+  initialCountry = null,
 }: {
+  /** The delivery country before the first frame (./page.tsx). */
+  initialCountry?: string | null
   shopId: string | null
   shopName: string
   /** The shop across the top: its website's logo, or its photo beside its name (lib/checkout/brand-server). */
@@ -146,7 +152,12 @@ export function PhysicalCheckout({
   const [quoting, setQuoting] = React.useState(false)
 
   const [email, setEmail] = React.useState("")
-  const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "", company: "" })
+  const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: initialCountry ?? "", phone: "", company: "" })
+  /* A country the buyer picks is the one their next checkout opens on (lib/checkout/checkout-country). */
+  const firstCountry = React.useRef(address.country)
+  React.useEffect(() => {
+    if (address.country && address.country !== firstCountry.current) rememberCheckoutCountry(address.country)
+  }, [address.country])
   /* First and last typed apart, sent as one name, the way every order reads a name. */
   React.useEffect(() => {
     if (config.nameFields !== "first_and_last") return
@@ -243,7 +254,7 @@ export function PhysicalCheckout({
       } finally {
         if (n === ask.current) setQuoting(false)
       }
-    }, 250)
+    }, quote ? 200 : 0)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, optionId, byCash])
@@ -280,7 +291,15 @@ export function PhysicalCheckout({
       { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.priceCents } },
     )
   }
+  /* The buyer took the last line out here: back to the shop they came from, never an empty page of its own. */
+  const emptiedHere = React.useRef(false)
   const changeItems = (change: (prev: LinkItem[]) => LinkItem[], swap?: { productId: string; from: string | null; to: { variantId: string; variantName: string | null; priceCents: number } }) => {
+    if (items) {
+      const next = change(items)
+      if (next.length === 0) emptiedHere.current = true
+      /* The new amounts at once (lib/checkout/optimistic-quote); the server's quote replaces them when it answers. */
+      else if (!swap) setQuote((q) => (q ? (optimisticQuote(q, next) ?? q) : q))
+    }
     setItems((prev) => {
       if (!prev) return prev
       const next = change(prev)
@@ -570,6 +589,20 @@ export function PhysicalCheckout({
     </label>
   )
 
+  /* The phone with its country's code in front, the same field as the website checkout (../parts/phone-input), as tall as this form's fields. */
+  const phoneField = (
+    <CheckoutPhone
+      id="physical-phone"
+      value={address.phone}
+      country={address.country}
+      invalid={payError?.field === "phone"}
+      placeholder={config.phone === "required" ? "Phone" : "Phone (optional)"}
+      label={config.phone === "required" ? "Phone" : "Phone (optional)"}
+      className="h-[52px] rounded-[10px]"
+      onChange={(v) => setAddress((a) => ({ ...a, phone: v.slice(0, 40) }))}
+    />
+  )
+
   /* One full name, or first and last apart, as Settings › Checkout asks. */
   const nameFields = (purpose?: string) =>
     config.nameFields === "first_and_last" ? (
@@ -587,6 +620,7 @@ export function PhysicalCheckout({
       field("name", purpose ? `Full name, ${purpose}` : "Full name", { autoComplete: "name" })
     )
 
+  if (items !== null && items.length === 0 && emptiedHere.current && (backUrl || shopUrl)) return <LeaveTo to={(backUrl ?? shopUrl) as string} />
   if (items !== null && (items.length === 0 || !shopId)) {
     return (
       <div className="min-h-dvh bg-[#f8f9fa]">
@@ -759,7 +793,7 @@ export function PhysicalCheckout({
                   ))}
                 </div>
                 {nameFields("for the pickup")}
-                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone" : "Phone (optional)", { autoComplete: "tel", inputMode: "tel" }) : null}
+                {config.phone !== "off" ? phoneField : null}
                 <p className="text-[12.5px] text-[#6b7280]">We'll email you when your order is ready to pick up.</p>
               </div>
             ) : null}
@@ -784,7 +818,7 @@ export function PhysicalCheckout({
                 {nameFields()}
                 {config.company !== "off" ? field("company", config.company === "required" ? "Company" : "Company (optional)", { autoComplete: "organization" }) : null}
                 {field("line1", "Address", { autoComplete: "address-line1" })}
-                {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment, suite or unit" : "Apartment, suite (optional)", { autoComplete: "address-line2" }) : null}
+                {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment" : "Apartment (optional)", { autoComplete: "address-line2" }) : null}
                 {/* The country's own words and fields (lib/address/format): no state where nobody writes one, a ZIP code in the US, a Postcode in the UK. */}
                 <div className={cn("grid gap-3", addressFormat(address.country).region ? "grid-cols-2 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1" : "grid-cols-2")}>
                   {field("city", "City", { autoComplete: "address-level2" })}
@@ -808,7 +842,7 @@ export function PhysicalCheckout({
                   )}
                   {field("postalCode", postalCodeRequired(address.country || "US") ? addressFormat(address.country || "US").postal.label : `${addressFormat(address.country).postal.label} (optional)`, { autoComplete: "postal-code" })}
                 </div>
-                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone, for the courier" : "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" }) : null}
+                {config.phone !== "off" ? phoneField : null}
               </div>
             ) : null}
 
@@ -918,4 +952,12 @@ export function PhysicalCheckout({
       </div>
     </main>
   )
+}
+
+/** Back to the shop at once, with the page's own grey while it goes. */
+function LeaveTo({ to }: { to: string }) {
+  React.useEffect(() => {
+    window.location.replace(to)
+  }, [to])
+  return <div aria-busy className="min-h-dvh bg-[#f8f9fa]" data-checkout-leaving="" />
 }

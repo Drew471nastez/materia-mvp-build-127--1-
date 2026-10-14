@@ -31,7 +31,9 @@ console.log("\nThe preview\n")
   check("a 32px copy through the optimizer", url === "/_next/image?url=https%3A%2F%2Fstorelib.com%2Fmedia%2Fproduct-images%2Fa%20b.png&w=32&q=75", url)
   check("never for an address that is not https", previewUrl("http://x.test/a.png") === null && previewUrl("") === null)
   const card = read("components/explore/product-card.tsx")
-  check("the card paints it blurred until the cover arrives", /preview && !coverShown/.test(card) && /blur-\[10px\]/.test(card) && /onLoad=\{\(\) => setCoverShown\(true\)\}/.test(card))
+  /* Changed on purpose (the owner: "cleaner and calmer", no blur-up, no repeated fade on media already loaded). The card no longer draws the blurred preview; previewUrl stays a pure helper. */
+  check("the card draws no blurred copy under its cover", !/blur-\[10px\]/.test(card) && !/previewUrl/.test(card))
+  check("a cover already drawn or complete is shown at once; a new one comes up over 150ms", /drawnCovers\.has\(coverSrc\) \? "drawn" : "wait"/.test(card) && /img\?\.complete && img\.naturalWidth > 0/.test(card) && /cover === "in" \? "500ms, 150ms" : "500ms, 0s"/.test(card) && /setCover\(\(c\) => \(c === "wait" \? "in" : c\)\)/.test(card))
   check("off screen covers load at low priority", /fetchPriority=\{priority \? undefined : "low"\}/.test(card))
   check("and a cover already on its way is never asked for again", /if \(priority \|\| !leanImages\(\) \|\| img\?\.currentSrc\) return/.test(card))
 }

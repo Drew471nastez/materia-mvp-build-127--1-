@@ -154,7 +154,8 @@ function fileCopy(kind: FileProblemKind, line: number | null): { title: string; 
     case "built-in":
       return { title: line ? tt("Has a mistake on line {line}", { line }) : tt("Changes one of Storelib's sections in a way it can't use"), fix: tt("Fix it on GitHub, or put back Storelib's version."), showDetail: true }
     case "theme-settings":
-      return { title: tt("Its settings came with the theme and can't change here"), fix: tt("Change the rest of the file, or put back the version your site has."), showDetail: false }
+      /* A schema Storelib writes for reading (config/settings_schema.json, sections/<type>.json): what to change instead is in the detail. */
+      return { title: tt("Storelib doesn't take changes to this file"), fix: tt("Change values in config/settings.json, or add the setting to a section's own schema, then push again."), showDetail: true }
     case "binary":
       return { title: tt("This kind of file isn't read from GitHub"), fix: tt("Upload pictures and videos in Files in the builder."), showDetail: false }
     case "too-large":
@@ -176,7 +177,7 @@ function kindOf(p: FileProblem): FileProblemKind {
   if (/not a text file|binary file/i.test(e)) return "binary"
   if (/could not be read from GitHub/i.test(e)) return "unreadable"
   if (/compat="shopify"|Write it as a Storelib section/i.test(e)) return "wrong-kind"
-  if (/<schema> block\) changed/i.test(e)) return "theme-settings"
+  if (/<schema> block\) changed|is for reading and a change to it is not taken/i.test(e)) return "theme-settings"
   if (/^templates\/|^sections\/(header|footer|overlay)-group\.json/.test(p.path)) return "page"
   return "invalid"
 }

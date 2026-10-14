@@ -105,6 +105,61 @@ async function shownIn(opts: { pictures: { complete: boolean; top: number }[]; a
   return { said, finished, decoded, replayed, held }
 }
 
+/*
+  After an edit's redraw (shown with `instant`), what an animation starting
+  on its own is: finished while the page stands where it was put and the
+  element is on screen there, played when the page has been scrolled or the
+  element is off screen. Changed on purpose (the owner: the builder plays the
+  theme's animations like the live site).
+*/
+async function startsAfterRedraw(starts: { top: number; scrollY: number }[]) {
+  const heard: Record<string, ((e: unknown) => void)[]> = {}
+  const rafs: (() => void)[] = []
+  const finished: number[] = []
+  const ctx: Record<string, unknown> = {
+    innerHeight: 800,
+    scrollY: 0,
+    performance: { now: () => 0 },
+    document: {
+      images: [],
+      fonts: { ready: Promise.resolve() },
+      getAnimations: () => [],
+      addEventListener: () => {},
+      createElement: () => ({ setAttribute: () => {}, textContent: "", remove: () => {} }),
+      head: { appendChild: () => {} },
+    },
+    parent: { postMessage: () => {} },
+    addEventListener: (n: string, f: (e: unknown) => void) => { (heard[n] ??= []).push(f) },
+    setTimeout: (f: () => void, ms?: number) => { if ((ms ?? 0) < 10_000) void Promise.resolve().then(f); return 0 },
+    requestAnimationFrame: (f: () => void) => { rafs.push(f); return 0 },
+    Promise,
+    Array,
+    isFinite,
+  }
+  const run = async () => {
+    for (let i = 0; i < 10; i++) {
+      await flush()
+      rafs.splice(0).forEach((f) => f())
+    }
+  }
+  vm.runInNewContext(CANVAS_SHOWN.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, ""), ctx)
+  const say = (data: unknown) => (heard.message ?? []).forEach((f) => f({ data }))
+  /* compat-canvas.tsx: the page drawn again behind is told it is shown, instant, then put where the front stands. */
+  say({ storelib: 1, type: "shown", instant: true })
+  ctx.scrollY = 1200
+  say({ storelib: 1, type: "scroll", top: 1200, settle: true })
+  await run()
+  starts.forEach((st, i) => {
+    ctx.scrollY = st.scrollY
+    const target = {
+      getBoundingClientRect: () => ({ width: 100, height: 100, top: st.top, bottom: st.top + 100 }),
+      getAnimations: () => [{ effect: { getComputedTiming: () => ({ endTime: 600 }) }, finish: () => finished.push(i) }],
+    }
+    ;(heard.animationstart ?? []).forEach((f) => f({ target }))
+  })
+  return finished
+}
+
 async function main() {
   console.log("\nA page's first screen is done (canvas-network.ts, CANVAS_SHOWN)\n")
   {
@@ -125,6 +180,10 @@ async function main() {
     check("  and shown, they are let go", s.held.released && !s.held.in, s.held)
     const same = await shownIn({ pictures: [{ complete: true, top: 10 }], animations, shown: 1, instant: true })
     check("the same page drawn again (an edit) is told so: let go, and its first screen's entrance put where it ends, nothing played again", same.held.released && [...new Set(same.finished)].join() === "0" && same.replayed.length === 0, same)
+    const after = await startsAfterRedraw([{ top: 40, scrollY: 1200 }, { top: 2000, scrollY: 1200 }, { top: 40, scrollY: 1500 }])
+    check("after an edit, an entrance that starts on screen where the page was put is put where it ends", after.includes(0), after)
+    check("  one that starts off screen plays (changed on purpose: the builder plays the theme's animations like the live site)", !after.includes(1), after)
+    check("  and one that starts because the page was scrolled plays, as a scroll reveal does live", !after.includes(2), after)
     check("a page never shown lets them go by itself", /setTimeout\(function\(\)\{if\(!replayed\)\{replayed=true;hold\.remove\(\)\}\},12000\)/.test(body))
   }
 

@@ -24,7 +24,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 console.log("\nA lei deployment")
 check("the store's currency is lei", SHOP_CURRENCY === "RON", SHOP_CURRENCY)
-check("a card writes lei, never a dollar sign over them", formatPrice(4800) === shopMoney(4800) && /RON/.test(formatPrice(4800)) && !/\$/.test(formatPrice(4800)), formatPrice(4800))
+check("a card writes lei, never a dollar sign over them", formatPrice(4800) === shopMoney(4800) && /* Changed on purpose (checkout, currency and translation overhaul): lei is written as lei (lib/markets/money formatCurrency). */ /lei/.test(formatPrice(4800)) && !/\$/.test(formatPrice(4800)), formatPrice(4800))
 check("a large price is grouped on the product page", /1,250\.00/.test(shopMoney(125000, { grouping: true })))
 check("a filter's amount is whole", shopAmount(10) === shopMoney(1000).replace(".00", ""), [shopAmount(10), shopMoney(1000)])
 check("an unreadable amount is zero, never NaN", !/NaN/.test(shopMoney(Number.NaN)))
@@ -62,9 +62,9 @@ const card = { id: "p", settings: { price: formatPrice(5000), compare_price: "",
 const [eu] = convertCardPrices([card], pricing, "en")
 check("a card's price, its options' and its currency, converted", /10/.test(eu.settings.price) && eu.settings.currency === "EUR" && eu.settings.variants![0].price === eu.settings.price, eu.settings)
 check("  no market: the card as it was", convertCardPrices([card], null)[0] === card)
-check("the live site and the builder use the one function", /convertCardPrices\(\[worded\], pricing, moneyLocale\)/.test(read("lib/markets/live.ts")) && (read("app/website-builder/editor/[installId]/page.tsx").match(/convertCardPrices\(localizeCards\(/g) ?? []).length === 2)
-check("  the cart and the product page in the canvas take the same conversion", /* And the store's currency. */ /storefront = useMemo\(\(\) => \(\{ inEditor: true, installId, words, display(, currency)? \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /display: \{ market: previewDisplay\.market/.test(read("app/website-builder/editor/[installId]/page.tsx")))
-check("  the switch offers the markets the day's rates can convert to", /data\.markets\.filter\(\(m\) => pricingFor\(m, data\.base, data\.fx\)\)/.test(read("components/website-builder/use-preview-language.ts")))
+check("the live site and the builder use the one function", /pricesInMarket\(worded\.settings, pricing, moneyLocale\)/.test(read("lib/markets/live.ts")) && /* Changed on purpose (merge with main): the canvas converts with pricesInMarket, which convertCardPrices is the list form of. */ (read("app/website-builder/editor/[installId]/page.tsx").match(/cardsInMarket\(localizeCards\(/g) ?? []).length === 2)
+check("  the cart and the product page in the canvas take the same conversion", /* And the store's currency. */ /* Changed on purpose (merge with main): and the theme's switch, as a preview. */ /storefront = useMemo\(\(\) => \(\{ inEditor: true, installId, words, display, currency, language, preview: languagePreview \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /const display = \{ market: previewPricing\.market, base: previewPricing\.base/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+check("  the switch offers the markets the day's rates can convert to", /* Changed on purpose (merge with main): the market preview is its own hook. */ /info\.markets\.filter\(\(m\) => m\.countries\.length > 0 && pricingFor\(m, info\.base, info\.fx\) !== null\)/.test(read("components/website-builder/use-preview-market.ts")))
 
 console.log("\nA market's own exchange rate")
 const own: MarketPrice = { ...eur, rate: 0.25 }
