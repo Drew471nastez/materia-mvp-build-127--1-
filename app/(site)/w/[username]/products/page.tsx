@@ -77,7 +77,7 @@ export default async function SiteShopPage({ params, searchParams }: PageProps) 
   const stored = site.pages.products
   const arranged = stored && stored.length > 0 ? stored : shopSections(site.pages.home ?? site.sections, site.themeSettings)
   /* Placeholders filled, menus and picked products in hand: see dressPage. */
-  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.products", "Shop")
+  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.products", "Shop", undefined, { cached: true, localizer })
   /* FILTERED HERE, from the address: the products that pass, in the order
      asked for, and every filter with its counts for the form
      (lib/products/catalog-filters.ts). Pickers above still name from the

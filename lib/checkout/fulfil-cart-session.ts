@@ -231,6 +231,7 @@ export async function fulfilCartPayment(
     admin,
     sessionId,
     paymentIntentId: pi.id,
+    currency: pi.currency,
     creatorId,
     buyerId,
     buyerEmail,

@@ -440,6 +440,7 @@ const SUITES = [
   "tests/settings-country.test.ts",
   "tests/payouts-phone.test.ts",
   "tests/checkout-phone.test.ts",
+  "tests/translation-coverage.test.ts",
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",

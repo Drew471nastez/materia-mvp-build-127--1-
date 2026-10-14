@@ -410,7 +410,7 @@ export async function renderProduct(
   const facts = productFacts(product)
   const shopCards = localizer ? localizer.cards(products) : products
   const others = shopCards.filter((p) => p.id !== product.id)
-  const dressed = await dressPage(shop, page, shopCards, productCount, "product", product.title ?? "Product", facts, { cached })
+  const dressed = await dressPage(shop, page, shopCards, productCount, "product", product.title ?? "Product", facts, { cached, localizer })
   /**
    * THE PRODUCT THIS PAGE IS ABOUT, as `page.product` too: the same fields
    * as a card in `products`, and its description as plain text. A section

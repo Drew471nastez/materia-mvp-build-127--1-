@@ -115,6 +115,8 @@ export interface Localizer {
   cards<T extends ProductCard>(list: T[]): T[]
   /** The theme's settings: its menus, and its and its pages' search engine text. */
   theme<T extends Record<string, unknown>>(settings: T): T
+  /** A collection's title and description (collection:<id>), offered in Translations alongside the products. */
+  collection<T extends { id?: unknown } & Record<string, unknown>>(c: T): T
   /** The shop's own words in this language (lib/markets/ui-words.ts), the approved ones only; empty in the website's own language. */
   words: Record<string, string>
   /** The conversion, as plain data for the page (StorefrontContext display): the cart shows its amounts as the cards do. */
@@ -165,6 +167,10 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
     },
     theme(settings) {
       return localizeTheme(settings, map, opts)
+    },
+    collection(c) {
+      if (map.size === 0 || typeof c.id !== "string") return c
+      return localizeRecord(c, `collection:${c.id}`, (["title", "description"] as const).filter((f) => typeof c[f] === "string") as never, map, opts)
     },
     cards(list) {
       if (map.size === 0 && !pricing) return list

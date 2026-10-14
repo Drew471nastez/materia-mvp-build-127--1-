@@ -1029,6 +1029,7 @@ async function onceForOrder(
     sessionId: s.sessionId,
     paymentIntentId: co.stripe_payment_intent_id ?? null,
     provider: co.provider === "free" ? "free" : "stripe",
+    currency: typeof co.currency === "string" ? co.currency : null,
     creatorId: co.creator_id,
     buyerId: co.buyer_id,
     buyerEmail: co.buyer_email,

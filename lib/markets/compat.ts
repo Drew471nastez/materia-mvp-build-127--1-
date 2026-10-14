@@ -144,7 +144,11 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
     shop: pricing ? { ...site.shop, currency: pricing.currency, moneyFormat: moneyFormatFor(pricing.currency, code ?? langs.defaultLanguage) } : site.shop,
     products: site.products.map((p) => card(p as never)) as SiteData["products"],
     pickable: site.pickable?.map((p) => card(p as never)) as SiteData["pickable"],
-    collections: pricing ? site.collections.map((c) => (c.products ? { ...c, products: c.products.map((p) => card(p as never)) } : c)) : site.collections,
+    /* Each collection's own title and description (collection:<id>, offered in Translations), and its products as the cards above, in a language with no currency change too. */
+    collections: site.collections.map((c) => {
+      const words = map.size ? localizeRecord(c as unknown as O, `collection:${c.id}`, ["title", "description"].filter((f) => typeof (c as unknown as O)[f] === "string") as never, map, opts) : (c as unknown as O)
+      return { ...(words as unknown as typeof c), ...(c.products ? { products: c.products.map((p) => card(p as never)) } : {}) }
+    }),
     menus: map.size ? (localizeMenus(site.menus as never, map, opts) as SiteData["menus"]) : site.menus,
     product: product ? async (handle) => { const p = await product(handle); return p ? card(p as never) : p } : undefined,
   }

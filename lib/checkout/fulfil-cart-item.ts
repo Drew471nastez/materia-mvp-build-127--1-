@@ -1,3 +1,4 @@
+import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import "server-only"
 
 /**
@@ -49,6 +50,8 @@ export interface FulfilContext {
   paymentIntentId: string | null
   /** "stripe", or "free" for a basket a code took to $0. */
   provider?: "stripe" | "free"
+  /** What the payment was in ("ron", "usd"): each order row keeps its own, never a fixed "usd". A free basket's is the platform's. */
+  currency?: string | null
   creatorId: string
   buyerId: string | null
   buyerEmail: string | null
@@ -115,7 +118,7 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
       plan_used: ctx.feeAudit?.planUsed ?? null,
       pricing_tier: ctx.feeAudit?.pricingTier ?? null,
       fee_rule_version: ctx.feeAudit?.feeRuleVersion ?? null,
-      currency: "usd",
+      currency: (ctx.currency || platformChargeCurrency()).toLowerCase(),
       provider: ctx.provider ?? "stripe",
       status: "completed",
       stripe_session_id: ctx.sessionId,

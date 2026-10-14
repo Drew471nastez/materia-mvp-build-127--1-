@@ -19,8 +19,9 @@ const PER_PRESS = 150
 
 /**
  * POST { locale }: "Translate with AI". The website's texts in that language
- * that are missing or outdated (a value a person wrote and approved is never
- * sent or replaced, unless its original changed), drafted by Storelib AI
+ * that are missing, or outdated drafts AI wrote before (a value a person
+ * wrote and approved is never sent or replaced, even when its original
+ * changed: it is left for them), drafted by Storelib AI
  * (lib/markets/translate-ai.ts) and saved as drafts to review. The store's
  * own, through its owner; a few presses an hour, as each one is a paid call.
  */
@@ -40,12 +41,23 @@ export async function POST(request: Request) {
 
   const [groups, saved, store] = await Promise.all([siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale), storeIdentity(c.db, c.creatorId).catch(() => null)])
   const map = translationMap(saved.rows)
+  /*
+    What AI may draft: what is missing, and what it drafted before whose
+    original changed. A translation a person wrote and approved stays as it
+    is when its original changes: it stays live (an outdated approved value is
+    still shown) and is listed as outdated for the person to look at, rather
+    than replaced by a hidden draft that would put the original back on the
+    live site until someone reviewed it.
+  */
+  const draftable = (t: { key: string; source: string }) => {
+    const row = map.get(t.key)
+    const s = statusOf(row, t.source)
+    if (s === "missing") return true
+    return s === "outdated" && !(row?.source === "manual" && row.status === "approved")
+  }
   const todo = groups
     .flatMap((g) => g.items)
-    .filter((t) => {
-      const s = statusOf(map.get(t.key), t.source)
-      return s === "missing" || s === "outdated"
-    })
+    .filter(draftable)
     .slice(0, PER_PRESS)
   if (todo.length === 0) return physicalJson({ drafted: 0, left: 0 })
   const { drafts, unavailable } = await draftTranslations(todo.map((t) => ({ key: t.key, source: t.source })), loc.defaultLanguage, locale, store?.name || "the store")
@@ -54,6 +66,6 @@ export async function POST(request: Request) {
   const done = await saveTranslations(c.db, c.creatorId, locale, items, c.userId)
   if (done.ok === false) return physicalJson({ error: done.error }, done.status)
   await recordActivity(c.db, c, { action: "website.translations", meta: { locale, drafted: done.saved } })
-  const remaining = groups.flatMap((g) => g.items).filter((t) => !drafts.has(t.key) && ["missing", "outdated"].includes(statusOf(map.get(t.key), t.source))).length
+  const remaining = groups.flatMap((g) => g.items).filter((t) => !drafts.has(t.key) && draftable(t)).length
   return physicalJson({ drafted: done.saved, left: remaining })
 }
