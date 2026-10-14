@@ -242,7 +242,8 @@ async function main() {
     const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
     const help = read("components/support/order-help.tsx")
     check("Contact the shop, the topics and photos", /Contact the shop/.test(help) && /reasonsFor\(kind\)/.test(help) && /<CasePhotoPicker/.test(help) && /name="website"/.test(help))
-    check("Cancel order and Return items are offered in the same panel", /cancel=\{cancel === "can_request" \? \{ kind: "cancel", label: "Cancel order"/.test(view) && /returns=\{canReturn \? \{ kind: "return", label: "Return items"/.test(view))
+    /* Changed on purpose: in the buyer's language (ct). */
+    check("Cancel order and Return items are offered in the same panel", /cancel=\{cancel === "can_request" \? \{ kind: "cancel", label: ct\("Cancel order"\)/.test(view) && /returns=\{canReturn \? \{ kind: "return", label: ct\("Return items"\)/.test(view))
     check("  choosing Cancel or Return as the topic points to that flow", /reason === "cancel" \? cancel : reason === "return" \? returns/.test(help))
     check("the shop's email and phone are in it", /contact=\{\{ email: shop\.email, phone: shop\.phone \?\? null \}\}/.test(view) && /mailto:\$\{contact\.email\}/.test(help) && /tel:\$\{contact\.phone/.test(help))
     check("the receipt (downloads) has it too, with the shop's email", /<OrderHelp kind="digital"[^>]*contact=\{\{ email: receipt\.seller\.supportEmail/.test(read("app/receipt/[token]/receipt-view.tsx")))
@@ -375,7 +376,8 @@ async function main() {
     const mail = sellerCommerceEmail("cancel_requested", { orderNumber: "#1003", buyerReference: "#85737C57", buyerEmail: "ana@example.com" }, { baseUrl: "https://storelib.test" })
     check("a seller email: the Orders number in the subject, the buyer's reference beside it, the reply to the buyer in their reference", /order #1003/.test(mail.subject) && /85737C57/.test(mail.html) && /Your%20order%20%2385737C57|Your order #85737C57/.test(mail.html), mail.subject)
     check("the order emails, activity, messages and export all ask for the seller's number", /sellerOrderNumber\(db, co\.creator_id, \{ checkoutId: co\.id \}\)/.test(read("lib/physical/jobs-server.ts")) && /sellerNumberAndRef/.test(read("app/api/receipt/contact/route.ts")) && /sellerNumberAndRef/.test(read("app/api/courses/contact/route.ts")) && /sellerNumberAndRef/.test(read("app/api/memberships/[id]/contact/route.ts")) && /sellerOrderNumber/.test(read("app/api/physical/order-status/[token]/cancel/route.ts")) && /sellerOrderNumbers/.test(read("app/api/physical/orders/export/route.ts")))
-    check("the buyer's own pages and emails keep the reference", /Order \{orderNumber\(order\.id\)\}/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /const number = orderNumber\(co\.id\)/.test(read("lib/physical/jobs-server.ts")))
+    /* Changed on purpose: in the buyer's language (ct). */
+    check("the buyer's own pages and emails keep the reference", /ct\("Order \{number\}", \{ number: orderNumber\(order\.id\) \}\)/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /const number = orderNumber\(co\.id\)/.test(read("lib/physical/jobs-server.ts")))
     check("the scheme is in the admin guide", /id: "order-numbers"/.test(read("lib/admin/commerce-docs.ts")))
   }
 

@@ -122,7 +122,7 @@ async function receipts(db: ReturnType<typeof pgDb>) {
   check("the tax line is named as charged, and Subtotal + VAT = Total", v?.taxLabel === "VAT 19%" && v.taxCents === 931 && v.subtotalCents === 4900 && v.totalCents === 5831, v && { label: v.taxLabel, tax: v.taxCents, sub: v.subtotalCents, total: v.totalCents })
   check("  number, date and currency are on it", !!v?.number && v.createdAt.startsWith("2026-10-11") && v.currency.toUpperCase() === "USD")
   const view = read("app/receipt/[token]/receipt-view.tsx")
-  check("  the page draws the name and the business block", /<Row label=\{receipt\.taxLabel \|\| "Tax"\}/.test(view) && /includedTaxLabel\(receipt\.taxLabel\)/.test(view) && /data-receipt-seller/.test(view) && /receipt\.seller\.legal\.taxIdLabel/.test(view))
+  check("  the page draws the name and the business block", /* Changed on purpose: in the buyer's language (ct). */ /<Row label=\{receipt\.taxLabel \|\| ct\("Tax"\)\}/.test(view) && /<Row label=\{includedTax\}/.test(view) && /ct\("Including \{tax\}", \{ tax: taxName \}\)/.test(view) && /data-receipt-seller/.test(view) && /receipt\.seller\.legal\.taxIdLabel/.test(view))
 
   console.log("\nThe invoice PDF: what an accountant files\n")
   const { invoiceForOrder, renderInvoicePdf } = await import("@/lib/checkout/invoice")
@@ -147,7 +147,8 @@ async function receipts(db: ReturnType<typeof pgDb>) {
   const page = read("app/checkout/physical/order/[token]/page.tsx")
   const osv = read("app/checkout/physical/order/[token]/order-status-view.tsx")
   check("logo, name, email, phone, website and the business, from storeIdentity", /shop=\{\{ name: store\.name, avatar: store\.logoUrl, email: store\.email, phone: store\.phone, websiteUrl: store\.websiteUrl, legal: store\.legal \}\}/.test(page))
-  check("  its tax line by name, its currency, its date, and Sold by", /taxLabel: order\.taxLabel/.test(page) && /currency: order\.currency/.test(page) && /order\.totals\.taxLabel \|\| "Tax"/.test(osv) && /\{day\(order\.createdAt\)\}/.test(osv) && /data-order-seller/.test(osv))
+  /* Changed on purpose: in the buyer's language (ct). */
+  check("  its tax line by name, its currency, its date, and Sold by", /taxLabel: order\.taxLabel/.test(page) && /currency: order\.currency/.test(page) && /order\.totals\.taxLabel \? ct\(order\.totals\.taxLabel\) : ct\("Tax"\)/.test(osv) && /\{day\(order\.createdAt, lang\)\}/.test(osv) && /data-order-seller/.test(osv))
   check("  every amount in the currency it was charged in (the platform's RON), never a bare $", /const money = \(c: number\) => moneyIn\(c, order\.totals\.currency\)/.test(osv) && !/`\$\$\{\(c \/ 100\)/.test(osv))
 }
 

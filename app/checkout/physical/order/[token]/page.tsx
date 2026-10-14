@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadOrder } from "@/lib/physical/orders-server"
@@ -16,6 +17,8 @@ import { buyerCaseLink, casesReady, openCaseFor } from "@/lib/support/cases-serv
 import { appUrl } from "@/lib/notify/urls"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { buyerCancelState } from "@/lib/physical/buyer-cancel"
+import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { CheckoutWords } from "@/app/checkout/parts/words"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } }
@@ -26,9 +29,9 @@ export const metadata: Metadata = { title: "Your order", robots: { index: false,
  * it is the buyer's key to their order. Not behind the switch in /admin:
  * an order somebody paid for stays readable.
  */
-export default async function OrderStatusPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ paid?: string; reason?: string }> }) {
+export default async function OrderStatusPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ paid?: string; reason?: string; lang?: string }> }) {
   const { token } = await params
-  const { paid, reason } = await searchParams
+  const { paid, reason, lang } = await searchParams
   if (token === "pending") return <PendingOrder reason={reason ?? null} />
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) notFound()
   const db = createAdminClient()
@@ -37,13 +40,16 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     if (order?.status === "pending") return <PendingOrder reason="unpaid" />
     notFound()
   }
-  const [store, settings, reasons, ready, open, checkout] = await Promise.all([
+  /* In the language an email link names, or the one the buyer bought in on the store's website (the checkout's, kept with the order), or the one they chose there; English for an order from storelib.com, or when the website has none of them published. */
+  const asked = lang ?? (await boughtIn(db, order.id)) ?? (await cookies()).get("sl_lang")?.value ?? null
+  const [store, settings, reasons, ready, open, checkout, language] = await Promise.all([
     storeIdentity(db, order.creatorId),
     loadSettings(db, order.creatorId),
     reasonsFor(db, order.creatorId, "return"),
     casesReady(db),
     openCaseFor(db, { checkoutId: order.id }),
     loadCheckoutConfig(db, order.creatorId),
+    asked ? checkoutLanguage(order.creatorId, null, asked).catch(() => ENGLISH) : ENGLISH,
   ])
   const cancelAsked = await cancelEvents(db, order.id)
   const returnable = returnableQuantities(progressOf(order))
@@ -56,6 +62,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
   return (
     <>
     {purchase ? <StoreTracking creatorId={order.creatorId} purchase={purchase} /> : null}
+    <CheckoutWords lang={language.lang} words={language.words}>
     <OrderStatusView
       token={token}
       justPaid={paid === "1"}
@@ -100,6 +107,16 @@ export default async function OrderStatusPage({ params, searchParams }: { params
       canReturn={windowOpen && !openReturn && [...returnable.values()].some((n) => n > 0)}
       cancel={buyerCancelState({ ...order, events: cancelAsked }, checkout.buyerCancel)}
     />
+    </CheckoutWords>
     </>
   )
+}
+
+const ENGLISH = { lang: "en", words: {} as Record<string, string>, map: null }
+
+/** The language the order's checkout was drawn in (lib/orders/order-source.ts OrderOrigin.lang), when it was kept. */
+async function boughtIn(db: ReturnType<typeof createAdminClient>, checkoutId: string): Promise<string | null> {
+  const { data } = await db.from("commerce_checkouts").select("origin").eq("id", checkoutId).maybeSingle()
+  const lang = (data?.origin as { lang?: unknown } | null)?.lang
+  return typeof lang === "string" ? lang : null
 }

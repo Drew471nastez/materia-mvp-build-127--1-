@@ -25,6 +25,8 @@ import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { formatMessage, type Vars } from "@/lib/i18n/text"
 import { CHECKOUT_SENTENCES, EMAIL_SENTENCES } from "./checkout-words.generated"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
+import { SHIPMENT_LABEL } from "@/lib/physical/status"
+import { TRACKING_LABEL } from "@/lib/physical/tracking/labels"
 import { sourceHash, valueFor, type Translatable, type TranslateOpts, type TranslationMap } from "./translate"
 
 /** "zip code", "ZIP code" kept: a label put inside a sentence, lowered only where that reads right. */
@@ -63,9 +65,14 @@ export function businessSentences(): string[] {
 }
 
 let all: string[] | null = null
+/** A buyer's order page (app/checkout/physical/order): each parcel's and each carrier scan's state, when a pickup is usually ready, and what lib/support/cases.ts answers a message to the shop with. */
+function orderPageSentences(): string[] {
+  return [...Object.values(SHIPMENT_LABEL).map((l) => l.label), "Ready for pickup", "Picked up", ...Object.values(TRACKING_LABEL).map((l) => l.label), ...Object.values(PICKUP_READY_LABEL), "Tell the store a bit more, so they can help the first time.", "That message could not be sent. Write it without links and try again."]
+}
+
 /** Every sentence the checkout can show, once each. */
 export function checkoutSentences(): string[] {
-  all = all ?? [...new Set([...CHECKOUT_SENTENCES, ...addressSentences(), ...businessSentences(), ...Object.values(FAIL_COPY), BUYER_UNAVAILABLE])]
+  all = all ?? [...new Set([...CHECKOUT_SENTENCES, ...addressSentences(), ...businessSentences(), ...Object.values(FAIL_COPY), BUYER_UNAVAILABLE, ...orderPageSentences()])]
   return all
 }
 

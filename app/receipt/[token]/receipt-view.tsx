@@ -1,8 +1,7 @@
 "use client"
 
 import { OrderHelp } from "@/components/support/order-help"
-import { includedTaxLabel } from "@/lib/tax/rules"
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowDownToLine, ArrowRight, Check, Copy, FileText, Loader2, Mail, PlayCircle, Printer } from "lucide-react"
@@ -18,6 +17,8 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { fileKindOf, formatFileSize, formatMoney, splitFileName, type AccessState } from "@/lib/receipts/rules"
 import type { ReceiptItem, ReceiptView as Receipt, ReceiptViewer } from "@/lib/receipts/view"
 import { cn } from "@/lib/utils"
+import { useCt } from "@/app/checkout/parts/words"
+import type { CheckoutT } from "@/lib/markets/checkout-words"
 
 /**
  * The receipt and the files, for the buyer. Everything it shows arrives from
@@ -67,26 +68,57 @@ function LocalDate({ iso, locale }: { iso: string; locale: string }) {
   return <time dateTime={iso}>{text}</time>
 }
 
-function headlineFor(state: AccessState, firstName: string | null) {
+function headlineFor(state: AccessState, firstName: string | null, ct: CheckoutT) {
   switch (state) {
     case "open":
-      return firstName ? `Thanks, ${firstName}` : "Thanks for your order"
+      return firstName ? ct("Thanks, {name}", { name: firstName }) : ct("Thanks for your order")
     case "pending":
-      return "Waiting for your payment"
+      return ct("Waiting for your payment")
     case "refunded":
-      return "This order was refunded"
+      return ct("This order was refunded")
     case "failed":
-      return "The payment did not go through"
+      return ct("The payment did not go through")
     default:
-      return "This order is on hold"
+      return ct("This order is on hold")
   }
 }
 
-const LINE_STATUS: Record<Exclude<AccessState, "open">, { text: string; tone: string }> = {
-  pending: { text: "Waiting for payment", tone: "text-[#b45309]" },
-  refunded: { text: "Refunded, files closed", tone: "text-[#b42318]" },
-  failed: { text: "Payment failed", tone: "text-[#b42318]" },
-  held: { text: "On hold while the payment is reviewed", tone: "text-[#b45309]" },
+/* Each sentence written out in its ct() call, so scripts/i18n/checkout-sentences.mjs lists it. */
+const LINE_STATUS: Record<Exclude<AccessState, "open">, { text: (ct: CheckoutT) => string; tone: string }> = {
+  pending: { text: (ct) => ct("Waiting for payment"), tone: "text-[#b45309]" },
+  refunded: { text: (ct) => ct("Refunded, files closed"), tone: "text-[#b42318]" },
+  failed: { text: (ct) => ct("Payment failed"), tone: "text-[#b42318]" },
+  held: { text: (ct) => ct("On hold while the payment is reviewed"), tone: "text-[#b45309]" },
+}
+
+/* The refund policy's name (lib/receipts/rules REFUND_POLICY_LABELS), each one written out for the translator. */
+function refundLabelIn(label: string, ct: CheckoutT): string {
+  switch (label) {
+    case "No refunds":
+      return ct("No refunds")
+    case "7-day money back guarantee":
+      return ct("7-day money back guarantee")
+    case "14-day money back guarantee":
+      return ct("14-day money back guarantee")
+    case "30-day money back guarantee":
+      return ct("30-day money back guarantee")
+    case "6-month money back guarantee":
+      return ct("6-month money back guarantee")
+    default:
+      return label
+  }
+}
+
+/** A sentence with {link} (or another {slot}) left in it, the node drawn where it stands. */
+function Slot({ sentence, name = "link", children }: { sentence: string; name?: string; children: ReactNode }) {
+  const [before, after = ""] = sentence.split(`{${name}}`)
+  return (
+    <>
+      {before}
+      {children}
+      {after}
+    </>
+  )
 }
 
 type Platform = "ios" | "android" | "web"
@@ -110,6 +142,8 @@ function usePlatform(): Platform {
  * says so while it waits, and shows a refusal in the server's words.
  */
 function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: string }) {
+  /* Every sentence in the buyer's language (app/checkout/parts/words.tsx); English with no provider. */
+  const ct = useCt()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -126,7 +160,7 @@ function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: s
       setDone(true)
       setTimeout(() => setDone(false), 3000)
     } else {
-      setError(result.error ?? "The file could not be fetched. Try again.")
+      setError(result.error ?? ct("The file could not be fetched. Try again."))
     }
   }
 
@@ -166,17 +200,17 @@ function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: s
           {busy ? (
             <>
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-              {pct !== null ? <span className="hidden sm:inline">{pct}%</span> : <span className="hidden sm:inline">Preparing</span>}
+              {pct !== null ? <span className="hidden sm:inline">{pct}%</span> : <span className="hidden sm:inline">{ct("Preparing")}</span>}
             </>
           ) : done ? (
             <>
               <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="hidden sm:inline">Downloaded</span>
+              <span className="hidden sm:inline">{ct("Downloaded")}</span>
             </>
           ) : (
             <>
               <ArrowDownToLine className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="hidden sm:inline">Download</span>
+              <span className="hidden sm:inline">{ct("Download")}</span>
             </>
           )}
         </button>
@@ -205,14 +239,16 @@ function ItemBlock({
   viewer: ReceiptViewer
   signInHref: string
 }) {
+  /* In the buyer's language (app/checkout/parts/words.tsx). */
+  const ct = useCt()
   const status = item.state === "open" ? null : LINE_STATUS[item.state]
   const open = item.state === "open"
   const count = item.files.length
   const nothing = open && count === 0 && !item.courseHref
   const meta = [
     item.variantName,
-    open && count > 1 ? `${count} files` : null,
-    open && item.courseHref ? "Course" : null,
+    open && count > 1 ? ct("{count} files", { count }) : null,
+    open && item.courseHref ? ct("Course") : null,
   ]
     .filter(Boolean)
     .join(" · ")
@@ -231,12 +267,18 @@ function ItemBlock({
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="text-[15px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere]">{item.title}</p>
           {meta ? <p className="mt-0.5 text-[13px] text-[#6b7280]">{meta}</p> : null}
-          {nothing ? <p className="mt-0.5 text-[13px] text-[#6b7280]">No files come with this item.</p> : null}
-          {status ? <p className={`mt-0.5 text-[13px] font-medium ${status.tone}`}>{status.text}</p> : null}
+          {nothing ? <p className="mt-0.5 text-[13px] text-[#6b7280]">{ct("No files come with this item.")}</p> : null}
+          {status ? <p className={`mt-0.5 text-[13px] font-medium ${status.tone}`}>{status.text(ct)}</p> : null}
         </div>
         <p className="shrink-0 pt-0.5 text-[15px] font-semibold leading-snug tabular-nums text-[#1a1a2e]">
           {/* A membership's line is one period of it: "$9.00/month". */}
-          {item.totalCents === 0 ? "Free" : `${formatMoney(shown, currency, locale)}${item.priceInterval ? `/${item.priceInterval}` : ""}`}
+          {item.totalCents === 0
+            ? ct("Free")
+            : item.priceInterval === "year"
+              ? ct("{price}/year", { price: formatMoney(shown, currency, locale) })
+              : item.priceInterval
+                ? ct("{price}/month", { price: formatMoney(shown, currency, locale) })
+                : formatMoney(shown, currency, locale)}
         </p>
       </div>
 
@@ -252,18 +294,18 @@ function ItemBlock({
               </span>
               {viewer.isBuyer ? (
                 <>
-                  <p className="min-w-0 flex-1 text-[14px] font-medium text-[#1a1a2e]">Course lessons</p>
+                  <p className="min-w-0 flex-1 text-[14px] font-medium text-[#1a1a2e]">{ct("Course lessons")}</p>
                   <Link href={item.courseHref} className={cn(PRIMARY, SMALL, "whitespace-nowrap sm:w-[124px] print:hidden")}>
-                    Open course
+                    {ct("Open course")}
                   </Link>
                 </>
               ) : (
                 <p className="min-w-0 flex-1 text-[13px] leading-snug text-[#6b7280]">
-                  The course is in your library.{" "}
-                  <Link href={signInHref} className={TEXT_LINK}>
-                    Sign in with the email you paid with
-                  </Link>{" "}
-                  to open it.
+                  <Slot sentence={ct("The course is in your library. {link} to open it.")}>
+                    <Link href={signInHref} className={TEXT_LINK}>
+                      {ct("Sign in with the email you paid with")}
+                    </Link>
+                  </Slot>
                 </p>
               )}
             </li>
@@ -291,6 +333,8 @@ export function ReceiptView({
   /** The seller's page as the server worked it out, so the first render matches it. */
   storeHref?: string | null
 }) {
+  /* Every sentence in the buyer's language (app/checkout/parts/words.tsx); English with no provider. */
+  const ct = useCt()
   const router = useRouter()
   const platform = usePlatform()
   const { primary, currency } = receipt
@@ -337,14 +381,14 @@ export function ReceiptView({
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
         setEmailState("sent")
-        setEmailNote("Sent. It can take a minute to arrive, and it may land in spam.")
+        setEmailNote(ct("Sent. It can take a minute to arrive, and it may land in spam."))
       } else {
         setEmailState("error")
-        setEmailNote(data.error || "The email did not go out. Try again in a minute.")
+        setEmailNote(data.error || ct("The email did not go out. Try again in a minute."))
       }
     } catch {
       setEmailState("error")
-      setEmailNote("No connection. Try again.")
+      setEmailNote(ct("No connection. Try again."))
     }
   }
 
@@ -353,7 +397,7 @@ export function ReceiptView({
     const value = newEmail.trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       setEmailState("error")
-      setEmailNote("That does not look like an email address.")
+      setEmailNote(ct("That does not look like an email address."))
       return
     }
     setEmailState("sending")
@@ -367,17 +411,17 @@ export function ReceiptView({
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setEmailState("error")
-        setEmailNote(data.error || "The address was not changed.")
+        setEmailNote(data.error || ct("The address was not changed."))
         return
       }
       setEmailState("sent")
-      setEmailNote(`Sent to ${value}.`)
+      setEmailNote(ct("Sent to {email}.", { email: value }))
       setChanging(false)
       setNewEmail("")
       router.refresh()
     } catch {
       setEmailState("error")
-      setEmailNote("No connection. Try again.")
+      setEmailNote(ct("No connection. Try again."))
     }
   }
 
@@ -387,7 +431,7 @@ export function ReceiptView({
     const value = newEmail.trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       setEmailState("error")
-      setEmailNote("That does not look like an email address.")
+      setEmailNote(ct("That does not look like an email address."))
       return
     }
     setEmailState("sending")
@@ -401,16 +445,16 @@ export function ReceiptView({
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.success) {
         setEmailState("error")
-        setEmailNote(data.error || "The copy did not go out. Try again in a minute.")
+        setEmailNote(data.error || ct("The copy did not go out. Try again in a minute."))
         return
       }
       setEmailState("sent")
-      setEmailNote(`Copy sent to ${value}.`)
+      setEmailNote(ct("Copy sent to {email}.", { email: value }))
       setChanging(false)
       setNewEmail("")
     } catch {
       setEmailState("error")
-      setEmailNote("No connection. Try again.")
+      setEmailNote(ct("No connection. Try again."))
     }
   }
 
@@ -434,7 +478,7 @@ export function ReceiptView({
       }
     }
     setClaiming(false)
-    if (failed > 0) setClaimNote("Part of this order is already in another account.")
+    if (failed > 0) setClaimNote(ct("Part of this order is already in another account."))
     router.refresh()
   }
 
@@ -458,14 +502,14 @@ export function ReceiptView({
     switch (receipt.state) {
       case "pending":
         return polls >= PENDING_POLL_LIMIT
-          ? "Still waiting. You will get an email the moment it clears, so it is safe to close this page."
-          : "This page updates by itself once the payment clears. It usually takes a few seconds."
+          ? ct("Still waiting. You will get an email the moment it clears, so it is safe to close this page.")
+          : ct("This page updates by itself once the payment clears. It usually takes a few seconds.")
       case "refunded":
-        return "The money went back to your original payment method. The files are no longer available."
+        return ct("The money went back to your original payment method. The files are no longer available.")
       case "failed":
-        return "You were not charged. You can try again from the product page."
+        return ct("You were not charged. You can try again from the product page.")
       case "held":
-        return `The payment is being reviewed. Reply to your receipt email to reach ${receipt.seller.name}.`
+        return ct("The payment is being reviewed. Reply to your receipt email to reach {store}.", { store: receipt.seller.name })
       default:
         return null
     }
@@ -475,7 +519,7 @@ export function ReceiptView({
   const brand = receipt.payment.brand ? BRANDS[receipt.payment.brand] ?? `${receipt.payment.brand.charAt(0).toUpperCase()}${receipt.payment.brand.slice(1)}` : null
   const cardLine =
     brand && receipt.payment.last4
-      ? `${brand} ending ${receipt.payment.last4}`
+      ? ct("{brand} ending {last4}", { brand, last4: receipt.payment.last4 })
       : receipt.payment.method === "paypal"
         ? "PayPal"
         : receipt.payment.method === "link"
@@ -486,6 +530,14 @@ export function ReceiptView({
   /* Before the code, when there was one: the lines at their list price. */
   const beforeDiscount = discount > 0 ? receipt.subtotalCents + discount : receipt.subtotalCents
   const policies = receipt.items.filter((i) => i.refundPolicy)
+  /* Prices that include tax: "Including tax", "Including tax 19%", "Including VAT 19%", as lib/tax/rules includedTaxLabel words it. */
+  const taxName = (receipt.taxLabel ?? "").trim()
+  const includedTax =
+    !taxName || /^tax$/i.test(taxName)
+      ? ct("Including tax")
+      : /^tax\b/i.test(taxName)
+        ? ct("Including tax{rate}", { rate: taxName.slice(3) })
+        : ct("Including {tax}", { tax: taxName })
 
   return (
     <main data-receipt="" className="bg-[#f5f6f8] print:bg-white">
@@ -498,7 +550,7 @@ export function ReceiptView({
           nothing of ours is behind (a receipt opened from an email).
         */}
         <div className="flex items-center gap-2.5">
-          <BackControl fallback="/account/library" label="Back" skipBack={(path) => path.startsWith("/checkout")} data-receipt-back="" />
+          <BackControl fallback="/account/library" label={ct("Back")} skipBack={(path) => path.startsWith("/checkout")} data-receipt-back="" />
           {storeHref ? (
             /* The seller's page, in a tab of its own: the buyer came here for
                the receipt and the files, and a look at the shop must not take
@@ -524,22 +576,24 @@ export function ReceiptView({
           )}
           <button type="button" onClick={() => window.print()} className={cn(SECONDARY, SMALL, "ml-auto shrink-0 print:hidden")}>
             <Printer className="h-3.5 w-3.5 text-[#4b5563]" aria-hidden />
-            Print
+            {ct("Print")}
           </button>
         </div>
 
         <header className="mt-5">
           <h1 className="text-[24px] font-bold leading-tight text-[#1a1a2e] sm:text-[28px]">
-            {headlineFor(receipt.state, receipt.buyer.firstName)}
+            {headlineFor(receipt.state, receipt.buyer.firstName, ct)}
           </h1>
           <p className="mt-1.5 text-[14px] text-[#6b7280]">
-            Order {receipt.number} · <LocalDate iso={receipt.createdAt} locale={locale} />
+            <Slot sentence={ct("Order {number} · {date}", { number: receipt.number })} name="date">
+              <LocalDate iso={receipt.createdAt} locale={locale} />
+            </Slot>
           </p>
           {subline ? <p className="mt-3 text-[14px] leading-relaxed text-[#4b5563]">{subline}</p> : null}
           {receipt.state === "pending" && polls < PENDING_POLL_LIMIT ? (
             <p className="mt-3 flex items-center gap-2 text-[13px] text-[#6b7280]" aria-live="polite">
               <span className="h-2 w-2 animate-pulse rounded-full bg-[#f59e0b]" aria-hidden />
-              Checking with the bank
+              {ct("Checking with the bank")}
             </p>
           ) : null}
         </header>
@@ -561,22 +615,22 @@ export function ReceiptView({
 
           <dl data-receipt-totals="" className="space-y-1.5 border-t border-[#eef0f3] bg-[#fbfbfc] px-4 py-4 text-[14px] sm:px-5">
             {receipt.tipCents > 0 || discount > 0 || receipt.items.length > 1 || (receipt.taxCents ?? 0) > 0 ? (
-              <Row label="Subtotal" value={money(beforeDiscount)} />
+              <Row label={ct("Subtotal")} value={money(beforeDiscount)} />
             ) : null}
             {discount > 0 ? (
               <Row
-                label={receipt.discountCode ? `Discount (${receipt.discountCode})` : "Discount"}
+                label={receipt.discountCode ? ct("Discount ({code})", { code: receipt.discountCode }) : ct("Discount")}
                 value={`−${money(discount)}`}
               />
             ) : null}
-            {receipt.tipCents > 0 ? <Row label="Tip" value={money(receipt.tipCents)} /> : null}
-            {(receipt.taxCents ?? 0) > 0 && !receipt.taxIncluded ? <Row label={receipt.taxLabel || "Tax"} value={money(receipt.taxCents ?? 0)} /> : null}
-            <Row label="Total" value={receipt.totalCents === 0 ? "Free" : money(receipt.totalCents)} strong />
-            {(receipt.taxCents ?? 0) > 0 && receipt.taxIncluded ? <Row label={includedTaxLabel(receipt.taxLabel)} value={money(receipt.taxCents ?? 0)} /> : null}
-            {receipt.refundedCents > 0 ? <Row label="Refunded" value={`−${money(receipt.refundedCents)}`} tone="text-[#b42318]" /> : null}
+            {receipt.tipCents > 0 ? <Row label={ct("Tip")} value={money(receipt.tipCents)} /> : null}
+            {(receipt.taxCents ?? 0) > 0 && !receipt.taxIncluded ? <Row label={receipt.taxLabel || ct("Tax")} value={money(receipt.taxCents ?? 0)} /> : null}
+            <Row label={ct("Total")} value={receipt.totalCents === 0 ? ct("Free") : money(receipt.totalCents)} strong />
+            {(receipt.taxCents ?? 0) > 0 && receipt.taxIncluded ? <Row label={includedTax} value={money(receipt.taxCents ?? 0)} /> : null}
+            {receipt.refundedCents > 0 ? <Row label={ct("Refunded")} value={`−${money(receipt.refundedCents)}`} tone="text-[#b42318]" /> : null}
             {(cardLine && receipt.totalCents > 0 && paid) || (receipt.invoice && paid) ? (
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-1.5 text-[13px]">
-                {cardLine && receipt.totalCents > 0 && paid ? <p className="text-[#6b7280]">Paid with {cardLine}</p> : <span />}
+                {cardLine && receipt.totalCents > 0 && paid ? <p className="text-[#6b7280]">{ct("Paid with {method}", { method: cardLine })}</p> : <span />}
                 {receipt.invoice && paid ? (
                   <a
                     href={`/api/checkout/invoice?token=${encodeURIComponent(receipt.primary.token)}`}
@@ -591,7 +645,7 @@ export function ReceiptView({
                     className={`${TEXT_LINK} -my-0.5 inline-flex min-h-9 items-center gap-1.5 print:hidden`}
                   >
                     <FileText className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-                    Download invoice (PDF)
+                    {ct("Download invoice (PDF)")}
                   </a>
                 ) : null}
               </div>
@@ -603,8 +657,12 @@ export function ReceiptView({
         {receipt.seller.legal ? (
           <div data-receipt-seller="" className="mt-3 px-1 text-[12.5px] leading-[18px] text-[#6b7280]">
             <p>
-              Sold by <span className="font-medium text-[#4b5563]">{receipt.seller.legal.name}</span>
-              {receipt.seller.legal.name !== receipt.seller.name ? <> (trading as {receipt.seller.name})</> : null}
+              <Slot
+                name="name"
+                sentence={receipt.seller.legal.name !== receipt.seller.name ? ct("Sold by {name} (trading as {store})", { store: receipt.seller.name }) : ct("Sold by {name}")}
+              >
+                <span className="font-medium text-[#4b5563]">{receipt.seller.legal.name}</span>
+              </Slot>
             </p>
             {receipt.seller.legal.lines.length ? <p>{receipt.seller.legal.lines.join(", ")}</p> : null}
             {receipt.seller.legal.taxId ? (
@@ -618,8 +676,8 @@ export function ReceiptView({
         {hasFiles && platform !== "web" ? (
           <p className="mt-3 text-[13px] leading-relaxed text-[#6b7280] print:hidden">
             {platform === "ios"
-              ? "Downloads save to this iPhone. When one is ready, tap Save to Files."
-              : "Downloads save to the Downloads folder on this phone."}
+              ? ct("Downloads save to this iPhone. When one is ready, tap Save to Files.")
+              : ct("Downloads save to the Downloads folder on this phone.")}
           </p>
         ) : null}
 
@@ -630,24 +688,23 @@ export function ReceiptView({
             <div className="flex items-start justify-between gap-3">
               <p className="min-w-0 pt-2 text-[14px] leading-5 text-[#4b5563]">
                 {accountEmail ? (
-                  <>
-                    Receipt goes to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{accountEmail}</span>
-                  </>
+                  <Slot name="email" sentence={ct("Receipt goes to {email}")}>
+                    <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{accountEmail}</span>
+                  </Slot>
                 ) : (
-                  <>
-                    {receipt.buyer.email === "failed" ? "We could not email " : "Receipt emailed to "}
+                  <Slot name="email" sentence={receipt.buyer.email === "failed" ? ct("We could not email {email}") : ct("Receipt emailed to {email}")}>
                     <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{receipt.buyer.maskedEmail}</span>
-                  </>
+                  </Slot>
                 )}
               </p>
               <button type="button" onClick={resend} disabled={emailState === "sending"} className={cn(SECONDARY, SMALL, "min-w-[92px]")}>
                 {emailState === "sending" && !changing ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                    Sending
+                    {ct("Sending")}
                   </>
                 ) : (
-                  "Resend"
+                  ct("Resend")
                 )}
               </button>
             </div>
@@ -657,7 +714,7 @@ export function ReceiptView({
                 <div className="animate-in fade-in-0 duration-150">
                   <form onSubmit={accountEmail ? sendCopy : changeEmail} className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <label htmlFor="receipt-new-email" className="sr-only">
-                      {accountEmail ? "Email to send a copy to" : "New email address"}
+                      {accountEmail ? ct("Email to send a copy to") : ct("New email address")}
                     </label>
                     <input
                       id="receipt-new-email"
@@ -674,20 +731,20 @@ export function ReceiptView({
                     />
                     <div className="flex gap-2">
                       <button type="submit" disabled={emailState === "sending"} className={`${PRIMARY} flex-1 sm:flex-none`}>
-                        {emailState === "sending" ? "Sending" : accountEmail ? "Send copy" : "Send here"}
+                        {emailState === "sending" ? ct("Sending") : accountEmail ? ct("Send copy") : ct("Send here")}
                       </button>
                       <button type="button" onClick={() => setChanging(false)} className={SECONDARY}>
-                        Cancel
+                        {ct("Cancel")}
                       </button>
                     </div>
                   </form>
                   {accountEmail ? (
                     <p className="mt-2 text-[13px] leading-relaxed text-[#6b7280]">
-                      Only this copy goes there. To change your account email, go to{" "}
-                      <Link href="/account/settings" className={TEXT_LINK}>
-                        Settings
-                      </Link>
-                      .
+                      <Slot sentence={ct("Only this copy goes there. To change your account email, go to {link}.")}>
+                        <Link href="/account/settings" className={TEXT_LINK}>
+                          {ct("Settings")}
+                        </Link>
+                      </Slot>
                     </p>
                   ) : null}
                 </div>
@@ -697,15 +754,13 @@ export function ReceiptView({
                    and a copy needs that account (app/api/receipt/send-copy). */
                 <p className="mt-2 text-[13px] leading-relaxed text-[#6b7280] animate-in fade-in-0 duration-150">
                   {viewer.signedIn ? (
-                    <>This order is on another account. Sign in with that one to send a copy somewhere else.</>
+                    <>{ct("This order is on another account. Sign in with that one to send a copy somewhere else.")}</>
                   ) : (
-                    <>
-                      This order is on an account.{" "}
+                    <Slot sentence={ct("This order is on an account. {link} to send a copy somewhere else.")}>
                       <Link href={loginHref} className={TEXT_LINK}>
-                        Sign in
-                      </Link>{" "}
-                      to send a copy somewhere else.
-                    </>
+                        {ct("Sign in")}
+                      </Link>
+                    </Slot>
                   )}
                 </p>
               )
@@ -718,7 +773,7 @@ export function ReceiptView({
                 }}
                 className="-mb-0.5 mt-0.5 min-h-9 text-[13px] text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
               >
-                {accountEmail ? "Send a copy to another email" : "Wrong address?"}
+                {accountEmail ? ct("Send a copy to another email") : ct("Wrong address?")}
               </button>
             )}
 
@@ -736,10 +791,10 @@ export function ReceiptView({
             receipt.buyer.unclaimed ? (
               <div className={`${CARD} mt-4 flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 print:hidden`}>
                 <p className="min-w-0 text-[14px] text-[#4b5563]">
-                  {claimNote ?? "Keep this order with the rest of your purchases."}
+                  {claimNote ?? ct("Keep this order with the rest of your purchases.")}
                 </p>
                 <button type="button" onClick={claim} disabled={claiming} className={`${PRIMARY} w-full sm:w-auto`}>
-                  {claiming ? "Adding" : "Add to library"}
+                  {claiming ? ct("Adding") : ct("Add to library")}
                 </button>
               </div>
             ) : viewer.isBuyer ? (
@@ -747,7 +802,7 @@ export function ReceiptView({
                 href="/account/library"
                 className="group mt-4 flex min-h-[56px] items-center justify-between rounded-2xl border border-[#e4e7ec]/80 bg-white px-4 shadow-[inset_0_-1px_0_rgba(16,24,40,0.04),0_1px_2px_rgba(16,24,40,0.05),0_3px_8px_-2px_rgba(16,24,40,0.06)] transition-[box-shadow,border-color,translate] duration-150 hover:border-[#d9dde3] hover:shadow-[inset_0_-1px_0_rgba(16,24,40,0.04),0_2px_4px_rgba(16,24,40,0.06),0_8px_16px_-4px_rgba(16,24,40,0.08)] active:translate-y-px active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2 sm:px-5 print:hidden"
               >
-                <span className="text-[14px] font-semibold text-[#1a1a2e]">Open your library</span>
+                <span className="text-[14px] font-semibold text-[#1a1a2e]">{ct("Open your library")}</span>
                 <ArrowRight
                   data-arrow=""
                   aria-hidden
@@ -757,16 +812,16 @@ export function ReceiptView({
             ) : null
           ) : (
             <div className={`${CARD} mt-4 px-4 py-4 sm:px-5 print:hidden`}>
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">Keep it in a library</p>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{ct("Keep it in a library")}</p>
               <p className="mt-1 text-[14px] text-[#6b7280]">
-                Make an account with the same email and this order stays with you on any device, even if the email gets lost.
+                {ct("Make an account with the same email and this order stays with you on any device, even if the email gets lost.")}
               </p>
               <div className="mt-3 flex gap-2">
                 <Link href={signupHref} className={`${PRIMARY} flex-1 sm:flex-none`}>
-                  Create account
+                  {ct("Create account")}
                 </Link>
                 <Link href={loginHref} className={`${SECONDARY} flex-1 sm:flex-none`}>
-                  Sign in
+                  {ct("Sign in")}
                 </Link>
               </div>
             </div>
@@ -805,14 +860,18 @@ export function ReceiptView({
               {item.refundPolicy?.finePrint ? (
                 <details className="group/policy">
                   <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                    Refunds{receipt.items.length > 1 ? ` for ${item.title}` : ""}: {item.refundPolicy.label}.{" "}
-                    <span className="text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-2 group-open/policy:hidden print:hidden">Terms</span>
+                    {receipt.items.length > 1
+                      ? ct("Refunds for {product}: {policy}.", { product: item.title, policy: refundLabelIn(item.refundPolicy.label, ct) })
+                      : ct("Refunds: {policy}.", { policy: refundLabelIn(item.refundPolicy.label, ct) })}{" "}
+                    <span className="text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-2 group-open/policy:hidden print:hidden">{ct("Terms")}</span>
                   </summary>
                   <p className="mt-1 whitespace-pre-line text-[#4b5563] [overflow-wrap:anywhere]">{item.refundPolicy.finePrint}</p>
                 </details>
               ) : (
                 <p>
-                  Refunds{receipt.items.length > 1 ? ` for ${item.title}` : ""}: {item.refundPolicy?.label}.
+                  {receipt.items.length > 1
+                    ? ct("Refunds for {product}: {policy}.", { product: item.title, policy: refundLabelIn(item.refundPolicy?.label ?? "", ct) })
+                    : ct("Refunds: {policy}.", { policy: refundLabelIn(item.refundPolicy?.label ?? "", ct) })}
                 </p>
               )}
             </div>
@@ -876,13 +935,15 @@ function ContactSeller({
   /** The order's address, masked, which is where the seller's reply goes (app/api/receipt/contact). */
   replyTo: string | null
 }) {
+  /* In the buyer's language (app/checkout/parts/words.tsx). */
+  const ct = useCt()
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle")
   const [message, setMessage] = useState("")
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const addressRef = useRef<HTMLParagraphElement>(null)
-  const mailto = supportEmail ? `mailto:${supportEmail}?subject=${encodeURIComponent(`Order ${orderNumber}`)}` : null
+  const mailto = supportEmail ? `mailto:${supportEmail}?subject=${encodeURIComponent(ct("Order {number}", { number: orderNumber }))}` : null
 
   const copy = async () => {
     if (!supportEmail) return
@@ -904,7 +965,7 @@ function ContactSeller({
     const text = message.trim()
     if (text.length < 2) {
       setState("error")
-      setError("Write a message first.")
+      setError(ct("Write a message first."))
       return
     }
     setState("sending")
@@ -918,21 +979,21 @@ function ContactSeller({
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.success) {
         setState("error")
-        setError(data.error || "The message did not go out. Try again in a minute.")
+        setError(data.error || ct("The message did not go out. Try again in a minute."))
         return
       }
       setState("sent")
       setMessage("")
     } catch {
       setState("error")
-      setError("No connection. Try again.")
+      setError(ct("No connection. Try again."))
     }
   }
 
   return (
     <div data-receipt-contact="">
       <div className="flex items-center justify-between gap-3">
-        <p className="min-w-0">Questions about this order?</p>
+        <p className="min-w-0">{ct("Questions about this order?")}</p>
         <button
           type="button"
           aria-expanded={open}
@@ -941,12 +1002,12 @@ function ContactSeller({
           className={`${QUIET} print:hidden`}
         >
           <Mail className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-          Contact seller
+          {ct("Contact seller")}
         </button>
       </div>
       {supportEmail ? (
         <p className="hidden print:block">
-          Write to {sellerName} at {supportEmail}.
+          {ct("Write to {seller} at {email}.", { seller: sellerName, email: supportEmail })}
         </p>
       ) : null}
 
@@ -959,7 +1020,7 @@ function ContactSeller({
             <>
               <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
                 <div className="min-w-0 sm:flex-1">
-                  <p className="text-[12px] text-[#8a919c]">{sellerName}&apos;s support email</p>
+                  <p className="text-[12px] text-[#8a919c]">{ct("{seller}'s support email", { seller: sellerName })}</p>
                   <p ref={addressRef} data-support-email="" className="text-[14px] font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">
                     {supportEmail}
                   </p>
@@ -967,29 +1028,31 @@ function ContactSeller({
                 <div className="flex gap-2">
                   <button type="button" onClick={copy} className={`${QUIET} flex-1 sm:flex-none`} aria-live="polite">
                     {copied === "done" ? <Check className="h-3.5 w-3.5 text-[#067647]" aria-hidden /> : <Copy className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />}
-                    {copied === "done" ? "Copied" : "Copy"}
+                    {copied === "done" ? ct("Copied") : ct("Copy")}
                   </button>
                   <a href={mailto} className={`${QUIET} flex-1 sm:flex-none`}>
                     <Mail className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-                    Write email
+                    {ct("Write email")}
                   </a>
                 </div>
               </div>
               <p className="mt-2 text-[12px] text-[#8a919c]">
-                {copied === "failed" ? "Could not copy. The address is selected, copy it from there." : `Mention order ${orderNumber} so they can find it.`}
+                {copied === "failed" ? ct("Could not copy. The address is selected, copy it from there.") : ct("Mention order {number} so they can find it.", { number: orderNumber })}
               </p>
             </>
           ) : state === "sent" ? (
             <p role="status" className="flex items-start gap-1.5 text-[13px] text-[#067647]">
               <Check className="mt-[3px] h-3.5 w-3.5 shrink-0" aria-hidden />
               <span>
-                Sent to {sellerName}. {replyTo ? `They reply to ${replyTo}.` : "They reply by email."}
+                {replyTo
+                  ? ct("Sent to {seller}. They reply to {email}.", { seller: sellerName, email: replyTo })
+                  : ct("Sent to {seller}. They reply by email.", { seller: sellerName })}
               </span>
             </p>
           ) : (
             <form onSubmit={send}>
               <label htmlFor="receipt-contact-message" className="sr-only">
-                Message to {sellerName}
+                {ct("Message to {seller}", { seller: sellerName })}
               </label>
               <textarea
                 id="receipt-contact-message"
@@ -998,21 +1061,21 @@ function ContactSeller({
                 maxLength={2000}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder={`Write to ${sellerName} about order ${orderNumber}`}
+                placeholder={ct("Write to {seller} about order {number}", { seller: sellerName, number: orderNumber })}
                 className="block w-full resize-none rounded-[10px] border border-[#d5d9e0] bg-white px-3 py-2 text-[16px] leading-snug text-[#1a1a2e] shadow-[inset_0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9aa1ac] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14px]"
               />
               <div className="mt-2 flex items-center justify-between gap-3">
                 <p className="min-w-0 text-[12px] text-[#8a919c] [overflow-wrap:anywhere]">
-                  {replyTo ? `They reply to ${replyTo}` : "They reply by email"}
+                  {replyTo ? ct("They reply to {email}", { email: replyTo }) : ct("They reply by email")}
                 </p>
                 <button type="submit" disabled={state === "sending"} className={cn(PRIMARY, SMALL, "min-w-[76px]")}>
                   {state === "sending" ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                      Sending
+                      {ct("Sending")}
                     </>
                   ) : (
-                    "Send"
+                    ct("Send")
                   )}
                 </button>
               </div>
@@ -1039,6 +1102,7 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
 }
 
 function SellerMark({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
+  const ct = useCt()
   /* The shared avatar: a Google photo loads from its own host, a broken one becomes the initials. */
-  return <AppAvatar src={avatarUrl} name={name.trim() || "Seller"} alt="" size={32} className="ring-1 ring-black/[0.04]" />
+  return <AppAvatar src={avatarUrl} name={name.trim() || ct("Seller")} alt="" size={32} className="ring-1 ring-black/[0.04]" />
 }

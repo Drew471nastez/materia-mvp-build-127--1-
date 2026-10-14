@@ -13,7 +13,8 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 import { join, relative } from "node:path"
 
 const ROOT = join(new URL(".", import.meta.url).pathname, "..", "..")
-const DIRS = ["app/checkout", "lib/checkout"]
+/* Folders, and single files the checkout's pages draw from elsewhere. */
+const DIRS = ["app/checkout", "lib/checkout", "app/receipt", "components/physical/tracking-timeline.tsx", "components/support/order-help.tsx", "components/support/case-photos.tsx"]
 const OUT = join(ROOT, "lib/markets/checkout-words.generated.ts")
 
 const walk = (dir) =>
@@ -21,9 +22,10 @@ const walk = (dir) =>
     const p = join(dir, f)
     return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(f) ? [p] : []
   })
+const filesOf = (p) => (statSync(p).isDirectory() ? walk(p) : [p])
 
 /* Server code whose answers the checkout shows as they are: its error and message sentences are listed too, and ct() translates them there. */
-const SERVER_FILES = ["app/api/checkout/site/route.ts", "lib/checkout/site-quote-server.ts", "lib/checkout/access-link.ts", "lib/physical/rates.ts", "lib/checkout/coupons.ts"]
+const SERVER_FILES = ["app/api/checkout/site/route.ts", "lib/checkout/site-quote-server.ts", "lib/checkout/access-link.ts", "lib/physical/rates.ts", "lib/checkout/coupons.ts", "app/api/order-help/route.ts", "lib/support/cases-server.ts"]
 const SAID = /\b(?:error|message|couponError)\s*:\s*("(?:[^"\\\n]|\\.)*")|\bexport const [A-Z_]+\s*=\s*("(?:[^"\\\n]|\\.)*")/g
 
 const CALL = /\b(?:ct|checkoutMsg)\(\s*("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\$]|\\.)*`)/g
@@ -32,7 +34,7 @@ export function scan() {
   const seen = new Set()
   const out = []
   for (const dir of DIRS) {
-    for (const file of walk(join(ROOT, dir)).sort()) {
+    for (const file of filesOf(join(ROOT, dir)).sort()) {
       /* Comments are not the checkout: a block comment, or a line that is only a comment. */
       const src = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
       for (const m of src.matchAll(CALL)) {

@@ -146,7 +146,7 @@ console.log("\nReceipts and orders\n")
   check("the receipt reads each order's tax in its own read, so an older database still shows it", /async function readTax/.test(load) && /select\("id, tax_cents, tax_included"\)/.test(load) && /select\("id, tax_cents"\)/.test(load))
   check("  tax added on top comes out of the subtotal, so Subtotal + Tax = Total", /if \(taxCents > 0 && !taxIncluded\) totals\.subtotalCents = Math\.max\(0, totals\.subtotalCents - taxCents\)/.test(load))
   const view = read("app/receipt/[token]/receipt-view.tsx")
-  check("the receipt page shows Tax, or Including tax", /<Row label=(?:"Tax"|\{receipt\.taxLabel \|\| "Tax"\}) value=\{money\(receipt\.taxCents \?\? 0\)\} \/>/.test(view) && /<Row label=(?:"Including tax"|\{includedTaxLabel\(receipt\.taxLabel\)\})/.test(view) && /<Row label="Total"/.test(view))
+  check("the receipt page shows Tax, or Including tax", /* Changed on purpose: in the buyer's language (ct). */ /<Row label=\{receipt\.taxLabel \|\| ct\("Tax"\)\} value=\{money\(receipt\.taxCents \?\? 0\)\} \/>/.test(view) && /<Row label=\{includedTax\}/.test(view) && /ct\("Including tax"\)/.test(view) && /<Row label=\{ct\("Total"\)\}/.test(view))
   const mail = read("lib/receipts/email.ts")
   check("the receipt email too", /\{ label: taxName\(m\), value: m\.taxText \}/.test(mail) && /\{ label: includedName\(m\), value: m\.taxText \}/.test(mail) && /\|\| et\("Tax"\)/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
   const [sale] = groupOrders([

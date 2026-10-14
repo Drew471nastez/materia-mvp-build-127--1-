@@ -106,7 +106,7 @@ check("the header and the tab bar, neither printed", /<ConditionalHeader/.test(r
 check("the header draws there", /p\.startsWith\("\/receipt\/"\)/.test(code("components/marketing/conditional-header.tsx")))
 check("the tab bar is on a receipt, with Library lit", buyerTabsBelongOn("/receipt/abc") && buyerTabFor("/receipt/abc") === 2)
 const receiptView = code("app/receipt/[token]/receipt-view.tsx")
-check("a back that returns where they came from, never into the checkout, else the library", /<BackControl fallback="\/account\/library" label="Back" skipBack=\{\(path\) => path\.startsWith\("\/checkout"\)\}/.test(receiptView))
+check("a back that returns where they came from, never into the checkout, else the library", /* Changed on purpose: in the buyer's language (ct). */ /<BackControl fallback="\/account\/library" label=\{ct\("Back"\)\} skipBack=\{\(path\) => path\.startsWith\("\/checkout"\)\}/.test(receiptView))
 check("the page no longer pads under the clock itself (the header does)", !/safe-area-inset-top/.test(receiptView) && !/safe-area-inset-top/.test(read("app/receipt/[token]/loading.tsx")))
 
 console.log("\n6. The navigator opens a library product on the client")

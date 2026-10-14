@@ -430,7 +430,8 @@ async function main() {
     check("/api/cron/physical runs the tracking sweep inside its time", /runTrackingSweep\(db/.test(cron) && /budgetMs/.test(cron))
     const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
     const timeline = read("components/physical/tracking-timeline.tsx")
-    check("the buyer's page shows the scans with place and time, and the estimated delivery", /data-tracking-checkpoints/.test(timeline) && /c\.location, when\(c\.at\)/.test(timeline) && /<TrackingTimeline/.test(view) && /Estimated delivery/.test(view) && /checkpoints/.test(read("app/checkout/physical/order/[token]/page.tsx")))
+    /* Changed on purpose: in the buyer's language (ct). */
+    check("the buyer's page shows the scans with place and time, and the estimated delivery", /data-tracking-checkpoints/.test(timeline) && /c\.location, when\(c\.at, locale\)/.test(timeline) && /<TrackingTimeline/.test(view) && /Estimated delivery/.test(view) && /checkpoints/.test(read("app/checkout/physical/order/[token]/page.tsx")))
     const panel = read("components/physical/order-panel.tsx")
     check("the seller's order page shows the scans, Updated automatically, and Pause automatic updates", /<TrackingTimeline/.test(panel) && /Updated automatically/.test(panel) && /Pause automatic updates/.test(panel) && /Mark as delivered/.test(panel))
     check("  and says when tracking is not set up yet", /Automatic updates turn on when Storelib's tracking is set up/.test(panel))

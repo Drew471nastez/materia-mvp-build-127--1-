@@ -63,7 +63,7 @@ import { OwnedNote, SiteOwned } from "./owned"
 import { AccessLink } from "../parts/access-link"
 import { FAIL_COPY, WAIT_MS, requestJson } from "@/lib/net/request"
 import { checkoutMsg, lowerLabel } from "@/lib/markets/checkout-words"
-import { useCheckoutLang, useCountryName, useCt } from "../parts/words"
+import { estimateText, useCheckoutLang, useCountryName, useCt } from "../parts/words"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -886,7 +886,7 @@ export function SiteCheckout({
                   <input type="radio" name="delivery" checked={optionId === o.id} onChange={() => setOptionId(o.id)} className="h-4 w-4 accent-[#1a1a2e]" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[14px] font-medium text-[#1a1a2e]">{o.name}</span>
-                    {o.estimate ? <span className="block text-[13px] text-[#6b7280]">{o.estimate}</span> : null}
+                    {o.estimate ? <span className="block text-[13px] text-[#6b7280]">{estimateText(ct, o.estimate)}</span> : null}
                   </span>
                   {/* A free shipping code: every method is free, and what it would have cost is shown struck through. */}
                   {quote.coupon?.freeShipping && o.priceCents > 0 ? (
