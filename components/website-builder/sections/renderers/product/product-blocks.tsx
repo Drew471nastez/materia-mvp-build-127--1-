@@ -183,6 +183,38 @@ function Title({ s, ctx }: { s: S; ctx: ProductCtx }) {
   )
 }
 
+/**
+ * STAR RATING: the product's Storelib Reviews rating under its name, the way
+ * a reviews app's badge sits on a Shopify product page, linking down to the
+ * Product reviews section (#reviews). From `rating`, which the page fills
+ * only while the app is on and the product has published reviews on this
+ * website (lib/reviews/storefront.ts productRating). Without one it draws
+ * nothing on the live page: no row of grey stars on a product nobody has
+ * reviewed yet.
+ */
+function Rating({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const r = ctx.product.rating
+  if (!r || !(r.count > 0)) return <EditorNote ctx={ctx}>Stars show here once this product has a published review in Storelib Reviews</EditorNote>
+  const size = num(s.size, 16)
+  const muted = ctx.palette.text_muted ?? ctx.palette.paragraph
+  const star = colorOf(s.star_color, ctx.palette, "") || r.star_color
+  const stars = "★★★★★"
+  return (
+    <div className="flex" style={{ justifyContent: JUSTIFY[alignOf(s.align)] }} data-product-rating="">
+      <a href="#reviews" className="inline-flex items-center gap-2 no-underline hover:underline underline-offset-4" style={{ color: muted, fontSize: Math.max(12, Math.round(size * 0.85)) }}>
+        <span role="img" aria-label={`${r.average_label} out of 5 stars`} className="relative inline-block leading-none" style={{ fontSize: size, letterSpacing: 2, color: `color-mix(in srgb, ${ctx.palette.paragraph} 22%, transparent)` }}>
+          {stars}
+          <span aria-hidden className="absolute inset-y-0 left-0 overflow-hidden whitespace-nowrap" style={{ width: `${r.percent}%`, color: star }}>
+            {stars}
+          </span>
+        </span>
+        {on(s.show_average, true) ? <span className="font-semibold tabular-nums" style={{ color: ctx.palette.heading }}>{r.average_label}</span> : null}
+        {on(s.show_count, true) ? <span>({r.count_label})</span> : null}
+      </a>
+    </div>
+  )
+}
+
 function Price({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const { facts } = ctx
   const size = num(s.size, 24)
@@ -814,6 +846,7 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   breadcrumbs: Breadcrumbs,
   badges: Badges,
   title: Title,
+  rating: Rating,
   price: Price,
   variant_picker: VariantPicker,
   pay_what_you_want: PayWhatYouWant,

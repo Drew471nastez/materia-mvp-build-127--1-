@@ -28,7 +28,7 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { COLLECTION_SORTS, inSmartCollection, readRules, sortProducts, type CollectionSort, type RuleProduct } from "@/lib/physical/collections"
 import type { StorefrontCollection } from "@/lib/storelib-theme/types"
 import { plainText } from "@/lib/storelib-theme/values"
-import { toCard } from "./shop-products"
+import { toCard, withRatings, type ProductCard } from "./shop-products"
 import { offChannel } from "@/lib/store/channel-filter"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,6 +151,12 @@ export async function siteCollections(
         products: cards,
       }
     }
+    /* Storelib Reviews' stars on these cards too, as on the shop's (shop-products.ts withRatings): one read for every collection's products. */
+    const unique = new Map<string, ProductCard>()
+    for (const c of Object.values(collections)) for (const card of c.products as ProductCard[]) unique.set(card.id, card)
+    const rated = await withRatings(db, creatorId, [...unique.values()]).catch(() => [] as ProductCard[])
+    const ratings = new Map(rated.filter((c) => c.rating).map((c) => [c.id, c.rating]))
+    if (ratings.size) for (const c of Object.values(collections)) c.products = (c.products as ProductCard[]).map((card) => (ratings.has(card.id) ? { ...card, rating: ratings.get(card.id) } : card)) as typeof c.products
     return { collections, choices }
   } catch {
     return empty

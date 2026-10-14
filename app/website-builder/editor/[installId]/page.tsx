@@ -81,7 +81,8 @@ import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
-import { mainProductSection, withDeliveryBlock, withProductBlocks } from "@/lib/website-builder/product-page"
+import { mainProductSection, withDeliveryBlock, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
+import { productRating, type StorefrontReviews } from "@/lib/reviews/storefront"
 import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import {
   groupOf,
@@ -3770,6 +3771,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     loaded = loaded.map((s) => withProductBlocks(s))
     /* Delivery and pickup on a product section saved before the block existed, in the sidebar as on the live page; removed by the creator, it stays removed (lib/website-builder/product-page.ts withDeliveryBlock). */
     loaded = loaded.map((s) => withDeliveryBlock(s))
+    /* Storelib Reviews on, with "Add to product pages": the stars under the title and the reviews under the product, as the live page draws them, here to move or remove (lib/website-builder/product-page.ts withProductReviews). */
+    if (page === "product" && !importedTheme.current) loaded = withProductReviews(loaded, data.reviews_on === true)
 
     return loaded
   }, [installId])
@@ -8004,7 +8007,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
   /* Storelib Reviews: a page with a review section draws the store's reviews, or samples (components/website-builder/use-canvas-reviews.ts). */
-  const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_")), previewedProduct?.id ?? null)
+  const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_") || (s.type === "product" && (s.blocks ?? []).some((b) => b.type === "rating"))), previewedProduct?.id ?? null)
   /*
     THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
     the page switcher): the approved translations laid over the page, its
@@ -8145,14 +8148,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [drawnSections, previewMap, storelibSources, librarySchemas],
   )
   /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
+  /* The product's real stars for the Star rating block, as the website hands them over (lib/reviews/storefront.ts productRating): none while it has only sample reviews. */
+  const canvasRating = useMemo(() => productRating(canvasReviews as unknown as StorefrontReviews | undefined), [canvasReviews])
   const drawnShown = useMemo(() => {
-    if (!previewPricing) return drawnInLanguage
-    const display = { market: previewPricing.market, base: previewPricing.base, fx: previewPricing.fx, locale: moneyLocale }
+    if (!previewPricing && !canvasRating) return drawnInLanguage
+    const display = previewPricing ? { market: previewPricing.market, base: previewPricing.base, fx: previewPricing.fx, locale: moneyLocale } : null
     return drawnInLanguage.map((sec) => {
-      const data = (sec.settings as Record<string, unknown> | undefined)?._product_data
-      return data && typeof data === "object" ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : sec
+      const raw = (sec.settings as Record<string, unknown> | undefined)?._product_data
+      if (!raw || typeof raw !== "object") return sec
+      const data = canvasRating ? { ...(raw as Record<string, unknown>), rating: canvasRating } : raw
+      return display ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : { ...sec, settings: { ...sec.settings, _product_data: data } }
     })
-  }, [drawnInLanguage, previewPricing, moneyLocale])
+  }, [drawnInLanguage, previewPricing, moneyLocale, canvasRating])
   const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true })), [shopCards, previewMap, cardsInMarket])
   const compatLanguage = useMemo(
     () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),

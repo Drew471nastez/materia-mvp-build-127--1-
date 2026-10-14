@@ -23,6 +23,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title }}</h3>
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
@@ -45,6 +46,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title }}</h3>
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
@@ -68,6 +70,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title }}</h3>
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
@@ -93,6 +96,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
+              {% if settings.show_rating and block.settings.url.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.settings.url.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.settings.url.rating.percent }}%;color:{{ block.settings.url.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.settings.url.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price or block.settings.url.price %}
                 <p class="card__price">{{ block.settings.url.price | default: block.settings.price }}{% if block.settings.url.title %}{% if block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}{% elsif block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
@@ -167,6 +171,9 @@
 .card__media { overflow: hidden; border-radius: var(--s-radius); background: var(--s-border); }
 .card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .card__title { margin: 14px 0 0; font-size: 15px; font-weight: 600; color: var(--s-heading); }
+.card__rating { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1; color: var(--s-para); }
+.card__rating > span { position: relative; letter-spacing: 1px; color: var(--s-border); }
+.card__rating > span > span { position: absolute; left: 0; top: 0; overflow: hidden; white-space: nowrap; }
 .card__text { margin: 6px 0 0; font-size: 14px; line-height: 1.55; color: var(--s-para); }
 .card__price { margin: 8px 0 0; display: flex; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 600; color: var(--s-heading); }
 .card__was { font-size: 13px; font-weight: 400; color: var(--s-para); opacity: 0.7; }
@@ -318,6 +325,13 @@
           "value": "3 / 4"
         }
       ]
+    },
+    {
+      "type": "toggle",
+      "id": "show_rating",
+      "label": "Show star ratings",
+      "default": true,
+      "info": "From Storelib Reviews, when it is on and a product has reviews."
     },
     {
       "type": "text",
