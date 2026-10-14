@@ -95,7 +95,7 @@ const FLOAT_LABEL =
   "pointer-events-none absolute left-3.5 right-3.5 top-1/2 -translate-y-1/2 truncate text-[15px] text-[#9ca3af] transition-[top,font-size,translate,color] duration-150 ease-out peer-focus:top-[8px] peer-focus:translate-y-0 peer-focus:text-[11.5px] peer-focus:text-[#6b7280] peer-[:not(:placeholder-shown)]:top-[8px] peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[11.5px] peer-[:not(:placeholder-shown)]:text-[#6b7280]"
 const FLOAT_SELECT = `${INPUT} h-[52px] appearance-none pr-10 pt-[17px] data-[empty=true]:pt-0 data-[empty=true]:text-transparent`
 const FLOAT_SELECT_LABEL =
-  "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,translate] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
+  "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,transform] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
 
 function guessCountry(): string {
   try {

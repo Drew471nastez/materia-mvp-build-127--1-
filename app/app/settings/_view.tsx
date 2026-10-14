@@ -20,7 +20,8 @@ import { getServerTt } from "@/lib/i18n/server"
  * (.)settings/layout.tsx, so it rises the moment it is pressed and this
  * fills it as soon as the server has answered. It is fetched ahead of the
  * press (prefetchAppPage, from the rail and the phone's account menu), so it
- * is normally there with the sheet; no fade, which made it arrive late.
+ * is normally there with the sheet. A short fade (220ms, nothing held back
+ * before it) so a slow answer arrives rather than snaps into the sheet.
  */
 export async function SettingsForm() {
   const data = await loadSettingsData()
@@ -29,7 +30,7 @@ export async function SettingsForm() {
   if (data.memberOnly) {
     const { tt } = await getServerTt()
     return (
-      <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6" data-settings-member-only="">
+      <div className="library-content-enter mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6" data-settings-member-only="">
         <h1 className="mb-1 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Team")}</h1>
         <p className="mb-5 text-[14px] text-[#6b7280]">{tt("The stores you help run.")}</p>
         <TeamPanel />
@@ -37,7 +38,7 @@ export async function SettingsForm() {
     )
   }
   return (
-    <div>
+    <div className="library-content-enter">
       <SettingsFormNew
         profile={data.profile}
         creator={data.creator}

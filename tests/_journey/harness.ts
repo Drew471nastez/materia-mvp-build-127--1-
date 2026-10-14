@@ -33,6 +33,7 @@ type RouteModule = Record<string, Handler | unknown>
 const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/onboarding/finalize": () => import("@/app/api/onboarding/finalize/route"),
   "/api/store/settings": () => import("@/app/api/store/settings/route"),
+  "/api/store/currency": () => import("@/app/api/store/currency/route"),
   "/api/store/taxes": () => import("@/app/api/store/taxes/route"),
   "/api/store/taxes/regions": () => import("@/app/api/store/taxes/regions/route"),
   "/api/store/taxes/regions/[id]": () => import("@/app/api/store/taxes/regions/[id]/route"),
@@ -84,6 +85,9 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/coupons/[id]": () => import("@/app/api/physical/coupons/[id]/route"),
   "/api/payments/[action]": () => import("@/app/api/payments/[action]/route"),
   "/api/checkout/site": () => import("@/app/api/checkout/site/route"),
+  "/api/settings/payments": () => import("@/app/api/settings/payments/route"),
+  "/api/store/markets": () => import("@/app/api/store/markets/route"),
+  "/api/store/translations": () => import("@/app/api/store/translations/route"),
 }
 
 /* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */

@@ -199,9 +199,9 @@ section("A slow page: no outline, a spinner")
   check("under it the page only rises: its fade out is the page's fade in, not a second fade multiplied by it",
     /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
-    /pointer-events-none fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
+    /pointer-events-none fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[var\(--app-rail-w,240px\)\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
       && /data-app-slow-surface="" className="h-full overflow-hidden rounded-t-\[var\(--app-top-corner\)\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
-      && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[240px\]/.test(read("app/app/layout.tsx")))
+      && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[var\(--app-rail-w,240px\)\]/.test(read("app/app/layout.tsx")))
   /* Regression: "the purple things in the corners". The rounded surface was
      the fixed box itself, so its corners showed the page under it, and Home's
      top is the violet announcement bar. scripts/check-app-stage.mjs reads the

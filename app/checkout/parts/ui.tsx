@@ -348,8 +348,9 @@ export function PoweredByStripe() {
 */
 export const CHECKOUT_CURRENCY = PLATFORM_CURRENCY
 
-export const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: CHECKOUT_CURRENCY.toUpperCase() }).format((cents || 0) / 100)
+/* `currency`: a checkout that knows its store's currency can pass it; inside <CheckoutCurrency>, useMoney() reads it for you. */
+export const money = (cents: number, currency: string = CHECKOUT_CURRENCY) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || CHECKOUT_CURRENCY).toUpperCase() }).format((cents || 0) / 100)
 
 /** The charge currency's own mark for an amount field ("$", "RON"), as money() writes it. */
 export const CURRENCY_MARK = markOf(CHECKOUT_CURRENCY)

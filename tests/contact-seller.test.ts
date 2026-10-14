@@ -148,7 +148,7 @@ async function main() {
   /* The one picture is the Storelib mark of the shared layout (lib/emails/layout.ts); nothing the buyer typed becomes a tag. */
   check(
     "the words arrive as text: no script, no tag, no javascript: link",
-    !/<script|<b>|href="javascript/i.test(mail.html) && (mail.html.match(/<img\b[^>]*>/g) ?? []).every((t) => t.includes("storelib-logo-email")) && mail.html.includes("&lt;script&gt;"),
+    !/<script|<b>|href="javascript/i.test(mail.html) && (mail.html.match(/<img\b[^>]*>/g) ?? ([] as string[])).every((t) => t.includes("storelib-logo-email")) && mail.html.includes("&lt;script&gt;"),
     mail.html,
   )
   check("a whole document: lang, charset, a preheader of the message", /<html lang="en"[\s>]/.test(mail.html) && /<meta charset="utf-8">/.test(mail.html) && /display:none[^>]*>Hi, the zip/.test(mail.html))

@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { ConnectionsSettings } from "@/components/website-builder/website-settings/connections"
+import { AppsSettings } from "@/components/website-builder/website-settings/apps"
 import { BackupSettings } from "@/components/website-builder/website-settings/backups"
 import { CommerceSettings } from "@/components/website-builder/website-settings/commerce"
 import { DomainSettings } from "@/components/website-builder/website-settings/domains"
@@ -402,6 +403,7 @@ export function ProjectSettings({
           {section === "navigation" && <NavigationSettings ctx={ctx} />}
           {section === "commerce" && <CommerceSettings ctx={ctx} />}
           {section === "policies" && <PolicySettings ctx={ctx} />}
+          {section === "apps" && <AppsSettings ctx={ctx} />}
           {section === "publishing" && <PublishingSettings ctx={ctx} />}
           {section === "backups" && <BackupSettings ctx={ctx} />}
           {section === "connections" && <ConnectionsSettings ctx={ctx} />}

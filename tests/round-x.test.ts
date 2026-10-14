@@ -21,7 +21,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 console.log("\nSettings on a phone")
 const form = read("components/app/settings-form-new.tsx")
 const sheet = read("components/app/settings-sheet.tsx")
-check("under the app's header and beside its rail, as a page, not over them", /max-lg:z-\[49\] max-lg:top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\]/.test(sheet) && /md:max-lg:left-\[240px\]/.test(sheet))
+check("under the app's header and beside its rail, as a page, not over them", /max-lg:z-\[49\] max-lg:top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\]/.test(sheet) && /md:max-lg:left-\[var\(--app-rail-w,240px\)\]/.test(sheet))
 check("no handle and no Back strip of its own on a phone", /"max-lg:hidden",/.test(sheet) && !/data-settings-page-back/.test(sheet))
 /* Changed on purpose (round R1): the soft fill and its hairline are the pill's own background and inset shadow, eased in place; the span laid over the pill was what made WebKit hide its words and blink its icon. */
 check("the pills as before: words on grey, the open one on a soft fill that eases in place", !/data-settings-tab-fill=""/.test(form) && /bg-\[#f3f4f6\] text-\[#1a1a2e\] shadow-\[inset_0_0_0_1px_#d1d5db/.test(form) && /transition-\[color,background-color,box-shadow\]/.test(form) && !/border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white/.test(form))

@@ -155,10 +155,10 @@ async function main() {
 
   out("\nThe models the chat offers")
   {
-    check("two ChatGPT models, everyday and strong", ENGINES.length === 2 && ENGINES.every((e) => e.provider === "openai") && ENGINES.map((e) => e.tier).join(",") === "fast,strong")
-    check("each says what it is best for", ENGINES[0].detail === "Best for quick edits, copy and colours" && ENGINES[1].detail === "Best for new sections, pages and code")
-    check("the everyday one is the default", DEFAULT_ENGINE === "openai")
-    check("a saved Claude choice reads as the default, never a crash", engineFromSaved("claude") === "openai" && engineFromSaved("claude-opus") === "openai" && engineFromSaved(null) === "openai" && engineFromSaved(42) === "openai")
+    check("Claude and ChatGPT each offer everyday and strong models", ENGINES.length === 4 && ["anthropic", "openai"].every((provider) => ENGINES.filter((e) => e.provider === provider).map((e) => e.tier).join(",") === "fast,strong"))
+    check("each explains its purpose", ENGINES.every((engine) => !!engine.detail))
+    check("Claude Sonnet is the default", DEFAULT_ENGINE === "claude")
+    check("saved Claude choices remain valid and malformed choices have a default", engineFromSaved("claude") === "claude" && engineFromSaved("claude-opus") === "claude-opus" && engineFromSaved(null) === "claude" && engineFromSaved(42) === "claude")
     check("a saved ChatGPT choice is kept", engineFromSaved("openai-strong") === "openai-strong" && engineFromSaved("openai") === "openai")
     check("a report can name either model, and an answer from before", ENGINES.every((e) => (REPORTABLE_ENGINES as readonly string[]).includes(e.id)) && (REPORTABLE_ENGINES as readonly string[]).includes("claude"))
   }

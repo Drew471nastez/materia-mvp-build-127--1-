@@ -137,10 +137,10 @@ async function main() {
   check("the monthly count leaves own runs out", /\.not\("provider", "like", "own:%"\)/.test(run))
   check("a run on their account is not stopped by the monthly allowance", /if \(providerId\.startsWith\("own:"\)\) return null/.test(run) && /await monthlyQuotaError\(creatorId, plan, provider\.id\)/.test(run))
   check("and costs Storelib nothing on the books", /provider\.id\.startsWith\("own:"\) \? \{ usd: 0, priced: true \}/.test(run))
-  check("their OpenAI key first, then Storelib's", provider.indexOf("const direct = keys.openai") > 0 && provider.indexOf("const direct = keys.openai") < provider.lastIndexOf("return resolveProvider(input)"))
+  check("the selected provider's personal key is checked before the platform key", provider.indexOf("const direct = keys[wanted]") > 0 && provider.indexOf("const direct = keys[wanted]") < provider.lastIndexOf("const resolved = resolveProvider(input)"))
   /* Storelib AI runs on ChatGPT only for now: a Claude key kept from before is not deleted, and not used. */
-  check("a Claude key kept from before answers nothing, and is not deleted", !/keys\.anthropic/.test(provider) && /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai"\]/.test(provider) && !/removeKey\(creatorId, "anthropic"\)/.test(read("app/api/ai-keys/route.ts")))
-  check("and a new one is not taken", /if \(source !== "openai"\) return NextResponse\.json\(\{ error: "Add an OpenAI key\." \}, \{ status: 400 \}\)/.test(read("app/api/ai-keys/route.ts")))
+  check("both personal providers can answer without deleting prior keys", /ANSWERING_SOURCES: readonly KeySource\[\] = \["anthropic", "openai"\]/.test(provider) && !/removeKey\(creatorId, "anthropic"\)/.test(read("app/api/ai-keys/route.ts")))
+  check("new keys are accepted only for supported providers", /if \(!isKeySource\(source\)\)/.test(read("app/api/ai-keys/route.ts")))
   const routes = [
     "app/api/website-builder/themes/[installId]/agent/route.ts",
     "app/api/website-builder/themes/[installId]/sections/code/route.ts",
@@ -160,8 +160,8 @@ async function main() {
   check("and the migration is the same", /ENABLE ROW LEVEL SECURITY/.test(read("supabase/migrations/20261006_creator_ai_keys.sql")))
   check("adding keys is rate limited, so this is no free key checker", /rateLimit\(\{ bucket: "ai-key"/.test(read("app/api/ai-keys/route.ts")))
 
-  section("Storelib AI is OpenAI only: no OpenRouter anywhere")
-  check("a connection is an OpenAI key or a Claude key kept from before, nothing else", /export type KeySource = "anthropic" \| "openai"\n/.test(store) && !/openrouter/i.test(store))
+  section("Storelib AI supports direct Claude and OpenAI connections")
+  check("only Claude and OpenAI key sources are supported", /export type KeySource = "anthropic" \| "openai"\n/.test(store) && !/openrouter/i.test(store))
   check("a row saved under a source no longer offered is read as nothing connected, and never deleted",
     /\.filter\(\(r\) => isKeySource\(r\.provider\)\)/.test(store) && /if \(!isKeySource\(row\.provider\)\) continue/.test(store) && !/\.delete\(\)\.eq\("creator_id", creatorId\)\s*\n?\s*\.neq/.test(store))
   const offOpenRouter = [
@@ -177,8 +177,8 @@ async function main() {
 
   section("One way in")
   const panel = read("components/website-builder/website-settings/own-ai.tsx")
-  check("Connections offers OpenAI, and no Claude key line for now",
-    /id: "openai"/.test(panel) && !/id: "anthropic"/.test(panel) && !/sk-ant-/.test(panel) && !/Claude or OpenAI key|Claude and ChatGPT then|use Claude or ChatGPT on your account/.test(panel))
+  check("Connections offers both Claude and OpenAI",
+    /id: "openai"/.test(panel) && /id: "anthropic"/.test(panel) && /sk-ant-/.test(panel))
   check("the OpenAI row is there from the start: paste a key from platform.openai.com",
     /\{SOURCES\.map\(/.test(panel) && /platform\.openai\.com/.test(panel) && /It is checked before it is kept\./.test(panel))
 

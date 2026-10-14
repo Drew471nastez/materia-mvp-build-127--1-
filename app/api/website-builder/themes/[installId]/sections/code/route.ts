@@ -56,6 +56,7 @@ const BodySchema = z.object({
   images: z.array(z.unknown()).max(16).optional(),
   provider: z.enum(["anthropic", "openai"]).optional(),
   tier: z.enum(["fast", "strong"]).optional(),
+  model: z.string().regex(/^claude-[a-z0-9-]{1,100}$/).optional(),
   /**
    * The theme the section is being written FOR, as the editor currently holds
    * it: its colour schemes, its fonts, its buttons. Optional, because an
@@ -161,7 +162,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     ...Object.values(mine).map((s) => s.name),
   ].filter(Boolean)
 
-  const resolved = await resolveForCreator((creator as { id: string }).id, { requested: parsed.data.provider, tier: parsed.data.tier ?? "strong" })
+  let resolved: Awaited<ReturnType<typeof resolveForCreator>>
+  try {
+    resolved = await resolveForCreator((creator as { id: string }).id, { requested: parsed.data.provider, tier: parsed.data.tier ?? "strong", model: parsed.data.model })
+  } catch (error) {
+    return NextResponse.json({ error: plainRunError(error, "section provider", "Choose an available model and try again.") }, { status: 503 })
+  }
 
   /**
    * KEPT IN THE CONVERSATION, the way a change to the page is: the question

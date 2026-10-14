@@ -10,6 +10,7 @@
  */
 import * as React from "react"
 import Link from "next/link"
+import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { channelKey, startingChannels, type Channel } from "@/lib/store/channels"
 import { tt } from "@/lib/i18n/text"
@@ -128,7 +129,22 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
           return (
             <li key={key} data-channel={c.kind}>
               <label htmlFor={id} className={cn("flex cursor-pointer items-start gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-[#f8f9fa]", !c.enabled && "opacity-60")}>
-                <input id={id} type="checkbox" checked={on.has(key)} onChange={() => toggle(key)} className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-[#d1d5db] accent-[#1a1a2e]" />
+                {/* The real checkbox, for the keyboard and screen readers; the box beside it is what is drawn, filling and ticking on a short ease. */}
+                <input id={id} type="checkbox" checked={on.has(key)} onChange={() => toggle(key)} className="peer sr-only" />
+                <span
+                  aria-hidden
+                  data-channel-box={on.has(key) ? "on" : "off"}
+                  className={cn(
+                    "mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border transition-[background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
+                    "peer-focus-visible:ring-2 peer-focus-visible:ring-[#1a1a2e]/20 peer-focus-visible:ring-offset-1",
+                    on.has(key) ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db] bg-white",
+                  )}
+                >
+                  <Check
+                    strokeWidth={3}
+                    className={cn("h-3 w-3 text-white transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none", on.has(key) ? "scale-100 opacity-100" : "scale-50 opacity-0")}
+                  />
+                </span>
                 <span className="min-w-0">
                   <span className="block text-[14px] font-medium leading-5 text-[#1a1a2e]">
                     {c.name}

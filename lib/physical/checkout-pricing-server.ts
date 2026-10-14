@@ -84,6 +84,13 @@ export type PricedCheckout =
       creatorId: string
       lines: PricedLine[]
       dropped: string[]
+      /**
+       * Things that ship with more than one option, put in the cart with none
+       * chosen: asked for on the checkout line (choose the size there) rather
+       * than dropped from the order as "Black Sleeve (choose an option)".
+       * Not priced and not paid for until one is chosen.
+       */
+      needsOption?: { productId: string; title: string; imageUrl: string | null; quantity: number }[]
       /** Digital lines left out because the buyer owns them (lib/checkout/owned); their titles are in `dropped` too. */
       owned?: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[]
       stockIssues: StockIssue[]
@@ -216,6 +223,7 @@ export async function priceCheckout(
 
   const lines: PricedLine[] = []
   const dropped: string[] = []
+  const needsOption: { productId: string; title: string; imageUrl: string | null; quantity: number }[] = []
   const stockIssues: StockIssue[] = []
   for (const item of req.items) {
     const p = byId.get(item.productId)
@@ -281,7 +289,8 @@ export async function priceCheckout(
     const variants = (variantsByProduct.get(p.id) ?? []).filter((v) => v.active !== false)
     const v = item.variantId ? variants.find((x) => x.id === item.variantId) : variants.length === 1 ? variants[0] : null
     if (!v) {
-      dropped.push(item.variantId ? `${p.title} (that option is no longer sold)` : `${p.title} (choose an option)`)
+      if (!item.variantId && variants.length > 1) needsOption.push({ productId: p.id, title: p.title, imageUrl: p.thumbnail_url ?? null, quantity: item.quantity })
+      else dropped.push(item.variantId ? `${p.title} (that option is no longer sold)` : p.title)
       continue
     }
     /* A thing that ships may sell at $0 (a free sample, a gift with an order); a price that can't be read is not on sale. */
@@ -348,7 +357,7 @@ export async function priceCheckout(
   const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
   const fromOffers = applyOffers(lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity })), offers)
   fromOffers.discounts.forEach((d, i) => (lines[i].discountCents = d))
-  const base = { ok: true as const, creatorId, lines, dropped, owned: ownedList, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(lines, offers) }
+  const base = { ok: true as const, creatorId, lines, dropped, needsOption, owned: ownedList, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(lines, offers) }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
   if (!typed || lines.length === 0) return { ...base, coupon: null, couponLabel: null, freeShipping: false }

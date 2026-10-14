@@ -431,6 +431,7 @@ export function Totals({
   isPwyw,
   promo,
   tax,
+  currency,
 }: {
   part: "top" | "bottom"
   subtotal: number
@@ -442,6 +443,8 @@ export function Totals({
   promo?: React.ReactNode
   /** Settings › Taxes: the tax for the buyer's country, which they can change here. */
   tax?: TaxLine
+  /** What the card is charged in, when it is not the platform's (a store's own checkout). */
+  currency?: string
 }) {
   const money = useMoney()
   const ct = useCt()

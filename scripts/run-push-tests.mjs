@@ -21,6 +21,7 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
+  "tests/claude-integration.test.ts",
   "tests/community-profile-j1.test.ts",
   "tests/surfaces25.test.ts",
   "tests/variants25.test.ts",
@@ -625,6 +626,10 @@ const SUITES = [
 const STRICT_SUITES = [
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
+  /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
+  "tests/e2e-store-currency.test.ts",
+  /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
+  "tests/e2e-cash-on-delivery.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

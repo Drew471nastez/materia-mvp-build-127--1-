@@ -53,7 +53,7 @@ import { PROFILE_AVATAR_CLASS, PROFILE_AVATAR_PX, ProfileHero } from "@/componen
 import { profileCoverSrc } from "@/components/profile/profile-cover-image"
 import { rememberAccountCover } from "@/components/account/cover-warm"
 import { ProfileOwnerPills } from "@/components/profile/profile-owner-pills"
-import { AccountColumn } from "@/components/account/account-column"
+import { AccountColumn, accountWidth } from "@/components/account/account-column"
 import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 import { SettingsWarm } from "@/components/account/settings-subpage"
@@ -116,7 +116,7 @@ export function AccountHub({ identity, communities = false, children }: { identi
   /* WHERE THE COVER IS, FOR NEXT TIME (round 18): the tab bar decodes it ahead of the next press on Profile (cover-warm.ts). */
   useEffect(() => rememberAccountCover(profileCoverSrc(identity.coverUrl)), [identity.coverUrl])
 
-  if (!showsProfileHeader(pathname)) return <AccountColumn>{children}</AccountColumn>
+  if (!showsProfileHeader(pathname)) return <AccountColumn width={accountWidth(pathname)}>{children}</AccountColumn>
 
   return (
     <RouterPullToRefresh scope={ACCOUNT_REFRESH_SCOPE}>

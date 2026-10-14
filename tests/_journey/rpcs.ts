@@ -382,4 +382,59 @@ export function installRpcs(db: MemoryDb) {
     for (const j of due) Object.assign(j, { state: "processing", claimed_by: a.p_worker, claimed_until: lease, attempts: (j.attempts ?? 0) + 1, updated_at: now() })
     return due.map((j) => ({ ...j }))
   }
+
+  /*
+    supabase/sql/run-now/176_store_currency.sql: store_change_currency. A
+    store's selling currency changed once per request key, refused when the
+    store's currency moved underneath the caller (40001); "convert" snapshots
+    and converts every price the store owns at the rate given, "keep" moves
+    no number.
+  */
+  db.rpcs.store_change_currency = (d, a) => {
+    const code = (v: unknown) => typeof v === "string" && /^[A-Z]{3}$/.test(v)
+    if (!a.p_creator) throw new PgError("22023", "store_currency: no store")
+    if (!code(a.p_from) || !code(a.p_to)) throw new PgError("22023", "store_currency: a currency is not a code")
+    if (a.p_from === a.p_to) throw new PgError("22023", `store_currency: the store already sells in ${a.p_to}`)
+    if (a.p_mode !== "keep" && a.p_mode !== "convert") throw new PgError("22023", "store_currency: mode is keep or convert")
+    if (a.p_mode === "convert" && !(Number(a.p_rate) > 0 && Number(a.p_rate) <= 1_000_000)) throw new PgError("22023", "store_currency: converting needs a rate")
+    if (typeof a.p_key !== "string" || a.p_key.length < 8 || a.p_key.length > 120) throw new PgError("22023", "store_currency: a request key is needed")
+    let settings = d.rows("store_settings").find((r) => r.creator_id === a.p_creator)
+    if (!settings) settings = d.insert("store_settings", { creator_id: a.p_creator }, {})[0]
+    const prev = d.rows("store_currency_changes").find((c) => c.creator_id === a.p_creator && c.request_key === a.p_key)
+    if (prev) return { ok: true, repeat: true, id: prev.id, from: prev.from_currency, to: prev.to_currency, mode: prev.mode, rate: prev.rate, counts: prev.counts }
+    if ((settings.currency ?? a.p_from) !== a.p_from) throw new PgError("40001", `store_currency: the store now sells in ${settings.currency}`)
+    const [change] = d.insert("store_currency_changes", { creator_id: a.p_creator, from_currency: a.p_from, to_currency: a.p_to, previous_currency: settings.currency ?? null, mode: a.p_mode, rate: a.p_mode === "convert" ? a.p_rate : null, rate_as_of: a.p_mode === "convert" ? a.p_rate_as_of : null, request_key: a.p_key, created_by: a.p_user ?? null }, {})
+    const counts: Record<string, number> = {}
+    if (a.p_mode === "convert") {
+      const rate = Number(a.p_rate)
+      const conv = (v: unknown) => (typeof v === "number" ? Math.round(v * rate) : v)
+      const own = d.rows("products").filter((p) => p.creator_id === a.p_creator)
+      const ids = new Set(own.map((p) => p.id))
+      const targets: [string, Row[], string[]][] = [
+        ["products", own, ["price_cents", "compare_at_cents", "pwyw_min_price_cents", "pwyw_suggested_price_cents"]],
+        ["product_variants", d.rows("product_variants").filter((v) => ids.has(v.product_id)), ["price_cents", "compare_at_price_cents", "additional_price_cents"]],
+        ["shipping_rates", d.rows("shipping_rates").filter((r) => r.creator_id === a.p_creator), ["price_cents", "free_over_cents"]],
+        ["inventory_locations", d.rows("inventory_locations").filter((r) => r.creator_id === a.p_creator), ["local_delivery_price_cents", "local_delivery_min_cents", "local_delivery_free_over_cents"]],
+        ["coupons", d.rows("coupons").filter((r) => r.creator_id === a.p_creator), ["min_purchase_cents"]],
+      ]
+      for (const [table, rows, cols] of targets) {
+        if (!rows.length) continue
+        for (const r of rows) {
+          d.rows("store_currency_snapshots").push({ change_id: change.id, table_name: table, row_id: r.id, before: Object.fromEntries(cols.filter((c) => c in r).map((c) => [c, r[c]])) })
+          for (const c of cols) if (c in r) r[c] = conv(r[c])
+          if (table === "coupons" && r.discount_type === "fixed" && typeof r.discount_value === "number") r.discount_value = Math.max(0.01, Math.round(r.discount_value * rate * 100) / 100)
+        }
+        counts[table] = rows.length
+      }
+      const fee = settings.checkout && typeof settings.checkout === "object" ? (settings.checkout as Row).codFeeCents : undefined
+      if (typeof fee === "number") {
+        settings.checkout = { ...(settings.checkout as Row), codFeeCents: Math.round(fee * rate) }
+        counts.cod_fee = 1
+      }
+    }
+    settings.currency = a.p_to
+    settings.updated_at = now()
+    change.counts = counts
+    return { ok: true, repeat: false, id: change.id, from: a.p_from, to: a.p_to, mode: a.p_mode, rate: a.p_mode === "convert" ? a.p_rate : null, counts }
+  }
 }

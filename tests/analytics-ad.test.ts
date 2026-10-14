@@ -140,7 +140,7 @@ console.log("\nEvery view keeps its page\n")
 {
   const collect = read("lib/analytics/collect.ts")
   check("a column the database lacks is left out alone, the page and the place kept", /for \(let tries = 0; error && missingColumn\(error\) && tries < 3; tries\+\+\)/.test(collect) && /NEW_COLUMNS as readonly string\[\]\)\.includes\(col\)\) break/.test(collect))
-  check("an older view with no page reads Page unknown, not as an error", /"Page unknown"/.test(read("lib/analytics/reports.ts")) && !/Page not recorded/.test(read("lib/analytics/reports.ts")))
+  check("an older view with no page is named by its place, or folded into one Earlier visits row; never Page unknown", /tt\("Earlier visits"\)/.test(read("lib/analytics/reports.ts")) && !/Page unknown|Page not recorded/.test(read("lib/analytics/reports.ts")))
 }
 
 console.log("\nPhysical sales follow the page\n")

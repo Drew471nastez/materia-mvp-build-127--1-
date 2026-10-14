@@ -982,7 +982,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           this is identical to the previous top-[58px] / calc(100svh-58px). */}
       <aside
         data-shell-chrome=""
-        className="fixed left-0 z-40 hidden w-[240px] flex-col border-r border-neutral-200/60 bg-white md:flex"
+        data-rail-aside=""
+        className="fixed left-0 z-40 hidden w-[var(--app-rail-w,240px)] flex-col overflow-hidden border-r border-neutral-200/60 bg-white transition-[width] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none md:flex"
         style={{
           top: 'calc(58px + env(safe-area-inset-top, 0px))',
           height: 'calc(100svh - 58px - env(safe-area-inset-top, 0px))',

@@ -3226,7 +3226,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   ) : null}
                 </p>
               </div>
-              <CustomFieldsCard fields={customFields} onChange={setCustomFields} cardClass={CARD} titleClass={CARD_TITLE} />
+              {/* Not on a course: its lessons are what it is ("what do custom fields have to do with a course?"). Fields it already has are kept. */}
+              {productType === "course" ? null : <CustomFieldsCard fields={customFields} onChange={setCustomFields} cardClass={CARD} titleClass={CARD_TITLE} />}
           </div>
 
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4">

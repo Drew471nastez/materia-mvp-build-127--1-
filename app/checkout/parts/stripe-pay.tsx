@@ -131,6 +131,8 @@ export interface IntentResult {
 
 export interface StripePayProps {
   amountCents: number
+  /** The PaymentIntent's currency when it is not the platform's (a store's own checkout charges in the store's). */
+  currency?: string
   /** "subscription" for a membership: the form is drawn for a recurring payment, and a trial's card is saved rather than charged. */
   mode?: "payment" | "subscription"
   creatorName: string

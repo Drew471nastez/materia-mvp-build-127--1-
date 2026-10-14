@@ -8275,3 +8275,23 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
   .settings-content-in { animation: none; }
 }
 
+
+/*
+  THE /app SIDEBAR AS A ROW OF ICONS (lib/ui/app-rail.ts). The labels, the
+  submenus, the chevrons and the cards go; each row keeps its icon centred,
+  its link and a tooltip with its name. Desktop only: a phone has its menu.
+*/
+@media (min-width: 768px) {
+  [data-app-rail="collapsed"] [data-rail-aside] [data-nav-label],
+  [data-app-rail="collapsed"] [data-rail-aside] [data-nav-chevron],
+  [data-app-rail="collapsed"] [data-rail-aside] [data-nav-submenu],
+  [data-app-rail="collapsed"] [data-rail-aside] [data-rail-hide] {
+    display: none;
+  }
+  [data-app-rail="collapsed"] [data-rail-aside] [data-nav-row],
+  [data-app-rail="collapsed"] [data-rail-aside] [data-rail-toggle] {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}

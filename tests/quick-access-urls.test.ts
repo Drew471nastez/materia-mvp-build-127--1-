@@ -42,7 +42,7 @@ function fn(name: string): string {
 }
 /** Its production return, ignoring the localhost and native branches. */
 function prodReturns(name: string): string[] {
-  return (fn(name).match(/return `[^`]*`/g) ?? []).filter((r) => r.includes("mainDomain"))
+  return (fn(name).match(/return `[^`]*`/g) ?? ([] as string[])).filter((r) => r.includes("mainDomain"))
 }
 
 function main() {

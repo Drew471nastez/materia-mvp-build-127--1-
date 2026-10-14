@@ -108,9 +108,10 @@ section("Nothing in the rail is declared during a render")
   )
 
   check(
-    "and the rail is 240px, with everything beside it moved to match",
-    /w-\[240px\]/.test(shellSource) &&
-      /md:pl-\[240px\]/.test(untt(readFileSync(join(root, "app/app/layout.tsx"), "utf8"), "app/app/layout.tsx")),
+    "and the rail is 240px, or 68 collapsed, one width (--app-rail-w) with everything beside it moved to match",
+    /w-\[var\(--app-rail-w,240px\)\]/.test(shellSource) &&
+      /md:pl-\[var\(--app-rail-w,240px\)\]/.test(untt(readFileSync(join(root, "app/app/layout.tsx"), "utf8"), "app/app/layout.tsx")) &&
+      /RAIL_OPEN_PX = 240/.test(readFileSync(join(root, "lib/ui/app-rail.ts"), "utf8")),
   )
 }
 

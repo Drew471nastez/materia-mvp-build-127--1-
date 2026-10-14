@@ -9,7 +9,8 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { baseLanguage, dirOf, languageName, localeFromPath, localizedPath, normalizeLocale, preferredLocale } from "@/lib/markets/locales"
+import { sellingCurrencyOf } from "@/lib/store/selling-currency"
+import { baseLanguage, dirOf, languageCountry, languageName, localeFromPath, localizedPath, normalizeLocale, preferredLocale } from "@/lib/markets/locales"
 import { convertMinor, formatMinor, chargeNote, fxFresh, minorUnits, type FxRates } from "@/lib/markets/money"
 import { defaultLocalization, isLocalized, marketForCountry, publishedLanguages, validateLocalization } from "@/lib/markets/model"
 import { isTranslationKey, localizeCards, localizeMenus, localizeTheme, menuTranslatables, seoTranslatables, localizeRecord, localizeSections, sectionKey, blockKey, sourceHash, statusOf, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
@@ -210,6 +211,34 @@ console.log("\nRound AE: no more English corners, and the builder previews every
   check("  an imported theme's canvas too: its sections, menus, products, its own | t words and request.locale", /compatFields\(compatTheme\)/.test(canvas) && /compat-locale=/.test(canvas) && /i18n,/.test(canvas) && /withoutLanguage\(n\.href/.test(canvas))
   check("  the theme's words for one language, from its own files, behind the owner's sign in", /searchParams\.get\("compat-locale"\)/.test(read("app/api/website-builder/themes/[installId]/files/route.ts")))
   check("the field reader shared by the live site and the canvas", /export function compatFields/.test(read("lib/markets/compat-fields.ts")) && !/import "server-only"/.test(read("lib/markets/compat-fields.ts")) && /export \{ compatFields \}/.test(read("lib/markets/compat.ts")))
+}
+
+console.log("\nThis round: Translate waits for the language, flags, and the store's own currency at checkout\n")
+{
+  const panel = read("components/app/settings/markets-panel.tsx")
+  const sheet = read("components/app/settings/translate-sheet.tsx")
+  check("a language just added is read only once its save has landed (no more \"no text to translate yet\")",
+    /setAdding\(code\)/.test(panel) && /waiting=\{!!translating && adding === translating\}/.test(panel) && /if \(!waiting\) void load\(locale\)/.test(sheet))
+  check("  a language the server does not have is said, not drawn as an empty website", /if \(!r\.data\.locale\) return setError/.test(sheet))
+  check("languages and markets show flags from the local sprite, never purple initials or emoji",
+    /const flag = languageFlag\(code\)/.test(panel) && /<CountryFlag code=\{flag\}/.test(panel) && !/bg-\[#f1ecff\]/.test(panel) && !/fromCodePoint/.test(panel))
+  check("  a language's flag: its region when the tag names one, else its usual country",
+    languageCountry("pt-BR") === "BR" && languageCountry("fr") === "FR" && languageCountry("zh-Hant") === "TW" && languageCountry("zh-Hans") === "CN" && languageCountry("xx") === null)
+  /* Changed on purpose: the store's currency is its own setting (Store details › Country & Currency, lib/store/selling-currency), apart from the payout currency it was read from. */
+  check("a store's own checkout charges in the currency it sells in",
+    sellingCurrencyOf("EUR") === "EUR" && sellingCurrencyOf("gbp") === "GBP" && sellingCurrencyOf("RON") === "RON")
+  const platform = process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "usd" ? "USD" : "RON"
+  check("  and the platform's for one it can't charge (or nothing set)", sellingCurrencyOf("XYZ") === platform && sellingCurrencyOf("CHF") === platform && sellingCurrencyOf(null) === platform)
+  check("  the website's basket, its physical checkout and the old cart route all read it",
+    /readStoreCurrency\(admin, site\.creatorId\)/.test(read("app/api/checkout/site/route.ts")) &&
+    /readStoreCurrency\(admin, creatorId\)/.test(read("app/api/checkout/cart/route.ts")) &&
+    /readStoreCurrency\(db, priced\.creatorId\)/.test(read("lib/physical/checkout-server.ts")) &&
+    !/payout_currency/.test(read("lib/physical/checkout-server.ts")))
+  check("  the checkout pages show that currency, and the card form is drawn for it",
+    /<CheckoutCurrency currency=\{store\.currency\}>/.test(read("app/checkout/site/page.tsx")) && /<CheckoutCurrency currency=\{currency\}>/.test(read("app/checkout/physical/page.tsx")) &&
+    /const chargeCurrency = useCheckoutCurrency\(\)\.toLowerCase\(\)/.test(read("app/checkout/parts/stripe-pay.tsx")))
+  check("  a basket's order rows say what Stripe charged, not a fixed usd",
+    /currency: \(ctx\.currency \|\| "usd"\)\.toLowerCase\(\)/.test(read("lib/checkout/fulfil-cart-item.ts")) && /currency: session\.currency \|\| pi\?\.currency \|\| null/.test(read("lib/checkout/fulfil-cart-session.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

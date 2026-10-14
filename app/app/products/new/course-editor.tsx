@@ -21,7 +21,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ArrowDown, ArrowUp, Captions, ChevronDown, Film, Link2, Loader2, Paperclip, Plus, Trash2, Upload, X } from "lucide-react"
+import { ArrowDown, ArrowUp, Captions, ChevronDown, Film, Link2, Loader2, Paperclip, Play, Plus, Trash2, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { externalVideo } from "@/lib/courses/external"
 import { clock } from "@/lib/courses/progress"
@@ -31,6 +31,8 @@ import { secondaryDepth } from "./editor-buttons"
 import { SWITCH_GROUP, SwitchRow } from "./editor-controls"
 import { useConfirm } from "./confirm-sheet"
 import { tt } from "@/lib/i18n/text"
+import { RichTextEditor } from "@/components/app/rich-text-editor"
+import { isBlankHtml, toEditorHtml } from "@/lib/rich-text/html"
 
 const TOOL =
   "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] disabled:pointer-events-none disabled:opacity-35 sm:h-8 sm:w-8 [-webkit-tap-highlight-color:transparent]"
@@ -378,6 +380,8 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
   const [notes, setNotes] = useState(l.notes)
   const [link, setLink] = useState(l.externalUrl)
   const editing = useRef<string | null>(null)
+  const notesTimer = useRef<number | null>(null)
+  useEffect(() => () => { if (notesTimer.current) window.clearTimeout(notesTimer.current) }, [])
   useEffect(() => {
     if (editing.current !== "title") setTitle(l.title)
     if (editing.current !== "notes") setNotes(l.notes)
@@ -425,6 +429,8 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
         {videoUp ? (
           <Progress up={videoUp} />
         ) : l.video ? (
+          <>
+          <LessonPlayer lessonId={l.id} />
           <div className="flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5">
             <Film className="h-4 w-4 shrink-0 text-[#6b7280]" />
             <span className="min-w-0 flex-1">
@@ -440,6 +446,18 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
             <button type="button" className={cn(TOOL, "hover:text-[#dc2626]")} aria-label={tt("Remove video")} onClick={() => void act({ action: "remove-video", lessonId: l.id })}>
               <Trash2 className="h-4 w-4" />
             </button>
+          </div>
+          </>
+        ) : l.externalUrl && externalVideo(l.externalUrl) && editing.current !== "link" ? (
+          /* A saved YouTube or Vimeo link: the video itself, as buyers will see it, with a way to change it. */
+          <div className="space-y-2" data-lesson-link-preview="">
+            <EmbedPreview video={externalVideo(l.externalUrl)!} />
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-[#6b7280]">{l.externalUrl}</span>
+              <button type="button" className={SMALL} onClick={() => void act({ action: "update-lesson", lessonId: l.id, externalUrl: "" })}>
+                {tt("Remove")}
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -483,18 +501,22 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-gray-700" htmlFor={`n-${l.id}`}>
-          {tt("Notes")}
-        </label>
-        <textarea
-          id={`n-${l.id}`}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onFocus={() => (editing.current = "notes")}
-          onBlur={() => save("notes")}
-          rows={4}
+        <p className="text-sm font-medium text-gray-700">{tt("Notes")}</p>
+        {/* The same editor as a product's description: headings, bold, lists, links. Saved a moment after typing stops. */}
+        <RichTextEditor
+          value={toEditorHtml(notes)}
+          onChange={(html) => {
+            setNotes(html)
+            editing.current = "notes"
+            if (notesTimer.current) window.clearTimeout(notesTimer.current)
+            notesTimer.current = window.setTimeout(() => {
+              editing.current = null
+              if (html !== l.notes) void act({ action: "update-lesson", lessonId: l.id, notes: isBlankHtml(html) ? "" : html })
+            }, 900)
+          }}
+          label={tt("Notes")}
           placeholder={tt("What this lesson covers, links, steps to follow")}
-          className={cn(FIELD, "resize-y py-2.5 leading-6")}
+          tools={["h2", "h3", "bold", "italic", "underline", "bulletList", "numberedList", "quote", "link", "rule"]}
         />
       </div>
 
@@ -558,10 +580,13 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
               </button>
             </span>
           ) : (
-            <button type="button" className={SMALL} onClick={() => captionInput.current?.click()}>
-              <Captions className="h-3.5 w-3.5 text-[#6b7280]" />
-              {tt("Add captions")}
-            </button>
+            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+              <button type="button" className={SMALL} onClick={() => captionInput.current?.click()}>
+                <Captions className="h-3.5 w-3.5 text-[#6b7280]" />
+                {tt("Add captions")}
+              </button>
+              <span className="text-[12px] text-[#9ca3af]">{tt("A .vtt or .srt file. Buyers turn them on with CC in the player.")}</span>
+            </span>
           )
         ) : null}
         <input
@@ -605,6 +630,64 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
   )
 }
 
+/**
+ * THE UPLOADED VIDEO, PLAYED RIGHT HERE. After an upload there was only a
+ * file name: no way to see that the right video went up. A 16:9 frame that
+ * asks the player's own route for a signed address (the creator can always
+ * watch their own lesson) only when Play is pressed, so an editor with
+ * twenty lessons loads no video until one is wanted.
+ */
+function LessonPlayer({ lessonId }: { lessonId: string }) {
+  const [state, setState] = useState<{ kind: "idle" } | { kind: "loading" } | { kind: "ready"; url: string } | { kind: "failed"; error: string }>({ kind: "idle" })
+  const play = async () => {
+    setState({ kind: "loading" })
+    try {
+      const r = await fetch(`/api/courses/lessons/${encodeURIComponent(lessonId)}/play`, { cache: "no-store" })
+      const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string }
+      if (!r.ok || !j.url) return setState({ kind: "failed", error: j.error || tt("This video could not be opened. Try again.") })
+      setState({ kind: "ready", url: j.url })
+    } catch {
+      setState({ kind: "failed", error: tt("This video could not be opened. Try again.") })
+    }
+  }
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#111318]" data-lesson-player="">
+      {state.kind === "ready" ? (
+        <video src={state.url} controls autoPlay playsInline preload="metadata" className="absolute inset-0 h-full w-full bg-black object-contain" />
+      ) : (
+        <button type="button" onClick={() => void play()} disabled={state.kind === "loading"} className="absolute inset-0 grid place-items-center text-white" aria-label={tt("Play the video")}>
+          <span className="grid h-12 w-12 place-items-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-transform hover:scale-105">
+            {state.kind === "loading" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}
+          </span>
+          {state.kind === "failed" ? <span className="absolute inset-x-0 bottom-3 px-4 text-center text-[12.5px] text-white/80">{state.error}</span> : null}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** A YouTube or Vimeo link, shown as the video: its picture first (YouTube's own thumbnail), the player once pressed. */
+function EmbedPreview({ video }: { video: { provider: "youtube" | "vimeo"; id: string; embedUrl: string } }) {
+  const [on, setOn] = useState(false)
+  const thumb = video.provider === "youtube" ? `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg` : null
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#111318]" data-lesson-embed={video.provider}>
+      {on ? (
+        <iframe src={`${video.embedUrl}${video.embedUrl.includes("?") ? "&" : "?"}autoplay=1`} title={tt("Lesson video")} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen className="absolute inset-0 h-full w-full border-0" />
+      ) : (
+        <button type="button" onClick={() => setOn(true)} className="absolute inset-0 grid place-items-center" aria-label={tt("Play the video")}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {thumb ? <img src={thumb} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" /> : null}
+          <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-transform hover:scale-105">
+            <Play className="ml-0.5 h-5 w-5 fill-current" />
+          </span>
+          <span className="absolute bottom-2.5 left-3 rounded-md bg-black/55 px-2 py-0.5 text-[11.5px] font-medium text-white">{video.provider === "youtube" ? "YouTube" : "Vimeo"}</span>
+        </button>
+      )}
+    </div>
+  )
+}
+
 /** A file on its way: its name, how much of how much has gone, and a way to stop it. A dropped connection says it is being tried again. */
 function Progress({ up, bare }: { up: Uploading; bare?: boolean }) {
   const { name, percent, stop: onStop } = up
@@ -618,7 +701,7 @@ function Progress({ up, bare }: { up: Uploading; bare?: boolean }) {
           </span>
         </span>
         <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
-          <span className="block h-full rounded-full bg-[#8b5cf6] transition-[width] duration-200" style={{ width: `${percent}%` }} />
+          <span className="block h-full rounded-full bg-[#1a1a2e] transition-[width] duration-300 ease-out" style={{ width: `${percent}%` }} />
         </span>
       </span>
       <button type="button" className={TOOL} onClick={onStop} aria-label={tt("Stop uploading {name}", { name })}>

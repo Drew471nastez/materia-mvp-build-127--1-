@@ -25,6 +25,7 @@ import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
 import { TeamBar } from "@/components/app/team-bar"
+import { RAIL_COOKIE, railStateOf, railWidth } from "@/lib/ui/app-rail"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -69,6 +70,7 @@ export default async function AppLayout({
   */
   /* The name and photo the menu showed: the screen's bar draws the business with them (components/app/shell-header-still). */
   const switchingTo = readSwitchArrival((await cookies()).get(SWITCH_COOKIE)?.value)
+  const rail = railStateOf((await cookies()).get(RAIL_COOKIE)?.value)
   const arrival = switchingTo ? (
     <>
       <script dangerouslySetInnerHTML={{ __html: SWITCH_ARRIVAL_SCRIPT }} />
@@ -238,7 +240,8 @@ export default async function AppLayout({
     {accountZone ? <script dangerouslySetInnerHTML={{ __html: timeZoneScript(accountZone) }} /> : null}
     <TimeZoneSync accountZone={accountZone} />
     <AppLayoutWrapper>
-      <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
+      {/* The sidebar's width, open or a row of icons, for the sidebar and the page alike (lib/ui/app-rail). */}
+      <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar" data-app-rail={rail} style={{ ["--app-rail-w" as string]: `${railWidth(rail)}px` }}>
         <AppSidebar
           creatorSlug={creator.slug ?? undefined}
           username={profile?.username || creator.slug || undefined}
@@ -262,7 +265,7 @@ export default async function AppLayout({
             header, so its own rounded top was never on the glass. The rounded
             corners where the page meets the bar hang from the header at every
             width (components/app/app-top-corners.tsx). */}
-        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[240px] bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content">
+        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[var(--app-rail-w,240px)] transition-[padding-left] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content">
           {/* pb ensures content at scroll-bottom is never hidden under the iOS home indicator
               or Android gesture-nav bar. env() = 0 in browsers so this is a no-op there. */}
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it

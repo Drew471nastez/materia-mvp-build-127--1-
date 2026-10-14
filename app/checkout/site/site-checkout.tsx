@@ -124,6 +124,17 @@ function agreeLine(sentence: string): React.ReactNode {
 const INTENT_REUSE_MS = 25 * 60_000
 
 type Address = { line1: string; line2: string; city: string; region: string; postalCode: string; country: string; phone: string; company: string }
+/* What goes in each field, said in the field until something is typed (a field given its own placeholder keeps it). */
+const ADDRESS_PLACEHOLDER: Record<keyof Address, string> = {
+  line1: "Street and house number",
+  line2: "Apartment, floor, building",
+  city: "City",
+  region: "State or county",
+  postalCode: "Postal code",
+  country: "Country",
+  phone: "Phone number",
+  company: "Company name",
+}
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "", company: "" }
 
 function newKey(): string {
@@ -553,8 +564,13 @@ export function SiteCheckout({
       if (box) bringIntoView(box)
       return ct("Sign in to check out.")
     }
-    if (!quote || (quote.lines.length === 0 && !(quote.short ?? []).length)) return quoteError || ct("Your cart is empty.")
+    if (!quote || (quote.lines.length === 0 && !(quote.short ?? []).length && !(quote.needsOption ?? []).length)) return quoteError || ct("Your cart is empty.")
     if (quoting) return ct("Your order is being updated. Try again in a moment.")
+    if ((quote.needsOption ?? []).length) {
+      const row = document.querySelector<HTMLElement>("[data-line-needs-option]")
+      if (row) bringIntoView(row)
+      return ct("Choose an option for {title}.", { title: quote.needsOption![0].title })
+    }
     if (quote.stockIssues.length) return ct("Some items don't have enough stock. Lower the quantity or remove them to continue.")
     if (kind !== "free" && total > 0 && total < minimumChargeMinor(chargeCurrency)) return ct("The smallest card payment is {amount}.", { amount: money(minimumChargeMinor(chargeCurrency)) })
     if (kind !== "express" || ships) {
@@ -763,6 +779,7 @@ export function SiteCheckout({
   const addressField = (key: keyof Address, label: string, props: React.InputHTMLAttributes<HTMLInputElement> & { id: string }) => (
     <Field id={props.id} label={label} error={errorOf(props.id.replace("checkout-", "")) ?? (key === "region" && regionAsked ? ct("Enter it to see delivery options.") : null)}>
       <TextInput
+        placeholder={ADDRESS_PLACEHOLDER[key]}
         {...props}
         value={address[key]}
         invalid={!!errorOf(props.id.replace("checkout-", "")) || (key === "region" && regionAsked)}
@@ -947,6 +964,7 @@ export function SiteCheckout({
         <details className="group" open={initialNote ? true : undefined} data-shop-note="">
           <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-4">{ct("Add a note for the shop")}</summary>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className={cn(inputClass, "mt-2 h-auto py-2.5")} placeholder={ct("Gift wrap, delivery instructions...")} />
+          <p className="mt-1.5 text-[12.5px] text-[#6b7280]">{ct("{name} sees it with your order.", { name: brand.name })}</p>
         </details>
       ) : null}
       {/* What the shop's cart asked (an imported theme's gift message, a delivery date): it goes on the order with the note. */}
@@ -1037,6 +1055,19 @@ export function SiteCheckout({
             <div className="shrink-0 text-right">
               <p className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{money(l.unitCents * l.quantity - l.discountCents)}</p>
               {l.discountCents > 0 ? <p className="text-[12px] tabular-nums text-[#9ca3af] line-through">{money(l.unitCents * l.quantity)}</p> : null}
+            </div>
+          </li>
+        ))}
+        {/* No option chosen yet (a size, a colour): chosen right here, never dropped from the order. */}
+        {(quote.needsOption ?? []).map((l) => (
+          <li key={`choose:${l.productId}`} data-line-item="" data-line-needs-option="" className="flex items-start gap-3.5">
+            <LineImage url={l.imageUrl} />
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
+              <VariantEdit choices={quote.choices?.[l.productId]} currentId={null} currentName={null} title={l.title} busy={quoting} editable={editable} startOpen onChange={(v) => changeVariant({ productId: l.productId, variantId: null }, v)} />
+              {editable ? (
+                <LineControls title={l.title} quantity={l.quantity} max={l.quantity} stepper={false} busy={quoting} onChange={(q) => changeLine({ productId: l.productId, variantId: null }, q)} />
+              ) : null}
             </div>
           </li>
         ))}
@@ -1141,8 +1172,9 @@ export function SiteCheckout({
   )
 
   /* ── Nothing to pay for ──────────────────────────────────────────── */
+  /* The last line removed (or an empty cart): straight back to the website, where the buyer came from, never a "Your cart is empty" page on its own. */
   if (items !== null && items.length === 0) {
-    return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title={ct("Your cart is empty")} message={null} />
+    return <BackToShop to={backTo} />
   }
   if (!quote && quoteError && !quoting) {
     return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title={ct("This cart can't be paid for yet")} message={quoteError} />
@@ -1302,6 +1334,14 @@ export function SiteCheckout({
  * now, a product gone from sale. Said on the shop's own page, with the way
  * back, never a blank page.
  */
+/** Sends the buyer back to the website at once, with the page's own grey while it goes. */
+function BackToShop({ to }: { to: string }) {
+  React.useEffect(() => {
+    window.location.replace(to)
+  }, [to])
+  return <div aria-busy className="min-h-[60vh]" data-checkout-leaving="" />
+}
+
 export function SiteProblem({ brand, backTo, shopUrl, title, message }: { brand: ShopBrand; backTo: string | null; shopUrl: string | null; title: string; message: string | null }) {
   const ct = useCt()
   return (

@@ -414,7 +414,7 @@ async function main() {
     check("  and another creator's is no mark for this one", domainOther.recorded, domainOther.reason)
     const tokenRoute = read("app/api/analytics/own/token/route.ts")
     check("  set by the token route on storelib.com only, for the whole domain, unreadable by a page", /OWN_MARKER_DOMAIN_COOKIE\}=\$\{encodeURIComponent\(mark!\)\}`, `Domain=\$\{main\}`/.test(tokenRoute) && /"HttpOnly"/.test(tokenRoute) && /host === main \|\| host === `www\.\$\{main\}`/.test(tokenRoute) && /!main\.includes\("localhost"\)/.test(tokenRoute))
-    check("  and the app opens a site under that domain at its plain address, a connected domain through the hop as before", /if \(sitesDomain && !isNativeApp\(\) && url\.hostname\.toLowerCase\(\)\.endsWith\(`\.\$\{sitesDomain\}`\)\) return plain/.test(read("lib/analytics/own-site.ts")))
+    check("  and the app opens every site at its plain address, never through the marker route's hop", /export function ownOpen\(siteUrl: string \| null \| undefined\): string \{\n  return typeof siteUrl === "string" \? siteUrl : ""\n\}/.test(read("lib/analytics/own-site.ts")))
 
     const stale = await ask(db, {
       body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s4", visitorId: "own-v4" }, ip: "203.0.113.24",

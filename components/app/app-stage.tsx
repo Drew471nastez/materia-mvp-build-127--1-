@@ -483,7 +483,7 @@ function SlowPage() {
     <div
       ref={ref}
       data-app-slow-page=""
-      className="pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] bg-[#111111] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-transparent"
+      className="pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] bg-[#111111] md:left-[var(--app-rail-w,240px)] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-transparent"
     >
       <div data-app-slow-surface="" className="h-full overflow-hidden rounded-t-[var(--app-top-corner)] bg-[#f8f9fa] md:rounded-none">
         <PageSpinner />

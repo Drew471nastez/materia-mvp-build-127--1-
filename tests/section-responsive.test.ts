@@ -1567,9 +1567,11 @@ check(
     const list = types.slice(types.indexOf("SETTINGS_SECTIONS = ["), types.indexOf("] as const"))
     // Changed on purpose: the list is grouped (Website, Content, Going live,
     // Code), so Backups and Navigation sit under their own headings.
+    // Changed on purpose: Apps and integrations joined Content (the store's installed ones, each to its own page).
     return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions", group: "live" \}/.test(list) &&
       /\{ id: "navigation", label: "Navigation", group: "content" \}/.test(list) &&
-      (list.match(/\{ id: "/g) ?? []).length === 10
+      /\{ id: "apps", label: "Apps and integrations", group: "content" \}/.test(list) &&
+      (list.match(/\{ id: "/g) ?? []).length === 11
   })(),
 )
 

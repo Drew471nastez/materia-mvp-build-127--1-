@@ -21,6 +21,7 @@
  * move the moment a lesson is done.
  */
 
+import { cleanStoredHtml, looksLikeHtml } from "@/lib/rich-text/html"
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, FileText, ListVideo, Loader2, Lock, Mail, Paperclip, Play, X } from "lucide-react"
@@ -267,7 +268,7 @@ export function CoursePlayer({
   const notesWrap = embedded ? "mt-5 border-t border-[#f0f1f3] pt-5" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
   const grid = embedded
     ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7"
-    : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
+    : "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-8"
   const shell = embedded ? "w-full min-w-0" : ""
   const stage = (
     <Stage
@@ -901,6 +902,8 @@ function LessonSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 /** The lesson's text: its own line breaks kept, and its web addresses made links. */
 function Notes({ text }: { text: string }) {
+  /* Written in the rich text editor: its cleaned HTML, laid out as written text. */
+  if (looksLikeHtml(text)) return <div className="storelib-prose break-words text-[15px] leading-7 text-[#374151] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2" dangerouslySetInnerHTML={{ __html: cleanStoredHtml(text) }} />
   const parts = text.split(/(https?:\/\/[^\s<>"')]+)/g)
   return (
     <div className="whitespace-pre-wrap break-words text-[15px] leading-7 text-[#374151]">

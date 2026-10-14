@@ -12,6 +12,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
+import { openInstallPreview } from "@/lib/website-builder/open-preview"
 import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -7928,9 +7929,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       collections: builderCollections?.choices ?? null,
       /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
       colorSchemes: compatSchemes,
+      /* Storelib's own themes: Edit beside a section's scheme opens Theme settings › Colors. */
+      openColorSchemes: compatInstall ? undefined : () => {
+        setSidebarMode("settings")
+        setPageBrowserOpen(false)
+        setSelectedPanel({ type: "theme_settings" })
+        setExpandedSettings("color_schemes")
+        if (isMobileView) setMobileSidebarOpen(true)
+      },
       pictureMedia: compatInstall ? compatMedia : null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia, isMobileView],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -8636,6 +8645,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const inCode = previewMode === "code"
   const previewLangs = previewLang.languages
   const previewLocaleShown = previewLang.locale ?? previewLang.defaultLanguage
+  const siteLive = install?.status === "published"
   const actionItems = useMemo<ActionMenuItem[]>(() => {
     return [
       {
@@ -8696,13 +8706,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onClick: () => actionCalls.current.handleRedo(),
       },
       ...(websiteUrl
-        ? [{
-            label: "View live site",
-            icon: <ExternalLink className="h-4 w-4" />,
-            href: ownOpen(websiteUrl),
-            target: "_blank" as const,
-            separatorBefore: true,
-          }]
+        ? [siteLive
+            ? {
+                label: "View live site",
+                icon: <ExternalLink className="h-4 w-4" />,
+                href: ownOpen(websiteUrl),
+                target: "_blank" as const,
+                separatorBefore: true,
+              }
+            : {
+                /* Not published yet: its preview, with the drafts, in a new tab (lib/website-builder/open-preview). */
+                label: "View preview",
+                icon: <Eye className="h-4 w-4" />,
+                onClick: () => void openInstallPreview(installId, websiteUrl).then((err) => { if (err) toast.error(err) }),
+                separatorBefore: true,
+              }]
         : []),
       {
         label: "Back to Dashboard",
@@ -8711,7 +8729,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         separatorBefore: !websiteUrl,
       },
     ]
-  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, previewLangs, previewLocaleShown])
+  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, siteLive, installId, previewLangs, previewLocaleShown])
   /**
    * The three dots. 32px drawn, and on a phone a 44px press area around it
    * (an invisible band, so the bar does not move). It presses in the way the
@@ -9065,13 +9083,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   href={ownOpen(websiteUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
+                  /* Not published yet: the press opens its preview instead (nothing is live at the address). */
+                  onClick={siteLive ? undefined : (e) => { e.preventDefault(); void openInstallPreview(installId, websiteUrl).then((err) => { if (err) toast.error(err) }) }}
                   className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
-                  aria-label="Open the live page"
+                  aria-label={siteLive ? "Open the live page" : "Open a preview"}
                 >
                   <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
                 </a>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Open the live page</TooltipContent>
+              <TooltipContent side="bottom">{siteLive ? "Open the live page" : "Open a preview"}</TooltipContent>
             </Tooltip>
           )}
         </div>

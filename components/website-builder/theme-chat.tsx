@@ -105,6 +105,7 @@ import {
   strengthFromSaved,
   strengthKeyFor,
   type EngineId,
+  type Engine,
   type StrengthId,
 } from "@/lib/website-builder/ask-engines"
 import { plainChatError } from "@/lib/sites/agent/plain-errors"
@@ -800,6 +801,7 @@ function ThemeChatPanel({
    * Claude models) reads as the default.
    */
   const [engine, setEngine] = React.useState<EngineId>(DEFAULT_ENGINE)
+  const [engines, setEngines] = React.useState<Engine[]>([...ENGINES])
   /**
    * STRENGTH, ONE PER MODE. Code a section starts on Deep: accuracy over
    * speed, because a section is planned, written, drawn and read back
@@ -826,7 +828,7 @@ function ThemeChatPanel({
   }, [])
 
   const chooseEngine = React.useCallback((id: string) => {
-    if (!ENGINES.some((e) => e.id === id)) return
+    if (!engines.some((e) => e.id === id)) return
     setEngine(id as EngineId)
     setEngineOpen(false)
     try {
@@ -834,7 +836,7 @@ function ThemeChatPanel({
     } catch {
       /* per-browser convenience only */
     }
-  }, [])
+  }, [engines])
 
   /* The menu stays open: somebody setting how hard it thinks is often choosing the model next. */
   const chooseStrength = React.useCallback(
@@ -891,17 +893,25 @@ function ThemeChatPanel({
     setLockOn(true)
   }, [selectedSectionId])
 
-  const chosenEngine = ENGINES.find((e) => e.id === engine) ?? ENGINES[0]
+  const chosenEngine = engines.find((e) => e.id === engine) ?? engines.find((e) => e.id === DEFAULT_ENGINE) ?? engines[0]
   /* Which models the creator's own AI answers, if they have connected one: "Your key" beside them in the menu. */
   const ownAi = useOwnAi()
+  React.useEffect(() => {
+    const controller = new AbortController()
+    void fetch("/api/ai-models", { cache: "no-store", signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => { if (!controller.signal.aborted && Array.isArray(body?.engines) && body.engines.length) setEngines(body.engines) })
+      .catch(() => { /* The configured defaults remain selectable. */ })
+    return () => controller.abort()
+  }, [ownAi.loaded, ownAi.keys])
   const ownByEngine = React.useMemo(() => {
     const out: Record<string, string | null> = {}
-    for (const e of ENGINES) {
+    for (const e of engines) {
       const source = ownFor(ownAi.keys, e.provider)
       out[e.id] = source ? "Your key" : null
     }
     return out
-  }, [ownAi.keys])
+  }, [ownAi.keys, engines])
 
   /**
    * Read at SEND time, like everything else in here: a run started thirty
@@ -1474,6 +1484,7 @@ function ThemeChatPanel({
             /* Code a section with a section open: the change goes into its code. */
             ...(opts.codeFocus ? { codeFocus: true } : {}),
             provider: live.current.engine.provider,
+            model: live.current.engine.model,
             tier: live.current.engine.tier,
             /* How hard it thinks: Light, Standard or Deep (lib/website-builder/ask-engines.ts). */
             effort: live.current.effort,
@@ -1749,6 +1760,7 @@ function ThemeChatPanel({
             settings: live.current.settings,
             sectionTypes: [...new Set(live.current.sections.map((s) => s.type))].slice(0, 40),
             provider: live.current.engine.provider,
+            model: live.current.engine.model,
             /* Code uses the stronger ChatGPT (Terra) unless a non-OpenAI engine was chosen. */
             tier: live.current.engine.provider === "openai" ? "strong" : live.current.engine.tier,
             /* Code a section's own Strength: Deep unless the creator chose otherwise. */
@@ -2868,7 +2880,7 @@ function ThemeChatPanel({
     <div ref={engineRef} className="relative shrink-0">
       <div className={cn(listening && "invisible")}>
         <ModelPicker
-          engines={ENGINES}
+          engines={engines}
           value={engine}
           onChange={chooseEngine}
           strengths={STRENGTHS}
