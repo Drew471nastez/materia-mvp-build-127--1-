@@ -13,7 +13,8 @@
  * the width. The picture stays sharp enough to read, and the wall arrives.
  *
  * `previewUrl()` is a 32px wide copy from the same optimizer, a few hundred
- * bytes, painted blurred under the cover while the cover loads.
+ * bytes. The product card no longer paints it blurred under its cover (the
+ * owner: no blur-up); it is kept as a pure helper.
  *
  * Browser only for leanImages (it reads navigator); the rest is pure.
  */
