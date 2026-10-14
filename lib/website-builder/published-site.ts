@@ -74,7 +74,7 @@ import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/websi
 import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
-import type { StorefrontData } from "@/lib/storelib-theme/types"
+import type { StorefrontCollection, StorefrontData } from "@/lib/storelib-theme/types"
 import { siteStoreName, siteTabTitle } from "./tab-title"
 
 /** The product a product page is about, as a section reads it. */
@@ -538,7 +538,7 @@ export async function dressPage(
   /* In the visitor's language and currency: each collection's title and description (collection:<id>), its products as the page's cards. */
   const collections = localizer && collectionsRead
     ? Object.fromEntries(
-        Object.entries(collectionsRead).map(([id, c]) => [id, { ...localizer.collection(c as unknown as Record<string, unknown> & { id: string }), products: localizer.cards(c.products as never) } as unknown as typeof c]),
+        Object.entries(collectionsRead as Record<string, StorefrontCollection>).map(([id, c]) => [id, { ...localizer.collection(c as unknown as Record<string, unknown> & { id: string }), products: localizer.cards(c.products as never) } as unknown as StorefrontCollection]),
       )
     : collectionsRead
   /* Storelib Reviews, for a page with a review section: the shop's, and the product's on its page (lib/reviews/storefront-server.ts). */
