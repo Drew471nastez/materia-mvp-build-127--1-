@@ -6,6 +6,7 @@
  * what it was asked and answers from a small table, so the questions and the
  * shaping of the answers are both checked without a network.
  */
+import "./_usd"
 import { CREATOR_LIMIT, PRODUCT_LIMIT, TOP_LIMIT, cleanTerm, matchCategories, quickSearch, relevance, topHits, viewAllHref } from "../lib/nav/quick-search"
 
 let passed = 0
@@ -27,18 +28,19 @@ check("categories link to their own page", design.every((c) => c.href.startsWith
 check("nothing typed is nothing found", matchCategories("  ").length === 0)
 check("at most four", matchCategories("e").length <= 4)
 
-type Call = { table: string; select?: string; or?: string; opts?: unknown; eq?: [string, unknown][]; in?: [string, unknown[]]; limit?: number }
+type Call = { table: string; select?: string; or?: string; opts?: unknown; eq?: [string, unknown][]; neq?: [string, unknown][]; in?: [string, unknown[]]; limit?: number }
 function fakeClient(rows: Record<string, any[]>, profiles: any[] = []) {
   const calls: Call[] = []
   return {
     calls,
     from(table: string) {
-      const call: Call = { table, eq: [] }
+      const call: Call = { table, eq: [], neq: [] }
       calls.push(call)
       const q: any = {
         select(s: string) { call.select = s; return q },
         or(f: string, opts?: unknown) { call.or = f; call.opts = opts; return q },
         eq(k: string, v: unknown) { call.eq!.push([k, v]); return q },
+        neq(k: string, v: unknown) { call.neq!.push([k, v]); return q },
         in(k: string, v: unknown[]) { call.in = [k, v]; return q },
         /* A community's own tier products are left out (lib/communities/listing): the fake takes the filter and answers the same rows. */
         is() { return q },
@@ -70,6 +72,7 @@ async function main() {
   const [text, byName] = client.calls
   check("asks titles and descriptions of published products", text.table === "products" && text.or === "title.ilike.%mar ia%,description.ilike.%mar ia%" && text.eq!.some(([k, v]) => k === "status" && v === "published"), text)
   check("and products by a creator whose name or handle says it", byName.or === "display_name.ilike.%mar ia%,username.ilike.%mar ia%,slug.ilike.%mar ia%" && (byName.opts as any)?.referencedTable === "creators" && byName.eq!.some(([k, v]) => k === "status" && v === "published"), byName)
+  check("  both leave out physical products", [text, byName].every((c) => c.neq!.some(([k, v]) => k === "type" && v === "physical")), [text.neq, byName.neq])
   check("titles first, each product once, at most six", r.products.map((p) => p.id).join() === "a,b,c,d,e,f" && r.products.length === PRODUCT_LIMIT, r.products.map((p) => p.id))
   check("a product links to /<handle>/<slug> in discover mode", r.products[0].href === "/maria1/pack-a?layout=discover", r.products[0].href)
   check("with its picture, its creator and its price as every card writes it", r.products[0].thumb === "https://x/a.png" && r.products[0].creator === "Maria 1" && r.products[0].price === "$19.00" && r.products[1].price === "Free" && r.products[2].price === "$5.00+", r.products.slice(0, 3).map((p) => p.price))

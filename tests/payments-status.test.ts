@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import {
   beatOfStatus,
   getStorelibPaymentsStatus,
@@ -163,7 +164,7 @@ check(
   "no Stripe field names reach the creator",
   ![...copy, ...views.map((v) => `${v.title} ${v.line} ${v.actionLabel ?? ""}`)].some((t) => /currently_due|past_due|external_account|requirement|capabilit|disabled_reason|acct_|stripe/i.test(t)),
 )
-check("no country is special-cased", !/"RO"|Romania|"US"/.test(require("node:fs").readFileSync("lib/payments/stripe/status.ts", "utf8")))
+check("no country is special-cased", !/"RO"|Romania|"US"/.test(readFileSync("lib/payments/stripe/status.ts", "utf8")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

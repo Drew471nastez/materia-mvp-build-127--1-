@@ -273,7 +273,7 @@ async function main() {
     const { renderToString } = await import("react-dom/server")
     const { AccountSettings } = await import("../components/account/account-settings")
     const { LocaleProvider } = await import("../components/locale-provider")
-    const { AppRouterContext } = await import("next/dist/shared/lib/app-router-context.shared-runtime")
+    const { AppRouterContext } = await import("next/dist/shared/lib/app-router-context.shared-runtime.js")
     const router = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}, forward() {} }
     const props = { userId: "u1", email: "ana@example.com", name: "Ana", bio: "", bioSupported: true, avatarUrl: null, createdAt: "2026-01-01T00:00:00Z", hasPassword: true, via: "", isSeller: false, newsletter: false, personalized: true, initialSection: "preferences" as const }
     const tree = (withLocale: boolean) => {
