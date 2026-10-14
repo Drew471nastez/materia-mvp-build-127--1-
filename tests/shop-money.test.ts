@@ -36,7 +36,8 @@ for (const [file, pattern] of [
   ["lib/storelib-theme/render.ts", /SHOP_CURRENCY_CODE = SHOP_CURRENCY/],
   ["lib/products/product-page-model.ts", /PRODUCT_CURRENCY_CODE = SHOP_CURRENCY/],
   ["app/api/store/markets/route.ts", /readStoreCurrency\(c\.db, c\.creatorId\)\)\.currency/],
-  ["app/app/products/load-editor.ts", /currency: SHOP_CURRENCY,/],
+  /* Changed on purpose: the store's own currency (Settings › Country & Currency). */
+  ["app/app/products/load-editor.ts", /currency: store\.currency,/],
   ["lib/website-builder/compat-site.ts", /currency, moneyFormat: moneyFormatFor\(currency\)/],
 ] as const) check(`  ${file}`, pattern.test(read(file)))
 check("no market converts from the payout currency any more", !/payout_currency/.test(read("app/api/store/markets/route.ts")) && !/payout_currency/.test(read("app/api/store/translations/route.ts")))
@@ -62,7 +63,7 @@ const [eu] = convertCardPrices([card], pricing, "en")
 check("a card's price, its options' and its currency, converted", /10/.test(eu.settings.price) && eu.settings.currency === "EUR" && eu.settings.variants![0].price === eu.settings.price, eu.settings)
 check("  no market: the card as it was", convertCardPrices([card], null)[0] === card)
 check("the live site and the builder use the one function", /convertCardPrices\(\[worded\], pricing, moneyLocale\)/.test(read("lib/markets/live.ts")) && (read("app/website-builder/editor/[installId]/page.tsx").match(/convertCardPrices\(localizeCards\(/g) ?? []).length === 2)
-check("  the cart and the product page in the canvas take the same conversion", /storefront = useMemo\(\(\) => \(\{ inEditor: true, installId, words, display \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /display: \{ market: previewDisplay\.market/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+check("  the cart and the product page in the canvas take the same conversion", /* And the store's currency. */ /storefront = useMemo\(\(\) => \(\{ inEditor: true, installId, words, display(, currency)? \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /display: \{ market: previewDisplay\.market/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 check("  the switch offers the markets the day's rates can convert to", /data\.markets\.filter\(\(m\) => pricingFor\(m, data\.base, data\.fx\)\)/.test(read("components/website-builder/use-preview-language.ts")))
 
 console.log("\nA market's own exchange rate")

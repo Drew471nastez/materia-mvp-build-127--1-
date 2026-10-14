@@ -1,7 +1,8 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
-import { shopMoney } from "@/lib/store/shop-money"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { usePriceCurrency } from "@/components/platform/price-currency"
 import type React from "react"
 // `import type React` gives the TYPES only — `React.Fragment` off that binding
 // is undefined at runtime, which is a blank page, not a type error. The meta
@@ -3497,8 +3498,10 @@ export function UnifiedProductPage({
     setCurrentDisplayPrice(finalPrice)
   }, [])
 
+  /* In the store's own currency when the page is one store's (components/platform/price-currency). */
+  const priceCurrency = usePriceCurrency()
   const formatPrice = (cents: number) => {
-    return shopMoney(cents, { grouping: true })
+    return shopMoneyIn(cents, priceCurrency, { grouping: true })
   }
 
   /* A membership's price is per month or year, in every layout: "$9/month", never a bare "$9". */
@@ -4620,8 +4623,10 @@ export function UnifiedProductsGrid({
   isMobile = false,
   isPreviewMode = false,
 }: UnifiedProductsGridProps) {
+  /* In the store's own currency when the page is one store's (components/platform/price-currency). */
+  const priceCurrency = usePriceCurrency()
   const formatPrice = (cents: number) => {
-    return shopMoney(cents, { grouping: true })
+    return shopMoneyIn(cents, priceCurrency, { grouping: true })
   }
 
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
@@ -4772,8 +4777,10 @@ function UnifiedMoreFromSellerSection({
   const spacing = settings.spacing
   const displayProducts = products?.slice(0, settings.maxProducts || 4) || []
 
+  /* In the store's own currency when the page is one store's (components/platform/price-currency). */
+  const priceCurrency = usePriceCurrency()
   const formatPrice = (cents: number) => {
-    return shopMoney(cents, { grouping: true })
+    return shopMoneyIn(cents, priceCurrency, { grouping: true })
   }
 
   const columns = Math.min(Number(settings.columns ?? 3), 3)

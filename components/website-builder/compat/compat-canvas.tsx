@@ -41,6 +41,8 @@ import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 import { shopImageName } from "@/lib/website-builder/picture-address"
 import { compatFields } from "@/lib/markets/compat-fields"
+import { moneyFormatFor } from "@/lib/markets/pricing"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { localizeMenus, localizeRecord, localizeSections, type TranslationMap } from "@/lib/markets/translate"
 import { localePrefix } from "@/lib/markets/locales"
 
@@ -373,6 +375,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
     const found = picked ?? products[0] ?? null
+    const storeCurrency = (products[0] ?? catalog?.[0])?.settings.currency || SHOP_CURRENCY
     const sample = found && stock && stock.id === found.id ? (withPageFacts(found as unknown as { id: string; settings: Record<string, unknown> }, { ...stock.facts, showLeft }) as unknown as ProductCard) : found
     const firstCollection = collections[0] ?? null
     const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
@@ -387,7 +390,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       collections,
       menus,
       pageKeys: pageKeys ? [...pageKeys] : undefined,
-      shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
+      /* The store's own currency, which its cards are priced in (lib/website-builder/shop-products), as the live site says it (compat-site). */
+      shop: { name: shopName, currency: storeCurrency, moneyFormat: moneyFormatFor(storeCurrency) },
       i18n,
       /* The builder's own cart (canvasCarts), so the cart page and a drawer drawn again show what was added. */
       cart: cartLines({ products }, canvasCarts.get(installId)?.cart ?? []),

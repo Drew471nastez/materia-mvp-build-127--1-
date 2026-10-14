@@ -45,6 +45,8 @@ interface CurrencyState {
   detectedCountry: string | null
   currencies: { code: string; label: string }[]
   catalog: { products: number; variants: number; shippingRates: number; coupons: number; total: number }
+  /** The change just made, while it can be undone (a day). */
+  lastChange: { id: string; from: string; to: string; mode: string; at: string } | null
 }
 
 interface Preview {
@@ -113,14 +115,17 @@ export function CountryCurrency() {
           }}
         />
       ) : (
-        <div className="flex min-h-[28px] items-center justify-between gap-3" data-selling-in="">
-          <span className="text-[14px] text-[#6b7280]">{tt("Selling in")}</span>
-          <span className="flex min-w-0 items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-            {saved ? <Check className="h-4 w-4 shrink-0 text-[#067647]" aria-label={tt("Saved")} /> : null}
-            {data.country ? <CountryFlag code={data.country} near={false} /> : null}
-            <span className="truncate">{data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency}</span>
-          </span>
-        </div>
+        <>
+          <div className="flex min-h-[28px] items-center justify-between gap-3" data-selling-in="">
+            <span className="text-[14px] text-[#6b7280]">{tt("Selling in")}</span>
+            <span className="flex min-w-0 items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
+              {saved ? <Check className="h-4 w-4 shrink-0 text-[#067647]" aria-label={tt("Saved")} /> : null}
+              {data.country ? <CountryFlag code={data.country} near={false} /> : null}
+              <span className="truncate">{data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency}</span>
+            </span>
+          </div>
+          {data.lastChange ? <Undo change={data.lastChange} onDone={setData} /> : null}
+        </>
       )}
     </Card>
   )
@@ -301,5 +306,50 @@ function Choice({ on, onClick, title, text, disabled, data }: { on: boolean; onC
       <span className="block text-[14px] font-medium text-[#1a1a2e]">{title}</span>
       <span className="mt-0.5 block text-[12.5px] leading-[18px] text-[#6b7280]">{text}</span>
     </button>
+  )
+}
+
+/** "Changed from EUR at 14:05. Undo": the latest change, put back as it was (store_currency_restore), asked once. */
+function Undo({ change, onDone }: { change: NonNullable<CurrencyState["lastChange"]>; onDone: (next: CurrencyState) => void }) {
+  const [asking, setAsking] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const time = new Date(change.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+  const undo = async () => {
+    setBusy(true)
+    setError(null)
+    const r = await api<CurrencyState>(PATH, { method: "PATCH", body: { undo: change.id } })
+    setBusy(false)
+    if (r.ok) onDone(r.data)
+    else setError(r.error)
+  }
+  return (
+    <div className="mt-3 border-t border-[#f1f2f4] pt-3 text-[13px] leading-[19px] text-[#6b7280]" data-currency-undo="">
+      {asking ? (
+        <>
+          <p>
+            {change.mode === "convert"
+              ? tt("Put back {from} and every price as it was at {time}? Prices you changed since then go back too.", { from: change.from, time })
+              : tt("Put back {from} at {time}? The amounts stay as they are.", { from: change.from, time })}
+          </p>
+          {error ? <Notice className="mt-2">{error}</Notice> : null}
+          <div className="mt-2.5 flex justify-end gap-2">
+            <button type="button" className={BTN_SECONDARY} onClick={() => setAsking(false)} disabled={busy}>
+              {tt("Cancel")}
+            </button>
+            <button type="button" className={BTN_PRIMARY} onClick={() => void undo()} disabled={busy} data-currency-undo-confirm="">
+              {busy ? tt("Undoing") : tt("Undo")}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="flex items-center justify-between gap-3">
+          <span>{tt("Changed from {from} at {time}.", { from: change.from, time })}</span>
+          <button type="button" onClick={() => setAsking(true)} className="shrink-0 font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+            {tt("Undo")}
+          </button>
+        </p>
+      )}
+    </div>
   )
 }

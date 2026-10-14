@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { dictionaries, type LocaleCode } from "@/lib/i18n/dictionaries"
 import { formatPlatformMoney, type CurrencyCode } from "@/lib/i18n/currency"
+import { usePageCurrency } from "@/components/platform/price-currency"
 import { humanizeKey } from "@/lib/i18n/text"
 
 export type SupportedLanguage = LocaleCode
@@ -279,6 +280,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
 export function useLocale() {
   const ctx = useContext(LocaleContext)
-  if (!ctx) throw new Error("useLocale must be used within LocaleProvider")
-  return ctx
+  /* On one store's page, its prices are in that store's currency (components/platform/price-currency): shown in lei from it, not from the platform's. */
+  const from = usePageCurrency()
+  const value = useMemo(() => (ctx && from ? { ...ctx, formatPrice: (cents: number) => formatPlatformMoney(cents, from) } : ctx), [ctx, from])
+  if (!value) throw new Error("useLocale must be used within LocaleProvider")
+  return value
 }

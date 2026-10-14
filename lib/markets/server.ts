@@ -53,11 +53,12 @@ export const translationsTag = (creatorId: string, locale: string) => `site-tran
 
 /** The store's own country (Store details), the home market's first country when nothing is set. */
 async function homeCountryOf(db: Db, creatorId: string): Promise<string | null> {
-  const { data } = await db.from("store_settings").select("country").eq("creator_id", creatorId).maybeSingle().then(
+  /* Store details' country (SQL part 109): the table has no column named plain `country`, so this read always came back empty. */
+  const { data } = await db.from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle().then(
     (r: { data: unknown }) => r,
     () => ({ data: null }),
   )
-  const c = (data as { country?: unknown } | null)?.country
+  const c = (data as { default_country?: unknown } | null)?.default_country
   return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : null
 }
 

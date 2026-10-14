@@ -1,7 +1,7 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
-import { shopMoney } from "@/lib/store/shop-money"
+import { usePageMoney } from "@/components/platform/price-currency"
 import type React from "react"
 
 import type {
@@ -3369,6 +3369,8 @@ function PublicBlockRenderer({
   isInsideCarousel = false,
   isInsideGroup = false,
 }: PublicBlockRendererProps) {
+  /* A product's price in its seller's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -5309,7 +5311,7 @@ function PublicBlockRenderer({
       const buyUrl = data.product_id && (data.product_type as string | undefined) !== 'physical' ? `/checkout?productId=${encodeURIComponent(data.product_id)}` : productUrl
       /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price). */
       const priceDisplay = data.product_price_cents && data.product_price_cents > 0
-        ? perInterval(shopMoney(data.product_price_cents), intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
+        ? perInterval(pageMoney(data.product_price_cents), intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
         : 'Free'
       const isFreeProduct = !data.product_price_cents || data.product_price_cents === 0
       const useQuickCheckout = isFreeProduct && data.quick_checkout === true

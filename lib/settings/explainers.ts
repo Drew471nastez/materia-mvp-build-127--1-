@@ -146,7 +146,7 @@ export const EXPLAINERS = {
     get lines() { return [
       tt("Your store's name and contact details go on receipts, order emails and your checkout, so buyers know who they bought from."),
       tt("Your phone is shown to your payment provider and on order emails, so a buyer or a carrier can reach you about an order."),
-      tt("Where your store is based is the country new locations and tax regions start in. Prices are in your payout currency, set under Payments."),
+      tt("Your country is where new locations and tax regions start. Your currency is what your prices are in and what buyers pay, set under Country & Currency."),
       tt("Business details put your legal name, address and tax number on every receipt and invoice."),
     ] },
     guide: "/help/physical-products/store-details",
@@ -169,6 +169,7 @@ export const EXPLAINERS = {
       tt("Changing the currency asks what happens to your prices: keep the numbers (100 EUR becomes 100 USD) or convert them at the day's exchange rate. Orders already placed keep their own currency."),
       tt("Payouts arrive in your bank's currency. Stripe converts them, which never changes what a buyer paid."),
     ] },
+    guide: "/help/physical-products/country-and-currency",
   },
   markets: {
     get title() { return tt("How markets and currencies work") },

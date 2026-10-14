@@ -43,7 +43,8 @@ import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
-import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, money, PayDock } from "./parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, PayDock, useCheckoutCurrency, useMoney } from "./parts/ui"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
 import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
@@ -106,7 +107,6 @@ interface CheckoutPageClientProps {
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TIP_MAX_CENTS = 100_000
-const MIN_CHARGE_CENTS = 50
 /** Which way out of the checkout was pressed. */
 type Way = "back" | "shop" | "creator"
 /** When React draws a press that the page has already shown (see startGoing). */
@@ -182,6 +182,9 @@ export default function CheckoutPageClient({
   const searchParams = useSearchParams()
 
   /* ── Who ─────────────────────────────────────────────────────────── */
+  /* In the store's own currency, the one Pay charges (app/checkout/page.tsx sets it). */
+  const money = useMoney()
+  const chargeCurrency = useCheckoutCurrency()
   const [email, setEmail] = React.useState(() => searchParams.get("email") || userEmail || "")
   /* One "Full name" box, as Stripe asks for it, or First and Last apart when the store asks for both (Settings › Checkout); the order keeps a first and a last name either way. */
   const splitName = checkoutConfig.nameFields === "first_and_last"
@@ -819,10 +822,10 @@ export default function CheckoutPageClient({
     if (paid || settled) return "This order is already paid."
     setFieldError(null)
     /* Stripe's smallest charge: said before a wallet sheet opens, not after. The tip is where it can be changed. */
-    if (mode !== "free" && total > 0 && total < MIN_CHARGE_CENTS) {
+    if (mode !== "free" && total > 0 && total < minimumChargeMinor(chargeCurrency)) {
       const tip = document.querySelector<HTMLElement>("[data-tip-label]")?.closest<HTMLElement>("section, div") ?? null
       if (tip) bringIntoView(tip)
-      return "The smallest card payment is $0.50. Add to the tip or remove the code."
+      return `The smallest card payment is ${money(minimumChargeMinor(chargeCurrency))}. Add to the tip or remove the code.`
     }
     if (mode !== "express") {
       if (!EMAIL.test(email.trim())) return missing("email", "Enter a valid email address.")

@@ -6,7 +6,7 @@ import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/l
 import type { EditorAssetRow, EditorCreator, EditorProductRow, EditorVariantRow, LoadedProduct } from "./new/editor-form"
 import { paymentsReadyFrom } from "@/lib/home/progress"
 import { providerPaymentsReady } from "@/lib/payments/readiness"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { readSalesLimit } from "@/lib/products/sales-limit"
 import { copiesSold } from "@/lib/products/sales-standings"
 
@@ -119,7 +119,11 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
   }
 
   if (!creatorRow) return { state: "no-creator" }
-  const paymentsReady = await providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow))
+  const [paymentsReady, store] = await Promise.all([
+    providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow)),
+    /* Settings › Store details › Country & Currency: what every price here is typed in (lib/store/selling-currency). */
+    readStoreCurrency(supabase, creatorRow.id),
+  ])
   /* Only what the editor reads goes to the browser, not the whole shell row. */
   const creator: EditorCreator = {
     id: creatorRow.id,
@@ -129,8 +133,8 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
     username: profileRow?.username ?? null,
     /* The editor's status line says when a live paid product cannot be bought yet. */
     payments_ready: paymentsReady,
-    /* The currency a typed price is charged in, for every price field (lib/store/shop-money.ts): not the payout currency, which is where the money goes. */
-    currency: SHOP_CURRENCY,
+    /* The currency a typed price is charged in, for every price field: the store's own, not the payout currency, which is where the money goes. */
+    currency: store.currency,
   }
 
   if (!productId) return { state: "ready", creator, loaded: null }

@@ -3,6 +3,8 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { PriceCurrency } from "@/components/platform/price-currency"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
@@ -302,7 +304,10 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
   return (
     <>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
-      <PublicOnePage onepage={transformedOnepage} />
+      {/* Its products are its seller's, in the seller's store currency (components/platform/price-currency). */}
+      <PriceCurrency currency={transformedOnepage.seller_id ? await cachedStoreCurrency(transformedOnepage.seller_id) : null}>
+        <PublicOnePage onepage={transformedOnepage} />
+      </PriceCurrency>
       {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
       <CaptureTouch creatorId={resolvedCreatorId} property="onepage" />
       {/* The OnePage in Analytics, as one property among the creator's, by the

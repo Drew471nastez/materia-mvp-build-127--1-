@@ -1219,7 +1219,7 @@ section("A form that says it worked, did")
       /* The canvas now names its install so the header's search field can
          ask on its behalf. It still says `inEditor` and still hands over no
          creator, which are the two things this guard reads. */
-      /* Changed on purpose (round AE): the shop's words in the language previewed. */ /* And the market previewed (display). */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)?(, display)? \}\), \[installId(, words)?(, display)?\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+      /* Changed on purpose (round AE): the shop's words in the language previewed. */ /* And the market previewed (display). */ /* And the store's currency, from its cards. */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)?(, display)?(, currency)? \}\), \[installId(, words)?(, display)?(, currency)?\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")),
   )
 
   check(

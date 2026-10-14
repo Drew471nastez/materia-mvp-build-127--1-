@@ -2,6 +2,7 @@
 
 import { personName } from "@/lib/profile/display-name"
 import { listPrice } from "@/lib/pricing/list-price"
+import { usePageCurrency } from "@/components/platform/price-currency"
 import { memo, useRef, useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
@@ -28,6 +29,8 @@ interface ProductCardProps {
     type: string
     /* A membership's billing interval, when its plan was read: "$9/month" or "$90/year" (lib/pricing/list-price). */
     price_interval?: "month" | "year" | null
+    /* The currency its store sells in (lib/store/store-currencies), when the list read it. */
+    currency?: string | null
     category?: string | null // Direct category field from product
     categoryName?: string | null // Pre-computed category name for display
     reviews_count?: number | null
@@ -143,6 +146,8 @@ export const ProductCard = memo(function ProductCard({
   showCreator = true,
   surface,
 }: ProductCardProps) {
+  /* A card on one store's page (its creator page) is in that store's currency when the row does not say (components/platform/price-currency). */
+  const pageCurrency = usePageCurrency()
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const router = useRouter()
@@ -231,7 +236,7 @@ export const ProductCard = memo(function ProductCard({
   if (!product) return null
 
   /* Free, pay what you want, a price and a saving: one rule for every card (lib/pricing/list-price). */
-  const priceLabel = listPrice(product)
+  const priceLabel = listPrice({ ...product, currency: product.currency ?? pageCurrency })
 
   const creatorName = personName({ name: product.creator?.profile?.display_name, username: product.creator?.profile?.username, slug: product.creator?.slug })
   // Only use the profile username — it's what /u/[username] routes look up.

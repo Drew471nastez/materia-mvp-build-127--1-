@@ -25,6 +25,9 @@ export const dynamic = "force-dynamic"
  *   POST   { currency }: what changing to it would do to the catalog, before
  *          anything is saved: how many prices, three of them before and
  *          after, and the day's exchange rate with its date
+ *   PATCH  { undo: changeId }: puts the latest change back, within a day:
+ *          the currency and every price as they were just before it
+ *          (store_currency_restore, from the values kept with the change).
  *   PUT    { country?, currency, mode?, rate?, asOf?, key }: saves it. A new
  *          currency for a store with prices asks how: "keep" (100 EUR becomes
  *          100 USD) or "convert" (at the rate the merchant was shown, checked
@@ -72,9 +75,30 @@ async function catalogCounts(db: Db, creatorId: string) {
   return { products, variants, shippingRates: rates, coupons, total: products + variants + rates + coupons }
 }
 
+/** How long the latest change can be undone from the settings: a day, while its prices are still the ones the merchant just made. */
+const UNDO_HOURS = 24
+
+/** The latest change, while it can still be undone; null otherwise, or before SQL part 176. */
+async function undoable(db: Db, creatorId: string) {
+  try {
+    const { data, error } = await db
+      .from("store_currency_changes")
+      .select("id, from_currency, to_currency, mode, created_at, restored_at")
+      .eq("creator_id", creatorId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const row = data as { id: string; from_currency: string; to_currency: string; mode: string; created_at: string; restored_at: string | null } | null
+    if (error || !row || row.restored_at) return null
+    if (Date.now() - Date.parse(row.created_at) > UNDO_HOURS * 3_600_000) return null
+    return { id: row.id, from: row.from_currency, to: row.to_currency, mode: row.mode, at: row.created_at }
+  } catch {
+    return null
+  }
+}
+
 async function state(db: Db, creatorId: string, headers: Headers) {
-  const store = await readStoreCurrency(db, creatorId)
-  const counts = await catalogCounts(db, creatorId)
+  const [store, counts, lastChange] = await Promise.all([readStoreCurrency(db, creatorId), catalogCounts(db, creatorId), undoable(db, creatorId)])
   return {
     ready: store.ready,
     country: store.country,
@@ -86,6 +110,8 @@ async function state(db: Db, creatorId: string, headers: Headers) {
     detectedCountry: detectedCountry(headers),
     currencies: SELLING_CURRENCIES.map((code) => ({ code, label: currencyLabel(code) })),
     catalog: counts,
+    /* The change just made, which Undo puts back (store_currency_restore). */
+    lastChange: lastChange && lastChange.to === store.currency ? lastChange : null,
   }
 }
 
@@ -196,17 +222,46 @@ export async function PUT(request: Request) {
       }
       await recordActivity(c.db, c, { action: "settings.currency", subjectLabel: `${store.currency} to ${to}`, meta: { from: store.currency, to, mode, rate, asOf, changes: (data as { counts?: unknown } | null)?.counts ?? null } })
     }
-    /* Every page that shows a price, now rather than in a few minutes. */
-    try {
-      revalidateTag(storeCurrencyTag(c.creatorId), "max")
-      revalidateTag(creatorShopTag(c.creatorId), "max")
-      revalidateTag(creatorTag(c.creatorId), "max")
-      revalidateTag(localizationTag(c.creatorId), "max")
-      exploreCatalogueTakenDown()
-      await revalidatePublishedSite(c.creatorId)
-    } catch {
-      /* The pages catch up on their own within a few minutes. */
-    }
+    await refreshPages(c.creatorId)
   }
+  return physicalJson(await state(c.db, c.creatorId, request.headers))
+}
+
+/** Every page that shows a price, now rather than in a few minutes. */
+async function refreshPages(creatorId: string) {
+  try {
+    revalidateTag(storeCurrencyTag(creatorId), "max")
+    revalidateTag(creatorShopTag(creatorId), "max")
+    revalidateTag(creatorTag(creatorId), "max")
+    revalidateTag(localizationTag(creatorId), "max")
+    exploreCatalogueTakenDown()
+    await revalidatePublishedSite(creatorId)
+  } catch {
+    /* The pages catch up on their own within a few minutes. */
+  }
+}
+
+export async function PATCH(request: Request) {
+  let c
+  try {
+    c = await readyCaller()
+  } catch (r) {
+    return r as NextResponse
+  }
+  const body = await readBody(request)
+  const id = typeof body?.undo === "string" ? body.undo : ""
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return physicalJson({ error: "Bad request." }, 400)
+  const latest = await undoable(c.db, c.creatorId)
+  if (!latest || latest.id !== id) return physicalJson({ error: "That change can't be undone any more." }, 409)
+  const { error } = await c.db.rpc("store_currency_restore", { p_creator: c.creatorId, p_change: id })
+  if (error) {
+    const code = (error as { code?: string }).code
+    if (code === "42883" || code === "PGRST202" || code === "42P01") return physicalJson({ error: NEEDS_PART }, 503)
+    if (code === "40001") return physicalJson({ error: "Your currency was changed again since. Refresh the page." }, 409)
+    console.error("[store currency] undo failed:", error.message)
+    return physicalJson({ error: "That could not be undone. Nothing was changed. Try again in a moment." }, 500)
+  }
+  await recordActivity(c.db, c, { action: "settings.currency", subjectLabel: `${latest.to} back to ${latest.from}`, meta: { undo: id, from: latest.to, to: latest.from } })
+  await refreshPages(c.creatorId)
   return physicalJson(await state(c.db, c.creatorId, request.headers))
 }

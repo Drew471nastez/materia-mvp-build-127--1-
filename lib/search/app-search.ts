@@ -39,6 +39,7 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { formatOrderMoney, orderCurrency } from "@/lib/orders/money"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "coupons" | "emails" | "automations"
 
@@ -142,7 +143,7 @@ async function readWithFallback(group: SearchGroupId, run: (columns: string) => 
 const text = (v: unknown): string => (typeof v === "string" ? v : "")
 
 /* A product's price and a coupon's amount in the shop's currency (lib/store/shop-money.ts: lei, or dollars on a deployment that charges in them), in the dashboard's language; an order's total is in what it was charged (lib/orders/money). */
-const shopPrice = (units: number) => new Intl.NumberFormat(appLocale(), { style: "currency", currency: SHOP_CURRENCY }).format(units)
+const shopPrice = (units: number, currency: string = SHOP_CURRENCY) => new Intl.NumberFormat(appLocale(), { style: "currency", currency }).format(units)
 
 function sentenceCase(v: string): string {
   const t = v.replace(/_/g, " ").trim()
@@ -411,7 +412,7 @@ async function readCollections(db: Db, creatorId: string, q: string): Promise<Se
   }))
 }
 
-async function readCoupons(db: Db, creatorId: string, q: string): Promise<SearchHit[]> {
+async function readCoupons(db: Db, creatorId: string, q: string, currency: Promise<string>): Promise<SearchHit[]> {
   const rows = await readWithFallback(
     "coupons",
     (columns) =>
@@ -424,10 +425,11 @@ async function readCoupons(db: Db, creatorId: string, q: string): Promise<Search
         .limit(GROUP_LIMIT),
     "id, code, discount_type, discount_value, is_active",
   )
+  const inCurrency = await currency
   return rows.map((r) => {
     /* A percentage, or an amount in whole units as the coupon form keeps it (app/app/coupons/coupon-form.ts). */
     const value = typeof r.discount_value === "number" ? r.discount_value : Number(r.discount_value)
-    const off = !Number.isFinite(value) ? "" : r.discount_type === "percentage" ? tt("{value}% off", { value }) : tt("{value} off", { value: shopPrice(value) })
+    const off = !Number.isFinite(value) ? "" : r.discount_type === "percentage" ? tt("{value}% off", { value }) : tt("{value} off", { value: shopPrice(value, inCurrency) })
     return {
       id: text(r.id),
       title: text(r.code) || tt("Coupon"),
@@ -439,7 +441,7 @@ async function readCoupons(db: Db, creatorId: string, q: string): Promise<Search
 
 /* ─── Products ───────────────────────────────────────────────────────── */
 
-function productHits(products: ProductIndex[], q: string): SearchHit[] {
+function productHits(products: ProductIndex[], q: string, currency: string): SearchHit[] {
   const needle = q.trim().toLowerCase()
   return products
     .filter((p) => p.title.toLowerCase().includes(needle))
@@ -447,7 +449,7 @@ function productHits(products: ProductIndex[], q: string): SearchHit[] {
     .map((p) => ({
       id: p.id,
       title: p.title,
-      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? shopPrice(p.price_cents / 100) : tt("Free")) : ""]
+      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? shopPrice(p.price_cents / 100, currency) : tt("Free")) : ""]
         .filter(Boolean)
         .join(" · "),
       href: `/app/products/${encodeURIComponent(p.id)}`,
@@ -479,6 +481,8 @@ export async function searchCreator(
     console.warn(`[app-search] ${group} unavailable (${code})`)
   }
 
+  /* Prices and fixed coupons are in the store's own currency (Settings › Country & Currency). */
+  const storeCurrency = readStoreCurrency(db, creatorId).then((s) => s.currency as string)
   const needOrders = wants("orders") || wants("customers")
   const productsRead =
     wants("products") || needOrders
@@ -534,8 +538,8 @@ export async function searchCreator(
     result.groups.customers = people.slice(0, GROUP_LIMIT)
   })()
 
-  const productsFound = productsRead.then((products) => {
-    if (products && wants("products")) result.groups.products = productHits(products, q)
+  const productsFound = productsRead.then(async (products) => {
+    if (products && wants("products")) result.groups.products = productHits(products, q, await storeCurrency)
   })
 
   const group = (g: SearchGroupId, read: () => Promise<SearchHit[]>) =>
@@ -550,7 +554,7 @@ export async function searchCreator(
     ordersAndCustomers,
     productsFound,
     group("collections", () => readCollections(db, creatorId, q)),
-    group("coupons", () => readCoupons(db, creatorId, q)),
+    group("coupons", () => readCoupons(db, creatorId, q, storeCurrency)),
     group("emails", () => readEmails(db, creatorId, q)),
     group("automations", () => readAutomations(db, creatorId, q)),
   ])

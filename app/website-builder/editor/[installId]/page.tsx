@@ -10937,7 +10937,9 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
-  const storefront = useMemo(() => ({ inEditor: true, installId, words, display }), [installId, words, display])
+  /* The store's own currency, which its cards are priced in (lib/website-builder/shop-products), as the live site gives it. */
+  const currency = shopCards?.[0]?.settings.currency || undefined
+  const storefront = useMemo(() => ({ inEditor: true, installId, words, display, currency }), [installId, words, display, currency])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
   const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
   return (

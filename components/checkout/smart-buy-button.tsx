@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { shopMoney } from "@/lib/store/shop-money"
+import { usePageMoney } from "@/components/platform/price-currency"
 import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
@@ -54,6 +54,8 @@ export function SmartBuyButton({
   serverHasPurchased = false,
   serverAssetId = null,
 }: SmartBuyButtonProps) {
+  /* In the page's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
   const router = useRouter()
   /* Pressed until the page is shown again (lib/navigation/press-pending). */
   const [loading, startLoading] = usePressPending()
@@ -138,7 +140,7 @@ export function SmartBuyButton({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return shopMoney(cents, { grouping: true })
+    return pageMoney(cents, { grouping: true })
   }
 
   const checkoutUrl = `/checkout?productId=${productId}${variantId ? `&variantId=${variantId}` : ""}`

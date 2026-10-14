@@ -24,7 +24,7 @@
  *
  * Pure, so the tests run it directly.
  */
-import { shopMoney } from "@/lib/store/shop-money"
+import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
 
 export interface ListedPrice {
   price_cents: number | null | undefined
@@ -35,6 +35,8 @@ export interface ListedPrice {
   type?: string | null
   /** A membership's billing interval, when the plan was read. */
   price_interval?: PriceInterval | null
+  /** The currency its store sells in (lib/store/store-currencies), when the list read it; else the platform's. */
+  currency?: string | null
 }
 
 export type PriceInterval = "month" | "year"
@@ -65,7 +67,9 @@ export function usd(cents: number): string {
   return shopMoney(cents || 0, { grouping: true })
 }
 
-export function listPrice(p: ListedPrice, format: (cents: number) => string = usd): PriceLabel {
+export function listPrice(p: ListedPrice, given?: (cents: number) => string): PriceLabel {
+  /* In the store's own currency when the row carries it: a lei store's 49 is 49 lei. */
+  const format = given ?? (p.currency ? (cents: number) => shopMoneyIn(cents || 0, p.currency!, { grouping: true }) : usd)
   if (p.pay_what_you_want) {
     const min = Math.max(0, p.pwyw_min_price_cents ?? p.price_cents ?? 0)
     return { main: min > 0 ? `${format(min)}+` : "Pay what you want", was: null, off: null }

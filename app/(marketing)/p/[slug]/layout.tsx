@@ -3,6 +3,8 @@ import { loadProductBySlug, loadStoreConfig } from "@/lib/commerce/product-page-
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import type { ThemePreset } from "@/lib/store-builder/types"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { PriceCurrency } from "@/components/platform/price-currency"
 
 interface ProductLayoutProps {
   children: React.ReactNode
@@ -14,6 +16,8 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
 
   // Quick query to get just the theme preset for skeleton loading
   let themePreset: ThemePreset = "default"
+  /* The currency its store sells in: every price on the page is in it (components/platform/price-currency). */
+  let currency: string | null = null
 
   try {
     /*
@@ -26,8 +30,9 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
     const { product } = await loadProductBySlug(slug)
 
     if (product?.creator_id) {
-      const config = await loadStoreConfig(product.creator_id, "product")
+      const [config, sells] = await Promise.all([loadStoreConfig(product.creator_id, "product"), cachedStoreCurrency(product.creator_id)])
       themePreset = config?.published_config?.globalSettings?.themePreset || "default"
+      currency = sells
     }
   } catch (error) {
     // Silently fall back to default theme on error
@@ -47,7 +52,7 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
         "--skeleton-card-bg": isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
       } as React.CSSProperties}
     >
-      {children}
+      <PriceCurrency currency={currency}>{children}</PriceCurrency>
     </div>
   )
 }

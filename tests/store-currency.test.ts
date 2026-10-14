@@ -33,10 +33,13 @@ import {
 } from "@/lib/store/selling-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { exchangeRate, chargeNote } from "@/lib/markets/money"
-import { shopMoneyIn } from "@/lib/store/shop-money"
+import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
 import { basketDecision } from "@/lib/checkout/basket-decision"
 import { siteQuote } from "@/lib/checkout/site-quote-server"
 import { stripComments } from "./_source"
+import { listPrice } from "@/lib/pricing/list-price"
+import { storeCurrencies } from "@/lib/store/store-currencies"
+import { formatPlatformMoney } from "@/lib/i18n/currency"
 
 let passed = 0
 let failed = 0
@@ -203,6 +206,55 @@ async function main() {
     check("the rate is shown with its day", /Rate: 1 \{from\} = \{rate\} \{to\}, \{day\}/.test(card))
     const panel = code("components/app/settings/store-details-panel.tsx")
     check("Store details shows it in place of the old Based in row", /<CountryCurrency \/>/.test(panel) && !/function BasedIn/.test(panel))
+  }
+
+  console.log("\nThe native platform shows and charges a product in its store's currency")
+  {
+    const lei = listPrice({ price_cents: 4900, currency: "RON" })
+    check("a lei store's card says lei, never dollars", /lei|RON/.test(lei.main) && !/\$/.test(lei.main), lei)
+    const plain = listPrice({ price_cents: 4900 })
+    check("a card with no currency is the platform's, as before", plain.main === listPrice({ price_cents: 4900 }, (c) => shopMoney(c, { grouping: true })).main)
+    const db = { from: () => ({ select: () => ({ in: async () => ({ data: [{ creator_id: "a", currency: "RON" }, { creator_id: "b", currency: null }], error: null }) }) }) }
+    const map = await storeCurrencies(db, ["a", "b", "c", null])
+    check("many stores' currencies in one read; a store that never chose or has no row sells in the platform's", map.get("a") === "RON" && map.get("b") === "USD" && map.get("c") === "USD" && map.size === 3, [...map])
+    const broken = { from: () => ({ select: () => ({ in: async () => ({ data: null, error: { code: "42703" } }) }) }) }
+    check("before SQL part 176 every store is the platform's", (await storeCurrencies(broken, ["a"])).get("a") === "USD")
+    check("the marketplace's lei display reads a lei price as lei, not as dollars to convert", formatPlatformMoney(4900, "RON") === formatPlatformMoney(4900, "ron") && /49/.test(formatPlatformMoney(4900, "RON")), formatPlatformMoney(4900, "RON"))
+    check("and a euro price through the same table", /50/.test(formatPlatformMoney(1000, "EUR")), formatPlatformMoney(1000, "EUR"))
+    const session = code("app/api/checkout/stripe-session/route.ts")
+    check("the single product checkout charges the store's currency, held to its minimum", /readStoreCurrency\(admin, creator\.id\)/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session) && /minimumChargeMinor\(storeCurrency\)/.test(session) && !/platformChargeCurrency\(/.test(session))
+    const page = code("app/checkout/page.tsx")
+    check("and its page draws the store's currency", /<CheckoutCurrency currency=\{store\.currency\}>/.test(page) && /readStoreCurrency\(checkoutAdmin\(\), creator\?\.id\)/.test(page))
+    const client = code("app/checkout/checkout-client.tsx")
+    check("its own minimum check is the store currency's", /minimumChargeMinor\(chargeCurrency\)/.test(client) && !/MIN_CHARGE_CENTS/.test(client))
+    for (const f of ["app/(marketing)/p/[slug]/layout.tsx", "app/(marketing)/u/[username]/layout.tsx", "app/(marketing)/l/[slug]/page.tsx"]) {
+      check(`${f.split("/").slice(1, 3).join("/")} tells its prices the store's currency`, /<PriceCurrency currency=/.test(code(f)) && /cachedStoreCurrency\(/.test(code(f)))
+    }
+    for (const f of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {
+      check(`${f.split("/").slice(1, 3).join("/")} gives each card its store's currency`, /storeCurrencies\(createAdminClient\(\), products\.map/.test(code(f)) && /currency: currencies\.get\(product\.creator_id\)/.test(code(f)))
+    }
+    for (const f of ["components/product/product-price-card.tsx", "components/product/variant-selector.tsx", "components/checkout/purchase-status-wrapper.tsx", "components/checkout/buy-button.tsx", "components/checkout/smart-buy-button.tsx", "components/store-builder/sticky-product-bar.tsx", "components/onepage/public-onepage.tsx"]) {
+      check(`${f.split("/").pop()} prices in the page's currency`, /usePageMoney\(\)/.test(code(f)) && !/(?<![\w.])shopMoney\(/.test(code(f)))
+    }
+    check("the creator page's sections too", /usePriceCurrency\(\)/.test(code("components/store-builder/unified-section-renderer.tsx")) && !/(?<![\w.])shopMoney\(/.test(code("components/store-builder/unified-section-renderer.tsx")))
+    check("the locale's formatPrice follows the page's currency", /formatPlatformMoney\(cents, from\)/.test(code("components/locale-provider.tsx")))
+  }
+
+  console.log("\nA sale's wallet line and invoice are in what it was charged in")
+  {
+    const fulfil = code("lib/checkout/fulfil-payment.ts")
+    check("the wallet converts a product sale from its own currency", /destinationPaymentId: facts\.destinationPaymentId, currency: row\.currency \}/.test(fulfil))
+    check("so does one refunded for being over its limit", /destinationPaymentId: o\.destinationPaymentId, currency: paid\.currency \}/.test(fulfil))
+    check("the invoice is in the order's currency, never a fixed dollar", /currency: row\.currency,/.test(fulfil) && !/currency: "usd",\n\s*buyer_email/.test(fulfil))
+  }
+
+  console.log("\nUndo")
+  {
+    const route = code("app/api/store/currency/route.ts")
+    check("the latest change can be undone for a day, through the database's own restore", /export async function PATCH/.test(route) && /rpc\("store_currency_restore"/.test(route) && /UNDO_HOURS = 24/.test(route))
+    check("only the latest change, and only while it is still the store's", /latest\.id !== id/.test(route) && /lastChange\.to === store\.currency/.test(route))
+    const card = code("components/app/settings/country-currency.tsx")
+    check("the card asks before undoing, and says prices edited since go back too", /Prices you changed since then go back too/.test(card) && /setAsking\(true\)/.test(card))
   }
 
   console.log("\nSQL part 176")

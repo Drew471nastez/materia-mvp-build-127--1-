@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { shopMoney, shopAmount } from "@/lib/store/shop-money"
+import { shopAmountIn } from "@/lib/store/shop-money"
+import { usePageMoney, usePriceCurrency } from "@/components/platform/price-currency"
 import { cn } from "@/lib/utils"
 import { Check } from "lucide-react"
 
@@ -46,6 +47,9 @@ export function VariantSelector({
   themeColors,
   className,
 }: VariantSelectorProps) {
+  /* In the page's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
+  const pageCurrency = usePriceCurrency()
   // Default to initialSelectedId if provided and valid, otherwise first variant
   const getInitialVariantId = () => {
     if (variants.length === 0) return null
@@ -81,13 +85,13 @@ export function VariantSelector({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return shopMoney(cents, { grouping: true })
+    return pageMoney(cents, { grouping: true })
   }
 
   // Format PWYW min as "$X+"
   const formatPwywMin = (cents: number | null | undefined): string => {
-    if (!cents || cents === 0) return `${shopAmount(0)}+`
-    return `${shopMoney(cents).replace(/\.00$/, "")}+`
+    if (!cents || cents === 0) return `${shopAmountIn(0, pageCurrency)}+`
+    return `${pageMoney(cents).replace(/\.00$/, "")}+`
   }
 
   return (
@@ -215,11 +219,14 @@ export function VariantSelectorCompact({
   }
   className?: string
 }) {
+  /* In the page's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
+  const pageCurrency = usePriceCurrency()
   if (variants.length <= 1) return null
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return shopMoney(cents, { grouping: true })
+    return pageMoney(cents, { grouping: true })
   }
 
   return (

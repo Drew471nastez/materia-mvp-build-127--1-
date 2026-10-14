@@ -370,7 +370,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   /* Stripe's balance is mirrored in seller_ledger; an Airwallex creator's balance is Airwallex's own
      (their wallet), so nothing is mirrored for them: the payment's fee record says it succeeded. */
   if (paid.provider === "stripe") {
-    await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId }))
+    await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId, currency: row.currency }))
     await step("stripe processing fee", async () => {
       if (!facts.chargeId) return
       const { processingFeeFromChargeId, persistOrderStripeEconomics } = await import("@/lib/payments/stripe/reconcile-processing-fee")
@@ -399,7 +399,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
           status: "completed",
           amount_cents: total,
           tip_cents: tipCents,
-          currency: "usd",
+          currency: row.currency,
           buyer_email: buyerEmail,
           buyer_first_name: m.buyer_first_name || null,
           buyer_last_name: m.buyer_last_name || null,
@@ -492,7 +492,7 @@ async function refundedOverLimit(
   /* The sale on the ledger once (its key is the order), on the first pass only. */
   if (paid.provider === "stripe" && !o.retry) {
     try {
-      await recordSale(admin, { creatorId: o.creatorId, orderId: o.orderId, total: o.total, fee: o.feeCents, destinationPaymentId: o.destinationPaymentId })
+      await recordSale(admin, { creatorId: o.creatorId, orderId: o.orderId, total: o.total, fee: o.feeCents, destinationPaymentId: o.destinationPaymentId, currency: paid.currency })
     } catch (e) {
       console.error("[fulfil] ledger for a sold out order:", e instanceof Error ? e.message : e)
     }

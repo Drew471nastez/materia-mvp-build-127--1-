@@ -1,6 +1,8 @@
 import type React from "react"
 
-import { loadShopThemePreset } from "@/lib/commerce/creator-page-data"
+import { loadCreatorForUser, loadProfileByUsername, loadShopThemePreset } from "@/lib/commerce/creator-page-data"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { PriceCurrency } from "@/components/platform/price-currency"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import { storefrontPageBackground } from "@/lib/store-builder/page-surface"
@@ -34,8 +36,16 @@ export default async function ShopLayout({ children, params }: ShopLayoutProps) 
   const { username } = await params
 
   let themePreset: ThemePreset = "default"
+  /* The currency the creator's store sells in: every price on the page is in it (components/platform/price-currency). */
+  let currency: string | null = null
   try {
-    themePreset = (await loadShopThemePreset(username)) as ThemePreset
+    const [preset, sells] = await Promise.all([
+      loadShopThemePreset(username),
+      /* The same request scoped reads the preset makes, so this costs one cached read. */
+      loadProfileByUsername(username).then((p) => (p?.id ? loadCreatorForUser(p.id) : null)).then((c) => (c?.id ? cachedStoreCurrency(c.id) : null)),
+    ])
+    themePreset = preset as ThemePreset
+    currency = sells
   } catch (error) {
     /* A creator page with a default-coloured skeleton is fine. A creator page
        that does not render because its skeleton could not be tinted is not. */
@@ -58,7 +68,7 @@ export default async function ShopLayout({ children, params }: ShopLayoutProps) 
         "--skeleton-card-bg": isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
       } as React.CSSProperties}
     >
-      {children}
+      <PriceCurrency currency={currency}>{children}</PriceCurrency>
     </div>
   )
 }

@@ -31,6 +31,8 @@ import { rowsOwn } from "@/lib/checkout/owned"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { CheckoutCurrency } from "./parts/ui"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
@@ -220,7 +222,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   }
 
   /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
-  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName] = await Promise.all([
+  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await Promise.all([
     creator?.id ? providerFor(creator.id) : Promise.resolve("stripe" as const),
     /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
     loadCheckoutConfig(checkoutAdmin(), creator?.id),
@@ -229,6 +231,8 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     headers(),
     /* Settings › Store details' store name, which receipts already sign with ("On receipts, order emails and checkout"). */
     creator?.id ? loadStoreName(checkoutAdmin(), creator.id) : Promise.resolve(null),
+    /* The currency the store sells in: its prices are in it and Pay charges it (lib/store/selling-currency). */
+    readStoreCurrency(checkoutAdmin(), creator?.id),
   ])
   const checkoutTax = checkoutTaxFor(taxSetup, product.id, detectedCountry(requestHeaders))
 
@@ -238,9 +242,10 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     {creator?.id ? (
       <StoreTracking
         creatorId={creator.id}
-        checkout={gaCheckoutOf([{ productId: product.id, title: product.title, variantName: selectedVariant?.name ?? null, unitCents: isPwywActive && customPriceCents !== null ? customPriceCents : finalPriceCents, quantity: 1, type: product.type }], null)}
+        checkout={gaCheckoutOf([{ productId: product.id, title: product.title, variantName: selectedVariant?.name ?? null, unitCents: isPwywActive && customPriceCents !== null ? customPriceCents : finalPriceCents, quantity: 1, type: product.type }], store.currency)}
       />
     ) : null}
+    <CheckoutCurrency currency={store.currency}>
     <CheckoutPageClient
       checkoutConfig={checkoutConfig}
       emailConfirmed={!!user?.email_confirmed_at}
@@ -283,6 +288,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         priceCents: v.pay_what_you_want ? v.pwyw_min_price_cents || 0 : v.price_cents,
       }))}
     />
+    </CheckoutCurrency>
     </>
   )
 }
