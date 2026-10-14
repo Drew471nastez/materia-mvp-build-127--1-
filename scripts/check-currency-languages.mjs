@@ -129,12 +129,19 @@ for (const [label, vp] of [
   ["a phone", { width: 390, height: 844, isMobile: true, hasTouch: true }],
   ["a computer", { width: 1280, height: 900 }],
 ]) {
-  console.log(`\nCountry & Currency on ${label}`)
+  console.log(`\nCountry & currency on ${label}`)
+  /* Store details says it in one line and links to where it is set (the owner: one currency, in Languages & Currency). */
   await open("store", vp)
   let f = await fits()
-  say(f.over <= 0 && f.cut.length === 0, `nothing runs off the side or is cut (${f.over}px over${f.cut.length ? `, cut: ${f.cut.join(" | ")}` : ""})`)
+  say(f.over <= 0 && f.cut.length === 0, `Store details: nothing runs off the side or is cut (${f.over}px over${f.cut.length ? `, cut: ${f.cut.join(" | ")}` : ""})`)
   const line = await page.evaluate(() => document.querySelector("[data-selling-in]")?.textContent ?? "")
-  say(/Selling in/.test(line) && /Romania · RON/.test(line), `reads "${line.replace(/\s+/g, " ").trim()}"`)
+  say(/Selling in/.test(line) && /Romania · RON/.test(line), `Store details reads "${line.replace(/\s+/g, " ").trim()}"`)
+  say(await page.evaluate(() => document.querySelector("[data-currency-link]")?.getAttribute("href") === "/app/settings?tab=markets" && !document.querySelector("[data-currency-edit]")), "and links to Languages & Currency, with no second editor")
+  await shot("store-details", vp)
+  await open("markets", vp)
+  await wait(300)
+  const top = await page.evaluate(() => document.querySelector("[data-selling-in]")?.textContent ?? "")
+  say(/Romania · RON/.test(top), `Languages & Currency opens on the store currency: "${top.replace(/\s+/g, " ").trim()}"`)
   await shot("country-currency", vp)
   await page.click("[data-currency-edit]")
   await wait(200)
@@ -193,7 +200,7 @@ for (const [label, vp] of [
   const folded = await page.evaluate(() => ({ open: document.querySelector("[data-language-options]")?.hasAttribute("open"), visible: !!document.querySelector("[data-visitor-language]")?.checkVisibility() }))
   say(folded.open === false && folded.visible === false, "the two rarely used switches are folded under More options")
   const currencies = await page.evaluate(() => [...document.querySelectorAll("[data-market]")].map((m) => m.getAttribute("data-market")))
-  say(currencies.join() === "eu", `Visitor currencies lists only the added ones, not the store's own (${currencies.join()})`)
+  say(currencies.join() === "eu", `More currencies lists only the added ones, not the store's own (${currencies.join()})`)
   await shot("languages", vp)
 }
 
@@ -221,6 +228,57 @@ const running = await page.evaluate(() => {
 })
 say(running.state === "translating" && running.bar && /60 of 140 texts/.test(running.line), `German shows Translating with the job's own count and a bar (${JSON.stringify(running)})`)
 await shot("languages-translating", { width: 1280 })
+
+/* The sheet: the original beside its translation, a dot for where each stands, and a running job said to go on with the tab closed. */
+for (const vp of [{ width: 390, height: 844, isMobile: true, hasTouch: true }, { width: 1280, height: 900 }]) {
+  console.log(`\nThe translation sheet at ${vp.width}px`)
+  await open("markets", vp)
+  await page.evaluate(() => {
+    const real = window.fetch
+    const item = (key, label, source, value, status) => ({ key, label, where: "Home", source, value, status, multiline: source.length > 60, rich: false, ai: status === "draft" })
+    const loaded = {
+      ready: true,
+      locale: "fr",
+      defaultLanguage: "en",
+      languages: ["en", "fr"],
+      progress: { done: 120, total: 140 },
+      groups: [
+        { id: "home", title: "Home", items: [item("h1", "Heading", "Fresh from the farm", "", "missing"), item("h2", "Text", "Our eggs are collected every morning and reach you within two days of being laid.", "Nos œufs sont ramassés chaque matin.", "draft"), item("h3", "Button", "Shop now", "Acheter", "done")] },
+      ],
+    }
+    window.fetch = async (input, init) => {
+      const url = typeof input === "string" ? input : input.url
+      if (url.includes("/api/store/translations?locale=fr")) return new Response(JSON.stringify(loaded), { status: 200, headers: { "Content-Type": "application/json" } })
+      if (url.includes("/api/store/translations/jobs") && (!init || !init.method || init.method === "GET")) return new Response(JSON.stringify({ ready: true, jobs: { fr: { locale: "fr", status: "running", done: 126, total: 140, drafted: 6, error: null, startedAt: "", updatedAt: "" } } }), { status: 200, headers: { "Content-Type": "application/json" } })
+      return real(input, init)
+    }
+  })
+  await page.click("[data-translate-language=fr]")
+  await wait(600)
+  /* The job is seen the way the page sees one started elsewhere: read again when the tab comes back into view. */
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
+  await wait(600)
+  const sheet = await page.evaluate(() => {
+    const root = document.querySelector("[data-translate-sheet]")
+    const bar = root?.querySelector("[data-translate-progress]")
+    const rows = [...(root?.querySelectorAll("[data-translation]") ?? [])]
+    const row = rows.find((r) => r.getAttribute("data-translation") === "h2")
+    const [orig, field] = row ? [...row.querySelectorAll("p, textarea, input")].filter((e) => !e.closest("label")) : []
+    return {
+      progress: (bar?.textContent || "").replace(/\s+/g, " ").trim(),
+      running: bar?.getAttribute("data-translate-progress"),
+      statuses: rows.map((r) => r.querySelector("[data-status]")?.getAttribute("data-status")),
+      pills: root?.querySelectorAll("[data-translation] .rounded-full.px-2").length ?? 0,
+      sideBySide: orig && field ? Math.abs(orig.getBoundingClientRect().top - field.getBoundingClientRect().top) < 2 : false,
+      over: document.documentElement.scrollWidth - innerWidth,
+    }
+  })
+  say(sheet.running === "running" && /Translating 126 of 140/.test(sheet.progress) && /90%/.test(sheet.progress) && /You can close this or the tab/.test(sheet.progress), `a running job: its count, its share and that it goes on with the tab closed ("${sheet.progress}")`)
+  say(sheet.statuses.join() === "missing,draft", `each row says where it stands with a dot (${sheet.statuses.join()})`)
+  say(vp.width < 640 ? !sheet.sideBySide : sheet.sideBySide, vp.width < 640 ? "on a phone the translation is under its original" : "on a computer the translation is beside its original")
+  say(sheet.over <= 0, `nothing runs off the side (${sheet.over}px over)`)
+  await shot("translate-sheet", vp)
+}
 
 await browser.close()
 console.log(bad ? `\n${bad} failed` : "\nall ok")

@@ -266,7 +266,8 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
             ) : null}
             {note && onPublish ? <p className="text-[13px] text-[#4b5563]" aria-live="polite">{note}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
-              {items.some((i) => i.status === "missing" || i.status === "outdated") ? (
+              {/* While a job runs the strip above says so: no second, greyed button saying it again. */}
+              {!jobRunning && items.some((i) => i.status === "missing" || i.status === "outdated") ? (
                 <button type="button" className={cn(BTN_PRIMARY, "h-10")} onClick={() => void draftWithAi()} disabled={!!busy || jobRunning} data-translate-ai="">
                   {busy === "ai" || jobRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
                   {busy === "ai" || jobRunning ? tt("Translating") : tt("Translate the rest")}
