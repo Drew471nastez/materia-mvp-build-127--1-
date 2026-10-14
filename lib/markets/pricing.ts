@@ -65,6 +65,27 @@ export function storeCentsFromShown(shownCents: number, display: StorefrontDispl
   return Math.round((adjusted / 10 ** minorUnits(display.base)) * 100)
 }
 
+/**
+ * Product cards with their prices in the market's currency: the card's price
+ * and the one before a sale, each option's, and the currency it says. The
+ * live site (live.ts cards) and the builder's market preview draw with this
+ * one function, so the two never disagree.
+ */
+export function convertCardPrices<T extends { settings: { price: string; compare_price: string; currency?: string; variants?: { price: string; compare_price: string }[] } }>(list: T[], pricing: Pricing | null | undefined, locale = "en"): T[] {
+  if (!pricing) return list
+  const price = (t: string) => (t ? convertPriceText(t, pricing, locale) : t)
+  return list.map((c) => ({
+    ...c,
+    settings: {
+      ...c.settings,
+      price: price(c.settings.price),
+      compare_price: price(c.settings.compare_price),
+      currency: pricing.currency,
+      variants: (c.settings.variants ?? []).map((v) => ({ ...v, price: price(v.price), compare_price: price(v.compare_price) })),
+    },
+  }))
+}
+
 /** The conversion for a market, or null when it shows the store's own prices (no currency of its own, the same currency, or no fresh rates). */
 export function pricingFor(market: MarketPrice | null | undefined, base: string, fx: FxRates | null | undefined, now = Date.now()): Pricing | null {
   if (!market || !market.currency || market.currency === base) return null

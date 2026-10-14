@@ -78,7 +78,7 @@ async function main() {
   check("a variant named from its values is named again from theirs, its id and price kept", ss.variants[0].name === "Petit / Rouge" && ss.variants[0].id === "v1" && ss.variants[0].price === "$20.00" && ss.variants[0].options.join() === "Petit,Rouge,", ss.variants[0])
   check("  one the merchant named themselves keeps its name, its values translated", ss.variants[2].name === "Gift box" && ss.variants[2].options[0] === "Petit")
   check("the product page's data the same way", (localizeOptions({ options: [{ name: "Size", values: ["Small"] }], variants: [{ id: "v", name: "Small", options: ["Small", null, null] }] }, optMap, { approvedOnly: true, fresh: true }) as { variants: { name: string }[] }).variants[0].name === "Petit")
-  check("  on the live product page, and in the editor's preview", /productData = localizer \? localizer\.options\(productRead\)/.test(read("components/website-builder/theme/render-product.tsx")) && /_product_data: localizeOptions\(data, previewMap/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("  on the live product page, and in the editor's preview", /productData = localizer \? localizer\.options\(productRead\)/.test(read("components/website-builder/theme/render-product.tsx")) && /_product_data: withDisplay\(localizeOptions\(data, previewMap/.test(read("app/website-builder/editor/[installId]/page.tsx")))
   check("the translations list has them, read from the products' options", /optionTranslatables\(lists\)/.test(read("lib/markets/server.ts")) && /title: "Product options"/.test(read("lib/markets/server.ts")))
 
   console.log("\nStorelib AI never replaces what the merchant wrote")

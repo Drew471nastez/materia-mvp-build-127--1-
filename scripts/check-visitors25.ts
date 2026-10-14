@@ -340,7 +340,7 @@ async function serveHarness(bundle: string): Promise<{ server: Server; port: num
   const tagsFor = (view: string) => {
     const base = trackingTags({ ga4: GA }, { creatorId: SHOP, asks: true })
     if (view === "thanks") return [...base, ...purchaseTags({ ga4: GA }, { id: "0f3a9c2e-1111-4222-8333-444455556666", valueCents: 2499, currency: "USD", quantity: 1, items: [item] })]
-    if (view === "settings" || view === "commerce" || view === "markets") return []
+    if (view === "settings" || view === "commerce" || view === "markets" || view === "preview") return []
     return base
   }
   const server = createServer((req, res) => {
@@ -585,6 +585,26 @@ async function settings(browser: Browser, base: string) {
   }
 }
 
+async function previewSwitch(browser: Browser, base: string) {
+  console.log("\nThe builder's preview: a language and a market's currency")
+  for (const vp of [VIEWPORTS[0]]) {
+    const m = await pageFor(browser, vp)
+    await m.page.goto(`${base}/app/settings?view=preview`, { waitUntil: "load" })
+    await m.page.waitForSelector("[data-wb-preview-language]", { timeout: 8000 }).catch(() => {})
+    await m.page.click("[data-wb-preview-language]")
+    await sleep(400)
+    const panel = await m.page.evaluate(() => ({ text: document.querySelector('[role="dialog"]')?.textContent ?? "", markets: [...document.querySelectorAll("[data-wb-preview-market]")].map((b) => b.textContent?.trim()) }))
+    check(`${vp.label}: languages, then Prices in with the store's own and each market's currency`, /Preview in/.test(panel.text) && /Prices in/.test(panel.text) && JSON.stringify(panel.markets) === JSON.stringify(["Your prices (RON)", "Europe (EUR)"]), panel)
+    await m.page.screenshot({ path: `${OUT}/preview-switch-open-${vp.label}.png` })
+    await m.page.click('[data-wb-preview-market="eu"]')
+    await sleep(400)
+    const label = await m.page.evaluate(() => document.querySelector("[data-wb-preview-language]")?.textContent?.trim())
+    check(`${vp.label}:   picked, the switch says the currency the canvas shows`, /EUR/.test(label ?? ""), label)
+    await m.page.screenshot({ path: `${OUT}/preview-switch-eur-${vp.label}.png` })
+    await m.close()
+  }
+}
+
 async function main() {
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 240_000, args: ["--no-sandbox", "--host-resolver-rules=MAP shop.test 127.0.0.1, MAP posturex.test 127.0.0.1"] })
   try {
@@ -600,6 +620,7 @@ async function main() {
         if (all || only.has("creator")) await creatorPage(browser, base)
         if (all || only.has("pages")) await onePageCheckoutThanks(browser, base)
         if (all || only.has("settings")) await settings(browser, base)
+        if (all || only.has("preview")) await previewSwitch(browser, base)
       } finally {
         server.close()
       }

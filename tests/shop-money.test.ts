@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { SHOP_CURRENCY, shopAmount, shopMoney } from "@/lib/store/shop-money"
 import { formatPrice } from "@/lib/website-builder/shop-products"
-import { pricingFor, storeCentsFromShown, type MarketPrice, type StorefrontDisplay } from "@/lib/markets/pricing"
+import { convertCardPrices, pricingFor, storeCentsFromShown, type MarketPrice, type StorefrontDisplay } from "@/lib/markets/pricing"
 import { priceCentsFrom } from "@/lib/website-builder/storefront-hooks"
 
 let passed = 0
@@ -54,6 +54,15 @@ check("a market priced 10% up: the adjustment comes off again", storeCentsFromSh
 check("a page in the store's own currency is left alone", storeCentsFromShown(5000, null) === null)
 check("stale rates convert nothing back either", storeCentsFromShown(1000, { ...display, fx: { asOf: "2020-01-01", rates: fx.rates } }) === null)
 check("the add to cart button uses it", /storeCentsFromShown\(line\.priceCents, display\)/.test(read("components/website-builder/sections/site-chrome-hooks.tsx")))
+
+console.log("\nThe builder previews a market's prices as the website shows them")
+const card = { id: "p", settings: { price: formatPrice(5000), compare_price: "", currency: "RON", variants: [{ price: formatPrice(5000), compare_price: "" }] } }
+const [eu] = convertCardPrices([card], pricing, "en")
+check("a card's price, its options' and its currency, converted", /10/.test(eu.settings.price) && eu.settings.currency === "EUR" && eu.settings.variants![0].price === eu.settings.price, eu.settings)
+check("  no market: the card as it was", convertCardPrices([card], null)[0] === card)
+check("the live site and the builder use the one function", /convertCardPrices\(\[worded\], pricing, moneyLocale\)/.test(read("lib/markets/live.ts")) && (read("app/website-builder/editor/[installId]/page.tsx").match(/convertCardPrices\(localizeCards\(/g) ?? []).length === 2)
+check("  the cart and the product page in the canvas take the same conversion", /storefront = useMemo\(\(\) => \(\{ inEditor: true, installId, words, display \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /display: \{ market: previewDisplay\.market/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+check("  the switch offers the markets the day's rates can convert to", /data\.markets\.filter\(\(m\) => pricingFor\(m, data\.base, data\.fx\)\)/.test(read("components/website-builder/use-preview-language.ts")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

@@ -205,7 +205,7 @@ console.log("\nRound AE: no more English corners, and the builder previews every
   check("  read again when the builder comes back into view, remembered for the tab", /visibilitychange/.test(hook) && /sessionStorage/.test(hook))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("  the canvas lays it over its sections, menus and products, and shows the shop's words", /localizeSections\(\s*drawnSections,\s*previewMap/.test(editor) && /localizeMenus\(canvasMenus/.test(editor) && /sections=\{drawnShown\}/.test(editor) && /words=\{previewLang\.words\}/.test(editor))
-  check("  a language button beside the page switcher, and a phone's in the menu", /<PreviewLanguageSwitch lang=\{previewLang\} \/>/.test(editor) && /Preview in \$\{languageName\(next, "en"\)\}/.test(editor))
+  check("  a language button beside the page switcher, and a phone's in the menu", /* Changed on purpose: and a market's currency beside it. */ /<PreviewLanguageSwitch lang=\{previewLang\} market=\{previewMarket\} \/>/.test(editor) && /Preview in \$\{languageName\(next, "en"\)\}/.test(editor))
   const canvas = read("components/website-builder/compat/compat-canvas.tsx")
   check("  an imported theme's canvas too: its sections, menus, products, its own | t words and request.locale", /compatFields\(compatTheme\)/.test(canvas) && /compat-locale=/.test(canvas) && /i18n,/.test(canvas) && /withoutLanguage\(n\.href/.test(canvas))
   check("  the theme's words for one language, from its own files, behind the owner's sign in", /searchParams\.get\("compat-locale"\)/.test(read("app/api/website-builder/themes/[installId]/files/route.ts")))

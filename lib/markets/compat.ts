@@ -30,7 +30,7 @@ import { fxFresh } from "./money"
 import { convertedCents, moneyFormatFor } from "./pricing"
 import { priceCents } from "@/lib/storelib-theme/compat/objects"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
-import { localizeCards, localizeMenus, localizeRecord, localizeSections, translationMap, type TranslationMap } from "./translate"
+import { isBuiltInWordKey, isEnglish, localizeCards, localizeMenus, localizeRecord, localizeSections, themeWordKey, translationMap, valueFor, type TranslationMap } from "./translate"
 import { linkLanguageScript } from "./link-script"
 import { compatFields } from "./compat-fields"
 
@@ -95,7 +95,7 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
   /* Converted prices need the day's rates: without them a market's country sees the store's own. */
   const shownCountries = pricing || (langs.markets.length > 0 && fxFresh(await cachedRates().catch(() => null))) ? countries : countries.map((c) => ({ ...c, currency: base }))
   const shownCountry = country ? shownCountries.find((c) => c.code === country.code) : undefined
-  const i18n = {
+  const i18n: NonNullable<SiteData["i18n"]> = {
     ...(site.i18n ?? {}),
     locale: code ?? langs.defaultLanguage,
     defaultLanguage: langs.defaultLanguage,
@@ -104,8 +104,19 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
     ...(shownCountry ? { country: shownCountry } : {}),
   }
 
-  const rows = code ? await cachedTranslations(site.creatorId, code).catch(() => []) : []
+  /* The website's own language, when it is not English, still has its built-in words translated (translate.ts BUILT_IN_GROUPS): the theme's own among them. */
+  const ownWords = !code && !isEnglish(langs.defaultLanguage)
+  const rows = code ? await cachedTranslations(site.creatorId, code).catch(() => []) : ownWords ? (await cachedTranslations(site.creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => isBuiltInWordKey(r.key)) : []
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
+  /* THE THEME'S OWN WORDS (`| t`) as the store translated them, each only while written for the theme's word as it is now. */
+  const themeWords: Record<string, string> = {}
+  if (map.size) {
+    for (const w of site.theme.defaultWords()) {
+      const v = valueFor(map, themeWordKey(w.key), { approvedOnly: true, fresh: true }, w.value)
+      if (v) themeWords[w.key] = v
+    }
+  }
+  if (Object.keys(themeWords).length) i18n.words = themeWords
   /* No "charged in USD" line put into an imported theme's cart (the owner): the website's checkout says it, where the card is charged. */
   const extraBodyEnd = `${site.extraBodyEnd ?? ""}${code ? linkLanguageScript(code, langs.defaultLanguage, all) : ""}`
   if (map.size === 0 && !pricing) return { ...site, i18n, extraBodyEnd }

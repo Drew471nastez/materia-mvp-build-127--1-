@@ -98,6 +98,21 @@ async function main() {
     check("localization, routes and roots read the same", localeRoot(i18n) === "/fr" && localeRoot(i18n, "en") === "" && String(routesFor(i18n).search_url) === "/fr/search" && (localizationObject("RON", i18n).available_languages as unknown[]).length === 3)
   }
 
+  console.log("\nThe theme's own words in a language it does not ship\n")
+  {
+    const words = theme.defaultWords()
+    check("its default words are listed by key, for Translate › Theme words", words.some((w) => w.key === "header.welcome" && w.value === "Welcome"))
+    const ro = String((await get({ ...base, i18n: { locale: "ro", defaultLanguage: "en", languages: ["en", "fr", "ro"], words: { "header.welcome": "Bun venit" } } }, "/")).body)
+    check("a language the theme has no file for reads the store's translation", /class="hdr">Bun venit/.test(ro), ro.match(/class="hdr">[^<]*/)?.[0])
+    const roNone = String((await get({ ...base, i18n: { locale: "ro", defaultLanguage: "en", languages: ["en", "fr", "ro"] } }, "/")).body)
+    check("  and the theme's default without one, never a key", /class="hdr">Welcome/.test(roNone))
+    const frOwn = String((await get({ ...base, i18n: { locale: "fr", defaultLanguage: "en", languages: ["en", "fr"], words: { "header.welcome": "Salut" } } }, "/")).body)
+    check("the store's translation over the theme's own file, so it can correct it", /class="hdr">Salut/.test(frOwn))
+    const compat = read("lib/markets/compat.ts")
+    check("the live site lays them over, each only while written for the theme's word as it is", /valueFor\(map, themeWordKey\(w\.key\), \{ approvedOnly: true, fresh: true \}, w\.value\)/.test(compat) && /i18n\.words = themeWords/.test(compat))
+    check("listed in Translate from the theme's default locale file", /compatTheme\.defaultWords\(\)\.map/.test(read("lib/markets/server.ts")) && /id: "theme-words", title: "Theme words"/.test(read("lib/markets/server.ts")))
+  }
+
   console.log("\nIts texts translated with its own schemas\n")
   {
     const { fieldsOf, blockFieldsOf } = compatFields(theme)

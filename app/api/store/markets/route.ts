@@ -50,7 +50,8 @@ export async function GET() {
     autoTranslate: { run: loc.autoTranslateRun ?? null, available: canDraftWithAi() },
     baseCurrency,
     chargeCurrency: platformChargeCurrencyUpper(),
-    fx: fx ? { asOf: fx.asOf, fresh: fxFresh(fx), currencies: ["EUR", ...Object.keys(fx.rates)].sort() } : null,
+    /* With the rates, so the builder can show a market's prices as the website does (components/website-builder/use-preview-language.ts). */
+    fx: fx ? { asOf: fx.asOf, fresh: fxFresh(fx), currencies: ["EUR", ...Object.keys(fx.rates)].sort(), rates: fx.rates } : null,
   })
 }
 

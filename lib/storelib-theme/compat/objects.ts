@@ -1054,6 +1054,8 @@ export interface SiteI18n {
   /** The visitor's country and the currency prices are shown in, and every country offered (lib/markets, AC4). */
   country?: { code: string; name: string; currency: string }
   countries?: { code: string; name: string; currency: string }[]
+  /** The theme's own words in this language as the store translated them (Translate › Theme words, `tw:<key>`), by locale key: read before the theme's own files. */
+  words?: Record<string, string>
 }
 
 /** "/fr" for a language that is not the website's own, "" for it. */

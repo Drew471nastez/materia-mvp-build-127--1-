@@ -363,6 +363,27 @@ export class CompatTheme {
   get language(): string {
     return this.lang
   }
+  /**
+   * Every word of the theme's default locale file, by its dotted key
+   * ("products.product.add_to_cart", "cart.item_count.one"): what the
+   * website's Translate lists as Theme words, for a language the theme does
+   * not ship. Only text a visitor reads; nothing from the editor's schema.
+   */
+  private wordsListed: { key: string; value: string }[] | null = null
+  defaultWords(): { key: string; value: string }[] {
+    if (this.wordsListed) return this.wordsListed
+    const out: { key: string; value: string }[] = []
+    const walk = (node: unknown, path: string) => {
+      if (typeof node === "string") {
+        if (node.trim() && out.length < 2000) out.push({ key: path, value: node })
+        return
+      }
+      if (node && typeof node === "object" && !Array.isArray(node)) for (const [k, v] of Object.entries(node as O)) walk(v, path ? `${path}.${k}` : k)
+    }
+    walk(this.locale, "")
+    this.wordsListed = out
+    return out
+  }
   private schemaLocale: O | null
   readonly settingsSchema: O[]
   readonly warnings: string[] = []
@@ -533,7 +554,23 @@ export class CompatTheme {
     lack, so nothing ever shows as a key.
   */
   private wordsHeld = new Map<string, O | null>()
-  private translateIn(lang: string): (key: string) => unknown {
+  private translateIn(lang: string, words?: Record<string, string>): (key: string) => unknown {
+    const fromFiles = this.translateInFiles(lang)
+    if (!words || Object.keys(words).length === 0) return fromFiles
+    /* The store's own translation first (it can correct the theme's), then the theme's file, then its default. A plural ("cart.item_count") is the object its forms make. */
+    return (key: string) => {
+      if (typeof words[key] === "string") return words[key]
+      const prefix = `${key}.`
+      const forms = Object.keys(words).filter((k) => k.startsWith(prefix) && !k.slice(prefix.length).includes("."))
+      if (forms.length === 0) return fromFiles(key)
+      const base = fromFiles(key)
+      const merged: O = base && typeof base === "object" ? { ...(base as O) } : {}
+      for (const k of forms) merged[k.slice(prefix.length)] = words[k]
+      return merged
+    }
+  }
+
+  private translateInFiles(lang: string): (key: string) => unknown {
     const files = [`locales/${lang}.json`, `locales/${lang.toLowerCase()}.json`, `locales/${lang.split("-")[0].toLowerCase()}.json`]
     const found: O[] = []
     for (const f of files) {
@@ -703,7 +740,8 @@ export class CompatTheme {
       moneyWithCurrencyFormat: `${moneyFormat} ${currency}`,
       currency,
       /* The theme's own words in the page's language (locales/fr.json), its default ones for anything that file lacks. */
-      translate: page.i18n && page.i18n.locale.toLowerCase() !== this.lang.toLowerCase() ? this.translateIn(page.i18n.locale) : this.translate,
+      /* And the store's translations of them (page.i18n.words), for a language the theme does not ship or words it should say otherwise. */
+      translate: page.i18n && (page.i18n.locale.toLowerCase() !== this.lang.toLowerCase() || page.i18n.words) ? this.translateIn(page.i18n.locale, page.i18n.words) : this.translate,
     }
     const ctx = new Ctx(globals, this.env(page))
     pageCtx = ctx

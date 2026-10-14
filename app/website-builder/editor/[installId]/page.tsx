@@ -169,7 +169,8 @@ import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builde
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
-import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
+import { usePreviewLanguage, usePreviewMarket } from "@/components/website-builder/use-preview-language"
+import { convertCardPrices, pricingFor } from "@/lib/markets/pricing"
 import { PreviewLanguageSwitch } from "@/components/website-builder/preview-language-switch"
 import { localizeCards, localizeMenus, localizeOptions, localizeSections, localizeTheme } from "@/lib/markets/translate"
 import { languageName } from "@/lib/markets/locales"
@@ -7960,8 +7961,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const previewLang = usePreviewLanguage(installId)
   const previewMap = previewLang.map
+  /* And a market's currency (use-preview-language.ts usePreviewMarket): the prices converted as the website converts them. */
+  const previewMarket = usePreviewMarket(installId, previewLang.locale ?? previewLang.defaultLanguage)
+  const previewDisplay = previewMarket.display
+  const previewPricing = useMemo(() => (previewDisplay ? pricingFor(previewDisplay.market, previewDisplay.base, previewDisplay.fx) : null), [previewDisplay])
   const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
-  const catalogCardsShown = useMemo(() => localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true }), [catalogCardsForCanvas, previewMap])
+  const catalogCardsShown = useMemo(() => convertCardPrices(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true }), previewPricing, previewDisplay?.locale), [catalogCardsForCanvas, previewMap, previewPricing, previewDisplay])
   const canvasData = useMemo(
     () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderCollections, canvasReviews],
@@ -7975,6 +7980,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     ),
     [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
   )
+  /* The product page's product in the market previewed: the conversion handed to it, as the live page hands it (render-product.tsx). */
+  const withDisplay = (data: unknown) => (previewDisplay && data && typeof data === "object" ? { ...(data as Record<string, unknown>), display: { market: previewDisplay.market, base: previewDisplay.base, fx: previewDisplay.fx, locale: previewDisplay.locale } } : data)
   /* The page in the language previewed: the text settings with an approved translation, read with the same schemas the website reads. */
   const drawnShown = useMemo(
     () =>
@@ -7988,12 +7995,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           ).map((s) => {
             /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx). */
             const data = (s.settings as Record<string, unknown> | undefined)?._product_data
-            return data ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
+            return data ? { ...s, settings: { ...s.settings, _product_data: withDisplay(localizeOptions(data, previewMap, { approvedOnly: true, fresh: true })) } } : s
           })
-        : drawnSections,
-    [drawnSections, previewMap, storelibSources, librarySchemas],
+        : previewDisplay
+          ? drawnSections.map((s) => {
+              const data = (s.settings as Record<string, unknown> | undefined)?._product_data
+              return data ? { ...s, settings: { ...s.settings, _product_data: withDisplay(data) } } : s
+            })
+          : drawnSections,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [drawnSections, previewMap, storelibSources, librarySchemas, previewDisplay],
   )
-  const shopCardsShown = useMemo(() => localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true }), [shopCards, previewMap])
+  const shopCardsShown = useMemo(() => convertCardPrices(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true }), previewPricing, previewDisplay?.locale), [shopCards, previewMap, previewPricing, previewDisplay])
   /* The theme's own words in the previewed language (the tagline, the sale badge, the cookie banner), as the live site lays them (translate.ts localizeTheme). */
   const canvasThemeShown = useMemo(() => (previewMap ? (localizeTheme(canvasThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true, fresh: true }) as typeof canvasThemeSettings) : canvasThemeSettings), [canvasThemeSettings, previewMap])
   const compatLanguage = useMemo(
@@ -9025,7 +9038,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )}
 
           {/* The language the canvas is drawn in, for a website with more than one. */}
-          {!isMobileView && <PreviewLanguageSwitch lang={previewLang} />}
+          {!isMobileView && <PreviewLanguageSwitch lang={previewLang} market={previewMarket} />}
 
           {!isMobileView && (
           <PageSwitcher
@@ -10248,6 +10261,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 shopCards={shopCardsShown}
                 installId={installId}
                 words={previewLang.words}
+                display={previewDisplay ?? undefined}
               />
               )}
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
@@ -10848,6 +10862,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   installId,
   storefrontData: canvasStorefrontData,
   words,
+  display,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -10888,6 +10903,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   storefrontData?: import("@/lib/storelib-theme/types").StorefrontData
   /** The shop's own words in the language previewed (lib/markets/ui-words.ts). */
   words?: Record<string, string>
+  /** The market previewed: the cart's amounts in its currency, as the cards are. */
+  display?: import("@/lib/markets/pricing").StorefrontDisplay
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
@@ -10920,7 +10937,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
-  const storefront = useMemo(() => ({ inEditor: true, installId, words }), [installId, words])
+  const storefront = useMemo(() => ({ inEditor: true, installId, words, display }), [installId, words, display])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
   const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
   return (

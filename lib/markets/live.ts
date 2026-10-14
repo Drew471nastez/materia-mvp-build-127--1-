@@ -33,7 +33,7 @@ import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
 import { chargeNote, currencyCode, fxFresh, type PriceRounding } from "./money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { cachedRates } from "./fx-server"
-import { convertPriceText, pricingFor, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
+import { convertCardPrices, pricingFor, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
 
 /** A market as the live website reads it: active ones only. */
 export interface LiveMarket extends MarketPrice {
@@ -143,7 +143,6 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
   const opts = { approvedOnly: true, fresh: true }
   const moneyLocale = code ?? langs.defaultLanguage
-  const price = (t: string) => (pricing && t ? convertPriceText(t, pricing, moneyLocale) : t)
   const words: Record<string, string> = {}
   for (const w of Object.keys(UI_WORDS)) {
     const v = valueFor(map, uiKey(w as UiWord), opts)
@@ -186,18 +185,8 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
       return list.map((c) => {
         /* The title, and the description a card shows, laid over exactly as the editor's preview lays them (translate.ts localizeCards). */
         const worded = localizeCards([c], map, opts)[0]
-        if (!pricing) return worded
-        /* Shown in the market's currency; checkout charges the store's and says so. */
-        return {
-          ...c,
-          settings: {
-            ...worded.settings,
-            price: price(c.settings.price),
-            compare_price: price(c.settings.compare_price),
-            currency: pricing.currency,
-            variants: (c.settings.variants ?? []).map((v) => ({ ...v, price: price(v.price), compare_price: price(v.compare_price) })),
-          },
-        }
+        /* Shown in the market's currency (pricing.ts convertCardPrices, as the builder's preview does); checkout charges the store's and says so. */
+        return convertCardPrices([worded], pricing, moneyLocale)[0]
       })
     },
   }

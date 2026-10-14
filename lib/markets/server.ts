@@ -30,7 +30,7 @@ import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
 import { defaultLocalization, validateLocalization, type Localization } from "./model"
 import { normalizeLocale } from "./locales"
-import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, optionTranslatables, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, optionTranslatables, themeWordKey, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
@@ -298,6 +298,7 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
   const installs = (install ?? []) as { id: string; status: string }[]
   const chosen = installs.find((i) => i.status === "published") ?? installs[0]
   const groups: TextGroup[] = []
+  let themeWords: Translatable[] = []
   if (chosen) {
     const [sources, pagesRead, themeRead] = await Promise.all([
       sectionSources(db as never, chosen.id).catch(() => ({}) as Record<string, string>),
@@ -316,9 +317,12 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (compatOf(themeValues)) {
       const files = await installFiles(db, chosen.id, chosen.status !== "published").catch(() => null)
       if (files) {
-        const read = compatFields(compatThemeFor(chosen.id, "texts", files, themeValues))
+        const compatTheme = compatThemeFor(chosen.id, "texts", files, themeValues)
+        const read = compatFields(compatTheme)
         fieldsOf = read.fieldsOf
         blockFieldsOf = read.blockFieldsOf
+        /* Its own words (`| t`, its default locale file), for a language the theme does not ship: laid over by lib/markets/compat.ts. */
+        themeWords = compatTheme.defaultWords().map((w) => ({ key: themeWordKey(w.key), source: w.value, label: w.key, where: "Theme words", multiline: w.value.length > 80 }))
       }
     }
     const seenChrome = new Set<string>()
@@ -387,6 +391,7 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (typeof c.description === "string" && c.description.trim()) collectionItems.push({ key: `collection:${c.id}:description`, source: c.description, label: "Description", where: title || "Collection", multiline: true })
   }
   if (collectionItems.length) groups.push({ id: "collections", title: "Collections", items: collectionItems })
+  if (themeWords.length) groups.push({ id: "theme-words", title: "Theme words", items: themeWords })
   /* The words the theme draws itself: the cart's, the buy buttons' (lib/markets/ui-words.ts). */
   groups.push({ id: "ui", title: "Shop words", items: uiTranslatables() })
   /* The website's checkout, sentence by sentence (lib/markets/checkout-words.ts). */
