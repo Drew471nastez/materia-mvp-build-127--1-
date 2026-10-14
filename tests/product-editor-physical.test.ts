@@ -43,7 +43,7 @@ console.log("\nPrices in the store's currency")
   const loader = read("app/app/products/load-editor.ts")
   /* Changed on purpose: a typed price is charged in the platform's currency (lib/store/shop-money.ts), so that is
      the one its field shows. The payout currency is where the money goes, and it used to be shown over lei. */
-  check("the editor's price fields are in the currency a price is charged in, not the payout currency", /currency: SHOP_CURRENCY,/.test(loader) && !/payout_currency/.test(loader.replace(/\/\*[\s\S]*?\*\//g, "")))
+  check("the editor's price fields are in the currency a price is charged in, not the payout currency", /* Changed on purpose: the store's own currency. */ /currency: store\.currency,/.test(loader) && !/payout_currency/.test(loader.replace(/\/\*[\s\S]*?\*\//g, "")))
   const editor = read("app/app/products/new/product-editor.tsx")
   check("no price field in the editor prints a bare $", !/>\$<\/span>/.test(editor) && /\{priceMark\.node\}/.test(editor) && /<StoreCurrencyProvider currency=\{creator\.currency\}>/.test(editor))
   const ui = read("components/physical/ui.tsx")

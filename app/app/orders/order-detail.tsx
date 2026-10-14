@@ -538,7 +538,8 @@ function PaymentCard({
   onRefund: (() => void) | null
   onInvoice: () => void
 }) {
-  const received = order.payment === "failed" || order.payment === "pending" || order.payment === "voided" ? 0 : order.totalCents
+  /* Cash still to collect is not received yet: You receive waits for Mark as paid. */
+  const received = order.payment === "failed" || order.payment === "pending" || order.payment === "voided" || order.payment === "cash_due" ? 0 : order.totalCents
   /* A refund gives back the same share of the fee as of the sale, the way
      the seller's balance counts it (lib/stripe/refund-allocation feeShare). */
   const fee = received <= 0 || order.refundedCents >= received ? 0 : order.feeCents - Math.round((order.feeCents * order.refundedCents) / received)

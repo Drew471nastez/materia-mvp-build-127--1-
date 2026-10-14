@@ -107,6 +107,9 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
     events.push({ id: "failed", at: order.createdAt, text: tt("The payment failed"), tone: "critical", glyph: "failed" })
   } else if (order.payment === "pending") {
     events.push({ id: "pending", at: order.createdAt, text: tt("Waiting for the payment to go through"), tone: "attention", glyph: "pending" })
+  } else if (order.payment === "voided") {
+    /* A cash order cancelled or refused before the cash was collected: nothing was ever paid, so never a green "paid". */
+    events.push({ id: "voided", at: order.createdAt, text: tt("Cash on delivery, never collected. Nothing was paid."), tone: "neutral", glyph: "pending" })
   } else if (order.payment === "cash_due") {
     /* Cash on delivery (lib/physical/cash-on-delivery.ts): placed, the money still to collect. */
     events.push({ id: "cash_due", at: order.createdAt, text: tt("{amount} to collect in cash on delivery", { amount: formatOrderMoney(order.totalCents, order.currency) }), tone: "attention", glyph: "pending" })

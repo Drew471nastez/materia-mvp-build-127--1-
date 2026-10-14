@@ -424,7 +424,14 @@ export interface CheckoutQuote {
  * stock at that location. When something can't ship to the address, the
  * buyer is told which item, by name.
  */
-export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok: true }>, address: (Pick<Address, "country" | "region"> & { postalCode?: string | null }) | null, optionId?: unknown): Promise<CheckoutQuote> {
+export async function quoteCheckout(
+  db: Db,
+  priced: Extract<PricedCheckout, { ok: true }>,
+  address: (Pick<Address, "country" | "region"> & { postalCode?: string | null }) | null,
+  optionId?: unknown,
+  /** Paying on delivery: its fee (Settings › Checkout), in the total the buyer is shown and the order keeps. */
+  pay: { codFeeCents?: number } = {},
+): Promise<CheckoutQuote> {
   let quote: Quote = { ok: true, required: false, options: [] }
   let pickups: DeliveryOption[] = []
   if (priced.requiresShipping) {
@@ -481,7 +488,7 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
   const taxPlace = pickup && handOver ? { country: handOver.country, region: handOver.region } : { country: address?.country ?? null, region: address?.region ?? null }
   const totals = physicalTotals(
     lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable, digital: l.type !== "physical" })),
-    { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null },
+    { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null, codFeeCents: pay.codFeeCents ?? 0 },
   )
   return { quote, pickups, option, totals, lines }
 }

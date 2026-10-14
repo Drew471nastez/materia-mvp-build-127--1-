@@ -39,12 +39,28 @@ export interface CodLine {
  * Why this cart cannot be paid on delivery, in the buyer's words, or null
  * when it can. Read on the server before anything is held or written.
  */
-export function codRefusal(input: { enabled: boolean; lines: CodLine[]; requiresShipping: boolean; totalCents: number }): string | null {
+export function codRefusal(input: {
+  enabled: boolean
+  lines: CodLine[]
+  requiresShipping: boolean
+  totalCents: number
+  /** The countries the shop takes cash in (Settings › Checkout); empty for everywhere it ships. */
+  countries?: string[]
+  /** Where it is delivered, or null for a pickup, which is paid where it is picked up. */
+  country?: string | null
+}): string | null {
   if (!input.enabled) return "This shop doesn't take cash on delivery. Pay by card instead."
   if (input.lines.length === 0) return "Your cart is empty."
   if (!input.requiresShipping || input.lines.some((l) => l.type !== "physical")) return "Cash on delivery is only for things that are delivered or picked up. Pay by card for the rest."
   if (!(input.totalCents > 0)) return "There is nothing to pay."
+  if (!codCountryAllowed(input.countries, input.country)) return "Cash on delivery isn't available for this address. Pay by card instead."
   return null
+}
+
+/** Whether cash on delivery is offered for this delivery country: every country when the list is empty, and every pickup. */
+export function codCountryAllowed(countries: string[] | null | undefined, country: string | null | undefined): boolean {
+  if (!countries || countries.length === 0 || !country) return true
+  return countries.includes(country.trim().toUpperCase())
 }
 
 /**

@@ -221,7 +221,13 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (wantsPickup && !clean(input.name, 200)) return { ok: false, status: 400, error: "Enter the name the order is under.", field: "name" }
   if (wantsPickup && config.nameFields === "first_and_last" && !/\S+\s+\S+/.test(clean(input.name, 200))) return { ok: false, status: 400, error: "Enter your first and last name.", field: "name" }
   if (wantsPickup && config.phone === "required" && !clean(input.phone, 40)) return { ok: false, status: 400, error: "Enter a phone number for the pickup.", field: "phone" }
-  const q = await quoteCheckout(db, priced, address, input.deliveryOptionId)
+  /* Paying on delivery, in a shop that takes it: its fee is in the total from the start, as the page showed it (Settings › Checkout). */
+  const wantsCod = input.cashOnDelivery === true && config.cashOnDelivery
+  let q = await quoteCheckout(db, priced, address, input.deliveryOptionId, { codFeeCents: wantsCod ? config.codFeeCents : 0 })
+  /* A cart with nothing to pay is placed free, and a fee alone is never charged for it. */
+  if (q.totals.codFeeCents > 0 && q.totals.itemsSubtotalCents - q.totals.discountCents + q.totals.shippingCents - q.totals.shippingDiscountCents <= 0) {
+    q = await quoteCheckout(db, priced, address, input.deliveryOptionId)
+  }
   if (priced.requiresShipping) {
     if (wantsPickup) {
       if (q.option?.kind !== "pickup") return { ok: false, status: 409, error: "Pickup isn't available for everything in your cart any more. Choose shipping instead." }
@@ -255,7 +261,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   */
   const cod = input.cashOnDelivery === true && !free
   if (cod) {
-    const why = codRefusal({ enabled: config.cashOnDelivery, lines: q.lines, requiresShipping: priced.requiresShipping, totalCents: totals.totalCents })
+    const why = codRefusal({ enabled: config.cashOnDelivery, lines: q.lines, requiresShipping: priced.requiresShipping, totalCents: totals.totalCents, countries: config.codCountries, country: pickup ? null : (address?.country ?? null) })
     if (why) return { ok: false, status: 409, error: why }
   }
   if (!free && !cod && totals.totalCents < minimumChargeMinor(storeCurrency)) return { ok: false, status: 400, error: `The smallest card payment is ${money(minimumChargeMinor(storeCurrency), storeCurrency)}.` }
@@ -351,15 +357,16 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       currency: chargeCurrency.toUpperCase(),
       items_subtotal_cents: totals.itemsSubtotalCents,
       discount_cents: totals.discountCents,
-      shipping_cents: totals.shippingCents,
+      /* Cash on delivery's fee is paid with delivery: in the delivery charge, so every total that adds it up still does, and named in shipping_rate.cod_fee_cents. */
+      shipping_cents: totals.shippingCents + totals.codFeeCents,
       shipping_discount_cents: totals.shippingDiscountCents,
       tax_cents: totals.taxCents,
       total_cents: totals.totalCents,
       platform_fee_cents: fee?.platformFeeCents ?? 0,
       shipping_address: address,
       shipping_rate: option
-        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
-        : taxFacts,
+        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}), ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) }
+        : { ...taxFacts, ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) },
       lines: q.lines.map((l) => snapshotLine(l, propertiesFor(input.items, l))),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
@@ -374,7 +381,20 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     .select("id")
     .single()
   if (insertError || !checkout) {
-    if (insertError?.code === "23505") return { ok: false, status: 409, error: "Refresh the page and try again." }
+    if (insertError?.code === "23505") {
+      /* Place order pressed twice at once: the other press wrote it first. Its order, when it is placed, rather than an error. */
+      if (cod) {
+        for (let i = 0; i < 3; i++) {
+          const { data: won } = await db.from("commerce_checkouts").select("id, status, receipt_token").eq("creator_id", priced.creatorId).eq("client_key", rowKey).maybeSingle()
+          if (won?.status === "paid" && won.receipt_token) {
+            return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(won.receipt_token as string)}`, checkoutId: won.id as string, free: false, cod: true, receiptToken: won.receipt_token as string }
+          }
+          if (won && won.status !== "pending") break
+          await new Promise((r) => setTimeout(r, 400))
+        }
+      }
+      return { ok: false, status: 409, error: "Refresh the page and try again." }
+    }
     /* The database has not taken SQL part 174 yet: its provider check refuses "cod". */
     if (cod && insertError?.code === "23514") return { ok: false, status: 503, error: "Cash on delivery isn't available on this shop yet. Pay by card instead." }
     console.error("[physical] checkout insert failed:", insertError?.code)
@@ -450,7 +470,11 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     const done = await completeCheckout(db, { checkoutId, sessionId: `${cod ? "cod" : "free"}_${randomBytes(18).toString("base64url")}`, paymentIntentId: null, facts: null, baseUrl: input.platformOrigin })
     if (!done.ok) {
       /* A cash order that could not be written lets go of what it held, as an unpaid card checkout does. */
-      if (cod) await releaseCheckout(db, checkoutId, "failed", "The order could not be saved")
+      if (cod) {
+        await releaseCheckout(db, checkoutId, "failed", "The order could not be saved")
+        /* And the place its code held, so pressing Place order again can take it. */
+        if (holder && priced.coupon) await releaseCouponHold(db, priced.coupon.id, holder)
+      }
       return { ok: false, status: 500, error: "The order could not be saved. Try again in a moment." }
     }
     return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: !cod, cod, receiptToken }

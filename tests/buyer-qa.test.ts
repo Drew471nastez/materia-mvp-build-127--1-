@@ -43,14 +43,15 @@ async function membershipPrices() {
   check("a missing table is the default, never a failure", (await planIntervals(broken, ["x"])).size === 0)
 
   const wired: Array<[string, RegExp]> = [
-    ["components/explore/product-card.tsx", /listPrice\(product\)/],
+    /* Changed on purpose: with its store's currency. */
+    ["components/explore/product-card.tsx", /listPrice\(\{ \.\.\.product, currency: /],
     ["app/(marketing)/explore/page.tsx", /planIntervals\(supabase/],
     ["app/(marketing)/explore/[category]/page.tsx", /planIntervals\(supabase/],
     ["app/(marketing)/u/[username]/page.tsx", /price_interval: intervals\.get\(p\.id\)/],
     ["components/storefront/storefront-product-card.tsx", /price_interval: product\.price_interval/],
     ["components/store-builder/unified-section-renderer.tsx", /priced\(productPrice\)/],
     ["app/(marketing)/p/[slug]/page.tsx", /price_interval: membershipInfo\?\.interval/],
-    ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product\)/],
+    ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product, pageCurrency\)/],
     ["lib/nav/quick-search.ts", /withPriceIntervals\(client, found\)/],
     /* The header's results draw the price quick-search already worked out (listPrice, above); the drawing moved out of the header itself. */
     ["components/platform/header-search-results.tsx", /\{hit\.price\}/],
@@ -120,8 +121,9 @@ console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it
    call stack size exceeded" on every priced product page. */
 {
   const src = read("components/store-builder/sticky-add-to-cart.tsx")
-  const body = src.match(/function barPriceText\(product: ProductData\): string \{([\s\S]*?)\n\}/)?.[1] ?? ""
-  check("the sticky buy bar's price is formatted, not recursive", body.length > 0 && !/barPriceText\(/.test(body) && /formatPrice\(product\.price_cents\)/.test(body))
+  /* Changed on purpose: in the page's store currency. */
+  const body = src.match(/function barPriceText\(product: ProductData, currency: string\): string \{([\s\S]*?)\n\}/)?.[1] ?? ""
+  check("the sticky buy bar's price is formatted, not recursive", body.length > 0 && !/barPriceText\(/.test(body) && /formatPrice\(product\.price_cents, currency\)/.test(body))
 }
 
 membershipPrices().then(() => {

@@ -90,6 +90,16 @@ export const EXPLAINERS = {
     ] },
     guide: "/help/physical-products/checkout-settings",
   },
+  "cash-on-delivery": {
+    get title() { return tt("How cash on delivery works") },
+    art: "checkout",
+    get lines() { return [
+      tt("The buyer chooses Cash on delivery at checkout. The order is placed at once, with no card, and you send it as usual."),
+      tt("It reads Payment pending until you press Mark as paid on the order, once you have the cash. A parcel the buyer refuses: press Refused on delivery. Nothing is refunded, and what was sent comes back as a return."),
+      tt("No Storelib fee is taken, and the money never passes through your Storelib balance. A fee you set here is added to the order and shown before it is placed."),
+    ] },
+    guide: "/help/physical-products/cash-on-delivery",
+  },
   channels: {
     get title() { return tt("How sales channels work") },
     art: "channels",

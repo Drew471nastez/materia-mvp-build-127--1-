@@ -23,8 +23,12 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { Card, Notice, Toggle, api, peekGet } from "@/components/physical/ui"
-import { DEFAULT_CHECKOUT, checkoutConfig, type CheckoutConfig, type FieldRule } from "@/lib/store/checkout-config"
+import { X } from "lucide-react"
+import { Card, Field, MoneyInput, Notice, Toggle, api, centsOf, dollarsOf, peekGet } from "@/components/physical/ui"
+import { COD_INSTRUCTIONS_MAX, DEFAULT_CHECKOUT, checkoutConfig, type CheckoutConfig, type FieldRule } from "@/lib/store/checkout-config"
+import { countryName } from "@/lib/checkout/countries"
+import { countryOf } from "@/lib/account/country"
+import { CountryFlag, CountryPicker } from "./country-picker"
 import { tt } from "@/lib/i18n/text"
 
 const RULES: { id: FieldRule; label: string }[] = [
@@ -180,13 +184,14 @@ export function CheckoutPanel() {
       </Card>
 
       {physical ? (
-        <Card title={tt("Cash on delivery")} description={tt("Orders that ship or are picked up.")}>
+        <Card title={tt("Cash on delivery")} description={tt("Orders that ship or are picked up.")} help="cash-on-delivery">
           <Toggle
             label={tt("Take cash on delivery")}
             description={tt("Buyers choose Card or Cash on delivery at checkout. The order is placed at once and waits to be sent as usual. Mark it as paid from the order when you have the cash. No Storelib fee is taken on these orders.")}
             checked={config.cashOnDelivery}
             onChange={(v) => change({ cashOnDelivery: v })}
           />
+          {config.cashOnDelivery ? <CashOptions config={config} change={change} /> : null}
         </Card>
       ) : null}
 
@@ -234,6 +239,90 @@ export function CheckoutPanel() {
       <p className="px-1 text-[12.5px] text-[#6b7280]" aria-live="polite" data-checkout-saved={saved}>
         {saved === "saving" ? tt("Saving") : saved === "saved" ? tt("Saved. Your checkout shows it within a few seconds.") : tt("Changes are saved as you make them and reach your checkout within a few seconds.")}
       </p>
+    </div>
+  )
+}
+
+/**
+ * Cash on delivery's three choices, once it is on: where it is offered, a
+ * fee, and a line for the buyer. Typed fields are kept here while they are
+ * typed and saved when the field is left, so a space between two words is
+ * never trimmed away mid sentence.
+ */
+function CashOptions({ config, change }: { config: CheckoutConfig; change: (patch: Partial<CheckoutConfig>) => void }) {
+  const [fee, setFee] = React.useState(dollarsOf(config.codFeeCents || null))
+  const [words, setWords] = React.useState(config.codInstructions)
+  const [some, setSome] = React.useState(config.codCountries.length > 0)
+  const [adding, setAdding] = React.useState("")
+  const countries = config.codCountries
+  return (
+    <div className="mt-4 space-y-4 border-t border-[#f0f1f3] pt-4" data-cod-options="">
+      <Row title={tt("Where")} line={some ? tt("Only orders delivered to these countries. Pickups can always pay in cash.") : tt("Every country you ship to.")}>
+        <Segmented
+          label={tt("Where")}
+          value={some ? "some" : "all"}
+          options={[
+            { id: "all", label: tt("Everywhere you ship") },
+            { id: "some", label: tt("Some countries") },
+          ]}
+          onChange={(v) => {
+            setSome(v === "some")
+            if (v === "all" && countries.length) change({ codCountries: [] })
+          }}
+        />
+      </Row>
+      {some ? (
+        <div className="space-y-2.5" data-cod-countries="">
+          {countries.length ? (
+            <ul className="flex flex-wrap gap-1.5">
+              {countries.map((c) => (
+                <li key={c} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white pl-2 pr-1 text-[13px] text-[#1a1a2e]">
+                  <CountryFlag code={c} near={false} />
+                  {countryName(c)}
+                  <button type="button" aria-label={tt("Remove {country}", { country: countryName(c) })} onClick={() => change({ codCountries: countries.filter((x) => x !== c) })} className="grid h-6 w-6 place-items-center rounded-md text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <CountryPicker
+            id="cod-country"
+            value={adding}
+            onChange={(name) => {
+              const code = countryOf(name)
+              setAdding("")
+              if (code && !countries.includes(code)) change({ codCountries: [...countries, code] })
+            }}
+          />
+        </div>
+      ) : null}
+      <Field label={tt("Fee")} htmlFor="cod-fee" hint={tt("Added to orders paid in cash, shown at checkout before the order is placed. Empty for none.")}>
+        <MoneyInput
+          id="cod-fee"
+          value={fee}
+          onChange={setFee}
+          onBlur={() => {
+            const cents = centsOf(fee) ?? 0
+            if (cents !== config.codFeeCents) change({ codFeeCents: cents })
+          }}
+          className="max-w-[200px]"
+        />
+      </Field>
+      <Field label={tt("Note for the buyer")} htmlFor="cod-note" hint={tt("Shown under Cash on delivery at checkout and in the order email.")}>
+        <textarea
+          id="cod-note"
+          value={words}
+          rows={2}
+          maxLength={COD_INSTRUCTIONS_MAX}
+          onChange={(e) => setWords(e.target.value)}
+          onBlur={() => {
+            if (words.trim() !== config.codInstructions) change({ codInstructions: words })
+          }}
+          placeholder={tt("Have the exact amount ready. The courier can't give change.")}
+          className="w-full rounded-lg border border-[#e5e7eb] bg-white px-3 py-2.5 text-[15px] leading-[21px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] sm:text-[14px]"
+        />
+      </Field>
     </div>
   )
 }

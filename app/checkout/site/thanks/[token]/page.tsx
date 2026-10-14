@@ -58,7 +58,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
   try {
     const { data: co, error } = await db
       .from("commerce_checkouts")
-      .select("id, creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method, currency, provider")
+      .select("id, creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method, currency, provider, cod_collected_at, cancelled_at")
       .eq("receipt_token", token)
       .maybeSingle()
     if (error || !co || co.creator_id !== creatorId || co.status !== "paid") return null
@@ -75,7 +75,8 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
       shipTo: co.delivery_method === "pickup" ? null : address ? [address.line1, address.city].filter(Boolean).join(", ") : null,
       pickupAt: co.delivery_method === "pickup" ? (pickup?.name ?? "") : null,
       receipt: `/checkout/physical/order/${encodeURIComponent(token)}`,
-      cashWhen: co.provider === "cod" ? (co.delivery_method === "pickup" ? "picked up" : "delivered") : null,
+      /* Still to pay: not once the shop has the cash, nor on an order that was cancelled or refused. */
+      cashWhen: co.provider === "cod" && !co.cod_collected_at && !co.cancelled_at ? (co.delivery_method === "pickup" ? "picked up" : "delivered") : null,
       ga: { id: String(co.id), items: lines.map((l) => gaItem({ id: l.product_id ?? "", title: l.title, priceCents: l.unit_cents, quantity: l.quantity, variant: l.variant_name, kind: l.type === "physical" ? "physical" : "digital" })).filter((i): i is GaItem => !!i), currency: typeof co.currency === "string" ? co.currency : null },
     }
   } catch {

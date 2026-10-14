@@ -103,6 +103,9 @@ const CHECKOUT_LABELS: Record<keyof CheckoutConfig, string> = {
   address2: "Address line 2",
   buyerCancel: "Let buyers ask to cancel",
   cashOnDelivery: "Cash on delivery",
+  codCountries: "Cash on delivery: where",
+  codFeeCents: "Cash on delivery: fee",
+  codInstructions: "Cash on delivery: note for the buyer",
 }
 
 const word = (v: unknown): string => {
@@ -113,6 +116,9 @@ const word = (v: unknown): string => {
   if (v === "required") return "Required"
   if (v === "last_only") return "One field"
   if (v === "first_and_last") return "First and last apart"
+  /* Cash on delivery's countries (empty: everywhere it ships) and a note left empty. */
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "Everywhere the store ships"
+  if (v === "") return "None"
   return String(v)
 }
 

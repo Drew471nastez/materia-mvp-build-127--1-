@@ -90,7 +90,7 @@ export interface SiteQuote {
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean; needsRegion?: boolean }
   pickups: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null; hours?: string | null }[]
   /** `taxLabel`: the tax line's words, "VAT 19%" (lib/tax/rules taxLabel). */
-  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string }
+  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string; codFeeCents?: number }
   offers?: { title: string; savedCents: number }[]
   /** Something in it is a physical product (Settings › Checkout's "physical orders" fields), whether or not it ships. */
   physical?: boolean
@@ -299,8 +299,9 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
   const region = typeof body.region === "string" ? body.region.slice(0, 120) : null
   /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
   const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
+  const codFeeCents = await codFeeFor(db, creatorId, body, country)
   const [q, profiles, choices] = await Promise.all([
-    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId),
+    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId, { codFeeCents }),
     priced.requiresShipping ? loadProfiles(db, creatorId).catch(() => []) : Promise.resolve([]),
     /* Short lines too: a size that sold out is changed to one in stock right there. A line at its own price keeps it. */
     variantChoices(db, items.filter((i) => typeof (i as { customPriceCents?: unknown }).customPriceCents !== "number").map((i) => i.productId)),
@@ -385,4 +386,23 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
       choices,
     },
   }
+}
+
+/**
+ * Cash on delivery's fee when the buyer has chosen it, for the shop's own
+ * rules (Settings › Checkout): the total the page shows is then the one the
+ * order keeps (lib/physical/checkout-server startCheckout adds the same).
+ * 0 for a card, a shop without it, or a country it doesn't take cash in.
+ */
+export async function codFeeFor(db: Db, creatorId: string, body: { cashOnDelivery?: unknown; deliveryOptionId?: unknown }, country: string | null): Promise<number> {
+  if (body.cashOnDelivery !== true) return 0
+  /* Loaded as the shipped quote loads the physical modules, only for a cart that ships. */
+  const [{ loadCheckoutConfig }, { codCountryAllowed }, { isPickupOptionId }] = await Promise.all([
+    import("@/lib/store/settings-server"),
+    import("@/lib/physical/cash-on-delivery"),
+    import("@/lib/physical/pickup"),
+  ])
+  const config = await loadCheckoutConfig(db, creatorId)
+  if (!config.cashOnDelivery || config.codFeeCents <= 0) return 0
+  return codCountryAllowed(config.codCountries, isPickupOptionId(body.deliveryOptionId) ? null : country) ? config.codFeeCents : 0
 }

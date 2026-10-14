@@ -492,7 +492,12 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     paymentMethods: body.paymentMethods,
   })
   if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
-  if (started.free) return json({ error: "This order is free. Press Place order.", free: true }, 409)
+  /* Nothing to pay after all (a code took it to 0): startCheckout has placed it as a free order. Its thank you page, so Place order is never pressed for it a second time. */
+  if (started.free) {
+    if (!started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
+    const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
+    return NextResponse.json({ free: true, thanks: siteThanksHref(started.receiptToken, { whole: body.wholeCart === true }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, body.wholeCart === true) })
+  }
   if (!started.clientSecret || !started.paymentIntentId) return json({ error: "Could not start the payment. Try again in a moment." }, 500)
   const pi = started.paymentIntentId
   after(async () => {
@@ -656,8 +661,8 @@ async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfChecko
     cashOnDelivery: true,
   })
   if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
-  if (started.free) return json({ error: "This order is free. Press Place order.", free: true }, 409)
-  if (!started.cod || !started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
+  /* Nothing to pay after all (a code took it to 0): startCheckout has placed it as a free order, so its thank you page, never a second order. */
+  if ((!started.cod && !started.free) || !started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
   const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
   return NextResponse.json({ receiptToken: started.receiptToken, thanks: siteThanksHref(started.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, wholeCart) })
 }

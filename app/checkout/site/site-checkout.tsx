@@ -35,6 +35,7 @@
  * anything.
  */
 
+import { codCountryAllowed } from "@/lib/physical/cash-on-delivery"
 import * as React from "react"
 import { ChevronDown, MapPin, Minus, Package, Plus, ShoppingBag, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -202,6 +203,8 @@ export function SiteCheckout({
   const [quote, setQuote] = React.useState<SiteQuote | null>(initialQuote)
   const [quoteError, setQuoteError] = React.useState<string | null>(initialError)
   const [quoting, setQuoting] = React.useState(false)
+  /* Cash on delivery chosen in the payment form: the quote is asked with it, so its fee is in the total (Settings › Checkout). */
+  const [byCash, setByCash] = React.useState(false)
   React.useEffect(() => {
     adoptCarriedTouches()
     if (linkItems.length) return
@@ -334,7 +337,8 @@ export function SiteCheckout({
     setQuoting(true)
     const t = window.setTimeout(async () => {
       try {
-        const res = await call<SiteQuote>({ action: "quote", items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email, lang: pageLang ?? null })
+        /* Paying on delivery is asked with it: the total then has the shop's fee in it, as the order will. */
+        const res = await call<SiteQuote>({ action: "quote", items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email, lang: pageLang ?? null, ...(byCash && config.cashOnDelivery ? { cashOnDelivery: true } : {}) })
         if (n !== asked.current) return
         if (!res.ok) {
           setQuoteError(ct(res.data.error || "Could not load your order."))
@@ -368,7 +372,7 @@ export function SiteCheckout({
     }, 200)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, appliedCode, shipsKey, optionId])
+  }, [items, appliedCode, shipsKey, optionId, byCash])
 
   /* ── Already yours ───────────────────────────────────────────────── */
   const owned = React.useMemo(() => quote?.owned ?? [], [quote])
@@ -613,7 +617,13 @@ export function SiteCheckout({
     const fresh = !!before && Date.now() - before.at < INTENT_REUSE_MS
     const key = before && fresh && before.sig === sig ? before.key : newKey()
     intentKey.current = { key, sig, at: key === before?.key ? before.at : Date.now() }
-    const res = await call<{ clientSecret?: string; paymentIntentId?: string }>({ action: "intent", ...body, paymentMethods: methods, clientKey: key, replaces: before && before.key !== key ? before.key : null })
+    const res = await call<{ clientSecret?: string; paymentIntentId?: string; thanks?: string; free?: boolean }>({ action: "intent", ...body, paymentMethods: methods, clientKey: key, replaces: before && before.key !== key ? before.key : null })
+    /* A code took it to 0 since the page was priced: the server placed it as a free order. Its thank you page; the card form never opens. */
+    if (res.ok && res.data.free && typeof res.data.thanks === "string") {
+      setPaid({ total: 0, free: true })
+      go(res.data.thanks)
+      return new Promise<IntentResult>(() => {})
+    }
     if (!res.ok || !res.data.clientSecret || !res.data.paymentIntentId) {
       const field = res.data.field as keyof BusinessDetails | undefined
       if (field && field in EMPTY_BUSINESS) setBusinessErrors({ [field]: ct(res.data.error || "Check this field.") })
@@ -670,7 +680,16 @@ export function SiteCheckout({
     }
   }
   /* Offered when the shop takes cash and everything in the order is delivered or picked up (codRefusal says the same on the server). */
-  const cashOffered = config.cashOnDelivery && ships && !!quote && quote.lines.length > 0 && quote.lines.every((l) => l.type === "physical")
+  /* Something to pay, as the shipped checkout asks: a cart a code takes to 0 is placed as free. */
+  const cashOffered =
+    config.cashOnDelivery &&
+    ships &&
+    !!quote &&
+    quote.lines.length > 0 &&
+    quote.lines.every((l) => l.type === "physical") &&
+    (quote.totals.totalCents ?? 0) > 0 &&
+    /* Only to the countries the shop takes cash in; a pickup is paid where it is picked up. */
+    (mode === "pickup" || codCountryAllowed(config.codCountries, address.country))
 
   const takeFree = async () => {
     if (busy) return
@@ -1089,6 +1108,12 @@ export function SiteCheckout({
                 <dd className="tabular-nums text-[#6b7280]">{mode === "pickup" ? ct("Free") : !optionId ? (quote.delivery.needsRegion && !address.region.trim() ? (fmt.region ? ct(`Choose your ${lowerLabel(fmt.region.label)}.`) : ct("Choose your state or province.")) : address.country ? ct("Not available") : ct("Enter your address")) : shippingPaid === 0 ? ct("Free") : money(shippingPaid)}</dd>
               </div>
             ) : null}
+            {t && (t.codFeeCents ?? 0) > 0 ? (
+              <div className="flex justify-between gap-4" data-cod-fee="">
+                <dt className="text-[#6b7280]">{ct("Cash on delivery fee")}</dt>
+                <dd className="tabular-nums text-[#6b7280]">{money(t.codFeeCents ?? 0)}</dd>
+              </div>
+            ) : null}
             {t && t.taxCents > 0 && !t.taxIncluded ? (
               <div className="flex justify-between gap-4" data-tax-line="">
                 <dt className="text-[#6b7280]">{t.taxLabel ? ct(t.taxLabel) : ct("Tax")}</dt>
@@ -1169,7 +1194,17 @@ export function SiteCheckout({
         contactExtra={contactExtra}
         afterContact={delivery}
         beforePay={beforePay}
-        cash={cashOffered ? { note: mode === "pickup" ? ct("Pay {amount} in cash when you pick it up.", { amount: money(total) }) : ct("Pay {amount} in cash when it's delivered.", { amount: money(total) }), place: placeCash } : null}
+        cash={
+          cashOffered
+            ? {
+                note: mode === "pickup" ? ct("Pay {amount} in cash when you pick it up.", { amount: money(total) }) : ct("Pay {amount} in cash when it's delivered.", { amount: money(total) }),
+                place: placeCash,
+                instructions: config.codInstructions || null,
+                aside: config.codFeeCents > 0 ? ct("Cash on delivery adds a fee of {amount}.", { amount: money(config.codFeeCents) }) : null,
+                onChoose: setByCash,
+              }
+            : null
+        }
       />
     )
   }

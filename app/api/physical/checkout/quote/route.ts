@@ -10,6 +10,7 @@ import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { discountLabel, offerUnitPrice } from "@/lib/offers/offers"
 import { offerProducts } from "@/lib/offers/offers-server"
 import { variantChoices } from "@/lib/checkout/variant-choices-server"
+import { codFeeFor } from "@/lib/checkout/site-quote-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -53,8 +54,10 @@ export async function POST(request: Request) {
   /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
   const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
   /* What each line could be changed to (a size, an edition), read beside the delivery quote. A line at its own price keeps it. */
+  /* Cash on delivery chosen: its fee is in the total shown, as the order will keep it (Settings › Checkout). */
+  const codFeeCents = await codFeeFor(db, priced.creatorId, body, country)
   const [q, choices] = await Promise.all([
-    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId),
+    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId, { codFeeCents }),
     variantChoices(db, items.filter((i) => typeof i.customPriceCents !== "number").map((i) => i.productId)),
   ])
   return physicalJson({

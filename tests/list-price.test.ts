@@ -44,7 +44,7 @@ function main() {
 
   console.log("\nWhere it is used")
   const card = read("components/explore/product-card.tsx")
-  check("the card draws the rule's words, the struck price and the badge", /const priceLabel = listPrice\(product\)/.test(card) && /\{priceLabel\.main\}/.test(card) && /\{priceLabel\.was\}/.test(card) && /\{priceLabel\.off\}% OFF/.test(card) && !/product\.price_cents === 0 \? "Free"/.test(card))
+  check("the card draws the rule's words, the struck price and the badge", /* Changed on purpose: with its store's currency. */ /const priceLabel = listPrice\(\{ \.\.\.product, currency: product\.currency \?\? pageCurrency \}\)/.test(card) && /\{priceLabel\.main\}/.test(card) && /\{priceLabel\.was\}/.test(card) && /\{priceLabel\.off\}% OFF/.test(card) && !/product\.price_cents === 0 \? "Free"/.test(card))
   const page = read("app/(marketing)/p/[slug]/page.tsx")
   check("the product page's header too, in both layouts", (page.match(/\{headerPrice\.main\}/g) ?? []).length === 2 && !/product\.price_cents === 0 \? "Free"/.test(page))
   for (const f of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {

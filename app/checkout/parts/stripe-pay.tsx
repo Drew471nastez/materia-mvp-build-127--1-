@@ -161,7 +161,16 @@ export interface StripePayProps {
    * the card form steps aside and Pay becomes Place order, which places the
    * order with no card at all. Absent, nothing about the form changes.
    */
-  cash?: { note: string; place: () => Promise<void> } | null
+  cash?: {
+    note: string
+    place: () => Promise<void>
+    /** The shop's own words for paying on delivery (Settings › Checkout), under the note. */
+    instructions?: string | null
+    /** Said under the choice while the card is chosen: what choosing cash adds ("a fee of 10 lei"). */
+    aside?: string | null
+    /** Told which is chosen, so the order is priced again with cash's fee in it. */
+    onChoose?: (cash: boolean) => void
+  } | null
 }
 
 /** Whether this browser is online now, kept current. */
@@ -543,6 +552,7 @@ function StripePayInner({
                 disabled={busy}
                 onClick={() => {
                   setByCash(value)
+                  cash?.onChoose?.(value)
                   onError(null)
                 }}
                 className={cn(
@@ -561,9 +571,12 @@ function StripePayInner({
           </div>
         ) : null}
         {cashOn ? (
-          <p data-cash-note="" className="rounded-[8px] bg-[#f8f9fa] px-3.5 py-3 text-[14px] leading-5 text-[#4b5563]">
-            {cash?.note}
-          </p>
+          <div data-cash-note="" className="space-y-1 rounded-[8px] bg-[#f8f9fa] px-3.5 py-3 text-[14px] leading-5 text-[#4b5563]">
+            <p>{cash?.note}</p>
+            {cash?.instructions ? <p data-cash-instructions="">{cash.instructions}</p> : null}
+          </div>
+        ) : cash?.aside ? (
+          <p className="text-[13px] leading-5 text-[#6b7280]">{cash.aside}</p>
         ) : null}
         {/* Kept drawn while cash is chosen, so going back to the card is instant and keeps what was typed. */}
         <div className={cn("min-h-[200px]", cashOn && "hidden")}>

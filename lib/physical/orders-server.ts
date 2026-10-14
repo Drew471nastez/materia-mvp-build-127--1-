@@ -747,6 +747,49 @@ export async function markCashCollected(db: Db, creatorId: string, checkoutId: s
   return { ok: true, order }
 }
 
+/**
+ * CASH ON DELIVERY, REFUSED: the buyer would not pay when the courier came,
+ * or the parcel could not be delivered. Nothing was paid, so nothing is
+ * refunded. What went out comes back as a return the shop has opened
+ * (restocked when it is marked received); what never left is let go as a
+ * cancel lets it go; the lines stop being a sale, and the order reads
+ * cancelled with the reason. Only for a cash order still to collect.
+ * Safe to press twice: a refused order is already cancelled.
+ */
+export async function refusedOnDelivery(db: Db, creatorId: string, checkoutId: string): Promise<Outcome> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (order.cancelledAt) return { ok: true, order }
+  if (order.payment === "cod_collected") return { ok: false, error: "The cash was already collected. Start a return and refund it instead." }
+  if (order.payment !== "cod_due") return { ok: false, error: "Only an order paid in cash on delivery can be refused on delivery." }
+  /* Everything that went out and isn't already in an open return. */
+  const out = returnableQuantities(progressOf(order))
+  for (const r of order.returns.filter((x) => ["requested", "approved", "in_transit"].includes(x.status))) {
+    for (const i of r.items) out.set(i.orderId, Math.max(0, (out.get(i.orderId) ?? 0) - i.quantity))
+  }
+  const items = [...out.entries()].filter(([, q]) => q > 0).map(([orderId, quantity]) => ({ orderId, quantity, restock: true }))
+  if (items.length) {
+    const opened = await openReturn(db, checkoutId, { creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery" })
+    if (opened.ok === false) return opened
+  }
+  await db.rpc("physical_cancel_unfulfilled", { p_checkout: checkoutId })
+  const now = new Date().toISOString()
+  /* No money ever moved: the lines stop being a sale, as a cancelled cash order's do. */
+  await db.from("orders").update({ status: "failed" }).eq("checkout_id", checkoutId).eq("payment_method", COD_PAYMENT_METHOD)
+  await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: "Refused on delivery", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId).is("cancelled_at", null)
+  await addOrderEvent(db, {
+    checkoutId,
+    creatorId,
+    kind: "order.cancelled",
+    message: items.length ? "Refused on delivery. Nothing was paid. What was sent comes back as a return." : "Refused on delivery. Nothing was paid. Stock released.",
+    actor: "creator",
+    key: `refused:${checkoutId}`,
+  })
+  await queueCancelledEmail(db, checkoutId, creatorId)
+  const fresh = await loadOrder(db, { creatorId, checkoutId })
+  return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
 export async function saveNote(db: Db, creatorId: string, checkoutId: string, note: unknown): Promise<{ ok: boolean }> {
   const { error } = await db.from("commerce_checkouts").update({ merchant_note: cleanText(note, 4000), updated_at: new Date().toISOString() }).eq("id", checkoutId).eq("creator_id", creatorId)
   return { ok: !error }

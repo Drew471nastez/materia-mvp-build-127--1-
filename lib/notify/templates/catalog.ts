@@ -561,15 +561,20 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   }
 
   const buyer = firstName || "A customer"
+  /* Paid in cash on delivery: the money is collected by the seller, so nothing "goes to your balance". */
+  const cash = d.bool("cashDue") === true
   const preview = free
     ? `${buyer} got ${thing} for free.`
-    : join(`${buyer} bought ${thing}.`, (netText || total) && `${netText || total} goes to your balance.`)
+    : cash
+      ? join(`${buyer} ordered ${thing}.`, total && `Collect ${total} in cash on delivery.`)
+      : join(`${buyer} bought ${thing}.`, (netText || total) && `${netText || total} goes to your balance.`)
 
   const sentence = free ? `${who} got ${thing} from your store for free.` : `${who} bought ${thing} from your store.`
   const next = fulfil?.text("nextStep", 300) ?? ""
+  const cashLine = cash ? `Paid in cash on delivery: collect ${total || "the total"} ${pickup ? "when it's picked up" : "when it's delivered"}, then press Mark as paid on the order.` : ""
   const paragraphs = first
-    ? [sentence, "Congratulations on your first sale on Storelib. Here are the details.", next]
-    : [sentence, next]
+    ? [sentence, "Congratulations on your first sale on Storelib. Here are the details.", cashLine, next]
+    : [sentence, cashLine, next]
 
   /* The order: items, totals, then what the seller receives. */
   const orderLines = lines.map((l) => {
@@ -592,9 +597,9 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   if (tip !== null && tip > 0) totals.push({ label: "Tip", value: d.moneyOf("tipCents") })
   if (tax !== null && tax > 0) totals.push({ label: d.bool("taxIncluded") ? "Tax (included)" : "Tax", value: d.moneyOf("taxCents") })
   /* Honest money: a free claim reads "Free", never $0.00. */
-  if (total) totals.push({ label: free ? "Total" : "Total paid", value: free ? "Free" : total, strong: true })
+  if (total) totals.push({ label: free ? "Total" : cash ? "Total to collect" : "Total paid", value: free ? "Free" : total, strong: true })
   const payout: SummaryRow[] = []
-  if (net !== null && netText) {
+  if (net !== null && netText && !cash) {
     if (fee !== null && fee > 0) payout.push({ label: "Storelib fee", value: `\u2212${d.moneyOf("feeCents")}` })
     payout.push({ label: "You receive", value: netText, strong: true })
   }

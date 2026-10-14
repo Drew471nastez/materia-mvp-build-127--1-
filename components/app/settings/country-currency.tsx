@@ -23,6 +23,7 @@
  * app/api/store/currency does the change in one transaction (SQL part 176).
  */
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Check } from "lucide-react"
 import { countryName } from "@/lib/checkout/countries"
 import { countryOf } from "@/lib/account/country"
@@ -72,6 +73,12 @@ export function CountryCurrency() {
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [editing, setEditing] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
+  const router = useRouter()
+  /* Every price field under /app takes its currency from the layout (app/app/layout.tsx): read again once it changes. */
+  const changed = (next: CurrencyState) => {
+    if (next.currency !== data?.currency) router.refresh()
+    setData(next)
+  }
 
   React.useEffect(() => {
     let live = true
@@ -108,7 +115,7 @@ export function CountryCurrency() {
           data={data}
           onCancel={() => setEditing(false)}
           onSaved={(next) => {
-            setData(next)
+            changed(next)
             setEditing(false)
             setSaved(true)
             window.setTimeout(() => setSaved(false), 1800)
@@ -124,7 +131,7 @@ export function CountryCurrency() {
               <span className="truncate">{data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency}</span>
             </span>
           </div>
-          {data.lastChange ? <Undo change={data.lastChange} onDone={setData} /> : null}
+          {data.lastChange ? <Undo change={data.lastChange} onDone={changed} /> : null}
         </>
       )}
     </Card>

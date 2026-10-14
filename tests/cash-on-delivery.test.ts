@@ -7,10 +7,11 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { COD_PAYMENT_METHOD, COD_PROVIDER, cashDue, codClientKey, codRefusal, paymentStateOf } from "@/lib/physical/cash-on-delivery"
+import { COD_PAYMENT_METHOD, COD_PROVIDER, cashDue, codClientKey, codCountryAllowed, codRefusal, paymentStateOf } from "@/lib/physical/cash-on-delivery"
+import { physicalTotals } from "@/lib/physical/totals"
 import { DEFAULT_CHECKOUT, checkoutConfig, mergeCheckout } from "@/lib/store/checkout-config"
 import { groupOrders, inView, isSale, type OrderRow } from "@/lib/orders/order-view"
-import { orderConfirmationEmail, type OrderEmailModel } from "@/lib/physical/email-templates"
+import { orderConfirmationEmail, refundEmail, type OrderEmailModel } from "@/lib/physical/email-templates"
 
 let passed = 0
 let failed = 0
@@ -133,10 +134,11 @@ function main() {
   check("card form: Place order with cash, Pay with card", /cashOn \? \(\s*<PayButton onClick=\{\(\) => void placeCash\(\)\}/.test(form))
   check("card form: the card fields stay drawn while cash is chosen", /cashOn && "hidden"/.test(form))
   const sitePage = read("app/checkout/site/site-checkout.tsx")
-  check("website page: offered only when on and every line is physical", /config\.cashOnDelivery && ships && !!quote && quote\.lines\.length > 0 && quote\.lines\.every\(\(l\) => l\.type === "physical"\)/.test(sitePage))
+  /* Changed on purpose: something to pay, and a country the shop takes cash in. */
+  check("website page: offered only when on and every line is physical", /config\.cashOnDelivery &&\s*ships &&\s*!!quote &&\s*quote\.lines\.length > 0 &&\s*quote\.lines\.every\(\(l\) => l\.type === "physical"\)/.test(sitePage))
   check("website page: sends action cod", /action: "cod"/.test(sitePage))
   const physPage = read("app/checkout/physical/physical-checkout.tsx")
-  check("physical page: offered only when on, everything physical, something to pay", /config\.cashOnDelivery && !!quote\?\.requiresShipping/.test(physPage) && /every\(\(l\) => l\.type === "physical"\)/.test(physPage))
+  check("physical page: offered only when on, everything physical, something to pay", /config\.cashOnDelivery &&\s*!!quote\?\.requiresShipping/.test(physPage) && /every\(\(l\) => l\.type === "physical"\)/.test(physPage))
   check("physical page: a dropped connection keeps the cash key", /if \(!cashOn\) clientKey\.current = actionKey\(\)/.test(physPage))
   const success = read("app/checkout/parts/success.tsx")
   check("the overlay says Order placed, never Payment complete", /cash \? ct\("Order placed"\)/.test(success))
@@ -168,6 +170,74 @@ function main() {
   check("the migration is the same text", read("supabase/migrations/20270114_cash_on_delivery.sql").trim() === sql.trim())
   check("listed in the run-now README", /174_cash_on_delivery\.sql/.test(read("supabase/sql/run-now/README.md")))
   check("checked after running", /p174_cash_on_delivery/.test(read("supabase/sql/run-now/99_check_after.sql")))
+
+  console.log("\nWhere, a fee and a note (Settings › Checkout)")
+  {
+    const c = checkoutConfig({ cashOnDelivery: true, codCountries: ["ro", "RO", "md", "nope", 3], codFeeCents: "1050", codInstructions: "  Have   the exact amount   ready.  " })
+    check("countries are two letter codes, once each", c.codCountries.join() === "RO,MD", c.codCountries.join())
+    check("the fee is whole hundredths", c.codFeeCents === 1050)
+    check("the note is one tidy line", c.codInstructions === "Have the exact amount ready.")
+    check("nothing set is everywhere, no fee, no note", DEFAULT_CHECKOUT.codCountries.length === 0 && DEFAULT_CHECKOUT.codFeeCents === 0 && DEFAULT_CHECKOUT.codInstructions === "")
+    check("a fee below zero or past the cap is refused", checkoutConfig({ codFeeCents: -5 }).codFeeCents === 0 && checkoutConfig({ codFeeCents: 10_000_000 }).codFeeCents === 100_000)
+    const physical = [{ type: "physical" }]
+    check("a country not on the list is refused", /isn't available for this address/.test(codRefusal({ enabled: true, lines: physical, requiresShipping: true, totalCents: 2500, countries: ["RO"], country: "DE" }) ?? ""))
+    check("a country on it is not", codRefusal({ enabled: true, lines: physical, requiresShipping: true, totalCents: 2500, countries: ["RO"], country: "ro" }) === null)
+    check("a pickup is never held to the list", codRefusal({ enabled: true, lines: physical, requiresShipping: true, totalCents: 2500, countries: ["RO"], country: null }) === null)
+    check("an empty list is everywhere", codCountryAllowed([], "DE") && codCountryAllowed(undefined, "DE"))
+  }
+
+  console.log("\nThe fee is in the total the buyer sees and the order keeps")
+  {
+    const lines = [{ productId: "p", unitCents: 2000, quantity: 1, discountCents: 0, taxable: true, digital: false }]
+    const plain = physicalTotals(lines, { shippingCents: 500 })
+    const fee = physicalTotals(lines, { shippingCents: 500, codFeeCents: 300 })
+    check("added once to the total", fee.totalCents === plain.totalCents + 300 && fee.codFeeCents === 300 && plain.codFeeCents === 0, JSON.stringify([plain.totalCents, fee.totalCents]))
+    const freeShip = physicalTotals(lines, { shippingCents: 500, freeShipping: true, codFeeCents: 300 })
+    check("a free shipping code doesn't take it off", freeShip.totalCents === 2000 + 300, JSON.stringify(freeShip))
+    const tax = { mode: "manual" as const, pricesIncludeTax: false, taxOnShipping: true, rates: [{ id: "r", country: "RO", region: null, rateBps: 1900, name: "VAT" }] }
+    const taxed = physicalTotals(lines, { shippingCents: 500, codFeeCents: 300, tax: tax as never, country: "RO" })
+    check("taxed as delivery is", taxed.taxCents === Math.round((2000 + 500 + 300) * 0.19), JSON.stringify(taxed))
+    const server = read("lib/physical/checkout-server.ts")
+    check("startCheckout prices with the fee only when cash is asked and on", /const wantsCod = input\.cashOnDelivery === true && config\.cashOnDelivery/.test(server) && /codFeeCents: wantsCod \? config\.codFeeCents : 0/.test(server))
+    check("a cart with nothing else to pay is placed free, never for a fee alone", /a fee alone is never charged/.test(server))
+    check("the fee is kept inside the delivery charge and named", /shipping_cents: totals\.shippingCents \+ totals\.codFeeCents/.test(server) && /cod_fee_cents: totals\.codFeeCents/.test(server))
+    check("the server checks the delivery country", /countries: config\.codCountries, country: pickup \? null : \(address\?\.country \?\? null\)/.test(server))
+    const quote = read("lib/checkout/site-quote-server.ts")
+    check("both quotes ask with the payment method, so the page shows the server's total", /export async function codFeeFor/.test(quote) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode \} : null, body\.deliveryOptionId, \{ codFeeCents \}\)/.test(quote) && /codFeeFor\(db, priced\.creatorId, body, country\)/.test(read("app/api/physical/checkout/quote/route.ts")))
+    const site = read("app/checkout/site/site-checkout.tsx")
+    const shipped = read("app/checkout/physical/physical-checkout.tsx")
+    check("the website checkout asks again when cash is chosen and shows the fee line", /byCash && config\.cashOnDelivery \? \{ cashOnDelivery: true \}/.test(site) && /data-cod-fee/.test(site) && /onChoose: setByCash/.test(site))
+    check("so does the shipped checkout", /byCash && config\.cashOnDelivery \? \{ cashOnDelivery: true \}/.test(shipped) && /data-cod-fee/.test(shipped))
+    check("both offer cash only for a country on the list", /codCountryAllowed\(config\.codCountries, address\.country\)/.test(site) && /codCountryAllowed\(config\.codCountries, address\.country\)/.test(shipped))
+    check("both show the shop's note under the choice", /instructions: config\.codInstructions/.test(site) && /config\.codInstructions \?/.test(shipped))
+    const mail = orderConfirmationEmail({ ...model, totals: { ...model.totals, shipping: 800, total: 2800, codFee: 300 }, cashDue: true, cashNote: "Have the exact amount ready." })
+    check("the email shows the fee on its own row, shipping without it", /Cash on delivery fee: \D*3[.,]00/.test(mail.text) && /Shipping: \D*5[.,]00/.test(mail.text), mail.text)
+    check("and the shop's note after what to pay", /in cash when it's delivered\. Have the exact amount ready\./.test(mail.text))
+  }
+
+  console.log("\nRefused, not picked up, and the bugs the audit found")
+  {
+    const orders = read("lib/physical/orders-server.ts")
+    check("refused on delivery: only a cash order still to collect", /export async function refusedOnDelivery/.test(orders) && /order\.payment !== "cod_due"/.test(orders))
+    check("what went out comes back as a return the shop opened, restocked when received", /openReturn\(db, checkoutId, \{ creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery" \}\)/.test(orders) && /restock: true/.test(orders))
+    check("nothing is refunded; the lines stop being a sale; the order is cancelled with the reason", /cancel_reason: "Refused on delivery"/.test(orders) && /update\(\{ status: "failed" \}\)\.eq\("checkout_id", checkoutId\)\.eq\("payment_method", COD_PAYMENT_METHOD\)/.test(orders))
+    const route = read("app/api/physical/orders/[id]/route.ts")
+    check("the order route takes it", /case "cash_refused"/.test(route) && /refusedOnDelivery\(/.test(route))
+    const panel = read("components/physical/order-panel.tsx")
+    check("the order panel offers it beside Mark as paid, asked first", /action: "cash_refused"/.test(panel) && /Refused on delivery/.test(panel) && /Not picked up/.test(panel))
+    const siteRoute = read("app/api/checkout/site/route.ts")
+    check("a cart a code takes to 0 is placed once, never answered 'press Place order' after it was placed", !/This order is free\. Press Place order\./.test(siteRoute) && /res\.ok && res\.data\.free && typeof res\.data\.thanks === "string"/.test(read("app/checkout/site/site-checkout.tsx")))
+    check("a voided cash order never reads paid on the timeline", /order\.payment === "voided"/.test(read("lib/orders/timeline.ts")))
+    check("You receive waits until the cash is collected", /order\.payment === "cash_due" \? 0 : order\.totalCents/.test(read("app/app/orders/order-detail.tsx")))
+    check("the thank you page stops asking for cash once collected or cancelled", /co\.provider === "cod" && !co\.cod_collected_at && !co\.cancelled_at/.test(read("app/checkout/site/thanks/[token]/page.tsx")))
+    check("a second Place order racing the first gets the placed order", /the other press wrote it first/.test(read("lib/physical/checkout-server.ts")))
+    check("a cash order that failed to save gives its code's place back", /if \(holder && priced\.coupon\) await releaseCouponHold\(db, priced\.coupon\.id, holder\)/.test(read("lib/physical/checkout-server.ts")))
+    const refund = refundEmail({ shopName: "Clay", orderNumber: "#1", buyerFirstName: "Ana", amountCents: 500, refundedCents: 500, totalCents: 2500, currency: "EUR", paymentLabel: "Cash on delivery", statusUrl: "https://example.com", cash: true })
+    check("a cash refund's email names no card or bank", /give it back to you directly/.test(refund.text) && !/to your Cash on delivery|Banks usually/.test(refund.text), refund.text)
+    check("the seller's sale email says to collect cash, not that money goes to the balance", /cashDue: co\.provider === "cod"/.test(read("lib/notify/seller-commerce.ts")) && /Total to collect/.test(read("lib/notify/templates/catalog.ts")) && /if \(net !== null && netText && !cash\)/.test(read("lib/notify/templates/catalog.ts")))
+    const due = groupOrders([{ id: "1", product_id: "p", amount_cents: 2500, currency: "eur", status: "completed", created_at: "2026-10-01T00:00:00Z", payment_method: COD_PAYMENT_METHOD, physical_cash_due: true } as unknown as OrderRow])
+    check("Orders has a Cash to collect view with it in", due.length === 1 && inView(due[0], "cash") && !inView(due[0], "paid"), due[0]?.payment)
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

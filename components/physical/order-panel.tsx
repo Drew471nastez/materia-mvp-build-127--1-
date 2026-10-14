@@ -295,6 +295,19 @@ export function PhysicalFulfillment({
             {pickup ? tt("{amount} to collect when it's picked up.", { amount: money(order.totalCents - order.refundedCents, order.currency) }) : tt("{amount} to collect when it's delivered.", { amount: money(order.totalCents - order.refundedCents, order.currency) })}
           </p>
           <div className="mt-3 flex flex-wrap justify-end gap-2">
+            {/* The buyer would not pay, or it could not be delivered: nothing to refund, and what went out comes back as a return. */}
+            <button
+              type="button"
+              className={cn(buttonSecondary, "h-9 sm:h-8")}
+              disabled={busy}
+              data-cash-refused=""
+              onClick={() => {
+                if (!window.confirm(pickup ? tt("Mark this order as not picked up? It is cancelled, nothing is refunded, and its stock goes back.") : tt("Mark this order as refused on delivery? It is cancelled, nothing is refunded, and what was sent comes back as a return."))) return
+                void run({ action: "cash_refused" }, tt("Marked as refused"))
+              }}
+            >
+              {pickup ? tt("Not picked up") : tt("Refused on delivery")}
+            </button>
             <button
               type="button"
               className={cn(buttonPrimary, "h-9 sm:h-8")}

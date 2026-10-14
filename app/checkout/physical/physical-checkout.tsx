@@ -25,6 +25,7 @@
  * Pay opens Stripe's own page as before.
  */
 
+import { codCountryAllowed } from "@/lib/physical/cash-on-delivery"
 import * as React from "react"
 import { includedTaxLabel } from "@/lib/tax/rules"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
@@ -73,7 +74,7 @@ interface Quote {
   couponError: string | null
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean; needsRegion?: boolean }
   pickups?: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
-  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string }
+  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string; codFeeCents?: number }
   /* The store's upsells and bundles (lib/offers): what this cart got, and what it could add. */
   offers?: { title: string; savedCents: number }[]
   suggestions?: Suggestion[]
@@ -214,7 +215,8 @@ export function PhysicalCheckout({
         const res = await fetch("/api/physical/checkout/quote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email }),
+          /* Paying on delivery is asked with it: the total then has the shop's fee in it, as the order will. */
+          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email, ...(byCash && config.cashOnDelivery ? { cashOnDelivery: true } : {}) }),
         })
         const data = await res.json().catch(() => ({}))
         if (n !== ask.current) return
@@ -244,7 +246,7 @@ export function PhysicalCheckout({
     }, 250)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, optionId])
+  }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, optionId, byCash])
 
   /* A checkout offer taken: into the order, and the cart's too when the cart is where it came from. The server prices it again. */
   const addSuggestion = (sg: Suggestion, v: { id: string; name: string; priceCents: number } | null) => {
@@ -407,7 +409,15 @@ export function PhysicalCheckout({
   })()
   const canPay = !!quote && quote.lines.length > 0 && quote.stockIssues.length === 0 && !missing && !paying && !quoting
   /* Offered when the shop takes cash, everything ships or is picked up, and there is something to pay (codRefusal says the same on the server). */
-  const cashOffered = config.cashOnDelivery && !!quote?.requiresShipping && !!quote && quote.lines.length > 0 && quote.lines.every((l) => l.type === "physical") && (quote.totals.totalCents ?? 0) > 0
+  const cashOffered =
+    config.cashOnDelivery &&
+    !!quote?.requiresShipping &&
+    !!quote &&
+    quote.lines.length > 0 &&
+    quote.lines.every((l) => l.type === "physical") &&
+    (quote.totals.totalCents ?? 0) > 0 &&
+    /* Only to the countries the shop takes cash in; a pickup is paid where it is picked up. */
+    (mode === "pickup" || codCountryAllowed(config.codCountries, address.country))
   const cashOn = cashOffered && byCash
 
   const t = quote?.totals
@@ -518,6 +528,12 @@ export function PhysicalCheckout({
             <div className="flex justify-between">
               <dt className="text-[#4b5563]">{mode === "pickup" ? "Pickup" : "Shipping"}</dt>
               <dd className="tabular-nums text-[#1a1a2e]">{mode === "pickup" ? "Free" : !optionId ? (quote.delivery.needsRegion ? `Choose your ${(addressFormat(address.country).region?.label ?? "state").toLowerCase()}` : address.country ? "Not available" : "Enter your address") : t.shippingCents - t.shippingDiscountCents === 0 ? "Free" : money(t.shippingCents - t.shippingDiscountCents)}</dd>
+            </div>
+          ) : null}
+          {(t.codFeeCents ?? 0) > 0 ? (
+            <div className="flex justify-between" data-cod-fee="">
+              <dt className="text-[#4b5563]">Cash on delivery fee</dt>
+              <dd className="tabular-nums text-[#1a1a2e]">{money(t.codFeeCents ?? 0)}</dd>
             </div>
           ) : null}
           {t.taxCents > 0 ? (
@@ -872,9 +888,13 @@ export function PhysicalCheckout({
                   ))}
                 </div>
                 {cashOn && t ? (
-                  <p data-cash-note="" className="mt-2 text-[13.5px] leading-5 text-[#4b5563]">
-                    {mode === "pickup" ? `Pay ${money(t.totalCents)} in cash when you pick it up.` : `Pay ${money(t.totalCents)} in cash when it's delivered.`}
-                  </p>
+                  <div data-cash-note="" className="mt-2 space-y-1 text-[13.5px] leading-5 text-[#4b5563]">
+                    <p>{mode === "pickup" ? `Pay ${money(t.totalCents)} in cash when you pick it up.` : `Pay ${money(t.totalCents)} in cash when it's delivered.`}</p>
+                    {/* The shop's own words for it (Settings › Checkout), as the order email repeats them. */}
+                    {config.codInstructions ? <p data-cash-instructions="">{config.codInstructions}</p> : null}
+                  </div>
+                ) : !cashOn && config.cashOnDelivery && (t?.codFeeCents ?? 0) === 0 && config.codFeeCents > 0 && cashOffered ? (
+                  <p className="mt-2 text-[13.5px] leading-5 text-[#4b5563]">{`Cash on delivery adds a fee of ${money(config.codFeeCents)}.`}</p>
                 ) : null}
               </div>
             ) : null}

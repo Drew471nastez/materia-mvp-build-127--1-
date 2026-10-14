@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
-import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, loadOrder, markCashCollected, markProcessing, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
+import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, loadOrder, markCashCollected, markProcessing, refusedOnDelivery, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
@@ -41,7 +41,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
  *   return_move approve, decline, receive (restock), close a return
  *   refunded    after the existing refund route refunded lines: catch up
  */
-const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", tracking_auto: "order.shipment", cancel: "order.cancelled", cancel_decline: "order.cancel_declined", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded", cash_collected: "order.cash_collected" }
+const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", tracking_auto: "order.shipment", cancel: "order.cancelled", cancel_decline: "order.cancel_declined", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded", cash_collected: "order.cash_collected", cash_refused: "order.cash_refused" }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const c = await physicalCaller("orders")
@@ -124,6 +124,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     /* Cash on delivery, received (lib/physical/cash-on-delivery.ts): the order reads Paid from now on. */
     case "cash_collected":
       result = await markCashCollected(c.db, c.creatorId, id)
+      break
+    /* Cash on delivery refused at the door: nothing to refund; what went out comes back as a return. */
+    case "cash_refused":
+      result = await refusedOnDelivery(c.db, c.creatorId, id)
       break
     default:
       return physicalJson({ error: "Unknown action." }, 400)

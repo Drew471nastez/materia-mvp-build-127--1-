@@ -196,7 +196,8 @@ function world() {
 }
 
 const B_IDS = ["pb1", "ob1", "sb1", "eb1", "fb1", "cb1", "qb1", "LAUNCHB", "jane.b@example.com", "jane.sub@b.com"]
-const CREATOR_TABLES = ["products", "subscribers", "email_campaigns", "email_flows", "product_collections", "coupons"]
+/* store_settings: the store's currency, which prices and fixed coupons are written in (Settings › Country & Currency). */
+const CREATOR_TABLES = ["products", "subscribers", "email_campaigns", "email_flows", "product_collections", "coupons", "store_settings"]
 
 function leaks(result: Awaited<ReturnType<typeof searchCreator>>): string[] {
   const text = JSON.stringify(result)
@@ -296,7 +297,8 @@ async function main() {
     const db = fakeDb(world())
     const r = await searchCreator(db, A, "launch", { groups: new Set(["products", "collections", "coupons"]) })
     const tables = [...new Set(db.calls.map((c) => c.table))].sort().join()
-    check("a role with products reads products, collections and coupons and nothing else", tables === "coupons,product_collections,products", tables)
+    /* Changed on purpose: and the store's currency, to write their prices in. */
+    check("a role with products reads products, collections and coupons and nothing else", tables === "coupons,product_collections,products,store_settings", tables)
     check("and no order, buyer or email comes back", r.groups.orders.length === 0 && r.groups.customers.length === 0 && r.groups.emails.length === 0 && r.groups.products.length > 0)
   }
 

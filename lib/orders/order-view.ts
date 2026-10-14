@@ -381,7 +381,7 @@ export function startOfDay(ms: number, timeZone: string): number {
 
 /* ─── The list: views, search, filters, pages ─────────────────────────── */
 
-export type View = "all" | "unfulfilled" | "returns" | "paid" | "pending" | "refunded"
+export type View = "all" | "unfulfilled" | "returns" | "cash" | "paid" | "pending" | "refunded"
 
 export const VIEWS: Array<{ value: View; label: string }> = [
   { value: "all", get label() { return tt("All") } },
@@ -389,6 +389,8 @@ export const VIEWS: Array<{ value: View; label: string }> = [
   { value: "unfulfilled", get label() { return tt("Unfulfilled") } },
   /* Returns a buyer asked for and nobody has finished: where Home's "returns to review" line opens. Shown only while there is one. */
   { value: "returns", get label() { return tt("Returns") } },
+  /* Cash on delivery still to collect (lib/physical/cash-on-delivery.ts): what to press Mark as paid on. Shown only while there is one. */
+  { value: "cash", get label() { return tt("Cash to collect") } },
   { value: "paid", get label() { return tt("Paid") } },
   { value: "pending", get label() { return tt("Payment pending") } },
   { value: "refunded", get label() { return tt("Refunded") } },
@@ -406,6 +408,8 @@ export function inView(order: Order, view: View): boolean {
       return (order.shipping?.stage === "unfulfilled" || order.shipping?.stage === "partially_fulfilled") && order.payment !== "refunded" && isSale(order)
     case "returns":
       return order.shipping?.returnOpen === true
+    case "cash":
+      return order.payment === "cash_due"
     case "paid":
       return order.payment === "paid"
     case "pending":

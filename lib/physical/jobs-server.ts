@@ -14,6 +14,7 @@ import "server-only"
  * so two runs never send the same email.
  */
 
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { createHmac } from "node:crypto"
 import https from "node:https"
 import type net from "node:net"
@@ -549,6 +550,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   if (p.template === "confirmation") {
     /* How it was paid: optional, the email reads without it. */
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
+    /* Paid on delivery: the shop's own note for it (Settings › Checkout), under the amount to have ready. */
+    const cashNote = co.provider === COD_PROVIDER && !co.cod_collected_at ? (await loadCheckoutConfig(db, co.creator_id)).codInstructions || null : null
     mail = say(() =>
       orderConfirmationEmail({
       storeUrl: store.websiteUrl,
@@ -570,6 +573,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         taxLabel: typeof co.shipping_rate?.tax_label === "string" ? co.shipping_rate.tax_label : null,
         total: co.total_cents,
         currency: co.currency,
+        /* Cash on delivery's fee, kept inside shipping (lib/physical/checkout-server): its own row. */
+        codFee: Number(co.shipping_rate?.cod_fee_cents) || 0,
       },
       address: addressOf(co.shipping_address),
       deliveryName: co.shipping_rate?.name ?? null,
@@ -581,6 +586,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       copy: copyFor("order_confirmation", co.lines),
       orderDate,
       cashDue: co.provider === COD_PROVIDER && !co.cod_collected_at,
+      cashNote,
     }),
     )
   } else if (p.template === "shipment") {
@@ -660,7 +666,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     mail = say(() => orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate }))
   } else if (p.template === "refund") {
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
-    mail = say(() => refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate }))
+    mail = say(() => refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate, cash: paidRow?.payment_method === COD_PAYMENT_METHOD }))
   } else {
     return
   }

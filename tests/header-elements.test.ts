@@ -216,7 +216,7 @@ function main() {
   check("the live shop and search prefer what the creator saved",
     /site\.pages\.products/.test(read("app/(site)/w/[username]/products/page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))
   check("the canvas tells the field which site it is, so it can ask",
-    /* Changed on purpose (round AE): the shop's words in the language previewed. */ /* And the market previewed (display). */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)?(, display)? \}\), \[installId(, words)?(, display)?\]\)/.test(editor) && /storefront=\{storefront\}/.test(editor)
+    /* Changed on purpose (round AE): the shop's words in the language previewed. */ /* And the market previewed (display). */ /* And the store's currency. */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)?(, display)?(, currency)? \}\), \[installId(, words)?(, display)?(, currency)?\]\)/.test(editor) && /storefront=\{storefront\}/.test(editor)
       && /install=\$\{encodeURIComponent\(installId\)\}/.test(header))
 
   console.log("\n  the field draws nothing native")

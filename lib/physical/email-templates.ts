@@ -43,6 +43,8 @@ export interface EmailTotals {
   taxLines?: { label: string; cents: number }[] | null
   /** The tax's name as the checkout set it ("VAT 19%", shipping_rate.tax_label, SQL part 153); "Tax" without one. */
   taxLabel?: string | null
+  /** Cash on delivery's fee, inside `shipping` as the order keeps it (shipping_rate.cod_fee_cents): its own row here. */
+  codFee?: number | null
 }
 
 function esc(value: unknown): string {
@@ -192,12 +194,20 @@ function linesTable(k: EmailKit, lines: EmailLine[], currency: string, prices = 
   )
 }
 
+/** Delivery and cash on delivery's fee apart, though the order keeps them as one amount. */
+function deliveryParts(t: EmailTotals): { fee: number; shipped: number; shipping: number } {
+  const fee = Math.max(0, Math.min(t.codFee ?? 0, t.shipping))
+  const shipped = t.shipping - fee
+  return { fee, shipped, shipping: shipped - t.shippingDiscount }
+}
+
 function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value: string; tone?: "good" }[] = []): string {
-  const shipping = t.shipping - t.shippingDiscount
+  const { fee, shipped, shipping } = deliveryParts(t)
   return k.totals([
     { label: et("Subtotal"), value: formatMoney(t.subtotal, t.currency) },
     ...(t.discount > 0 ? [{ label: et("Discount"), value: `-${formatMoney(t.discount, t.currency)}` }] : []),
-    ...(t.shipping > 0 || t.shippingDiscount > 0 ? [{ label: et("Shipping"), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
+    ...(shipped > 0 || t.shippingDiscount > 0 ? [{ label: et("Shipping"), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
+    ...(fee > 0 ? [{ label: et("Cash on delivery fee"), value: formatMoney(fee, t.currency) }] : []),
     ...taxRows(t),
     { label: et("Total"), value: formatMoney(t.total, t.currency), strong: true },
     ...extra,
@@ -224,11 +234,12 @@ function taxRows(t: EmailTotals): { label: string; value: string }[] {
 
 /** The money as the plain text part says it, every row the HTML has. */
 function totalsText(t: EmailTotals): string[] {
-  const shipping = t.shipping - t.shippingDiscount
+  const { fee, shipped, shipping } = deliveryParts(t)
   return [
     `${et("Subtotal")}: ${formatMoney(t.subtotal, t.currency)}`,
     ...(t.discount > 0 ? [`${et("Discount")}: -${formatMoney(t.discount, t.currency)}`] : []),
-    ...(t.shipping > 0 || t.shippingDiscount > 0 ? [`${et("Shipping")}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
+    ...(shipped > 0 || t.shippingDiscount > 0 ? [`${et("Shipping")}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
+    ...(fee > 0 ? [`${et("Cash on delivery fee")}: ${formatMoney(fee, t.currency)}`] : []),
     ...taxRows(t).map((r) => `${r.label}: ${r.value}`),
     `${et("Total")}: ${formatMoney(t.total, t.currency)}`,
   ]
@@ -270,6 +281,8 @@ export interface OrderEmailModel {
   orderDate?: string | null
   /** Paid in cash when it arrives (lib/physical/cash-on-delivery.ts): the email says how much to have ready. */
   cashDue?: boolean
+  /** The shop's own note for paying on delivery (Settings › Checkout), after that line. */
+  cashNote?: string | null
 }
 
 /** Where a pickup order is collected: the place, when it is usually ready, its opening hours and the store's instructions. */
@@ -317,7 +330,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
       ? name ? et("Hi {name}, we're getting your order ready to be shipped. We'll let you know when it's on its way.", { name }) : et("We're getting your order ready to be shipped. We'll let you know when it's on its way.")
       : name ? et("Hi {name}, your order is confirmed and everything is on your order page.", { name }) : et("Your order is confirmed and everything is on your order page.")
   const amount = formatMoney(m.totals.total, m.totals.currency)
-  const cash = m.cashDue ? ` ${m.pickup ? et("Pay {amount} in cash when you pick it up.", { amount }) : et("Pay {amount} in cash when it's delivered.", { amount })}` : ""
+  const cash = m.cashDue ? ` ${m.pickup ? et("Pay {amount} in cash when you pick it up.", { amount }) : et("Pay {amount} in cash when it's delivered.", { amount })}${m.cashNote ? ` ${m.cashNote}` : ""}` : ""
   const intro = (m.copy?.introHtml ?? `${next}${m.hasDownloads ? ` ${et("Your downloads are on your order page.")}` : ""}`) + esc(cash)
   const saved = m.totals.discount + m.totals.shippingDiscount
   const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `<br>${esc(m.deliveryEstimate)}` : ""}` : null
@@ -638,7 +651,7 @@ export function orderCancelledEmail(m: { shopName: string; orderNumber: string; 
 }
 
 /** Money went back: how much this time, how much in all, and when it shows. */
-export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null }): {
+export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null; cash?: boolean }): {
   subject: string
   html: string
   text: string
@@ -649,7 +662,12 @@ export function refundEmail(m: { shopName: string; orderNumber: string; buyerFir
   const r = { name: m.buyerFirstName ? esc(m.buyerFirstName) : "", amount: esc(formatMoney(m.amountCents, m.currency)), method: m.paymentLabel ? esc(m.paymentLabel) : "" }
   const intro =
     m.copy?.introHtml ??
-    (m.buyerFirstName
+    /* Paid in cash on delivery: there is no card or bank to send it to, the shop gives it back itself. */
+    (m.cash
+      ? m.buyerFirstName
+        ? et("{name}, the shop refunded {amount} of your order. You paid in cash, so they give it back to you directly.", r)
+        : et("The shop refunded {amount} of your order. You paid in cash, so they give it back to you directly.", r)
+      : m.buyerFirstName
       ? m.paymentLabel
         ? et("{name}, we sent you a refund of {amount} to your {method}. Banks usually take 5 to 10 business days to show it.", r)
         : et("{name}, we sent you a refund of {amount} to your original payment method. Banks usually take 5 to 10 business days to show it.", r)
