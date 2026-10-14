@@ -120,3 +120,64 @@
   --tw-shadow: 0 0 0 2px #171a21;
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
+
+/* Round 26: the rest of the neutrals the member pages draw with, so nothing stays a light patch in dark. */
+[data-community-theme="dark"] .bg-\[\#fafafb\],
+[data-community-theme="dark"] .bg-\[\#f6f7f9\],
+[data-community-theme="dark"] .bg-\[\#f7f7f8\] {
+  background-color: #0e1014;
+}
+
+[data-community-theme="dark"] .bg-\[\#f4f5f7\] {
+  background-color: #242833;
+}
+
+[data-community-theme="dark"] .bg-\[\#d9dce1\] {
+  background-color: #3a404c;
+}
+
+[data-community-theme="dark"] .border-\[\#f0f1f3\],
+[data-community-theme="dark"] .border-\[\#eef0f3\],
+[data-community-theme="dark"] .border-\[\#eef0f2\],
+[data-community-theme="dark"] .border-\[\#e8e9ec\],
+[data-community-theme="dark"] .border-\[\#e8eaee\],
+[data-community-theme="dark"] .border-\[\#e9ecf0\],
+[data-community-theme="dark"] .border-\[\#e3e5e8\],
+[data-community-theme="dark"] .border-\[\#d9dce1\] {
+  border-color: #2c313c;
+}
+
+[data-community-theme="dark"] .border-\[\#1a1a2e\] {
+  border-color: #f4f5f7;
+}
+
+[data-community-theme="dark"] .text-\[\#262633\] {
+  color: #f4f5f7;
+}
+
+[data-community-theme="dark"] .text-\[\#3f4652\] {
+  color: #c5c9d2;
+}
+
+/* The fades at the ends of a sideways row (the section tabs, the space pills) fade into the dark surface, not white. */
+[data-community-theme="dark"] .from-white {
+  --tw-gradient-from: #171a21;
+}
+
+[data-community-theme="dark"] .from-\[\#f8f9fa\] {
+  --tw-gradient-from: #0e1014;
+}
+
+/*
+  THE SWITCH BETWEEN LIGHT AND DARK (round 26, lib/communities/client/appearance-choice.ts):
+  for the moment of the switch everything eases to its new colour together, so the page
+  turns rather than cuts. Colours only; nothing moves. Taken off again right after.
+*/
+html.community-theme-switching,
+html.community-theme-switching *,
+html.community-theme-switching *::before,
+html.community-theme-switching *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow !important;
+  transition-duration: 320ms !important;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
+}

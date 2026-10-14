@@ -156,7 +156,8 @@ console.log("\nBADGE: red again")
 console.log("\nABOUT: the same columns")
 {
   const pub = code("components/community/public/public-frame.tsx")
-  check("the visitor's frame is the member frame's grid, the bar wide, the card on the left until 1280px (round 15: About's own card carries it from there)", /<CommunityTopBar data=\{topBar\} wide \/>/.test(pub) && /lg:grid-cols-\[260px_minmax\(0,1fr\)\][^"]*xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(pub) && /<WallCommunityCard community=\{card\.community\} card=\{card\.card\} membersHref=\{null\} \/>/.test(pub) && /lg:block xl:hidden/.test(pub) && /xl:col-span-full xl:col-start-1/.test(pub))
+  /* Changed on purpose (round 26): the visitor's bar carries the light and dark switch in its "..." menu. */
+  check("the visitor's frame is the member frame's grid, the bar wide, the card on the left until 1280px (round 15: About's own card carries it from there)", /<CommunityTopBar data=\{topBar\} wide menu=\{menu\} \/>/.test(pub) && /lg:grid-cols-\[260px_minmax\(0,1fr\)\][^"]*xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(pub) && /<WallCommunityCard community=\{card\.community\} card=\{card\.card\} membersHref=\{null\} \/>/.test(pub) && /lg:block xl:hidden/.test(pub) && /xl:col-span-full xl:col-start-1/.test(pub))
   const sales = code("components/community/public/sales-page.tsx")
   check("round 15: from 1280px About is one centred page of 1120px, the sheet and its 320px card", /xl:mx-auto xl:grid xl:max-w-\[1120px\] xl:grid-cols-\[minmax\(0,1fr\)_320px\] xl:gap-7/.test(sales))
   const shell = readSource("components/community/member/shell.tsx")

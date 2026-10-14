@@ -360,7 +360,7 @@ async function main() {
   /* ── Settings and the shell ──────────────────────────────────────────── */
   console.log("\nsettings")
   check("old tab names land on the tab that holds them now", settingsTabOf("general") === "page" && settingsTabOf("discovery") === "access" && settingsTabOf("gamification") === "gamification" && settingsTabOf("nonsense") === "page" && settingsTabOf(undefined) === "page")
-  check("Gamification is a Settings tab, not a section of its own", !/id: "gamification"/.test(code("components/community/creator/community-shell.tsx")) && /redirect\(`\/app\/community\/\$\{ctx\.community\.id\}\/settings\?tab=gamification`\)/.test(code("app/app/community/[id]/gamification/page.tsx")))
+  check("Gamification is a Settings tab, not a section of its own", !/id: "gamification"/.test(code("components/community/creator/community-shell.tsx")) && /redirect\(`\/app\/community\/\$\{ctx\.community\.slug\}\/settings\?tab=gamification`\)/.test(code("app/app/community/[id]/gamification/page.tsx")))
   check("lists are one card: views and actions in its first row (ListCard)", ["members", "moderation", "feed", "events", "spaces", "classroom"].every((f) => /<ListCard/.test(code(`components/community/creator/${f}-section.tsx`))))
 
   /* ── Routes ──────────────────────────────────────────────────────────── */

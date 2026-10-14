@@ -34,7 +34,8 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
-import { Plus, Trash2, X } from "lucide-react"
+import { Check, ChevronDown, Plus, Trash2, X } from "lucide-react"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
@@ -58,69 +59,138 @@ import { tt, ttx } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
 
-const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can"] }[] = [
-  { value: "page", get label() { return tt("Page") }, needs: "manage_settings" },
-  { value: "access", get label() { return tt("Access") }, needs: "manage_settings" },
-  { value: "features", get label() { return tt("Features") }, needs: "manage_settings" },
-  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings" },
+type SettingsGroup = "community" | "people" | "account"
+
+const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can"]; group: SettingsGroup }[] = [
+  { value: "page", get label() { return tt("Page") }, needs: "manage_settings", group: "community" },
+  { value: "access", get label() { return tt("Access") }, needs: "manage_settings", group: "community" },
+  { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community" },
+  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people" },
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
-  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership" },
-  { value: "gamification", get label() { return tt("Gamification") }, needs: "manage_gamification" },
-  { value: "notifications", get label() { return tt("Notifications") }, needs: "view" },
-  { value: "advanced", get label() { return tt("Advanced") }, needs: "archive" },
+  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership", group: "people" },
+  { value: "gamification", get label() { return tt("Gamification") }, needs: "manage_gamification", group: "people" },
+  { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "account" },
+  { value: "advanced", get label() { return tt("Advanced") }, needs: "archive", group: "account" },
 ]
 
+const GROUPS: { id: SettingsGroup; label: string }[] = [
+  { id: "community", get label() { return tt("Community") } },
+  { id: "people", get label() { return tt("Members") } },
+  { id: "account", get label() { return tt("More") } },
+]
+
+/*
+  SETTINGS IS A COLUMN, NOT A SECOND ROW OF PILLS. The community's own tabs
+  are the row at the top; a second row of eight under them read as two
+  menus fighting. From 1024px the settings are the /app Settings page's
+  column of groups (components/app/settings-form-new.tsx data-settings-groups),
+  beside the one open. Below it, one compact control names the open one and
+  opens the same list as the shared bottom sheet (ResponsiveActionMenu).
+
+  A PANEL YOU LEFT KEEPS WHAT YOU TYPED. Each panel stays mounted once it has
+  been opened and is only hidden while another is showing, so going to
+  Access and back to Page does not throw away an unsaved name.
+*/
 export function SettingsSection({ head, data, tab: initialTab, videoProviders = [] }: { head: CommunityHead; data: SettingsData; tab: SettingsTab; videoProviders?: ProviderLine[] }) {
   const tabs = TABS.filter((t) => head.can[t.needs])
   const [tab, setTab] = React.useState<SettingsTab>(tabs.some((t) => t.value === initialTab) ? initialTab : (tabs[0]?.value ?? "notifications"))
+  const [opened, setOpened] = React.useState<Set<SettingsTab>>(() => new Set([tab]))
   const choose = (t: SettingsTab) => {
     setTab(t)
+    setOpened((was) => (was.has(t) ? was : new Set(was).add(t)))
     const url = new URL(window.location.href)
     url.searchParams.set("tab", t)
     window.history.replaceState(window.history.state, "", url.pathname + url.search)
   }
-  /* The tab you are on is in view on a phone, where the row scrolls sideways (Roles sits past the edge). */
-  const strip = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
-    const s = strip.current
-    const el = s?.querySelector<HTMLElement>('[aria-selected="true"]')
-    if (!s || !el) return
-    const left = el.offsetLeft - s.offsetLeft
-    if (left < s.scrollLeft || left + el.offsetWidth > s.scrollLeft + s.clientWidth) s.scrollTo({ left: Math.max(0, left - 24), behavior: "auto" })
-  }, [tab])
-  return (
-    <div data-settings="" data-tab={tab}>
-      <div ref={strip} role="tablist" aria-label={tt("Settings")} className="app-gutter-bleed mb-4 flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide md:mx-0 md:px-0">
-        {tabs.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.value}
-            data-settings-tab={t.value}
-            onClick={() => choose(t.value)}
-            className={cn(
-              "inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition-colors duration-100 sm:text-[14px] max-md:h-10",
-              tab === t.value ? "border-[#d1d5db] bg-[#f3f4f6] text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)]" : "border-transparent text-[#6b7280] hover:bg-[#f3f4f6]/70",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+  const current = tabs.find((t) => t.value === tab)
+  const menu = React.useMemo<ActionMenuItem[]>(() => {
+    const out: ActionMenuItem[] = []
+    for (const g of GROUPS) {
+      const list = tabs.filter((t) => t.group === g.id)
+      list.forEach((t, i) =>
+        out.push({
+          label: t.label,
+          icon: t.value === tab ? <Check className="h-4 w-4" aria-hidden /> : <span aria-hidden className="h-4 w-4" />,
+          onClick: () => choose(t.value),
+          section: i === 0 ? g.label : undefined,
+        }),
+      )
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, tabs.length])
+  const panel = (t: SettingsTab, node: React.ReactNode) =>
+    opened.has(t) || tab === t ? (
+      <div key={t} hidden={tab !== t} data-settings-panel={t}>
+        {node}
       </div>
-      {tab === "page" ? <PageSettings head={head} data={data} /> : null}
-      {tab === "access" ? (
-        <div className="space-y-4">
-          <Access head={head} data={data} />
-          <Discovery head={head} data={data} />
+    ) : null
+  return (
+    <div data-settings="" data-tab={tab} className="lg:grid lg:grid-cols-[196px_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[128px] hidden lg:block">
+        {GROUPS.map((g) => {
+          const list = tabs.filter((t) => t.group === g.id)
+          if (!list.length) return null
+          return (
+            <div key={g.id} className="mb-1 last:mb-0" data-settings-group={g.id}>
+              <p className="px-3 pb-1 pt-4 text-[12px] font-medium text-[#9ca3af] first:pt-0">{g.label}</p>
+              {list.map((t) => {
+                const on = tab === t.value
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    aria-current={on ? "page" : undefined}
+                    data-settings-tab={t.value}
+                    onClick={() => choose(t.value)}
+                    className={cn(
+                      "flex h-9 w-full items-center rounded-[10px] px-3 text-left text-[14px] outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]",
+                      on ? "bg-[#e9e9eb] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,18,27,0.08),inset_0_0_0_1px_rgba(16,18,27,0.05)]" : "text-[#4b5563] hover:bg-[#f1f1f3] hover:text-[#1a1a2e]",
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })}
+      </nav>
+      <div className="min-w-0">
+        {/* Below 1024px: one control that names the open settings and opens the list. */}
+        <div className="mb-4 lg:hidden" data-settings-picker="">
+          <ResponsiveActionMenu
+            title={tt("Settings")}
+            align="start"
+            menuWidth="w-64"
+            items={menu}
+            trigger={
+              <button type="button" className="flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 active:bg-[#f6f7f8] sm:w-[280px]">
+                <span className="min-w-0 truncate text-[14px]">
+                  <span className="text-[#6b7280]">{tt("Settings")}</span>
+                  <span className="px-1.5 text-[#d1d5db]">/</span>
+                  <span className="font-medium text-[#1a1a2e]">{current?.label}</span>
+                </span>
+                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
+              </button>
+            }
+          />
         </div>
-      ) : null}
-      {tab === "features" ? <Features head={head} data={data} /> : null}
-      {tab === "policies" ? <Policies head={head} data={data} /> : null}
-      {tab === "roles" && data.roles ? <Roles head={head} roles={data.roles} /> : null}
-      {tab === "notifications" ? <Notifications head={head} data={data} /> : null}
-      {tab === "gamification" ? <GamificationPanel head={head} levels={data.levels} badges={data.badges} /> : null}
-      {tab === "advanced" ? <Advanced head={head} videoProviders={videoProviders} /> : null}
+        {panel("page", <PageSettings head={head} data={data} />)}
+        {panel(
+          "access",
+          <div className="space-y-4">
+            <Access head={head} data={data} />
+            <Discovery head={head} data={data} />
+          </div>,
+        )}
+        {panel("features", <Features head={head} data={data} />)}
+        {panel("policies", <Policies head={head} data={data} />)}
+        {data.roles ? panel("roles", <Roles head={head} roles={data.roles} />) : null}
+        {panel("notifications", <Notifications head={head} data={data} />)}
+        {panel("gamification", <GamificationPanel head={head} levels={data.levels} badges={data.badges} />)}
+        {panel("advanced", <Advanced head={head} videoProviders={videoProviders} />)}
+      </div>
     </div>
   )
 }
@@ -209,7 +279,11 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
     if (!res.ok) return setError(errorText(res.data.error))
     setSaved(JSON.stringify(s))
     toast(tt("Saved"))
-    router.refresh()
+    /* A new address: these screens move with it (/app/community/<slug>), rather than reloading under the old one. */
+    if (typeof body.slug === "string" && body.slug !== before.slug) {
+      const { pathname, search } = window.location
+      router.replace(pathname.replace(`/app/community/${before.slug}`, `/app/community/${body.slug}`) + search, { scroll: false })
+    } else router.refresh()
     /* The community open in another tab picks up the new cover, picture and name at once. */
     announceCommunityUpdated(head.id)
   }
@@ -223,7 +297,7 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
   */
   return (
     <div data-page-settings="">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start xl:gap-5">
         <div className="min-w-0 space-y-4">
           <EditorCard title={tt("About")} id="about">
             <div>
@@ -346,7 +420,7 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
           {head.can.manage_settings ? (
             <p className="px-1 text-[13px] text-[#6b7280]">
               {tt("Rules and the refund policy are in")}{" "}
-              <Link href={`/app/community/${head.id}/settings?tab=policies`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+              <Link href={`/app/community/${head.slug}/settings?tab=policies`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
                 {tt("Rules and policies")}
               </Link>
               .

@@ -60,7 +60,7 @@ function CopyAddress({ path }: { path: string }) {
 
 export function Overview({ head, data, created }: { head: CommunityHead; data: OverviewData; created: boolean }) {
   const f = data.figures
-  const base = `/app/community/${head.id}`
+  const base = `/app/community/${head.slug}`
   const figures: { label: string; value: string; hint?: string }[] = [
     { label: tt("Members"), value: f.members.toLocaleString(appLocale()) },
     { label: tt("Active, 30 days"), value: f.active30d.toLocaleString(appLocale()) },

@@ -37,7 +37,7 @@
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
-import { Bookmark, IdCard, MoreHorizontal, UserPlus } from "lucide-react"
+import { Bookmark, IdCard, Moon, MoreHorizontal, Sun, UserPlus } from "lucide-react"
 import { SHEET_CLOSE_MS } from "@/components/ui/bottom-sheet"
 import { AccountSheet, DesktopAccountMenu, endStorelibSession, type AccountExtraRow, type HeaderLink } from "@/components/platform/platform-header-client"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -65,9 +65,12 @@ export interface CommunityMenuRows {
   savedHref?: string | null
   /** The member's own Membership page here (round 13: notifications, leave, the plan); left out for somebody who is not a member. */
   membershipHref?: string | null
+  /** The look on screen, and the switch to the other one (round 26, lib/communities/client/appearance-choice.ts). */
+  appearance?: "light" | "dark"
+  onAppearance?: (() => void) | null
 }
 
-export function CommunityAccountMenu({ me, className, onInvite = null, savedHref = null, membershipHref = null }: { me: NonNullable<TopBarData["me"]>; className?: string } & CommunityMenuRows) {
+export function CommunityAccountMenu({ me, className, onInvite = null, savedHref = null, membershipHref = null, appearance = "light", onAppearance = null }: { me: NonNullable<TopBarData["me"]>; className?: string } & CommunityMenuRows) {
   const router = useRouter()
   const [sheet, setSheet] = useState(false)
   const logOut = useCallback(async () => {
@@ -84,9 +87,14 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
       if (onInvite) out.push({ item: "invite", label: "Invite people", icon: UserPlus, onSelect: phone ? () => window.setTimeout(onInvite, SHEET_HANDOFF_MS) : onInvite })
       if (savedHref) out.push({ item: "saved", label: "Saved posts", icon: Bookmark, href: savedHref })
       if (membershipHref) out.push({ item: "membership", label: "Membership", icon: IdCard, href: membershipHref })
+      /* Light or dark, for this reader: the row names the look it switches to. On a phone the sheet goes down first, so the change is seen whole. */
+      if (onAppearance) {
+        const dark = appearance === "dark"
+        out.push({ item: "appearance", label: dark ? "Light mode" : "Dark mode", icon: dark ? Sun : Moon, onSelect: phone ? () => window.setTimeout(onAppearance, SHEET_HANDOFF_MS) : onAppearance })
+      }
       return out
     },
-    [onInvite, savedHref, membershipHref],
+    [onInvite, savedHref, membershipHref, appearance, onAppearance],
   )
   const desktopRows = useMemo(() => rows(false), [rows])
   const phoneRows = useMemo(() => rows(true), [rows])

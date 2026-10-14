@@ -193,7 +193,7 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
   useCommunityTop(ref)
   const { community, creator, me } = data
   /* The frames line the bar up with their three columns (1360px), the visitor's too since round 12 (public-frame.tsx). */
-  const wide = (wideProp ?? !!search) && !tabsOnDesktop
+  const wide = wideProp ?? (!!search && !tabsOnDesktop)
   const base = `/community/${community.slug}`
 
   return (
@@ -251,8 +251,8 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
         ) : null}
 
         {children ? (
-          /* The tabs are their own row under the bar, edge to edge, below 1024px; from 1024px the right column has the places, so the row is only drawn where there is none. */
-          <div className={cn("order-last -mx-4 mt-0 min-w-0 basis-[calc(100%+2rem)] pb-0 pt-0.5 sm:-mx-6 sm:basis-[calc(100%+3rem)] lg:-mx-8 lg:mt-2 lg:basis-[calc(100%+4rem)] lg:pb-1 lg:pt-2", !tabsOnDesktop && "lg:hidden")} data-community-top-tabs="">
+          /* The tabs are their own row under the bar, edge to edge: below 1024px always, and from 1024px where the frame asks for it (tabsOnDesktop, the member area since round 26). */
+          <div className={cn("order-last -mx-4 mt-0 min-w-0 basis-[calc(100%+2rem)] pb-0 pt-0.5 sm:-mx-6 sm:basis-[calc(100%+3rem)] lg:-mx-8 lg:basis-[calc(100%+4rem)]", !tabsOnDesktop && "lg:hidden")} data-community-top-tabs="">
             {children}
           </div>
         ) : null}
@@ -278,7 +278,7 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
           {/* Half the screen at least on a phone (round 11): one notification is not a sliver of a sheet. */}
           {/* The bell owns the tab here (round 13): "(3) Clay Studio" and a red dot on the community's icon while something is unread. */}
           {me ? <NotificationBell className={BELL} sheetMin="50dvh" tabBadge /> : null}
-          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} membershipHref={menu?.membershipHref} /> : <LogInLink base={base} />}
+          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} membershipHref={menu?.membershipHref} appearance={menu?.appearance} onAppearance={menu?.onAppearance} /> : <LogInLink base={base} />}
         </div>
       </div>
     </header>

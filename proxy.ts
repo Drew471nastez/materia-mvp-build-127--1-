@@ -1225,13 +1225,15 @@ export async function proxy(request: NextRequest) {
     A COMMUNITY PAGE IS TOLD ITS OWN ADDRESS. A layout is not given its path,
     and the community's layout needs it to send an old address on to the new
     one with the rest of the path and the query (lib/communities/slug-move.ts).
-    Written for every /community/ request, so whatever a visitor sends under
-    that name is replaced; no lookup, nothing else reads it.
+    Written for every /community/ and /app/community/ request (the owner's
+    screens send a community's old id on to its readable address the same
+    way), so whatever a visitor sends under that name is replaced; no
+    lookup, nothing else reads it.
   */
   /* Round 13: the Classroom is Learn. Its old addresses answer a 308 to the same place under /learn, the query kept (lib/communities/learn.ts). */
   const learn = pathname.startsWith("/community/") && pathname.includes("/classroom") ? learnAddressFor(pathname) : null
   if (learn) return NextResponse.redirect(new URL(`${learn}${search}`, request.url), 308)
-  if (pathname.startsWith("/community/")) request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
+  if (pathname.startsWith("/community/") || pathname.startsWith("/app/community/")) request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
   /* And a profile, for the same reason: a creator's /@handle answers a 308 to their page with the query kept, from its layout (lib/profile/profile-redirect.ts). */
   if (isProfilePath(pathname)) request.headers.set(PROFILE_PATH_HEADER, `${pathname}${search}`)
 

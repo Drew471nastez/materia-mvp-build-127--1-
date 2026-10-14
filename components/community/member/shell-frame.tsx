@@ -8,27 +8,24 @@
  * the top the community's own bar (top-bar.tsx: its picture, its name, whose
  * it is, the navigator, the search, Messages, Storelib's bell and the
  * Storelib account menu behind "...", with Invite people and Saved posts).
- * Under it, from 1280px, three columns (round 9 put the places back left):
+ * Under it, at every width, the places in the community (Community, Learn,
+ * Calendar, Members, Leaderboards, About) as one row of plain text tabs
+ * (round 26; until then they were a list in a left column from 1024px).
+ * From 1024px, two columns under that:
  *
- *   LEFT    the community card (cover, name, its address, Members / Online
- *           / Admins, the faces of who was here last, Settings for its
- *           staff) and right under it the places in the community
- *           (Community, Classroom, Calendar, Members, Leaderboards, About)
- *           as a list of soft tiles. No contributors here.
- *   CENTER  the page: the feed with its space chips and composer, a post,
- *           Members, the classroom, events...
- *   RIGHT   the next event and the top contributors (or the most active),
- *           each only when there is one, sticking under the bar.
+ *   LEFT    the page: the feed with its space chips and composer, a post,
+ *           Members, the leaderboard...
+ *   RIGHT   the community card (cover, name, Members / Online / Admins,
+ *           Settings for its staff), then the next event and the top
+ *           contributors, each only when there is one, sticking under the bar.
  *
- * The three columns and what is in the side ones are the same on every page
- * inside the community, so moving between the feed, Members and the
- * classroom never moves or redraws anything but the middle (round 9: "the
- * frame (header, columns, chips) never re-renders or flashes"): the bar and
- * the cards are memoised with props that do not change between places, and
- * the place marked in the list and the tabs comes from a context of its
- * own (wall.tsx PlaceContext). From 1024px to 1279px there are two columns:
- * the left one holds the card, the places, the next event and the
- * contributors, in that order.
+ * Learn, the calendar, an event, a profile, About and a lesson take both
+ * columns. The bar, the tabs and the right column are the same on every
+ * page inside the community, so moving between places never moves or
+ * redraws anything but the page (round 9: "the frame (header, columns,
+ * chips) never re-renders or flashes"): the bar and the cards are memoised
+ * with props that do not change between places, and the place marked in
+ * the tabs comes from a context of its own (wall.tsx PlaceContext).
  *
  * MOVING BETWEEN PLACES. Every place is asked for in full once the frame is
  * idle (router.prefetch, kind "full"; the router keeps each for five
@@ -91,6 +88,7 @@ import { afterLayout } from "@/lib/ui/after-layout"
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
+import { useCommunityAppearance } from "@/lib/communities/client/appearance-choice"
 import "../community-theme.css"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
 import { FULL_ON_HOVER, navEntries, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
@@ -106,7 +104,7 @@ import { press, TAB, TAB_OFF, TAB_ON } from "./ui"
 import { CLICK_AFTER_MS, isTap, pressShowsAtOnce, type Press } from "./chip-hit"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { onCommunityUpdated } from "@/lib/communities/updated-signal"
-import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
+import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallUpcoming, type PlaceState } from "./wall"
 import { useCommunityLanding } from "./landing"
 import { scrollKeyFor, useReturnScroll, useSectionTop } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
@@ -288,7 +286,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const openInvite = useCallback(() => setInviting(true), [])
   const canInvite = !!viewer.can.invite && !community.archived
   /* The creator side's list of invites, for whoever has it (the owner, or a creator account that runs this community). */
-  const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.id}/members` : null
+  const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.slug}/members` : null
 
   usePresenceHeartbeat(community.id, viewer.userId)
   useEffect(() => {
@@ -323,7 +321,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const searchNow = useSearchParams()
   useReturnScroll(scrollKeyFor(pathname || "", searchNow?.toString() ?? ""), { onlyOnArrival: true })
   /* The browser's bar, the phone's status bar and the canvas a bounce shows take the page's colour (the bar pads itself under the clock in white). */
-  const appearance = community.appearance === "dark" ? "dark" : "light"
+  /* The creator's look, or the reader's own choice from the "..." menu (lib/communities/client/appearance-choice.ts). */
+  const { appearance, toggle: toggleAppearance } = useCommunityAppearance(community.appearance === "dark" ? "dark" : "light")
   useCommunityTheme(appearance)
   useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
   /*
@@ -427,7 +426,10 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   /* What the bar is handed, the same objects from place to place, so the memoised bar is not drawn again. */
   const onMessages = useCallback(() => setChat((c) => (c ? null : {})), [])
   const searchProp = useMemo(() => ({ communityId: community.id }), [community.id])
-  const menu = useMemo(() => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved`, membershipHref: `/community/${community.slug}/membership` }), [community.archived, community.slug, openInvite])
+  const menu = useMemo(
+    () => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved`, membershipHref: `/community/${community.slug}/membership`, appearance, onAppearance: toggleAppearance }),
+    [community.archived, community.slug, openInvite, appearance, toggleAppearance],
+  )
   const tabs = useMemo(() => <SectionTabs entries={entries} />, [entries])
 
   /*
@@ -639,9 +641,9 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
         data-community-shell=""
         data-community-theme={appearance}
         data-community-landing={landing ? "" : undefined}
-        className="min-h-svh bg-[#f8f9fa] text-[#1a1a2e] transition-[background-color,color] duration-300 motion-reduce:transition-none [--community-top:99px] lg:[--community-top:65px]"
+        className="min-h-svh bg-[#f8f9fa] text-[#1a1a2e] transition-[background-color,color] duration-300 motion-reduce:transition-none [--community-top:99px] lg:[--community-top:107px]"
       >
-        <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} menu={menu}>
+        <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} menu={menu} tabsOnDesktop wide>
           {tabs}
         </CommunityTopBar>
 
@@ -650,32 +652,34 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
           and events pages included. What arrives there fades in (ARRIVE); the columns either side are not touched.
         */}
         <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
+          {/*
+            ROUND 26: THE PLACES ARE THE ROW UNDER THE BAR AT EVERY WIDTH (the owner: "the left card with Community, Learn,
+            Calendar, Members, About should be a horizontal nav under the header on desktop"). So there is no left column any
+            more: the page on the left, and from 1024px one column on the right with the community's card, the next event and
+            who takes part. Learn, the calendar, an event, a profile, About and a lesson use the whole width instead.
+          */}
           <div
-            data-community-columns="three"
+            data-community-columns="two"
             data-community-place={about ? "about" : lessonPage ? "lesson" : profilePage ? "profile" : shown.kind === "learn" ? "learn" : shown.kind === "calendar" ? "events" : shown.kind === "event" ? "event" : undefined}
-            className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+            className="pb-16 pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-x-8"
           >
-            {/* LEFT: the community card, and the places right under it (round 9). */}
-            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${lessonPage ? "" : about ? "lg:block xl:hidden" : "lg:block"} ${landing ? LAND : ""}`} data-community-left="">
-              {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
-              <WallPlaces entries={entries} />
-            </div>
-            {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. About and the lesson player use the extra width instead. */}
-            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${wideCenter ? "" : "lg:block"} ${landing ? LAND : ""}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
-              {upcoming || (contributors && !onLeaderboard) ? (
-                <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
-                  {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
-                  {contributors && !onLeaderboard ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
-                </div>
-              ) : null}
-            </aside>
-            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : about ? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"}`} data-community-main="">
+            <div className={`min-w-0 lg:col-start-1 lg:row-start-1 ${wideCenter ? "lg:col-span-2" : ""}`} data-community-main="">
               <div className={about ? ABOUT_BOX : ""} data-community-body="">
                 <CommunityPullRefresh slug={community.slug} place={shown} off={shown.kind === "space" && chatSpaces.includes(shown.slug)} onRefresh={nav.refresh}>
                   {screens.middle}
                 </CommunityPullRefresh>
               </div>
             </div>
+            {/* RIGHT from 1024px: the community card, then the next event and who takes part, those two sticking under the bar. */}
+            <aside className={`hidden min-w-0 space-y-3 lg:col-start-2 lg:row-start-1 lg:self-stretch ${wideCenter ? "" : "lg:block"} ${landing ? LAND : ""}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
+              {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
+              {upcoming || (contributors && !onLeaderboard) ? (
+                <div className="space-y-3 lg:sticky lg:top-[calc(var(--community-top,107px)+24px)]" data-community-right-cards="">
+                  {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
+                  {contributors && !onLeaderboard ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
+                </div>
+              ) : null}
+            </aside>
           </div>
         </div>
 

@@ -63,7 +63,7 @@ async function composeFor(db: Db, community: CommunityRow, viewer: Viewer) {
  */
 export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer, place: Place, opts: { lesson?: string | null } = {}): Promise<PlaceLoad> {
   const ok = (data: PlaceData): PlaceLoad => ({ ok: true, place, data })
-  const manageLearn = can(viewer.role, "manage_classroom") ? `/app/community/${community.id}/learn` : null
+  const manageLearn = can(viewer.role, "manage_classroom") ? `/app/community/${community.slug}/learn` : null
   switch (place.kind) {
     case "feed":
     case "saved":

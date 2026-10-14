@@ -116,7 +116,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
     }
     setBusy(true)
     setError(null)
-    const res = await send<{ id?: string }>("/api/app/community", "POST", body)
+    const res = await send<{ id?: string; slug?: string }>("/api/app/community", "POST", body)
     if (res.status === 402) {
       setBusy(false)
       setAtLimit(true)
@@ -127,7 +127,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
       setError({ text: errorText(res.data.error, tt("The community could not be made. Try again.")), field: res.data.field })
       return
     }
-    router.push(`/app/community/${res.data.id}?created=1`)
+    router.push(`/app/community/${res.data.slug || res.data.id}?created=1`)
   }
 
   const bad = (f: string) => error?.field === f

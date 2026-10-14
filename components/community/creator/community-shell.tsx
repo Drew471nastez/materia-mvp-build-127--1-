@@ -20,8 +20,9 @@
  * Settings' tabs, not a section of their own, so the row stays short.
  */
 import * as React from "react"
-import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { AppLink } from "@/components/app/app-link"
+import { sameStageFrame, useShownPath } from "@/lib/ui/app-navigation"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PaneBar, StatusBadge } from "@/app/app/orders/order-parts"
@@ -38,7 +39,7 @@ export interface SectionTab {
 
 /** The sections this person may open, in order. */
 export function sectionTabs(head: CommunityHead): SectionTab[] {
-  const base = `/app/community/${head.id}`
+  const base = `/app/community/${head.slug}`
   const can = head.can
   const tabs: (SectionTab | null)[] = [
     { id: "overview", label: tt("Overview"), href: base },
@@ -54,9 +55,9 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
   return tabs.filter((t): t is SectionTab => t !== null)
 }
 
-export function activeSection(pathname: string, id: string): SectionId {
-  const rest = pathname.split(`/app/community/${id}`)[1] ?? ""
-  const seg = rest.split("/").filter(Boolean)[0]
+/** The section an address is on: /app/community/<slug or id>/<section>. */
+export function activeSection(pathname: string, _id?: string): SectionId {
+  const seg = pathname.split(/[?#]/)[0].split("/").filter(Boolean)[3]
   if (seg === "gamification") return "settings"
   if (seg === "learn") return "classroom"
   return (seg as SectionId) || "overview"
@@ -85,7 +86,7 @@ export function CommunityTabs({ head, active }: { head: CommunityHead; active: S
         {tabs.map((t) => {
           const on = t.id === active
           return (
-            <Link
+            <AppLink
               key={t.id}
               href={t.href}
               prefetch={false}
@@ -98,7 +99,7 @@ export function CommunityTabs({ head, active }: { head: CommunityHead; active: S
             >
               {t.label}
               {typeof t.count === "number" ? <span className={cn("tabular-nums", t.id === "moderation" ? "text-[#b45309]" : "text-[#9ca3af]")}>{t.count}</span> : null}
-            </Link>
+            </AppLink>
           )
         })}
       </div>
@@ -135,15 +136,18 @@ function PublishButton({ head }: { head: CommunityHead }) {
 
 export function CommunityShell({ head, children }: { head: CommunityHead; children: React.ReactNode }) {
   const pathname = usePathname() || ""
-  const active = activeSection(pathname, head.id)
+  const active = activeSection(pathname)
+  /* The tab lights on the press, before the section has arrived (useShownPath is the navigation underway, or the page showing). */
+  const going = useShownPath() || pathname
+  const shown = sameStageFrame(pathname, going) ? activeSection(going) : active
   return (
     <ToastHost>
       <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={active}>
         <PaneBar width={SECTION_WIDTH} className="pt-2.5 lg:pt-3.5">
           <div className="flex min-h-[48px] items-center gap-2.5">
-            <Link href="/app/community" aria-label={tt("All communities")} scroll={false} className="-ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#1a1a2e] transition-[background-color,opacity] duration-150 hover:bg-[#eceef1] active:opacity-70 sm:h-9 sm:w-9">
+            <AppLink href="/app/community" aria-label={tt("All communities")} scroll={false} className="-ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#1a1a2e] transition-[background-color,opacity] duration-150 hover:bg-[#eceef1] active:opacity-70 sm:h-9 sm:w-9">
               <ArrowLeft aria-hidden className="h-[18px] w-[18px]" />
-            </Link>
+            </AppLink>
             {head.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={head.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-[9px] object-cover" />
@@ -167,7 +171,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
             </div>
           </div>
           <div className="mt-1.5">
-            <CommunityTabs head={head} active={active} />
+            <CommunityTabs head={head} active={shown} />
           </div>
         </PaneBar>
         <div key={active} className={cn("mx-auto app-gutter pb-28 pt-4 md:pb-12", SECTION_WIDTH)}>
