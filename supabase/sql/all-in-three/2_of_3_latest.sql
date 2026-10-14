@@ -3153,5 +3153,12 @@ ALTER TABLE public.store_translation_jobs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.store_translation_jobs FROM anon, authenticated;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('177', '177_translation_jobs.sql', '18b0172c415ba12483c37e036aacc24d62831504f1716d509da7af07f36888ae') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 178_translation_memory.sql
+/* Translation memory: every run of words an open translation model (LibreTranslate, or Hugging Face's opus-mt and NLLB) has translated, kept for good, so the same words are never sent twice: "Add to cart" into French is translated once for every store, a website translated again after a small edit sends only the new words, and a language translated after a failure picks up where it stopped. Keyed by the languages and the sha256 of the words; the words themselves are kept beside it for checking. Only website text that is already public goes in, never a customer's details. Server only. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.translation_memory ( source_lang text NOT NULL CHECK (length(source_lang) BETWEEN 2 AND 12), target_lang text NOT NULL CHECK (length(target_lang) BETWEEN 2 AND 12), source_hash text NOT NULL CHECK (source_hash ~ '^[0-9a-f]{64}$'), source_text text NOT NULL CHECK (length(source_text) <= 20000), translated text NOT NULL CHECK (length(translated) <= 40000), provider text NOT NULL DEFAULT 'libretranslate' CHECK (provider IN ('libretranslate', 'huggingface', 'openai')), created_at timestamptz NOT NULL DEFAULT now(), used_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (source_lang, target_lang, source_hash) );
+ALTER TABLE public.translation_memory ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.translation_memory FROM anon, authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('178', '178_translation_memory.sql', '34e94bd56c13ec81d65f2eb9a1cf04cfe1047cd886a70b6db61deef1fee8b70a') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;
