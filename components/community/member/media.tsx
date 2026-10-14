@@ -41,7 +41,8 @@ import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Play } from "lucide-react"
 import { CommunityFileAttachment, CommunityFileAttachmentSplit } from "./community-file-attachment"
-import { StorelibVideo } from "@/components/video/storelib-video"
+import { StorelibVideo, posterSource } from "@/components/video/storelib-video"
+import { drawnStill, noteDrawnStill } from "@/lib/images/drawn-stills"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { BLUR_QUALITY, BLUR_WIDTH, FEED_PICTURE_QUALITY, NO_PICTURE, feedSlot, loadPolicy, type FeedSlotName } from "@/lib/images/slots"
 import { MAX_COMMENT_EMBEDS, bodyEmbeds, cardPictures, cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type CardPicture, type ViewerItem } from "@/lib/communities/post-media"
@@ -79,11 +80,14 @@ export const SDR = "[dynamic-range-limit:standard]"
 /** The inset hairline over a picture's edge (its parent is the rounded, clipped box). */
 export const PICTURE_EDGE = "pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/[0.06]"
 
-/** Pictures this tab has already drawn: remounts and space switches stay opaque. */
+/** Pictures this tab has already drawn (or fetched and decoded ahead): remounts and space switches stay opaque. */
 const painted = new Set<string>()
+/** Files asked for ahead and still on their way: each once, never fetched and decoded twice. */
+const warming = new Set<string>()
 
 function preloadPicture(url: string, srcSet?: string, sizes?: string) {
-  if (!url || typeof window === "undefined") return
+  if (!url || typeof window === "undefined" || painted.has(url) || warming.has(url)) return
+  warming.add(url)
   const img = new Image()
   img.decoding = "async"
   /* The same srcset and sizes the opened post draws with, so the browser picks the same file and it is in the cache when the sheet rises. */
@@ -92,16 +96,23 @@ function preloadPicture(url: string, srcSet?: string, sizes?: string) {
     img.srcset = srcSet
   }
   img.src = url
-  void img.decode().catch(() => undefined)
+  img.decode().then(
+    () => {
+      warming.delete(url)
+      painted.add(url)
+    },
+    () => warming.delete(url),
+  )
 }
 
-/** Ask for the pictures an opened post will draw, while the finger is still down. */
+/** Ask for the pictures an opened post will draw: a resting pointer on a computer, a finger still down on a phone. */
 export function warmPostMedia(media: PostMedia[], communityId: string, postId: string) {
   if (typeof window === "undefined" || !media.length) return
   const items = viewerItems(media).filter((i) => i.kind !== "embed")
+  const layout = mediaLayout(items.length)
   items.slice(0, 6).forEach((item, i) => {
-    /* The first picture is drawn at the post's full width, the rest half of it (PostMediaGrid's fits). */
-    const fit = SIZES[i === 0 || items.length === 1 ? "single" : "half"]
+    /* Each one at the fit PostMediaGrid draws it with, so the warm is the file it draws: a pair is two halves, a grid's first is across the top and the rest halves or thirds. */
+    const fit = SIZES[layout.kind === "pair" ? "half" : layout.kind === "grid" ? (i === 0 ? "top" : layout.below === 2 ? "half" : "third") : "single"]
     if (item.kind === "image") {
       if (item.raw) preloadPicture(item.url)
       else preloadPicture(optimizedImageUrl(item.url, fit.display), optimizedSrcSet(item.url, fit.widths), fit.sizes)
@@ -109,7 +120,10 @@ export function warmPostMedia(media: PostMedia[], communityId: string, postId: s
       preloadPicture(item.still)
       preloadPicture(item.url)
     } else if (item.kind === "video" && item.poster) {
-      preloadPicture(optimizedImageUrl(item.poster, fit.display), optimizedSrcSet(item.poster, fit.widths), fit.sizes)
+      /* A video alone is the player (StorelibVideo), whose poster is its own file: that one, so the warm is the file it draws. */
+      const own = items.length === 1 ? posterSource(item.poster) : null
+      if (own) preloadPicture(own.src, own.srcSet, own.sizes)
+      else preloadPicture(optimizedImageUrl(item.poster, fit.display), optimizedSrcSet(item.poster, fit.widths), fit.sizes)
     }
   })
   for (const f of media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file").slice(0, 2)) {
@@ -143,6 +157,8 @@ export function SoftImg({
   eager = false,
   fetchPriority,
   hiddenFrom,
+  remember,
+  onShown,
 }: {
   src: string
   srcSet?: string
@@ -162,8 +178,21 @@ export function SoftImg({
    * for nothing, at a phone's width, ahead of the pictures that were on screen.
    */
   hiddenFrom?: string
+  /** The picture's original address: once this file is on screen it is noted (lib/images/drawn-stills.ts), so an opened post can draw it again at once. */
+  remember?: string
+  /** Told once the picture is shown whole. */
+  onShown?: () => void
 }) {
   const ref = useRef<HTMLImageElement>(null)
+  /* The exact file on screen (currentSrc), so drawing it again is the cache's; never the empty source of a hidden picture. */
+  const note = (el: HTMLImageElement) => {
+    if (!remember || el.naturalWidth <= 1 || !el.currentSrc || el.currentSrc.startsWith("data:")) return
+    noteDrawnStill(remember, { src: el.currentSrc, referrerPolicy, width: el.naturalWidth })
+  }
+  const shownRef = useRef(onShown)
+  useEffect(() => {
+    shownRef.current = onShown
+  })
   /* In the page's HTML: shown as soon as the browser has it, never hidden until the scripts run (lib/ui/drawn-by-server.ts). */
   const fromServer = useDrawnByServer()
   /* "cached": drawn at once; "wait": the box's own colour until the picture is loaded and decoded; "html": in the HTML, shown as it arrives. ("in" is no longer used: nothing fades.) */
@@ -178,10 +207,15 @@ export function SoftImg({
     if (!el) return
     if (el.complete && el.naturalWidth > 0) {
       painted.add(src)
+      note(el)
       setState("cached")
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, eager])
   const shown = state !== "wait"
+  useEffect(() => {
+    if (shown) shownRef.current?.()
+  }, [shown])
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -209,7 +243,10 @@ export function SoftImg({
             it is never painted in strips, and never a blurred copy or a fade before it.
           */
           const el = e.currentTarget
-          const show = () => setState((s) => (s === "wait" ? "cached" : s === "in" ? "cached" : s))
+          const show = () => {
+            note(el)
+            setState((s) => (s === "wait" ? "cached" : s === "in" ? "cached" : s))
+          }
           if (typeof el.decode === "function") el.decode().then(show, show)
           else show()
         }}
@@ -346,6 +383,7 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
           referrerPolicy={thumb.local ? undefined : "no-referrer"}
           className="absolute inset-0 h-full w-full object-cover"
           onError={() => setFailed(true)}
+          remember={thumb.url}
         />
       )}
       <span aria-hidden className={PICTURE_EDGE} />
@@ -446,6 +484,7 @@ function CardPictureImg({ p, slot, priority = false, hiddenFrom }: { p: CardPict
           eager={policy.loading === "eager"}
           fetchPriority={policy.fetchPriority}
           hiddenFrom={hiddenFrom}
+          remember={p.url}
         />
       )}
       {p.kind === "video" ? (
@@ -702,12 +741,51 @@ function Single({ item, communityId, priority = false, onOpen }: { item: ViewerI
   )
 }
 
+/**
+ * ===========================================================================
+ *  AN OPENED POST'S PICTURE: THE FEED'S COPY FIRST, THEN THE FULL ONE
+ * ===========================================================================
+ * The owner (round 13 of the desktop post): "the media first shows gray and
+ * then the image/video appears". Three things made the grey:
+ *
+ *   ANOTHER FILE     the feed's card drew this picture as a 96px thumbnail or
+ *                    a grid tile; the opened post asks for its full width
+ *                    file (720px slot, 1920w on a 2x screen), never in the
+ *                    cache when the post opens.
+ *   A GREY BOX       the tile's own #eef0f2 stood in the reserved space until
+ *                    that file came.
+ *   PAINTED AS IT CAME   the opened post's pictures were forced visible
+ *                    (`!opacity-100`), so the file was painted into the grey
+ *                    as it arrived, not once it was whole.
+ *
+ * Now the box keeps the picture's shape, with no colour of its own on a
+ * single picture (the panel's white; a very light tile in a grid). The copy
+ * the feed already had on screen (lib/images/drawn-stills.ts) is drawn there
+ * on the first frame, from the cache, already decoded. The full file is
+ * fetched ahead (warmPostMedia: a resting pointer, a press) and shown once it
+ * is loaded and decoded: at once when it already was, else with a short
+ * fade (POST_PICTURE_IN_MS) over the feed's copy, which then goes.
+ */
+/** The full picture's fade when it arrives after the post opened (written out in the tile's class too: Tailwind reads the class as text). */
+export const POST_PICTURE_IN_MS = 180
+
 function Tile({ index, item, fit, shape, more = 0, priority = false, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; priority?: boolean; onOpen: () => void }) {
   const picture = item.kind === "image" ? item.url : item.kind === "gif" ? item.url : item.kind === "video" ? item.poster : item.kind === "embed" ? item.thumb : item.poster
   const local = (item.kind === "image" && !item.raw) || item.kind === "video"
   const size = SIZES[fit]
   const srcSet = picture && local ? optimizedSrcSet(picture, size.widths) : ""
+  const full = picture ? (local ? optimizedImageUrl(picture, size.display) : picture) : ""
   const single = fit === "single"
+  const shaped = single ? "object-contain" : "object-cover"
+  /* The feed's copy, read once for this tile: only while the full file is not already decoded, and never for a GIF (its still is the feed's own file). */
+  const [still] = useState(() => (picture && item.kind !== "gif" && !painted.has(full) ? drawnStill(picture) : null))
+  const [ready, setReady] = useState(false)
+  const [stillGone, setStillGone] = useState(false)
+  useEffect(() => {
+    if (!ready || !still) return
+    const t = window.setTimeout(() => setStillGone(true), POST_PICTURE_IN_MS + 60)
+    return () => window.clearTimeout(t)
+  }, [ready, still])
   const label = more ? `Open, and ${more} more` : item.kind === "image" ? "Open picture" : item.kind === "gif" ? "Open GIF" : "Play video"
   return (
     <button
@@ -716,16 +794,29 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, onOpen }: {
       aria-label={label}
       data-media-tile={item.kind}
       data-media-index={index}
-      className={`group/tile relative block w-full overflow-hidden bg-[#eef0f2] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/25 ${
-        single ? "max-h-[min(560px,72vh)] rounded-xl" : shape
+      className={`group/tile relative block w-full overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/25 ${
+        single ? "max-h-[min(560px,72vh)] rounded-xl" : `${shape} bg-[#f8f9fa]`
       } ${isMotion(item) ? "cursor-pointer" : "cursor-zoom-in"}`}
       style={single ? { aspectRatio: String(ratioOf(item)) } : undefined}
     >
+      {still && !stillGone ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={still.src}
+          referrerPolicy={still.referrerPolicy}
+          alt=""
+          aria-hidden
+          draggable={false}
+          decoding="sync"
+          className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${shaped} ${SDR}`}
+          data-media-still=""
+        />
+      ) : null}
       {item.kind === "gif" ? (
-        <GifImg still={item.still} motion={item.url} width={item.w} height={item.h} eager={priority} className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`} />
+        <GifImg still={item.still} motion={item.url} width={item.w} height={item.h} eager={priority} className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${shaped}`} />
       ) : picture ? (
         <SoftImg
-          src={local ? optimizedImageUrl(picture, size.display) : picture}
+          src={full}
           srcSet={srcSet}
           sizes={size.sizes}
           blur={blurSrc(picture, local)}
@@ -734,7 +825,9 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, onOpen }: {
           referrerPolicy={local ? undefined : "no-referrer"}
           eager={priority}
           fetchPriority={priority ? "high" : undefined}
-          className={`absolute inset-0 h-full w-full transition-[scale,opacity] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"} ${priority ? "!opacity-100" : ""}`}
+          onShown={() => setReady(true)}
+          /* Shown once whole: no transition when it already was (it starts opaque), a short fade when it arrives now. */
+          className={`absolute inset-0 h-full w-full [transition:scale_300ms_ease-out,opacity_180ms_ease-out] group-hover/tile:scale-[1.015] motion-reduce:transition-none ${shaped}`}
         />
       ) : (
         <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />

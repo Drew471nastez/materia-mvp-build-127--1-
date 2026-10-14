@@ -30,10 +30,11 @@
  * RESUME. The place in each video is kept in this browser and the next
  * press starts there (not in the last ten seconds, which starts again).
  */
-import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { Loader2, Play } from "lucide-react"
 import { VideoPlayer, type PlayerSource } from "@/components/media/video-player"
 import { optimizedSrcSet } from "@/lib/images/optimized-url"
+import { drawnStill } from "@/lib/images/drawn-stills"
 import { videoClock, type VideoPlayback } from "@/lib/video/types"
 
 type State =
@@ -113,6 +114,69 @@ export async function fetchPlayback(communityId: string, videoId: string, opts: 
 
 function sourceOf(p: VideoPlayback): PlayerSource {
   return { url: p.url, expiresAt: Number(p.expiresAt) || Date.now() + 3_000_000, mime: p.mime, captions: p.captions }
+}
+
+/** The poster's file widths and slot, one rule for the player and for whoever fetches it ahead (media.tsx warmPostMedia). */
+const POSTER_WIDTHS = [384, 640, 828, 1080, 1200]
+const POSTER_SIZES = "(max-width: 640px) 100vw, 640px"
+
+/** The poster's <img> attributes: the address as given, and the optimizer's widths for the browser to pick from when it can. */
+export function posterSource(url: string): { src: string; srcSet?: string; sizes?: string } {
+  const srcSet = optimizedSrcSet(url, POSTER_WIDTHS)
+  return srcSet ? { src: url, srcSet, sizes: POSTER_SIZES } : { src: url }
+}
+
+/** The poster's fade when it arrives after a copy of it already stood in. */
+export const POSTER_IN_MS = 180
+
+/**
+ * THE POSTER, WITH THE FEED'S COPY UNDER IT (round 13 of the desktop post, the owner: "gray and then the image/video
+ * appears"). When this poster is already on screen elsewhere in the tab, a feed card's thumbnail say
+ * (lib/images/drawn-stills.ts), that copy is drawn at once from the cache and the poster's own file waits until it is
+ * loaded and decoded, then comes in over it with a short fade. With no copy anywhere it is drawn as it always was.
+ */
+function PosterPicture({ url }: { url: string }) {
+  const source = posterSource(url)
+  const [still] = useState(() => drawnStill(url))
+  const ref = useRef<HTMLImageElement>(null)
+  const [state, setState] = useState<"wait" | "in" | "shown">(() => (still ? "wait" : "shown"))
+  /* Already in hand when it was put on the page: shown on this frame, nothing to fade. */
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el && el.complete && el.naturalWidth > 0) setState("shown")
+  }, [])
+  useEffect(() => {
+    if (state !== "in") return
+    const t = window.setTimeout(() => setState("shown"), POSTER_IN_MS + 60)
+    return () => window.clearTimeout(t)
+  }, [state])
+  const arrived = () => {
+    const el = ref.current
+    const show = () => setState((s) => (s === "wait" ? "in" : s))
+    if (el && typeof el.decode === "function") el.decode().then(show, show)
+    else show()
+  }
+  return (
+    <>
+      {still && state !== "shown" ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={still.src} referrerPolicy={still.referrerPolicy} alt="" aria-hidden draggable={false} decoding="sync" className="absolute inset-0 h-full w-full object-cover" data-video-still="" />
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={ref}
+        src={source.src}
+        srcSet={source.srcSet}
+        sizes={source.sizes}
+        alt=""
+        decoding="async"
+        onLoad={arrived}
+        onError={() => setState("shown")}
+        className={`absolute inset-0 h-full w-full object-cover ${state === "wait" ? "opacity-0" : "opacity-100"} ${state === "in" ? "transition-opacity duration-[180ms] ease-out motion-reduce:transition-none" : ""}`}
+        data-video-poster=""
+      />
+    </>
+  )
 }
 
 export interface StorelibVideoProps {
@@ -216,7 +280,6 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
   }
 
   const busy = state.kind === "loading"
-  const srcSet = posterUrl ? optimizedSrcSet(posterUrl, [384, 640, 828, 1080, 1200]) : ""
   return (
     <div
       ref={box}
@@ -225,10 +288,7 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
       className="relative w-full overflow-hidden rounded-xl bg-[#0f0f17] [dynamic-range-limit:standard]"
       style={{ aspectRatio: String(ratio) }}
     >
-      {posterUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={posterUrl} srcSet={srcSet || undefined} sizes={srcSet ? "(max-width: 640px) 100vw, 640px" : undefined} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover" data-video-poster="" />
-      ) : null}
+      {posterUrl ? <PosterPicture key={posterUrl} url={posterUrl} /> : null}
       {preview && (state.kind === "idle" || state.kind === "loading") ? <PreviewLoop communityId={communityId} videoId={videoId} /> : null}
       {state.kind === "idle" || state.kind === "loading" ? (
         <button

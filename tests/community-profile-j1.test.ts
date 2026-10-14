@@ -29,7 +29,7 @@ import { renderToString } from "react-dom/server"
 import { chooseCover, ownCoverValue, pageLookOf, personCover } from "@/lib/profile/page-look"
 import { publicCoverUrl, parseProfileCover } from "@/lib/profile/cover"
 import { loadMemberProfile } from "@/lib/communities/server/member-profile"
-import { MEMBER_COVER_WIDTHS, PROFILE_COLUMN_PX, coverOptimizable, memberCoverSizes, memberCoverSource } from "@/lib/communities/member-cover"
+import { MEMBER_COVER_WIDTHS, PROFILE_COLUMN_PX, PROFILE_COLUMN_SHARE, PROFILE_COLUMN_WIDE_PX, coverOptimizable, memberCoverSizes, memberCoverSource } from "@/lib/communities/member-cover"
 import { NEXT_IMAGE_WIDTHS } from "@/lib/images/optimized-url"
 import { MemberCover, nameWash } from "@/components/community/member/member-cover"
 
@@ -174,9 +174,11 @@ async function main() {
     check("every width offered is one the optimizer makes", MEMBER_COVER_WIDTHS.every((w) => NEXT_IMAGE_WIDTHS.includes(w)))
     const s = memberCoverSource(PAGE, 1)
     check("a srcset of real file widths, and the 1200px file where srcset is not read", (s.srcSet?.split(", ").length ?? 0) === MEMBER_COVER_WIDTHS.length && /&w=1200&q=88$/.test(s.src) && /&w=640&q=88 640w/.test(s.srcSet ?? ""), s)
-    check("sizes says the band's width at each breakpoint, the widest the profile column", memberCoverSizes(1) === `(min-width: 1280px) min(${PROFILE_COLUMN_PX}px, calc(100vw - 368px)), (min-width: 1024px) calc(100vw - 348px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)`)
-    check("a zoomed crop asks for that much more", /min\(1984px, calc\(\(100vw - 368px\) \* 2\)\)/.test(memberCoverSizes(2)) && /calc\(\(100vw - 32px\) \* 2\)$/.test(memberCoverSizes(2)) && memberCoverSizes(9) === memberCoverSizes(4))
+    /* Changed on purpose (the owner: "the content is a bit too wide"): from 1280px the column is 95.2% of the two columns, at most 944px. */
+    check("sizes says the band's width at each breakpoint, the widest the profile column", memberCoverSizes(1) === `(min-width: 1280px) min(${PROFILE_COLUMN_WIDE_PX}px, calc((100vw - 368px) * ${PROFILE_COLUMN_SHARE})), (min-width: 1024px) calc(100vw - 348px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)`)
+    check("a zoomed crop asks for that much more", /min\(1888px, calc\(\(100vw - 368px\) \* 1\.904\)\)/.test(memberCoverSizes(2)) && /calc\(\(100vw - 32px\) \* 2\)$/.test(memberCoverSizes(2)) && memberCoverSizes(9) === memberCoverSizes(4))
     check("the column number matches the frame: 1360 less 32px gutters, the 280px left column and one 24px gap", PROFILE_COLUMN_PX === 1360 - 64 - 280 - 24)
+    check("  and the computer's column is about 5% narrower than that, its share of it at 1360px", PROFILE_COLUMN_WIDE_PX === Math.round(PROFILE_COLUMN_PX * PROFILE_COLUMN_SHARE) && PROFILE_COLUMN_SHARE >= 0.94 && PROFILE_COLUMN_SHARE <= 0.97)
   }
 
   console.log("\nThe band, as the server draws it")
@@ -186,7 +188,8 @@ async function main() {
     check("the picture is in the server's HTML, shown as it loads (no script needed)", !!img && /data-member-cover-image="shown"/.test(img) && /opacity-100/.test(img), html.slice(0, 400))
     check("  at high priority, with its srcset and sizes", /fetchPriority="high"|fetchpriority="high"/.test(img) && /srcSet="|srcset="/.test(img) && /sizes="\(min-width: 1280px\)/.test(img))
     check("  and preloaded with the same files", /<link rel="preload"[^>]*as="image"[^>]*>/.test(html) && /imageSrcSet="|imagesrcset="/i.test(html))
-    check("a fixed shape, drawn before anything loads", /aspect-\[2\/1\][^"]*sm:aspect-\[16\/5\]/.test(html))
+    /* Changed on purpose (the owner: "the cover banner is too tall"): 10:3 from 1280px; a phone's 2:1 and a tablet's 16:5 are as they were. */
+    check("a fixed shape, drawn before anything loads", /aspect-\[2\/1\][^"]*sm:aspect-\[16\/5\] xl:aspect-\[10\/3\]/.test(html))
     /* Changed on purpose (the owner: "the images don't have that blur thing"): no blurred photo under the cover, the name's own soft colour. */
     check("under it a soft wash of the name's colour, never a blurred photo", !/data-member-cover-wash/.test(html) && !/blur-\[/.test(html) && html.includes("linear-gradient(135deg, hsl("))
     const plain = renderToString(createElement(MemberCover, { url: null, crop: { x: 50, y: 50, zoom: 1 }, name: "Ana", avatarUrl: null }))
@@ -207,7 +210,8 @@ async function main() {
     const frame = code("components/community/member/shell-frame.tsx")
     check("a profile has no right column: it takes that room, like About and the classroom", /const profilePage = shown\.kind === "profile"/.test(frame) && /const wideCenter = about \|\| lessonPage \|\| profilePage \|\|/.test(frame) && /profilePage \? "profile"/.test(frame))
     const view = code("components/community/member/member-profile.tsx")
-    check("the profile's cards fill that column (680px before)", new RegExp(`const COLUMN_CLASS = "max-w-\\[${PROFILE_COLUMN_PX}px\\]"`).test(view) && !/max-w-\[680px\]/.test(view))
+    /* Changed on purpose (the owner: "the content is a bit too wide"): from 1280px the cards take 95.2% of the column, at most 944px, centred; below it as before. */
+    check("the profile's cards fill that column (680px before), a little narrower on a computer", new RegExp(`const COLUMN_CLASS = "max-w-\\[${PROFILE_COLUMN_PX}px\\] xl:max-w-\\[min\\(${PROFILE_COLUMN_WIDE_PX}px,${Math.round(PROFILE_COLUMN_SHARE * 1000) / 10}%\\)\\]"`).test(view) && !/max-w-\[680px\]/.test(view))
     check("larger on a computer: the photo, the name, the padding", /lg:h-\[128px\] lg:w-\[128px\]/.test(view) && /lg:-mt-\[67px\]/.test(view) && /lg:text-\[26px\]/.test(view) && /lg:px-8/.test(view))
     check("the band is the member cover, not the plain grey strip", /<MemberCover url=\{person\.coverUrl\}/.test(view) && !/bg-\[#f3f4f6\] sm:h-\[128px\]/.test(view))
   }
