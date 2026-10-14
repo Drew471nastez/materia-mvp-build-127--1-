@@ -141,7 +141,8 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
   const local = order.delivery?.kind === "local"
   const money = (c: number) => moneyIn(c, order.totals.currency, lang)
   const shipped = order.shipments.some((s) => s.shippedAt)
-  const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
+  /* Every parcel so far arrived and nothing is left to send: one delivered parcel of a partly shipped order is not the order (lib/physical/status fulfillmentStatusOf, as the shop reads it). */
+  const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered") && order.fulfillmentStatus !== "partially_fulfilled"
   const needsShipping = order.lines.some((l) => l.type === "physical")
   const pickup = order.pickup
   /* The carrier's estimate for the parcel still on its way that arrives last. */

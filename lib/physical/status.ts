@@ -143,12 +143,18 @@ export function shipmentLabel(status: ShipmentStatus, pickup = false): { label: 
   return SHIPMENT_LABEL[status]
 }
 
-/** A shipment only moves forward, except to failed or cancelled; delivered and cancelled are final. */
+/**
+ * A shipment only moves forward, except to failed or cancelled; delivered and cancelled are final.
+ * Cancelled (Cancel fulfillment, Not ready after all, a voided label) is for a parcel still with the
+ * shop: marked shipped, waiting on a partner, or one with a problem. Marked shipped is where every
+ * fulfilment the seller presses starts, so a wrong press can be undone; once a carrier has it (in
+ * transit, out for delivery) it is a return, not an undo.
+ */
 const ORDER: ShipmentStatus[] = ["pending", "submitted", "shipped", "in_transit", "out_for_delivery", "delivered"]
 export function canMoveShipment(from: ShipmentStatus, to: ShipmentStatus): boolean {
   if (from === to) return false
   if (from === "delivered" || from === "cancelled") return false
-  if (to === "cancelled") return from === "pending" || from === "submitted" || from === "failed"
+  if (to === "cancelled") return from === "pending" || from === "submitted" || from === "shipped" || from === "failed"
   if (to === "failed") return true
   if (from === "failed") return ORDER.includes(to)
   return ORDER.indexOf(to) > ORDER.indexOf(from)

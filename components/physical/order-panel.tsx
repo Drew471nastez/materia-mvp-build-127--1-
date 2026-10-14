@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
 import { countryName } from "@/lib/checkout/countries"
 import { deliveryEstimate } from "@/lib/physical/rates"
-import { CARRIERS, RETURN_LABEL, guessCarrier, orderNumber, trackingUrl as trackingLink } from "@/lib/physical/status"
+import { CARRIERS, RETURN_LABEL, canMoveShipment, guessCarrier, orderNumber, trackingUrl as trackingLink } from "@/lib/physical/status"
 import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { NOTE_MAX } from "@/lib/physical/notes"
@@ -449,7 +449,8 @@ export function PhysicalFulfillment({
               ...(!pickup && !delivered && s.tracking?.mode === "paused" ? [{ label: tt("Resume automatic updates"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: true }, tt("Automatic updates on again")) }] : []),
               ...(returnable ? [{ label: tt("Start return"), icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
               { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, s.items.map((i) => ({ ...order.lines.find((l) => l.orderId === i.orderId)!, quantity: i.quantity, fulfilled: 0 })).filter((l) => l.title)) },
-              ...(!delivered
+              /* Only while the parcel is still with the shop (lib/physical/status canMoveShipment): one the carrier has comes back as a return. */
+              ...(canMoveShipment(s.status, "cancelled")
                 ? [{
                     label: pickup ? tt("Not ready after all") : tt("Cancel fulfillment"),
                     icon: <X className="h-4 w-4" />,
