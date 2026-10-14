@@ -635,6 +635,8 @@ const STRICT_SUITES = [
   "tests/e2e-store-currency.test.ts",
   /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
   "tests/e2e-cash-on-delivery.test.ts",
+  /* The seller ships it themselves: part shipped with tracking, the number fixed, the rest from a second place, a fulfilment undone, a return restocked and refunded, a cancel after an undo, a pickup, refused cash (tests/_journey) */
+  "tests/e2e-manual-fulfillment.test.ts",
   /*
     The Claude provider's suite, here and not in the list above: its imports
     (the Anthropic SDK's types) change how the loose compile reads other

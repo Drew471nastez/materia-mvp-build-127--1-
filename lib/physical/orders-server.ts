@@ -350,7 +350,12 @@ async function restate(db: Db, creatorId: string, checkoutId: string): Promise<P
   const openReturns = order.returns.filter((r) => ["requested", "approved", "in_transit"].includes(r.status)).length
   const ret = order.returns.some((r) => r.status === "requested") && !order.returns.some((r) => r.status === "received" || r.status === "completed") ? "requested" : returnStatusOf(progress, openReturns)
   const patch: Record<string, unknown> = { fulfillment_status: fulfillment, return_status: ret, updated_at: new Date().toISOString() }
-  if (fulfillment === "fulfilled") patch.fulfilled_at = new Date().toISOString()
+  /*
+    When the last parcel it needed left (Analytics' time to ship reads it), from the shipments
+    themselves: the same on every restate, so a tracking fix, a return or a refund later never
+    moves it. It used to be "now" at each of those.
+  */
+  if (fulfillment === "fulfilled" || fulfillment === "delivered") patch.fulfilled_at = live.map((sh) => sh.shippedAt ?? sh.createdAt).filter((t): t is string => !!t).sort().pop() ?? new Date().toISOString()
   /* When the last parcel arrived: the carrier's own time when it said (lib/physical/tracking), else now. */
   if (fulfillment === "delivered" && !order.deliveredAt) patch.delivered_at = live.map((sh) => sh.deliveredAt).filter((t): t is string => !!t).sort().pop() ?? new Date().toISOString()
   if (order.status === "refunded" || order.status === "partially_refunded") {
@@ -459,6 +464,24 @@ export async function fulfilItems(
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
 }
 
+/**
+ * Why a shipment can't be cancelled because of a return, or null. Cancelling it takes its items off
+ * what was fulfilled; a return (asked, approved, on its way, received or complete) counts on them
+ * having gone out, and a received one put them back on the shelf already.
+ */
+async function shipmentInReturn(db: Db, creatorId: string, checkoutId: string, fulfillmentId: string): Promise<string | null> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  const shipment = order?.shipments.find((s) => s.id === fulfillmentId)
+  if (!order || !shipment) return null
+  const live = order.returns.filter((r) => r.status !== "rejected" && r.status !== "cancelled")
+  for (const item of shipment.items) {
+    const line = order.lines.find((l) => l.orderId === item.orderId)
+    const inReturns = live.reduce((n, r) => n + r.items.filter((i) => i.orderId === item.orderId).reduce((m, i) => m + i.quantity, 0), 0)
+    if (line && inReturns > 0 && line.fulfilled - item.quantity < inReturns) return "Items in this shipment are in a return. Close the return first, or keep the shipment."
+  }
+  return null
+}
+
 export async function updateShipment(
   db: Db,
   creatorId: string,
@@ -489,6 +512,14 @@ export async function updateShipment(
     Object.assign(patch, { carrier, tracking_number: tracking, tracking_url: url })
   }
   const to = typeof input.status === "string" ? (input.status as ShipmentStatus) : null
+  if (to === "cancelled" && canMoveShipment(f.status, to)) {
+    /*
+      Its items go back to unfulfilled and back on the shelf. Not while they are in a return (open, or
+      received and restocked): the return already brings them back, and both would put them on the shelf.
+    */
+    const refused = await shipmentInReturn(db, creatorId, f.checkout_id, fulfillmentId)
+    if (refused) return { ok: false, error: refused }
+  }
   if (to) {
     if (!canMoveShipment(f.status, to)) return { ok: false, error: "A shipment can't go back to that status." }
     patch.status = to
@@ -507,7 +538,30 @@ export async function updateShipment(
     for (const i of (items ?? []) as { order_id: string; quantity: number }[]) {
       const { data: moved } = await db.from("inventory_movements").select("variant_id, location_id").eq("idempotency_key", `fulfill:${fulfillmentId}:${i.order_id}`).maybeSingle()
       if (!moved?.variant_id || !moved.location_id) continue
-      await applyInventory(db, { creatorId, variantId: moved.variant_id, locationId: moved.location_id, onHand: i.quantity, committed: i.quantity, reason: "correction", refType: "fulfillment", refId: fulfillmentId, key: `unfulfill:${fulfillmentId}:${i.order_id}`, note: "Shipment cancelled" })
+      /*
+        Held for this order again the way checkout held it: the reservation physical_fulfill counted as
+        fulfilled owes these units again. Without that, cancelling the order (or refunding it in full)
+        afterwards released nothing, since physical_cancel_unfulfilled only lets go of what a
+        reservation still owes, and the units stayed committed for good. An order with no open
+        reservation (cancelled since, or sold without one) gets the units back on the shelf only.
+      */
+      const { data: held } = await db
+        .from("inventory_reservations")
+        .select("id, fulfilled_quantity")
+        .eq("checkout_id", f.checkout_id)
+        .eq("variant_id", moved.variant_id)
+        .eq("location_id", moved.location_id)
+        .in("status", ["sold", "fulfilled"])
+        .order("fulfilled_quantity", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const res = held as { id: string; fulfilled_quantity: number } | null
+      const back = res ? Math.max(0, Math.min(i.quantity, Number(res.fulfilled_quantity) || 0)) : 0
+      const done = await applyInventory(db, { creatorId, variantId: moved.variant_id, locationId: moved.location_id, onHand: i.quantity, committed: back, reason: "correction", refType: "fulfillment", refId: fulfillmentId, key: `unfulfill:${fulfillmentId}:${i.order_id}`, note: "Shipment cancelled" })
+      /* Once: a repeat of the same movement (its key) changes neither the shelf nor the reservation. */
+      if (res && back > 0 && done.ok && done.applied) {
+        await db.from("inventory_reservations").update({ fulfilled_quantity: Number(res.fulfilled_quantity) - back, status: "sold", updated_at: new Date().toISOString() }).eq("id", res.id)
+      }
     }
   }
   if (to || trackingChanged) {
@@ -786,7 +840,8 @@ export async function refusedOnDelivery(db: Db, creatorId: string, checkoutId: s
     key: `refused:${checkoutId}`,
   })
   await queueCancelledEmail(db, checkoutId, creatorId)
-  const fresh = await loadOrder(db, { creatorId, checkoutId })
+  /* The stored status the list and its filters read: Cancelled, never left at Unfulfilled or Shipped. */
+  const fresh = await restate(db, creatorId, checkoutId)
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }
 
