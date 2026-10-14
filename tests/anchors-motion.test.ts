@@ -192,6 +192,11 @@ function main() {
   check("the address changes without a jump", /window\.history\.pushState\(window\.history\.state, "", url\.hash\)/.test(motion))
   check("a stylesheet's smooth scrolling is off while it runs", /styled\.style\.scrollBehavior = "auto"/.test(motion))
   check("sections are hidden only below the screen, and observed once", /if \(b\.getBoundingClientRect\(\)\.top < bottom\) return/.test(motion) && /io\.unobserve\(e\.target\)/.test(motion))
+  /* Changed on purpose (the owner: the builder plays the theme's animations like the live site). Measured in scripts/check-section-reveal.mjs, "The builder's canvas, edited". */
+  check("in the builder too: after an edit, a box not seen before is planned like any other, and none already seen is touched",
+    /const rescan = \(\) => \{/.test(motion) && /if \(seen\.has\(b\)\) return\s*seen\.add\(b\)/.test(motion) && !/for \(const b of boxes\) seen\.add\(b\)/.test(motion) && /reveal\.current\?\.rescan\(\)/.test(hook))
+  check("  a section added, removed or moved is not a new plan: only the sections that chose their own animation are named, by id",
+    /body\.flatMap\(\(s\) => \(s\.settings\?\.animation == null \? \[\] : \[\[s\.id, s\.settings\.animation\]\]\)\)/.test(hook))
   check("on opacity and transforms only", /fill: "backwards"/.test(motion) && !/(height|top|margin)\s*:/.test(motion.slice(motion.indexOf("function keyframesFor"), motion.indexOf("export interface Reveal"))))
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
   check("the menu drawer closes, then scrolls", /window\.setTimeout\(go, CLOSE_MS\)/.test(header) && /if \(!followSectionLink\(href\)\) window\.location\.assign\(href\)/.test(header))

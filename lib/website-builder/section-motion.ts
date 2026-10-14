@@ -33,6 +33,14 @@
  * Animations API on opacity and transforms only, so nothing is laid out
  * again and there is no shift. If anything here fails, every section is
  * simply there.
+ *
+ * THE BUILDER'S CANVAS PLAYS IT TOO, EDITS AND ALL. A section box is dealt
+ * with once, the first time it is looked at: one on screen or above then is
+ * left as painted for good, one below waits for its scroll. Looking again
+ * after an edit only deals with boxes it has not seen (a section added,
+ * shown again, or drawn anew), so nothing on screen ever hides and plays
+ * again under a keystroke, and the canvas still arrives at the sections
+ * below it as the website does.
  */
 import { THEME_ROOT_ATTRIBUTE } from "./theme-css"
 import {
@@ -444,16 +452,19 @@ function keyframesFor(style: Exclude<SectionAnimation, "none">): Keyframe[] {
 }
 
 export interface Reveal {
-  /** Look at the page's boxes again; `fresh` means a different page, planned from scratch. */
-  rescan: (fresh: boolean) => void
+  /** Look at the page's boxes again: any not seen before is planned, the rest are left as they are. */
+  rescan: () => void
   /** Everything shown, nothing watched. */
   stop: () => void
 }
 
 /**
  * Hide the sections below the screen and bring each in as it arrives.
- * `seen` is every box already dealt with, kept across rescans so a section
- * added in the builder later is never hidden.
+ * `seen` is every box already dealt with, kept across rescans so a box is
+ * planned once and one already painted on screen is never hidden after it.
+ * A box first seen on a later rescan (a section added in the builder,
+ * another page's) is planned like any other: hidden only when it is wholly
+ * below the screen.
  */
 export function installReveal(root: HTMLElement, theme: Record<string, unknown>, opts: { reduced?: boolean } = {}): Reveal {
   const seen = new WeakSet<Element>()
@@ -499,40 +510,45 @@ export function installReveal(root: HTMLElement, theme: Record<string, unknown>,
     { root: sc, rootMargin: "0px 0px -6% 0px", threshold: 0 },
   )
 
-  const rescan = (fresh: boolean) => {
+  /*
+    Every box not dealt with yet, whatever changed: it used to be only on a
+    different page, and a section list that shared any id with the last one
+    marked every box seen, so in the builder nothing below the screen ever
+    arrived again after the first edit. The plan is read across the whole
+    page (the first section, the alternating sides) and applied to the new
+    boxes only.
+  */
+  const rescan = () => {
     const boxes = boxesOf(root)
-    if (fresh) {
-      const plan = revealPlan(
-        boxes.map((b) => ({
-          type: b.dataset.sectionType ?? "",
-          chrome: b.hasAttribute("data-chrome"),
-          animation: b.dataset.animation ?? null,
-          ownMotion: ownMotion(b),
-        })),
-        theme,
-      )
-      const bottom = sc ? sc.getBoundingClientRect().bottom : window.innerHeight
-      boxes.forEach((b, i) => {
-        if (seen.has(b)) return
-        seen.add(b)
-        const s = plan[i]
-        if (!s) return
-        /* On screen, or above it, as the page appears: left exactly as painted. */
-        if (b.getBoundingClientRect().top < bottom) return
-        style.set(b, s)
-        b.setAttribute("data-reveal", "pending")
-        io.observe(b)
-      })
-      return
-    }
-    for (const b of boxes) seen.add(b)
+    if (boxes.every((b) => seen.has(b))) return
+    const plan = revealPlan(
+      boxes.map((b) => ({
+        type: b.dataset.sectionType ?? "",
+        chrome: b.hasAttribute("data-chrome"),
+        animation: b.dataset.animation ?? null,
+        ownMotion: ownMotion(b),
+      })),
+      theme,
+    )
+    const bottom = sc ? sc.getBoundingClientRect().bottom : window.innerHeight
+    boxes.forEach((b, i) => {
+      if (seen.has(b)) return
+      seen.add(b)
+      const s = plan[i]
+      if (!s) return
+      /* On screen, or above it, as the page appears or the section is put in: left exactly as painted. */
+      if (b.getBoundingClientRect().top < bottom) return
+      style.set(b, s)
+      b.setAttribute("data-reveal", "pending")
+      io.observe(b)
+    })
   }
 
   const showAll = () => {
     for (const b of Array.from(root.querySelectorAll<HTMLElement>(`${BOX}[data-reveal]`))) b.removeAttribute("data-reveal")
   }
   window.addEventListener("beforeprint", showAll)
-  rescan(true)
+  rescan()
   return {
     rescan,
     stop: () => {
