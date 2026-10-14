@@ -44,7 +44,7 @@ check("the next step is a button: Review drafts, or Publish a language that has 
 check("the rest is in its menu: review, translate the rest, publish or unpublish, remove", /ResponsiveActionMenu/.test(panel) && /tt\("Review and edit"\)/.test(panel) && /tt\("Translate the rest with AI"\)/.test(panel) && /tt\("Remove"\)/.test(panel))
 
 console.log("\nAdding a language translates it")
-check("Add language, then Storelib AI starts once the language is saved", /tt\("Add language"\)/.test(panel) && /queue\.current\.then\(\(\) => translateWithAi\(code\)\)/.test(panel))
+check("Add language, then Storelib AI starts once the language is saved", /tt\("Add language"\)/.test(panel) && /void commit\(\{ \.\.\.draft, languages: \[\.\.\.draft\.languages, \{ code, published: false \}\] \}\)\.then\(\(ok\) => \{/.test(panel) && /else void translateWithAi\(code\)/.test(panel))
 check("without AI, straight into translating by hand", /data\.autoTranslate\?\.available === false\) setTranslating\(code\)/.test(panel))
 check("batch after batch, with the count on the row and a progress bar", /for \(let press = 0; press < 12; press\+\+\)/.test(panel) && /role="progressbar"/.test(panel) && /tt\("\{done\} of \{total\} texts"/.test(panel))
 check("a stop says why, with Try again", /state: "error", message: r\.error/.test(panel) && /tt\("Try again"\)/.test(panel))
