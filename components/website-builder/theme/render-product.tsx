@@ -27,7 +27,8 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { productFacts } from "@/lib/website-builder/storefront-data"
-import { withDeliveryBlock, withMainProduct, withProductBlocks } from "@/lib/website-builder/product-page"
+import { withDeliveryBlock, withMainProduct, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
+import { productRating, type StorefrontReviews } from "@/lib/reviews/storefront"
 import { productSectionData } from "@/lib/products/product-section-data"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -312,7 +313,11 @@ export async function renderProduct(
   const productDataEarly = pricing ? productSectionData(admin, { ...product, ...pricing, slug: product.slug ?? slug }, { files: true }) : null
   /* Awaited below; a failure while the reads beside it are still out is not left unhandled. */
   productDataEarly?.catch(() => undefined)
-  const [{ data: pageData }, { data: homeData }, variants, extra] = await Promise.all([
+  /* Storelib Reviews for this product (lib/reviews/storefront-server.ts, held a minute): whether the page gets the stars and the reviews, and the stars' numbers. Never stops the page. */
+  const reviewsRead: Promise<StorefrontReviews | null> = import("@/lib/reviews/storefront-server")
+    .then((m) => m.storefrontReviews(product.creator_id, { id: product.id, title: product.title ?? null }))
+    .catch(() => null)
+  const [{ data: pageData }, { data: homeData }, variants, extra, reviewsHere] = await Promise.all([
     theme
       ? { data: theme.product }
       : admin
@@ -331,6 +336,7 @@ export async function renderProduct(
           .maybeSingle(),
     productVariants(admin as never, [product.id]),
     pricing ?? productPricing(admin, product.id),
+    reviewsRead,
   ])
 
   /**
@@ -372,9 +378,14 @@ export async function renderProduct(
      describe: product-page.ts. A page with a product section of the
      creator's own (one that reads `product` or `page.product`) gets none:
      it would draw the product twice. */
-  const sections: SectionInstance[] = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map(s =>
+  /* With Storelib Reviews on, the stars under the title and the reviews under the product, unless the page has its own (product-page.ts withProductReviews). */
+  const reviewsOn = reviewsHere?.enabled === true && reviewsHere.product_page === true
+  const rating = productRating(reviewsHere)
+  const placed = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map((s) => (s.type === "product" ? withDeliveryBlock(withProductBlocks(s)) : s))
+  const stars = rating ? { rating } : {}
+  const sections: SectionInstance[] = withProductReviews(placed, reviewsOn).map(s =>
     s.type === "product"
-      ? (() => { const drawn = withDeliveryBlock(withProductBlocks(s)); return { ...drawn, settings: { ...drawn.settings, _product_data: localizer?.pricing ? { ...productData, display: { market: localizer.pricing.market, base: localizer.pricing.base, fx: localizer.pricing.fx, locale: localizer.locale } } : productData } } })()
+      ? { ...s, settings: { ...s.settings, _product_data: localizer?.pricing ? { ...productData, ...stars, display: { market: localizer.pricing.market, base: localizer.pricing.base, fx: localizer.pricing.fx, locale: localizer.locale } } : { ...productData, ...stars } } }
       : s
   )
 

@@ -34,6 +34,7 @@ import type { MarketPrice } from "@/lib/markets/pricing"
 import type { FxRates } from "@/lib/markets/money"
 import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
+import type { ProductRating } from "@/lib/reviews/storefront"
 import { imagesOnly, isPosterName } from "@/lib/media/video"
 
 /* ── The product, as the section receives it ─────────────────────────────── */
@@ -107,6 +108,8 @@ export interface ProductSectionData {
   details?: { key: string; label: string; value: string; type: "text" | "multiline" | "number" | "url" }[]
   /** A product that ships: the cheapest delivery home and how long it takes, and the pickup points holding each option (lib/physical/storefront-facts.ts). Null: nothing to say. */
   delivery?: ProductDelivery | null
+  /** Storelib Reviews: the product's published rating on this website, for the Star rating block (lib/reviews/storefront.ts productRating). Null or absent: no stars. */
+  rating?: ProductRating | null
 }
 
 /* ── Pictures ─────────────────────────────────────────────────────────────── */

@@ -8,6 +8,9 @@
  * page's Set up card. Turning it on is the one switch at the top; the rest
  * is grouped the way a store thinks about it: what happens to a new review,
  * who can write one, the email that asks, how reviews look on the website.
+ * Product pages get the stars and the reviews on their own while "Add to
+ * product pages" is on (lib/website-builder/product-page.ts), so turning the
+ * app on is the whole setup.
  * Save keeps everything at once; nothing is saved while it is being typed.
  */
 import * as React from "react"
@@ -153,6 +156,12 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
 
       <div className={cn(SECTION, "space-y-3", !on && "opacity-60")}>
         <p className={H}>{tt("On your website")}</p>
+        <Toggle
+          label={tt("Add to product pages")}
+          description={tt("Stars under the product name and reviews under the product, on every product page. Move or remove them in the website editor.")}
+          checked={draft.display.productPage}
+          onChange={(v) => setDisplay({ productPage: v })}
+        />
         <Field label={tt("Star color")} htmlFor="ra-star">
           <div className="flex items-center gap-2">
             <input aria-label={tt("Pick a star color")} type="color" value={cleanHexColor(draft.display.starColor)} onChange={(e) => setDisplay({ starColor: e.target.value })} className="h-10 w-12 cursor-pointer rounded-lg border border-[#e5e7eb] bg-white p-1" />
@@ -182,7 +191,7 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
         <Toggle label={tt("Photos in reviews")} checked={draft.display.showPhotos} onChange={(v) => setDisplay({ showPhotos: v })} />
         <Toggle label={tt("Stars on product cards")} description={tt("Imported themes show their own stars from the same ratings.")} checked={draft.display.showCardRating} onChange={(v) => setDisplay({ showCardRating: v })} />
         <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
-          {tt("Add reviews to your pages in the website editor: Product reviews, Star rating, Reviews carousel and All reviews are under Add section. Your website also has a reviews page at /reviews.")}
+          {tt("For other pages, Product reviews, Star rating, Reviews carousel and All reviews are under Add section in the website editor. Your website also has a reviews page at /reviews.")}
         </p>
       </div>
 

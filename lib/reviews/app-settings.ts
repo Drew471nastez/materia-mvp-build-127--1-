@@ -22,7 +22,9 @@
  *                digital purchase, how many after a physical order shipped
  *                or was delivered, and one reminder after `reminderDays`
  *   display      star colour, what a review card shows, the order, how many
- *                a section shows before "Show more"
+ *                a section shows before "Show more", and whether every
+ *                product page gets the stars under its name and the reviews
+ *                under the product without the store placing them
  *   editDays     how long a buyer can change their review from their link
  *
  * Nothing here imports a server module, so the settings page shares it.
@@ -61,6 +63,8 @@ export interface ReviewsAppSettings {
     showDate: boolean
     showPhotos: boolean
     showCardRating: boolean
+    /** Product pages get the stars under the name and the reviews under the product, unless the page already has its own (lib/website-builder/product-page.ts withProductReviews, compat/storelib-reviews.ts withProductPageReviews). */
+    productPage: boolean
     sort: ReviewSort
     perPage: number
   }
@@ -77,7 +81,7 @@ export const REVIEWS_APP_DEFAULTS: ReviewsAppSettings = {
   photos: true,
   who: "verified",
   request: { enabled: true, digitalDays: 7, physicalDays: 7, physicalFrom: "delivered", reminder: true, reminderDays: 7 },
-  display: { starColor: DEFAULT_STAR_COLOR, showVerified: true, showDate: true, showPhotos: true, showCardRating: true, sort: "featured", perPage: 6 },
+  display: { starColor: DEFAULT_STAR_COLOR, showVerified: true, showDate: true, showPhotos: true, showCardRating: true, productPage: true, sort: "featured", perPage: 6 },
   editDays: 30,
 }
 
@@ -126,6 +130,7 @@ export function readReviewsApp(raw: unknown): ReviewsAppSettings {
       showDate: bool(dp.showDate, d.display.showDate),
       showPhotos: bool(dp.showPhotos, d.display.showPhotos),
       showCardRating: bool(dp.showCardRating, d.display.showCardRating),
+      productPage: bool(dp.productPage, d.display.productPage),
       sort: pick(dp.sort, ["featured", "newest", "highest", "lowest", "photos"] as const, d.display.sort),
       perPage: int(dp.perPage, d.display.perPage, 3, 24),
     },

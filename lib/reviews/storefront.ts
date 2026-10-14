@@ -66,6 +66,8 @@ export interface StorefrontReviews {
   enabled: boolean
   /** True when these are sample reviews for the builder's canvas. Never on a live page. */
   sample: boolean
+  /** Every product page gets the stars and the reviews without the store placing them (the app's "Add to product pages"). */
+  product_page: boolean
   star_color: string
   show_verified: boolean
   show_date: boolean
@@ -186,6 +188,7 @@ export function emptyStorefrontReviews(settings: ReviewsAppSettings, creatorId: 
   return {
     enabled: settings.enabled,
     sample: false,
+    product_page: settings.display.productPage,
     star_color: settings.display.starColor,
     show_verified: settings.display.showVerified,
     show_date: settings.display.showDate,
@@ -200,6 +203,28 @@ export function emptyStorefrontReviews(settings: ReviewsAppSettings, creatorId: 
     here: { scope: "shop", product_id: "", summary: summaryOf([]), items: [] },
     page_url: "/reviews",
   }
+}
+
+/**
+ * The stars under a product's name on its page (the product section's Star
+ * rating block): the product's own summary, while the app is on and it has
+ * published reviews. Null otherwise, and the block draws nothing. Sample
+ * reviews never count: a product with none says so in the builder.
+ */
+export interface ProductRating {
+  count: number
+  average: number
+  average_label: string
+  percent: number
+  count_label: string
+  star_color: string
+}
+
+export function productRating(reviews: Pick<StorefrontReviews, "enabled" | "sample" | "product" | "star_color"> | null | undefined): ProductRating | null {
+  if (!reviews || !reviews.enabled || reviews.sample || !reviews.product) return null
+  const s = reviews.product.summary
+  if (!(s.count > 0)) return null
+  return { count: s.count, average: s.average, average_label: s.average_label, percent: s.percent, count_label: s.count_label, star_color: reviews.star_color }
 }
 
 /** The carousel's reviews: the featured ones, or when none is featured, the four and five star ones. */

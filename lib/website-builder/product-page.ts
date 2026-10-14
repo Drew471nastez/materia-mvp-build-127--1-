@@ -215,3 +215,60 @@ export function withMainProduct(sections: SectionInstance[], ownProductSection?:
   out.splice(header + 1, 0, mainProductSection())
   return out
 }
+
+/**
+ * ===========================================================================
+ *  STORELIB REVIEWS ON EVERY PRODUCT PAGE, WITHOUT PLACING ANYTHING
+ * ===========================================================================
+ * A store that turns Storelib Reviews on expects what a reviews app on
+ * Shopify gives: the stars under the product's name and the reviews under
+ * the product, on every product page, the day it is switched on. Before,
+ * the store had to find Product reviews and Star rating under Add section
+ * and place both itself, and most product pages showed no reviews at all.
+ *
+ * With the app on and its "Add to product pages" on, the product section
+ * gets a Star rating block under the title (it draws nothing until the
+ * product has a published review) and the page gets the Product reviews
+ * section right under the product section, in the product section's colour
+ * scheme. A page that already has its own (a Product reviews or All reviews
+ * section, a Star rating section or block, shown or hidden) keeps what it
+ * has.
+ *
+ * Given once, the way the delivery block is: the product section remembers
+ * it (REVIEWS_ADDED, kept with its settings). The builder adds the same two
+ * when the product page opens, so they are in the sidebar to move or
+ * remove, and the next save keeps them with the mark; removed after that,
+ * they stay removed. The canvas, the sidebar and the live page call this one
+ * function with the same ids, so all three agree.
+ */
+export const REVIEWS_ADDED = "reviews_added"
+export const AUTO_REVIEWS_ID = "auto-reviews"
+export const AUTO_RATING_ID = "auto-rating"
+
+const REVIEW_LIST_SECTIONS = new Set(["reviews_product", "reviews_all"])
+
+export function withProductReviews(sections: SectionInstance[], on: boolean): SectionInstance[] {
+  if (!on) return sections
+  const at = sections.findIndex((s) => s.type === "product" && !s.hidden)
+  if (at < 0) return sections
+  const product = sections[at]
+  const settings = product.settings ?? {}
+  if (settings[REVIEWS_ADDED] === true) return sections
+  const blocks = Array.isArray(product.blocks) ? product.blocks : []
+  const hasStars = sections.some((s) => s.type === "reviews_badge") || blocks.some((b) => b.type === "rating")
+  const hasList = sections.some((s) => REVIEW_LIST_SECTIONS.has(s.type))
+  let nextBlocks = blocks
+  /* A section emptied of every block shows the pictures alone, as its creator asked: nothing is put in it. */
+  if (!hasStars && blocks.length > 0) {
+    const title = blocks.findIndex((b) => b.type === "title")
+    const rating: BlockInstance = { id: AUTO_RATING_ID, type: "rating", settings: productBlockDefaults("rating") }
+    nextBlocks = [...blocks.slice(0, title + 1), rating, ...blocks.slice(title + 1)]
+  }
+  const marked: SectionInstance = { ...product, blocks: nextBlocks, settings: { ...settings, [REVIEWS_ADDED]: true } }
+  const out = sections.map((s, i) => (i === at ? marked : s))
+  if (!hasList) {
+    const scheme = typeof settings.color_scheme === "string" && settings.color_scheme ? { color_scheme: settings.color_scheme } : {}
+    out.splice(at + 1, 0, { id: AUTO_REVIEWS_ID, type: "reviews_product", name: "Product reviews", hidden: false, settings: scheme, blocks: [] })
+  }
+  return out
+}

@@ -51,6 +51,7 @@ import { signInNotice } from "@/lib/website-builder/account-pages"
 import { siteTabTitle, withTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
 import { ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
+import { withProductPageReviews } from "./storelib-reviews"
 
 type O = Record<string, unknown>
 
@@ -745,7 +746,10 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const selectedVariantId = req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values"))
     /* Its SEO title, when its creator wrote one, is the theme's page_title and the tab, as on Shopify. */
     const seoTitle = typeof card.settings.seo_title === "string" && card.settings.seo_title.trim() ? card.settings.seo_title.trim() : undefined
-    const route = at("product", { product: card, selectedVariantId, selectedValues, title: seoTitle ?? String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) }, undefined, seoTitle)
+    const reviews = await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") })
+    const route = at("product", { product: card, selectedVariantId, selectedValues, title: seoTitle ?? String(card.settings.title ?? ""), reviews }, undefined, seoTitle)
+    /* Storelib Reviews on, with "Add to product pages": the theme's stars under the title and the reviews under the product, on a page that has none (./storelib-reviews.ts). */
+    if (route && reviews && reviews.enabled === true && reviews.product_page === true) route.sections = withProductPageReviews(route.sections, site.theme)
     /* Signed in and already theirs: said at the foot of the page, with the way to the downloads. */
     const owned = route && req.account?.customer && req.owned ? await req.owned(card.id).catch(() => null) : null
     if (route && owned) {
