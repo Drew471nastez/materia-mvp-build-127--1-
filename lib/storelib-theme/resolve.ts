@@ -659,6 +659,19 @@ export function themeTokens(settings: Record<string, unknown>): Record<string, u
  * The defaults are the ones lib/website-builder/theme-settings-schema.ts
  * gives, and tests/section-framework-t.test.ts holds the two together.
  */
+/**
+ * The currency a page's prices are shown in, when it is not the store's: put
+ * on the theme settings a page is drawn with by the live site in a market
+ * (lib/markets/live.ts Localizer.theme) and by the builder's canvas
+ * previewing one. Never saved; a section reads it as theme.currency.code.
+ */
+export const DISPLAY_CURRENCY_KEY = "_display_currency"
+
+function displayCurrency(settings: Record<string, unknown>): string {
+  const v = settings[DISPLAY_CURRENCY_KEY]
+  return typeof v === "string" && /^[A-Z]{3}$/.test(v) ? v : "USD"
+}
+
 export function themeGlobals(settings: Record<string, unknown>): Record<string, unknown> {
   const str = (k: string, d = "") => (typeof settings[k] === "string" && (settings[k] as string).trim() !== "" ? (settings[k] as string).trim() : d)
   const num = (k: string, d: number) => {
@@ -722,7 +735,8 @@ export function themeGlobals(settings: Record<string, unknown>): Record<string, 
     /* Theme settings › Cart › Cart type: drawer, page or notification. */
     cart: { type: ["page", "notification"].includes(str("cart_type")) ? str("cart_type") : "drawer" },
     /* Theme settings › Currency format. */
-    currency: { code: "USD", show_code: bool("currency_code_enabled", false) },
+    /* The code is the one the page's prices are in: the store's, or the visitor's market's (DISPLAY_CURRENCY_KEY). */
+    currency: { code: displayCurrency(settings), show_code: bool("currency_code_enabled", false) },
   }
 }
 

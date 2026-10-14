@@ -4,7 +4,9 @@ import { recordActivity } from "@/lib/activity/log-server"
 import { storeCurrencyOf } from "@/lib/store/currency"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { localizationOf, saveLocalization } from "@/lib/markets/server"
-import { latestRates, refreshRates } from "@/lib/markets/fx-server"
+import { cachedRates, latestRates, refreshRates } from "@/lib/markets/fx-server"
+import { siteLanguages } from "@/lib/markets/live"
+import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
 import { fxFresh } from "@/lib/markets/money"
 
 export const runtime = "nodejs"
@@ -26,7 +28,32 @@ async function base(c: { db: any; creatorId: string }) {
 
 let lastFetch = 0
 
-export async function GET() {
+/**
+ * ?preview=1, THE BUILDER'S CANVAS IN A MARKET (components/website-builder/
+ * use-preview-market.ts): the markets exactly as the live site reads them
+ * (lib/markets/live.ts siteLanguages: active, with a currency of their own),
+ * the home market, the prices' own currency, the day's rates the website
+ * converts with, and what the card is charged in. Read only, for the
+ * website's editors: nothing here is saved or charged.
+ */
+async function preview() {
+  const c = await shopCaller("website")
+  if (c instanceof NextResponse) return c
+  const langs = await siteLanguages(c.creatorId)
+  const markets = langs.saved ? langs.markets : []
+  const fx = markets.length ? await cachedRates().catch(() => null) : null
+  return physicalJson({
+    saved: langs.saved,
+    base: SHOP_CURRENCY,
+    chargeCurrency: platformChargeCurrencyUpper(),
+    home: { name: langs.homeName ?? null, country: langs.homeCountry ?? null },
+    markets: markets.map((m) => ({ id: m.id, name: m.name, currency: m.currency, countries: m.countries, rounding: m.rounding, adjustBps: m.adjustBps })),
+    fx: fx && fxFresh(fx) ? { asOf: fx.asOf, rates: fx.rates } : null,
+  })
+}
+
+export async function GET(request: Request) {
+  if (new URL(request.url).searchParams.get("preview") === "1") return preview()
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const baseCurrency = await base(c)

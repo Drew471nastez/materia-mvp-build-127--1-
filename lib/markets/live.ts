@@ -27,13 +27,15 @@ import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import { localizationTag, marketsMissing, cachedTranslations } from "./server"
-import { languageName, localizedPath, normalizeLocale } from "./locales"
+import { localizedPath, normalizeLocale } from "./locales"
 import { localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
 import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
-import { chargeNote, currencyCode, fxFresh, type PriceRounding } from "./money"
+import { currencyCode, fxFresh, type PriceRounding } from "./money"
+import { languageChoiceOf } from "./choice"
+import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { cachedRates } from "./fx-server"
-import { convertPriceText, pricingFor, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
+import { pricesInMarket, pricingFor, storefrontDisplay, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
 
 /** A market as the live website reads it: active ones only. */
 export interface LiveMarket extends MarketPrice {
@@ -53,6 +55,8 @@ export interface SiteLanguages {
   markets: LiveMarket[]
   /** The home market's first country: the one a visitor whose country is unknown starts in. */
   homeCountry?: string | null
+  /** The home market's name (Settings › Markets and languages), for the builder's currency preview. */
+  homeName?: string | null
 }
 
 const NONE: SiteLanguages = { saved: false, defaultLanguage: "en", others: [], markets: [] }
@@ -73,14 +77,16 @@ async function readLanguages(creatorId: string): Promise<SiteLanguages> {
   }
   const markets: LiveMarket[] = []
   let homeCountry: string | null = null
+  let homeName: string | null = null
   for (const m of Array.isArray(row.markets) ? (row.markets as Record<string, unknown>[]) : []) {
+    if (m?.primary === true && typeof m.name === "string") homeName = m.name
     if (m?.primary === true && Array.isArray(m.countries)) homeCountry = (m.countries as unknown[]).find((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c)) ?? null
     const currency = currencyCode(m?.currency)
     if (!m || m.primary === true || m.active === false || !currency || typeof m.id !== "string") continue
     const countries = (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c))
     markets.push({ id: m.id, name: typeof m.name === "string" ? m.name : m.id, countries, currency, primary: false, rounding: (["none", "whole", "nine_nine"].includes(String(m.rounding)) ? m.rounding : "none") as PriceRounding, adjustBps: Number(m.adjustBps) || 0 })
   }
-  return { saved: true, defaultLanguage: def, others, markets, homeCountry }
+  return { saved: true, defaultLanguage: def, others, markets, homeCountry, homeName }
 }
 
 /** The market a country's visitors see prices in, when it shows its own currency (lib/markets/model marketForCountry, active markets only). */
@@ -136,7 +142,6 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
   const opts = { approvedOnly: true }
   const moneyLocale = code ?? langs.defaultLanguage
-  const price = (t: string) => (pricing && t ? convertPriceText(t, pricing, moneyLocale) : t)
   const words: Record<string, string> = {}
   for (const w of Object.keys(UI_WORDS)) {
     const v = valueFor(map, uiKey(w as UiWord), opts)
@@ -144,7 +149,7 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   }
   return {
     pricing,
-    display: pricing ? { market: pricing.market, base: pricing.base, fx: pricing.fx, locale: moneyLocale, note: chargeNote(pricing.currency, platformChargeCurrencyUpper()) } : undefined,
+    display: pricing ? storefrontDisplay(pricing, moneyLocale, platformChargeCurrencyUpper()) : undefined,
     locale: code ?? langs.defaultLanguage,
     defaultLanguage: langs.defaultLanguage,
     words,
@@ -164,25 +169,17 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
       return localizeRecord(p, `product:${p.id}`, PRODUCT_FIELDS.filter((f) => typeof p[f] === "string") as never, map, opts)
     },
     theme(settings) {
-      return localizeTheme(settings, map, opts)
+      const out = localizeTheme(settings, map, opts)
+      /* The currency the page's prices are in, for a section that reads theme.currency.code (lib/storelib-theme/resolve.ts DISPLAY_CURRENCY_KEY). Never saved. */
+      return pricing ? { ...out, [DISPLAY_CURRENCY_KEY]: pricing.currency } : out
     },
     cards(list) {
       if (map.size === 0 && !pricing) return list
       return list.map((c) => {
         const title = localizeRecord({ title: c.settings.title }, `product:${c.id}`, ["title"], map, opts).title
         if (!pricing) return title === c.settings.title ? c : { ...c, settings: { ...c.settings, title } }
-        /* Shown in the market's currency; checkout charges the store's and says so. */
-        return {
-          ...c,
-          settings: {
-            ...c.settings,
-            title,
-            price: price(c.settings.price),
-            compare_price: price(c.settings.compare_price),
-            currency: pricing.currency,
-            variants: (c.settings.variants ?? []).map((v) => ({ ...v, price: price(v.price), compare_price: price(v.compare_price) })),
-          },
-        }
+        /* Shown in the market's currency; checkout charges the store's and says so. The builder's canvas draws a market with the same function (lib/markets/pricing pricesInMarket). */
+        return { ...c, settings: { ...pricesInMarket(c.settings, pricing, moneyLocale), title } }
       })
     },
   }
@@ -197,30 +194,10 @@ export async function languageChoice(creatorId: string, locale: string | null | 
   const langs = await siteLanguages(creatorId)
   /* Nothing saved: the page's language stays what Website settings said (ThemePage reads site_language). One language saved: that one, with no switch. */
   if (!langs.saved) return undefined
-  const all = [langs.defaultLanguage, ...langs.others]
-  const code = (locale && all.find((l) => l.toLowerCase() === locale.toLowerCase())) || langs.defaultLanguage
-  /* The currencies a visitor can see prices in: the store's own, and each market's that has fresh rates. */
+  /* The currencies a visitor can see prices in: the store's own, and each market's that has fresh rates (lib/markets/choice.ts, which the builder's canvas asks too). */
   const pricing = await marketPricing(creatorId, market, SHOP_CURRENCY)
   const fresh = langs.markets.length ? fxFresh(await cachedRates().catch(() => null)) : false
-  const charge = platformChargeCurrencyUpper()
-  const currencies = fresh && langs.markets.length
-    ? [{ id: "home", label: SHOP_CURRENCY, country: "home" }, ...langs.markets.filter((m) => m.countries.length).map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))]
-    : []
-  return {
-    code,
-    defaultLanguage: langs.defaultLanguage,
-    languages: all.map((c) => ({ code: c, name: languageName(c) })),
-    ...(currencies.length > 1
-      ? {
-          currency: {
-            options: currencies,
-            current: pricing ? pricing.market.id : "home",
-            /* Said plainly before anyone pays: the prices are an estimate, the card is charged in the store's currency. */
-            note: pricing ? chargeNote(pricing.currency, charge) : null,
-          },
-        }
-      : {}),
-  }
+  return languageChoiceOf({ defaultLanguage: langs.defaultLanguage, others: langs.others, locale, markets: langs.markets, fresh, pricing, base: SHOP_CURRENCY, charge: platformChargeCurrencyUpper() })
 }
 
 /**

@@ -460,6 +460,7 @@ const SUITES = [
   "tests/markets.test.ts",
   "tests/visitors25.test.ts",
   "tests/compat-languages.test.ts",
+  "tests/canvas-currency.test.ts",
   "tests/analytics-ad.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",

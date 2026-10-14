@@ -17,7 +17,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
-  Palette, ShoppingBag, ShoppingCart, Share2, Cookie, Languages,
+  Palette, ShoppingBag, ShoppingCart, Share2, Cookie, Languages, Banknote,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
@@ -170,7 +170,14 @@ import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/web
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { PreviewLanguageSwitch } from "@/components/website-builder/preview-language-switch"
-import { localizeCards, localizeMenus, localizeSections } from "@/lib/markets/translate"
+import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
+import { localizeCards, localizeMenus, localizeSections, localizeTheme } from "@/lib/markets/translate"
+import { pricesInMarket, storefrontDisplay, type StorefrontDisplay } from "@/lib/markets/pricing"
+import { languageChoiceOf } from "@/lib/markets/choice"
+import { themeCountries } from "@/lib/markets/compat-prices"
+import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
+import type { LanguageSwitchPreview, SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
+import type { CompatMarkets } from "@/components/website-builder/compat/compat-canvas"
 import { languageName } from "@/lib/markets/locales"
 import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
@@ -7947,8 +7954,105 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const previewLang = usePreviewLanguage(installId)
   const previewMap = previewLang.map
+  /*
+    AND WITH PRICES IN A MARKET'S CURRENCY (the same button): every price
+    the page draws converted, rounded and written as a visitor in that
+    market sees it on the website, by the live site's own functions
+    (lib/markets/pricing pricingFor, pricesInMarket, storefrontDisplay).
+    Drawn only: nothing is saved, and checkout charges the store's prices.
+  */
+  const previewMarket = usePreviewMarket(installId)
+  const previewPricing = previewMarket.pricing
+  /* Money is written the page's language's way, as the live site's Localizer writes it. */
+  const moneyLocale = previewLang.locale ?? previewLang.defaultLanguage
+  const cardsInMarket = useCallback(
+    (list: ProductCard[]): ProductCard[] => (previewPricing ? list.map((c) => ({ ...c, settings: pricesInMarket(c.settings, previewPricing, moneyLocale) })) : list),
+    [previewPricing, moneyLocale],
+  )
+  /* The cart, the drawer, the free shipping banner and the product page convert their amounts with this, as on the website (storefront-context useMoney). */
+  const canvasDisplay = useMemo<StorefrontDisplay | undefined>(
+    () => (previewPricing ? storefrontDisplay(previewPricing, moneyLocale, previewMarket.chargeCurrency) : undefined),
+    [previewPricing, moneyLocale, previewMarket.chargeCurrency],
+  )
+  /*
+    THE THEME'S OWN LANGUAGE AND CURRENCY SELECTOR, as the website lists it
+    (lib/markets/choice.ts, the live site's languageChoice): the published
+    languages, a language previewed before it is published, and the
+    currencies a visitor can pick. A choice in it changes the preview.
+  */
+  const switchLanguages = useMemo(
+    () => previewLang.languages.filter((l) => l !== previewLang.defaultLanguage && (previewLang.published.includes(l) || l === previewLang.locale)),
+    [previewLang.languages, previewLang.defaultLanguage, previewLang.published, previewLang.locale],
+  )
+  const canvasChoice = useMemo<SiteLanguageChoice | undefined>(() => {
+    if (!previewMarket.saved && previewLang.languages.length < 2) return undefined
+    return languageChoiceOf({
+      defaultLanguage: previewLang.defaultLanguage,
+      others: switchLanguages,
+      locale: previewLang.locale,
+      markets: previewMarket.markets,
+      fresh: previewMarket.fx !== null,
+      pricing: previewPricing,
+      base: previewMarket.base,
+      charge: previewMarket.chargeCurrency,
+    })
+  }, [previewMarket.saved, previewMarket.markets, previewMarket.fx, previewMarket.base, previewMarket.chargeCurrency, previewLang.languages.length, previewLang.defaultLanguage, previewLang.locale, switchLanguages, previewPricing])
+  /* The country chosen in an imported theme's own selector, so it shows that one picked (lib/markets/compat-prices.ts themeCountries); the market button sets the market's own. */
+  const [previewCountry, setPreviewCountry] = useState<string | null>(null)
+  const setPreviewLocale = previewLang.setLocale
+  const setPreviewMarket = previewMarket.setMarket
+  const marketOptions = previewMarket.options
+  const allMarkets = previewMarket.markets
+  const pickPreviewMarket = useCallback((id: string | null) => {
+    setPreviewCountry(null)
+    setPreviewMarket(id)
+  }, [setPreviewMarket])
+  const canvasSwitch = useMemo<LanguageSwitchPreview>(
+    () => ({
+      language: (code: string) => setPreviewLocale(code),
+      currency: (id: string) => pickPreviewMarket(id === "home" ? null : id),
+    }),
+    [setPreviewLocale, pickPreviewMarket],
+  )
+  const previewMarketShown = useMemo(() => ({ ...previewMarket, setMarket: pickPreviewMarket }), [previewMarket, pickPreviewMarket])
+  /* A country chosen in the theme: the market it is in, when its prices can be shown today; else the store's own, as the website's proxy picks it. */
+  const pickInTheme = useCallback(
+    (choice: { language?: string; country?: string }) => {
+      if (choice.language) setPreviewLocale(choice.language)
+      if (choice.country) {
+        const m = allMarkets.find((x) => x.countries.includes(choice.country!))
+        setPreviewMarket(m && marketOptions.some((x) => x.id === m.id) ? m.id : null)
+        setPreviewCountry(choice.country)
+      }
+    },
+    [setPreviewLocale, setPreviewMarket, allMarkets, marketOptions],
+  )
+  const compatMarkets = useMemo<CompatMarkets | null>(() => {
+    const where = themeCountries({
+      markets: previewMarket.saved ? previewMarket.markets : [],
+      base: previewMarket.base,
+      marketId: previewPricing?.market.id ?? null,
+      visitorCountry: previewCountry,
+      homeCountry: previewMarket.home.country,
+      fresh: previewMarket.fx !== null,
+    })
+    return {
+      saved: previewMarket.saved,
+      defaultLanguage: previewLang.defaultLanguage,
+      languages: [previewLang.defaultLanguage, ...switchLanguages],
+      countries: where.countries,
+      ...(where.country ? { country: where.country } : {}),
+      pricing: previewPricing,
+      pick: pickInTheme,
+    }
+  }, [previewMarket.saved, previewMarket.markets, previewMarket.base, previewMarket.home.country, previewMarket.fx, previewPricing, previewCountry, previewLang.defaultLanguage, switchLanguages, pickInTheme])
+  /* The theme's settings as the website draws them in the language and the market: its menus translated (the header's and footer's links), and the currency a section reads as theme.currency.code. */
+  const canvasThemeShown = useMemo(() => {
+    const localized = previewMap ? (localizeTheme(canvasThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true }) as ThemeSettingsValues) : canvasThemeSettings
+    return previewPricing ? ({ ...localized, [DISPLAY_CURRENCY_KEY]: previewPricing.currency } as ThemeSettingsValues) : localized
+  }, [canvasThemeSettings, previewMap, previewPricing])
   const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
-  const catalogCardsShown = useMemo(() => localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true }), [catalogCardsForCanvas, previewMap])
+  const catalogCardsShown = useMemo(() => cardsInMarket(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true })), [catalogCardsForCanvas, previewMap, cardsInMarket])
   const canvasData = useMemo(
     () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderCollections, canvasReviews],
@@ -7963,7 +8067,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
   )
   /* The page in the language previewed: the text settings with an approved translation, read with the same schemas the website reads. */
-  const drawnShown = useMemo(
+  const drawnInLanguage = useMemo(
     () =>
       previewMap
         ? localizeSections(
@@ -7976,7 +8080,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         : drawnSections,
     [drawnSections, previewMap, storelibSources, librarySchemas],
   )
-  const shopCardsShown = useMemo(() => localizeCards(shopCards, previewMap, { approvedOnly: true }), [shopCards, previewMap])
+  /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
+  const drawnShown = useMemo(() => {
+    if (!previewPricing) return drawnInLanguage
+    const display = { market: previewPricing.market, base: previewPricing.base, fx: previewPricing.fx, locale: moneyLocale }
+    return drawnInLanguage.map((sec) => {
+      const data = (sec.settings as Record<string, unknown> | undefined)?._product_data
+      return data && typeof data === "object" ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : sec
+    })
+  }, [drawnInLanguage, previewPricing, moneyLocale])
+  const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true })), [shopCards, previewMap, cardsInMarket])
   const compatLanguage = useMemo(
     () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
     [previewLang.locale, previewLang.defaultLanguage, previewLang.languages, previewMap],
@@ -8598,12 +8711,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     handleRedo,
     requestExit,
     previewIn: (code: string) => previewLang.setLocale(code),
+    previewPricesIn: (id: string | null) => pickPreviewMarket(id),
   }
   const actionCalls = useRef(calls)
   actionCalls.current = calls
   const inCode = previewMode === "code"
   const previewLangs = previewLang.languages
   const previewLocaleShown = previewLang.locale ?? previewLang.defaultLanguage
+  /* A phone's currencies: the store's own, then each market's, round (the desktop's are in the button beside the page switcher). */
+  const previewMarketIds = useMemo(() => (marketOptions.length ? [null, ...marketOptions.map((m) => m.id)] : []), [marketOptions])
+  const previewMarketNext = previewMarketIds.length ? previewMarketIds[(previewMarketIds.indexOf(previewMarket.marketId) + 1) % previewMarketIds.length] : undefined
+  const previewMarketNextCurrency = previewMarketNext === undefined ? "" : previewMarketNext === null ? previewMarket.base : marketOptions.find((m) => m.id === previewMarketNext)?.currency ?? ""
   const actionItems = useMemo<ActionMenuItem[]>(() => {
     return [
       {
@@ -8638,6 +8756,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClick: () => actionCalls.current.previewIn(next),
             }]
           })()
+        : []),
+      ...(isMobileView && previewMarketNext !== undefined
+        ? [{
+            label: `Preview prices in ${previewMarketNextCurrency}`,
+            icon: <Banknote className="h-4 w-4" />,
+            onClick: () => actionCalls.current.previewPricesIn(previewMarketNext),
+          }]
         : []),
       {
         label: "Connect Claude Code or Codex",
@@ -8679,7 +8804,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         separatorBefore: !websiteUrl,
       },
     ]
-  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, previewLangs, previewLocaleShown])
+  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, previewLangs, previewLocaleShown, previewMarketNext, previewMarketNextCurrency])
   /**
    * The three dots. 32px drawn, and on a phone a 44px press area around it
    * (an invisible band, so the bar does not move). It presses in the way the
@@ -9006,7 +9131,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )}
 
           {/* The language the canvas is drawn in, for a website with more than one. */}
-          {!isMobileView && <PreviewLanguageSwitch lang={previewLang} />}
+          {!isMobileView && <PreviewLanguageSwitch lang={previewLang} market={previewMarketShown} />}
 
           {!isMobileView && (
           <PageSwitcher
@@ -10191,10 +10316,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   siteUrl={websiteUrl}
                   warm={compatWarm}
                   language={compatLanguage}
+                  markets={compatMarkets}
                 />
               ) : (
               <EditorCanvasPage
-                theme={canvasThemeSettings}
+                theme={canvasThemeShown}
                 sources={storelibSources}
                 pageTemplate={templateForPage(currentPage)}
                 sections={drawnShown}
@@ -10229,6 +10355,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 shopCards={shopCardsShown}
                 installId={installId}
                 words={previewLang.words}
+                display={canvasDisplay}
+                language={canvasChoice}
+                languagePreview={canvasSwitch}
               />
               )}
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
@@ -10829,6 +10958,9 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   installId,
   storefrontData: canvasStorefrontData,
   words,
+  display,
+  language,
+  languagePreview,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -10869,6 +11001,12 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   storefrontData?: import("@/lib/storelib-theme/types").StorefrontData
   /** The shop's own words in the language previewed (lib/markets/ui-words.ts). */
   words?: Record<string, string>
+  /** The market previewed: the cart's amounts in its currency, as on the website (storefront-context useMoney). */
+  display?: StorefrontDisplay
+  /** What the website's language and currency switch offers, drawn under the footer as on the website. */
+  language?: SiteLanguageChoice
+  /** What a choice in that switch does here: change the preview. */
+  languagePreview?: LanguageSwitchPreview
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
@@ -10901,7 +11039,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
-  const storefront = useMemo(() => ({ inEditor: true, installId, words }), [installId, words])
+  const storefront = useMemo(() => ({ inEditor: true, installId, words, display, language, preview: languagePreview }), [installId, words, display, language, languagePreview])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
   const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
   return (

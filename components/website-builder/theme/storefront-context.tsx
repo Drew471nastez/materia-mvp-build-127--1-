@@ -18,7 +18,7 @@
  * the builder's canvas. A section reads it and decides whether it can do the
  * thing it offers.
  */
-import type { SiteLanguageChoice } from "./language-switch"
+import type { LanguageSwitchPreview, SiteLanguageChoice } from "./language-switch"
 import { createContext, useContext, useMemo, type ReactNode } from "react"
 import { pricingFor, type StorefrontDisplay } from "@/lib/markets/pricing"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
@@ -62,6 +62,12 @@ export interface Storefront {
    * product cards are, and says what checkout charges in.
    */
   display?: StorefrontDisplay
+  /**
+   * The builder's canvas only: what the language and currency switch does
+   * there, which is change the preview (the editor's use-preview-language
+   * and use-preview-market), never open another address.
+   */
+  preview?: LanguageSwitchPreview
 }
 
 const StorefrontContext = createContext<Storefront>({})
