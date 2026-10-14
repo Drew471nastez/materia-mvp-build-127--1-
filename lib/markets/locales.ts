@@ -120,6 +120,25 @@ export function preferredLocale(acceptLanguage: string | null | undefined, publi
 }
 
 /**
+ * The flag a language is shown with (Settings › Languages & Currency): the
+ * country most people would look for it under. A tag with its own region
+ * (pt-BR) is that region's; Chinese by its script (simplified: China,
+ * traditional: Taiwan). Null for a language with no flag of its own here:
+ * the tile with its letters stays.
+ */
+const LANGUAGE_FLAG: Record<string, string> = {
+  en: "US", es: "ES", fr: "FR", de: "DE", it: "IT", pt: "PT", nl: "NL", ro: "RO", pl: "PL", cs: "CZ", sk: "SK", hu: "HU",
+  bg: "BG", el: "GR", hr: "HR", sl: "SI", sr: "RS", sv: "SE", da: "DK", nb: "NO", fi: "FI", et: "EE", lv: "LV", lt: "LT",
+  uk: "UA", ru: "RU", tr: "TR", ar: "SA", he: "IL", fa: "IR", hi: "IN", bn: "BD", ur: "PK", th: "TH", vi: "VN", id: "ID",
+  ms: "MY", fil: "PH", ja: "JP", ko: "KR", "zh-Hans": "CN", "zh-Hant": "TW",
+}
+export function languageFlag(locale: string): string | null {
+  if (LANGUAGE_FLAG[locale]) return LANGUAGE_FLAG[locale]
+  const region = /^[a-z]{2,3}-([A-Z]{2})$/.exec(locale)?.[1]
+  return region ?? LANGUAGE_FLAG[baseLanguage(locale)] ?? null
+}
+
+/**
  * The country whose flag stands for a language in the settings. A flag is
  * not a language (lib/markets/model keeps them apart), so this is only a
  * picture to find a row by: the region the tag names when it names one

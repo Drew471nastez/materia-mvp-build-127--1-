@@ -1352,6 +1352,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           }}
           peekHeight={0}
           detents={[0.94]}
+          /* Cancel puts it away evenly on the app's close curve, not dropping away; a slow pull closes it a third of the way down. */
+          closeMs={420}
+          closeEase={SHEET_CLOSE_EASE}
+          closeAt={0.3}
           openFull
           layer="raised"
           zIndex={editing ? 135 : 125}

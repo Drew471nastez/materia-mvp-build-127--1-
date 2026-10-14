@@ -64,6 +64,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
+import { SHEET_CLOSE_EASE } from "@/components/ui/bottom-sheet"
 import { useLayer } from "@/lib/ui/layers"
 import { hapticTap } from "@/lib/native-bridge"
 import { edgeSwipeEnvironment } from "@/lib/navigation/edge-swipe"
@@ -76,8 +77,12 @@ import { BROWSER_EDGE_PX, closedByBrowserSwipe, feedRestore, type CloseTrigger }
 export const KB_DEBUG_PRESS_MS = 1500
 /** The post is prepared (drawn, laid out, its pictures decoded, its comments read) for at most this long before it rises anyway. */
 export const PREPARE_CAP_MS = 120
-/** The sheet's one stop: the whole screen less a strip of the dimmed community at the top, as iOS's sheets leave. */
-export const POST_SHEET_DETENTS = [0.94]
+/** The sheet's one stop: the screen less a strip of the dimmed community at the top, as iOS's sheets leave. 7% lower than the 0.94 it was (the owner: "reduce it by 7%"). */
+export const POST_SHEET_DETENTS = [0.874]
+/** Put away by its close button or Back: on the app's close curve, evenly, never dropping away (MobileEditorSheet closeMs). */
+export const POST_SHEET_CLOSE_MS = 420
+/** A slow pull closes it past this share of the way down, as an iOS sheet does; a flick at any distance. */
+export const POST_SHEET_CLOSE_AT = 0.3
 /** Over the community and its tab bar; Edit post (135) and search (136) open over it. */
 export const POST_SHEET_Z = 130
 /** The close button's tap: the whole corner, at least 48px. */
@@ -569,6 +574,9 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       label={label}
       peekHeight={0}
       detents={POST_SHEET_DETENTS}
+      closeMs={POST_SHEET_CLOSE_MS}
+      closeEase={SHEET_CLOSE_EASE}
+      closeAt={POST_SHEET_CLOSE_AT}
       openFull
       layer="raised"
       zIndex={POST_SHEET_Z}
@@ -589,8 +597,9 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
             style={{ width: CLOSE_HIT + 8, height: CLOSE_HIT }}
             data-post-overlay-close=""
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f1f2f4] text-[#4b5563] transition-[background-color,scale] duration-150 ease-out group-active/close:scale-[0.94] group-active/close:bg-[#e6e8eb]">
-              <X className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
+            {/* Storelib's own button: white, a hairline edge and a soft shadow (the Following and Visit page buttons), not a flat grey dot. */}
+            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e5e7eb] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.06),0_2px_6px_-2px_rgba(17,24,39,0.10)] transition-[background-color,scale,box-shadow] duration-150 ease-out group-active/close:scale-[0.94] group-active/close:bg-[#f6f7f9] group-active/close:shadow-[0_1px_1px_rgba(17,24,39,0.05)]">
+              <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
             </span>
           </button>
         </div>

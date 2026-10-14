@@ -36,11 +36,11 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, Pill, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { REGIONS } from "@/lib/markets/regions"
-import { SITE_LANGUAGE_CODES, languageCountry, languageName } from "@/lib/markets/locales"
+import { SITE_LANGUAGE_CODES, languageFlag, languageName } from "@/lib/markets/locales"
+import { CountryFlag } from "./country-picker"
 import type { Localization, Market } from "@/lib/markets/model"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
-import { CountryFlag } from "./country-picker"
 import { TranslateSheet } from "./translate-sheet"
 import { activeLocale, tt, ttx } from "@/lib/i18n/text"
 
@@ -225,7 +225,7 @@ export function MarketsPanel() {
       </Card>
 
       <Card
-        title={tt("Markets")}
+        title={tt("Markets & Currency")}
         help="markets"
         description={tt("Show prices in your visitors' own currency.")}
       >
@@ -317,11 +317,22 @@ export function MarketsPanel() {
   )
 }
 
-/** A language's flag (lib/markets/locales languageCountry), in a fixed slot so the names line up. */
+/**
+ * A language's flag (lib/markets/locales languageFlag), from the same one cached sprite every country list draws from,
+ * on a quiet tile the size the letters had, so a row never changes height. The letters for a language with no flag.
+ */
 function LanguageBadge({ code }: { code: string }) {
+  const flag = languageFlag(code)
+  if (!flag) {
+    return (
+      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[12px] font-semibold uppercase tracking-wide text-[#4b5563]">
+        {code.slice(0, 2)}
+      </span>
+    )
+  }
   return (
-    <span aria-hidden className="flex w-7 shrink-0 justify-center">
-      <CountryFlag code={languageCountry(code) ?? ""} className="h-[16px] w-[24px]" />
+    <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#e5e7eb]/70 bg-[#f8f9fa]" data-language-flag={flag}>
+      <CountryFlag code={flag} className="h-[16px] w-[24px]" />
     </span>
   )
 }

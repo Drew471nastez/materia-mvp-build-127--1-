@@ -470,6 +470,24 @@ type Props = {
    */
   moveMs?: number
   /**
+   * A CLOSE THE PAGE ASKED FOR (Cancel, a close button) on its own time and
+   * curve. The house curve is a throw: over half the way in the first fifth
+   * of the time, which on a button's close read as the sheet dropping away
+   * "fast and direct". A sheet that is put away by a button often (the
+   * community's new post and post sheets) passes an even ease over a little
+   * longer. Unset: the open's time and curve, as every other sheet.
+   */
+  closeMs?: number
+  closeEase?: string
+  /**
+   * How far down (0..1 of the way from its one stop to closed) a slow pull
+   * has to go to close it. The nearest stop decides otherwise, which for a
+   * one stop sheet is half its height, a long way on a phone; iOS closes a
+   * sheet at about a third. A flick closes it at any distance either way.
+   * Only for a sheet with one stop; unset, the nearest stop.
+   */
+  closeAt?: number
+  /**
    * What a keyboard for a field in this sheet does to it.
    *
    *   "sheet"     the sheet makes room: it grows by the keyboard and pads
@@ -565,6 +583,9 @@ export function MobileEditorSheet({
   fit = false,
   restKey,
   moveMs = SNAP_DURATION_MS,
+  closeMs,
+  closeEase,
+  closeAt,
   keyboard: keyboardMode = "sheet",
   fadeOnMove = false,
   keyboardRoom,
@@ -1828,8 +1849,8 @@ export function MobileEditorSheet({
     const target = open ? settledY : closedY
     if (drag.current.currentY === target) return
     stopResizeMove()
-    const ms = motionMs(moveMs)
-    setTransition(true, ms)
+    const ms = motionMs(open ? moveMs : (closeMs ?? moveMs))
+    setTransition(true, ms, open || !closeEase || prefersReducedMotion() ? SNAP_EASING : closeEase)
     drag.current.currentY = target
     motionUntil.current = performance.now() + ms
     settleVisibility(open, ms)
@@ -2158,7 +2179,9 @@ export function MobileEditorSheet({
      * one further in the direction of the flick is what makes a sheet feel
      * like it has weight.
      */
-    const index = tapped ? tapTarget(list, tapFrom) : snapTarget({ offsets: list, current, velocity, totalDelta })
+    let index = tapped ? tapTarget(list, tapFrom) : snapTarget({ offsets: list, current, velocity, totalDelta })
+    /* A one stop sheet that closes sooner (closeAt): a slow pull past that share of the way, unless it was thrown back up. */
+    if (!tapped && closeAt !== undefined && list.length === 2 && index === 0 && velocity >= 0 && current - list[0] > closeAt * (list[1] - list[0])) index = 1
     const targetY = list[index]
     /**
      * Pulled down off the tallest stop while typing: the keyboard goes with

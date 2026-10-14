@@ -47,7 +47,7 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
   return (
     <>
       <PageTitle>{tt("Connections")}</PageTitle>
-      <Lead>{tt("Use your own OpenAI key in Storelib AI, or let Claude Code, Codex or a GitHub repository change this website. What they write is a draft until you publish.")}</Lead>
+      <Lead>{tt("Use your own Claude or OpenAI API key in Storelib AI, or connect Claude Code, Codex or GitHub to this website. Changes stay as drafts until you publish.")}</Lead>
 
       {/* First: the one that needs nothing installed, and is what the chat's Connect AI button is usually after. */}
       <OwnAiSettings />

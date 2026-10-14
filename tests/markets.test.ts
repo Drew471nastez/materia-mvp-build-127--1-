@@ -169,9 +169,9 @@ console.log("\nWired into the website\n")
   const theme = read("components/website-builder/theme/ThemePage.tsx")
   check("the page's lang and dir, and the language switch under the footer (never in the editor)", /storefront\?\.language\?\.code \?\?/.test(theme) && /storefront\?\.language && !storefront\.inEditor \? <LanguageSwitch/.test(theme))
   const form = read("components/app/settings-form-new.tsx")
-  check("Settings › Markets and languages, fetched ahead like the others", /id: "markets", label: "Markets and languages"/.test(form) && /markets: \(\) => \["\/api\/store\/markets"\]/.test(form) && /panelTab === "markets" && <MarketsPanel \/>/.test(form))
+  check("Settings › Languages & Currency, fetched ahead like the others", /* Changed on purpose (the owner: call it Languages & Currency). */ /id: "markets", label: "Languages & Currency"/.test(form) && /markets: \(\) => \["\/api\/store\/markets"\]/.test(form) && /panelTab === "markets" && <MarketsPanel \/>/.test(form))
   const panel = read("components/app/settings/markets-panel.tsx")
-  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AE): the easier page. */ /title="Markets"\s*help="markets"/.test(panel) && !/MARKETS_ON/.test(panel))
+  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /title="Markets & Currency"\s*help="markets"/.test(panel) && !/MARKETS_ON/.test(panel))
   const draft = read("app/api/store/translations/draft/route.ts")
   check("AI drafts are rate limited and saved as drafts", /rateLimit|limit/i.test(draft) && /approved: false|ai: true/.test(draft))
   const sql = read("supabase/sql/run-now/136_markets_languages.sql")
@@ -196,7 +196,8 @@ console.log("\nRound AE: no more English corners, and the builder previews every
   }
   check("  the contact page too", /renderAccountPage\(username, "contact", \{ lang: \{ locale, market \} \}\)/.test(read("app/(site)/w/[username]/render-site.tsx")))
   const ctx = read("components/website-builder/theme/storefront-context.tsx")
-  check("the cart's amounts in the market's currency, as the cards are, with what checkout charges in", /export function useMoney\(\)/.test(ctx) && /pricingFor\(display\.market, display\.base, display\.fx\)/.test(ctx) && /useChargeNote\(\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /useChargeNote\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
+  /* Changed on purpose (the owner: no "you'll pay in USD" notice in the cart drawer or the cart): said at checkout only. */
+  check("the cart's amounts in the market's currency, as the cards are; what checkout charges in is said at checkout, not in the cart", /export function useMoney\(\)/.test(ctx) && /pricingFor\(display\.market, display\.base, display\.fx\)/.test(ctx) && !/useChargeNote\(\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && !/useChargeNote\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
   check("  no hard-coded dollar sign left in the cart drawer or the cart page", !/function money\(cents: number\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && !/function money\(cents: number\)/.test(read("components/website-builder/cart-page-body.tsx")))
   check("  every builder page hands the conversion over", ["cart/page.tsx", "products/page.tsx", "search/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "render-account.tsx", "render-site.tsx"].every((f) => /display: localizer\?\.display/.test(read(`app/(site)/w/[username]/${f}`))))
   const api = read("app/api/store/translations/route.ts")
@@ -220,7 +221,7 @@ console.log("\nThis round: Translate waits for the language, flags, and the stor
     /setAdding\(code\)/.test(panel) && /waiting=\{!!translating && adding === translating\}/.test(panel) && /if \(!waiting\) void load\(locale\)/.test(sheet))
   check("  a language the server does not have is said, not drawn as an empty website", /if \(!r\.data\.locale\) return setError/.test(sheet))
   check("languages and markets show flags from the local sprite, never purple initials or emoji",
-    /<CountryFlag code=\{languageCountry\(code\) \?\? ""\}/.test(panel) && !/bg-\[#f1ecff\]/.test(panel) && !/fromCodePoint/.test(panel))
+    /const flag = languageFlag\(code\)/.test(panel) && /<CountryFlag code=\{flag\}/.test(panel) && !/bg-\[#f1ecff\]/.test(panel) && !/fromCodePoint/.test(panel))
   check("  a language's flag: its region when the tag names one, else its usual country",
     languageCountry("pt-BR") === "BR" && languageCountry("fr") === "FR" && languageCountry("zh-Hant") === "TW" && languageCountry("zh-Hans") === "CN" && languageCountry("xx") === null)
   check("a store's own checkout charges in the store's currency when payments are set up for it",
