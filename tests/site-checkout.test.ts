@@ -46,6 +46,8 @@ import { planContact } from "@/lib/contacts/checkout-contact"
 import { decodeItems } from "@/lib/physical/cart-link"
 import { FakeSupabase } from "./fake-supabase"
 import { stripComments } from "./_source"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { minimumChargeMinor, sellingCurrencyOf } from "@/lib/store/selling-currency"
 
 let passed = 0
 let failed = 0
@@ -208,7 +210,8 @@ async function main() {
     const foreign = await siteQuote(pricingDb({ products: [product(B, OTHER, 2500)] }), SHOP, { items: [{ productId: B }] })
     check("a cart that is all another shop's is refused on this site", foreign.ok === false, foreign)
     const tiny = await siteQuote(pricingDb({ products: [product(A, SHOP, 30)] }), SHOP, { items: [{ productId: A }] })
-    check("under the smallest card payment is refused before any form", tiny.ok === false && /0\.50/.test(tiny.error), tiny)
+    /* Changed on purpose: the smallest card payment is Stripe's in the store's currency (2 lei, 50 cents). */
+    check("under the smallest card payment is refused before any form", tiny.ok === false && tiny.error.includes(shopMoneyIn(minimumChargeMinor(sellingCurrencyOf(null)), sellingCurrencyOf(null))), tiny)
     const ships = await siteQuote(pricingDb({ products: [product(A, SHOP, 1500, { type: "physical" })] }), SHOP, { items: [{ productId: A }] })
     check("while physical commerce is off, a product that ships is left out, never charged", ships.ok === false, ships)
     const badCode = await priceSiteCart(db, SHOP, { items, couponCode: "NOPE" })

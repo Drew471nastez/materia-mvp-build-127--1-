@@ -32,12 +32,12 @@ check("the price read back from what a card wrote", priceCentsFrom(formatPrice(4
 
 console.log("\nEverything that names the store's currency names this one")
 for (const [file, pattern] of [
-  ["lib/website-builder/site-seo.ts", /priceCurrency: SHOP_CURRENCY/],
+  ["lib/website-builder/site-seo.ts", /priceCurrency: p\.currency \?\? SHOP_CURRENCY/],
   ["lib/storelib-theme/render.ts", /SHOP_CURRENCY_CODE = SHOP_CURRENCY/],
   ["lib/products/product-page-model.ts", /PRODUCT_CURRENCY_CODE = SHOP_CURRENCY/],
-  ["app/api/store/markets/route.ts", /SHOP_CURRENCY/],
+  ["app/api/store/markets/route.ts", /readStoreCurrency\(c\.db, c\.creatorId\)\)\.currency/],
   ["app/app/products/load-editor.ts", /currency: SHOP_CURRENCY,/],
-  ["lib/website-builder/compat-site.ts", /currency: SHOP_CURRENCY, moneyFormat: moneyFormatFor\(SHOP_CURRENCY\)/],
+  ["lib/website-builder/compat-site.ts", /currency, moneyFormat: moneyFormatFor\(currency\)/],
 ] as const) check(`  ${file}`, pattern.test(read(file)))
 check("no market converts from the payout currency any more", !/payout_currency/.test(read("app/api/store/markets/route.ts")) && !/payout_currency/.test(read("app/api/store/translations/route.ts")))
 
@@ -75,7 +75,7 @@ check("  the cart puts back the store's price from it", storeCentsFromShown(1000
 const saved = validateLocalization({ defaultLanguage: "en", markets: [{ id: "a", name: "Home", primary: true, rate: 3 }, { id: "eu", name: "Europe", countries: ["DE"], currency: "EUR", rate: "0.2" }] }, { baseCurrency: "RON" })
 check("saved with the market, never on the home market", saved.ok && saved.value.markets[1].rate === 0.2 && saved.value.markets[0].rate === undefined, saved)
 check("  a rate that is not a number above 0 is refused", !validateLocalization({ defaultLanguage: "en", markets: [{ id: "a", name: "Home", primary: true }, { id: "eu", name: "Europe", countries: ["DE"], currency: "EUR", rate: -1 }] }, { baseCurrency: "RON" }).ok)
-check("the visitor is offered a market that converts by its own rate", /const offered = langs\.markets\.filter\(\(m\) => m\.countries\.length && pricingFor\(m, SHOP_CURRENCY, rates\)\)/.test(read("lib/markets/live.ts")) && /rate: m\.rate/.test(read("lib/markets/live.ts")))
+check("the visitor is offered a market that converts by its own rate", /const offered = langs\.markets\.filter\(\(m\) => m\.countries\.length && pricingFor\(m, charge, rates\)\)/.test(read("lib/markets/live.ts")) && /rate: m\.rate/.test(read("lib/markets/live.ts")))
 check("set in the market's own settings", /data-market-rate=""/.test(read("components/app/settings/markets-panel.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)

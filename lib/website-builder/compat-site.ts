@@ -445,6 +445,7 @@ export async function compatDraftHome(installId: string): Promise<string | null>
   ])
   const sections = pageSections<StoredSection[]>(pageRow.data as never, true) ?? []
   const theme = compatThemeFor(row.id, "edit", rows, settings)
+  const currency = await cachedStoreCurrency(row.creator_id)
   return drawPage(theme, {
     template: "index",
     path: "/",
@@ -452,7 +453,7 @@ export async function compatDraftHome(installId: string): Promise<string | null>
     products,
     collections,
     menus: compatMenus(menus as never, ["home"]),
-    shop: { name: row.name ?? "", currency: await cachedStoreCurrency(row.creator_id), moneyFormat: moneyFormatFor(await cachedStoreCurrency(row.creator_id)) },
+    shop: { name: row.name ?? "", currency, moneyFormat: moneyFormatFor(currency) },
   }, sections, { scripts: true }).html
 }
 

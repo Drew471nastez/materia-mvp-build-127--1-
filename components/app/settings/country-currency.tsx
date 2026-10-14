@@ -1,0 +1,305 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  SETTINGS › STORE DETAILS › COUNTRY & CURRENCY
+ * ===========================================================================
+ * Where the store is based and the currency it sells in, in one line:
+ *
+ *   Country & Currency                                        Edit
+ *   The country and currency your store sells in.
+ *   Selling in                                   France · EUR
+ *
+ * Edit asks for the country, suggests its own currency (lib/store/
+ * selling-currency suggestedCurrencyFor) and saves. The currency is what the
+ * website's prices are in and what its checkout charges, so a new currency
+ * for a store that already has prices asks once how they move, with three of
+ * them shown before and after:
+ *
+ *   Keep the amounts       100 EUR becomes 100 USD
+ *   Convert the amounts    at the day's rate, shown with its date
+ *
+ * Nothing is chosen for the merchant: Save waits until one is picked.
+ * app/api/store/currency does the change in one transaction (SQL part 176).
+ */
+import * as React from "react"
+import { Check } from "lucide-react"
+import { countryName } from "@/lib/checkout/countries"
+import { countryOf } from "@/lib/account/country"
+import { suggestedCurrencyFor, unsupportedLocalCurrency } from "@/lib/store/selling-currency"
+import { formatStoreMoney } from "@/lib/store/currency"
+import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, api, peekGet } from "@/components/physical/ui"
+import { CountryFlag, CountryPicker } from "./country-picker"
+import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+
+const PATH = "/api/store/currency"
+
+interface CurrencyState {
+  ready: boolean
+  country: string | null
+  currency: string
+  chosen: string | null
+  suggested: string | null
+  unsupportedLocal: string | null
+  detectedCountry: string | null
+  currencies: { code: string; label: string }[]
+  catalog: { products: number; variants: number; shippingRates: number; coupons: number; total: number }
+}
+
+interface Preview {
+  from: string
+  to: string
+  counts: CurrencyState["catalog"]
+  rate: number | null
+  asOf: string | null
+  examples: { title: string; before: number; converted: number | null }[]
+}
+
+const newKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+
+/** "14 Oct": the day the exchange rates are from. */
+function dayOf(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(`${iso}T12:00:00Z`)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { day: "numeric", month: "short" })
+}
+
+export function CountryCurrency() {
+  const [data, setData] = React.useState<CurrencyState | null>(() => peekGet<CurrencyState>(PATH))
+  const [loadError, setLoadError] = React.useState<string | null>(null)
+  const [editing, setEditing] = React.useState(false)
+  const [saved, setSaved] = React.useState(false)
+
+  React.useEffect(() => {
+    let live = true
+    void api<CurrencyState>(PATH).then((r) => {
+      if (!live) return
+      if (r.ok) setData(r.data)
+      else setLoadError(r.error)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  if (!data) {
+    return loadError ? <Notice>{loadError}</Notice> : <div className="h-[132px] animate-pulse rounded-2xl border border-[#e5e7eb]/60 bg-white" aria-busy="true" />
+  }
+
+  return (
+    <Card
+      title={tt("Country & Currency")}
+      description={tt("The country and currency your store sells in.")}
+      help="currency"
+      action={
+        editing ? null : (
+          <button type="button" className={BTN_SECONDARY} onClick={() => setEditing(true)} data-currency-edit="">
+            {tt("Edit")}
+          </button>
+        )
+      }
+    >
+      {!data.ready ? <Notice tone="amber" className="mb-3">{tt("Choosing your currency needs its database update (SQL part 176). Until it runs, your store sells in {currency}.", { currency: data.currency })}</Notice> : null}
+      {editing ? (
+        <Editor
+          data={data}
+          onCancel={() => setEditing(false)}
+          onSaved={(next) => {
+            setData(next)
+            setEditing(false)
+            setSaved(true)
+            window.setTimeout(() => setSaved(false), 1800)
+          }}
+        />
+      ) : (
+        <div className="flex min-h-[28px] items-center justify-between gap-3" data-selling-in="">
+          <span className="text-[14px] text-[#6b7280]">{tt("Selling in")}</span>
+          <span className="flex min-w-0 items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
+            {saved ? <Check className="h-4 w-4 shrink-0 text-[#067647]" aria-label={tt("Saved")} /> : null}
+            {data.country ? <CountryFlag code={data.country} near={false} /> : null}
+            <span className="truncate">{data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency}</span>
+          </span>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: () => void; onSaved: (next: CurrencyState) => void }) {
+  const startCountry = data.country ?? data.detectedCountry ?? ""
+  const [country, setCountry] = React.useState(startCountry)
+  /* The currency follows the country until the merchant picks one themselves. */
+  const [currency, setCurrency] = React.useState(data.chosen ?? (data.country ? data.currency : suggestedCurrencyFor(startCountry)))
+  const [picked, setPicked] = React.useState(!!data.chosen)
+  const [mode, setMode] = React.useState<"keep" | "convert" | null>(null)
+  const [preview, setPreview] = React.useState<Preview | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const key = React.useRef(newKey())
+
+  const changesCurrency = currency !== data.currency
+  const asks = changesCurrency && data.catalog.total > 0
+  const local = country ? unsupportedLocalCurrency(country) : null
+
+  /* What the change would do: read when a new currency is chosen, before anything is saved. */
+  React.useEffect(() => {
+    setMode(null)
+    setPreview(null)
+    key.current = newKey()
+    if (!asks) return
+    let live = true
+    void api<Preview>(PATH, { method: "POST", body: { currency } }).then((r) => {
+      if (!live) return
+      if (r.ok) setPreview(r.data)
+      else setError(r.error)
+    })
+    return () => {
+      live = false
+    }
+  }, [currency, asks])
+
+  const save = async () => {
+    setBusy(true)
+    setError(null)
+    const body: Record<string, unknown> = { country: country || null, currency, key: key.current }
+    if (asks) {
+      body.mode = mode
+      if (mode === "convert") {
+        body.rate = preview?.rate
+        body.asOf = preview?.asOf
+      }
+    }
+    const r = await api<CurrencyState & { preview?: Preview }>(PATH, { method: "PUT", body })
+    setBusy(false)
+    if (!r.ok) {
+      setError(r.error)
+      /* The rate moved since it was shown: the new amounts are shown, and Save asks again. */
+      const fresh = r.data?.preview as Preview | undefined
+      if (fresh) setPreview(fresh)
+      return
+    }
+    onSaved(r.data)
+  }
+
+  const nothingChanged = country === (data.country ?? "") && currency === data.currency && data.chosen === currency
+  const example = preview?.examples[0] ?? null
+
+  return (
+    <div className="space-y-4" data-currency-editor="">
+      <Field label={tt("Country")} htmlFor="store-country">
+        <CountryPicker
+          id="store-country"
+          value={country ? countryName(country) : ""}
+          onChange={(name) => {
+            const code = countryOf(name) ?? ""
+            setCountry(code)
+            if (!picked && code) setCurrency(suggestedCurrencyFor(code))
+          }}
+        />
+      </Field>
+
+      <Field
+        label={tt("Currency")}
+        htmlFor="store-currency"
+        hint={local ? tt("Storelib can't take card payments in {local} yet, so your store sells in {currency}.", { local, currency }) : tt("Your prices are in it and buyers pay in it. Payouts still arrive in your bank's currency.")}
+      >
+        <SelectInput
+          id="store-currency"
+          value={currency}
+          onChange={(v) => {
+            setCurrency(v)
+            setPicked(true)
+          }}
+        >
+          {data.currencies.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.label}
+            </option>
+          ))}
+        </SelectInput>
+        {country && suggestedCurrencyFor(country) !== currency && !unsupportedLocalCurrency(country) ? (
+          <button
+            type="button"
+            onClick={() => {
+              setCurrency(suggestedCurrencyFor(country))
+              setPicked(true)
+            }}
+            className="mt-1.5 inline-flex h-7 items-center rounded-full bg-[#f1f2f4] px-2.5 text-[12.5px] font-medium text-[#374151] transition-colors hover:bg-[#e8e9ec]"
+            data-suggest-currency={suggestedCurrencyFor(country)}
+          >
+            {tt("Sell in {currency}, {country}'s own currency", { currency: suggestedCurrencyFor(country), country: countryName(country) })}
+          </button>
+        ) : null}
+      </Field>
+
+      {asks ? (
+        <div className="space-y-2.5" data-currency-change="">
+          <p className="text-[13.5px] font-medium text-[#1a1a2e]">{tt("What should happen to your prices?")}</p>
+          <div role="radiogroup" aria-label={tt("What should happen to your prices?")} className="grid gap-2.5 sm:grid-cols-2">
+            <Choice
+              on={mode === "keep"}
+              onClick={() => setMode("keep")}
+              title={tt("Keep the amounts")}
+              text={example ? tt("{title}: {before} becomes {after}.", { title: example.title, before: formatStoreMoney(example.before, data.currency), after: formatStoreMoney(example.before, currency) }) : tt("100 {from} becomes 100 {to}.", { from: data.currency, to: currency })}
+              data="keep"
+            />
+            <Choice
+              on={mode === "convert"}
+              onClick={() => preview?.rate && setMode("convert")}
+              disabled={!preview?.rate}
+              title={tt("Convert the amounts")}
+              text={
+                !preview
+                  ? tt("Reading today's exchange rate")
+                  : !preview.rate
+                    ? tt("Today's exchange rate isn't available yet.")
+                    : example && example.converted !== null
+                      ? tt("{title}: {before} becomes {after}.", { title: example.title, before: formatStoreMoney(example.before, data.currency), after: formatStoreMoney(example.converted, currency) })
+                      : tt("1 {from} becomes {rate} {to}.", { from: data.currency, rate: String(preview.rate), to: currency })
+              }
+              data="convert"
+            />
+          </div>
+          {preview ? (
+            <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-currency-facts="">
+              {tt("{count, plural, one {# price changes} other {# prices change}}: your products, options, shipping rates and fixed coupons. Orders already placed keep their currency.", { count: preview.counts.total })}
+              {preview.rate ? ` ${tt("Rate: 1 {from} = {rate} {to}, {day}.", { from: preview.from, rate: String(preview.rate), to: preview.to, day: dayOf(preview.asOf) })}` : ""}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {error ? <Notice>{error}</Notice> : null}
+      <div className="flex justify-end gap-2">
+        <button type="button" className={BTN_SECONDARY} onClick={onCancel} disabled={busy}>
+          {tt("Cancel")}
+        </button>
+        <button type="button" className={BTN_PRIMARY} onClick={() => void save()} disabled={busy || (asks && !mode) || (nothingChanged && !!data.country)} data-currency-save="">
+          {busy ? tt("Saving") : tt("Save")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Choice({ on, onClick, title, text, disabled, data }: { on: boolean; onClick: () => void; title: string; text: string; disabled?: boolean; data: string }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      disabled={disabled}
+      onClick={onClick}
+      data-currency-mode={data}
+      className={cn(
+        "min-h-[64px] rounded-xl border px-3.5 py-3 text-left transition-[border-color,box-shadow] duration-150",
+        on ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:border-[#c9cdd3]",
+        disabled && "cursor-default opacity-60 hover:border-[#e5e7eb]",
+      )}
+    >
+      <span className="block text-[14px] font-medium text-[#1a1a2e]">{title}</span>
+      <span className="mt-0.5 block text-[12.5px] leading-[18px] text-[#6b7280]">{text}</span>
+    </button>
+  )
+}

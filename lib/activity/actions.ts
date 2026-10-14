@@ -30,6 +30,7 @@ const SETTINGS: Record<string, string> = {
   "settings.checkout": "Changed checkout settings",
   "settings.taxes": "Changed tax settings",
   "settings.markets": "Changed markets and languages",
+  "settings.currency": "Changed the store's currency",
   "website.translations": "Changed website translations",
   "settings.customer_emails": "Changed a customer email",
   "settings.shipping": "Changed shipping settings",

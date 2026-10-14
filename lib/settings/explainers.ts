@@ -161,6 +161,15 @@ export const EXPLAINERS = {
       tt("Only approved translations show, and only once a language is published. Anything not translated yet shows in your default language, never blank."),
     ] },
   },
+  currency: {
+    get title() { return tt("How your currency works") },
+    art: "markets",
+    get lines() { return [
+      tt("Your country is where your store is based. Your currency is the one your prices are typed in, and the one buyers pay in at checkout: a store in lei charges lei."),
+      tt("Changing the currency asks what happens to your prices: keep the numbers (100 EUR becomes 100 USD) or convert them at the day's exchange rate. Orders already placed keep their own currency."),
+      tt("Payouts arrive in your bank's currency. Stripe converts them, which never changes what a buyer paid."),
+    ] },
+  },
   markets: {
     get title() { return tt("How markets and currencies work") },
     art: "markets",

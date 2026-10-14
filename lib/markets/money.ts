@@ -64,6 +64,21 @@ function ratePerEuro(fx: FxRates, currency: string): number | null {
   return typeof r === "number" && Number.isFinite(r) && r > 0 ? r : null
 }
 
+/**
+ * How many of `to` one `from` is worth today, to six decimals (1 EUR =
+ * 4.977312 RON), from the day's rates; null when either is missing or the
+ * rates are not fresh. Changing a store's currency converts every price by
+ * exactly this number, the one the merchant was shown.
+ */
+export function exchangeRate(fx: FxRates | null | undefined, from: string, to: string, now = Date.now()): number | null {
+  if (from === to) return 1
+  if (!fx || !fxFresh(fx, now)) return null
+  const a = ratePerEuro(fx, from)
+  const b = ratePerEuro(fx, to)
+  if (a === null || b === null) return null
+  return Math.round((b / a) * 1_000_000) / 1_000_000
+}
+
 /** How a converted price is rounded, after it is converted: as it is, up to the next whole unit, or to .99 below it. */
 export type PriceRounding = "none" | "whole" | "nine_nine"
 
