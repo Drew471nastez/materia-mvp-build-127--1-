@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -63,7 +64,7 @@ interface StickyAddToCartProps {
 
 function formatPrice(cents: number): string {
   if (cents === 0) return "Free"
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+  return shopMoney(cents, { grouping: true })
 }
 
 /* The bar's price: a membership's is per month or year, "$9/month", as on the page above it. */

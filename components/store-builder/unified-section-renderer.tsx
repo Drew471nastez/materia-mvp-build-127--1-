@@ -1,6 +1,7 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
+import { shopMoney } from "@/lib/store/shop-money"
 import type React from "react"
 // `import type React` gives the TYPES only — `React.Fragment` off that binding
 // is undefined at runtime, which is a blank page, not a type error. The meta
@@ -3497,10 +3498,7 @@ export function UnifiedProductPage({
   }, [])
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   /* A membership's price is per month or year, in every layout: "$9/month", never a bare "$9". */
@@ -4623,10 +4621,7 @@ export function UnifiedProductsGrid({
   isPreviewMode = false,
 }: UnifiedProductsGridProps) {
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
@@ -4778,10 +4773,7 @@ function UnifiedMoreFromSellerSection({
   const displayProducts = products?.slice(0, settings.maxProducts || 4) || []
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   const columns = Math.min(Number(settings.columns ?? 3), 3)

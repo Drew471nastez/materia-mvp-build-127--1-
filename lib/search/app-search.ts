@@ -38,6 +38,7 @@ import { groupOrders, matchesSearch, type Order, type OrderRow } from "@/lib/ord
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { formatOrderMoney, orderCurrency } from "@/lib/orders/money"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "coupons" | "emails" | "automations"
 
@@ -140,8 +141,8 @@ async function readWithFallback(group: SearchGroupId, run: (columns: string) => 
 
 const text = (v: unknown): string => (typeof v === "string" ? v : "")
 
-/* A product's price and a coupon's amount as their editors show them; an order's total is in what it was charged (lib/orders/money). */
-const usd = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
+/* A product's price and a coupon's amount in the shop's currency (lib/store/shop-money.ts: lei, or dollars on a deployment that charges in them), in the dashboard's language; an order's total is in what it was charged (lib/orders/money). */
+const shopPrice = (units: number) => new Intl.NumberFormat(appLocale(), { style: "currency", currency: SHOP_CURRENCY }).format(units)
 
 function sentenceCase(v: string): string {
   const t = v.replace(/_/g, " ").trim()
@@ -426,7 +427,7 @@ async function readCoupons(db: Db, creatorId: string, q: string): Promise<Search
   return rows.map((r) => {
     /* A percentage, or an amount in whole units as the coupon form keeps it (app/app/coupons/coupon-form.ts). */
     const value = typeof r.discount_value === "number" ? r.discount_value : Number(r.discount_value)
-    const off = !Number.isFinite(value) ? "" : r.discount_type === "percentage" ? tt("{value}% off", { value }) : tt("{value} off", { value: usd.format(value) })
+    const off = !Number.isFinite(value) ? "" : r.discount_type === "percentage" ? tt("{value}% off", { value }) : tt("{value} off", { value: shopPrice(value) })
     return {
       id: text(r.id),
       title: text(r.code) || tt("Coupon"),
@@ -446,7 +447,7 @@ function productHits(products: ProductIndex[], q: string): SearchHit[] {
     .map((p) => ({
       id: p.id,
       title: p.title,
-      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? usd.format(p.price_cents / 100) : tt("Free")) : ""]
+      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? shopPrice(p.price_cents / 100) : tt("Free")) : ""]
         .filter(Boolean)
         .join(" · "),
       href: `/app/products/${encodeURIComponent(p.id)}`,

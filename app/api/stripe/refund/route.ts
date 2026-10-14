@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { shopMoney } from "@/lib/store/shop-money"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
 
     if (refundAmountCents > maxRefundCents) {
       return NextResponse.json({
-        error: `Refund amount cannot exceed the order total of $${(maxRefundCents / 100).toFixed(2)}`,
+        error: `Refund amount cannot exceed the order total of ${shopMoney(maxRefundCents)}`,
       }, { status: 400 })
     }
 

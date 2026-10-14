@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -62,10 +63,7 @@ export function StickyProductBar({ settings, product, onAddToCart, onBuyNow, chi
   if (!settings.visible) return null
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   return (

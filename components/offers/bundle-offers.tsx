@@ -10,6 +10,7 @@
  * again on the server, from the cart.
  */
 import * as React from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { Package, Plus } from "lucide-react"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { bundlePrice, type DiscountType } from "@/lib/offers/offers"
@@ -34,7 +35,7 @@ interface Bundle {
   priceCents: number
 }
 
-const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
+const money = (cents: number) => shopMoney(cents)
 
 export function BundleOffers({
   productId,

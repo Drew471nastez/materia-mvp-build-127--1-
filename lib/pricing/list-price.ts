@@ -24,6 +24,7 @@
  *
  * Pure, so the tests run it directly.
  */
+import { shopMoney } from "@/lib/store/shop-money"
 
 export interface ListedPrice {
   price_cents: number | null | undefined
@@ -58,8 +59,10 @@ export interface PriceLabel {
   off: number | null
 }
 
+/** A price in the shop's currency (lib/store/shop-money.ts): "$1,250.00" on
+ *  a dollar deployment, "RON 1,250.00" on a lei one. Named before that. */
 export function usd(cents: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents || 0) / 100)
+  return shopMoney(cents || 0, { grouping: true })
 }
 
 export function listPrice(p: ListedPrice, format: (cents: number) => string = usd): PriceLabel {

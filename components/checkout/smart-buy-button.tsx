@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
@@ -137,10 +138,7 @@ export function SmartBuyButton({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   const checkoutUrl = `/checkout?productId=${productId}${variantId ? `&variantId=${variantId}` : ""}`

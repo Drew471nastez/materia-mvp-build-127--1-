@@ -413,7 +413,7 @@ async function handlePOST(request: Request) {
             product_data: {
               name: String(l.product.title ?? "Product"),
               ...(l.item.discountCents > 0 && coupon
-                ? { description: `$${(l.item.discountCents / 100).toFixed(2)} off with ${coupon.code}` }
+                ? { description: `${shopMoney(l.item.discountCents)} off with ${coupon.code}` }
                 : {}),
               ...(l.product.thumbnail_url ? { images: [String(l.product.thumbnail_url)] } : {}),
             },

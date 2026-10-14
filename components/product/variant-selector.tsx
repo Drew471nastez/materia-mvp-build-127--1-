@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { shopMoney, shopAmount } from "@/lib/store/shop-money"
 import { cn } from "@/lib/utils"
 import { Check } from "lucide-react"
 
@@ -80,16 +81,13 @@ export function VariantSelector({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   // Format PWYW min as "$X+"
   const formatPwywMin = (cents: number | null | undefined): string => {
-    if (!cents || cents === 0) return "$0+"
-    return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}+`
+    if (!cents || cents === 0) return `${shopAmount(0)}+`
+    return `${shopMoney(cents).replace(/\.00$/, "")}+`
   }
 
   return (
@@ -221,10 +219,7 @@ export function VariantSelectorCompact({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   return (

@@ -7,6 +7,7 @@
  * all. A product with options gets its choice right here.
  */
 import * as React from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { Package, Plus } from "lucide-react"
 
 export interface Suggestion {
@@ -17,7 +18,7 @@ export interface Suggestion {
   product: { id: string; title: string; slug: string; imageUrl: string | null; type: string; priceCents: number; variants: { id: string; name: string; priceCents: number }[] }
 }
 
-const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
+const money = (cents: number) => shopMoney(cents)
 
 export function CheckoutSuggestions({ suggestions, onAdd, busy = false }: { suggestions: Suggestion[]; onAdd: (s: Suggestion, variant: { id: string; name: string; priceCents: number } | null) => void; busy?: boolean }) {
   const [picks, setPicks] = React.useState<Record<string, string>>({})

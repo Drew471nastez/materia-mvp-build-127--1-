@@ -15,6 +15,7 @@
  *   5. The route: signed in, POST, rate limited, the creator from the session,
  *      and the query never written to a log.
  */
+import "./_usd"
 import { readCode } from "./_source"
 import {
   GROUP_LIMIT,

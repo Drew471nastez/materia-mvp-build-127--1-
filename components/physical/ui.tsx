@@ -23,6 +23,7 @@ import { createPortal } from "react-dom"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
 import { useMoneyMark } from "@/lib/store/currency-context"
+import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
 import { countTyped, decimalTyped, moneyTyped } from "@/lib/physical/typed-values"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -120,11 +121,12 @@ export function dollarsOf(cents: number | null | undefined): string {
   return cents === null || cents === undefined ? "" : (cents / 100).toFixed(2)
 }
 
-export function money(cents: number, currency = "USD"): string {
+/** An amount in `currency`, the shop's own (lib/store/shop-money.ts) unless an order says otherwise. */
+export function money(cents: number, currency = SHOP_CURRENCY): string {
   try {
     return new Intl.NumberFormat(appLocale(), { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
   } catch {
-    return `$${(cents / 100).toFixed(2)}`
+    return shopMoney(cents)
   }
 }
 

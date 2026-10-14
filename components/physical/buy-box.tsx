@@ -18,6 +18,7 @@
 
 import * as React from "react"
 import { Minus, Plus, ShoppingBag } from "lucide-react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { cn } from "@/lib/utils"
 import { useSiteCart } from "@/components/website-builder/site-cart"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
@@ -47,7 +48,7 @@ interface Data {
 }
 
 function money(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
+  return shopMoney(cents)
 }
 
 /** The buyer's country as their browser names it, for the delivery line; empty when it can't tell. */

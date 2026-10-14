@@ -1,6 +1,7 @@
 "use client"
 
 import { ReactNode, useState, useCallback, useEffect, useMemo } from "react"
+import { shopMoney, shopAmount } from "@/lib/store/shop-money"
 import { usePurchaseStatus } from "./use-purchase-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -244,16 +245,13 @@ function DigitalPurchaseStatus({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   // Format minimum price as hint text like "$10+"
   const formatMinHint = (cents: number): string => {
-    if (cents === 0) return "$0+"
-    return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}+`
+    if (cents === 0) return `${shopAmount(0)}+`
+    return `${shopMoney(cents).replace(/\.00$/, "")}+`
   }
 
   // Get custom price for buy button

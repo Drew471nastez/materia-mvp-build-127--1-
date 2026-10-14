@@ -1,6 +1,7 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
+import { shopMoney } from "@/lib/store/shop-money"
 import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode, type PointerEvent } from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -56,10 +57,7 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
   // Format price helper
   const formatPrice = (cents?: number) => {
     if (!cents || cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   // Reset progress when slide changes

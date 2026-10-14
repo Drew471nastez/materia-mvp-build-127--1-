@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { Badge } from "@/components/ui/badge"
 import { VariantSelector, type ProductVariant } from "./variant-selector"
 
@@ -56,10 +57,7 @@ export function ProductPriceCard({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   // Compare at price logic - only relevant when no variants, or we could compare variant price

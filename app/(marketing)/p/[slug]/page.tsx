@@ -2,6 +2,7 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { personName } from "@/lib/profile/display-name"
 import { CourseOutline } from "@/components/courses/course-outline"
 import { listPrice } from "@/lib/pricing/list-price"
+import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -863,12 +864,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
-  }
+  /* In the shop's currency, the one checkout charges. */
+  const formatPrice = (cents: number) => shopMoney(cents, { grouping: true })
   /* The price under the title: free, pay what you want, or a price and its saving, by the rule every card uses. */
   const listed = listPrice({
     price_cents: product.price_cents,
@@ -1681,7 +1678,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     offers: {
       "@type": "Offer",
       price: product.price_cents === 0 ? "0" : (product.price_cents / 100).toFixed(2),
-      priceCurrency: "USD",
+      priceCurrency: SHOP_CURRENCY,
       /* Sold out when its stock is counted and none is left: the shop's own rule. */
       availability: soldOut(product) || salesView?.soldOut ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
       url: canonicalUrl,

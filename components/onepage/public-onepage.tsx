@@ -1,6 +1,7 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
+import { shopMoney } from "@/lib/store/shop-money"
 import type React from "react"
 
 import type {
@@ -5308,7 +5309,7 @@ function PublicBlockRenderer({
       const buyUrl = data.product_id && (data.product_type as string | undefined) !== 'physical' ? `/checkout?productId=${encodeURIComponent(data.product_id)}` : productUrl
       /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price). */
       const priceDisplay = data.product_price_cents && data.product_price_cents > 0
-        ? perInterval(`$${(data.product_price_cents / 100).toFixed(2)}`, intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
+        ? perInterval(shopMoney(data.product_price_cents), intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
         : 'Free'
       const isFreeProduct = !data.product_price_cents || data.product_price_cents === 0
       const useQuickCheckout = isFreeProduct && data.quick_checkout === true

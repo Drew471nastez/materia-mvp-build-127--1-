@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { shopMoney } from "@/lib/store/shop-money"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -372,7 +373,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {product.price_cents > 0 ? `$${(product.price_cents / 100).toFixed(2)}` : 'Free'}
+                        {product.price_cents > 0 ? shopMoney(product.price_cents) : 'Free'}
                       </p>
                     </div>
                     {addedProductIds.has(product.id) ? (
