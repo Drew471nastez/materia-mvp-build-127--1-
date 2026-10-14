@@ -268,7 +268,7 @@ export function omnisendPaymentStatus(s: string): string {
   if (s === "paid") return "paid"
   if (s === "partially_refunded") return "partiallyRefunded"
   if (s === "refunded") return "refunded"
-  if (s === "cancelled" || s === "expired" || s === "failed") return "voided"
+  if (s === "cancelled" || s === "expired" || s === "failed" || s === "voided") return "voided"
   return "awaitingPayment"
 }
 

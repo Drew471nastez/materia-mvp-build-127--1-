@@ -6924,6 +6924,7 @@ const words: Record<string, string> = {
  "Voice input stopped before it heard anything. Try again, or type it.": "La entrada de voz se detuvo antes de oír nada. Inténtalo de nuevo o escríbelo.",
  "Void label": "Anular etiqueta",
  "Void this {providerName} label? {cost} is refunded once the carrier agrees it wasn't used, and the items go back to unfulfilled.": "¿Anular esta etiqueta de {providerName}? Se reembolsan {cost} cuando el transportista confirme que no se usó, y los artículos vuelven a sin preparar.",
+ "Voided": "Anulado",
  "Wait": "Esperar",
  "Wait a moment, it saves again on its own.": "Espera un momento, vuelve a guardar solo.",
  "Wait for": "Esperar",

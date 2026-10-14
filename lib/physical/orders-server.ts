@@ -31,7 +31,7 @@ import { cartAttributes } from "@/lib/checkout/site-checkout"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
-import { COD_PROVIDER, paymentStateOf, type PaymentState } from "./cash-on-delivery"
+import { COD_PAYMENT_METHOD, COD_PROVIDER, paymentStateOf, type PaymentState } from "./cash-on-delivery"
 import { currencyCode, formatMinor } from "@/lib/markets/money"
 
 export interface OrderLine {
@@ -618,6 +618,8 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   if (order.shipments.some((s) => s.status !== "cancelled")) return { ok: false, error: "Part of this order has shipped. Cancel the shipment first, or start a return." }
   await db.rpc("physical_cancel_unfulfilled", { p_checkout: checkoutId })
   const now = new Date().toISOString()
+  /* Cash on delivery not collected: no money ever moved, so its lines stop being a sale. "failed" is what every figure already leaves out (lib/orders/order-view isSale, the analytics SQL), and the order reads Voided (paymentOf). A card order is cancelled and then refunded instead. */
+  if (order.payment === "cod_due") await db.from("orders").update({ status: "failed" }).eq("checkout_id", checkoutId).eq("payment_method", COD_PAYMENT_METHOD)
   await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? "Cancelled by the shop", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
   await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `Order cancelled${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: "creator", key: `cancelled:${checkoutId}` })
   await queueCancelledEmail(db, checkoutId, creatorId)

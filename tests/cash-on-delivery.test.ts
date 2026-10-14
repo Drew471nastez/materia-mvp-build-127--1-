@@ -68,6 +68,13 @@ function main() {
   check("once collected, it reads Paid", collected?.payment === "paid", collected?.payment)
   const [card] = groupOrders([row({ payment_method: "card", stripe_payment_intent_id: "pi_1" })])
   check("a card order is untouched", card?.payment === "paid", card?.payment)
+  /* Cancelled before the cash came in: no money moved, so no sale anywhere (Home, Analytics, the SQL behind them all read "failed" as no sale). */
+  const [voided] = groupOrders([row({ status: "failed", physical_cash_due: true, physical_fulfillment: "cancelled" })])
+  check("cancelled before the cash came in, it reads Voided", voided?.payment === "voided", voided?.payment)
+  check("  and is no sale: out of revenue and the order count", !isSale(voided))
+  const [failedCard] = groupOrders([row({ status: "failed", payment_method: "card" })])
+  check("  a card payment that failed still reads Failed", failedCard?.payment === "failed", failedCard?.payment)
+  check("  cancelling an uncollected cash order takes its lines out of the sales, and only then", /if \(order\.payment === "cod_due"\) await db\.from\("orders"\)\.update\(\{ status: "failed" \}\)\.eq\("checkout_id", checkoutId\)\.eq\("payment_method", COD_PAYMENT_METHOD\)/.test(read("lib/physical/orders-server.ts")))
 
   console.log("\nThe buyer's confirmation email")
   const model: OrderEmailModel = {

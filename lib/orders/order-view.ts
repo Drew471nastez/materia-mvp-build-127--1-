@@ -85,7 +85,8 @@ export interface OrderRow {
 }
 
 /** `cash_due`: paid in cash on delivery and not collected yet (lib/physical/cash-on-delivery.ts). A sale, to fulfil, with its money still to take. */
-export type PaymentStatus = "paid" | "pending" | "cash_due" | "refunded" | "partially_refunded" | "failed" | "disputed"
+/** `voided`: a cash on delivery order cancelled before the cash came in. No money moved, so it is no sale (lib/physical/orders-server.ts cancelOrder). */
+export type PaymentStatus = "paid" | "pending" | "cash_due" | "refunded" | "partially_refunded" | "failed" | "disputed" | "voided"
 export type FulfillmentStatus = "fulfilled" | "unfulfilled"
 export type DeliveryStatus = "delivered" | "failed" | null
 
@@ -233,7 +234,7 @@ function sourceDetailOf(rows: OrderRow[]): OrderOrigin | null {
 }
 
 function paymentOf(rows: OrderRow[], totalCents: number, refundedCents: number): PaymentStatus {
-  if (rows.every((r) => r.status === "failed")) return "failed"
+  if (rows.every((r) => r.status === "failed")) return rows.every((r) => r.payment_method === "cash_on_delivery") ? "voided" : "failed"
   if (rows.some((r) => r.status === "pending")) return "pending"
   /* The buyer's bank has taken the money back while it decides
      (app/api/stripe/webhook, charge.dispute.*). It read as "Paid", and so as
@@ -261,7 +262,7 @@ function paymentOf(rows: OrderRow[], totalCents: number, refundedCents: number):
  * cards did not add up.
  */
 export function isSale(order: Pick<Order, "payment">): boolean {
-  return order.payment !== "failed" && order.payment !== "pending" && order.payment !== "disputed"
+  return order.payment !== "failed" && order.payment !== "pending" && order.payment !== "disputed" && order.payment !== "voided"
 }
 
 /**
@@ -578,6 +579,7 @@ export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   get partially_refunded() { return tt("Partially refunded") },
   get failed() { return tt("Failed") },
   get disputed() { return tt("Disputed") },
+  get voided() { return tt("Voided") },
 }
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {

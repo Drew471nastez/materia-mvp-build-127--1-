@@ -39,7 +39,7 @@ export function paidLineOf(order: Order) {
 
 /** Stripe has something to say only about a payment that went through. */
 export function hasPayoutSteps(order: Order): boolean {
-  return paidLineOf(order) !== null && order.payment !== "failed" && order.payment !== "pending"
+  return paidLineOf(order) !== null && order.payment !== "failed" && order.payment !== "pending" && order.payment !== "voided"
 }
 
 /** A fresh answer for `url`, if there is one. `undefined` means none. */
