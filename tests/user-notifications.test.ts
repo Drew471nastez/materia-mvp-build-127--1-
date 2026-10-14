@@ -491,7 +491,8 @@ async function main() {
   check("Notifications, Mark all as read, the filter, and a calm empty state", />\s*Notifications\s*</.test(bell) && />\s*Mark all as read\s*</.test(bell) && /INBOX_FILTERS\.map/.test(bell) && /<EmptyInbox filter=\{filter\} \/>/.test(bell) && !/>Nothing new</.test(bell))
   check("tapping a row marks it read on the way, and the mark outlives the page", /void postRead\(\{ ids: \[n\.id\] \}\)/.test(bell) && /keepalive: true/.test(bell))
   const header = code("components/platform/platform-header-client.tsx")
-  check("in the platform header: both computer rows and the phone row, signed in only", (header.match(/<NotificationBell className=\{chrome\.iconBtn\} \/>\s*\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2 && /\{user \? <NotificationBell className=\{chrome\.iconBtn\} \/> : null\}/.test(header))
+  /* Changed on purpose: 89c6f3ba (community header on account) leaves the bell off the phone's plain profile bar; every other phone row keeps it. */
+  check("in the platform header: both computer rows and the phone row, signed in only", (header.match(/<NotificationBell className=\{chrome\.iconBtn\} \/>\s*\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2 && /\{user && !profileBar \? <NotificationBell className=\{chrome\.iconBtn\} \/> : null\}/.test(header))
 
   /*
     ROUND 3, ask 9: "clicking the bell again closes it smoothly, clicking
@@ -509,7 +510,8 @@ async function main() {
   check("built ahead and kept: once idle (only the bell on screen), or a pointer near it, so the click that opens it builds nothing", /if \(open && !built\) setBuilt\(true\)/.test(bell) && /if \(!userId \|\| built \|\| !active\) return/.test(bell) && /requestIdleCallback\(build/.test(bell) && /onPointerEnter=\{\(\) => setBuilt\(true\)\}/.test(bell) && /\{built \? \(\s*<BellPanel/.test(bell) && !/setPresent|onGone/.test(bell))
   check("closed, it takes no clicks and no focus, and asks for no more rows", (bell.match(/inert=\{open \? undefined : true\}/g) ?? []).length === 1 && (bell.match(/invisible pointer-events-none /g) ?? []).length === 1 && /if \(!open \|\| !end \|\| !hasMore/.test(bell))
   /* Round 3 follow up: the header draws two bells (phone row, computer row); only the one on screen may ask and listen. */
-  check("only the bell on screen reads the count and opens the realtime channels", /const active = useOnScreen\(triggerRef, !!userId\)/.test(bell) && /const check = \(\) => setOn\(el\.getClientRects\(\)\.length > 0\)/.test(bell) && /new ResizeObserver\(check\)/.test(bell) && (bell.match(/if \(!userId \|\| !active\) return/g) ?? []).length === 2 && /\}, \[userId, active, refreshCount\]\)/.test(bell) && /\}, \[userId, active, loadFirst\]\)/.test(bell))
+  /* Changed on purpose: 42914068 (Home from the account lays the community out once) hears only the ResizeObserver's box, after the browser's own layout, instead of asking getClientRects in a layout effect. */
+  check("only the bell on screen reads the count and opens the realtime channels", /const active = useOnScreen\(triggerRef, !!userId\)/.test(bell) && /if \(box\) setOn\(box\.width > 0 \|\| box\.height > 0\)/.test(bell) && /const ro = new ResizeObserver\(\(entries\) => \{/.test(bell) && /ro\.observe\(el\)/.test(bell) && (bell.match(/if \(!userId \|\| !active\) return/g) ?? []).length === 2 && /\}, \[userId, active, refreshCount\]\)/.test(bell) && /\}, \[userId, active, loadFirst\]\)/.test(bell))
   check("the count is shared by every bell on the page, so the one that comes on screen shows it at once", /const unread = useSyncExternalStore\(subscribeUnread, \(\) => sharedUnread, \(\) => 0\)/.test(bell) && !/useState\(0\)/.test(bell))
   /* Round 9, ask 10: "the count bubble is there on the FIRST paint when landing on a page (server provided initial count or the warm cache): no delayed pop." Measured frame by frame in scripts/check-notification-bell.mjs (FIRST PAINT, REMOUNT). */
   check("the person comes from the header's snapshot before the first paint, and the session corrects it after", /useLayoutEffect\(\(\) => \{\s*const seed = readAuthSnapshot\(\)\s*if \(seed\?\.signedIn && seed\.userId\) takeUser\(seed\.userId\)/.test(bell) && /takeUser\(data\.session\?\.user\?\.id \?\? null\)/.test(bell) && /import \{ readAuthSnapshot \} from "@\/lib\/auth\/auth-snapshot"/.test(bell))
@@ -518,7 +520,8 @@ async function main() {
   check("placed under the bell again on every open", /\}, \[phone, anchor, open\]\)/.test(bell))
   check("the popover is a fixed height, so the list arriving does not grow it", /height: `min\(560px, calc\(100vh - \$\{pos!\.top \+ 16\}px\)\)`/.test(bell))
   check("pictures are asked for at the size they are drawn, lazily, in fixed boxes", /optimizedImageUrl\(n\.image, 18\)/.test(bell) && /optimizedImageUrl\(n\.image, 40\)/.test(bell) && (bell.match(/loading="lazy"/g) ?? []).length === 2 && /size=\{40\} markWhileLoading lazy/.test(bell) && /block h-10 w-10 shrink-0 overflow-hidden rounded-full/.test(bell))
-  check("and the shared avatar can load lazily without changing anybody else's", /loading=\{lazy \? "lazy" : undefined\}/.test(code("components/app/app-avatar.tsx")) && /lazy = false,/.test(code("components/app/app-avatar.tsx")))
+  /* Changed on purpose: 6a258481 (faster avatars) names eager, the browser's own default, for everybody else, and asks for their photos first. */
+  check("and the shared avatar can load lazily without changing anybody else's", /loading=\{lazy \? "lazy" : "eager"\}/.test(code("components/app/app-avatar.tsx")) && /lazy = false,/.test(code("components/app/app-avatar.tsx")))
 
   /* ── The native start ────────────────────────────────────────────────── */
   console.log("\nThe phone app's start")

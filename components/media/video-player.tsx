@@ -551,7 +551,7 @@ export function VideoPlayer({ source, poster, startAt = 0, autoPlay = false, tit
           type="button"
           onClick={togglePlay}
           aria-label={ended ? "Play again" : "Play"}
-          className="group/big absolute left-1/2 top-1/2 flex h-[4.25rem] w-[4.25rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1a1a2e] shadow-[0_10px_40px_-8px_rgba(0,0,0,0.55)] outline-none transition-[transform] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-[1.06] active:scale-[0.98] focus-visible:ring-4 focus-visible:ring-white/50 motion-reduce:transition-none"
+          className="group/big absolute left-1/2 top-1/2 flex h-[4.25rem] w-[4.25rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1a1a2e] shadow-[0_10px_40px_-8px_rgba(0,0,0,0.55)] outline-none transition-[scale] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-[1.06] active:scale-[0.98] focus-visible:ring-4 focus-visible:ring-white/50 motion-reduce:transition-none"
           data-video-big-play=""
         >
           {ended ? <RotateCcw className="h-6 w-6" aria-hidden /> : <Play className="ml-0.5 h-6 w-6" fill="currentColor" aria-hidden />}

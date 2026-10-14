@@ -57,7 +57,11 @@ console.log("\nEvery page under /account sends signed out people to sign in with
   for (const page of pages.filter((p) => !p.startsWith("app/account/library/"))) {
     const href = page.replace(/^app/, "").replace(/\/page\.tsx$/, "") || "/account"
     const escaped = href.replace(/\//g, "\\/")
-    check(`${page} asks with next=${href}`, new RegExp(`pageUser\\(accountLoginPath\\("${escaped}"\\)\\)`).test(code(page)))
+    /* Changed on purpose: 84d43680 made /account/preferences an old address that only redirects to Settings' Preferences section, so it asks through the page it sends to, which must ask with its own next. */
+    const moved = /^\s*redirect\("(\/account\/[a-z/-]+)\?section=[a-z]+"\)/m.exec(code(page))
+    const asking = moved && !/pageUser\(|currentUser/.test(code(page)) ? `app${moved[1]}/page.tsx` : page
+    const askingHref = asking.replace(/^app/, "").replace(/\/page\.tsx$/, "") || "/account"
+    check(`${page} asks with next=${askingHref}`, existsSync(join(process.cwd(), asking)) && new RegExp(`pageUser\\(accountLoginPath\\("${askingHref.replace(/\//g, "\\/")}"\\)\\)`).test(code(asking)))
   }
   check("no loading.tsx above the pages, so that redirect is a real one and not a hop after a skeleton", !existsSync(join(process.cwd(), "app/account/loading.tsx")))
   check("and the layout does not redirect for them (it cannot know which page it is)", !/redirect\(/.test(code("app/account/layout.tsx")))
@@ -66,8 +70,10 @@ console.log("\nEvery page under /account sends signed out people to sign in with
 console.log("\nThe header, as on the library, at every width")
 {
   const layout = code("app/account/layout.tsx")
-  const mount = /<ConditionalHeader initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} buyerHeaderLight=\{buyerHeaderLight\} \/>/
-  check("the layout mounts the platform header, and the library inside it draws none of its own", mount.test(layout) && !/ConditionalHeader|BuyerTabBar|ConditionalFooter/.test(code("app/account/library/layout.tsx")))
+  /* Changed on purpose: 84d43680 mounts the platform header through AccountHeaderSwitch, which stands it aside only while a community's own bar is drawn on the profile. */
+  const mount = /<AccountHeaderSwitch initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} buyerHeaderLight=\{buyerHeaderLight\} \/>/
+  const headerSwitch = code("components/account/account-header-switch.tsx")
+  check("the layout mounts the platform header, and the library inside it draws none of its own", mount.test(layout) && /return <ConditionalHeader \{\.\.\.props\} \/>/.test(headerSwitch) && !/ConditionalHeader|BuyerTabBar|ConditionalFooter/.test(code("app/account/library/layout.tsx")))
   check("with the footer and the phone's tab bar", /<ConditionalFooter \/>/.test(layout) && /<BuyerTabBar \/>/.test(layout))
   const header = code("components/marketing/conditional-header.tsx")
   const footer = code("components/marketing/conditional-footer.tsx")
@@ -159,7 +165,8 @@ console.log("\nOne face per screen")
   check("Change photo and Remove sit beside it, and the picker is drawn once", /data-photo-change=""/.test(settings) && /data-photo-remove=""/.test(settings) && (settings.match(/\{photo\.input\}/g) ?? []).length === 1)
   check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && /fetch\("\/api\/account\/avatar"/.test(photo) && /announceAvatar\(publicUrl\)/.test(photo) && /announceAvatar\(null\)/.test(photo))
   check("the camera only fades and grows, on the compositor", /transition-\[opacity,scale\]/.test(photo) && /editable \? "scale-100 opacity-100" : "scale-75 opacity-0"/.test(photo))
-  check("the layout hands the hub whose photo it is, and the settings route hands it the same one", /userId: user\.id,/.test(code("app/account/layout.tsx")) && /avatarUrl=\{profile\?\.avatar_url \|\| null\}/.test(code("app/account/settings/page.tsx")))
+  /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
+  check("the layout hands the hub whose photo it is, and the settings route hands it the same one", /userId: user\.id,/.test(code("app/account/layout.tsx")) && /loadAccountSettingsForUser\(user,/.test(code("app/account/settings/page.tsx")) && /avatarUrl: profile\?\.avatar_url \|\| null/.test(code("lib/account/load-account-settings.ts")))
 }
 
 console.log("\nSettings: the Skool shape, in Storelib's own parts")
@@ -176,7 +183,9 @@ console.log("\nSettings: the Skool shape, in Storelib's own parts")
   check("a label over each field and a line of help under it", /htmlFor="account-name"/.test(settings) && /htmlFor="account-bio"/.test(settings) && /const HELP = /.test(settings))
   check("the bio has a counter, and the name only once its end is in sight", /<Counter used=\{bio\.length\} max=\{BIO_MAX\}/.test(settings) && /name\.length > NAME_MAX - 20 \? <Counter/.test(settings))
   check("no bio field where profiles.bio has not been added yet", /\{bioSupported \? \(/.test(settings) && /if \(bioSupported\) patch\.bio = nextBio \|\| null/.test(settings))
-  check("the settings route says whether the column is there, from PostgREST's own answer", /PGRST204/.test(code("app/account/settings/page.tsx")) && /42703/.test(code("app/account/settings/page.tsx")))
+  /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts. */
+  const settingsLoad = code("lib/account/load-account-settings.ts")
+  check("the settings route says whether the column is there, from PostgREST's own answer", /loadAccountSettingsForUser/.test(code("app/account/settings/page.tsx")) && /PGRST204/.test(settingsLoad) && /42703/.test(settingsLoad))
   /* Every flow that was on the page before is still on it, and still the shared one. */
   check("the email change, the password card and the preference switches are /app Settings' own", /EmailChangeFlow,/.test(settings) && /PasswordCard,/.test(settings) && /useSavedSwitch,/.test(settings) && /from "@\/components\/app\/settings\/account-panels"/.test(settings))
   check("log out here, log out everywhere, and deleting behind a 6 digit code", /signOut\(\{ scope \}\)/.test(settings) && /logOut\("global"\)/.test(settings) && /"\/api\/auth\/delete-account"/.test(settings) && /action: "send-code"/.test(settings) && /action: "verify", code/.test(settings))

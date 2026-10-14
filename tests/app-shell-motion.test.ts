@@ -222,9 +222,10 @@ section("A slow page: no outline, a spinner")
     /const SPOKES = 8/.test(spinner) && /text-\[#9ca3af\]/.test(spinner) && /fill="currentColor"/.test(spinner)
       && /opacity=\{\(1 - \(\(SPOKES - i\) % SPOKES\)/.test(spinner) && /role="status"/.test(spinner)
       && /export const SPINNER_SIZE = 26/.test(spinner) && /size = SPINNER_SIZE/.test(spinner) && /viewBox="0 0 20 20"/.test(spinner))
+  /* Changed on purpose: 731dbfcf (Save changes spins the iOS way) steps the light round the spokes inside the 44px Save changes button only; every other spinner still turns smoothly. */
   check("it turns continuously, one turn a second on a linear curve, never in steps",
     /\.activity-spinner \{\s*display: block;\s*animation: activity-spin 1000ms linear infinite;\s*will-change: transform;/.test(css)
-      && !/animation: activity-spin[^;]*steps\(/.test(css))
+      && !/animation: activity-spin[^;]*steps\(/.test(css.replace(/\.save-changes-spin \.activity-spinner \{\s*animation: activity-spin 800ms steps\(8, end\) infinite;\s*\}/, "")))
   check("on an HTML box around the drawing, transform alone, kept inside a .group on a touch screen, and slower rather than stopped for reduced motion",
     /@keyframes activity-spin \{\s*from \{ transform: rotate\(0deg\) \}\s*to \{ transform: rotate\(360deg\) \}\s*\}/.test(css)
       && /<span\s+data-activity-spinner=""[\s\S]{0,300}data-keep-transform=""\s*className="activity-spinner"/.test(spinner)
@@ -552,10 +553,12 @@ section("Sheets")
     /\.\.\.\(isOpen \? null : atRest \? REST_STYLE : \{ pointerEvents: "none" \}\)/.test(sheet)
       && /const REST_STYLE: React\.CSSProperties = \{ visibility: "hidden", pointerEvents: "none" \}/.test(sheet))
   /* The open is the website builder's sheet's (SNAP_DURATION_MS, SNAP_EASING in mobile-editor-sheet.tsx); a tap outside keeps its ease in and out. */
+  /* Changed on purpose: 08a497fa (calmer post close) lets one sheet ask for its own close time and curve (closeMs, closeEase); every other sheet still closes on CLOSE_EASE. */
   check("it opens over 360ms on the iOS curve and closes over 340ms on an ease in and out, the scrim fades evenly, and a release leaves at the finger's speed",
     SHEET_OPEN_MS === 360 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
       && /easing: FADE_EASE \}\)/.test(sheet) && /const motion = velocity > 0 \? snapMotion\(travel, velocity\) : null/.test(sheet)
-      && /\}, motion \? curveCss\(motion\.curve\) : CLOSE_EASE\)/.test(sheet) && /const motion = snapMotion\(rest - from, velocity\)/.test(sheet))
+      && /\}, motion \? curveCss\(motion\.curve\) : \(closeTimingRef\.current\.ease \?\? CLOSE_EASE\)\)/.test(sheet)
+      && /\(closeTimingRef\.current\.ms \?\? CLOSE_MS\)/.test(sheet) && /const motion = snapMotion\(rest - from, velocity\)/.test(sheet))
   check("the parent hears about a close once the slide has had a frame, not before its first one",
     /tell\.raf = requestAnimationFrame\(\(\) => \{ tell\.timer = window\.setTimeout\(tellNow, 0\) \}\)/.test(sheet)
       && /if \(rootRef\.current\) rootRef\.current\.style\.pointerEvents = "none"/.test(sheet))

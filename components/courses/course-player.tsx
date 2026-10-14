@@ -403,7 +403,7 @@ export function CoursePlayer({
         <Link
           href={backHref}
           aria-label={backLabel}
-          className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e6e8ec] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-8px_rgba(16,24,40,0.18)] transition-[box-shadow,background-color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-x-0.5 hover:bg-[#f8f9fa] hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_18px_-8px_rgba(16,24,40,0.22)] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:translate-x-0 sm:h-9 sm:w-9`}
+          className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e6e8ec] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-8px_rgba(16,24,40,0.18)] transition-[box-shadow,background-color,translate,scale] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-x-0.5 hover:bg-[#f8f9fa] hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_18px_-8px_rgba(16,24,40,0.22)] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:translate-x-0 sm:h-9 sm:w-9`}
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>

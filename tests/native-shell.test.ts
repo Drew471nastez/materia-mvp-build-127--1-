@@ -186,7 +186,8 @@ console.log("\nCOPY")
   const BANNED = new RegExp(`\\b(${["un" + "lock", "ele" + "vate", "seam" + "less", "power" + "ful", "effort" + "less(ly)?", "super" + "charge", "trans" + "form"].join("|")})\\b`, "i")
   const files = ["lib/native-chrome.ts", "components/platform/native-chrome.tsx", "lib/navigation/first-tap.ts", "lib/navigation/go-back.ts", "lib/ui/light-chrome.ts", "lib/platform/header-chrome.ts", "components/library/library-tabs.tsx", "scripts/check-native-shell.mjs", "scripts/render-native-shell.tsx", "tests/native-shell.test.ts"]
   for (const f of files) {
-    const src = readSource(f)
+    /* Changed on purpose: 278b6477 (one fullscreen for videos) nudges the root through a CSS property whose name is one of the words, which is a property and not copy; only that one assignment is set aside, and the word is spelled in pieces as above. */
+    const src = readSource(f).replace(new RegExp("\\broot\\.style\\.trans" + "form = ", "g"), "root.style.<property> = ")
     check(`${f}: no em dash and none of the banned words`, !DASH.test(src) && !BANNED.test(src))
   }
   /* The comments added to globals.css this round. */

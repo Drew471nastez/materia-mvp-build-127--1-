@@ -120,7 +120,8 @@ async function main() {
   const article = postArticleJsonLd(base) as Record<string, unknown> & { author: { name: string; url: string }; publisher: { name: string; logo: { url: string } }; image: string[] }
   check("Article structured data: headline, dates, author, the community as publisher, the real comment count", article["@type"] === "Article" && article.headline === "First bowl that did not collapse" && article.datePublished === "2026-10-03T09:00:00Z" && article.author.url === "https://storelib.com/@maya" && article.publisher.name === "Clay Studio" && article.publisher.logo.url === "https://x.supabase.co/logo.png" && article.commentCount === 14 && article.image[0] === "https://x.supabase.co/bowl.webp")
 
-  for (const [label, f] of [["a private community", with_({ visibility: "private" })], ["a tier space", with_({}, { name: "Pro", view_access: { tierIds: ["t"] }, archived_at: null })], ["a paid community", with_({ access: "paid" })]] as const) {
+  /* Changed on purpose: 5b333801 (OG for paid public posts) lets a paid, public community's open post have its own preview, as the publicPost checks above say; the third generic case is the community that is still closed, an invite only one. */
+  for (const [label, f] of [["a private community", with_({ visibility: "private" })], ["a tier space", with_({}, { name: "Pro", view_access: { tierIds: ["t"] }, archived_at: null })], ["an invite only community", with_({ access: "invite_only" })]] as const) {
     const m = postMetadata(f)
     const said = JSON.stringify(m)
     check(`${label}: noindex, a generic preview, nothing of the post`, JSON.stringify(m.robots).includes('"index":false') && m.title === "A post in Clay Studio" && !said.includes("feldspar") && !said.includes("First bowl") && !said.includes("Maya") && !said.includes("bowl.webp") && postArticleJsonLd(f) === null)
@@ -153,7 +154,8 @@ async function main() {
   check("Settings: the fields in the Profile card, only once the columns are there", /\{location\.supported \? <LocationFields city=\{city\} country=\{country\} onCity=\{setCity\} onCountry=\{setCountry\} \/> : null\}/.test(profileSection))
   check("  saved with the rest of the card, only when changed: the city cleaned, the country as its code", /if \(placeChanged\) \{\s*patch\.location_city = nextCity\s*patch\.location_country = nextCountry/.test(profileSection) && /const placeChanged = location\.supported &&/.test(profileSection) && /\|\| handleChanged \|\| placeChanged/.test(profileSection))
   check("  the country picked by its name from every country", /\{COUNTRIES\.map\(\(c\) => \(\s*<option key=\{c\.code\} value=\{c\.code\}/.test(readCode("components/profile/location-fields.tsx")))
-  check("  the settings page reads it (unsupported before part 98)", /location=\{await locationRead\}/.test(readCode("app/account/settings/page.tsx")) && /const locationRead = readProfileLocation\(admin, user\.id\)/.test(readCode("app/account/settings/page.tsx")))
+  /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
+  check("  the settings page reads it (unsupported before part 98)", /loadAccountSettingsForUser\(user,/.test(readCode("app/account/settings/page.tsx")) && /location: await locationRead,/.test(readCode("lib/account/load-account-settings.ts")) && /const locationRead = readProfileLocation\(admin, user\.id\)/.test(readCode("lib/account/load-account-settings.ts")))
   check("shown under the name on a person's page and a creator page", /location=\{extras\.location \?\? null\}/.test(page) && /location=\{locationLine\(place\)\}/.test(creatorPage) && /readProfileLocation\(createAdminClient\(\), profile\.id\)/.test(creatorPage) && /data-profile-location=""/.test(readCode("components/profile/profile-social.tsx")))
 
   console.log("\nThe copy")

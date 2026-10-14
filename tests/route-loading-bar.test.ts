@@ -159,7 +159,8 @@ function main() {
   */
   check("the line is mounted on the marketing layout", /<RouteLoadingBar \/>/.test(layout))
   check("the surface stays off a page that draws its own wait", /const DRAWS_ITS_OWN_WAIT = \/\^\\\/\(account\\\/library\|checkout\)/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\)/.test(bar))
-  check("  and it reads the page being left, not the one being opened", /<SlowPage pendingSince=\{pendingSince\} from=\{pathname\} cover=\{cover\} \/>/.test(bar))
+  /* Changed on purpose: 6e2bedba (tab switches feel immediate) also tells the surface when only the line is wanted. */
+  check("  and it reads the page being left, not the one being opened", /<SlowPage pendingSince=\{pendingSince\} from=\{pathname\} cover=\{cover\} lineOnly=\{lineOnly\} \/>/.test(bar))
 
   /*
     AND THE WIDTH NEVER REACHES THE END. A bar that fills to 100% and waits is
@@ -206,7 +207,8 @@ function main() {
     said nothing, however long it took.
   */
   check("so do the library and the checkout, which had none", /<RouteLoadingBar \/>/.test(/* The library is inside /account; its layout carries the bar. */ read("app/account/layout.tsx")) && /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")))
-  check("and the profile, so leaving it for another tab is answered too", /<RouteLoadingBar \/>/.test(read("app/account/layout.tsx")) && read("app/account/layout.tsx").indexOf("<RouteLoadingBar />") < read("app/account/layout.tsx").indexOf("<ConditionalHeader"))
+  /* Changed on purpose: 84d43680 mounts the profile's header through AccountHeaderSwitch, which draws ConditionalHeader unless a community's bar is up. */
+  check("and the profile, so leaving it for another tab is answered too", /<RouteLoadingBar \/>/.test(read("app/account/layout.tsx")) && read("app/account/layout.tsx").indexOf("<AccountHeaderSwitch") > 0 && read("app/account/layout.tsx").indexOf("<RouteLoadingBar />") < read("app/account/layout.tsx").indexOf("<AccountHeaderSwitch"))
   check("a push the click never carried can start it, and ask the surface to cover a page that draws its own wait", /export function startRouteLoading\(/.test(bar) && /storelib-route-loading/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\) && !cover/.test(bar) && /closest\?\.\("\[data-buyer-tab-bar\]"\)/.test(bar))
   check("a community space chip does not start it: the list switches in place", /closest\("\[data-space-chips\]"\)/.test(bar) && /sameCommunityFeed\(/.test(bar))
   check("and it is visible on their light tops, not white on white", /html\.with-page-checkout,\s*\nhtml\.with-page-library \{\s*\n\s*--route-bar-ink: rgba\(26, 26, 46, 0\.78\);/.test(css) && /background: var\(--route-bar-ink, rgba\(255, 255, 255, 0\.85\)\)/.test(css))

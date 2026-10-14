@@ -103,8 +103,10 @@ console.log("\nThe cover, Edit profile, and the person under them (round 5)")
 {
   const hero = code("components/profile/profile-hero.tsx")
   const cover = hero.slice(hero.indexOf("data-profile-cover="), hero.indexOf("data-profile-header="))
-  check("the cover runs edge to edge: no card, no rounding, no border, taller than the creator page's (round 10 about +15%, round 11 about +6% more)", /className="relative w-full bg-\[#eceef1\]"/.test(hero) && !/rounded-2xl/.test(cover) && !/border-\[#e5e7eb\]/.test(cover) && /h-\[157px\] sm:h-\[233px\] lg:h-\[264px\]/.test(hero))
-  check("  so the hero is drawn outside the 960px column and keeps one of its own for the person", /<header className=\{cn\(COLUMN, "relative -mt-\[62\.5px\]/.test(hero) && /const COLUMN = "mx-auto w-full max-w-\[960px\]"/.test(hero))
+  /* Changed on purpose: 6abd50d2 (no grey band without a cover) draws the grey ground and the photo's overlap only when there is a cover. */
+  check("the cover runs edge to edge: no card, no rounding, no border, taller than the creator page's (round 10 about +15%, round 11 about +6% more)", /className=\{cn\("relative w-full", cover\.url \? "bg-\[#eceef1\]" : ""\)\}/.test(hero) && !/rounded-2xl/.test(cover) && !/border-\[#e5e7eb\]/.test(cover) && /h-\[157px\] sm:h-\[233px\] lg:h-\[264px\]/.test(hero))
+  /* Changed on purpose: 6abd50d2 pulls the photo over the band only when there is a cover to overlap. */
+  check("  so the hero is drawn outside the 960px column and keeps one of its own for the person", /<header className=\{cn\(COLUMN, "relative [^"]*", cover\.url \? "-mt-\[62\.5px\] sm:-mt-\[71px\]" : ""\)\}/.test(hero) && /const COLUMN = "mx-auto w-full max-w-\[960px\]"/.test(hero))
   check("  /account draws the column under the hero, and around a page without one", /<AccountColumn top=\{false\}>/.test(code("components/account/account-hub.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(code("components/account/account-hub.tsx")) && !/max-w-\[960px\]/.test(code("app/account/layout.tsx")))
   /* Round 12: /@handle draws the creator header edge to edge, then the creator page's column. */
   check("  and /@handle draws the creator header before its column too", (() => { const m = code("components/profile/member-profile-page.tsx"); return m.indexOf("<ShopHeaderRenderer") > 0 && m.indexOf("<ShopHeaderRenderer") < m.indexOf("<div data-profile-tabs") })())

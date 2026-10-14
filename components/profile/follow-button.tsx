@@ -281,7 +281,7 @@ const UNSETTLED_LATE = "opacity-100 transition-opacity duration-0 delay-[400ms]"
  * THE CHECK THAT DRAWS ITSELF: lucide's check, as one path measured as 1
  * (pathLength), so a dash offset of 1 is nothing drawn and 0 is all of it.
  * It starts 70ms in, once Following is on its way, and takes 300ms; going
- * back it is rubbed out only after the label has faded.
+ * back it is rubbed out over 220ms while the label fades.
  */
 const CHECK_DRAWN = "[transition:stroke-dashoffset_340ms_cubic-bezier(0.22,1,0.36,1)_60ms] motion-reduce:[transition:none]"
 const CHECK_HIDDEN = "[transition:stroke-dashoffset_220ms_cubic-bezier(0.22,1,0.36,1)_0ms] motion-reduce:[transition:none]"

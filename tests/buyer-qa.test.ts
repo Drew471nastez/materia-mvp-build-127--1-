@@ -82,7 +82,8 @@ console.log("\nA half set up seller opens /sell where they left it (scripts/chec
   const sell = code("app/(auth)/sell/page.tsx")
   check("/sell reads it back only for a setup that was started", /if \(access\.state === "started"\)/.test(sell) && /resume=\{resume\}/.test(sell))
   const modal = code("components/app/creator-onboarding-modal.tsx")
-  check("and the sign in's name never replaces a store name read back", /full_name && !resume\?\.displayName/.test(modal))
+  /* Changed on purpose: d5b64308 (Name your store starts from the current name) starts from the profile's name, then the sign in's; neither replaces a store name read back. */
+  check("and the sign in's name never replaces a store name read back", /const fromAccount = profileName \|\| \(user\.user_metadata\?\.full_name/.test(modal) && /if \(fromAccount && !resume\?\.displayName\)/.test(modal))
 }
 
 console.log("\nOne heading on every library tab (scripts/check-course-player.mjs draws the courses list)")

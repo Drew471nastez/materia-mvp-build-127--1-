@@ -2335,7 +2335,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           role="region"
           aria-label={tt("Unsaved changes")}
           /* Rises 16px and fades in over 320ms on the iOS curve, on the compositor; leaves the same way, a little quicker. */
-          className={`flex w-full max-w-[520px] items-center gap-2.5 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[transform,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
+          className={`flex w-full max-w-[520px] items-center gap-2.5 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
             barUp ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]"
           }`}
         >

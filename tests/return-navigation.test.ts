@@ -136,7 +136,8 @@ function main() {
     check(`${file}: a return is the list as it was, with no landing`,
       returning.test(src) && /(React\.)?useLayoutEffect\(\(\) => \{\s*if \(returning\) holdLanding\(\)\s*\}, \[returning\]\)/.test(src))
   }
-  check("  and the stage lands nothing while a page holds it", /isLandingHeld\(\)\) return/.test(read("components/app/app-stage.tsx")))
+  /* Changed on purpose: 89f1acdf (pull to refresh ghosting) also lands nothing while a pull's own motion is on screen, after the held landing in the same guard. */
+  check("  and the stage lands nothing while a page holds it", /\|\| isLandingHeld\(\)( \|\| pullRefreshVisualActive\(\))?\) return/.test(read("components/app/app-stage.tsx")))
 
   /* The reported one specifically: it was an <a href>, which is a full
      document load AS WELL AS a push. */
