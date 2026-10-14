@@ -12,7 +12,9 @@
  * page's script runs: every change of a section's `data-reveal`, every
  * animation started on a section box (and which properties it moves), and
  * every layout shift. Then the page is scrolled to the bottom a little each
- * frame, as a thumb would, and read back.
+ * frame, as a thumb would, and read back. In the builder's canvas it is
+ * also edited (a heading typed into, a section selected, one added) and
+ * scrolled through again.
  *
  *   node scripts/check-section-reveal.mjs
  */
@@ -98,6 +100,68 @@ await run("A computer, 1280 x 800", "/", { width: 1280, height: 800 })
 await run("A phone, 390 x 844", "/", { width: 390, height: 844, phone: true })
 await run("The builder's canvas, 1000 x 700", "/?mode=canvas&w=1000&h=700", { width: 1080, height: 780 })
 await run("The builder's canvas, phone, 390 x 700", "/?mode=canvas&w=390&h=700", { width: 470, height: 780 })
+
+/*
+  The builder's canvas while it is being edited: the reveal runs there as on
+  the website, and an edit neither hides nor plays again anything already
+  painted. Half the page is scrolled through and back, then a heading is
+  typed into, a section selected and a section added at the end; then the
+  rest of the page is scrolled through.
+*/
+const SCROLL_TO = (y) => `new Promise((resolve) => {
+  const sc = document.getElementById("wb-preview-root")
+  const step = () => {
+    const d = ${y} - sc.scrollTop
+    if (Math.abs(d) < 1) return resolve(sc.scrollTop)
+    const before = sc.scrollTop
+    sc.scrollTop += Math.sign(d) * Math.min(24, Math.abs(d))
+    if (sc.scrollTop === before) return resolve(sc.scrollTop)
+    requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+})`
+const FRAMES = (n) => `new Promise((r) => { let i = 0; const f = () => (++i >= ${n} ? r() : requestAnimationFrame(f)); requestAnimationFrame(f) })`
+
+console.log("\nThe builder's canvas, edited, 1000 x 700")
+{
+  const page = await probe.open("/?mode=canvas&w=1000&h=700", { width: 1080, height: 780 })
+  const mid = await page.evaluate(`(() => { const sc = document.getElementById("wb-preview-root"); const b = document.querySelector('[data-section-key="story-c3"]'); return b.getBoundingClientRect().bottom - sc.getBoundingClientRect().top + sc.scrollTop - sc.clientHeight + 40 })()`)
+  await page.evaluate(SCROLL_TO(Math.round(mid)))
+  await sleep(1200)
+  await page.evaluate(SCROLL_TO(0))
+  await sleep(300)
+  const played = [...new Set((await page.evaluate(() => window.__anims)).map((a) => a.key))]
+  const marks = { reveal: (await page.evaluate(() => window.__reveal)).length, anims: (await page.evaluate(() => window.__anims)).length }
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => window.__edit("type"))
+    await page.evaluate(FRAMES(2))
+  }
+  await page.evaluate(() => window.__edit("select"))
+  await page.evaluate(FRAMES(2))
+  await page.evaluate(() => window.__edit("add"))
+  await page.evaluate(FRAMES(4))
+  await sleep(200)
+  const after = await page.evaluate(STATE)
+  const revealSince = (await page.evaluate(() => window.__reveal)).slice(marks.reveal)
+  const animsSince = (await page.evaluate(() => window.__anims)).slice(marks.anims)
+  const state = (k) => after.boxes.find((b) => b.key === k)
+  console.log(`        played before the edits: ${played.join(", ")}; after: ${after.boxes.map((b) => `${b.key}${b.onScreen ? "*" : ""}=${b.reveal ?? "shown"}`).join(" ")}`)
+  check("the sections scrolled through first came in", played.includes("pricing") && played.includes("story-c3"), played.join(","))
+  check("typing, selecting and adding play nothing again and hide nothing painted",
+    animsSince.length === 0 && revealSince.every((r) => r.key === "added-e5" && r.value === "pending"), JSON.stringify({ animsSince, revealSince }))
+  check("what is on screen stays as it is", after.boxes.filter((b) => b.onScreen).every((b) => b.reveal === null && b.opacity === "1"))
+  check("a section already played is not armed again", state("pricing")?.reveal === null && state("story-c3")?.reveal === null)
+  check("those still below wait as they did", state("faq-x1")?.reveal === "pending" && state("cta-z9")?.reveal === "pending")
+  check("the section added below the screen waits for its scroll", state("added-e5")?.reveal === "pending" && !state("added-e5")?.onScreen)
+  await page.evaluate(SCROLL_DOWN)
+  await sleep(1500)
+  const anims = await page.evaluate(() => window.__anims)
+  const end = await page.evaluate(STATE)
+  const count = (k) => anims.filter((a) => a.key === k).length
+  check("scrolled to, it comes in like the others, once", count("added-e5") === 1 && count("faq-x1") === 1 && count("cta-z9") === 1 && count("pricing") === 1 && count("story-c3") === 1, anims.map((a) => a.key).join(","))
+  check("and at the end every section is there", end.boxes.every((b) => b.reveal === null && b.opacity === "1"))
+  await page.close()
+}
 
 console.log("\nReduced motion")
 {

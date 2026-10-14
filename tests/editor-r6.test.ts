@@ -116,6 +116,47 @@ async function bridgeInBrowser() {
     await wait(900)
     const settled = await page.evaluate(() => ({ same: document.getElementById("shopify-section-banner") === (window as unknown as { __el: Element }).__el, speed: document.querySelector("#shopify-section-banner .box")?.getAttribute("data-speed") }))
     check("a data- setting is drawn in place at once, and the section starts again with it once the changes stop", quick.same && quick.speed === "5" && !settled.same && settled.speed === "5", { quick, settled })
+
+    /*
+      A Dawn family theme's scroll reveal (animations.js, base.css) after a
+      section is swapped: on screen it keeps the theme editor's mark and
+      stays still; below the screen it waits and plays when scrolled to, as
+      live. Changed on purpose (the owner: the builder plays the theme's
+      animations like the live site).
+    */
+    const dawn = await browser.newPage()
+    await dawn.setViewport({ width: 600, height: 700 })
+    await dawn.setContent(`<!doctype html><html><head><style>
+      @keyframes slideIn{from{opacity:.01;transform:translateY(2rem)}to{opacity:1;transform:none}}
+      .scroll-trigger:not(.scroll-trigger--offscreen).animate--slide-in{animation:slideIn .6s}
+      .scroll-trigger.scroll-trigger--design-mode.animate--slide-in{animation:none;opacity:1}
+      .scroll-trigger.scroll-trigger--offscreen{opacity:.01}
+      </style></head><body style="margin:0;font:16px sans-serif">
+      ${section("near", `<div class="scroll-trigger animate--slide-in" id="near-x" style="height:300px">Near</div>`)}
+      ${section("gap", `<div style="height:1200px"></div>`)}
+      ${section("far", `<div class="scroll-trigger animate--slide-in" id="far-x" style="height:300px">Far</div>`)}
+      ${section("tail", `<div style="height:900px">Tail</div>`)}
+      <script>
+        window.__name = function (f) { return f };
+        document.addEventListener("shopify:section:load", function (e) {
+          Array.prototype.forEach.call(e.target.getElementsByClassName("scroll-trigger"), function (el) { el.classList.add("scroll-trigger--design-mode") });
+        });
+        ${CANVAS_BRIDGE}
+      </script></body></html>`)
+    const sendDawn = (m: Record<string, unknown>) => dawn.evaluate((m) => window.postMessage({ storelib: 1, ...m }, "*"), m)
+    for (const id of ["near", "far"]) {
+      const was = await dawn.evaluate((id) => document.getElementById(`shopify-section-${id}`)!.outerHTML, id)
+      await sendDawn({ type: "section", id, html: was.replace("</div></div>", "<p>Added</p></div></div>"), prev: was })
+    }
+    await wait(400)
+    const classes = () => dawn.evaluate(() => ["near-x", "far-x"].map((id) => { const el = document.getElementById(id)!; return { cls: el.className, playing: el.getAnimations().length, opacity: getComputedStyle(el).opacity } }))
+    const [near, far] = await classes()
+    check("a section swapped in on screen keeps the theme editor's mark: still, nothing plays", /scroll-trigger--design-mode/.test(near.cls) && near.playing === 0 && near.opacity === "1", near)
+    check("  one swapped in below the screen waits off screen, as the theme leaves it live", !/design-mode/.test(far.cls) && /scroll-trigger--offscreen/.test(far.cls) && far.playing === 0, far)
+    await dawn.evaluate(() => document.getElementById("far-x")!.scrollIntoView({ block: "center" }))
+    await wait(150)
+    const [, arrived] = await classes()
+    check("  and scrolled to, it plays the theme's reveal", !/offscreen/.test(arrived.cls) && arrived.playing === 1, arrived)
   } finally {
     await browser.close()
   }
