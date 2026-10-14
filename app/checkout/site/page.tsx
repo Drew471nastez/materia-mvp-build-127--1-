@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { marketOfCountry, siteLanguages } from "@/lib/markets/live"
 import { chargeNote } from "@/lib/markets/money"
-import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { cookies, headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { after } from "next/server"
@@ -18,11 +17,12 @@ import { CART_COOKIE, readCartCookie } from "@/lib/storelib-theme/compat/site"
 import type { LinkItem } from "@/lib/physical/cart-link"
 import { ensureSiteWalletDomain } from "@/lib/custom-domains/stripe-pmd"
 import { SiteCheckout, SiteProblem } from "./site-checkout"
+import { CheckoutCurrency } from "../parts/ui"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
 import { pricingFor } from "@/lib/markets/pricing"
 import { cachedRates } from "@/lib/markets/fx-server"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { checkoutLanguage } from "@/lib/markets/checkout-language"
 import { checkoutMsg, checkoutT } from "@/lib/markets/checkout-words"
 import { localizeQuote } from "@/lib/markets/checkout-quote"
@@ -111,11 +111,14 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const buyerRead = siteBuyerFrom(admin, { host: site.host, cookieValue: jar.get(sessionCookieName(site.host))?.value, creatorId: site.creatorId })
   const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }, null, b ? { email: b.email } : null) : null))
   /*
-    PRICES SEEN IN ANOTHER CURRENCY (Markets and languages): a visitor whose
-    country is in a market that shows its own currency saw estimates; the
-    card is charged in the platform's currency, and checkout says so under
-    the total.
+    PRICES SEEN IN ANOTHER CURRENCY (Settings › Languages, extra currencies):
+    a visitor whose country is in a market that shows its own currency saw
+    estimates; the card is charged in the store's own currency
+    (lib/store/selling-currency), and checkout says so under the total. A
+    store that sells in the visitor's currency shows no note: what they saw
+    is what they pay.
   */
+  const storeRead = readStoreCurrency(admin, site.creatorId)
   const visitorCountry = (() => {
     const chosen = jar.get("sl_country")?.value
     if (chosen === "home") return null
@@ -125,11 +128,14 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     .then((langs) => marketOfCountry(langs, visitorCountry))
     /* Only when the pages really showed that currency: rates fresh and the market's currency one they convert to (the same test as the cards, pricingFor). */
     /* The currencies, for the note to be said in the checkout's language below. */
-    .then(async (m) => (m && pricingFor(m, SHOP_CURRENCY, await cachedRates().catch(() => null)) && chargeNote(m.currency, platformChargeCurrencyUpper()) ? { display: m.currency, charge: platformChargeCurrencyUpper() } : null))
+    .then(async (m) => {
+      const charge = (await storeRead).currency
+      return m && pricingFor(m, charge, await cachedRates().catch(() => null)) && chargeNote(m.currency, charge) ? { display: m.currency, charge } : null
+    })
     .catch(() => null)
   /* The checkout in the language of the page the visitor came from, or the one they chose on the website (lib/markets/checkout-language.ts). */
   const languageRead = checkoutLanguage(site.creatorId, params.back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null }))
-  const [brand, config, buyer, ready, answer, currencies, language] = await Promise.all([
+  const [brand, config, buyer, ready, answer, currencies, language, store] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     checkoutBrandOf(site.creatorId),
     loadCheckoutConfig(admin, site.creatorId),
@@ -138,6 +144,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     quoteRead,
     noteRead,
     languageRead,
+    storeRead,
   ])
   const t = checkoutT(language.lang, language.words)
   const currencyNote = currencies ? t(checkoutMsg("Prices in {display} are an estimate. You'll pay in {charge} at checkout; your bank converts it."), currencies) : null
@@ -161,6 +168,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     <CheckoutWords lang={language.lang} words={language.words}>
     {/* The store's own Google Analytics and pixels on its checkout: begin_checkout with what is in it (lib/store/ga.ts). */}
     <StoreTracking creatorId={site.creatorId} checkout={answer?.ok ? gaCheckoutOf(answer.quote.lines, null) : null} />
+    <CheckoutCurrency currency={store.currency}>
     <SiteCheckout
       shopId={site.creatorId}
       brand={brand}
@@ -181,6 +189,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       currencyNote={currencyNote}
       lang={language.lang}
     />
+    </CheckoutCurrency>
     </CheckoutWords>
   )
 }

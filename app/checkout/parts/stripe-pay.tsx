@@ -35,7 +35,7 @@ import { RefreshCw, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getStripePromise, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
-import { CHECKOUT_CURRENCY, FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
+import { FIELD_SHADOW, useCheckoutCurrency, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
 import { perfFail, perfStep, sinceScreenStart, timedStep } from "@/lib/perf/mark"
 import { checkoutMsg } from "@/lib/markets/checkout-words"
 import { useCheckoutLang, useCt } from "./words"
@@ -181,6 +181,8 @@ function useOnline(): boolean {
 }
 
 export function StripePay(props: StripePayProps) {
+  /* What the card is charged in: <CheckoutCurrency> around a store's checkout, the platform's anywhere else (./ui). */
+  const chargeCurrency = useCheckoutCurrency().toLowerCase()
   /* Which of the method lists this form is on (lib/checkout/payment-methods): the first, until Stripe refuses it. */
   const [setIndex, setSetIndex] = React.useState(0)
   /* A fresh Stripe.js and a fresh form, after Try again. */
@@ -196,15 +198,15 @@ export function StripePay(props: StripePayProps) {
     () => ({
       mode: props.mode ?? "payment",
       amount: props.amountCents,
-      /* The PaymentIntent's own currency (platformChargeCurrency): Stripe refuses a confirm whose form was drawn for another. */
-      currency: CHECKOUT_CURRENCY,
+      /* The PaymentIntent's own currency (the store's on a website, the platform's on /checkout): Stripe refuses a confirm whose form was drawn for another. */
+      currency: chargeCurrency,
       paymentMethodTypes: methods,
       appearance,
       fonts: FONTS,
       loader: "auto",
       locale,
     }),
-    [props.mode, props.amountCents, methods, appearance, locale],
+    [props.mode, props.amountCents, chargeCurrency, methods, appearance, locale],
   )
   const fallBack = React.useCallback(() => {
     setSetIndex((i) => (i < METHOD_SETS.length - 1 ? i + 1 : i))

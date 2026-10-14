@@ -30,7 +30,7 @@
 import { SiteIntro } from "./site-intro"
 import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
-import { StorefrontProvider, type Storefront } from "./storefront-context"
+import { StorefrontProvider, useStorefront, type Storefront } from "./storefront-context"
 import { ReturnFacts, useShopCommerce } from "./shop-commerce"
 import { freeShippingLine, siteCommerce } from "@/lib/website-builder/site-commerce"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
@@ -304,11 +304,13 @@ function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
  */
 function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
   const c = siteCommerce(theme as Record<string, unknown>)
+  /* In the store's own currency (Settings › Country & Currency), the one free shipping is set in. */
+  const storeCurrency = useStorefront().currency
   const subtotalCents = useSiteCart().subtotalCents
   /* No amount typed: where the shop's own rates make shipping free (Settings › Shipping and delivery), so the banner and the checkout agree. */
   const facts = useShopCommerce(c.freeShippingBar && c.freeShippingAmount === null)
   const fromCents = c.freeShippingAmount !== null ? Math.round(c.freeShippingAmount * 100) : (facts?.freeShippingFromCents ?? null)
-  const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents) : null
+  const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents, storeCurrency) : null
 
   if (!said) return null
   const progress = said.progress

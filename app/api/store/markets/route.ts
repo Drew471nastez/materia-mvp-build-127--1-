@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { recordActivity } from "@/lib/activity/log-server"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
-import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { localizationOf, saveLocalization } from "@/lib/markets/server"
 import { latestRates, refreshRates } from "@/lib/markets/fx-server"
 import { fxFresh } from "@/lib/markets/money"
@@ -18,9 +17,9 @@ export const dynamic = "force-dynamic"
  * whether today's exchange rates are in (a market shows converted prices
  * only while they are).
  */
-/* The currency the store's prices are in and charged in (lib/store/shop-money.ts), not its payout currency: what a market converts from. */
-async function base(_c: { db: unknown; creatorId: string }) {
-  return SHOP_CURRENCY
+/* The currency the store's prices are in and charged in (Settings › Country & Currency, lib/store/selling-currency), not its payout currency: what a market converts from. */
+async function base(c: { db: unknown; creatorId: string }) {
+  return (await readStoreCurrency(c.db, c.creatorId)).currency
 }
 
 let lastFetch = 0
@@ -49,7 +48,8 @@ export async function GET() {
     /* Translate changes automatically: what its last run did, and whether Storelib AI can run at all. */
     autoTranslate: { run: loc.autoTranslateRun ?? null, available: canDraftWithAi() },
     baseCurrency,
-    chargeCurrency: platformChargeCurrencyUpper(),
+    /* A store's checkout charges in its own currency, the one its prices are in. */
+    chargeCurrency: baseCurrency,
     /* With the rates, so the builder can show a market's prices as the website does (components/website-builder/use-preview-language.ts). */
     fx: fx ? { asOf: fx.asOf, fresh: fxFresh(fx), currencies: ["EUR", ...Object.keys(fx.rates)].sort(), rates: fx.rates } : null,
   })

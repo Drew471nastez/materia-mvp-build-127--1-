@@ -19,7 +19,7 @@ import * as React from "react"
 import Image from "next/image"
 import { ChevronDown, Package, Tag, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { CHECKOUT_CURRENCY, CURRENCY_MARK, Reveal, Spinner, TextInput, money } from "./ui"
+import { Reveal, Spinner, TextInput, useCheckoutCurrency, useCurrencyMark, useMoney } from "./ui"
 import { useCheckoutLang, useCountryName, useCt } from "./words"
 
 export interface SummaryVariant {
@@ -49,6 +49,7 @@ export function LineItem({
   priceCents: number
   isPwyw?: boolean
 }) {
+  const money = useMoney()
   const ct = useCt()
   return (
     <div data-line-item="" className="flex items-start gap-3.5">
@@ -278,6 +279,9 @@ export function TipPicker({
   onCustom: (text: string) => void
   idSuffix: string
 }) {
+  const money = useMoney()
+  const CURRENCY_MARK = useCurrencyMark()
+  const CHECKOUT_CURRENCY = useCheckoutCurrency()
   const ct = useCt()
   const usingCustom = custom !== ""
   /* Closed unless a tip is actually on when it first draws; after that only the buyer opens and closes it. */
@@ -439,6 +443,7 @@ export function Totals({
   /** Settings › Taxes: the tax for the buyer's country, which they can change here. */
   tax?: TaxLine
 }) {
+  const money = useMoney()
   const ct = useCt()
   if (part === "top") {
     return (
@@ -489,6 +494,7 @@ export interface TaxLine {
  * theirs, and a country with no region pays none, which is what it says.
  */
 function TaxRow({ tax }: { tax: TaxLine }) {
+  const money = useMoney()
   const ct = useCt()
   const lang = useCheckoutLang()
   const countryName = useCountryName()

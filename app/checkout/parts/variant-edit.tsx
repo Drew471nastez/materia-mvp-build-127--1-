@@ -22,7 +22,7 @@
 import * as React from "react"
 import { ChevronDown } from "lucide-react"
 import type { VariantChoices } from "@/lib/checkout/variant-choices"
-import { money } from "./ui"
+import { useMoney } from "./ui"
 import { useCt } from "./words"
 
 const SELECT =
@@ -65,6 +65,7 @@ export function VariantEdit({
   editable?: boolean
   onChange: (variantId: string) => void
 }) {
+  const money = useMoney()
   const ct = useCt()
   const [open, setOpen] = React.useState(false)
   const id = React.useId()

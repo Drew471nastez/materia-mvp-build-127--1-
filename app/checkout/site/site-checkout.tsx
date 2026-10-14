@@ -51,7 +51,8 @@ import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import type { SiteQuote } from "@/lib/checkout/site-quote-server"
-import { CheckRow, ErrorBanner, Field, PayButton, PayDock, PoweredByStripe, Reveal, SectionTitle, TextInput, inputClass, money, FIELD_SHADOW } from "../parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PayDock, PoweredByStripe, Reveal, SectionTitle, TextInput, inputClass, useCheckoutCurrency, useMoney, FIELD_SHADOW } from "../parts/ui"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { DiscountForm, Totals } from "../parts/order-summary"
 import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
@@ -188,6 +189,9 @@ export function SiteCheckout({
   currencyNote = null,
   lang: pageLang,
 }: SiteCheckoutProps) {
+  /* The store's own currency (<CheckoutCurrency> in ./page.tsx): every amount here is in it, and the card is charged in it. */
+  const money = useMoney()
+  const chargeCurrency = useCheckoutCurrency()
   /* The page's words in the visitor's language (../parts/words.tsx), and the countries in it too. */
   const ct = useCt()
   const lang = useCheckoutLang()
@@ -544,7 +548,7 @@ export function SiteCheckout({
     if (!quote || (quote.lines.length === 0 && !(quote.short ?? []).length)) return quoteError || ct("Your cart is empty.")
     if (quoting) return ct("Your order is being updated. Try again in a moment.")
     if (quote.stockIssues.length) return ct("Some items don't have enough stock. Lower the quantity or remove them to continue.")
-    if (kind !== "free" && total > 0 && total < 50) return ct("The smallest card payment is {amount}.", { amount: money(50) })
+    if (kind !== "free" && total > 0 && total < minimumChargeMinor(chargeCurrency)) return ct("The smallest card payment is {amount}.", { amount: money(minimumChargeMinor(chargeCurrency)) })
     if (kind !== "express" || ships) {
       const m = missingField(plan, { email, first: firstName, last: lastName, company: address.company, phone: address.phone, line2: address.line2 })
       if (m === "email") return missing("email", ct("Enter a valid email address."))

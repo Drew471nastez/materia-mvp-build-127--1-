@@ -12,6 +12,9 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { CheckoutCurrency } from "../parts/ui"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { platformSellingCurrency } from "@/lib/store/selling-currency"
 
 export const dynamic = "force-dynamic"
 
@@ -32,17 +35,21 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
   let brand: CheckoutBrand = { name: "Checkout", imageUrl: null, kind: null }
   let config = DEFAULT_CHECKOUT
   let backTo: string | null = null
+  /* The store's own currency (Settings › Country & Currency): what its prices are in and its card payment is charged in. */
+  let currency: string = platformSellingCurrency()
   if (shop && /^[0-9a-f-]{36}$/i.test(shop)) {
     const db = createAdminClient()
     /* The shop across the top, as the basket checkout draws it: its website's logo, its store name before the person's (lib/checkout/brand-server), and how its checkout behaves (Settings › Checkout). */
-    const [shopBrand, checkout, returns] = await Promise.all([
+    const [shopBrand, checkout, returns, store] = await Promise.all([
       checkoutBrand(db, shop),
       loadCheckoutConfig(db, shop),
       /* Back goes to the store's own website only: any other address in ?return= is dropped (lib/checkout/site-hosts.ts). */
       asked ? checkoutReturns({ creatorId: shop, cancel: asked }) : Promise.resolve({ cancel: null }),
+      readStoreCurrency(db, shop),
     ])
     brand = shopBrand
     config = checkout
+    currency = store.currency
     backTo = returns.cancel
     /*
       FROM THE SHOP'S OWN WEBSITE: paid for on the website now, at its own
@@ -69,5 +76,9 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null
-  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} />
+  return (
+    <CheckoutCurrency currency={currency}>
+      <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} />
+    </CheckoutCurrency>
+  )
 }

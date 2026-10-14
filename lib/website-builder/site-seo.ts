@@ -261,6 +261,8 @@ export function productJsonLd(p: {
    * when the website does not show them.
    */
   rating?: { average: number; count: number; reviews?: { author: string; rating: number; body: string; title?: string; date: string }[] } | null
+  /** The store's own currency (lib/store/selling-currency), the one the price is in. Absent, the platform's. */
+  currency?: string
 }) {
   const price = typeof p.priceCents === "number" && p.priceCents >= 0 ? (p.priceCents / 100).toFixed(2) : null
   const rated = p.rating && p.rating.count > 0 && p.rating.average > 0 ? p.rating : null
@@ -278,7 +280,7 @@ export function productJsonLd(p: {
             "@type": "Offer",
             url: p.url,
             price,
-            priceCurrency: SHOP_CURRENCY,
+            priceCurrency: p.currency ?? SHOP_CURRENCY,
             availability: p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
             seller: { "@type": "Organization", name: p.seller },
           },

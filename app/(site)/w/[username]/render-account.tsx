@@ -29,6 +29,7 @@
  * copy of the site to keep in step.
  */
 import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
@@ -133,7 +134,7 @@ export async function renderAccountPage(
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
       />
       {/* The contact page and the wishlist are pages of the website like any
           other, and a visit to either counts in Analytics, with its path. The

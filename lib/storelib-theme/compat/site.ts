@@ -338,7 +338,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
-  const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0)
+  const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0, site.shop.currency ?? undefined)
   const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${languageLinks(site, path)}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })

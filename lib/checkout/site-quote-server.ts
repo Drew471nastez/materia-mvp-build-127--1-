@@ -1,4 +1,5 @@
 import "server-only"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 /**
  * ===========================================================================
@@ -120,7 +121,7 @@ export async function priceSiteCart(db: Db, creatorId: string, body: Body, owner
     couponError = priced.error
     priced = await priceCart(db, { items: body.items, couponCode: null, buyerId: null, ownerEmail, handOff, keepFree: true })
   }
-  return { priced, couponError, decision: basketDecision(priced, { shopId: creatorId }), handOff }
+  return { priced, couponError, decision: basketDecision(priced, { shopId: creatorId, currency: (await readStoreCurrency(db, creatorId)).currency }), handOff }
 }
 
 /** Every line of the cart is already the buyer's: nothing to pay, nothing else to say. */

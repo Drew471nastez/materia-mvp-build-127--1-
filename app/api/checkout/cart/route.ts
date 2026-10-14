@@ -1,16 +1,17 @@
 import { statementParams } from "@/lib/payments/platform-descriptor"
-import { shopMoney } from "@/lib/store/shop-money"
+import { formatStoreMoney } from "@/lib/store/currency"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
-import { MIN_CHARGE_CENTS, priceCart } from "@/lib/checkout/pricing"
+import { priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -174,7 +175,7 @@ async function handlePOST(request: Request) {
   const { lines, dropped, coupon } = priced
 
   /* One shop, from the data; something that ships; nothing left to buy; under $0.50 (lib/checkout/basket-decision). */
-  const decision = basketDecision(priced)
+  const decision = basketDecision(priced, { currency: priced.creatorIds.length === 1 ? (await readStoreCurrency(admin, priced.creatorIds[0])).currency : undefined })
   if (decision.kind === "refuse") {
     return NextResponse.json({ error: decision.error, ...(decision.dropped ? { dropped: decision.dropped } : {}) }, { status: decision.status })
   }
@@ -258,7 +259,9 @@ async function handlePOST(request: Request) {
   if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin: siteServes ? siteOrigin : undefined, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
 
   /* Refused by basketDecision already; said again here so nothing under it can reach Stripe. */
-  if (totalCents < MIN_CHARGE_CENTS) return NextResponse.json({ error: `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}.` }, { status: 400 })
+  /* The store's own currency (Settings › Country & Currency), read fresh: every price in the cart is in it, and the card is charged in it. */
+  const storeCurrency = (await readStoreCurrency(admin, creatorId)).currency
+  if (totalCents < minimumChargeMinor(storeCurrency)) return NextResponse.json({ error: `The smallest card payment is ${formatStoreMoney(minimumChargeMinor(storeCurrency), storeCurrency)}.` }, { status: 400 })
 
   /*
    * Storelib's one readiness rule (lib/payments/stripe/readiness). This used
@@ -374,7 +377,7 @@ async function handlePOST(request: Request) {
     heldCopies = copies.held
   }
 
-  const chargeCurrency = platformChargeCurrency()
+  const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(totalCents, creatorId, admin, chargeCurrency)
@@ -413,7 +416,7 @@ async function handlePOST(request: Request) {
             product_data: {
               name: String(l.product.title ?? "Product"),
               ...(l.item.discountCents > 0 && coupon
-                ? { description: `${shopMoney(l.item.discountCents)} off with ${coupon.code}` }
+                ? { description: `${formatStoreMoney(l.item.discountCents, storeCurrency)} off with ${coupon.code}` }
                 : {}),
               ...(l.product.thumbnail_url ? { images: [String(l.product.thumbnail_url)] } : {}),
             },
@@ -648,6 +651,7 @@ async function freeBasket(
     couponHolder: holder,
     baseUrl: c.platformOrigin,
     request,
+    currency: (await readStoreCurrency(c.admin, c.creatorId)).currency,
   })
   if (written.ok === false) {
     await releaseSales(c.admin, heldCopies, saleHolder)

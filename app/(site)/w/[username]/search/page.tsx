@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { splitSiteName } from "@/lib/markets/site-name"
 import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { Metadata } from "next"
@@ -103,7 +104,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
         emptyDetail={query ? `Nothing matched "${query}".` : "Type what you are looking for."}
       />
       {/* A page of the website like any other: one view, with its own path. */}

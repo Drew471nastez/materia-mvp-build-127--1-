@@ -26,6 +26,8 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { productFacts } from "@/lib/website-builder/storefront-data"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { withDeliveryBlock, withMainProduct, withProductBlocks } from "@/lib/website-builder/product-page"
 import { productSectionData } from "@/lib/products/product-section-data"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
@@ -228,6 +230,7 @@ export async function productStructuredData(slug: string, site: { url: string; s
       description: product.description,
       images: [...new Set(images)],
       priceCents: product.price_cents,
+      currency: product.creator_id ? await cachedStoreCurrency(product.creator_id).catch(() => undefined) : undefined,
       /* Sold out when its stock is counted and none is left: the shop's own rule. */
       inStock: !soldOut(product),
       seller: site.seller,
@@ -416,7 +419,9 @@ export async function renderProduct(
    * the published site's shop when this is the live page, read directly for
    * a preview.
    */
-  const facts = productFacts(product)
+  /* The store's own currency (Settings › Country & Currency): the one this product's price is in. */
+  const currency = product.creator_id ? await cachedStoreCurrency(product.creator_id).catch(() => SHOP_CURRENCY) : SHOP_CURRENCY
+  const facts = productFacts(product, currency)
   const shopCards = localizer ? localizer.cards(products) : products
   const others = shopCards.filter((p) => p.id !== product.id)
   const dressed = await dressPage(shop, page, shopCards, productCount, "product", product.title ?? "Product", facts, { cached })
@@ -426,7 +431,7 @@ export async function renderProduct(
    * written for the product page reads it; a section that does not, does
    * not notice it. See content/developers/selling.md.
    */
-  const about = { product: toProductPage({ ...product, ...extra }, variants) }
+  const about = { product: toProductPage({ ...product, ...extra }, variants, currency) }
   const prerendered = renderWithSources(shop.sources, dressed.sections, themeSettings, "product", others, about, dressed.data)
 
   return (
@@ -435,7 +440,7 @@ export async function renderProduct(
         theme={themeSettings}
         sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id, language: previewToken ? undefined : await languageChoice(product.creator_id, owner?.locale, owner?.market), words: localizer?.words, display: previewToken ? undefined : localizer?.display }}
+        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id, language: previewToken ? undefined : await languageChoice(product.creator_id, owner?.locale, owner?.market), words: localizer?.words, display: previewToken ? undefined : localizer?.display, currency }}
         className="min-h-screen"
       />
       {previewToken ? null : <TrackView type="product" creatorId={product.creator_id} productId={product.id} />}

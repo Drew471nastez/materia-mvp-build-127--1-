@@ -8,6 +8,7 @@ import { allocateRefund, feeShare, type RefundLine } from "./refund-allocation"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { emit } from "@/lib/notify/outbox"
 import { postLedger } from "@/lib/payments/ledger"
+import { ledgerAmountText, toLedger } from "@/lib/payments/ledger-currency"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 
 /**
@@ -150,9 +151,13 @@ async function revokeIfFull(db: Db, row: OrderRow, cents: number, before: number
  * money off twice; written first, the worst a failure can do is leave the
  * balance short of one refund, which the error log names.
  */
-async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents: number, currency: string, purchase: string[] = [row.id]): Promise<"recorded" | "duplicate" | "no-seller"> {
+async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, charged: number, chargeCurrency: string, purchase: string[] = [row.id]): Promise<"recorded" | "duplicate" | "no-seller"> {
   const creatorId = await creatorOf(db, row.product_id)
   if (!creatorId) return "no-seller"
+  /* In the wallet's currency, as the sale was added (lib/payments/ledger-currency): a store selling in its own currency is refunded in it. */
+  const wallet = await toLedger([charged, row.amount_cents || 0], chargeCurrency)
+  const [cents, rowCharged] = wallet.amounts
+  const currency = wallet.currency
 
   /*
     THE SALE THIS ROW WAS PAID IN. A basket or a physical order is one sale
@@ -174,7 +179,7 @@ async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents
   const own = found.find((x) => x.order_id === row.id)
   const sale: Sale[] = own ? [own] : found.slice(0, 1)
   const paid = Number(sale[0]?.amount_cents) || 0
-  const rowAmount = row.amount_cents || 0
+  const rowAmount = rowCharged
   /* The payment's whole amount when the sale covers more than this row; this row's own when the sale is its alone. */
   const fee = feeShare(Number(sale[0]?.fee_cents) || 0, paid > rowAmount || !own ? paid || rowAmount : rowAmount, cents)
   const net = Math.max(0, cents - fee)
@@ -203,7 +208,7 @@ async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents
       currency,
       order_id: row.id,
       stripe_refund_id: refund.id,
-      description: `Refund: $${(cents / 100).toFixed(2)}`,
+      description: `Refund: ${ledgerAmountText(cents, wallet, { amount: charged, currency: chargeCurrency })}`,
       add_lifetime_refunds: cents,
     },
   })
@@ -241,7 +246,7 @@ async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents
     available_delta: -fromAvailable,
     order_id: row.id,
     stripe_refund_id: refund.id,
-    description: `Refund: $${(cents / 100).toFixed(2)}`,
+    description: `Refund: ${ledgerAmountText(cents, wallet, { amount: charged, currency: chargeCurrency })}`,
   })
   /* 23505: another delivery of this same event got there first (the unique
      index in supabase/sql/RUN_REFUND_LEDGER_ONCE.sql). Already applied. */

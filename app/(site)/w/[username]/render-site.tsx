@@ -14,6 +14,7 @@
  * could do and no visitor could see.
  */
 import { siteIcons } from "@/lib/website-builder/site-icon"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -284,7 +285,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language, words: localizer?.words, display: localizer?.display }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
         emptyDetail="Check back soon!"
       />
       {/* Every page of the published site is one view in Analytics, with its
@@ -405,7 +406,7 @@ async function previewPage(username: string, token: string, pageKey: string) {
         theme={themeSettings}
         sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId, installId }}
+        storefront={{ creatorId, installId, currency: await cachedStoreCurrency(creatorId) }}
         emptyDetail="Check back soon!"
       />
     </StorelibSourcesProvider>

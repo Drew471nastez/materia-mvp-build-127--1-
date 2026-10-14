@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productMatchesQuery } from "@/lib/website-builder/shop-page"
 import { toCard } from "@/lib/website-builder/shop-products"
@@ -76,10 +77,10 @@ export async function GET(req: NextRequest) {
   }
 
   /* Settings › Sales channels: a product taken off the Online store is not found by its search. */
-  const offStore = await offChannel(admin, creatorId, "storefront")
+  const [offStore, store] = await Promise.all([offChannel(admin, creatorId, "storefront"), readStoreCurrency(admin, creatorId)])
   const matches = (data ?? []).filter((p) => !offStore.has(String(p.id)) && productMatchesQuery(p, q))
   const items = matches.slice(0, MAX_RESULTS).map((row) => {
-    const card = toCard(row)
+    const card = toCard(row, [], [], store.currency)
     return {
       id: card.id,
       title: card.settings.title,

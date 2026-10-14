@@ -40,6 +40,7 @@ import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { postLedger } from "@/lib/payments/ledger"
+import { ledgerAmountText, toLedger } from "@/lib/payments/ledger-currency"
 import { markFeeRecord, paidAirwallexCheckout, type PaidCheckout } from "@/lib/payments/checkout"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 import { SALE_HOLDER_KEY, claimSale, releaseSale } from "./sales-limit"
@@ -596,10 +597,21 @@ async function grant(
  */
 export async function recordSale(
   admin: Db,
-  s: { creatorId: string; orderId: string; total: number; fee: number; destinationPaymentId: string | null },
+  s: {
+    creatorId: string
+    orderId: string
+    /** In the currency the buyer was charged in. */
+    total: number
+    fee: number
+    destinationPaymentId: string | null
+    /** That currency: a store's own (lib/store/selling-currency), turned into the wallet's here (lib/payments/ledger-currency). Absent, the wallet's. */
+    currency?: string | null
+  },
 ) {
   if (s.total <= 0) return
-  const net = s.total - s.fee
+  const wallet = await toLedger([s.total, s.fee], s.currency)
+  const [total, fee] = wallet.amounts
+  const net = total - fee
 
   /* Held until Stripe says the money is available on the seller's side. */
   let holdUntil: Date | null = null
@@ -620,6 +632,8 @@ export async function recordSale(
     holdUntil.setDate(holdUntil.getDate() + 3)
   }
 
+  const saleText = `Sale: ${ledgerAmountText(total, wallet, { amount: s.total, currency: s.currency })} (net ${ledgerAmountText(net, { ...wallet, converted: false }, { amount: net, currency: wallet.currency })})`
+
   /* Once per order, in one locked step in the database (lib/payments/ledger): the
      webhook's Checkout Session path writes the same key, so a sale is never counted twice. */
   const posted = await postLedger(admin, {
@@ -629,15 +643,15 @@ export async function recordSale(
     amountCents: net,
     event: {
       event_type: "sale",
-      amount_cents: s.total,
+      amount_cents: total,
       net_seller_cents: net,
-      fee_cents: s.fee,
-      currency: "usd",
+      fee_cents: fee,
+      currency: wallet.currency,
       order_id: s.orderId,
       hold_until: holdUntil.toISOString(),
-      description: `Sale: $${(s.total / 100).toFixed(2)} (net $${(net / 100).toFixed(2)})`,
-      add_lifetime_earnings: s.total,
-      add_lifetime_fees: s.fee,
+      description: saleText,
+      add_lifetime_earnings: total,
+      add_lifetime_fees: fee,
     },
   })
   if (!posted.unavailable) return
@@ -658,21 +672,21 @@ export async function recordSale(
     .from("seller_ledger")
     .update({
       pending_amount: (ledger.pending_amount || 0) + pending,
-      lifetime_earnings: (ledger.lifetime_earnings || 0) + s.total,
-      lifetime_fees: (ledger.lifetime_fees || 0) + s.fee,
+      lifetime_earnings: (ledger.lifetime_earnings || 0) + total,
+      lifetime_fees: (ledger.lifetime_fees || 0) + fee,
       negative_balance: negative,
     })
     .eq("creator_id", s.creatorId)
   await admin.from("ledger_events").insert({
     creator_id: s.creatorId,
     event_type: "sale",
-    amount_cents: s.total,
+    amount_cents: total,
     net_seller_cents: net,
-    fee_cents: s.fee,
-    currency: "usd",
+    fee_cents: fee,
+    currency: wallet.currency,
     pending_delta: pending,
     order_id: s.orderId,
     hold_until: holdUntil.toISOString(),
-    description: `Sale: $${(s.total / 100).toFixed(2)} (net $${(net / 100).toFixed(2)})`,
+    description: saleText,
   })
 }

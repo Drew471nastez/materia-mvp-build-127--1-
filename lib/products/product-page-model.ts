@@ -35,7 +35,7 @@ import type { FxRates } from "@/lib/markets/money"
 import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { imagesOnly, isPosterName } from "@/lib/media/video"
-import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 /* ── The product, as the section receives it ─────────────────────────────── */
 
@@ -269,7 +269,7 @@ export function swatchColor(value: string): string | null {
 
 /* ── Price ────────────────────────────────────────────────────────────────── */
 
-/** The shop's currency, as every card and checkout states it (lib/website-builder/shop-products.ts SHOP_CURRENCY). */
+/** The platform's currency: a store's own (lib/store/selling-currency) is handed in where the page knows it (the storefront's `currency`). */
 export const PRODUCT_CURRENCY_CODE = SHOP_CURRENCY
 
 /**
@@ -279,10 +279,11 @@ export const PRODUCT_CURRENCY_CODE = SHOP_CURRENCY
  * said "$48.00". `code` is Theme settings › Currency format › Show currency
  * codes, which the cards already followed: "$48.00 USD".
  */
-export function money(cents: number, opts: { code?: boolean } = {}): string {
-  const text = shopMoney(Math.max(0, Math.round(Number(cents) || 0)), { grouping: true })
+export function money(cents: number, opts: { code?: boolean; currency?: string } = {}): string {
+  const currency = (opts.currency ?? PRODUCT_CURRENCY_CODE).toUpperCase()
+  const text = shopMoneyIn(Math.max(0, Math.round(Number(cents) || 0)), currency, { grouping: true })
   /* "RON 48.00" already names its currency: the code is added once, to "$48.00". */
-  return opts.code && !text.includes(PRODUCT_CURRENCY_CODE) ? `${text} ${PRODUCT_CURRENCY_CODE}` : text
+  return opts.code && !text.includes(currency) ? `${text} ${currency}` : text
 }
 
 /** The highest amount a buyer may name: the same ceiling checkout holds (MAX_PWYW_CENTS). */
@@ -326,10 +327,10 @@ export function amountToCents(input: string): number | null {
  * holds on the server (lib/checkout/pricing.ts baseFor): at least the
  * minimum, at most the ceiling, whole cents.
  */
-export function checkPwyw(cents: number | null, minCents: number, maxCents = PWYW_MAX_CENTS): { ok: true; cents: number } | { ok: false; error: string } {
+export function checkPwyw(cents: number | null, minCents: number, maxCents = PWYW_MAX_CENTS, currency?: string): { ok: true; cents: number } | { ok: false; error: string } {
   if (cents === null || !Number.isFinite(cents) || !Number.isInteger(cents) || cents < 0) return { ok: false, error: "Enter an amount, like 12 or 12.50." }
-  if (cents < minCents) return { ok: false, error: `The lowest price is ${money(minCents)}.` }
-  if (cents > maxCents) return { ok: false, error: `The highest price is ${money(maxCents)}.` }
+  if (cents < minCents) return { ok: false, error: `The lowest price is ${money(minCents, { currency })}.` }
+  if (cents > maxCents) return { ok: false, error: `The highest price is ${money(maxCents, { currency })}.` }
   return { ok: true, cents }
 }
 

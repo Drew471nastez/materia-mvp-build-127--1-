@@ -46,7 +46,7 @@ import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { VariantEdit } from "../parts/variant-edit"
 import type { ChoicesByProduct } from "@/lib/checkout/variant-choices"
-import { CHECKOUT_CURRENCY, money as sharedMoney } from "../parts/ui"
+import { useCheckoutCurrency, useMoney } from "../parts/ui"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
 
 interface QuoteLine {
@@ -96,9 +96,6 @@ const FLOAT_SELECT = `${INPUT} h-[52px] appearance-none pr-10 pt-[17px] data-[em
 const FLOAT_SELECT_LABEL =
   "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,translate] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
 
-/* The charged currency, as every checkout shows it (../parts/ui money, PLATFORM_CURRENCY). */
-const money = sharedMoney
-
 function guessCountry(): string {
   try {
     const region = new Intl.Locale(navigator.language).maximize().region
@@ -129,6 +126,9 @@ export function PhysicalCheckout({
   config?: CheckoutConfig
   buyer?: { signedIn: boolean; confirmed: boolean }
 }) {
+  /* The store's own currency (<CheckoutCurrency> in ./page.tsx): every amount here is in it, and the card is charged in it. */
+  const money = useMoney()
+  const CHECKOUT_CURRENCY = useCheckoutCurrency()
   const needsSignIn = config.requireAccount && !buyer.signedIn
   const needsConfirm = config.requireConfirmedEmail && buyer.signedIn && !buyer.confirmed
   const [first, setFirst] = React.useState("")

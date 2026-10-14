@@ -19,8 +19,9 @@
  * Whether the seller can take payments is a database read and is asked
  * after this, by the caller (lib/payments/service checkoutReadyForCreator).
  */
-import { shopMoney } from "@/lib/store/shop-money"
-import { MIN_CHARGE_CENTS, type PricedCart } from "./pricing"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import type { PricedCart } from "./pricing"
 
 export type BasketDecision =
   | { kind: "refuse"; status: number; error: string; dropped?: string[] }
@@ -30,7 +31,7 @@ export type BasketDecision =
 
 export const ONE_SHOP_ONLY = "A cart can only hold one shop's products"
 
-export function basketDecision(priced: PricedCart, opts: { shopId?: string | null } = {}): BasketDecision {
+export function basketDecision(priced: PricedCart, opts: { shopId?: string | null; currency?: string } = {}): BasketDecision {
   if (priced.ok === false) return { kind: "refuse", status: priced.status, error: priced.error }
   /* ONE SELLER, FROM THE DATA: a destination charge pays one connected account. */
   if (priced.creatorIds.length !== 1) return { kind: "refuse", status: 400, error: ONE_SHOP_ONLY }
@@ -66,11 +67,14 @@ export function basketDecision(priced: PricedCart, opts: { shopId?: string | nul
   /* Free: a code took it to $0, or every line is free on its own (kept only by a checkout that asks, priceCart keepFree). The prices are the server's either way. */
   if (priced.totalCents === 0 && (priced.coupon || priced.lines.every((l) => l.item.priceCents === 0))) return { kind: "free", creatorId }
 
-  if (priced.totalCents < MIN_CHARGE_CENTS) {
+  /* Stripe's smallest card payment in the store's own currency (lib/store/selling-currency), the one the cart is in. */
+  const currency = opts.currency ?? SHOP_CURRENCY
+  const minimum = minimumChargeMinor(currency)
+  if (priced.totalCents < minimum) {
     return {
       kind: "refuse",
       status: 400,
-      error: priced.coupon ? `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}. Remove the code or add to the cart.` : `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}.`,
+      error: priced.coupon ? `The smallest card payment is ${shopMoneyIn(minimum, currency)}. Remove the code or add to the cart.` : `The smallest card payment is ${shopMoneyIn(minimum, currency)}.`,
     }
   }
   return { kind: "pay", creatorId }

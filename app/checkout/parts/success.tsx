@@ -11,7 +11,7 @@
  * form with Pay on it is never seen, not even for a frame.
  */
 
-import { money } from "./ui"
+import { useMoney } from "./ui"
 import { useCt } from "./words"
 
 export type PaidState = "finishing" | "paid" | null
@@ -32,6 +32,7 @@ export function PaidOverlay({
   /** The creator's website the buyer is going back to, when checkout was started there. */
   returningTo?: string | null
 }) {
+  const money = useMoney()
   const ct = useCt()
   if (!state) return null
   const finishing = state === "finishing"

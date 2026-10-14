@@ -29,9 +29,8 @@ import type { SiteLanguageChoice } from "@/components/website-builder/theme/lang
 import { localizationTag, marketsMissing, cachedTranslations } from "./server"
 import { languageName, localizedPath, normalizeLocale } from "./locales"
 import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
-import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { chargeNote, currencyCode, type PriceRounding } from "./money"
-import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { cachedRates } from "./fx-server"
 import { convertCardPrices, pricingFor, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
 
@@ -130,7 +129,9 @@ export interface Localizer {
  * to lay over: no language asked for on a website written in English, one
  * that is not published, or no approved translation in it yet.
  */
-export async function siteLocalizer(creatorId: string, locale: string | null | undefined, market: string | null = null, base: string = SHOP_CURRENCY): Promise<Localizer | null> {
+export async function siteLocalizer(creatorId: string, locale: string | null | undefined, market: string | null = null, given?: string): Promise<Localizer | null> {
+  /* The store's own currency (Settings › Country & Currency): what its prices are in, what a market converts from and what checkout charges. */
+  const base = given ?? (await cachedStoreCurrency(creatorId))
   /* No language asked for: the website's own, which still has its shop words when it is not written in English (below). */
   const langs = await siteLanguages(creatorId)
   const code = locale ? (langs.others.find((l) => l.toLowerCase() === locale.toLowerCase()) ?? null) : null
@@ -150,7 +151,7 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   }
   return {
     pricing,
-    display: pricing ? { market: pricing.market, base: pricing.base, fx: pricing.fx, locale: moneyLocale, note: chargeNote(pricing.currency, platformChargeCurrencyUpper()) } : undefined,
+    display: pricing ? { market: pricing.market, base: pricing.base, fx: pricing.fx, locale: moneyLocale, note: chargeNote(pricing.currency, base) } : undefined,
     locale: code ?? langs.defaultLanguage,
     defaultLanguage: langs.defaultLanguage,
     words,
@@ -204,12 +205,13 @@ export async function languageChoice(creatorId: string, locale: string | null | 
   const all = [langs.defaultLanguage, ...langs.others]
   const code = (locale && all.find((l) => l.toLowerCase() === locale.toLowerCase())) || langs.defaultLanguage
   /* The currencies a visitor can see prices in: the store's own, and each market's that converts today (fresh rates, or the store's own rate for it). */
-  const pricing = await marketPricing(creatorId, market, SHOP_CURRENCY)
+  /* Converted from, and charged in, the store's own currency (lib/store/selling-currency). */
+  const charge = await cachedStoreCurrency(creatorId)
+  const pricing = await marketPricing(creatorId, market, charge)
   const rates = langs.markets.length ? await cachedRates().catch(() => null) : null
-  const charge = platformChargeCurrencyUpper()
   /* A market whose currency cannot be converted today is not offered: picked, it would show the store's prices and snap back to home. */
-  const offered = langs.markets.filter((m) => m.countries.length && pricingFor(m, SHOP_CURRENCY, rates))
-  const currencies = offered.length ? [{ id: "home", label: SHOP_CURRENCY, country: "home" }, ...offered.map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))] : []
+  const offered = langs.markets.filter((m) => m.countries.length && pricingFor(m, charge, rates))
+  const currencies = offered.length ? [{ id: "home", label: charge, country: "home" }, ...offered.map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))] : []
   return {
     code,
     defaultLanguage: langs.defaultLanguage,

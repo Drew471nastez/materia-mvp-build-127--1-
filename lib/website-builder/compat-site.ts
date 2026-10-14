@@ -46,7 +46,7 @@ import { shopFacts } from "@/lib/physical/storefront-facts"
 import { productFaqs } from "@/lib/products/product-section-data"
 import { withPageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { moneyFormatFor } from "@/lib/markets/pricing"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
@@ -344,6 +344,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     ? await (draft ? readFacts() : heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false))
     : null
 
+  /* The store's own currency (Settings › Country & Currency): the theme writes its prices, cart and money format in it. */
+  const currency = await cachedStoreCurrency(creator.creatorId)
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,
@@ -353,7 +355,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
     /* The website's own brand name, else Store details' store name, else the person's (lib/website-builder/storefront-data dynamicContext, the same order). */
-    shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency: SHOP_CURRENCY, moneyFormat: moneyFormatFor(SHOP_CURRENCY), policies },
+    shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency, moneyFormat: moneyFormatFor(currency), policies },
     host,
     designMode: false,
     /* SEO & Social and each page's own search result (Website settings), read by the theme's own head (lib/website-builder/page-seo.ts). */
@@ -450,7 +452,7 @@ export async function compatDraftHome(installId: string): Promise<string | null>
     products,
     collections,
     menus: compatMenus(menus as never, ["home"]),
-    shop: { name: row.name ?? "", currency: SHOP_CURRENCY, moneyFormat: moneyFormatFor(SHOP_CURRENCY) },
+    shop: { name: row.name ?? "", currency: await cachedStoreCurrency(row.creator_id), moneyFormat: moneyFormatFor(await cachedStoreCurrency(row.creator_id)) },
   }, sections, { scripts: true }).html
 }
 

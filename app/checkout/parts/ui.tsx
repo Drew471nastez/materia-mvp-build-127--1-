@@ -352,10 +352,52 @@ export const money = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: CHECKOUT_CURRENCY.toUpperCase() }).format((cents || 0) / 100)
 
 /** The charge currency's own mark for an amount field ("$", "RON"), as money() writes it. */
-export const CURRENCY_MARK = (() => {
+export const CURRENCY_MARK = markOf(CHECKOUT_CURRENCY)
+
+/** An amount in a given currency, written as money() writes the platform's. */
+export function moneyIn(cents: number, currency: string): string {
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: CHECKOUT_CURRENCY.toUpperCase() }).formatToParts(1).find((p) => p.type === "currency")?.value ?? CHECKOUT_CURRENCY.toUpperCase()
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format((cents || 0) / 100)
   } catch {
-    return CHECKOUT_CURRENCY.toUpperCase()
+    return `${((cents || 0) / 100).toFixed(2)} ${currency.toUpperCase()}`
   }
-})()
+}
+
+/** A currency's own mark for an amount field ("$", "RON", "€"). */
+export function markOf(currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).formatToParts(1).find((p) => p.type === "currency")?.value ?? currency.toUpperCase()
+  } catch {
+    return currency.toUpperCase()
+  }
+}
+
+/*
+  THE CURRENCY THIS CHECKOUT CHARGES IN. A store's website checkout and its
+  cart checkout charge in the store's own currency (lib/store/selling-currency,
+  Settings › Country & Currency), and wrap themselves in <CheckoutCurrency>
+  with it; every amount, the tip and amount fields and Stripe's card form
+  then read it here. Storelib's own checkout (/checkout) sets none and keeps
+  the platform's currency, exactly as before.
+*/
+const CurrencyContext = React.createContext<string>(CHECKOUT_CURRENCY.toUpperCase())
+
+export function CheckoutCurrency({ currency, children }: { currency: string; children: React.ReactNode }) {
+  return <CurrencyContext.Provider value={currency.toUpperCase()}>{children}</CurrencyContext.Provider>
+}
+
+/** "RON": the currency this checkout charges in. */
+export function useCheckoutCurrency(): string {
+  return React.useContext(CurrencyContext)
+}
+
+/** money() in this checkout's currency. */
+export function useMoney(): (cents: number) => string {
+  const currency = useCheckoutCurrency()
+  return React.useCallback((cents: number) => moneyIn(cents, currency), [currency])
+}
+
+/** CURRENCY_MARK in this checkout's currency. */
+export function useCurrencyMark(): string {
+  return markOf(useCheckoutCurrency())
+}

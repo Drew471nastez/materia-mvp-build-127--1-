@@ -107,7 +107,8 @@ function main() {
   console.log("\nPlacing the order (lib/physical/checkout-server.ts)")
   const server = read("lib/physical/checkout-server.ts")
   check("the cart is held to codRefusal before anything is written", /if \(cod\) \{\s*const why = codRefusal\(/.test(server))
-  check("no card minimum, no card readiness for cash", /!free && !cod && totals\.totalCents < MIN_CHARGE_CENTS/.test(server) && /!free && !cod && \(!creator\.stripe_account_id/.test(server))
+  /* Changed on purpose: the card minimum is the store's own currency's (lib/store/selling-currency minimumChargeMinor). */
+  check("no card minimum, no card readiness for cash", /!free && !cod && totals\.totalCents < minimumChargeMinor\(storeCurrency\)/.test(server) && /!free && !cod && \(!creator\.stripe_account_id/.test(server))
   check("no Storelib fee on cash", /No fee on cash on delivery[\s\S]{0,80}if \(!free && !cod\)/.test(server))
   check("written at once, like a free order", /if \(free \|\| cod\) \{\s*const done = await completeCheckout/.test(server))
   check("no seller ledger entry for cash never held", /if \(co\.provider !== COD_PROVIDER\) await step\("ledger"/.test(server))

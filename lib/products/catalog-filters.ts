@@ -27,7 +27,7 @@
  */
 
 import { isColorOption, swatchColor } from "./product-page-model"
-import { shopAmount } from "@/lib/store/shop-money"
+import { shopAmountIn, SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 /** The fields of a product card this reads. */
 export interface FilterableCard {
@@ -364,6 +364,9 @@ export function catalogFilters(
 
   const chips: { label: string; url: string }[] = []
   if (query.priceMin !== null || query.priceMax !== null) {
+    /* In the store's own currency, which every card carries (lib/website-builder/shop-products toCard). */
+    const currency = (cards[0]?.settings as { currency?: string } | undefined)?.currency || SHOP_CURRENCY
+    const shopAmount = (units: number) => shopAmountIn(units, currency)
     const label = query.priceMin !== null && query.priceMax !== null ? `${shopAmount(query.priceMin)} to ${shopAmount(query.priceMax)}` : query.priceMin !== null ? `From ${shopAmount(query.priceMin)}` : `Up to ${shopAmount(query.priceMax!)}`
     chips.push({ label, url: href({ ...query, priceMin: null, priceMax: null }) })
   }

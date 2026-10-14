@@ -404,6 +404,8 @@ export async function fulfilFreeCart(
     consent?: "ticked" | "none"
     /** Who holds the copies of limited products the route took for this basket (lib/checkout/sales-limit). */
     saleHolder?: string | null
+    /** The store's own currency (lib/store/selling-currency): a free order is still written in it. */
+    currency?: string | null
   },
 ): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean } | { ok: false }> {
   const sessionId = `free_${randomBytes(18).toString("base64url")}`
@@ -439,6 +441,7 @@ export async function fulfilFreeCart(
     origin: b.origin,
     attribution: b.attribution ?? null,
     saleHolder: b.saleHolder ?? null,
+    currency: b.currency ?? null,
   }
   const written = await writeBasket(admin, ctx, b.items, {
     paidTotal: 0,
@@ -525,7 +528,7 @@ async function sideEffects(
     if (s.couponId) await step("coupon use", () => recordCouponUse(admin, s.couponId, s.couponHolder))
     /* The seller's balance, once for the one payment, against the first line. */
     await step("ledger", () =>
-      recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId }),
+      recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId, currency: ctx.currency }),
     )
     /* ONE receipt email for the basket: the sender reads every line of this
        session and lists them with one total. */

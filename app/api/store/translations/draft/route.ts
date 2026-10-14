@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const limited = await rateLimit({ bucket: "site-translations-ai", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 12, seconds: 3600 }, { limit: 40, seconds: 86400 }], message: "Translating with AI can be used a few times an hour. Try again later." })
   if (limited) return limited
   const body = await readBody(request)
-  const loc = (await localizationOf(c.db, c.creatorId, SHOP_CURRENCY)).value
+  const loc = (await localizationOf(c.db, c.creatorId, (await readStoreCurrency(c.db, c.creatorId)).currency)).value
   const locale = normalizeLocale(body?.locale)
   /* The website's own language, when it is not English: the shop's own words and the checkout's only (translate.ts BUILT_IN_GROUPS). */
   const own = !!locale && locale === loc.defaultLanguage && !isEnglish(locale)

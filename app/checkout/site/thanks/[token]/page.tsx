@@ -87,7 +87,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
 async function basketOrder(db: Db, creatorId: string, token: string): Promise<Summary | null> {
   const { data: first } = await db
     .from("orders")
-    .select("id, product_id, stripe_session_id, buyer_email, buyer_first_name, amount_cents, quantity, product:products(creator_id, title)")
+    .select("id, product_id, stripe_session_id, buyer_email, buyer_first_name, amount_cents, quantity, currency, product:products(creator_id, title)")
     .eq("receipt_token", token)
     .maybeSingle()
   const product = Array.isArray(first?.product) ? first.product[0] : first?.product
@@ -121,7 +121,8 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
     ga: {
       id: String(first.id),
       items: rows.map((r, i) => gaItem({ id: String(r.product_id ?? ""), title: lines[i]?.title, priceCents: Math.round((Number(r.amount_cents) || 0) / Math.max(1, Number(r.quantity) || 1)), quantity: Number(r.quantity) || 1, variant: lines[i]?.variantName, kind: "digital" })).filter((x): x is GaItem => !!x),
-      currency: null,
+      /* What the order was charged in, kept on each of its rows. */
+      currency: typeof first.currency === "string" && first.currency ? first.currency.toUpperCase() : null,
     },
   }
 }

@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { CartPageBody } from "@/components/website-builder/cart-page-body"
@@ -71,7 +72,7 @@ export default async function SiteCartPage({ params }: PageProps) {
     <ThemePage
       theme={site.themeSettings}
       sections={sections}
-      storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
+      storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
     >
       <CartPageBody
         radius={radius}

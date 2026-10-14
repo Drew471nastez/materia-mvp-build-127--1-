@@ -1,11 +1,12 @@
 import { NextResponse, after } from "next/server"
-import { shopMoney } from "@/lib/store/shop-money"
+import { formatStoreMoney } from "@/lib/store/currency"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { getMainDomain } from "@/lib/url-helpers"
-import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
 import { allOwned, digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
 import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
@@ -25,7 +26,6 @@ import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/co
 import { statementParams } from "@/lib/payments/platform-descriptor"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin, type OrderOrigin } from "@/lib/orders/order-source"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
@@ -317,7 +317,9 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   if (decision.kind === "refuse" || priced.ok === false) return json({ error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }, decision.kind === "refuse" ? decision.status : 400)
   if (decision.kind === "free") return json({ error: "This order is free. Press Get it free.", free: true }, 409)
   if (decision.kind !== "pay") return json({ error: "Refresh the page and try again." }, 409)
-  if (priced.totalCents < MIN_CHARGE_CENTS) return json({ error: `The smallest card payment is ${shopMoney(MIN_CHARGE_CENTS)}.` }, 400)
+  /* The store's own currency (Settings › Country & Currency), read fresh: every price in the basket is in it, and the card is charged in it. */
+  const storeCurrency = (await readStoreCurrency(admin, site.creatorId)).currency
+  if (priced.totalCents < minimumChargeMinor(storeCurrency)) return json({ error: `The smallest card payment is ${formatStoreMoney(minimumChargeMinor(storeCurrency), storeCurrency)}.` }, 400)
 
   const { data: creator } = await admin
     .from("creators")
@@ -356,7 +358,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   if (tax.taxCents > 0) tax.lineTaxCents.forEach((t, i) => (priced.lines[i].item.taxCents = t))
   const chargeCents = priced.totalCents + (tax.included ? 0 : tax.taxCents)
 
-  const chargeCurrency = platformChargeCurrency()
+  const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(priced.totalCents, site.creatorId, admin, chargeCurrency)
@@ -746,6 +748,7 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     baseUrl: `https://${getMainDomain()}`,
     request,
     consent: contact.optedIn ? "ticked" : "none",
+    currency: (await readStoreCurrency(admin, site.creatorId)).currency,
   })
   if (written.ok === false) {
     await releaseSales(admin, heldCopies, saleHolder)

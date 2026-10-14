@@ -37,7 +37,6 @@ import "server-only"
 import { randomBytes } from "node:crypto"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
 import { apportionFee, chargeUnits } from "@/lib/checkout/cart-items"
 import { cartFingerprint, cartReceiptToken } from "@/lib/checkout/cart-tokens"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
@@ -48,7 +47,8 @@ import { recordCouponUse } from "@/lib/checkout/coupons"
 import { paymentFacts, recordSale } from "@/lib/checkout/fulfil-payment"
 import { recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordOrderAttribution, type Attribution } from "@/lib/attribution/server"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
@@ -244,6 +244,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (!creator) return { ok: false, status: 404, error: "Shop not found." }
 
   const free = totals.totalCents === 0
+  /* The store's own currency (Settings › Country & Currency): what every price in the cart is in, and what the card is charged in. Read straight from the database, never a cached copy, so a store that has just changed it is never charged in the old one. */
+  const storeCurrency = (await readStoreCurrency(db, priced.creatorId)).currency
   /*
     CASH ON DELIVERY (lib/physical/cash-on-delivery.ts): the shop has it on,
     everything in the cart is delivered or picked up, and there is something
@@ -256,7 +258,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     const why = codRefusal({ enabled: config.cashOnDelivery, lines: q.lines, requiresShipping: priced.requiresShipping, totalCents: totals.totalCents })
     if (why) return { ok: false, status: 409, error: why }
   }
-  if (!free && !cod && totals.totalCents < MIN_CHARGE_CENTS) return { ok: false, status: 400, error: "The smallest card payment is $0.50." }
+  if (!free && !cod && totals.totalCents < minimumChargeMinor(storeCurrency)) return { ok: false, status: 400, error: `The smallest card payment is ${money(minimumChargeMinor(storeCurrency), storeCurrency)}.` }
   /* Storelib's one readiness rule (lib/payments/stripe/readiness); the buyer is told nothing about the seller's verification. */
   if (!free && !cod && (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string)))) {
     return { ok: false, status: 409, error: BUYER_UNAVAILABLE }
@@ -283,7 +285,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   /* The same press again: the checkout it made, and its page while it is open. */
   const { data: existing } = await db
     .from("commerce_checkouts")
-    .select("id, status, stripe_session_id, stripe_payment_intent_id, total_cents, expires_at, receipt_token")
+    .select("id, status, stripe_session_id, stripe_payment_intent_id, total_cents, currency, expires_at, receipt_token")
     .eq("creator_id", priced.creatorId)
     .eq("client_key", rowKey)
     .maybeSingle()
@@ -293,18 +295,20 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   }
   if (existing) {
     if (existing.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
+    /* Reused only while it is still the same amount in the same currency: a store that changed its currency since never takes the old payment. */
+    const sameMoney = existing.total_cents === totals.totalCents && String(existing.currency ?? "").toUpperCase() === storeCurrency
     /* The card form's second press (a declined card, a bank's check abandoned): the same payment, while it can still be paid. */
-    if (input.intent && existing.status === "pending" && existing.stripe_payment_intent_id && existing.total_cents === totals.totalCents && new Date(existing.expires_at).getTime() > Date.now()) {
+    if (input.intent && existing.status === "pending" && existing.stripe_payment_intent_id && sameMoney && new Date(existing.expires_at).getTime() > Date.now()) {
       try {
         const pi = await stripe.paymentIntents.retrieve(existing.stripe_payment_intent_id)
-        if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status) && pi.client_secret) {
+        if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status) && pi.client_secret && pi.currency === storeCurrency.toLowerCase() && pi.amount === totals.totalCents) {
           return { ok: true, url: "", clientSecret: pi.client_secret, paymentIntentId: pi.id, checkoutId: existing.id, free: false }
         }
       } catch {
         /* Made again below under a new key. */
       }
     }
-    if (existing.status === "pending" && existing.stripe_session_id && existing.total_cents === totals.totalCents) {
+    if (existing.status === "pending" && existing.stripe_session_id && sameMoney) {
       try {
         const s = await stripe.checkout.sessions.retrieve(existing.stripe_session_id)
         if (s.status === "open" && (s.url || s.client_secret)) return { ok: true, url: s.url ?? "", clientSecret: s.client_secret ?? null, checkoutId: existing.id, free: false }
@@ -315,7 +319,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     return { ok: false, status: 409, error: "Refresh the page and try again." }
   }
 
-  const chargeCurrency = platformChargeCurrency()
+  const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>> | null = null
   /* No fee on cash on delivery: nothing passes through Storelib to take it from. */
   if (!free && !cod) {
@@ -464,7 +468,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
         unit_amount: part.unitCents,
         product_data: {
           name: (l.variantName ? `${l.title} (${l.variantName})` : l.title).slice(0, 250),
-          ...(l.discountCents > 0 ? { description: `$${(l.discountCents / 100).toFixed(2)} off${priced.coupon ? ` with ${priced.coupon.code}` : priced.offers.length ? `, ${priced.offers.map((o) => o.title).join(", ")}`.slice(0, 200) : ""}` } : {}),
+          ...(l.discountCents > 0 ? { description: `${money(l.discountCents, chargeCurrency)} off${priced.coupon ? ` with ${priced.coupon.code}` : priced.offers.length ? `, ${priced.offers.map((o) => o.title).join(", ")}`.slice(0, 200) : ""}` } : {}),
           ...(l.imageUrl && /^https:\/\//.test(l.imageUrl) ? { images: [l.imageUrl] } : {}),
         },
       },
@@ -1102,7 +1106,7 @@ async function onceForOrder(
   await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.lines[0]?.product_id ?? null, co.email_opt_in === true ? "ticked" : "none"))
   if (co.coupon_id) await step("coupon use", () => recordCouponUse(db, co.coupon_id, co.coupon_holder))
   /* Cash on delivery never passes through Storelib: nothing goes on the seller's payout balance (lib/physical/cash-on-delivery.ts). */
-  if (co.provider !== COD_PROVIDER) await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId }))
+  if (co.provider !== COD_PROVIDER) await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId, currency: co.currency }))
   await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
   await step("forwarding", () => queueForwarding(db, co.id, co.creator_id))
   /* ShipStation connected: the items the seller ships go there to be labelled (lib/integrations/shipping/shipstation-server.ts). */

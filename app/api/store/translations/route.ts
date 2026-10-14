@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { recordActivity } from "@/lib/activity/log-server"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic"
  * its text is already written in it.
  */
 async function storeLanguages(c: { db: any; creatorId: string }) {
-  const loc = await localizationOf(c.db, c.creatorId, SHOP_CURRENCY)
+  const loc = await localizationOf(c.db, c.creatorId, (await readStoreCurrency(c.db, c.creatorId)).currency)
   return { ready: loc.ready, loc: loc.value, languages: editorLanguages(loc.value) }
 }
 

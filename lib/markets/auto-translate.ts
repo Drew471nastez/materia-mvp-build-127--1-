@@ -27,7 +27,7 @@ import "server-only"
  */
 import { createAdminClient } from "@/lib/supabase/admin"
 import { storeIdentity } from "@/lib/store/identity-server"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { autoTranslateMissing, localizationOf, marketsMissing, saveTranslations, siteTexts, translationsOf, type AutoTranslateRun } from "./server"
 import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, translationMap } from "./translate"
 import { canDraftWithAi, draftReusing } from "./translate-ai"
@@ -42,7 +42,7 @@ export const STORES_PER_RUN = 25
 
 /** One store: each of its other languages in turn, until `deadlineAt`. */
 export async function autoTranslateStore(db: Db, creatorId: string, deadlineAt: number): Promise<AutoTranslateRun | null> {
-  const loc = (await localizationOf(db, creatorId, SHOP_CURRENCY)).value
+  const loc = (await localizationOf(db, creatorId, (await readStoreCurrency(db, creatorId)).currency)).value
   if (!loc.autoTranslate) return null
   const locales = loc.languages.map((l) => l.code).filter((c) => c !== loc.defaultLanguage)
   /* A website written in another language than English takes the shop's own words and the checkout's in it too (translate.ts BUILT_IN_GROUPS). */
