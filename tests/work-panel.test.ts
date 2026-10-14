@@ -308,12 +308,18 @@ section("The panel shows the run and does not invent one")
    * model's own string untouched, for a patch (edit_section_code) the file
    * with the edits applied, and only once it compiled and was kept.
    */
+  /*
+   * Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar): an imported theme's file is
+   * kept with its builder settings made again from the theme's own schema, so what is sent is what the route
+   * kept (`kept.source`), and the model's own string when the route kept it as written.
+   */
   check(
     "and the source of a section it wrote is sent as it was written",
     (() => {
       const kept = loop.indexOf("const kept = await code.write(codeType, prepared.source)")
-      const sent = loop.indexOf('yield { type: "code", path, source: prepared.source }')
-      return kept > 0 && sent > kept && /const source = typeof args\.source === "string" \? args\.source : ""/.test(loop)
+      const keptSource = loop.indexOf("const keptSource = kept.source ?? prepared.source")
+      const sent = loop.indexOf('yield { type: "code", path, source: keptSource }')
+      return kept > 0 && keptSource > kept && sent > keptSource && /const source = typeof args\.source === "string" \? args\.source : ""/.test(loop)
     })(),
   )
 }

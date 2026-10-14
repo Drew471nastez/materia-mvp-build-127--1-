@@ -277,9 +277,10 @@ async function main() {
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     // Changed on purpose (round G): read through refs, since the handler awaits before it asks, and an unsaved edit now waits for Keep mine or Use GitHub's (tests/github-publish-sync.test.ts).
     // Changed on purpose: W3's reload and round Z's did the same job; round Z's stayed (a page, home's header and footer, or the settings rewritten whole, read again; an unsaved edit kept, and said so).
+    // Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar): read again in place (quiet), not the whole editor loaded again.
     check("an open builder reads the page again when a push changed it, unless it has unsaved edits",
       /if \(ev\.detail\?\.replaced\)/.test(editor) && /page === null \|\| page === currentPageRef\.current \|\| page === "home"\) \{\s*replacedHere = true/.test(editor) &&
-        /if \(replacedHere\) \{\s*if \(!isDirtyRef\.current && !savingRef\.current && !publishing\) \{\s*clearHistory\(\)\s*await loadData\(\)/.test(editor) && /Your unsaved edit is kept/.test(editor))
+        /if \(replacedHere\) \{\s*if \(!isDirtyRef\.current && !savingRef\.current && !publishing\) \{\s*clearHistory\(\)\s*await loadData\(\{ quiet: true \}\)/.test(editor) && /Your unsaved edit is kept/.test(editor))
 
     /* ─────────────────────────────────────────────────────────────────── */
     console.log("\nNever in a circle")
@@ -378,11 +379,16 @@ async function main() {
     check("Liquid that does not parse is refused with its file", o.failed.some((f) => f.path === "shopify/templates/customers/account.liquid"))
     check("a changed picture is noted, with where to upload it", o.notes.some((n) => n.path === "shopify/assets/hero.jpg" && /Files/.test(n.note)))
     check("the commit is red, the good files are in anyway", gh.repos.get(REPO)!.statuses.find((s) => s.sha === after)?.state === "failure" && o.saved.length === 2)
-    /* Round Z's rule, kept in the one sync: an imported section's markup comes back, its settings (the schema) come from its import. */
-    const schemaEdited = edited.replace('"label": "Heading"', '"label": "Headline"').replace('"label":"Heading"', '"label":"Headline"')
-    const second = await pushAs(gh, db, { "sections/slideshow.storelib": schemaEdited })
-    check("a change to an imported section's schema is refused and said so", schemaEdited !== edited && second.outcomes[0].failed.some((f) => f.path === "sections/slideshow.storelib" && /settings/.test(f.error) && /import/.test(f.error)), JSON.stringify(second.outcomes[0].failed))
-    check("  and the draft keeps the markup taken before", tables.store_theme_custom_files.find((r) => r.path === "sections/slideshow.storelib")!.draft_content === edited)
+    /*
+      Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar). Round Z refused an imported
+      section's schema from GitHub. It is taken now: the theme's own schema (under "shopify") is what the page
+      draws, and the builder's panel is made again from it, so the two can never disagree. A hand edit to the
+      panel part alone is replaced by what the theme's schema says.
+    */
+    const panelOnly = edited.replace('"label": "Heading"', '"label": "Headline"')
+    const second = await pushAs(gh, db, { "sections/slideshow.storelib": panelOnly })
+    const slideRow = () => tables.store_theme_custom_files.find((r) => r.path === "sections/slideshow.storelib")!
+    check("a hand edit to only the builder's part of an imported section's schema is made again from the theme's own", panelOnly !== edited && second.outcomes[0].saved.includes("sections/slideshow.storelib") && slideRow().draft_content === edited, JSON.stringify(second.outcomes[0].failed))
     check("repoMayWrite never calls an imported theme's section a built-in", (repoMayWrite("sections/slideshow.storelib", { compat: true }) as { override: boolean }).override === false)
   }
 

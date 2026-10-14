@@ -275,13 +275,19 @@ export async function PUT(req: Request, { params }: Params) {
     )
   }
 
+  /* What was kept: an imported theme's panel made again from its schema is the file now, here and on GitHub. */
+  const kept = result.source ?? content
   /* Committed to the linked GitHub repository after the answer, if there is one. */
-  after(() => mirrorToGitHub(installId, { kind: "save", path, content }))
+  after(() => mirrorToGitHub(installId, { kind: "save", path, content: kept }))
 
   return NextResponse.json({
     file: result.row,
     /** False when this install has no draft column yet: the save went live. */
     drafted: result.drafted,
+    /** The text kept when it is not the text sent, so the code editor shows what is stored (lib/storelib-theme/compat/schema-sync.ts). */
+    ...(result.source !== undefined ? { stored: result.source } : {}),
+    /** What the builder cannot show of a schema it took. */
+    ...(result.notes?.length ? { notes: result.notes } : {}),
   })
 }
 

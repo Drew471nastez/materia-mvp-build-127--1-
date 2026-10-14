@@ -83,6 +83,8 @@ export function toolStepLabel(name: string, argumentsJson: string, names: StepNa
     case "remove_block": return `Removing an item from ${section(args.sectionId)}`
     case "move_block": return `Reordering ${section(args.sectionId)}`
     case "update_theme": return "Changing the site's settings"
+    case "read_theme_settings_schema": return "Reading the theme settings"
+    case "edit_theme_settings_schema": return "Changing the theme settings"
     case "create_section": return retry ? `Fixing ${fileLabel(args.sectionType)}` : `Building ${typeof args.sectionType === "string" && TYPE.test(args.sectionType.trim()) ? args.sectionType.trim().replace(/[_-]+/g, " ") : "a new section"}`
     case "set_color_scheme": return "Setting the colours"
     case "read_design_patterns": return "Looking at design patterns"

@@ -74,6 +74,7 @@ import { MAX_CODE_ATTEMPTS, checkSectionSource, outOfAttempts } from "./compile-
 import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type SectionOrigin, type SelectedSectionContext } from "./selected-section"
 import { makeCodedCopy } from "./coded-copy"
 import { kindOfSource } from "@/lib/storelib-theme/section-groups"
+import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import { CREATIVE_BRIEF, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
 import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import { intentGuidance, type Intent } from "./intent"
@@ -292,7 +293,25 @@ ${builderAgentRules()}
 
 ${pageAgentReference()}`
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; pages?: boolean } = {}): ToolSpec<string>[] {
+/**
+ * ===========================================================================
+ *  WHERE THE SIDEBAR'S SETTINGS COME FROM, SAID TO THE MODEL
+ * ===========================================================================
+ * Asked to "add a setting for the button colour" or "change the theme
+ * settings", the assistant had nothing telling it that a section's panel IS
+ * its <schema>, which part of an imported theme's schema the panel is made
+ * from, or that a Storelib theme's settings are not a file it can change.
+ * It edited the wrong part, or said it could not. Said once per run, beside
+ * the theme settings, in the words of the theme it is working on.
+ */
+export function describeSchemaRules(opts: { imported: boolean; settingsSchema: boolean }): string {
+  if (opts.imported) {
+    return `SETTINGS IN THE SIDEBAR, IN THIS IMPORTED THEME. Its section and block files are <template compat="shopify"> markup in the theme's own template language, then <schema>. Inside <schema>, the "shopify" object is the theme's own schema, the one the page is drawn with: add, change or remove settings, blocks and presets THERE, in the theme's own format ({"type", "id", "label", "default"}; a "t:" label is a key in the theme's locale). The rest of <schema> is the builder's panel, made again from "shopify" whenever the file is kept, so never edit it by hand. Keep every existing setting id: the creator's content is stored under it. A new setting needs a default the page can draw with.${opts.settingsSchema ? " The theme settings (colours, type, layout for the whole site) are the theme's settings schema: read_theme_settings_schema, then edit_theme_settings_schema, written as the theme writes it; Theme settings in the builder are made from it. Their values are the creator's, under shopify in THEME SETTINGS." : ""}`
+  }
+  return `SETTINGS IN THE SIDEBAR. A section's panel is its <schema>: to give the creator a new control, add a setting to "settings" (or to a block's "settings") with edit_section_code, with an id, a label and a default; to take one away, remove it; blocks and presets the same way. Keep every existing id, since the creator's content is stored under it. The panel and the page follow as soon as the file is kept. The theme settings are Storelib's own and the same on every Storelib theme: change their values with update_theme. There is no theme settings schema to edit here, so a setting of the site's own goes in the section that uses it.`
+}
+
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; pages?: boolean; settingsSchema?: boolean } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -558,6 +577,41 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           },
         ]
       : []),
+    ...(code && opts.settingsSchema
+      ? [
+          {
+            name: "read_theme_settings_schema",
+            description:
+              "Read this imported theme's settings schema: the theme settings the whole site uses (colours, type, layout), as the theme wrote them. A list of groups, each { \"name\", \"settings\": [...] }. Read it before changing a theme setting.",
+            parameters: { type: "object" as const, properties: {}, required: [], additionalProperties: false },
+          },
+          {
+            name: "edit_theme_settings_schema",
+            description:
+              "Change this imported theme's settings schema with exact find-and-replace edits, the way edit_section_code does: add, change or remove a theme setting or a group, written as the theme writes it. Theme settings in the builder are made from it when the edit is saved, and a setting the builder has no control for is named back to you. Keep every existing setting id: the creator's values are stored under them.",
+            parameters: {
+              type: "object" as const,
+              properties: {
+                edits: {
+                  type: "array",
+                  description: "One or more edits, in order.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      find: { type: "string", description: "Text that is in the file exactly once, copied exactly." },
+                      replace: { type: "string", description: "What it becomes." },
+                    },
+                    required: ["find", "replace"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["edits"],
+              additionalProperties: false,
+            },
+          },
+        ]
+      : []),
     {
       name: "read_store",
       description:
@@ -797,7 +851,16 @@ export interface ThemeAgentInput {
      * anything an agent may not write. `create` is a coded copy, the only
      * write that may name a file that does not exist yet.
      */
-    write(sectionType: string, source: string, opts?: { create?: boolean }): Promise<{ ok: true } | { ok: false; error: string }>
+    write(sectionType: string, source: string, opts?: { create?: boolean }): Promise<{ ok: true; source?: string; notes?: string[] } | { ok: false; error: string }>
+    /**
+     * An imported theme's settings_schema.json (shopify/config/), its Theme
+     * settings: read, and kept the way a section file is (checked, staged,
+     * saved when the run ends, the builder's panel made again from it).
+     * Absent for a theme of Storelib's own, whose theme settings are
+     * Storelib's (update_theme writes their values).
+     */
+    readSettingsSchema?(): string | null
+    writeSettingsSchema?(source: string): Promise<{ ok: true; notes?: string[] } | { ok: false; error: string }>
   }
   /**
    * The open section as the server resolved it (./selected-section): its
@@ -1221,6 +1284,8 @@ export async function* themeAgent(
         describeHouseStyle(readHouseStyle(state, [], schemas)),
         /* Compact: the indentation of a pretty-printed dump was a third of its tokens. */
         `THEME SETTINGS\n${compactSettings(state.settings)}`,
+        /* Only where the code tools are: where a sidebar setting comes from, and which part of the file to change for one. */
+        input.code ? describeSchemaRules({ imported: isCompatSource(sourcesNow["layout/theme.storelib"]), settingsSchema: !!input.code.readSettingsSchema && !locked }) : "",
         selected && locked
           ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change: its settings, its blocks, its name, its code. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
           : selected
@@ -1283,7 +1348,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, pages: !!input.pages && !locked && !input.codeFocus }),
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked }),
         /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
         maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
@@ -1751,6 +1816,53 @@ export async function* themeAgent(
          * is left as it was. What passes is staged by the route and saved
          * only when the run ends well (./code-journal).
          */
+        /*
+          AN IMPORTED THEME'S SETTINGS SCHEMA, the theme settings the whole
+          site uses: read, and changed by exact edits like a section's code.
+          The route checks and stages it, and makes the builder's Theme
+          settings from it when the run's files are saved
+          (lib/storelib-theme/compat/schema-sync.ts).
+        */
+        if (call.name === "read_theme_settings_schema" || call.name === "edit_theme_settings_schema") {
+          const code = input.code
+          const current = code?.readSettingsSchema?.() ?? null
+          if (!code?.writeSettingsSchema || current === null) {
+            results.push({ id: call.id, output: "This theme's settings are Storelib's own: change their values with update_theme, and give a section a setting of its own in its <schema>." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          if (call.name === "read_theme_settings_schema") {
+            results.push({ id: call.id, output: `The whole of the theme's settings schema (config/settings_schema.json):\n\n${current}` })
+            yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+            continue
+          }
+          if (locked) {
+            results.push({ id: call.id, output: "Only the open section may change in this edit, so the theme settings stay as they are." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          let edits: unknown = undefined
+          try {
+            edits = (JSON.parse(call.argumentsJson || "{}") as { edits?: unknown }).edits
+          } catch {
+            /* applySourceEdits says what is missing */
+          }
+          const applied = applySourceEdits(current, edits)
+          const kept = applied.ok ? await code.writeSettingsSchema(applied.source) : null
+          if (applied.ok === false || !kept || kept.ok === false) {
+            const why = applied.ok === false ? applied.error : kept && kept.ok === false ? kept.error : "It could not be kept."
+            results.push({ id: call.id, output: `Nothing was saved. ${why}` })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          wroteCode = true
+          done.push("Changed the theme settings")
+          const unshown = kept.notes?.length ? ` The builder cannot show all of it:\n${kept.notes.slice(0, 6).map((n) => `- ${n}`).join("\n")}` : ""
+          results.push({ id: call.id, output: `The theme's settings schema is kept. It is saved when this edit finishes, and Theme settings in the builder are made from it then.${unshown}` })
+          yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+          continue
+        }
+
         if (input.code && CODE_TOOLS.has(call.name)) {
           const code = input.code
           const codeType = codeTypeArg
@@ -1914,11 +2026,20 @@ export async function* themeAgent(
             yield { type: "step", id: call.id, label: stepLabel, state: "failed", ...on }
             continue
           }
+          /*
+            What is kept: an imported theme's file with its panel made again
+            from the theme's own schema (lib/storelib-theme/compat/schema-sync.ts),
+            so this run's next read and update_section see the settings the
+            builder will show.
+          */
+          const keptSource = kept.source ?? prepared.source
+          const imported = isCompatSource(keptSource)
           /* Kept, and what it should still have: a colour setting per element it draws (lib/storelib-ai/integration.ts). */
-          const advice = sectionAdvice(prepared.source)
+          const advice = imported ? [] : sectionAdvice(prepared.source)
+          const unshown = kept.notes?.length ? ` The builder cannot show all of its schema:\n${kept.notes.slice(0, 6).map((n) => `- ${n}`).join("\n")}\n` : ""
           results.push({
             id: call.id,
-            output: `${path} compiled and is kept. It is saved when this edit finishes, and the canvas draws it now.${advice.length ? ` Still worth doing in this file:\n${describeQuality(advice)}\n` : " "}If the change was meant to be visible, say what you changed in one sentence when you finish.`,
+            output: `${path} ${imported ? "reads" : "compiled"} and is kept. It is saved when this edit finishes, and the canvas draws it now.${imported && keptSource !== prepared.source ? " Its builder settings were made again from the theme's schema under \"shopify\"." : ""}${unshown}${advice.length ? ` Still worth doing in this file:\n${describeQuality(advice)}\n` : " "}If the change was meant to be visible, say what you changed in one sentence when you finish.`,
           })
           // The canvas has to be told, the same way an operation tells it.
           yield progress("saving", savingLabel(fileLabel(codeType)))
@@ -1926,7 +2047,7 @@ export async function* themeAgent(
           wroteCode = true
           rewrittenTypes.add(codeType)
           for (const instance of state.sections) if (instance.type === codeType) touched.add(instance.id)
-          sourcesNow[path] = prepared.source
+          sourcesNow[path] = keptSource
           schemas = schemaMapFor(sourcesNow)
           /* What was read of it, and what its schema says, are no longer true. */
           forget(`read_section_code:${codeType}`)
@@ -1937,7 +2058,7 @@ export async function* themeAgent(
            * the canvas can draw it now. It is what was checked, after the
            * edits were applied: the same string, not a summary.
            */
-          yield { type: "code", path, source: prepared.source }
+          yield { type: "code", path, source: keptSource }
           yield { type: "step", id: call.id, label: stepLabel, state: "done", ...on }
           continue
         }

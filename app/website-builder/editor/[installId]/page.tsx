@@ -2791,6 +2791,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [storelibSourcesRead, setStorelibSourcesRead] = useState(false)
   /** Raised when an imported theme's files changed elsewhere (a push to GitHub), so its canvas reads them again. */
   const [compatFilesVersion, setCompatFilesVersion] = useState(0)
+  /**
+   * Raised when an imported theme's Theme settings panel may have been made
+   * again on the server: its settings_schema.json changed, or its values did
+   * (a colour scheme added), by a push or by Storelib AI. The panel reads its
+   * one file again (CompatThemeSettings panelVersion).
+   */
+  const [compatPanelVersion, setCompatPanelVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (): Promise<Record<string, string> | null> => {
     try {
@@ -2921,6 +2928,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (data?.type === "storelib:file-saved") {
         void loadStorelibSources()
         setUnpublished(true)
+        /* An imported theme's own file (its settings_schema.json, a stylesheet): its canvas and Theme settings read them again. */
+        if (typeof data.path === "string" && data.path.startsWith("shopify/")) {
+          setCompatFilesVersion((n) => n + 1)
+          setCompatPanelVersion((n) => n + 1)
+        }
       }
     }
     window.addEventListener("message", onMessage)
@@ -3881,8 +3893,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // fetch throws on a network error, a 5xx, or if the response JSON is
   // malformed. Without this the page would sit on the auth/loader spinner
   // forever, which is exactly what the user reported.
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  /*
+    `quiet`: read again under an editor that is already open (a push to the
+    linked GitHub repository rewrote this page or the settings). The sidebar
+    and the canvas keep what they show until the new draft is here and then
+    take it in place, the open section stays open, and a read that fails
+    leaves the editor as it was rather than covering it with Try again.
+  */
+  const loadData = useCallback(async (opts: { quiet?: boolean } = {}) => {
+    const quiet = opts.quiet === true
+    if (!quiet) setLoading(true)
     setLoadFailed(false)
     /*
       ALL AT ONCE, NOT ONE AFTER ANOTHER. The page's sections waited for the
@@ -3905,7 +3925,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }, [700, 2000])
     if (!res.ok) {
       reportLoadProblem("editor", `the website answered ${res.status}`)
-      setLoadFailed(true)
+      if (!quiet) setLoadFailed(true)
       setLoading(false)
       return
     }
@@ -4029,12 +4049,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
     }
 
+    /* Read under an open editor: an edit made while it was on its way is not written over (the conflict line asks which to keep). */
+    if (quiet && (isDirtyRef.current || savingRef.current)) {
+      setSyncConflict((c) => c ?? { what: "this page", by: "GitHub" })
+      return
+    }
     setSettingsDraft(loadedSettings)
     setSections(loaded)
     } catch (err) {
       console.error("[editor] loadData failed:", err)
       reportLoadProblem("editor", err)
-      setLoadFailed(true)
+      if (!quiet) setLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -6488,6 +6513,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (events.length > 0) forgetPage()
     /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
     if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) setCompatFilesVersion((n) => n + 1)
+    /* And its Theme settings, made from its settings_schema.json and its values, both of which a push may have changed. */
+    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/"))) setCompatPanelVersion((n) => n + 1)
     /* Which of what is open was rewritten, for the conflict line: a page, home's header and footer, or the settings. */
     let replacedWhat: string | null = null
     /* An agent's own changes, counted for the "Publish to make them live" line (a push says its own, from the server). */
@@ -6562,11 +6589,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       copy held here would be autosaved over the new draft, so it is read
       again from the draft. An edit made here and not saved yet is kept
       instead, and the line says how to take GitHub's version.
+
+      In place: the sidebar and the canvas keep showing the page until the
+      draft is here, then take it, with the open section still open. The
+      editor is not loaded again around it.
     */
     if (replacedHere) {
       if (!isDirtyRef.current && !savingRef.current && !publishing) {
         clearHistory()
-        await loadData()
+        await loadData({ quiet: true })
       } else {
         /*
           BOTH CHANGED IT. The edit here is not saved yet and the draft under
@@ -6585,8 +6616,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const takeGitHubVersion = async () => {
     setSyncConflict(null)
     setIsDirty(false)
+    /* Their pick: the edit here is let go now, not on the next render. */
+    isDirtyRef.current = false
     clearHistory()
-    await loadData()
+    await loadData({ quiet: true })
   }
   /**
    * One button of the sync line, through the requests Website settings ›
@@ -6940,6 +6973,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return (
         <CompatThemeSettings
           installId={installId}
+          panelVersion={compatPanelVersion}
           values={shopifyValues}
           open={expandedSettings}
           onOpen={(name) => (name === "__back__" ? (atTop ? undefined : setSelectedPanel({ type: "pages" })) : setExpandedSettings(name))}
@@ -8727,7 +8761,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [forgetPage])
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
-  }, [loadStorelibSources])
+    /* An imported theme draws from its own files and its panel is made from its schema: both read again after a run that wrote code. */
+    if (compatInstall) {
+      setCompatFilesVersion((n) => n + 1)
+      setCompatPanelVersion((n) => n + 1)
+    }
+  }, [loadStorelibSources, compatInstall])
   /**
    * A SECTION FILE THE RUN HAS JUST WRITTEN, drawn now. It was compiled and
    * drawn on the server before it was sent, and it is saved when the run
