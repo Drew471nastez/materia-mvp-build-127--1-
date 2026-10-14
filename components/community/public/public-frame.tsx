@@ -35,7 +35,7 @@ import { useCommunityLanding } from "@/components/community/member/landing"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { createClient } from "@/lib/supabase/client"
-import { useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
 /** What arrives under the bar fades in (opacity only: a visitor never moves between places, so nothing rises). */
@@ -51,9 +51,8 @@ export interface PublicFrameCard {
 }
 
 export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
-  const { appearance, toggle: toggleAppearance } = useCommunityAppearance(card?.community.appearance === "dark" ? "dark" : "light")
+  const { appearance } = useCommunityAppearance(card?.community.appearance === "dark" ? "dark" : "light")
   useCommunityTheme(appearance)
-  const menu = useMemo(() => ({ appearance, onAppearance: toggleAppearance }), [appearance, toggleAppearance])
   useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
   const slug = card?.community.slug ?? topBar.community.slug
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
@@ -89,7 +88,7 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
     >
       <style>{GUTTER}</style>
       <CommunityFixedFootWatch />
-      <CommunityTopBar data={topBar} wide menu={menu} />
+      <CommunityTopBar data={topBar} wide />
       <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
         <div data-community-columns="public" className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
           {/* From 1280px the page's own card on the right carries the cover and the way in, so this one steps aside (round 15). */}

@@ -5,10 +5,8 @@
  * The real components in headless Chromium, with the probes' own stubs for
  * the router (as in check-community-frame12.mjs):
  *
- *   TABS      1440 and 390: the community's places are a row under the bar
- *             at both widths; no left column; from 1024px the page is on the
- *             left and the community's card on the right; the bar's height
- *             is the --community-top everything below sticks under
+ *   (TABS moved to check-community-round27.mjs COLUMNS: round 27 put the
+ *   community card back on the left, the tab row staying under the bar.)
  *   DARK      the "..." menu's Dark mode turns the frame dark (the page, its
  *             cards), with the switch's soft class on <html> for a moment
  *             and gone after; Light mode turns it back
@@ -148,34 +146,6 @@ export const isNativePlatform = () => false
       const cs = getComputedStyle(el)
       return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), shown: cs.display !== "none" && b.width > 0 && b.height > 0 }
     }, sel)
-
-  if (want("TABS")) {
-    console.log("\nTABS: the places are a row under the bar at every width")
-    for (const vp of [DESK, PHONE]) {
-      const w = vp.width
-      const { p, errors } = await open("member", "/community/clay-studio", vp)
-      const tabs = await box(p, "[data-community-top-tabs]")
-      const header = await box(p, "[data-community-top]")
-      const left = await box(p, "[data-community-left]")
-      const main = await box(p, "[data-community-main]")
-      const right = await box(p, "[data-community-right]")
-      const top = await p.evaluate(() => parseFloat(getComputedStyle(document.querySelector("[data-community-shell]")).getPropertyValue("--community-top")))
-      const names = await p.evaluate(() => [...document.querySelectorAll("[data-community-top-tabs] [data-community-nav]")].map((a) => a.getAttribute("data-community-nav")))
-      expect(!!tabs?.shown && tabs.h >= 38, `${w}: the tab row is drawn under the bar`, tabs)
-      expect(names.length >= 4 && names[0] === "Community", `${w}: the row holds the places, Community first`, names)
-      expect(!left, `${w}: no left column`, left)
-      expect(header && Math.abs(header.h - top) <= 1, `${w}: --community-top is the bar's real height`, { header: header?.h, top })
-      if (w >= 1024) {
-        expect(!!right?.shown && !!main && right.x >= main.x + main.w, `${w}: the page on the left, the community's card on the right`, { main, right })
-        const tabX = await p.evaluate(() => Math.round(document.querySelector("[data-community-top-tabs] [data-community-nav]").getBoundingClientRect().left))
-        expect(Math.abs(tabX - main.x) <= 2, `${w}: the first tab starts on the page's left edge`, { tabX, main: main.x })
-      } else {
-        expect(!right?.shown, `${w}: one column on a phone`, right)
-      }
-      expect(errors.length === 0, `${w}: no page errors`, errors)
-      await p.close()
-    }
-  }
 
   if (want("DARK")) {
     console.log("\nDARK: the menu switches the community between light and dark")

@@ -37,7 +37,9 @@ export async function PATCH(request: Request, { params }: Params) {
   if (off) return off
   const { id } = await params
   const body = await readJson(request)
-  const action = body.publish !== undefined ? "manage_settings" : body.notify !== undefined ? "view" : "manage_settings"
+  /* Only a body that is nothing but the person's own notify choice is gated on "view" (round 27 review): anything else in it needs manage_settings first. */
+  const onlyNotify = body.notify !== undefined && Object.keys(body).every((k) => k === "notify")
+  const action = onlyNotify ? "view" : "manage_settings"
   const gate = await requireCreatorCommunity(id, action)
   if (gate instanceof NextResponse) return gate
   const limited = await manageLimit(gate.ctx.userId)

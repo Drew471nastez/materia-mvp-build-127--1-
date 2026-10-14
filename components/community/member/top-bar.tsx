@@ -55,6 +55,7 @@ import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-roun
 import { CommunityMark } from "./community-mark"
 import { cn } from "@/lib/utils"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { AppearanceButton } from "@/components/platform/appearance-switch"
 import { NOTIFICATION_BADGE } from "@/components/notifications/badge-tone"
 import { CommunityAccountMenu, type CommunityMenuRows } from "./account-menu"
 import { PlaceNavigator } from "./place-navigator"
@@ -277,8 +278,10 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
           ) : null}
           {/* Half the screen at least on a phone (round 11): one notification is not a sliver of a sheet. */}
           {/* The bell owns the tab here (round 13): "(3) Clay Studio" and a red dot on the community's icon while something is unread. */}
+          {/* Light or dark, beside the bell on a computer (round 27); on a phone it is a row of the account sheet. */}
+          <AppearanceButton className="hidden md:grid" />
           {me ? <NotificationBell className={BELL} sheetMin="50dvh" tabBadge /> : null}
-          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} membershipHref={menu?.membershipHref} appearance={menu?.appearance} onAppearance={menu?.onAppearance} /> : <LogInLink base={base} />}
+          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} membershipHref={menu?.membershipHref} /> : <LogInLink base={base} />}
         </div>
       </div>
     </header>

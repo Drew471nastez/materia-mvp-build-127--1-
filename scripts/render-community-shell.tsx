@@ -59,6 +59,7 @@
  *   &cover=only            the about cases: the creator chose no gallery, so the media is the cover picture alone
  *   &extras=1              the about cases: the server's extra facts (posts in 30 days, courses, since, a bio)
  */
+import { placeFromUrl, slotKeyOf } from "@/lib/communities/client/places"
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { LocaleProvider } from "@/components/locale-provider"
@@ -515,9 +516,13 @@ function PageSlot({ feed }: { feed: (space: SpaceView | null) => React.ReactNode
 /* ── The screens ──────────────────────────────────────────────────────── */
 
 function Screen() {
+  /* The page marks which place it is (as a real route does, place-host.tsx PlaceSeed), so the host shows it rather than reading the place again. */
+  const seedKey = slotKeyOf(placeFromUrl(location.pathname, location.search) ?? { kind: "feed" })
   const shell = (children: React.ReactNode) => (
     <ShellFrame community={community} viewer={viewer} topBar={staff ? { ...topBar(), manageHref: `/app/community/${CID}` } : topBar()} unreadMessages={2} wall={wall}>
-      {children}
+      <div data-place-seed={seedKey} style={{ display: "contents" }}>
+        {children}
+      </div>
     </ShellFrame>
   )
   const feed = (space: SpaceView | null, saved = false) => (

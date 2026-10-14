@@ -19,7 +19,7 @@ export async function GET(_request: Request, { params }: Params) {
   const db = admin()
   const gate = await requireMember(db, communityId, await sessionUserId(), "view")
   if (gate instanceof NextResponse) return gate
-  if (!gate.community.directory_enabled && !can(gate.viewer.role, "manage_members") && gate.viewer.userId !== userId) {
+  if (!gate.community.directory_enabled && !can(gate.viewer.role, "manage_members", gate.viewer.perms) && gate.viewer.userId !== userId) {
     return NextResponse.json({ error: "directory_off" }, { status: 403, headers: NO_STORE })
   }
   const member = await memberProfile(db, gate.community, userId, { ...accessOf(gate.viewer), userId: gate.viewer.userId })

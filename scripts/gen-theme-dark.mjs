@@ -1,0 +1,425 @@
+/**
+ * ===========================================================================
+ *  THE DARK LOOK, WRITTEN FROM THE CLASSES THE PAGES ACTUALLY USE
+ * ===========================================================================
+ * Round 27, the owner: a premium, ultra dark interface of deep charcoal and
+ * near black (never pure black), layers told apart by small steps of
+ * lightness, faint low contrast outlines, soft ambient shadows, no white
+ * hovers, no white pills, no white borders. Every hover, pressed and open
+ * state adapted.
+ *
+ * Storelib's buyer pages are written with Tailwind colour classes
+ * (bg-white, bg-[#f3f4f6], text-[#6b7280], border-[#e5e7eb]/60,
+ * hover:bg-[#f6f7f8], data-[highlighted]:bg-[#f1f2f4] ...). Remapping a
+ * handful by hand left everything else white, which is what the owner saw.
+ * So this reads every colour class in the buyer facing sources, works out
+ * what it is for from its property and its colour (a white surface, a grey
+ * well, a hairline, ink, muted text, a tinted notice, a dark button), and
+ * writes the dark answer for each, with its variants (hover inside the
+ * mouse only media query the app uses, active, focus, open, highlighted,
+ * selected, and the screen widths). Coloured accents keep their hue.
+ *
+ * It only applies under html[data-sl-dark] (lib/appearance), which is only
+ * ever set on Storelib's own buyer pages, or inside a community frame set
+ * dark ([data-community-theme="dark"]). The dashboard never gets it.
+ *
+ *   node scripts/gen-theme-dark.mjs          writes app/theme-dark.css
+ *   node scripts/gen-theme-dark.mjs --check  fails when the file is stale
+ */
+import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
+import { join, relative } from "node:path"
+
+const root = process.cwd()
+const OUT = join(root, "app/theme-dark.css")
+
+/* Where Storelib's buyer pages are drawn. Not the dashboard, the builders, a store or a checkout. */
+const SOURCES = [
+  "components/account", "components/community", "components/courses", "components/explore", "components/library",
+  "components/memberships", "components/nav", "components/navigation", "components/notifications", "components/platform",
+  "components/profile", "components/receipt", "components/reviews", "components/search", "components/shared",
+  "components/social", "components/ui", "components/video", "components/wishlist", "components/media",
+  "app/(marketing)/explore", "app/(marketing)/community", "app/(marketing)/u", "app/(marketing)/wishlist",
+  "app/(marketing)/member", "app/account", "app/library",
+]
+
+/* ── The palette: charcoal steps, never pure black ──────────────────────── */
+const P = {
+  page: "#111113",
+  surface: "#18181b",
+  raised: "#1f1f23",
+  raised2: "#26262b",
+  hover: "#25252a",
+  press: "#2b2b31",
+  selected: "#2d2d33",
+  selectedHover: "#35353c",
+  thumb: "#3a3a41",
+  ink: "#ececee",
+  text: "#c9cacf",
+  muted: "#9c9da4",
+  faint: "#6f7077",
+  line: [255, 255, 255, 0.07],
+  line2: [255, 255, 255, 0.11],
+  lineStrong: [255, 255, 255, 0.24],
+}
+
+/* ── Colour helpers ─────────────────────────────────────────────────────── */
+const NAMED = {
+  white: "#ffffff", black: "#000000",
+  "gray-50": "#f9fafb", "gray-100": "#f3f4f6", "gray-200": "#e5e7eb", "gray-300": "#d1d5db", "gray-400": "#9ca3af", "gray-500": "#6b7280", "gray-600": "#4b5563", "gray-700": "#374151", "gray-800": "#1f2937", "gray-900": "#111827", "gray-950": "#030712",
+  "neutral-50": "#fafafa", "neutral-100": "#f5f5f5", "neutral-200": "#e5e5e5", "neutral-300": "#d4d4d4", "neutral-400": "#a3a3a3", "neutral-500": "#737373", "neutral-600": "#525252", "neutral-700": "#404040", "neutral-800": "#262626", "neutral-900": "#171717", "neutral-950": "#0a0a0a",
+  "slate-50": "#f8fafc", "slate-100": "#f1f5f9", "slate-200": "#e2e8f0", "slate-300": "#cbd5e1", "slate-400": "#94a3b8", "slate-500": "#64748b", "slate-600": "#475569", "slate-700": "#334155", "slate-800": "#1e293b", "slate-900": "#0f172a",
+  "zinc-50": "#fafafa", "zinc-100": "#f4f4f5", "zinc-200": "#e4e4e7", "zinc-300": "#d4d4d8", "zinc-400": "#a1a1aa", "zinc-500": "#71717a", "zinc-600": "#52525b", "zinc-700": "#3f3f46", "zinc-800": "#27272a", "zinc-900": "#18181b",
+  "stone-50": "#fafaf9", "stone-100": "#f5f5f4", "stone-200": "#e7e5e4", "stone-300": "#d6d3d1",
+  /* The tinted notices and their words: a pale ground becomes a faint tint of its hue, dark words lighten. */
+  "red-50": "#fef2f2", "red-100": "#fee2e2", "red-200": "#fecaca", "red-600": "#dc2626", "red-700": "#b91c1c", "red-800": "#991b1b",
+  "violet-50": "#f5f3ff", "violet-100": "#ede9fe", "violet-200": "#ddd6fe", "violet-700": "#6d28d9", "violet-800": "#5b21b6",
+  "emerald-50": "#ecfdf5", "emerald-100": "#d1fae5", "emerald-700": "#047857", "emerald-800": "#065f46",
+  "green-50": "#f0fdf4", "green-100": "#dcfce7", "green-700": "#15803d", "green-800": "#166534",
+  "amber-50": "#fffbeb", "amber-100": "#fef3c7", "amber-200": "#fde68a", "amber-700": "#b45309", "amber-800": "#92400e",
+  "blue-50": "#eff6ff", "blue-100": "#dbeafe", "blue-700": "#1d4ed8", "sky-50": "#f0f9ff", "sky-100": "#e0f2fe", "sky-700": "#0369a1",
+  "orange-50": "#fff7ed", "orange-100": "#ffedd5", "orange-700": "#c2410c", "rose-50": "#fff1f2", "rose-700": "#be123c",
+}
+function hex(h) {
+  let s = h.replace("#", "")
+  if (s.length === 3 || s.length === 4) s = [...s].map((c) => c + c).join("")
+  const n = parseInt(s.slice(0, 6), 16)
+  const a = s.length === 8 ? parseInt(s.slice(6, 8), 16) / 255 : 1
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255, a]
+}
+function hsl([r, g, b]) {
+  const R = r / 255, G = g / 255, B = b / 255
+  const max = Math.max(R, G, B), min = Math.min(R, G, B)
+  const l = (max + min) / 2
+  const d = max - min
+  let h = 0, s = 0
+  if (d) {
+    s = d / (1 - Math.abs(2 * l - 1))
+    if (max === R) h = ((G - B) / d) % 6
+    else if (max === G) h = (B - R) / d + 2
+    else h = (R - G) / d + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return { h, s, l, spread: (max - min) * 255 }
+}
+/* A grey: channels within a few steps of each other. A dark ink may lean a little blue (#1a1a2e) and is still ink; a pale tint (#fff4ec, #f5f3ff) is a colour. */
+const neutral = (c) => {
+  const { spread, l } = hsl(c)
+  return spread <= 10 || (l < 0.3 && spread <= 24)
+}
+const rgba = (c, a = 1) => (Array.isArray(c) ? `rgba(${c[0]},${c[1]},${c[2]},${+(c[3] * a).toFixed(3)})` : a >= 1 ? c : `rgba(${hex(c).slice(0, 3).join(",")},${+a.toFixed(3)})`)
+const hsla = (h, s, l, a = 1) => `hsla(${Math.round(h)},${Math.round(s * 100)}%,${Math.round(l * 100)}%,${+a.toFixed(3)})`
+
+/** The dark answer for one colour in one role, or null to leave it as it is. */
+function mapColour(prop, c, alpha, interactive) {
+  const { h, s, l } = hsl(c)
+  const a = alpha * c[3]
+  const isNeutral = neutral(c)
+  if (prop === "bg") {
+    if (isNeutral) {
+      if (l >= 0.85) {
+        if (interactive) return rgba(l >= 0.93 ? P.hover : P.press, a)
+        if (l >= 0.995) return rgba(P.surface, a)
+        if (l >= 0.965) return rgba(P.page, a)
+        if (l >= 0.93) return rgba(P.raised, a)
+        return rgba(P.raised2, a)
+      }
+      if (l >= 0.7) return rgba(P.thumb, a)
+      if (l >= 0.35) return null
+      /* A near black fill (a primary button, a chosen pill, a tooltip): graphite, not a white slab. */
+      return rgba(interactive ? P.selectedHover : P.selected, a)
+    }
+    if (l >= 0.85) return hsla(h, Math.min(s, 0.6), 0.5, Math.max(0.1, 0.16 * a))
+    return null
+  }
+  if (prop === "text" || prop === "placeholder" || prop === "caret" || prop === "fill-ink") {
+    if (isNeutral) {
+      if (l < 0.3) return rgba(P.ink, a)
+      if (l < 0.5) return rgba(P.text, a)
+      if (l < 0.62) return rgba(P.muted, a)
+      if (l < 0.86) return rgba(P.faint, a)
+      return null
+    }
+    if (l < 0.55) return hsla(h, Math.min(s, 0.75), 0.72, a)
+    return null
+  }
+  if (prop === "border" || prop === "divide" || prop === "ring" || prop === "outline" || prop === "decoration") {
+    if (isNeutral) {
+      if (l >= 0.8) return rgba(P.line, a > 0.99 ? 1 : Math.max(0.5, a))
+      if (l >= 0.6) return rgba(P.line2)
+      if (l < 0.3) return rgba(P.lineStrong, a)
+      return null
+    }
+    if (l >= 0.8) return hsla(h, Math.min(s, 0.5), 0.4, 0.45)
+    return null
+  }
+  if (prop === "from" || prop === "via" || prop === "to") {
+    if (isNeutral && l >= 0.85) return rgba(l >= 0.995 ? P.surface : l >= 0.965 ? P.page : P.raised, a)
+    return null
+  }
+  if (prop === "fill" || prop === "stroke") {
+    if (isNeutral && l >= 0.85) return rgba(l >= 0.995 ? P.surface : P.raised2, a)
+    if (isNeutral && l < 0.3) return rgba(P.ink, a)
+    return null
+  }
+  return null
+}
+
+/* ── Reading the sources ────────────────────────────────────────────────── */
+function* files(dir) {
+  let names = []
+  try {
+    names = readdirSync(dir)
+  } catch {
+    return
+  }
+  for (const n of names) {
+    const p = join(dir, n)
+    const st = statSync(p)
+    if (st.isDirectory()) yield* files(p)
+    else if (/\.(tsx|ts|jsx)$/.test(n)) yield p
+  }
+}
+const COLOUR = String.raw`(?:\[#[0-9a-fA-F]{3,8}\]|white|black|(?:gray|neutral|slate|zinc|stone|red|violet|emerald|green|amber|blue|sky|orange|rose)-\d{2,3})`
+const TOKEN = new RegExp(String.raw`(?<![\w\-:/\[])((?:[a-z0-9-]+(?:-\[[^\]\s]+\])?(?:\/[\w-]+)?:)*)(bg|text|border(?:-[trblxyse])?|divide|ring|outline|from|via|to|fill|stroke|decoration|caret|accent)-(${COLOUR})(\/(?:\d{1,3}|\[[\d.]+\]))?(?![\w\-\[])`, "g")
+const SHADOW = /(?<![\w\-:/\[])((?:[a-z0-9-]+(?:-\[[^\]\s]+\])?(?:\/[\w-]+)?:)*)shadow-\[([^\]\s]+)\](?![\w\-\[])/g
+
+const tokens = new Map()
+const shadows = new Map()
+for (const dir of SOURCES) {
+  for (const f of files(join(root, dir))) {
+    const src = readFileSync(f, "utf8")
+    for (const m of src.matchAll(TOKEN)) tokens.set(m[0], m)
+    for (const m of src.matchAll(SHADOW)) if (/#[0-9a-fA-F]{3,8}|rgba\(255,255,255/.test(m[2])) shadows.set(m[0], m)
+  }
+}
+
+/* ── Variants, as Tailwind compiles them in this app ─────────────────────── */
+const HOVER_MEDIA = "(hover: hover) and (pointer: fine)"
+const WIDTH = { sm: "40rem", md: "48rem", lg: "64rem", xl: "80rem", "2xl": "96rem" }
+/** { pseudo, media[], interactive } for a chain of variants, or null when one is not understood. */
+function variantsOf(chain) {
+  const parts = chain ? chain.split(":").filter(Boolean) : []
+  let pseudo = ""
+  const media = []
+  let interactive = false
+  for (const v of parts) {
+    if (v === "dark") return null
+    if (v === "hover") { pseudo += ":hover"; media.push(HOVER_MEDIA); interactive = true; continue }
+    if (v === "pointer-fine") { media.push(HOVER_MEDIA); continue }
+    if (/^group-hover(\/[\w-]+)?$/.test(v)) { const n = v.split("/")[1]; pseudo += `:is(:where(.group${n ? `\\/${n}` : ""}):hover *)`; media.push(HOVER_MEDIA); interactive = true; continue }
+    if (/^group-data-\[/.test(v) || /^peer-/.test(v)) return null
+    if (v === "focus") { pseudo += ":focus"; interactive = true; continue }
+    if (v === "focus-visible") { pseudo += ":focus-visible"; interactive = true; continue }
+    if (v === "focus-within") { pseudo += ":focus-within"; interactive = true; continue }
+    if (v === "active") { pseudo += ":active"; interactive = true; continue }
+    if (v === "disabled") { pseudo += ":disabled"; continue }
+    if (v === "checked") { pseudo += ":checked"; continue }
+    if (v === "first") { pseudo += ":first-child"; continue }
+    if (v === "last") { pseudo += ":last-child"; continue }
+    if (v === "odd") { pseudo += ":nth-child(odd)"; continue }
+    if (v === "even") { pseudo += ":nth-child(even)"; continue }
+    if (v === "placeholder") { pseudo += "::placeholder"; continue }
+    if (v === "before") { pseudo += "::before"; continue }
+    if (v === "after") { pseudo += "::after"; continue }
+    let m
+    if ((m = /^data-\[([\w-]+)(?:=([^\]]+))?\]$/.exec(v))) { pseudo += m[2] !== undefined ? `[data-${m[1]}="${m[2]}"]` : `[data-${m[1]}]`; interactive = true; continue }
+    if ((m = /^aria-\[([\w-]+)=([^\]]+)\]$/.exec(v))) { pseudo += `[aria-${m[1]}="${m[2]}"]`; interactive = true; continue }
+    if ((m = /^aria-(selected|checked|pressed|expanded|current|disabled)$/.exec(v))) { pseudo += `[aria-${m[1]}="true"]`; interactive = true; continue }
+    if (WIDTH[v]) { media.push(`(width >= ${WIDTH[v]})`); continue }
+    if ((m = /^max-(sm|md|lg|xl|2xl)$/.exec(v))) { media.push(`(width < ${WIDTH[m[1]]})`); continue }
+    if ((m = /^min-\[(\d+px)\]$/.exec(v))) { media.push(`(width >= ${m[1]})`); continue }
+    if ((m = /^max-\[(\d+px)\]$/.exec(v))) { media.push(`(width < ${m[1]})`); continue }
+    if (v === "motion-safe" || v === "motion-reduce") return null
+    return null
+  }
+  return { pseudo, media, interactive }
+}
+const esc = (cls) => cls.replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`)
+const SCOPE = `:is(html[data-sl-dark], [data-community-theme="dark"])`
+
+function alphaOf(mod) {
+  if (!mod) return 1
+  const v = mod.slice(1)
+  if (v.startsWith("[")) return parseFloat(v.slice(1, -1))
+  return Number(v) / 100
+}
+
+/* ── Writing the rules ──────────────────────────────────────────────────── */
+const rules = []
+const PROP_CSS = {
+  bg: (c) => `background-color: ${c}`,
+  text: (c) => `color: ${c}`,
+  placeholder: (c) => `color: ${c}`,
+  caret: (c) => `caret-color: ${c}`,
+  border: (c) => `border-color: ${c}`,
+  "border-t": (c) => `border-top-color: ${c}`,
+  "border-b": (c) => `border-bottom-color: ${c}`,
+  "border-l": (c) => `border-left-color: ${c}`,
+  "border-r": (c) => `border-right-color: ${c}`,
+  "border-x": (c) => `border-left-color: ${c}; border-right-color: ${c}`,
+  "border-y": (c) => `border-top-color: ${c}; border-bottom-color: ${c}`,
+  "border-s": (c) => `border-inline-start-color: ${c}`,
+  "border-e": (c) => `border-inline-end-color: ${c}`,
+  divide: (c) => `border-color: ${c}`,
+  ring: (c) => `--tw-ring-color: ${c}`,
+  outline: (c) => `outline-color: ${c}`,
+  decoration: (c) => `text-decoration-color: ${c}`,
+  from: (c) => `--tw-gradient-from: ${c}`,
+  via: (c) => `--tw-gradient-via: ${c}`,
+  to: (c) => `--tw-gradient-to: ${c}`,
+  fill: (c) => `fill: ${c}`,
+  stroke: (c) => `stroke: ${c}`,
+  accent: (c) => `accent-color: ${c}`,
+}
+for (const [cls, m] of [...tokens].sort(([a], [b]) => a.localeCompare(b))) {
+  const [, chain, prop, colourName, mod] = m
+  const v = variantsOf(chain.replace(/:$/, ""))
+  if (!v) continue
+  const colour = colourName.startsWith("[") ? hex(colourName.slice(1, -1)) : NAMED[colourName] ? hex(NAMED[colourName]) : null
+  if (!colour) continue
+  const role = prop.startsWith("border") ? "border" : v.pseudo.includes("::placeholder") ? "placeholder" : prop
+  const mapped = mapColour(role, colour, alphaOf(mod), v.interactive)
+  if (!mapped || !PROP_CSS[prop]) continue
+  let sel = `${SCOPE} .${esc(cls)}${v.pseudo}`
+  if (prop === "divide") sel = `${SCOPE} .${esc(cls)}${v.pseudo} > :not(:last-child)`
+  rules.push({ media: v.media, css: `${sel} { ${PROP_CSS[prop](mapped)}; }` })
+}
+for (const [cls, m] of [...shadows].sort(([a], [b]) => a.localeCompare(b))) {
+  const [, chain, raw] = m
+  const v = variantsOf(chain.replace(/:$/, ""))
+  if (!v) continue
+  let value = raw.replace(/_/g, " ")
+  value = value.replace(/#[0-9a-fA-F]{3,8}/g, (h) => {
+    const c = hex(h)
+    const { l } = hsl(c)
+    if (!neutral(c)) return h
+    if (l >= 0.6) return rgba(P.line2)
+    if (l < 0.3) return rgba(P.lineStrong)
+    return h
+  })
+  value = value.replace(/rgba\(255,\s*255,\s*255,\s*([\d.]+)\)/g, (_, a) => `rgba(255,255,255,${+(Number(a) * 0.08).toFixed(3)})`)
+  rules.push({ media: v.media, css: `${SCOPE} .${esc(cls)}${v.pseudo} { box-shadow: ${value}; }` })
+}
+
+/* Grouped by media query, in a stable order, so the file diffs cleanly. */
+const byMedia = new Map()
+for (const r of rules) {
+  const key = r.media.join(" and ")
+  if (!byMedia.has(key)) byMedia.set(key, [])
+  byMedia.get(key).push(r.css)
+}
+const L = (c) => rgba(c)
+const head = `/**
+ * GENERATED by scripts/gen-theme-dark.mjs from the colour classes in Storelib's
+ * buyer facing sources. Do not edit by hand: change the palette or the
+ * mapping in the script and run it again (tests/theme-dark.test.ts checks
+ * this file is current).
+ *
+ * Applies only under html[data-sl-dark] (lib/appearance: Storelib's own buyer
+ * pages, for a person who chose dark) or inside a community frame set dark.
+ */
+
+/* ── The ground, the shared tokens, the components built on CSS variables ── */
+html[data-sl-dark] {
+  color-scheme: dark;
+  background-color: ${P.page};
+  --sl-page: ${P.page};
+  --sl-surface: ${P.surface};
+  --sl-raised: ${P.raised};
+  --sl-ink: ${P.ink};
+  --sl-muted: ${P.muted};
+  --sl-line: ${L(P.line)};
+  --background: ${P.page};
+  --foreground: ${P.ink};
+  --card: ${P.surface};
+  --card-foreground: ${P.ink};
+  --popover: ${P.surface};
+  --popover-foreground: ${P.ink};
+  --muted: ${P.raised};
+  --muted-foreground: ${P.muted};
+  --accent: ${P.raised2};
+  --accent-foreground: ${P.ink};
+  --secondary: ${P.raised};
+  --secondary-foreground: ${P.ink};
+  --border: ${L(P.line)};
+  --input: ${L(P.line2)};
+}
+html[data-sl-dark] body {
+  background-color: ${P.page};
+  color: ${P.ink};
+}
+${SCOPE} {
+  color-scheme: dark;
+}
+[data-community-theme="dark"] {
+  background-color: ${P.page};
+  color: ${P.ink};
+}
+${SCOPE} input,
+${SCOPE} textarea,
+${SCOPE} select {
+  color: ${P.ink};
+}
+${SCOPE} input::placeholder,
+${SCOPE} textarea::placeholder {
+  color: ${P.faint};
+}
+${SCOPE} ::selection {
+  background-color: rgba(255,255,255,0.16);
+}
+
+/*
+  DEPTH, NOT OUTLINES. A card is a matte surface a step above the ground, with
+  a faint lit top edge, a hairline that barely reads, and a soft shadow under
+  it, so cards separate by light rather than by white borders.
+*/
+${SCOPE} .bg-white:is(.rounded-2xl, .rounded-xl, .rounded-\\[20px\\], .rounded-\\[18px\\], .rounded-\\[16px\\]) {
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 140px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -20px rgba(0,0,0,0.7);
+}
+/* A menu or a sheet floats: a little more lift, the same matte surface. */
+${SCOPE} :is([role="menu"], [role="listbox"], [role="dialog"], [data-account-menu]) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 48px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06);
+}
+/* Pictures sit a touch below full brightness on the dark ground, never washed. */
+${SCOPE} img:not([data-keep-bright]) {
+  filter: brightness(0.96);
+}
+
+/* The switch itself: every colour eases together for a moment (lib/appearance/client.ts softly). */
+html.sl-theme-switching,
+html.sl-theme-switching *,
+html.sl-theme-switching *::before,
+html.sl-theme-switching *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow, outline-color !important;
+  transition-duration: 320ms !important;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+/* ── Every colour class the buyer pages use, ${rules.length} of them ─────────────── */
+`
+let body = ""
+for (const [media, list] of [...byMedia].sort(([a], [b]) => a.localeCompare(b))) {
+  if (!media) body += list.join("\n") + "\n"
+  else body += `@media ${media} {\n${list.map((l) => `  ${l}`).join("\n")}\n}\n`
+}
+const css = head + body
+
+if (process.argv.includes("--check")) {
+  const now = (() => {
+    try {
+      return readFileSync(OUT, "utf8")
+    } catch {
+      return ""
+    }
+  })()
+  if (now !== css) {
+    console.error(`${relative(root, OUT)} is stale: run node scripts/gen-theme-dark.mjs`)
+    process.exit(1)
+  }
+  console.log(`${relative(root, OUT)} is current (${rules.length} rules)`)
+} else {
+  writeFileSync(OUT, css)
+  console.log(`wrote ${relative(root, OUT)}: ${rules.length} rules, ${(css.length / 1024).toFixed(0)} KB`)
+}

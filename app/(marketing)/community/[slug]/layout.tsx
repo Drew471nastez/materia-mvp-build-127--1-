@@ -5,7 +5,6 @@ import { headers } from "next/headers"
 import { permanentRedirect } from "next/navigation"
 import { connection } from "next/server"
 import { COMMUNITY_PATH_HEADER, movedCommunityPath } from "@/lib/communities/slug-move"
-import { APPEARANCE_BOOT } from "@/lib/communities/appearance-boot"
 import { meetsRole } from "@/lib/communities/permissions"
 import { memberPage, type MemberPage } from "@/components/community/member/data"
 import { CommunityPublicShell, CommunityShell } from "@/components/community/member/shell"
@@ -78,8 +77,6 @@ export default async function CommunitySlugLayout({ children, params }: { childr
   if (page.state === "member" && page.community && page.viewer) {
     return (
       <CommunityShell community={page.community} viewer={page.viewer}>
-        {/* The reader's dark choice on the first paint (lib/communities/appearance-boot.ts). */}
-        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         {children}
         <OpenInAppPill />
       </CommunityShell>
@@ -88,7 +85,6 @@ export default async function CommunitySlugLayout({ children, params }: { childr
   if (page.community && barVisible(page)) {
     return (
       <CommunityPublicShell community={page.community} viewer={page.viewer}>
-        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         {children}
       </CommunityPublicShell>
     )

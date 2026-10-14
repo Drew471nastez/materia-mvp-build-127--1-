@@ -1,5 +1,6 @@
 "use client"
 
+import { AppearanceMenuRow } from "@/components/platform/appearance-switch"
 import { displayEmail, emailLocalPart } from "@/lib/businesses/email-alias"
 import { hasConsent } from "@/lib/consent/client"
 import type React from "react"
@@ -386,6 +387,7 @@ export function DesktopAccountMenu({
   triggerClassName,
   extra,
   rows = "storelib",
+  avatarSize = 42,
 }: {
   avatarUrl?: string
   name: string
@@ -394,6 +396,8 @@ export function DesktopAccountMenu({
   link: HeaderLink
   onLanguage: () => void
   onLogout: () => void
+  /** The photo's size on the button: 42 in Storelib's header, smaller in a community's bar. */
+  avatarSize?: number
   /** The bar is the dark one: the ring around the photo sits on black. */
   dark?: boolean
   /**
@@ -483,8 +487,9 @@ export function DesktopAccountMenu({
           aria-haspopup="menu"
           aria-expanded={open}
           data-header-avatar=""
+          style={{ width: avatarSize, height: avatarSize }}
           className={cn(
-            "flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 transition-shadow duration-150 ease-out hover:ring-2 focus-visible:ring-2 focus-visible:ring-violet-400",
+            "flex shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 transition-shadow duration-150 ease-out hover:ring-2 focus-visible:ring-2 focus-visible:ring-violet-400",
             dark ? "ring-offset-[#0e0e10] hover:ring-white/30" : "ring-offset-white hover:ring-[#1a1a2e]/15",
             open && (dark ? "ring-2 ring-white/30" : "ring-2 ring-[#1a1a2e]/15"),
           )}
@@ -500,7 +505,7 @@ export function DesktopAccountMenu({
             src={avatarUrl}
             name={name.trim()}
             alt=""
-            size={42}
+            size={avatarSize}
             className={
               dark
                 ? "ring-1 ring-white/15 shadow-[0_1px_2px_rgba(0,0,0,0.35),0_4px_10px_-4px_rgba(0,0,0,0.5)]"
@@ -529,17 +534,16 @@ export function DesktopAccountMenu({
             photo is not on the button, so it is here beside the name, as the phone's sheet has it: the real picture, 36px, in a
             hairline ring.
           */}
-          <div className="flex items-center gap-2.5 px-3 pb-2 pt-2.5" data-account-who="">
-            {trigger === "more" ? (
-              <span className="flex shrink-0" data-account-who-avatar="">
-                <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={36} className="ring-1 ring-[rgba(16,18,27,0.08)] shadow-[0_1px_2px_rgba(16,18,27,0.06)]" />
-              </span>
-            ) : null}
+          {/* Round 27: who is signed in is the way to their profile, a row like the others with the picture beside the name. */}
+          <Link {...go("/account")} role="menuitem" className="flex items-center gap-2.5 rounded-lg px-3 pb-2 pt-2.5 outline-none transition-colors duration-100 hover:bg-[#f4f5f7] focus-visible:bg-[#f1f2f4]" data-account-who="">
+            <span className="flex shrink-0" data-account-who-avatar="">
+              <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={36} className="ring-1 ring-[rgba(16,18,27,0.08)] shadow-[0_1px_2px_rgba(16,18,27,0.06)]" />
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{name}</span>
               {username ? <span className="block truncate text-[12.5px] text-[#6b7280]">@{username}</span> : null}
             </span>
-          </div>
+          </Link>
           <div className="mb-1 h-px bg-[#f0f1f3]" />
           {extra?.length ? (
             <>
@@ -617,6 +621,7 @@ export function DesktopAccountMenu({
               </Link>
             </>
           )}
+          <AppearanceMenuRow className={ACCOUNT_ROW} iconClassName={icon} />
           <div className="my-1 h-px bg-[#f0f1f3]" />
           <button
             type="button"
@@ -678,13 +683,14 @@ export function AccountSheet({
       maxHeight="min(88dvh, 720px)"
     >
       <div className="flex min-h-0 flex-1 flex-col px-3" data-account-sheet-body="">
-        <div className="flex min-h-[52px] shrink-0 items-center gap-3 rounded-xl px-3 py-2" data-account-who="">
+        {/* Round 27: who is signed in opens their profile. */}
+        <Link {...link("/account")} onClick={(e) => { link("/account").onClick(e); onClose() }} className="flex min-h-[52px] shrink-0 items-center gap-3 rounded-xl px-3 py-2 outline-none transition-colors duration-100 active:bg-[#f1f2f4]" data-account-who="">
           <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={32} className="shrink-0 ring-1 ring-neutral-200" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-medium text-neutral-900">{name}</span>
             {username ? <span className="block truncate text-[13px] text-neutral-500">@{username}</span> : null}
           </span>
-        </div>
+        </Link>
         <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
 
         {/*
@@ -728,6 +734,7 @@ export function AccountSheet({
           )}
         </div>
 
+        <AppearanceMenuRow className={SHEET_ROW} iconClassName={cn(SHEET_ICON, "text-neutral-400")} />
         <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
         <div className="shrink-0" data-account-sheet-foot="">
           <SheetLogOut onPress={onLogout} />

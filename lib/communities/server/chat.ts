@@ -19,8 +19,9 @@ import "server-only"
  * space, moved forward when they look at the space.
  */
 import { LENGTHS } from "../limits"
-import { can } from "../permissions"
-import { MESSAGE_COLUMNS, type CommunityRow, type MessageRow, type SpaceRow } from "../types"
+import { can, ROLE_RANK } from "../permissions"
+import { MESSAGE_COLUMNS, type CommunityRow, type MessageRow, type Role, type SpaceRow } from "../types"
+import { memberOf } from "./membership"
 import type { ChatMessageView } from "@/components/community/member/view-types"
 import { audit } from "./audit"
 import type { Viewer } from "./context"
@@ -184,6 +185,15 @@ export async function deleteMessage(w: WriteContext, messageId: string, reason?:
   if (!found) return { ok: false, error: "That message is gone.", status: 404 }
   const own = found.row.author_id === w.viewer.userId
   if (!own && !can(w.viewer.role, "moderate_content", w.viewer.perms)) return { ok: false, error: "Only the author can delete a message.", status: 403 }
+  /*
+    NOT ABOVE ONE'S OWN RANK (round 27 review): a moderator removes a member's message, never an admin's or the owner's,
+    the same rule a post or a comment already follows (moderation.ts actOnContent).
+  */
+  if (!own && found.row.author_id) {
+    const author = found.row.author_id
+    const authorRole: Role | null = author === w.community.owner_user_id ? "owner" : await memberOf(w.db, w.community.id, author).then((m) => (m && m.status === "active" ? m.role : null)).catch(() => null)
+    if (authorRole && w.viewer.role && ROLE_RANK[authorRole] >= ROLE_RANK[w.viewer.role]) return { ok: false, error: "You cannot remove a message from someone at or above your role.", status: 403 }
+  }
   const patch = own ? { status: "deleted", body: "", deleted_at: nowIso() } : { status: "removed", body: "", deleted_at: nowIso() }
   const { error } = await w.db.from("community_messages").update(patch).eq("id", messageId).eq("community_id", w.community.id)
   if (error) return { ok: false, error: "The message was not deleted. Try again.", status: 500 }

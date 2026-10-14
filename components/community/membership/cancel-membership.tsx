@@ -206,7 +206,7 @@ export function CancelMembership({
         {view.canCancel ? (
           <button
             type="button"
-            className={`${BTN_SECONDARY} order-last`}
+            className={`${BTN_SECONDARY} order-last text-[#b42318] hover:text-[#912018]`}
             onClick={() => {
               setReason(null)
               setNote("")

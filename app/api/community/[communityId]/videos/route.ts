@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/api/rate-limit"
 import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
@@ -50,6 +51,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     return NextResponse.json({ ticket: made.ticket }, { headers: noStore })
   }
   if (body.action === "complete") {
+    /* Counted (round 27 review): finishing an upload reads the stored file, so it is not free to ask for in a loop. Its own bucket, so an upload is not counted twice against the start's. */
+    const limited = await rateLimit({ bucket: "video-complete", subjects: [`user:${userId}`], windows: [{ limit: 120, seconds: 600 }], message: "That is a lot of uploads in a short time. Wait a minute and try again." })
+    if (limited) return limited
     const done = await completeVideoUpload(db, { community: gate.community, staff, videoId: body.videoId, durationSeconds: body.durationSeconds, width: body.width, height: body.height })
     if (!done.ok) return NextResponse.json({ error: done.error, message: done.message }, { status: done.status, headers: noStore })
     return NextResponse.json({ video: videoStatusView(done.video) }, { headers: noStore })

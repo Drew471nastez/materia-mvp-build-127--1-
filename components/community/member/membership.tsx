@@ -149,10 +149,26 @@ function LeaveSection({ paying, manageHref, name }: { paying: boolean; manageHre
         Leave {name}
       </h2>
       {paying && manageHref ? (
-        /* One way to cancel on the page: Manage subscription, in Your membership above. */
-        <p className={LEAD} data-membership-cancel-first="">
-          Your plan renews until you cancel it. To leave, cancel it under Your membership; you keep access until the end of the period you paid for.
-        </p>
+        /* Round 27, the owner: cancelling is easy to find. The same Cancel as Your membership's, one press from here too. */
+        <>
+          <p className={LEAD} data-membership-cancel-first="">
+            Cancel your plan first. You keep access until the end of the period you paid for.
+          </p>
+          <div className="mt-3.5">
+            <button
+              type="button"
+              onClick={() => {
+                const cancel = document.querySelector<HTMLButtonElement>("[data-membership-cancel]")
+                cancel?.scrollIntoView({ block: "center", behavior: "smooth" })
+                cancel?.click()
+              }}
+              className={`${BTN_SECONDARY} text-[#b42318]`}
+              data-membership-leave-cancel=""
+            >
+              Cancel membership
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <p className={LEAD}>You can join again later. Your posts and comments stay.</p>

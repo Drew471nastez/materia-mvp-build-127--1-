@@ -586,7 +586,8 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
         playsInline
         webkit-playsinline="true"
         x-webkit-airplay="allow"
-        preload="auto"
+        /* Round 27, the owner: "loads faster, doesn't take so much". A lesson that will play at once fills its buffer; one waiting for a press reads only its length and first frame until it is pressed. */
+        preload={autoPlay ? "auto" : "metadata"}
         onLoadedMetadata={onLoaded}
         onDurationChange={() => setDuration(v()?.duration || 0)}
         onTimeUpdate={onTimeUpdate}

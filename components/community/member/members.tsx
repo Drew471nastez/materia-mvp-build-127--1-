@@ -36,6 +36,20 @@ import { COMMUNITY_MEMBERS_REFRESH_SCOPE } from "@/lib/communities/refresh-scope
 
 type Filter = "all" | "admin" | "moderator"
 
+type MembersAnswer = { members: MemberView[]; nextCursor: string | null }
+/*
+  ROUND 27, THE OWNER: "switching between Everyone, Admins and Moderators takes too much and loads too much". Every
+  first page asked for is kept for the visit (a minute fresh), the three role lists are read ahead once the list is on
+  screen, and a press on a role shows what is kept on the same frame, with no wait, no spinner and no fade. Only typing
+  in the search waits for the typing to stop.
+*/
+const kept = new Map<string, { answer: MembersAnswer; at: number }>()
+const FRESH_MS = 60_000
+function keptAnswer(key: string): MembersAnswer | null {
+  const k = kept.get(key)
+  return k && Date.now() - k.at < FRESH_MS ? k.answer : null
+}
+
 export function MembersDirectory({ communityId, slug, memberCount, initial, meId = null, canMessage = false, countryFilter = false }: { communityId: string; slug: string; memberCount: number; initial: { members: MemberView[]; nextCursor: string | null }; meId?: string | null; canMessage?: boolean; /** Profiles can say where people are from (part 98): offer the country filter. */ countryFilter?: boolean }) {
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
@@ -72,26 +86,61 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
     [communityId, q, filter, country],
   )
 
+  /* The first page as the server drew it is the kept answer for Everyone; the two role lists are read ahead once the page is idle. */
+  useEffect(() => {
+    const base = `${apiBase(communityId)}/members?`
+    if (!kept.has(base)) kept.set(base, { answer: initial, at: Date.now() })
+    const ctrl = new AbortController()
+    const t = window.setTimeout(() => {
+      for (const role of ["admin", "moderator"] as const) {
+        const key = `${base}${new URLSearchParams({ role })}`
+        if (keptAnswer(key)) continue
+        void api<MembersAnswer>(key, { signal: ctrl.signal }).then((r) => {
+          if (r.ok) kept.set(key, { answer: r.data, at: Date.now() })
+        })
+      }
+    }, 600)
+    return () => {
+      ctrl.abort()
+      window.clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId])
+
+  const typedQ = useRef(q)
   useEffect(() => {
     if (first.current) {
       first.current = false
       return
     }
+    const key = url(null)
+    const typing = typedQ.current !== q
+    typedQ.current = q
+    const have = keptAnswer(key)
+    if (have) {
+      /* In hand: on this frame, as it was. */
+      setMembers(have.members)
+      setCursor(have.nextCursor)
+      if (typing) setAnswer((n) => n + 1)
+      return
+    }
     const ctrl = new AbortController()
     const t = window.setTimeout(async () => {
       setLoading(true)
-      const r = await api<{ members: MemberView[]; nextCursor: string | null }>(url(null), { signal: ctrl.signal })
+      const r = await api<MembersAnswer>(key, { signal: ctrl.signal })
       setLoading(false)
       if (r.ok) {
+        kept.set(key, { answer: r.data, at: Date.now() })
         setMembers(r.data.members)
         setCursor(r.data.nextCursor)
         setAnswer((n) => n + 1)
       }
-    }, 220)
+    }, typing ? 220 : 0)
     return () => {
       ctrl.abort()
       window.clearTimeout(t)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url])
 
   const more = async () => {
@@ -109,6 +158,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
     const r = await api<{ members: MemberView[]; nextCursor: string | null }>(url(null))
     setLoading(false)
     if (r.ok) {
+      kept.set(url(null), { answer: r.data, at: Date.now() })
       setMembers(r.data.members)
       setCursor(r.data.nextCursor)
       setAnswer((n) => n + 1)

@@ -244,6 +244,9 @@ export interface CreatorCommunityGate {
  * account) or one of its admins or moderators, with a role that may take
  * this action.
  */
+/** What a suspended community's staff may not do: anything that reaches people (requireCreatorCommunity). */
+const SUSPENDED_REFUSES: readonly CommunityAction[] = ["invite", "post", "announce", "manage_events", "chat", "upload"]
+
 export async function requireCreatorCommunity(communityId: string, action: CommunityAction): Promise<CreatorCommunityGate | NextResponse> {
   const ctx = await requireCreator()
   /* requireCreator's own words are about email; a community route answers in its own codes. */
@@ -256,5 +259,11 @@ export async function requireCreatorCommunity(communityId: string, action: Commu
   const role: Role | null = ownsIt ? "owner" : viewer.role
   if (!role || role === "member") return answer(404, "not_found")
   if (!can(role, action, viewer.perms)) return answer(403, "forbidden")
+  /*
+    A COMMUNITY STORELIB SUSPENDED REACHES NOBODY NEW (round 27 review). Its owner and staff can still open it, read what is
+    in it, remove things and leave it, but nothing that goes out to people: no invitations sent, no posts or
+    announcements, no events. Only publishing refused this before, so a taken down community could still send invites.
+  */
+  if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
   return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role }
 }

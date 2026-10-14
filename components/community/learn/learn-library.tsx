@@ -57,9 +57,10 @@ export function LearnLibrary({ programs, timeZone, manageHref = null }: { progra
         <ul
           className={cn(
             "grid gap-3 sm:gap-4",
+            /* Round 27, the owner: the cards a little smaller on a computer: three to a row from 1280px. */
             programs.length === 1
-              ? "grid-cols-1 min-[520px]:max-w-[300px]"
-              : "grid-cols-1 max-w-[min(100%,820px)] min-[520px]:grid-cols-2",
+              ? "grid-cols-1 min-[520px]:max-w-[270px]"
+              : "grid-cols-1 max-w-[min(100%,900px)] min-[520px]:grid-cols-2 xl:grid-cols-3",
           )}
           data-program-grid
         >
