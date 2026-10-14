@@ -241,7 +241,23 @@ export interface CompatPage {
   suffix?: string
   path: string
   query?: Record<string, string>
+  /** Drawn for the builder (its canvas, a section's preview): Storelib's own sample reviews, links and site scripts go by this. */
   designMode: boolean
+  /**
+   * What the THEME is told: `request.design_mode` in its Liquid and
+   * `Shopify.designMode` in its scripts. Absent, the same as designMode.
+   * The canvas sets it false (components/website-builder/compat/
+   * compat-canvas.tsx): a theme that is told it is in Shopify's theme
+   * editor turns its own motion off there (AOS.init({ disable:
+   * Shopify.designMode }), a reveal class left out under
+   * `{% unless request.design_mode %}`, Dawn's sections marked still), so
+   * nothing in the canvas rose or faded in as it was scrolled to, while the
+   * website played all of it. Told the website's value, the theme moves
+   * in the canvas as it does there; the builder's own editing (selection,
+   * sections drawn again in place, the editor's events) is the bridge's
+   * (canvas-bridge.ts) and does not depend on it.
+   */
+  themeDesignMode?: boolean
   host?: string
   title?: string
   description?: string
@@ -638,14 +654,14 @@ export class CompatTheme {
       cart,
       /* In another of the website's languages: its prefix on every route, its language as request.locale and in the selector (lib/markets). */
       routes: page.i18n ? routesFor(page.i18n) : SHOPIFY_ROUTES,
-      request: requestObject(page.template, page.path, page.designMode, page.host, this.lang, page.i18n),
+      request: requestObject(page.template, page.path, page.themeDesignMode ?? page.designMode, page.host, this.lang, page.i18n),
       localization: localizationObject(currency, page.i18n, this.lang),
       template,
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
       canonical_url: page.host ? `https://${page.host}${page.path}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
-      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
+      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.themeDesignMode ?? page.designMode, inBuilder: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
       collections,
       all_products,
       linklists,

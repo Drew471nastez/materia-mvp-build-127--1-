@@ -92,11 +92,11 @@ const CARD = `<article class="slrv-card"><div class="slrv-card-top"><span class=
 
 /** The widget, over `storelib_reviews` and `rv`. */
 export const REVIEWS_WIDGET_LIQUID = `{%- if storelib_reviews.enabled -%}{%- assign slrv_here = storelib_reviews.here -%}{%- assign slrv_per = rv.per_page | default: 5 -%}
-{%- if slrv_here.summary.count > 0 or storelib_reviews.can_write or request.design_mode -%}
+{%- if slrv_here.summary.count > 0 or storelib_reviews.can_write or storelib_reviews.sample -%}
 ${STYLE}
 <div class="slrv" id="reviews" style="--slrv-star: {% if rv.star_color != blank %}{{ rv.star_color | escape }}{% else %}{{ storelib_reviews.star_color | escape }}{% endif %};">
 {%- if rv.heading != blank -%}<h2 class="h2">{{ rv.heading | escape }}</h2>{%- endif -%}
-{%- if request.design_mode and storelib_reviews.sample -%}<p class="slrv-sample">Sample reviews. Your real reviews show here once you have some.</p>{%- endif -%}
+{%- if storelib_reviews.sample -%}<p class="slrv-sample">Sample reviews. Your real reviews show here once you have some.</p>{%- endif -%}
 {%- if rv.show_summary -%}<div class="slrv-top"><div class="slrv-sum">{%- if slrv_here.summary.count > 0 -%}<p class="slrv-avg">{{ slrv_here.summary.average_label }}</p><div><span class="slrv-stars" style="--rv: {{ slrv_here.summary.percent }}%; font-size: 20px;" role="img" aria-label="{{ slrv_here.summary.average_label }} out of 5 stars"></span><p class="slrv-count">Based on {{ slrv_here.summary.count_label }}</p></div>{%- else -%}<p class="slrv-none">No reviews yet</p>{%- endif -%}</div>
 {%- if rv.show_bars and slrv_here.summary.count > 0 -%}<ul class="slrv-bars">{%- for b in slrv_here.summary.bars -%}<li><span>{{ b.stars }} &#9733;</span><span class="slrv-bar"><span style="width: {{ b.percent }}%;"></span></span><span>{{ b.count }}</span></li>{%- endfor -%}</ul>{%- endif -%}</div>{%- endif -%}
 <p class="slrv-note" id="review-posted">Thanks. Your review is up.</p><p class="slrv-note" id="review-waiting">Thanks. Your review shows once the store has read it.</p><p class="slrv-note" id="review-check-email">Thanks. Check your email and open the link in it to post your review.</p><p class="slrv-note" id="review-error">That didn't go through. Check the form and try again.</p>

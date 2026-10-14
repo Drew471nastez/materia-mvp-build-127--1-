@@ -217,7 +217,8 @@ async function main() {
     const signed = shopifyBootstrap({ shopName: "x", currency: "USD", designMode: false, signedIn: true })
     check("<shopify-account> (Dawn, Horizon) is defined, as a link to sign in or the account", /customElements\.define\("shopify-account"/.test(guest) && /S\.storelibSignedIn\?"\/account":"\/account\/login"/.test(guest))
     check("and the page says whether somebody is signed in", /"storelibSignedIn":false/.test(guest) && /"storelibSignedIn":true/.test(signed))
-    check("the form script posts newsletter and contact forms by fetch, not on the builder's canvas", /if\(!S\.designMode\)document\.addEventListener\("submit"/.test(guest) && /fetch\("\/contact"/.test(guest) && /"X-Requested-With":"XMLHttpRequest"/.test(guest))
+    /* Changed on purpose (the owner: canvas animations as on the live site): the canvas tells the theme designMode false, so the form script goes by EDITING, the page drawn for the builder. */
+    check("the form script posts newsletter and contact forms by fetch, not on the builder's canvas", /if\(!EDITING\)document\.addEventListener\("submit"/.test(guest) && /var EDITING=false;/.test(guest) && /fetch\("\/contact"/.test(guest) && /"X-Requested-With":"XMLHttpRequest"/.test(guest))
     check("leaving a theme that sends the form itself alone", /e\.defaultPrevented\)return/.test(guest))
     check("and swapping only the form, so a popup around it stays open", /f\.replaceWith\(nf\)/.test(guest) && !/sec\.replaceWith/.test(guest))
     const js = guest.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, "")

@@ -37,6 +37,7 @@ const SUITES = [
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",
+  "tests/canvas-scroll-motion.test.ts",
   "tests/builder25.test.ts",
   "tests/help23.test.ts",
   "tests/help-center.test.ts",
