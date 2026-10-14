@@ -28,6 +28,7 @@
 import * as React from "react"
 import { includedTaxLabel } from "@/lib/tax/rules"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
+import { CheckoutPhone } from "../parts/phone-input"
 import { ChevronDown, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
@@ -547,6 +548,20 @@ export function PhysicalCheckout({
     </label>
   )
 
+  /* The phone with its country's code in front, the same field as the website checkout (../parts/phone-input), as tall as this form's fields. */
+  const phoneField = (
+    <CheckoutPhone
+      id="physical-phone"
+      value={address.phone}
+      country={address.country}
+      invalid={payError?.field === "phone"}
+      placeholder={config.phone === "required" ? "Phone" : "Phone (optional)"}
+      label={config.phone === "required" ? "Phone" : "Phone (optional)"}
+      className="h-[52px] rounded-[10px]"
+      onChange={(v) => setAddress((a) => ({ ...a, phone: v.slice(0, 40) }))}
+    />
+  )
+
   /* One full name, or first and last apart, as Settings › Checkout asks. */
   const nameFields = (purpose?: string) =>
     config.nameFields === "first_and_last" ? (
@@ -736,7 +751,7 @@ export function PhysicalCheckout({
                   ))}
                 </div>
                 {nameFields("for the pickup")}
-                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone" : "Phone (optional)", { autoComplete: "tel", inputMode: "tel" }) : null}
+                {config.phone !== "off" ? phoneField : null}
                 <p className="text-[12.5px] text-[#6b7280]">We'll email you when your order is ready to pick up.</p>
               </div>
             ) : null}
@@ -761,7 +776,7 @@ export function PhysicalCheckout({
                 {nameFields()}
                 {config.company !== "off" ? field("company", config.company === "required" ? "Company" : "Company (optional)", { autoComplete: "organization" }) : null}
                 {field("line1", "Address", { autoComplete: "address-line1" })}
-                {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment, suite or unit" : "Apartment, suite (optional)", { autoComplete: "address-line2" }) : null}
+                {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment" : "Apartment (optional)", { autoComplete: "address-line2" }) : null}
                 {/* The country's own words and fields (lib/address/format): no state where nobody writes one, a ZIP code in the US, a Postcode in the UK. */}
                 <div className={cn("grid gap-3", addressFormat(address.country).region ? "grid-cols-2 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1" : "grid-cols-2")}>
                   {field("city", "City", { autoComplete: "address-level2" })}
@@ -785,7 +800,7 @@ export function PhysicalCheckout({
                   )}
                   {field("postalCode", postalCodeRequired(address.country || "US") ? addressFormat(address.country || "US").postal.label : `${addressFormat(address.country).postal.label} (optional)`, { autoComplete: "postal-code" })}
                 </div>
-                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone, for the courier" : "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" }) : null}
+                {config.phone !== "off" ? phoneField : null}
               </div>
             ) : null}
 

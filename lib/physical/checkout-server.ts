@@ -70,6 +70,7 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { lineProperties, physicalCheckoutHref } from "./cart-link"
 import { cartAttributes } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
+import { phoneForStorage } from "@/lib/account/phone"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
@@ -202,6 +203,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (wantsPickup && !clean(input.name, 200)) return { ok: false, status: 400, error: "Enter the name the order is under.", field: "name" }
   if (wantsPickup && config.nameFields === "first_and_last" && !/\S+\s+\S+/.test(clean(input.name, 200))) return { ok: false, status: 400, error: "Enter your first and last name.", field: "name" }
   if (wantsPickup && config.phone === "required" && !clean(input.phone, 40)) return { ok: false, status: 400, error: "Enter a phone number for the pickup.", field: "phone" }
+  /* The phone outside an address (a pickup, a thing handed over): kept as E.164 when written with its code, refused when it is not a number at all. */
+  const ownPhone = config.phone === "off" ? "" : clean(input.phone, 40)
+  if (ownPhone && !phoneForStorage(ownPhone)) return { ok: false, status: 400, error: "Check the phone number.", field: "phone" }
   const q = await quoteCheckout(db, priced, address, input.deliveryOptionId)
   if (priced.requiresShipping) {
     if (wantsPickup) {
@@ -284,7 +288,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       buyer_id: input.buyerId,
       buyer_email: email,
       buyer_name: clean(input.name, 200) || address?.name || null,
-      buyer_phone: clean(input.phone, 40) || address?.phone || null,
+      buyer_phone: phoneForStorage(ownPhone) || address?.phone || null,
       status: "pending",
       fulfillment_status: priced.requiresShipping ? "unfulfilled" : "not_required",
       delivery_method: !priced.requiresShipping ? "none" : pickup ? "pickup" : "ship",

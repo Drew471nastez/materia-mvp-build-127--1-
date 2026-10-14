@@ -57,6 +57,7 @@ import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
 import { StripePay, type IntentResult } from "../parts/stripe-pay"
 import { VariantEdit } from "../parts/variant-edit"
+import { CheckoutPhone } from "../parts/phone-input"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { HtmlClass } from "@/components/platform/html-class"
 import { OwnedNote, SiteOwned } from "./owned"
@@ -102,6 +103,13 @@ const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", region: "", pos
 
 function newKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+/** A field's placeholder: one plain word from its label ("ZIP code" → "ZIP", "Postal code" → "Postcode", "State" → "State"). */
+function oneWord(label: string): string {
+  const head = label.replace(/\s*\(.*\)$/, "").replace(/ code$/i, "").trim()
+  if (/^postal$/i.test(head)) return "Postcode"
+  return head.split(/\s+/)[0] || label
 }
 
 function guessCountry(): string {
@@ -521,7 +529,7 @@ export function SiteCheckout({
       if (m === "name") return missing(splitName ? "first" : "name", "Enter your name.")
       if (m === "last") return missing(splitName ? "last" : "name", "Enter your first and last name.")
       if (m === "company") return missing("company", "Enter the company name.")
-      if (m === "phone") return missing("phone", "Enter a phone number.")
+      if (m === "phone") return missing("phone", address.phone.trim() ? "Check the phone number." : "Enter a phone number.")
       if (m === "line2") return missing("line2", "Enter the apartment, suite or unit.")
     }
     if (ships && mode === "ship") {
@@ -682,6 +690,22 @@ export function SiteCheckout({
     </Field>
   )
 
+  /* The phone with its country's code in front (../parts/phone-input), following the address's country until the buyer picks one. */
+  const phoneField = (
+    <Field id="checkout-phone" label={plan.phone === "required" ? "Phone" : "Phone (optional)"} error={errorOf("phone")}>
+      <CheckoutPhone
+        id="checkout-phone"
+        value={address.phone}
+        country={address.country}
+        invalid={!!errorOf("phone")}
+        onChange={(v) => {
+          setAddress((a) => ({ ...a, phone: v.slice(0, 40) }))
+          clearError("phone")
+        }}
+      />
+    </Field>
+  )
+
   /* Under the email: the news box, the account, then the name (an order that ships asks the name with its address). */
   const contactExtra = (
     <div className="space-y-3">
@@ -691,7 +715,7 @@ export function SiteCheckout({
       {!buyer && !lockedEmail && !needsSignIn && hasDownloads ? <AccessLink email={email} send={sendAccess} /> : null}
       {ships ? null : nameFields}
       {/* A physical product handed over in person: no address, and still the phone Settings › Checkout asks for. */}
-      {!ships && physical && plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? "Phone" : "Phone (optional)", { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+      {!ships && physical && plan.phone !== "off" ? phoneField : null}
     </div>
   )
 
@@ -775,25 +799,25 @@ export function SiteCheckout({
               ))}
             </div>
             {nameFields}
-            {plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? "Phone" : "Phone (optional)", { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+            {plan.phone !== "off" ? phoneField : null}
           </div>
         ) : (
           <div className="space-y-3">
             {select("checkout-country", "Country/region", address.country, countryChoices, (v) => setAddress((a) => ({ ...a, country: v, region: "" })), "country")}
             {nameFields}
-            {plan.company !== "off" ? addressField("company", plan.company === "required" ? "Company" : "Company (optional)", { id: "checkout-company", autoComplete: "organization" }) : null}
-            {addressField("line1", "Address", { id: "checkout-line1", autoComplete: "address-line1" })}
-            {plan.address2 !== "off" ? addressField("line2", plan.address2 === "required" ? "Apartment, suite or unit" : "Apartment, suite, etc. (optional)", { id: "checkout-line2", autoComplete: "address-line2" }) : null}
+            {plan.company !== "off" ? addressField("company", plan.company === "required" ? "Company" : "Company (optional)", { id: "checkout-company", autoComplete: "organization", placeholder: "Company" }) : null}
+            {addressField("line1", "Address", { id: "checkout-line1", autoComplete: "address-line1", placeholder: "Address" })}
+            {plan.address2 !== "off" ? addressField("line2", plan.address2 === "required" ? "Apartment, suite or unit" : "Apartment, suite, etc. (optional)", { id: "checkout-line2", autoComplete: "address-line2", placeholder: "Apartment" }) : null}
             <div className={cn("grid gap-3", fmt.region ? "grid-cols-2 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1" : "grid-cols-2")}>
-              {addressField("city", "City", { id: "checkout-city", autoComplete: "address-level2" })}
+              {addressField("city", "City", { id: "checkout-city", autoComplete: "address-level2", placeholder: "City" })}
               {!fmt.region
                 ? null
                 : regions.length
                   ? select("checkout-region", fmt.region.label, address.region, regions.map((r) => ({ code: r.code, name: r.name })), (v) => setAddress((a) => ({ ...a, region: v })), "address-level1")
-                  : addressField("region", fmt.region.required ? fmt.region.label : `${fmt.region.label} (optional)`, { id: "checkout-region", autoComplete: "address-level1" })}
-              {addressField("postalCode", postalCodeRequired(address.country || "US") ? fmt.postal.label : `${fmt.postal.label} (optional)`, { id: "checkout-postal", autoComplete: "postal-code" })}
+                  : addressField("region", fmt.region.required ? fmt.region.label : `${fmt.region.label} (optional)`, { id: "checkout-region", autoComplete: "address-level1", placeholder: oneWord(fmt.region.label) })}
+              {addressField("postalCode", postalCodeRequired(address.country || "US") ? fmt.postal.label : `${fmt.postal.label} (optional)`, { id: "checkout-postal", autoComplete: "postal-code", placeholder: oneWord(fmt.postal.label) })}
             </div>
-            {plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? "Phone" : "Phone (optional)", { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+            {plan.phone !== "off" ? phoneField : null}
           </div>
         )}
       </section>

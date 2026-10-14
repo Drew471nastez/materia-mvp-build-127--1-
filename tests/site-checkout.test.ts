@@ -237,7 +237,7 @@ async function main() {
               matrix = false
               console.log("   matrix broke at", { company, phone, address2, nameFields })
             }
-            const filled = { email: "a@b.co", first: "Jane", last: "Smith", company: "Co", phone: "123", line2: "4B" }
+            const filled = { email: "a@b.co", first: "Jane", last: "Smith", company: "Co", phone: "+40 712 345 678", line2: "4B" } /* Changed on purpose (the owner: a phone is checked as a number, so a real one): was "123". */
             const empty = { email: "a@b.co", first: "Jane", last: "", company: "", phone: "", line2: "" }
             const want = nameFields === "first_and_last" ? "last" : company === "required" ? "company" : phone === "required" ? "phone" : address2 === "required" ? "line2" : null
             if (missingField(shipped, filled) !== null || missingField(shipped, empty) !== want) {

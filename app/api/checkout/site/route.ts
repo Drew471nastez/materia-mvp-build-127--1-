@@ -256,7 +256,7 @@ async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, b
   if (missing === "name" || missing === "last") return json({ error: missing === "last" ? "Enter your first and last name." : "Enter your name.", field: "name" }, 400)
   /* Settings › Checkout › Customer information: a field the store makes required is required here too, not only on the page. */
   if (missing === "company") return json({ error: "Enter the company name.", field: "company" }, 400)
-  if (missing === "phone") return json({ error: order.pickup ? "Enter a phone number for the pickup." : "Enter a phone number for the delivery.", field: "phone" }, 400)
+  if (missing === "phone") return json({ error: (clean(body.phone, 40) || clean(address.phone, 40)) ? "Check the phone number." : order.pickup ? "Enter a phone number for the pickup." : "Enter a phone number for the delivery.", field: "phone" }, 400)
   if (missing === "line2") return json({ error: "Enter the apartment, suite or unit.", field: "line2" }, 400)
   if (body.agreedToTerms !== true) return json({ error: "Agree to the Terms and Conditions to continue." }, 400)
   return { email, first, last, optedIn: config.marketingOptIn && body.emailOptIn === true, config, signedIn: !!buyer, ownerEmail: buyer?.email ?? null }
