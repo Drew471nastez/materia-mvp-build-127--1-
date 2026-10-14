@@ -144,7 +144,8 @@ async function main() {
   check("the old names still read as New and Top, and anything unknown is Default", feedSort("popular") === "top" && feedSort("latest") === "new" && feedSort("weird") === "default" && feedSort(undefined) === "default")
   const feedSrc = code("lib/communities/server/feed.ts")
   check("pinned posts are read on their own, first page only (in Default), and the pages skip them", /if \(!cursor && order === "default"\) \{[\s\S]{0,200}\.eq\("pinned", true\)/.test(feedSrc) && /\.eq\("pinned", false\)/.test(feedSrc))
-  check("pages ask for one more than they show, to know there is a next", /\.limit\(limit \+ 1\)/.test(feedSrc))
+  /* Changed on purpose: Default may rank a wider window of candidates, so the read asks for one more than that window (readLimit = candidateCap + 1), and the window is the page itself when not ranking (ddcbaf919). */
+  check("pages ask for one more than they show, to know there is a next", /const candidateCap = rankDefault\s*\?[^:]+:\s*limit\s*const readLimit = candidateCap \+ 1/.test(feedSrc) && /\.limit\(readLimit\)/.test(feedSrc) && /let page: PostRow\[\] = candidates\.slice\(0, limit\)/.test(feedSrc))
   check("no offset paging anywhere in the member modules", !["feed", "comments", "chat", "directory", "mentions"].some((m) => /\.range\(/.test(code(`lib/communities/server/${m}.ts`))))
   check("a page of posts is hydrated in a fixed number of reads (authors, likes, saves, polls)", /authorViews\(db, h\.community\.id, rows\.map/.test(feedSrc) && /\.in\("target_id", ids\)/.test(feedSrc) && /\.in\("post_id", ids\)/.test(feedSrc))
 

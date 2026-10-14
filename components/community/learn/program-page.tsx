@@ -74,7 +74,7 @@ function Back({ href }: { href: string }) {
   return (
     <Link
       href={href}
-      className="mb-4 inline-flex h-10 items-center gap-1.5 rounded-[10px] pr-2 text-[14px] font-medium text-[#4b5563] transition-[color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-x-0.5 hover:text-[#1a1a2e] motion-reduce:transition-none motion-reduce:hover:translate-x-0"
+      className="mb-4 inline-flex h-10 items-center gap-1.5 rounded-[10px] pr-2 text-[14px] font-medium text-[#4b5563] transition-[color,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-x-0.5 hover:text-[#1a1a2e] motion-reduce:transition-none motion-reduce:hover:translate-x-0"
     >
       <ArrowLeft className="h-4 w-4" />
       {tt("Learn")}

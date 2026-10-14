@@ -111,6 +111,9 @@ export function composerSpacesOf(spaces: SpaceView[]) {
 const EMPTY_LIST: CachedView = { posts: [], cursor: null, at: 0, pages: 0 }
 /** Cards drawn on the frame a switched list comes in (the rest stand in at their height and follow in a transition): a phone's screenful and a little more. */
 const SWAP_CARDS = 4
+/** The list that takes the spinner's place: the place host's own arrival (place-host.tsx ARRIVE_MS, ARRIVE_EASE), not imported, since the host draws this feed. */
+const ARRIVE_MS = 180
+const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /**
  * THE NEXT PAGE COMES BY ITSELF ONLY SO FAR (round 13). Past this many posts
  * the end of the list no longer asks for more as it comes near: "Load more
@@ -419,9 +422,9 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
   }, [waiting, key])
 
   /*
-    THE SWAP EASES IN. The list drawn changes (another space, another sort, or the one that was waited for): it comes in by opacity
-    on the compositor, from 0 after the spinner and from 35% when it replaces a list directly, so it reads as one crossfade. A list
-    that only grew (the next page) or was read again quietly keeps its key and does not move.
+    ONLY THE LIST THAT TAKES THE SPINNER'S PLACE EASES IN (round 15, the owner: no fade on a switch). It comes up from nothing,
+    by opacity on the compositor; a list drawn over another list is simply there, and a list that only grew (the next page) or
+    was read again quietly keeps its key and does not move.
   */
   const listRef = useRef<HTMLDivElement>(null)
   const drawnKey = cached ? key : shown.key
@@ -429,9 +432,9 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
   /*
     THE SAME POSTS DO NOT MOVE (round 13). All and a space that hold the same posts (a community with one space, a space with all
     of the recent posts) swap lists with the same cards on screen: each card is the same element before and after (keyed by the
-    post's id in one list), so only a post that was not on screen before eases in, by itself; a list whose posts are all the same
-    does not move at all. `onScreen` is the ids drawn as cards on the last frame, so they are drawn as cards again at once rather
-    than standing in as placeholders for a frame (A SCREENFUL FIRST is for posts new to the screen).
+    post's id in one list), so a list whose posts are all the same does not move at all. `onScreen` is the ids drawn as cards on
+    the last frame, so they are drawn as cards again at once rather than standing in as placeholders for a frame (A SCREENFUL
+    FIRST is for posts new to the screen).
   */
   const onScreen = useRef<Set<string>>(new Set())
   useLayoutEffect(() => {
@@ -439,7 +442,10 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     onScreen.current = new Set(Array.from(el?.querySelectorAll<HTMLElement>(":scope > [data-post]") ?? [], (x) => x.dataset.post ?? "").filter(Boolean))
     if (lastDrawn.current === drawnKey) return
     lastDrawn.current = drawnKey
+    const fromSpinner = afterSpinner.current
     afterSpinner.current = false
+    if (!fromSpinner || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
   })
 
   /*

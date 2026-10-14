@@ -62,6 +62,7 @@ import Link from "next/link"
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { BarChart3, Bookmark, Lock, MessageCircle, Paperclip, VolumeX, Ban } from "lucide-react"
 import { FlagIcon } from "@solar-icons/react/linear/flag"
+import { LinkMinimalistic2Icon } from "@solar-icons/react/linear/link-minimalistic-2"
 import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
 import { PenIcon } from "@solar-icons/react/linear/pen"
 import { PinIcon } from "@solar-icons/react/linear/pin"
@@ -416,6 +417,16 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     if (how === "copied") toast("Link copied")
     else if (how === "failed") toast(url)
   }
+  /* Copy link: the same address, straight to the clipboard, for a browser with no share sheet too. */
+  const copyLink = async () => {
+    const url = `${SHARE_ORIGIN}${href}?v=3`
+    try {
+      await navigator.clipboard.writeText(url)
+      toast("Link copied")
+    } catch {
+      toast(url)
+    }
+  }
 
   const moderate = (action: "pin" | "unpin" | "lock" | typeof REOPEN, done: (p: FeedPostView) => FeedPostView, said: string) => async () => {
     const r = await actOnContent(post.communityId, { action, targetType: "post", targetId: post.id })
@@ -426,6 +437,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
 
   const items: ActionMenuItem[] = []
   if (canShare) items.push({ label: "Share post", icon: <ShareIcon size={16} />, onClick: () => void share() })
+  items.push({ label: "Copy link", icon: <LinkMinimalistic2Icon size={16} />, onClick: () => void copyLink() })
   if (!full && viewer.active) items.push({ label: bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" strokeWidth={1.75} />, onClick: () => save() })
   if (own && !readOnly) {
     items.push({ label: "Edit post", icon: <PenIcon size={16} />, onClick: startEdit })

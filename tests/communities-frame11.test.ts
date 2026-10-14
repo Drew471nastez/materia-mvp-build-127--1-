@@ -77,7 +77,8 @@ async function main() {
     check("the community's list is Profile, Settings and Dashboard for a seller, nothing else", /item="profile"|data-account-item="profile"/.test(short) && /settings/.test(short) && /dashboard/.test(short) && !/help|discover|language|start-creating/.test(short))
     const menu = code("components/community/member/account-menu.tsx")
     check("the community's menu asks for it, on a computer and a phone, and keeps the sheet built", (menu.match(/rows="community"/g) ?? []).length === 2 && /keepMounted/.test(menu) && !/LanguageModal/.test(menu))
-    check("Storelib's own header still opens the full menu", /<DesktopAccountMenu[\s\S]*?\/>/.test(header) && !/rows="community"/.test(header))
+    /* Changed on purpose: a profile opened from inside a community gets the community's short sheet on a phone (profileInCommunity, ddcbaf919); the computer's menu and every other sheet stay Storelib's full one. */
+    check("Storelib's own header still opens the full menu", /<DesktopAccountMenu[\s\S]*?\/>/.test(header) && !/rows="community"/.test(header.match(/<DesktopAccountMenu[\s\S]*?\/>/)?.[0] ?? 'rows="community"') && (header.match(/rows="community"/g) ?? []).length === 1 && /\{profileInCommunity \? \(\s*<AccountSheet[\s\S]{0,300}?rows="community"/.test(header))
   }
 
   console.log("\nSPINNER and PLACES")
@@ -88,7 +89,8 @@ async function main() {
     check("eight spokes, each fainter than the one before", SPINNER_SPOKES.length === 8 && SPINNER_SPOKES.every((l, i) => i === 0 || l.opacity < SPINNER_SPOKES[i - 1].opacity))
     const frame = code("components/community/member/shell-frame.tsx")
     check("the frame keeps the scrollbar's room on every page", /html\{scrollbar-gutter:stable\}/.test(frame) && /<style>\{GUTTER \+ PLACE_KEYFRAMES\}<\/style>/.test(frame))
-    check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-2"/.test(frame) && /lg:col-start-1 lg:row-start-1 lg:block \$\{LAND\}/.test(frame))
+    /* Changed on purpose: from 1280px About's sheet takes every column and the left column steps aside for it (xl:col-span-full, lg:block xl:hidden), as tests/communities-shell.test.ts pins; the left column lands only when entering (226342ba1). */
+    check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-full xl:col-start-1"/.test(frame) && /lg:col-start-1 lg:row-start-1 \$\{lessonPage \? "" : about \? "lg:block xl:hidden" : "lg:block"\} \$\{landing \? LAND : ""\}/.test(frame))
     check("entering from outside, the side columns come in by opacity; the middle never fades (round 19: no flash on the first post)", /const LAND = "motion-safe:animate-\[fade-in_/.test(frame) && /\$\{landing \? LAND : ""\}/.test(frame) && !/LAND_LATE/.test(frame))
   }
 
@@ -108,10 +110,12 @@ async function main() {
   {
     const classroom = code("components/community/classroom/classroom-library.tsx")
     check("an empty classroom is not 'No courses yet' but the community's empty card", !/No courses yet/.test(classroom) && /<PlaceEmpty/.test(classroom) && /Nothing in the classroom yet/.test(classroom))
-    check("its staff get Add a course", /action=\{manageHref \? \{ href: manageHref, label: "Add a course" \} : null\}/.test(classroom) && /manage_classroom/.test(code("app/(marketing)/community/[slug]/(member)/classroom/page.tsx")))
+    /* Changed on purpose: round 13 renamed the Classroom to Learn (its page is gone, the old address answers a 308); staff get the action from the one place loader, manageLearn (ddcbaf919). */
+    check("its staff get Add a course", /action=\{manageHref \? \{ href: manageHref, label: "Add a course" \} : null\}/.test(classroom) && /const manageLearn = can\(viewer\.role, "manage_classroom"\)/.test(code("lib/communities/server/places.ts")) && /action=\{manageHref \? \{ href: manageHref, label: "Make a program" \} : null\}/.test(code("components/community/learn/learn-library.tsx")))
     const events = code("components/community/events/events-page.tsx")
     check("the calendar is called Calendar, its views Upcoming, Past and Month", />\s*Calendar\s*<\/h1>/.test(events) && /\["calendar", "Month"\]/.test(events))
-    check("its waits are the community's spinner and its empty views the empty card, Schedule an event for staff", !/Loader2|border-dashed/.test(events) && /<PlaceEmpty/.test(events) && /label: "Schedule an event"/.test(events) && /eventHrefFor\(open\.community, open\.viewer\)/.test(code("app/(marketing)/community/[slug]/(member)/events/page.tsx")))
+    /* Changed on purpose: round 15: the Calendar is a place the shell draws from the one place loader, which gives staff the Schedule an event address (lib/communities/server/places.ts, ddcbaf919). */
+    check("its waits are the community's spinner and its empty views the empty card, Schedule an event for staff", !/Loader2|border-dashed/.test(events) && /<PlaceEmpty/.test(events) && /label: "Schedule an event"/.test(events) && /manageHref: eventHrefFor\(community, viewer\)/.test(code("lib/communities/server/places.ts")))
     const members = code("components/community/member/members.tsx")
     check("members: a squared search with its own spinner, a segmented filter, the list easing in, no dimming", /rounded-xl/.test(members) && /data-member-search-busy/.test(members) && /role="group" aria-label="Who to show"/.test(members) && /el\.animate\(\[\{ opacity: 0\.4 \}, \{ opacity: 1 \}\]/.test(members) && !/opacity-60/.test(members))
     const empty = code("components/community/member/place-empty.tsx")

@@ -1,3 +1,5 @@
+import "server-only"
+
 import type { Db } from "./db"
 import { parsePostParam, postShortIdRange } from "../post-url"
 

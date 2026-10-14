@@ -3137,7 +3137,8 @@ check(
   // word found four: the three sections, and the comment above them naming
   // the attribute. An assertion that reads its own documentation is an
   // assertion that passes when the code is deleted and the comment stays.
-  (wbPage.match(/data-page-block\s*>/g) ?? []).length === 3 &&
+  /* Changed on purpose: the Library block takes a dropped theme, so its attributes run on after the mark (9a60d8790). Still matched as an attribute of a <section>, never the comment's word. */
+  (wbPage.match(/<section\b[^>]*\sdata-page-block(?=[\s>])/g) ?? []).length === 3 &&
     !existsSync(join(root, "app/app/website-builder/skeleton.tsx")) &&
     !existsSync(join(root, "app/app/website-builder/loading.tsx")),
 )

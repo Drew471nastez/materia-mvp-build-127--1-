@@ -155,10 +155,12 @@ function main() {
     check("the model is told the language is not Vue or JSX", /NOT VUE, REACT OR JSX/i.test(system) && /v-if/.test(system))
     check("and every filter and setting type it may use", FILTER_NAMES.every((f) => system.includes(f)) && CONTROL_TYPES.every((c) => system.includes(c)))
     check("that repeated content is blocks, not question_1 and question_2", /question_1/.test(system) && /blocks/.test(system))
-    check("that it must take the site's colours", /color_scheme/.test(system) && /Never hardcode a hex value/.test(system))
+    /* Changed on purpose: a colour may follow the scheme or a color setting the creator overwrites, and a fixed one is the section's own design (de70c2251). */
+    check("that it is told how to take the site's colours", /color_scheme/.test(system) && /A colour may follow the scheme or a color setting the creator overwrites/.test(system))
     check("that it must be responsive with container queries, not media ones", /@container \(min-width: 640px\)/.test(system) && /NOT MEDIA QUERIES/i.test(system))
     check("and that it must not break when the section is used twice", /A SECTION CAN BE ON A PAGE MORE THAN ONCE/.test(system))
-    check("and that it is held to a quality contract that is actually checked", /you will be shown what failed/.test(system))
+    /* Changed on purpose: what is checked and sent back is a file that compiles and live Storelib values, not the look (de70c2251). */
+    check("and that it is held to a quality contract that is actually checked", /What is checked, and sent back if it fails, is a file that compiles and live Storelib values/.test(system))
     check(
       "and what names are already taken here, in the request rather than the cached prefix",
       taken.includes("northlight_plans") && taken.includes("Northlight Plans") && !system.includes("Northlight Plans") && /takenNote\(opts\.takenNames, opts\.takenTypes\),\n\s*asked && `REQUEST/.test(writer),

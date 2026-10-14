@@ -466,7 +466,9 @@ async function main() {
     const w = db.tables.community_jobs.filter((j) => j.payload?.weekly === true)
     check("turning it on queues the coming Monday's, once", w.length === 1 && /^weekly_digest:/.test(w[0].idempotency_key))
     db.tables.community_feed_posts.push({ id: POST, community_id: C1, space_id: SPACE, author_id: OWNER, title: "Fog at dawn", body_text: "", status: "published", reaction_count: 7, created_at: new Date().toISOString() })
-    const out = await runWeeklyDigest(db as any, { weekly: true, userId: MARA, week: "2026-10-12" }, Date.now(), { enabled: true })
+    /* The test was stale against the clock: it ran a fixed week ("2026-10-12") at the real Date.now(), so from 13 October the next week it queued was the one already queued above. It runs the week that was queued instead, as the cron does. */
+    const queuedWeek = String(w[0]?.payload?.week ?? "")
+    const out = await runWeeklyDigest(db as any, { weekly: true, userId: MARA, week: queuedWeek }, Date.now(), { enabled: true })
     const evs = db.tables.notification_events ?? []
     check("it sends one email through the engine with the week's figures", out === "sent" && evs.length === 1 && evs[0].name === "community.weekly_digest" && evs[0].payload.c1Name === "Film Loft" && evs[0].payload.c1Line === "1 new post" && evs[0].payload.c1Top === "Fog at dawn", { out, evs })
     check("and queues the next week", db.tables.community_jobs.filter((j) => j.payload?.weekly === true).length === 2)

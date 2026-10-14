@@ -151,6 +151,8 @@ check(
       // A file that renders no skeleton has nothing to defer.
       if (!/Skeleton|animate-pulse/.test(src)) return false
       if (src.includes("skeleton-deferred")) return false
+      /* Changed on purpose: a library tab draws its shape at once and still, never pulsing, and the panel cross-fades it (e3e2428de; tests/library-downloads pins it). */
+      if (/<LibraryRouteSkeleton path=/.test(src) && /const shape = skeletonFor\(path, true\)/.test(read("components/library/library-route-skeleton.tsx"))) return false
       /* A loading file that draws a shared outline (the product editor's is
          drawn by both of its addresses) is deferred when that outline is. */
       const shared = [...src.matchAll(/from "(\.{1,2}\/[^"]+)"/g)].map((m) => join(dirname(f), m[1]) + ".tsx")
@@ -2033,6 +2035,8 @@ check(
 
           if (!/\.(from|rpc)\(/.test(target)) continue
           if (/\.storage\./.test(target)) continue
+          /* Changed on purpose: Promise.all over builders is a real Promise, so its .catch() is correct (lib/physical/tracking/accounts-server.ts, 62e142c2f). */
+          if (/^Promise\.(all|allSettled)\(/.test(target)) continue
           if (/\.(json|text|arrayBuffer)\(\)$/.test(target.trim())) continue
           offenders.push(`${rel}:${i + 1}  ${lines[i].trim().slice(0, 84)}`)
         }

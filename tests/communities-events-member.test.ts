@@ -346,7 +346,8 @@ async function main() {
     check("the month grid carries the price too", /data-calendar-price/.test(cards))
 
     const detail = code("components/community/events/event-detail.tsx")
-    check("the page opens the checkout sheet rather than sending anybody away", /TicketCheckoutSheet/.test(detail) && !/window\.location/.test(detail))
+    /* Changed on purpose: the event's Share button reads the page's own address (const url = window.location.href, ddcbaf919); what stays banned is sending anybody away through window.location. */
+    check("the page opens the checkout sheet rather than sending anybody away", /TicketCheckoutSheet/.test(detail) && !/window\.location(\.href)?\s*=(?!=)|window\.location\.(assign|replace)\(/.test(detail) && (detail.match(/window\.location/g) ?? []).length === (detail.match(/const url = window\.location\.href/g) ?? []).length)
     check("Get a ticket carries the price", /Get a ticket · \{price\}/.test(detail))
     check("a holder's line says what they paid, and an invited one says no price", /Paid \$\{paidLabel\}/.test(detail) && /You were invited to this event, with nothing to pay/.test(detail))
     check("giving up a seat goes through the ticket route with DELETE", /method: "DELETE"[\s\S]{0,200}\/ticket`|\/ticket`[\s\S]{0,200}method: "DELETE"/.test(detail))

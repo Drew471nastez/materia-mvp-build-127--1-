@@ -263,9 +263,12 @@ console.log("\nEvery column the admin names exists\n")
  * The exact bug, pinned by name: whatever else changes, no admin query asks
  * orders for a creator. And the shapes that replaced it are there.
  */
+/* Changed on purpose: orders carries its creator since run-now part 32 (eb4d4b01a), and the Payments center reads a
+   creator's orders by it (171abff55). So creator_id is asked for only while the schema's orders has it; seller_id never. */
 check(
-  "no admin query asks orders for creator_id or seller_id",
-  !uses.some((u) => u.table === "orders" && (u.column === "creator_id" || u.column === "seller_id")),
+  "no admin query asks orders for seller_id, nor for creator_id unless the schema has it",
+  !uses.some((u) => u.table === "orders" && (u.column === "seller_id" || (u.column === "creator_id" && !hasCol("orders", "creator_id"))))
+    && hasCol("orders", "creator_id") && !hasCol("orders", "seller_id"),
 )
 check(
   "per-creator sales join orders to products",

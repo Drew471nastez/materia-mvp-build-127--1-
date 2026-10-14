@@ -46,13 +46,16 @@ const theme = Object.fromEntries(
 /** A database that records what it was asked, so the query can be inspected. */
 function fakeDb(rows: Record<string, unknown>[]) {
   const filters: [string, string][] = []
+  /* Each read on its own, by table: the shop's list is followed by reads of its own (the channels a product is off, since 9f44fc5ed). */
+  const queries: { table: string; filters: [string, string][] }[] = []
   let limited = -1
   const chain: Record<string, unknown> = {}
-  chain.eq = (col: string, val: string) => { filters.push([col, val]); return chain }
+  chain.eq = (col: string, val: string) => { filters.push([col, val]); queries[queries.length - 1]?.filters.push([col, val]); return chain }
   chain.order = () => ({ limit: (n: number) => { limited = n; return Promise.resolve({ data: rows }) } })
   return {
-    db: { from: () => ({ select: () => chain }) } as never,
+    db: { from: (table: string) => ({ select: () => { queries.push({ table, filters: [] }); return chain } }) } as never,
     filters,
+    queries,
     get limited() { return limited },
   }
 }
@@ -69,7 +72,10 @@ async function main() {
     check("it filters by creator", f.filters.some(([c, v]) => c === "creator_id" && v === "creator-a"),
       `filters were ${JSON.stringify(f.filters)}`)
     check("and by published", f.filters.some(([c, v]) => c === "status" && v === "published"))
-    check("both, not one", f.filters.length === 2, "a single filter here is every creator's catalogue on every site")
+    /* Changed on purpose: a product taken off the Online store is read after the list, a query of its own (9f44fc5ed). The list's read is still the two filters. */
+    const list = f.queries.find((q) => q.table === "products")
+    check("both, not one", !!list && list.filters.length === 2 && list.filters.some(([c, v]) => c === "creator_id" && v === "creator-a") && list.filters.some(([c, v]) => c === "status" && v === "published"),
+      "a single filter here is every creator's catalogue on every site")
 
     /**
      * No creator is not "every creator". A missing id must match nobody.

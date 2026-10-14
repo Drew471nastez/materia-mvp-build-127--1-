@@ -251,15 +251,25 @@ function hitArea(className: string) {
     const one = className.match(new RegExp(`before:-${side}-(\\d+(?:[.-]\\d+)?)`))
     if (one) pad[side] = px(one[1])
   }
-  const w = className.match(/\bw-(\d+(?:[.-]\d+)?)/)
-  const h = className.match(/\bh-(\d+(?:[.-]\d+)?)/)
+  const w = className.match(/(?:^|\s)w-(\d+(?:[.-]\d+)?)\b/)
+  const h = className.match(/(?:^|\s)h-(\d+(?:[.-]\d+)?)\b/)
+  /* A size written in pixels, `h-[42px]`, is the size too. */
+  const wPx = className.match(/(?:^|\s)w-\[(\d+)px\]/)
+  const hPx = className.match(/(?:^|\s)h-\[(\d+)px\]/)
   return {
-    width: (w ? px(w[1]) : 0) + pad.left + pad.right,
-    height: (h ? px(h[1]) : 0) + pad.top + pad.bottom,
+    width: (w ? px(w[1]) : wPx ? Number(wPx[1]) : 0) + pad.left + pad.right,
+    height: (h ? px(h[1]) : hPx ? Number(hPx[1]) : 0) + pad.top + pad.bottom,
   }
 }
 
-const slackedControls = (header.match(/className="[^"]*before:absolute[^"]*"/g) || []).map(hitArea)
+/* Changed on purpose: the header's classes moved into cn() beside the theme's (158acdef6), and the menu left of the logo
+   is the PlaceNavigator (2d576f55a), whose button sets its own size in components/nav/place-navigator.tsx while the
+   header gives it the slack. So a control's size is read from its own class, or from that button for the navigator. */
+const navigatorButton = (code("components/nav/place-navigator.tsx").match(/data-place-navigator-trigger=""\s*className=\{cn\(\s*"([^"]*)"/) ?? [])[1] ?? ""
+const slackedControls = [...header.matchAll(/className=(?:"|\{cn\(")([^"]*before:absolute[^"]*)"/g)].map((m) => {
+  const tag = header.slice(header.lastIndexOf("<", m.index), m.index)
+  return hitArea(tag.startsWith("<PlaceNavigator") ? `${navigatorButton} ${m[1]}` : m[1])
+})
 check(
   "the menu button has slack around it",
   slackedControls.length >= 2 && slackedControls.every((a) => a.width >= 44 && a.height >= 44),

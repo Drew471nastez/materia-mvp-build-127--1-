@@ -180,7 +180,7 @@ export function coverMorph(opts: {
     width: `${laid.width}px`,
     height: `${laid.height}px`,
     overflow: "hidden",
-    transformOrigin: "50% 50%",
+    /* Scaled about its centre: the default origin, so none is set. */
     pointerEvents: "none",
     willChange: "translate, scale, opacity",
     contain: "strict",
@@ -196,7 +196,6 @@ export function coverMorph(opts: {
     width: "100%",
     height: "100%",
     objectFit: "contain",
-    transformOrigin: "50% 50%",
     willChange: "scale",
   } as Partial<CSSStyleDeclaration>)
   box.appendChild(pic)

@@ -116,7 +116,8 @@ console.log("\nSPINNER: the app's own")
   const p = code("components/community/member/place-spinner.tsx")
   check("Spinner is ActivitySpinner at its own 26px, one turn a second", /<ActivitySpinner size=\{size\}/.test(p) && /size = SPINNER_SIZE/.test(p) && SPIN_MS === 1000)
   check("the pull's spokes follow the same tail (0.28) and run round from twelve", SPINNER_SPOKES.length === 8 && SPINNER_SPOKES[0].opacity === 1 && SPINNER_SPOKES[7].opacity === 0.28 && SPINNER_SPOKES[0].x1 === 12)
-  check("the About gallery's play spinner is it too", /<ActivitySpinner size=\{22\} label="Loading" className="text-white" \/>/.test(code("components/community/public/gallery-view.tsx")))
+  /* Changed on purpose: the play button became a white disc with the dark mark, so its spinner is dark and 20px inside it (226342ba1). */
+  check("the About gallery's play spinner is it too", /<ActivitySpinner size=\{20\} label="Loading" className="text-\[#1a1a2e\]" \/>/.test(code("components/community/public/gallery-view.tsx")))
 }
 
 console.log("\nMENU: the picture beside the name")
@@ -131,7 +132,8 @@ console.log("\nMENU: the picture beside the name")
 console.log("\nBACK: where it was left")
 {
   const r = code("components/community/member/return-scroll.ts")
-  check("each page's scroll is noted per address, and a page reached by Back is put back there before it is painted", /window\.addEventListener\("popstate", \(\) => \(poppedAt = performance\.now\(\)\)\)/.test(r) && /useLayoutEffect\(\(\) => \{\s*if \(performance\.now\(\) - poppedAt > BACK_WINDOW_MS\) return/.test(r) && /return restoreTabScroll\(y, 60\)/.test(r))
+  /* Changed on purpose: a layer closing (a post, the viewer) also steps back and is told apart from a real Back, and the frame restores only on arrival (onlyOnArrival) (226342ba1). */
+  check("each page's scroll is noted per address, and a page reached by Back is put back there before it is painted", /window\.addEventListener\("popstate", \(\) => \{\s*if \(isLayerBack\(\)\) layerBack = [^\n]*\s*else poppedAt = performance\.now\(\)\s*\}\)/.test(r) && /useLayoutEffect\(\(\) => \{\s*const first = !arrived\.current\s*arrived\.current = true\s*if \(opts\.onlyOnArrival && !first\) return\s*if \(performance\.now\(\) - poppedAt > BACK_WINDOW_MS\) return/.test(r) && /return restoreTabScroll\(y, 60\)/.test(r))
   check("the frame uses it; the creator's page is read whole on intent", /useReturnScroll\(scrollKeyFor\(pathname \|\| "", searchNow\?\.toString\(\) \?\? ""\), \{ onlyOnArrival: true \}\)/.test(code("components/community/member/shell-frame.tsx")) && /<Link href=\{creator\.href\} \{\.\.\.FULL_ON_HOVER\}/.test(code("components/community/member/top-bar.tsx")))
 }
 
@@ -167,7 +169,8 @@ console.log("\nABOUT: the same columns")
 console.log("\nGALLERY: depth and sizes")
 {
   const g = code("components/community/public/gallery-view.tsx")
-  check("the frame has a soft shadow and an inset hairline; each thumb a shadow and a hairline", /const FRAME_DEPTH = "shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\)/.test(g) && /shadow-\[inset_0_0_0_1px_rgba\(16,24,40,0\.08\)\]/.test(g) && (g.match(/className=\{HAIRLINE\}/g) ?? []).length === 2)
+  /* Changed on purpose: the frame's depth was made a little stronger, with a soft drop under it (226342ba1). */
+  check("the frame has a soft shadow and an inset hairline; each thumb a shadow and a hairline", /const FRAME_DEPTH = "shadow-\[0_1px_2px_rgba\(16,24,40,0\.08\),0_10px_28px_-12px_rgba\(16,24,40,0\.28\)/.test(g) && /shadow-\[inset_0_0_0_1px_rgba\(16,24,40,0\.08\)\]/.test(g) && (g.match(/className=\{HAIRLINE\}/g) ?? []).length === 2)
   check("pictures come at the frame's widths, the first first, the far ones lazy, the thumbs at their own size", /const FRAME_WIDTHS = \[640, 750, 828, 1080, 1200, 1920\]/.test(g) && /const priority = i === 0 \? "high" : i === at \? "auto" : "low"/.test(g) && /optimizedImageUrl\(src, 112\)/.test(g) && !/optimizedImageUrl\(g\.url, 1200\)/.test(g))
 }
 

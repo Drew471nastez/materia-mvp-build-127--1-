@@ -153,8 +153,9 @@ console.log("\nBack to the list is the list, as it was")
   check("a return to the page asks the stage for no landing, decided on its first render",
     /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/.test(client) && /React\.useLayoutEffect\(\(\) => \{\s*if \(returning\) holdLanding\(\)\s*\}, \[returning\]\)/.test(client))
   const stage = code("components/app/app-stage.tsx")
+  /* Changed on purpose: the stage also holds its landing while a pull to refresh is showing (pullRefreshVisualActive, ddcbaf919; page-performance pins it). */
   check("and the stage lands nothing for a page that held it",
-    /requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion \|\| isLandingHeld\(\)\) return\s*playEntrance/.test(stage))
+    /requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion \|\| isLandingHeld\(\) \|\| pullRefreshVisualActive\(\)\) return\s*playEntrance/.test(stage))
   const nav = code("lib/ui/app-navigation.ts")
   check("the hold lets go on its own, two frames on, so it cannot swallow the next page's landing",
     /requestAnimationFrame\(\(\) => requestAnimationFrame\(release\)\)/.test(nav) && /window\.setTimeout\(release, 500\)/.test(nav))

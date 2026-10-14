@@ -130,9 +130,10 @@ async function main() {
         /prefetchJoinAuth/.test(code("components/community/public/join-controls.tsx")),
     )
     const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+    /* Changed on purpose: both frames come from one import line (ddcbaf919), so the name CommunityPublicShell now stands above the member frame's pill; each frame's own element is read instead. */
     check(
       "signed-out visitors do not get the Open in app pill; signed-in members still do",
-      /CommunityShell[\s\S]*<OpenInAppPill \/>/.test(layout) && !/CommunityPublicShell[\s\S]*<OpenInAppPill/.test(layout),
+      /<CommunityShell [^>]*>[\s\S]*?<OpenInAppPill \/>[\s\S]*?<\/CommunityShell>/.test(layout) && /<CommunityPublicShell [^>]*>[\s\S]*?<\/CommunityPublicShell>/.test(layout) && !/<OpenInAppPill/.test(layout.match(/<CommunityPublicShell [^>]*>[\s\S]*?<\/CommunityPublicShell>/)?.[0] ?? "<OpenInAppPill"),
     )
     const request = decideJoin(facts({ community: { approvalRequired: true } }))
     check("approval required: Request to join", request.kind === "request" && request.label === "Request to join")
@@ -409,7 +410,8 @@ async function main() {
   {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
     check("/community/<slug> is a 404 while off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page))
-    check("a member gets the member area's feed (CommunityFeedPage, by its fixed path)", /if \(load\.viewer\.active\)\s*return \(?\s*(<PullToRefreshEvent scope="community-feed">\s*)?<CommunityFeedPage slug=\{load\.community\.slug\} \/>/.test(page) && /import \{ CommunityFeedPage \} from "@\/components\/community\/member\/feed-page"/.test(page))
+    /* Changed on purpose: round 15 seeds the member's home through PlacePage, which draws the feed (or the place the address names) inside the shell (components/community/member/place-page.tsx, ddcbaf919). */
+    check("a member gets the member area's feed (CommunityFeedPage, by its fixed path)", /if \(load\.viewer\.active\) \{[\s\S]*const place = placeFromUrl\([\s\S]*\?\? \{ kind: "feed" as const \}\s*return <PlacePage slug=\{load\.community\.slug\} place=\{place\} \/>/.test(page) && /import \{ PlacePage \} from "@\/components\/community\/member\/place-page"/.test(page))
     check("everybody else the sales page, with its structured data", /<CommunitySalesPage data=\{\{ \.\.\.load\.data, extras(, askWhy)? \}\} \/>/.test(page) && /jsonLdScript\(jsonLd\)/.test(page))
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
     check("/about is the sales page for everybody, members included", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(about) && /<CommunitySalesPage data=\{\{ \.\.\.load\.data, extras(, askWhy)? \}\} \/>/.test(about) && !/viewer\.active/.test(about))
@@ -469,7 +471,9 @@ async function main() {
     /* Round 2: the about card shows Online, and only as the heartbeat count (lib/communities/server/presence.ts), never otherwise. */
     const drawsOnline = mine.filter((f) => /online/i.test(code(f)))
     /* Round 11: the About page's own figures (about-facts.ts aboutFigures) may add Online now, only when the heartbeat counted someone. */
-    check("Online on the public side is drawn only from the heartbeat count, and only when it is known", drawsOnline.join() === "components/community/public/about-facts.ts,components/community/public/stats-row.tsx,components/community/public/types.ts" && /if \(stats\.online !== null\)/.test(code("components/community/public/stats-row.tsx")) && /if \(out\.length < 4 && stats\.online\)/.test(code("components/community/public/about-facts.ts")), drawsOnline)
+    /* Changed on purpose: loadSalesPage's light read skips the live numbers for the Membership settings page and says Online is not known, online: null (520c7b9b2, wt-h18speed); that is the only mention there. */
+    const salesRead = code("lib/communities/server/public.ts")
+    check("Online on the public side is drawn only from the heartbeat count, and only when it is known", drawsOnline.join() === "components/community/public/about-facts.ts,components/community/public/stats-row.tsx,components/community/public/types.ts,lib/communities/server/public.ts" && (salesRead.match(/online/gi) ?? []).length === 1 && /online: null/.test(salesRead) && /if \(stats\.online !== null\)/.test(code("components/community/public/stats-row.tsx")) && /if \(out\.length < 4 && stats\.online\)/.test(code("components/community/public/about-facts.ts")), drawsOnline)
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
