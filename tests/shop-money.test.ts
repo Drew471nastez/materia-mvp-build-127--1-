@@ -12,6 +12,7 @@ import { SHOP_CURRENCY, shopAmount, shopMoney } from "@/lib/store/shop-money"
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { convertCardPrices, pricingFor, storeCentsFromShown, type MarketPrice, type StorefrontDisplay } from "@/lib/markets/pricing"
 import { priceCentsFrom } from "@/lib/website-builder/storefront-hooks"
+import { validateLocalization } from "@/lib/markets/model"
 
 let passed = 0
 let failed = 0
@@ -63,6 +64,19 @@ check("  no market: the card as it was", convertCardPrices([card], null)[0] === 
 check("the live site and the builder use the one function", /convertCardPrices\(\[worded\], pricing, moneyLocale\)/.test(read("lib/markets/live.ts")) && (read("app/website-builder/editor/[installId]/page.tsx").match(/convertCardPrices\(localizeCards\(/g) ?? []).length === 2)
 check("  the cart and the product page in the canvas take the same conversion", /storefront = useMemo\(\(\) => \(\{ inEditor: true, installId, words, display \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /display: \{ market: previewDisplay\.market/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 check("  the switch offers the markets the day's rates can convert to", /data\.markets\.filter\(\(m\) => pricingFor\(m, data\.base, data\.fx\)\)/.test(read("components/website-builder/use-preview-language.ts")))
+
+console.log("\nA market's own exchange rate")
+const own: MarketPrice = { ...eur, rate: 0.25 }
+const ownPricing = pricingFor(own, "RON", null)
+check("converts with the store's rate, even with no day's rates at all", !!ownPricing && ownPricing.convert(4000) === 1000, ownPricing?.convert(4000))
+check("  and never goes stale", !!pricingFor(own, "RON", { asOf: "2020-01-01", rates: { RON: 5 } }))
+check("  the euro either way round", pricingFor({ ...own, currency: "RON", rate: 4 }, "EUR", null)?.convert(100) === 400 && pricingFor({ ...own, rate: 2 }, "USD", null)?.convert(100) === 200)
+check("  the cart puts back the store's price from it", storeCentsFromShown(1000, { market: own, base: "RON", fx: ownPricing!.fx, locale: "en", note: null }) === 4000)
+const saved = validateLocalization({ defaultLanguage: "en", markets: [{ id: "a", name: "Home", primary: true, rate: 3 }, { id: "eu", name: "Europe", countries: ["DE"], currency: "EUR", rate: "0.2" }] }, { baseCurrency: "RON" })
+check("saved with the market, never on the home market", saved.ok && saved.value.markets[1].rate === 0.2 && saved.value.markets[0].rate === undefined, saved)
+check("  a rate that is not a number above 0 is refused", !validateLocalization({ defaultLanguage: "en", markets: [{ id: "a", name: "Home", primary: true }, { id: "eu", name: "Europe", countries: ["DE"], currency: "EUR", rate: -1 }] }, { baseCurrency: "RON" }).ok)
+check("the visitor is offered a market that converts by its own rate", /const offered = langs\.markets\.filter\(\(m\) => m\.countries\.length && pricingFor\(m, SHOP_CURRENCY, rates\)\)/.test(read("lib/markets/live.ts")) && /rate: m\.rate/.test(read("lib/markets/live.ts")))
+check("set in the market's own settings", /data-market-rate=""/.test(read("components/app/settings/markets-panel.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

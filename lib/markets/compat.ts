@@ -26,8 +26,7 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 import { cachedTranslations } from "./server"
 import { marketPricing, siteLanguages, type LiveMarket } from "./live"
 import { cachedRates } from "./fx-server"
-import { fxFresh } from "./money"
-import { convertedCents, moneyFormatFor } from "./pricing"
+import { convertedCents, moneyFormatFor, pricingFor } from "./pricing"
 import { priceCents } from "@/lib/storelib-theme/compat/objects"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import { isBuiltInWordKey, isEnglish, localizeCards, localizeMenus, localizeRecord, localizeSections, themeWordKey, translationMap, valueFor, type TranslationMap } from "./translate"
@@ -93,7 +92,10 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
   const all = [langs.defaultLanguage, ...langs.others]
   const code = (locale && langs.others.find((l) => l.toLowerCase() === locale.toLowerCase())) || null
   /* Converted prices need the day's rates: without them a market's country sees the store's own. */
-  const shownCountries = pricing || (langs.markets.length > 0 && fxFresh(await cachedRates().catch(() => null))) ? countries : countries.map((c) => ({ ...c, currency: base }))
+  /* Each country in its market's currency only while that converts today (fresh rates, or the store's own rate for it); else the store's. */
+  const rates = langs.markets.length > 0 ? await cachedRates().catch(() => null) : null
+  const converting = new Set(marketsFor.filter((m) => pricingFor(m, base, rates)).flatMap((m) => m.countries))
+  const shownCountries = countries.map((c) => (c.currency === base || converting.has(c.code) ? c : { ...c, currency: base }))
   const shownCountry = country ? shownCountries.find((c) => c.code === country.code) : undefined
   const i18n: NonNullable<SiteData["i18n"]> = {
     ...(site.i18n ?? {}),

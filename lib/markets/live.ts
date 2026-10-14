@@ -30,7 +30,7 @@ import { localizationTag, marketsMissing, cachedTranslations } from "./server"
 import { languageName, localizedPath, normalizeLocale } from "./locales"
 import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
 import { SHOP_CURRENCY } from "@/lib/website-builder/shop-products"
-import { chargeNote, currencyCode, fxFresh, type PriceRounding } from "./money"
+import { chargeNote, currencyCode, type PriceRounding } from "./money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { cachedRates } from "./fx-server"
 import { convertCardPrices, pricingFor, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
@@ -78,7 +78,7 @@ async function readLanguages(creatorId: string): Promise<SiteLanguages> {
     const currency = currencyCode(m?.currency)
     if (!m || m.primary === true || m.active === false || !currency || typeof m.id !== "string") continue
     const countries = (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c))
-    markets.push({ id: m.id, name: typeof m.name === "string" ? m.name : m.id, countries, currency, primary: false, rounding: (["none", "whole", "nine_nine"].includes(String(m.rounding)) ? m.rounding : "none") as PriceRounding, adjustBps: Number(m.adjustBps) || 0 })
+    markets.push({ id: m.id, name: typeof m.name === "string" ? m.name : m.id, countries, currency, primary: false, rounding: (["none", "whole", "nine_nine"].includes(String(m.rounding)) ? m.rounding : "none") as PriceRounding, adjustBps: Number(m.adjustBps) || 0, ...(typeof m.rate === "number" && m.rate > 0 ? { rate: m.rate } : {}) })
   }
   return { saved: true, defaultLanguage: def, others, markets, homeCountry }
 }
@@ -203,15 +203,13 @@ export async function languageChoice(creatorId: string, locale: string | null | 
   if (!langs.saved) return undefined
   const all = [langs.defaultLanguage, ...langs.others]
   const code = (locale && all.find((l) => l.toLowerCase() === locale.toLowerCase())) || langs.defaultLanguage
-  /* The currencies a visitor can see prices in: the store's own, and each market's that has fresh rates. */
+  /* The currencies a visitor can see prices in: the store's own, and each market's that converts today (fresh rates, or the store's own rate for it). */
   const pricing = await marketPricing(creatorId, market, SHOP_CURRENCY)
   const rates = langs.markets.length ? await cachedRates().catch(() => null) : null
-  const fresh = langs.markets.length ? fxFresh(rates) : false
   const charge = platformChargeCurrencyUpper()
-  /* A market whose currency has no rate today is not offered: picked, it would show the store's prices and snap back to home. */
-  const currencies = fresh && langs.markets.length
-    ? [{ id: "home", label: SHOP_CURRENCY, country: "home" }, ...langs.markets.filter((m) => m.countries.length && pricingFor(m, SHOP_CURRENCY, rates)).map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))]
-    : []
+  /* A market whose currency cannot be converted today is not offered: picked, it would show the store's prices and snap back to home. */
+  const offered = langs.markets.filter((m) => m.countries.length && pricingFor(m, SHOP_CURRENCY, rates))
+  const currencies = offered.length ? [{ id: "home", label: SHOP_CURRENCY, country: "home" }, ...offered.map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))] : []
   return {
     code,
     defaultLanguage: langs.defaultLanguage,

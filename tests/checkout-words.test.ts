@@ -87,7 +87,7 @@ check("no checkout part still says a bare English sentence the scanner cannot se
 
 console.log("\nA website written in another language")
 check("English is told apart", isEnglish("en") && isEnglish("en-GB") && !isEnglish("fr") && !isEnglish("es"))
-check("only the shop's words, the checkout's and the emails' are translated into its own language", BUILT_IN_GROUPS.has("ui") && BUILT_IN_GROUPS.has("checkout") && BUILT_IN_GROUPS.has("emails") && BUILT_IN_GROUPS.size === 3 && isBuiltInWordKey("checkout:abcd1234") && isBuiltInWordKey("ui:cart") && !isBuiltInWordKey(`product:${P1}:title`))
+check("only the words Storelib writes (the shop's, the checkout's, the emails') and the theme's own are translated into its own language", BUILT_IN_GROUPS.has("ui") && BUILT_IN_GROUPS.has("checkout") && BUILT_IN_GROUPS.has("emails") && BUILT_IN_GROUPS.has("theme-words") && BUILT_IN_GROUPS.size === 4 && isBuiltInWordKey("checkout:abcd1234") && isBuiltInWordKey("ui:cart") && !isBuiltInWordKey(`product:${P1}:title`))
 const route = read("app/api/store/translations/route.ts")
 check("the translations list opens for it, with those groups only", /const own = !!asked && asked === loc\.defaultLanguage && !isEnglish\(asked\)/.test(route) && /groups\.filter\(\(g\) => !own \|\| BUILT_IN_GROUPS\.has\(g\.id\)\)/.test(route))
 check("  and refuses any other text in it", /!isBuiltInWordKey\(i\.key\)\)\) return physicalJson\(\{ error: "Your website is already written in this language\." \}, 400\)/.test(route))

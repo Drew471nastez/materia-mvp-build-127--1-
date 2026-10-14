@@ -57,6 +57,13 @@ export interface Market {
   rounding: PriceRounding
   /** A price adjustment for this market, in hundredths of a percent (250 = +2.5%), -5000 to 10000. */
   adjustBps: number
+  /**
+   * The store's own exchange rate for this market, instead of the day's
+   * European Central Bank one: how much of the market's currency one unit
+   * of the store's is (1 RON = 0.2 EUR is 0.2). Never goes stale. Absent,
+   * the day's rate (lib/markets/pricing.ts pricingFor).
+   */
+  rate?: number | null
 }
 
 export interface Localization {
@@ -136,7 +143,11 @@ export function validateLocalization(input: unknown, opts: { baseCurrency: strin
     const rounding = ROUNDINGS.includes(r.rounding as PriceRounding) ? (r.rounding as PriceRounding) : "none"
     const adjust = Math.round(Number(r.adjustBps ?? 0))
     if (!Number.isFinite(adjust) || adjust < -5000 || adjust > 10000) return { ok: false, error: tt("{name}: keep the price adjustment between -50% and +100%.", { name }) }
-    markets.push({ id, name, countries, currency: currency === opts.baseCurrency ? null : currency, language, active: r.active !== false, primary: r.primary === true, rounding, adjustBps: adjust })
+    /* Its own exchange rate, when the store set one: a positive number, at most six significant digits kept. */
+    const rawRate = r.rate === null || r.rate === undefined || r.rate === "" ? null : Number(r.rate)
+    if (rawRate !== null && (!Number.isFinite(rawRate) || rawRate <= 0 || rawRate > 1_000_000)) return { ok: false, error: tt("{name}: the exchange rate has to be a number above 0.", { name }) }
+    const rate = rawRate === null ? null : Number(rawRate.toPrecision(6))
+    markets.push({ id, name, countries, currency: currency === opts.baseCurrency ? null : currency, language, active: r.active !== false, primary: r.primary === true, rounding, adjustBps: adjust, ...(rate !== null && currency && currency !== opts.baseCurrency ? { rate } : {}) })
   }
   if (markets.length === 0) markets.push(defaultLocalization(null, defaultLanguage).markets[0])
   const primaries = markets.filter((m) => m.primary)
@@ -147,6 +158,7 @@ export function validateLocalization(input: unknown, opts: { baseCurrency: strin
   home.adjustBps = 0
   home.rounding = "none"
   home.active = true
+  delete home.rate
   return { ok: true, value: { defaultLanguage, languages, markets, visitorLanguage: raw.visitorLanguage === true, autoTranslate: raw.autoTranslate === true } }
 }
 

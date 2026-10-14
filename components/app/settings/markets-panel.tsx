@@ -54,7 +54,7 @@ interface Loaded {
   autoTranslate?: { run: { at: string; translated: number; left: number; error?: string } | null; available: boolean }
   baseCurrency: string
   chargeCurrency: string
-  fx: { asOf: string; fresh: boolean; currencies: string[] } | null
+  fx: { asOf: string; fresh: boolean; currencies: string[]; rates?: Record<string, number> } | null
 }
 
 const ROUNDING_LABEL: Record<PriceRounding, string> = {
@@ -323,6 +323,7 @@ export function MarketsPanel() {
         baseCurrency={data.baseCurrency}
         chargeCurrency={data.chargeCurrency}
         currencies={data.fx?.currencies ?? []}
+        rates={data.fx?.fresh ? data.fx.rates ?? null : null}
         onClose={() => setEditing(null)}
         onRemove={(id) => {
           setEditing(null)
@@ -415,6 +416,7 @@ function MarketEditor({
   baseCurrency,
   chargeCurrency,
   currencies,
+  rates,
   onClose,
   onDone,
   onRemove,
@@ -424,6 +426,8 @@ function MarketEditor({
   baseCurrency: string
   chargeCurrency: string
   currencies: string[]
+  /** The day's rates per euro, for the exchange rate field's hint; null when they are not in. */
+  rates?: Record<string, number> | null
   onClose: () => void
   onDone: (m: Market) => void
   onRemove: (id: string) => void
@@ -438,14 +442,20 @@ function MarketEditor({
   const [m, setM] = React.useState<Market>(fresh)
   const [query, setQuery] = React.useState("")
   const [more, setMore] = React.useState(false)
+  /* The exchange rate as typed ("0.2", "0,2"), kept as text so a half typed number is not lost. */
+  const [rateText, setRateText] = React.useState("")
   React.useEffect(() => {
     if (market) {
       const next = fresh()
       setM(next)
       setQuery("")
-      setMore(next.rounding !== "none" || next.adjustBps !== 0)
+      setRateText(typeof next.rate === "number" ? String(next.rate) : "")
+      setMore(next.rounding !== "none" || next.adjustBps !== 0 || typeof next.rate === "number")
     }
   }, [market, fresh])
+  /* Today's rate, 1 of the store's currency in this market's, as the field's hint (per euro, as the ECB writes them). */
+  const perEuro = (c: string) => (c === "EUR" ? 1 : rates?.[c] ?? null)
+  const todays = m.currency && perEuro(baseCurrency) && perEuro(m.currency) ? Number((perEuro(m.currency)! / perEuro(baseCurrency)!).toPrecision(4)) : null
   const elsewhere = new Map(localization.markets.filter((x) => x.id !== m.id).flatMap((x) => x.countries.map((c) => [c, x.name] as const)))
   const q = query.trim().toLowerCase()
   const shown = q ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q) : []
@@ -594,7 +604,7 @@ function MarketEditor({
         {!m.primary && m.currency ? (
           <div className="rounded-xl border border-[#eceef1]">
             <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex w-full items-center justify-between px-3.5 py-3 text-left text-[13.5px] font-medium text-[#1a1a2e]">
-              {tt("Rounding and price adjustment")}
+              {tt("Rounding, adjustment and exchange rate")}
               <ChevronDown aria-hidden className={cn("h-4 w-4 text-[#6b7280] transition-transform", more && "rotate-180")} />
             </button>
             {more ? (
@@ -616,6 +626,25 @@ function MarketEditor({
                     onChange={(e) => {
                       const n = Number(e.target.value.replace(",", "."))
                       setM({ ...m, adjustBps: Number.isFinite(n) ? Math.max(-5000, Math.min(10000, Math.round(n * 100))) : 0 })
+                    }}
+                  />
+                </Field>
+                {/* The store's own rate instead of the day's (lib/markets/pricing.ts pricingFor): empty, the day's. */}
+                <Field
+                  label={tt("Exchange rate")}
+                  hint={todays ? tt("1 {base} = this many {currency}. Empty uses today's rate, {rate}.", { base: baseCurrency, currency: m.currency, rate: todays }) : tt("1 {base} = this many {currency}. Empty uses the day's rate.", { base: baseCurrency, currency: m.currency })}
+                  className="sm:col-span-2"
+                >
+                  <TextInput
+                    inputMode="decimal"
+                    value={rateText}
+                    placeholder={todays ? String(todays) : ""}
+                    data-market-rate=""
+                    onChange={(e) => {
+                      const text = e.target.value.replace(/[^0-9.,]/g, "").slice(0, 14)
+                      setRateText(text)
+                      const n = Number(text.replace(",", "."))
+                      setM({ ...m, rate: text && Number.isFinite(n) && n > 0 ? n : null })
                     }}
                   />
                 </Field>

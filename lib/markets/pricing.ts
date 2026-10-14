@@ -19,6 +19,8 @@ export interface MarketPrice {
   currency: string
   rounding: PriceRounding
   adjustBps: number
+  /** The store's own rate (1 of the store's currency in the market's), used instead of the day's (lib/markets/model.ts Market rate). */
+  rate?: number | null
 }
 
 export interface Pricing {
@@ -65,6 +67,14 @@ export function storeCentsFromShown(shownCents: number, display: StorefrontDispl
   return Math.round((adjusted / 10 ** minorUnits(display.base)) * 100)
 }
 
+/** A market's own rate as a day's rates: 1 of `base` is `rate` of `currency`, everything per euro as the ECB writes it. */
+export function ownRates(base: string, currency: string, rate: number, now = Date.now()): FxRates {
+  const asOf = new Date(now).toISOString().slice(0, 10)
+  if (base === "EUR") return { asOf, rates: { [currency]: rate } }
+  if (currency === "EUR") return { asOf, rates: { [base]: 1 / rate } }
+  return { asOf, rates: { [base]: 1, [currency]: rate } }
+}
+
 /**
  * Product cards with their prices in the market's currency: the card's price
  * and the one before a sale, each option's, and the currency it says. The
@@ -89,6 +99,8 @@ export function convertCardPrices<T extends { settings: { price: string; compare
 /** The conversion for a market, or null when it shows the store's own prices (no currency of its own, the same currency, or no fresh rates). */
 export function pricingFor(market: MarketPrice | null | undefined, base: string, fx: FxRates | null | undefined, now = Date.now()): Pricing | null {
   if (!market || !market.currency || market.currency === base) return null
+  /* The store's own rate, written as the rates are (per euro), and today's: it never goes stale. */
+  if (typeof market.rate === "number" && market.rate > 0) fx = ownRates(base, market.currency, market.rate, now)
   const probe = convertMinor(100, base, market.currency, fx, { now })
   if (probe === null) return null
   const convert = (minor: number) => convertMinor(minor, base, market.currency, fx, { now, rounding: market.rounding, adjustBps: market.adjustBps })
