@@ -23,12 +23,12 @@
  * app/api/store/currency does the change in one transaction (SQL part 176).
  */
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import { Check } from "lucide-react"
 import { countryName } from "@/lib/checkout/countries"
 import { countryOf } from "@/lib/account/country"
 import { suggestedCurrencyFor, unsupportedLocalCurrency } from "@/lib/store/selling-currency"
 import { formatStoreMoney } from "@/lib/store/currency"
+import { STORE_CURRENCY_EVENT } from "@/lib/store/currency-context"
 import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, api, peekGet } from "@/components/physical/ui"
 import { CountryFlag, CountryPicker } from "./country-picker"
 import { cn } from "@/lib/utils"
@@ -73,10 +73,9 @@ export function CountryCurrency() {
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [editing, setEditing] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
-  const router = useRouter()
-  /* Every price field under /app takes its currency from the layout (app/app/layout.tsx): read again once it changes. */
+  /* Every price field under /app takes its currency from the layout (app/app/layout.tsx LiveStoreCurrency): told at once when it changes. */
   const changed = (next: CurrencyState) => {
-    if (next.currency !== data?.currency) router.refresh()
+    if (next.currency !== data?.currency) window.dispatchEvent(new CustomEvent(STORE_CURRENCY_EVENT, { detail: next.currency }))
     setData(next)
   }
 

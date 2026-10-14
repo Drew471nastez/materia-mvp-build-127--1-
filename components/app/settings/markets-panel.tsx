@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  SETTINGS › MARKETS AND LANGUAGES
+ *  SETTINGS › LANGUAGES
  * ===========================================================================
  * For the store's own website (lib/markets). Simple by default: a website
  * with nothing set here is exactly as it was, one language and the store's
@@ -31,8 +31,8 @@
  * compat.ts), and checkout says what the card is charged in.
  */
 import * as React from "react"
-import { Check, ChevronDown, ChevronRight, Globe2, Plus, Search, Trash2, X } from "lucide-react"
-import { Switch } from "@/components/ui/switch"
+import { Check, ChevronDown, ChevronRight, Ellipsis, Globe2, Plus, Search, Trash2, X } from "lucide-react"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, Pill, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { REGIONS } from "@/lib/markets/regions"
@@ -101,6 +101,44 @@ export function MarketsPanel() {
   const [translating, setTranslating] = React.useState<string | null>(null)
   const savedRef = React.useRef<Localization | null>(draft)
   const queue = React.useRef<Promise<void>>(Promise.resolve())
+  /* Each added language's texts: translated and live, drafted to review, still to do (/api/store/translations?summary=1). */
+  const [progress, setProgress] = React.useState<Record<string, { done: number; draft: number; todo: number; total: number }> | null>(null)
+  /* A translation running now, by language: how far it is, or why it stopped. */
+  const [drafting, setDrafting] = React.useState<Record<string, { state: "running"; done: number; total: number } | { state: "error"; message: string }>>({})
+
+  const loadProgress = React.useCallback(async () => {
+    const r = await api<{ progress: Record<string, { done: number; draft: number; todo: number; total: number }> }>("/api/store/translations?summary=1")
+    if (r.ok) setProgress(r.data.progress)
+  }, [])
+  React.useEffect(() => {
+    void loadProgress()
+  }, [loadProgress])
+
+  /* TRANSLATE WITH AI: the drafts in batches until nothing is left, as the sheet does (app/api/store/translations/draft), with the count on the row. */
+  const translateWithAi = async (code: string) => {
+    const before = progress?.[code]
+    let total = before ? before.total : 0
+    let done = before ? before.done + before.draft : 0
+    setDrafting((d) => ({ ...d, [code]: { state: "running", done, total } }))
+    for (let press = 0; press < 12; press++) {
+      const r = await api<{ drafted: number; left: number }>("/api/store/translations/draft", { method: "POST", body: { locale: code }, timeoutMs: 110_000 })
+      if (!r.ok) {
+        setDrafting((d) => ({ ...d, [code]: { state: "error", message: r.error } }))
+        void loadProgress()
+        return
+      }
+      done += r.data.drafted
+      total = Math.max(total, done + r.data.left)
+      setDrafting((d) => ({ ...d, [code]: { state: "running", done, total } }))
+      if (!r.data.left || r.data.drafted === 0) break
+    }
+    setDrafting((d) => {
+      const next = { ...d }
+      delete next[code]
+      return next
+    })
+    void loadProgress()
+  }
 
   React.useEffect(() => {
     void api<Loaded>(PATH).then((r) => {
@@ -151,7 +189,7 @@ export function MarketsPanel() {
 
   return (
     <div className="space-y-4 sm:space-y-6" data-markets-panel="">
-      {!data.ready ? <Notice tone="amber">{tt("Markets and languages aren't set up yet. Run SQL part 136 in Supabase, then come back here.")}</Notice> : null}
+      {!data.ready ? <Notice tone="amber">{tt("Languages aren't set up yet. Run SQL part 136 in Supabase, then come back here.")}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
 
       <Card
@@ -164,8 +202,11 @@ export function MarketsPanel() {
           <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3" data-language-default={draft.defaultLanguage}>
             <LanguageBadge code={draft.defaultLanguage} />
             <span className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
-              <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(draft.defaultLanguage)}</span>
-              <span className="block text-[12.5px] text-[#6b7280]">{tt("Default · your website as it is written")}</span>
+              <span className="flex items-center gap-2">
+                <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(draft.defaultLanguage)}</span>
+                <Pill tone="gray">{tt("Default")}</Pill>
+              </span>
+              <span className="block text-[12.5px] text-[#6b7280]">{tt("Your website as it is written")}</span>
             </span>
             {/* Written in another language than English: the cart's and the checkout's words, which Storelib writes in English, are translated here (lib/markets/translate BUILT_IN_GROUPS). */}
             {isEnglish(draft.defaultLanguage) ? null : (
@@ -192,116 +233,181 @@ export function MarketsPanel() {
               <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b7280]" />
             </label>
           </li>
-          {draft.languages.map((l) => (
-            <li key={l.code} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3" data-language={l.code}>
-              <LanguageBadge code={l.code} />
-              <span className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
-                <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(l.code)}</span>
-                <span className="block text-[12.5px] text-[#6b7280]">
-                  /{l.code.toLowerCase()} · {l.published ? tt("Live on your website") : tt("Hidden until published")}
-                </span>
-              </span>
-              {/* Wraps on a phone: "Przetłumacz", "Opublikowana" and the bin are wider than Translate and Published. */}
-              <span className="ml-12 flex flex-wrap items-center gap-2 sm:ml-0">
-                <button type="button" className={cn(BTN_SECONDARY, "h-9 px-3")} onClick={() => setTranslating(l.code)} data-translate-language={l.code}>
-                  {tt("Translate")}
-                </button>
-                <label className="flex items-center gap-2 pl-1 text-[12.5px] font-medium text-[#4b5563]">
-                  <span>{tt("Published")}</span>
-                  <Switch checked={l.published} onCheckedChange={(v) => setPublished(l.code, v)} aria-label={tt("Publish {name}", { name: languageName(l.code, activeLocale()) })} />
-                </label>
-                <button
-                  type="button"
-                  aria-label={tt("Remove {name}", { name: languageName(l.code, activeLocale()) })}
-                  className={cn(BTN_GHOST, "w-9 px-0 text-[#6b7280]")}
-                  onClick={() => {
-                    if (!window.confirm(tt("Remove {name}? Its translations are kept, in case you add it again.", { name: languageName(l.code, activeLocale()) }))) return
-                    commit({ ...draft, languages: draft.languages.filter((x) => x.code !== l.code), markets: draft.markets.map((m) => (m.language === l.code ? { ...m, language: null } : m)) })
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </span>
-            </li>
-          ))}
+          {draft.languages.map((l) => {
+            const p = progress?.[l.code] ?? null
+            const run = drafting[l.code] ?? null
+            const name = languageName(l.code, activeLocale())
+            const menu: ActionMenuItem[] = [
+              { label: tt("Review and edit"), onClick: () => setTranslating(l.code) },
+              ...(p && p.todo > 0 && !(run && run.state === "running") ? [{ label: tt("Translate the rest with AI"), onClick: () => void translateWithAi(l.code) }] : []),
+              { label: l.published ? tt("Unpublish") : tt("Publish"), onClick: () => setPublished(l.code, !l.published) },
+              {
+                label: tt("Remove"),
+                variant: "destructive" as const,
+                separatorBefore: true,
+                onClick: () => {
+                  if (!window.confirm(tt("Remove {name}? Its translations are kept, in case you add it again.", { name }))) return
+                  commit({ ...draft, languages: draft.languages.filter((x) => x.code !== l.code), markets: draft.markets.map((m) => (m.language === l.code ? { ...m, language: null } : m)) })
+                },
+              },
+            ]
+            return (
+              <li key={l.code} className="px-3.5 py-3" data-language={l.code} data-language-state={run?.state === "running" ? "translating" : l.published ? "published" : "hidden"}>
+                <div className="flex items-center gap-3">
+                  <LanguageBadge code={l.code} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(l.code)}</span>
+                      {run?.state === "running" ? <Pill tone="blue">{tt("Translating")}</Pill> : l.published ? <Pill tone="green">{tt("Published")}</Pill> : <Pill tone="gray">{tt("Hidden")}</Pill>}
+                    </span>
+                    <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]" data-language-progress="">
+                      {run?.state === "running"
+                        ? tt("{done} of {total} texts", { done: run.done, total: run.total })
+                        : p
+                          ? [
+                              `/${l.code.toLowerCase()}`,
+                              tt("{done} of {total} translated", { done: p.done, total: p.total }),
+                              p.draft > 0 ? tt("{count} to review", { count: p.draft }) : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")
+                          : `/${l.code.toLowerCase()}`}
+                    </span>
+                  </span>
+                  {/* The next step, by where it is: drafts waiting to be read, or a language ready to go live. Everything else is in the menu. */}
+                  {run?.state === "running" ? null : p && p.draft > 0 ? (
+                    <button type="button" className={cn(BTN_SECONDARY, "h-9 shrink-0 px-3")} onClick={() => setTranslating(l.code)} data-translate-language={l.code}>
+                      {tt("Review")}
+                    </button>
+                  ) : !l.published && p && p.done > 0 ? (
+                    <button type="button" className={cn(BTN_PRIMARY, "h-9 shrink-0 px-3")} onClick={() => setPublished(l.code, true)} data-publish-language={l.code}>
+                      {tt("Publish")}
+                    </button>
+                  ) : p && p.done === 0 && p.todo > 0 ? (
+                    /* Nothing translated yet (AI stopped, or it was added without it): start it, by AI where it is on, else by hand. */
+                    <button
+                      type="button"
+                      className={cn(BTN_SECONDARY, "h-9 shrink-0 px-3")}
+                      onClick={() => (data.autoTranslate?.available === false ? setTranslating(l.code) : void translateWithAi(l.code))}
+                      data-start-translation={l.code}
+                    >
+                      {tt("Translate")}
+                    </button>
+                  ) : null}
+                  <ResponsiveActionMenu
+                    title={name}
+                    items={menu}
+                    trigger={
+                      <button type="button" aria-label={tt("More for {name}", { name })} className={cn(BTN_GHOST, "w-9 shrink-0 px-0 text-[#6b7280]")} data-language-menu={l.code}>
+                        <Ellipsis className="h-4 w-4" />
+                      </button>
+                    }
+                  />
+                </div>
+                {run?.state === "running" ? (
+                  <div className="ml-12 mt-2 h-1 overflow-hidden rounded-full bg-[#eef0f2]" role="progressbar" aria-valuemin={0} aria-valuemax={run.total} aria-valuenow={run.done} aria-label={tt("Translating {name}", { name })}>
+                    <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${run.total ? Math.min(100, Math.round((run.done / run.total) * 100)) : 4}%` }} />
+                  </div>
+                ) : run?.state === "error" ? (
+                  <p className="ml-12 mt-1.5 flex flex-wrap items-center gap-x-2 text-[12.5px] leading-[18px] text-[#b45309]" data-language-error="">
+                    <span>{run.message}</span>
+                    <button type="button" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline" onClick={() => void translateWithAi(l.code)}>
+                      {tt("Try again")}
+                    </button>
+                  </p>
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
         <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setPicking(true)} disabled={!data.ready} data-add-language="">
           <Plus className="h-4 w-4" />
-          {tt("Add a language")}
+          {tt("Add language")}
         </button>
-        {/* Show visitors their own language (lib/markets/visitor-language.ts): saved as it is switched, like the rest. */}
-        <div className="mt-4 border-t border-[#f1f2f4] pt-4" data-visitor-language="">
-          <Toggle
-            id="visitor-language"
-            label={tt("Show visitors their own language")}
-            description={
-              draft.languages.some((l) => l.published)
-                ? tt("A first visit opens in the language the visitor's browser asks for, once, on your website and your storelib.com page. A close match gets a small offer instead.")
-                : tt("Works once a language is published: a first visit opens in the language the visitor's browser asks for.")
-            }
-            checked={draft.visitorLanguage === true}
-            disabled={!data.ready}
-            onChange={(v) => commit({ ...draft, visitorLanguage: v })}
-          />
-        </div>
-        {/* Translate changes automatically (lib/markets/auto-translate.ts): saved as it is switched, like the rest. */}
-        <div className="mt-4 border-t border-[#f1f2f4] pt-4" data-auto-translate="">
-          <Toggle
-            id="auto-translate"
-            label={tt("Translate changes automatically")}
-            description={
-              data.autoTranslate?.available === false
-                ? tt("Storelib AI isn't available right now. You can still translate each text yourself.")
-                : draft.languages.length === 0
-                  ? tt("Works once you add a language: each hour, text you add or change is translated and goes live.")
-                  : tt("Each hour, text you add or change is translated into your other languages and goes live. Translations you wrote are never replaced.")
-            }
-            checked={draft.autoTranslate === true}
-            disabled={!data.ready || (data.autoTranslate?.available === false && draft.autoTranslate !== true)}
-            onChange={(v) => commit({ ...draft, autoTranslate: v })}
-          />
-          {draft.autoTranslate && data.autoTranslate?.run ? <AutoTranslateRunLine run={data.autoTranslate.run} /> : null}
-        </div>
+        {/* The two switches most stores never touch, folded away (both saved as they are switched, like the rest). */}
+        <details className="group mt-4 border-t border-[#f1f2f4] pt-3" data-language-options="" open={draft.visitorLanguage === true || draft.autoTranslate === true ? true : undefined}>
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
+            <ChevronRight aria-hidden className="h-4 w-4 text-[#6b7280] transition-transform group-open:rotate-90" />
+            {tt("More options")}
+          </summary>
+          {/* Show visitors their own language (lib/markets/visitor-language.ts). */}
+          <div className="mt-3" data-visitor-language="">
+            <Toggle
+              id="visitor-language"
+              label={tt("Show visitors their own language")}
+              description={
+                draft.languages.some((l) => l.published)
+                  ? tt("A first visit opens in the language the visitor's browser asks for, once, on your website and your storelib.com page. A close match gets a small offer instead.")
+                  : tt("Works once a language is published: a first visit opens in the language the visitor's browser asks for.")
+              }
+              checked={draft.visitorLanguage === true}
+              disabled={!data.ready}
+              onChange={(v) => commit({ ...draft, visitorLanguage: v })}
+            />
+          </div>
+          {/* Translate changes automatically (lib/markets/auto-translate.ts). */}
+          <div className="mt-4 border-t border-[#f1f2f4] pt-4" data-auto-translate="">
+            <Toggle
+              id="auto-translate"
+              label={tt("Translate changes automatically")}
+              description={
+                data.autoTranslate?.available === false
+                  ? tt("Storelib AI isn't available right now. You can still translate each text yourself.")
+                  : draft.languages.length === 0
+                    ? tt("Works once you add a language: each hour, text you add or change is translated and goes live.")
+                    : tt("Each hour, text you add or change is translated into your other languages and goes live. Translations you wrote are never replaced.")
+              }
+              checked={draft.autoTranslate === true}
+              disabled={!data.ready || (data.autoTranslate?.available === false && draft.autoTranslate !== true)}
+              onChange={(v) => commit({ ...draft, autoTranslate: v })}
+            />
+            {draft.autoTranslate && data.autoTranslate?.run ? <AutoTranslateRunLine run={data.autoTranslate.run} /> : null}
+          </div>
+        </details>
       </Card>
 
+      {/* Optional: prices shown in a visitor's own currency, an estimate; checkout always charges the store's (Store details › Country & Currency). */}
       <Card
-        title={tt("Markets & Currency")}
+        title={tt("Visitor currencies")}
         help="markets"
-        description={tt("Show prices in your visitors' own currency.")}
+        description={tt("Optional. Visitors from other countries see prices converted to their currency. Checkout always charges {currency}.", { currency: data.chargeCurrency })}
       >
-        <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
-          {draft.markets.map((m) => (
-            <li key={m.id} data-market={m.id}>
-              <button type="button" onClick={() => setEditing(m)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#fafafb] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]">
-                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[13px]">
-                  {m.countries.length && !m.primary ? flagOf(m.countries[0]) : <Globe2 className="h-4 w-4 text-[#4b5563]" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                    <span className="truncate">{marketName(m)}</span>
-                    {m.primary && m.name.trim().toLowerCase() !== "home" ? <Pill tone="gray">{tt("Home")}</Pill> : null}
-                    {!m.active ? <Pill tone="gray">{tt("Off")}</Pill> : null}
-                  </span>
-                  <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">
-                    {m.primary ? tt("Everywhere else") : m.countries.length === 0 ? tt("No countries yet") : m.countries.length <= 3 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}
-                    {" · "}
-                    {m.currency ?? data.baseCurrency}
-                    {m.language ? ` · ${languageName(m.language, activeLocale())}` : ""}
-                  </span>
-                </span>
-                <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        {draft.markets.some((m) => !m.primary) ? (
+          <ul className="mb-3 divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
+            {draft.markets
+              .filter((m) => !m.primary)
+              .map((m) => (
+                <li key={m.id} data-market={m.id}>
+                  <button type="button" onClick={() => setEditing(m)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#fafafb] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]">
+                    <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[13px]">
+                      {m.countries.length ? flagOf(m.countries[0]) : <Globe2 className="h-4 w-4 text-[#4b5563]" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
+                        <span className="truncate">{m.currency ?? data.baseCurrency}</span>
+                        {!m.active ? <Pill tone="gray">{tt("Off")}</Pill> : null}
+                      </span>
+                      <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">
+                        {m.countries.length === 0 ? tt("No countries yet") : m.countries.length <= 3 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}
+                        {m.language ? ` · ${languageName(m.language, activeLocale())}` : ""}
+                      </span>
+                    </span>
+                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
+                  </button>
+                </li>
+              ))}
+          </ul>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
           <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")} disabled={!data.ready} data-add-market="">
             <Plus className="h-4 w-4" />
-            {tt("Add a market")}
+            {tt("Add a currency")}
           </button>
-          <span className="text-[12.5px] text-[#6b7280]" data-fx={data.fx ? (data.fx.fresh ? "fresh" : "old") : "none"}>
-            {data.fx ? (data.fx.fresh ? tt("Rates from {asOf}", { asOf: data.fx.asOf }) : tt("Rates from {asOf} are too old: your own prices show", { asOf: data.fx.asOf })) : tt("Exchange rates aren't in yet: your own prices show")}
-          </span>
+          {draft.markets.some((m) => !m.primary) ? (
+            <span className="text-[12.5px] text-[#6b7280]" data-fx={data.fx ? (data.fx.fresh ? "fresh" : "old") : "none"}>
+              {data.fx ? (data.fx.fresh ? tt("Rates from {asOf}", { asOf: data.fx.asOf }) : tt("Rates from {asOf} are too old: your own prices show", { asOf: data.fx.asOf })) : tt("Exchange rates aren't in yet: your own prices show")}
+            </span>
+          ) : null}
         </div>
         {home ? null : <Notice tone="amber" className="mt-3">{tt("Choose one market as your home.")}</Notice>}
       </Card>
@@ -313,8 +419,9 @@ export function MarketsPanel() {
         onPick={(code) => {
           setPicking(false)
           commit({ ...draft, languages: [...draft.languages, { code, published: false }] })
-          /* Straight into translating it: the next step is always the words. */
-          setTranslating(code)
+          /* Translated by Storelib AI straight away, with its progress on the row; then read, edit and publish it. Without AI, straight into translating by hand. */
+          if (data.autoTranslate?.available === false) setTranslating(code)
+          else void queue.current.then(() => translateWithAi(code))
         }}
       />
       <MarketEditor
@@ -342,7 +449,11 @@ export function MarketsPanel() {
         published={!!draft.languages.find((l) => l.code === translating)?.published}
         /* The website's own language has no publish switch: it is always live. */
         onPublish={translating && translating !== draft.defaultLanguage ? (v) => setPublished(translating, v) : undefined}
-        onClose={() => setTranslating(null)}
+        onClose={() => {
+          setTranslating(null)
+          /* What was approved or drafted there shows on its row. */
+          void loadProgress()
+        }}
       />
     </div>
   )

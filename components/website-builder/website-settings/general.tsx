@@ -120,7 +120,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
           label={tt("Languages")}
           hint={
             <a href="/app/settings?tab=markets" className={textLinkClass}>
-              {tt("Manage in Languages & Currency")}
+              {tt("Manage in Languages")}
             </a>
           }
           inline

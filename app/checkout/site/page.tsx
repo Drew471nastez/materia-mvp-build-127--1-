@@ -134,7 +134,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     })
     .catch(() => null)
   /* The checkout in the language of the page the visitor came from, or the one they chose on the website (lib/markets/checkout-language.ts). */
-  const languageRead = checkoutLanguage(site.creatorId, params.back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null }))
+  const languageRead = checkoutLanguage(site.creatorId, params.back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value, q.get("lang")).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null, available: undefined }))
   const [brand, config, buyer, ready, answer, currencies, language, store] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     checkoutBrandOf(site.creatorId),
@@ -188,6 +188,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       needsSignIn={gate.kind === "sign-in"}
       currencyNote={currencyNote}
       lang={language.lang}
+      languages={language.available && language.available.length > 1 ? language.available : undefined}
     />
     </CheckoutCurrency>
     </CheckoutWords>

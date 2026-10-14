@@ -14,6 +14,24 @@ export function StoreCurrencyProvider({ currency, children }: { currency: string
   return <StoreCurrency.Provider value={currencyMark(currency).code}>{children}</StoreCurrency.Provider>
 }
 
+/** The event Settings › Country & Currency sends when the store's currency changes, so every price field under /app follows at once. */
+export const STORE_CURRENCY_EVENT = "storelib:store-currency"
+
+/** StoreCurrencyProvider for the whole of /app (app/app/layout.tsx): from the server's read, then from the setting as it is changed. */
+export function LiveStoreCurrency({ currency, children }: { currency: string | null | undefined; children: React.ReactNode }) {
+  const [now, setNow] = React.useState(currency)
+  React.useEffect(() => setNow(currency), [currency])
+  React.useEffect(() => {
+    const on = (e: Event) => {
+      const next = (e as CustomEvent<string>).detail
+      if (typeof next === "string" && /^[A-Z]{3}$/.test(next)) setNow(next)
+    }
+    window.addEventListener(STORE_CURRENCY_EVENT, on)
+    return () => window.removeEventListener(STORE_CURRENCY_EVENT, on)
+  }, [])
+  return <StoreCurrencyProvider currency={now}>{children}</StoreCurrencyProvider>
+}
+
 export function useStoreCurrency(): string {
   return React.useContext(StoreCurrency)
 }

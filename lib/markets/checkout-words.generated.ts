@@ -282,6 +282,7 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "Remove {title}",
   "Remove",
   "Max {count}",
+  "Language",
   "Your purchase",
   "Thank you, {name}",
   "Thank you for your order",

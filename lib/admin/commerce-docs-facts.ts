@@ -103,9 +103,10 @@ const CHECKOUT_LABELS: Record<keyof CheckoutConfig, string> = {
   address2: "Address line 2",
   buyerCancel: "Let buyers ask to cancel",
   cashOnDelivery: "Cash on delivery",
-  codCountries: "Cash on delivery: where",
-  codFeeCents: "Cash on delivery: fee",
-  codInstructions: "Cash on delivery: note for the buyer",
+  /* Cash on delivery's options, by the names its card gives them (they follow its row). */
+  codCountries: "Where",
+  codFeeCents: "Fee",
+  codInstructions: "Note for the buyer",
 }
 
 const word = (v: unknown): string => {

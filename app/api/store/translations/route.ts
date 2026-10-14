@@ -56,6 +56,30 @@ export async function GET(request: Request) {
     for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash }
     return physicalJson({ locale, defaultLanguage: loc.defaultLanguage, languages, published, values })
   }
+  /*
+    ?summary=1, SETTINGS › LANGUAGES: for each added language, how many of
+    the website's texts are translated and live, drafted by AI to review,
+    and still to translate (missing, or changed since). One read of the
+    texts for all of them.
+  */
+  if (url.searchParams.get("summary") === "1") {
+    const items = (await siteTexts(c.db, c.creatorId)).flatMap((g) => g.items)
+    const progress: Record<string, { done: number; draft: number; todo: number; total: number }> = {}
+    await Promise.all(
+      loc.languages.map(async (l) => {
+        const map = translationMap((await translationsOf(c.db, c.creatorId, l.code)).rows)
+        const row = { done: 0, draft: 0, todo: 0, total: items.length }
+        for (const t of items) {
+          const s = statusOf(map.get(t.key), t.source)
+          if (s === "done") row.done++
+          else if (s === "draft") row.draft++
+          else row.todo++
+        }
+        progress[l.code] = row
+      }),
+    )
+    return physicalJson({ ready, progress })
+  }
   if (!locale) return physicalJson({ ready, locale: null, defaultLanguage: loc.defaultLanguage, languages, groups: [] })
   const [groups, saved] = await Promise.all([textsRead ?? siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])
   const map = translationMap(saved.rows)

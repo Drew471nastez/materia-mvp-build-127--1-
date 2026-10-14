@@ -170,6 +170,7 @@ export const EXPLAINERS = {
       tt("With Show visitors their own language on, a first visit opens in the published language the browser asks for, once. A close match, or only the country to go by, gets a small offer on the page instead. A market can also start its countries in its own language. After that the visitor's choice wins, and search engines still see every language at its own address."),
       tt("Only approved translations show, and only once a language is published. Anything not translated yet shows in your default language, never blank."),
     ] },
+    guide: "/help/physical-products/languages-and-currencies-for-visitors",
   },
   currency: {
     get title() { return tt("How your currency works") },
@@ -182,13 +183,14 @@ export const EXPLAINERS = {
     guide: "/help/physical-products/country-and-currency",
   },
   markets: {
-    get title() { return tt("How markets and currencies work") },
+    get title() { return tt("How visitor currencies work") },
     art: "markets",
     get lines() { return [
-      tt("A market is a group of countries. Give it a currency and its visitors see your prices converted at the day's European Central Bank rate, with the rounding you pick."),
-      tt("Visitors are matched by the country they browse from, and can change it with the currency or country selector. Their choice is remembered."),
-      tt("Checkout charges what your store's prices are in, and says so next to the total, so a converted price is always shown as an estimate."),
+      tt("Add a currency for a group of countries, and visitors from there see your prices converted at the day's European Central Bank rate, with the rounding you pick."),
+      tt("Visitors are matched by the country they browse from, and can change it with the currency selector. Their choice is remembered."),
+      tt("Checkout always charges your store's own currency and says so next to the total, so a converted price is shown as an estimate."),
     ] },
+    guide: "/help/physical-products/languages-and-currencies-for-visitors",
   },
 } satisfies Record<string, Explainer>
 

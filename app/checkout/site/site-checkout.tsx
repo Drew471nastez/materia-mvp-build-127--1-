@@ -37,7 +37,8 @@
 
 import { codCountryAllowed } from "@/lib/physical/cash-on-delivery"
 import * as React from "react"
-import { ChevronDown, MapPin, Minus, Package, Plus, ShoppingBag, Truck } from "lucide-react"
+import { ChevronDown, Globe2, MapPin, Minus, Package, Plus, ShoppingBag, Truck } from "lucide-react"
+import { languageName } from "@/lib/markets/locales"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes } from "@/lib/checkout/site-checkout"
@@ -97,6 +98,8 @@ export interface SiteCheckoutProps {
   currencyNote?: string | null
   /** The language the page is drawn in (../parts/words.tsx): the route translates the order's titles into it. */
   lang?: string
+  /** The website's languages, when it has more than one: the checkout's own selector under the payment. */
+  languages?: string[]
 }
 
 const PAID_SCREEN_MS = 1100
@@ -189,6 +192,7 @@ export function SiteCheckout({
   accountUrl = "/account",
   currencyNote = null,
   lang: pageLang,
+  languages,
 }: SiteCheckoutProps) {
   /* The store's own currency (<CheckoutCurrency> in ./page.tsx): every amount here is in it, and the card is charged in it. */
   const money = useMoney()
@@ -1283,6 +1287,7 @@ export function SiteCheckout({
               {quoteError && quote ? <div className="mb-5"><ErrorBanner>{ct(quoteError)}</ErrorBanner></div> : null}
               {payment}
               <PoweredByStripe />
+              {languages && pageLang ? <CheckoutLanguageSelect current={pageLang} languages={languages} /> : null}
             </div>
           </main>
         </div>
@@ -1367,6 +1372,42 @@ function LineControls({ title, quantity, max, stepper, busy, onChange, fix }: { 
         {ct("Remove")}
       </button>
       {stepper && atMax && max > 1 && quantity === max ? <span className="text-[12.5px] text-[#9ca3af]">{ct("Max {count}", { count: max })}</span> : null}
+    </div>
+  )
+}
+
+/**
+ * The checkout's own language selector, under the payment: each of the
+ * website's languages in its own words. A choice is kept as the website's
+ * (sl_lang) and the checkout is drawn again in it (?lang=, which wins over
+ * the page the visitor came from: lib/markets/checkout-language.ts). What
+ * was typed is kept by the browser's own form restore, the cart by its link.
+ */
+function CheckoutLanguageSelect({ current, languages }: { current: string; languages: string[] }) {
+  const ct = useCt()
+  return (
+    <div className="mt-4 flex justify-center" data-checkout-language="">
+      <label className="relative inline-flex items-center gap-1.5 text-[13px] text-[#6b7280]">
+        <span className="sr-only">{ct("Language")}</span>
+        <Globe2 aria-hidden className="h-3.5 w-3.5" />
+        <select
+          value={current}
+          onChange={(e) => {
+            const code = e.target.value
+            document.cookie = `sl_lang=${encodeURIComponent(code)}; path=/; max-age=31536000; samesite=lax`
+            const url = new URL(window.location.href)
+            url.searchParams.set("lang", code)
+            window.location.replace(url.toString())
+          }}
+          className="cursor-pointer appearance-none bg-transparent pr-1 text-[13px] text-[#4b5563] underline-offset-2 outline-none hover:underline focus-visible:underline"
+        >
+          {languages.map((c) => (
+            <option key={c} value={c}>
+              {languageName(c)}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   )
 }

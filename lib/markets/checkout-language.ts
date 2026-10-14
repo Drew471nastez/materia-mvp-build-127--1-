@@ -18,6 +18,8 @@ export interface CheckoutLanguage {
   lang: string
   words: Record<string, string>
   map: TranslationMap | null
+  /** The website's own language and its published ones, for the checkout's own language selector. */
+  available?: string[]
 }
 
 /** The published language asked for, or null for the website's own. */
@@ -29,16 +31,24 @@ export function pickCheckoutLanguage(others: readonly string[], back: string | n
   return (c && others.find((l) => l.toLowerCase() === c)) || null
 }
 
-export async function checkoutLanguage(creatorId: string, back: string | null | undefined, chosen: string | null | undefined): Promise<CheckoutLanguage> {
+/**
+ * `picked`: chosen on the checkout itself (its language selector, ?lang=),
+ * which wins over the page the visitor came from; the website's own
+ * language is a choice too.
+ */
+export async function checkoutLanguage(creatorId: string, back: string | null | undefined, chosen: string | null | undefined, picked?: string | null): Promise<CheckoutLanguage> {
   const langs = await siteLanguages(creatorId)
-  const asked = pickCheckoutLanguage(langs.others, back, chosen)
+  const available = [langs.defaultLanguage, ...langs.others]
+  const p = (picked ?? "").trim().toLowerCase()
+  const pickedOwn = !!p && p === langs.defaultLanguage.toLowerCase()
+  const asked = pickedOwn ? null : (p && langs.others.find((l) => l.toLowerCase() === p)) || pickCheckoutLanguage(langs.others, back, chosen)
   if (!asked) {
     /* The website's own language, when it is not English: its translations of the checkout's words (translate.ts BUILT_IN_GROUPS). */
-    if (isEnglish(langs.defaultLanguage)) return { lang: langs.defaultLanguage, words: {}, map: null }
+    if (isEnglish(langs.defaultLanguage)) return { lang: langs.defaultLanguage, words: {}, map: null, available }
     const rows = (await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => r.status === "approved" && isBuiltInWordKey(r.key))
-    return { lang: langs.defaultLanguage, words: checkoutWordsFrom(translationMap(rows)), map: null }
+    return { lang: langs.defaultLanguage, words: checkoutWordsFrom(translationMap(rows)), map: null, available }
   }
   const rows = await cachedTranslations(creatorId, asked).catch(() => [])
   const map = translationMap(rows.filter((r) => r.status === "approved"))
-  return { lang: asked, words: checkoutWordsFrom(map), map }
+  return { lang: asked, words: checkoutWordsFrom(map), map, available }
 }

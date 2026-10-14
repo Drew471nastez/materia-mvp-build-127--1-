@@ -5,7 +5,7 @@ import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
-import { StoreCurrencyProvider } from "@/lib/store/currency-context"
+import { LiveStoreCurrency } from "@/lib/store/currency-context"
 import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
@@ -268,9 +268,9 @@ export default async function AppLayout({
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it
               via html.capacitor .app-content-scroll to avoid double padding on iOS */}
           <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">
-            <StoreCurrencyProvider currency={storeCurrency}>
+            <LiveStoreCurrency currency={storeCurrency}>
               {teamStore && acting ? <TeamBar store={acting.name} role={acting.role} ownStore={!!ownCreator}>{children}</TeamBar> : children}
-            </StoreCurrencyProvider>
+            </LiveStoreCurrency>
           </div>
         </main>
         {/* Outside the page's scroll, so a drag on the sheet is never the page's pull to refresh. */}

@@ -38,6 +38,7 @@ const SUITES = [
   "tests/translation-integrity.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
+  "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
   "tests/order-emails-language.test.ts",

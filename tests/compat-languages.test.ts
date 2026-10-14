@@ -163,7 +163,7 @@ async function main() {
       check("a market's own language greets its visitors once, never a crawler, a script or checkout", /async function marketLanguageStart/.test(proxy) && /request\.cookies\.get\("sl_lang"\)/.test(proxy) && /CRAWLER\.test/.test(proxy) && /NEVER_STARTED = \/\^\\\/\(\?:checkout\|cart\|account/.test(proxy) && (proxy.match(/await marketLanguageStart\(request, /g) ?? []).length === 3)
       check("  and picking a language is remembered, on both kinds of theme", /sl_lang=\$\{chosen\.toLowerCase\(\)\}/.test(read("lib/storelib-theme/compat/site.ts")) && /document\.cookie = `sl_lang=/.test(read("components/website-builder/theme/language-switch.tsx")) && /name: "sl_lang"/.test(read("lib/consent/consent.ts")))
       check("  choosing the default language from /fr is not sent back to /fr", /sitePath !== "\/localization"/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
-      check("Languages and Markets each say how they work", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /title="Languages"\s*help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /title="Markets & Currency"\s*help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
+      check("Languages and Markets each say how they work", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /title="Languages"\s*help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /* And then: currency moved to Store details, so visitors' own currencies are an optional card. */ /title="Visitor currencies"\s*help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
     }
   }
 
@@ -180,7 +180,8 @@ async function main() {
   const panel = read("components/app/settings/markets-panel.tsx")
   check("every change saves as it is made, and a refusal puts the page back", /const commit = \(next: Localization\)/.test(panel) && /setDraft\(savedRef\.current\)/.test(panel) && !/data-markets-save/.test(panel))
   check("a language is added from a searchable list and opens straight into Translate", /function LanguagePicker/.test(panel) && /setTranslating\(code\)/.test(panel))
-  check("  published is a switch on its row and in Translate", /onCheckedChange=\{\(v\) => setPublished\(l\.code, v\)\}/.test(panel) && /data-translate-publish/.test(read("components/app/settings/translate-sheet.tsx")))
+  /* Changed on purpose: the row says where a language is (Default, Published, Translating) and offers its next step; Publish and Unpublish are in its menu too. */
+  check("  published from its row and its menu, and a switch in Translate", /data-publish-language=\{l\.code\}/.test(panel) && /label: l\.published \? "Unpublish" : "Publish", onClick: \(\) => setPublished\(l\.code, !l\.published\)/.test(panel) && /data-translate-publish/.test(read("components/app/settings/translate-sheet.tsx")))
   check("a market's countries go in a region at a time, or searched", /REGIONS\.map/.test(panel) && /data-market-chosen/.test(panel) && read("lib/markets/regions.ts").includes('id: "eu"'))
   check("AI translates everything in one press, batch after batch", /for \(let round = 0; round < 12; round\+\+\)/.test(read("components/app/settings/translate-sheet.tsx")))
   check("rates are fetched when the owner opens Markets and there are none fresh", /refreshRates\(c\.db\)/.test(read("app/api/store/markets/route.ts")))
