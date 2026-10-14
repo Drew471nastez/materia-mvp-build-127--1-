@@ -21,6 +21,7 @@
  *
  * Run with:  npm run test:push
  */
+import "./_usd"
 import { assembleLibrary, creatorKey, receiptsOf, visibleItems, type LibraryExtras } from "../lib/library/library-view"
 import type { DownloadRow } from "../lib/library/get-library-downloads"
 import { downloadJob, downloadJobs, removeJob } from "../lib/downloads/download-store"

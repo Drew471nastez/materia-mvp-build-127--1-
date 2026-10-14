@@ -9,6 +9,7 @@
  * saves only what can be shown: a compare-at price on a fixed price that it
  * is above, and a pay what you want product at its minimum.
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { listPrice, usd } from "../lib/pricing/list-price"
