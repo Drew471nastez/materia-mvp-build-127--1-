@@ -21,7 +21,6 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
-  "tests/claude-integration.test.ts",
   "tests/community-profile-j1.test.ts",
   "tests/surfaces25.test.ts",
   "tests/variants25.test.ts",
@@ -616,6 +615,14 @@ const SUITES = [
 const STRICT_SUITES = [
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
+  /*
+    The Claude provider's suite, here and not in the list above: its imports
+    (the Anthropic SDK's types) change how the loose compile reads other
+    files, and `value.match(...) ?? []` in a dozen of them became `never`,
+    stopping the whole run before any suite. Compiled strict on its own it is
+    clean.
+  */
+  "tests/claude-integration.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
