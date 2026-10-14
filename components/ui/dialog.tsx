@@ -1,5 +1,6 @@
 'use client'
 
+import { SCRIM } from "@/components/ui/scrim"
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
@@ -59,8 +60,8 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       className={cn(
         disableDefaultAnimations
-          ? 'fixed inset-0 z-[2147483638] bg-black/50'
-          : 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[2147483638] bg-black/50 duration-200 ease-sheet transition-none',
+          ? `fixed inset-0 z-[2147483638] ${SCRIM}`
+          : `data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[2147483638] ${SCRIM} duration-200 ease-sheet transition-none`,
         className,
       )}
       {...props}

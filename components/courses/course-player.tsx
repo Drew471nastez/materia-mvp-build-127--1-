@@ -335,13 +335,36 @@ export function CoursePlayer({
             {lesson ? (
               <>
                 <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
-                  <p className="truncate text-[12.5px] font-medium tabular-nums text-[#6b7280]">
-                    {lessons.length > 1 ? `Lesson ${lessonNumber(outline, lesson.id)} of ${lessons.length}` : "Lesson"}
-                    {moduleTitle ? <span className="text-[#9ca3af]"> · {moduleTitle}</span> : null}
-                  </p>
-                  <h2 className="mt-1 text-[20px] font-bold leading-[1.25] tracking-[-0.015em] text-[#1a1a2e] sm:text-[24px]" data-lesson-title="">
-                    {lesson.title}
-                  </h2>
+                  {/*
+                    ROUND 27, THE LESSON'S HEAD: where it sits and how long it is, its title, and Mark as complete beside the
+                    title from 640px (under it on a phone, the full width), so finishing a lesson is where the eye already is.
+                  */}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6" data-lesson-head="">
+                    <div className="min-w-0">
+                      <p className="truncate text-[12.5px] font-medium tabular-nums text-[#6b7280]">
+                        {lessons.length > 1 ? `Lesson ${lessonNumber(outline, lesson.id)} of ${lessons.length}` : "Lesson"}
+                        {moduleTitle ? <span className="text-[#9ca3af]"> · {moduleTitle}</span> : null}
+                        {lesson.durationSeconds ? <span className="text-[#9ca3af]"> · {lengthInWords(lesson.durationSeconds) || clock(lesson.durationSeconds)}</span> : null}
+                      </p>
+                      <h2 className="mt-1 text-[20px] font-bold leading-[1.25] tracking-[-0.015em] text-[#1a1a2e] sm:text-[24px]" data-lesson-title="">
+                        {lesson.title}
+                      </h2>
+                    </div>
+                    {keeps && !lesson.locked ? (
+                      <button
+                        type="button"
+                        data-mark-complete
+                        aria-pressed={done}
+                        onClick={() => setComplete(lesson.id, !done)}
+                        className={`${done ? INK_DONE : INK} h-11 w-full shrink-0 sm:mt-1 sm:h-10 sm:w-auto sm:px-4`}
+                      >
+                        <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full transition-colors duration-200 ${done ? "bg-[#1a1a2e] text-white" : "border-[1.5px] border-white/70"}`}>
+                          <Check className={`h-3 w-3 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${done ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} strokeWidth={3} />
+                        </span>
+                        {done ? "Completed" : "Mark as complete"}
+                      </button>
+                    ) : null}
+                  </div>
                   {lesson.notes ? (
                     <div className="mt-3 max-w-[68ch] sm:mt-4" data-lesson-text="">
                       <Notes text={lesson.notes} />
@@ -353,30 +376,15 @@ export function CoursePlayer({
                   ) : null}
                   {lesson.attachments.length > 0 ? <Attachments lesson={lesson} embedded /> : null}
                 </div>
-                <footer className="border-t border-[#eef0f2] px-4 py-4 sm:px-6" data-lesson-foot="">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    {keeps && !lesson.locked ? (
-                      <button
-                        type="button"
-                        data-mark-complete
-                        aria-pressed={done}
-                        onClick={() => setComplete(lesson.id, !done)}
-                        className={`${done ? INK_DONE : INK} h-12 w-full shrink-0 sm:w-auto sm:px-5`}
-                      >
-                        <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full transition-colors duration-200 ${done ? "bg-[#1a1a2e] text-white" : "border-[1.5px] border-white/70"}`}>
-                          <Check className={`h-3 w-3 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${done ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} strokeWidth={3} />
-                        </span>
-                        {done ? "Completed" : "Mark as complete"}
-                      </button>
-                    ) : null}
-                    {prev || next ? (
-                      <nav aria-label="Lessons either side" className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:ml-auto sm:max-w-[440px]">
-                        <PagerCell side="prev" lesson={prev} alone={!next} onPick={() => goTo(prev, false)} />
-                        <PagerCell side="next" lesson={next} alone={!prev} onPick={() => goTo(next, false)} />
-                      </nav>
-                    ) : null}
-                  </div>
-                </footer>
+                {/* The foot: the lessons either side, named, across the card. */}
+                {prev || next ? (
+                  <footer className="border-t border-[#eef0f2] px-4 py-4 sm:px-6" data-lesson-foot="">
+                    <nav aria-label="Lessons either side" className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
+                      <PagerCell side="prev" lesson={prev} alone={!next} onPick={() => goTo(prev, false)} />
+                      <PagerCell side="next" lesson={next} alone={!prev} onPick={() => goTo(next, false)} />
+                    </nav>
+                  </footer>
+                ) : null}
               </>
             ) : null}
             {data.contact !== false ? (
@@ -806,7 +814,13 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
               <div className="flex items-center justify-between gap-2 px-2.5 pb-1.5 pt-3">
                 <p className="min-w-0 truncate text-[12.5px] font-semibold text-[#6b7280]">{m.title}</p>
                 {data.access !== "preview" && m.lessons.length > 1 ? (
-                  <span className="shrink-0 text-[11px] tabular-nums text-[#9ca3af]">{doneCount}/{m.lessons.length}</span>
+                  <span className="flex shrink-0 items-center gap-2" data-module-progress="">
+                    {/* Round 27: each module's own progress, a hairline bar beside its count. */}
+                    <span aria-hidden className="h-1 w-10 overflow-hidden rounded-full bg-[#eceef1]">
+                      <span className={`block h-full rounded-full ${orange ? "bg-[#f26b1d]" : "bg-[#1a1a2e]"}`} style={{ width: `${Math.round((doneCount / m.lessons.length) * 100)}%` }} />
+                    </span>
+                    <span className="text-[11px] tabular-nums text-[#9ca3af]">{doneCount}/{m.lessons.length}</span>
+                  </span>
                 ) : null}
               </div>
             ) : null}
@@ -826,7 +840,7 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                       data-lesson-row={l.id}
                       data-lesson-current={current ? "" : undefined}
                       className={`group/lesson flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${
-                        current ? (orange ? "bg-[#fff4ec]" : "bg-[#f3f4f6]") : "hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
+                        current ? (orange ? "bg-[#fff4ec] shadow-[inset_2px_0_0_#f26b1d]" : "bg-[#f3f4f6] shadow-[inset_2px_0_0_#1a1a2e]") : "hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
                       } ${l.locked ? "cursor-default" : "cursor-pointer"}`}
                     >
                       {/* The lesson's place in the course: its number, a check once done, a lock while closed. */}

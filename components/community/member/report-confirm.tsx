@@ -18,6 +18,7 @@
  * The action button shows a spinner while it runs and the sheet stays (it
  * cannot be pulled away) until the answer comes; a refusal keeps it open.
  */
+import { SCRIM } from "@/components/ui/scrim"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -112,7 +113,7 @@ export function ConfirmSheet({ state, onClose }: { state: ConfirmState | null; o
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           style={{ zIndex: CONFIRM_Z }}
-          className="fixed inset-0 bg-[#0f1115]/35 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none"
+          className={`fixed inset-0 ${SCRIM} duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none`}
         />
         <DialogPrimitive.Content
           aria-describedby={undefined}

@@ -14,6 +14,7 @@
  * moderation queue (community_reports, through /api/community/<id>/reports,
  * which checks the member, the target and the rate).
  */
+import { SCRIM } from "@/components/ui/scrim"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useEffect, useState } from "react"
 import { Check, Loader2, X } from "lucide-react"
@@ -134,7 +135,7 @@ export function ReportSheet({ communityId, target, onClose }: { communityId: str
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => (!o ? close() : undefined)}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[140] bg-[#0f1115]/35 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none" />
+        <DialogPrimitive.Overlay className={`fixed inset-0 z-[140] ${SCRIM} duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none`} />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           /* The dialog itself takes the focus (no ring drawn on the close button as it opens); Tab goes on from there. */

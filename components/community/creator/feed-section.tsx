@@ -125,8 +125,22 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
       {head.can.post && spaces.length > 0 && !head.archived ? (
         <section className={cn(card, "px-4 py-3 sm:px-5")} data-composer="" data-open={open || undefined}>
           {!open ? (
-            <button type="button" onClick={() => setOpen(true)} className="flex min-h-11 w-full cursor-text items-center rounded-lg text-left text-[14.5px] text-[#9ca3af]" data-composer-open="">
-              {tt("Write a post to your members")}
+            /* Round 27: it reads as a place to write: the community's picture, the prompt in a field, and Post at its end. */
+            <button type="button" onClick={() => setOpen(true)} className="flex min-h-11 w-full cursor-text items-center gap-3 text-left" data-composer-open="">
+              {head.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={head.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] object-cover" />
+              ) : (
+                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#1a1a2e] text-[14px] font-semibold text-white">
+                  {head.name.trim().charAt(0).toUpperCase() || "C"}
+                </span>
+              )}
+              <span className="flex h-10 min-w-0 flex-1 items-center rounded-xl bg-[#f6f7f8] px-3.5 text-[14.5px] text-[#9ca3af] transition-colors duration-150 hover:bg-[#f1f2f4]">
+                <span className="truncate">{tt("Write a post to your members")}</span>
+              </span>
+              <span aria-hidden className="hidden h-9 shrink-0 items-center rounded-[10px] bg-[#1a1a2e] px-3.5 text-[13.5px] font-semibold text-white sm:inline-flex">
+                {tt("Post")}
+              </span>
             </button>
           ) : (
             <>
@@ -190,7 +204,17 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
         }
       >
         {rows.length === 0 ? (
-          show === "removed" ? <Empty title={tt("Nothing removed.")} /> : <Empty title={tt("No posts yet. Start the conversation.")} />
+          show === "removed" ? (
+            <Empty title={tt("Nothing removed.")} icon={MessageCircle} />
+          ) : (
+            <Empty title={tt("No posts yet.")} detail={tt("Start the conversation: say who it is for and how to begin.")} icon={MessageCircle}>
+              {head.can.post && spaces.length > 0 && !head.archived ? (
+                <button type="button" onClick={() => setOpen(true)} className={buttonPrimary} data-empty-write="">
+                  {tt("Write the first post")}
+                </button>
+              ) : null}
+            </Empty>
+          )
         ) : (
           <ul className="divide-y divide-[#f1f2f4]">
             {rows.map((r) => (

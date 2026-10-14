@@ -277,13 +277,31 @@ export function PickButton({ name, title, options, value, onPick, align = "start
   )
 }
 
-/** The short line when a list has nothing in it, and the one thing to do about it. */
-export function Empty({ title, detail, children }: { title: string; detail?: string; children?: React.ReactNode }) {
+/**
+ * The short line when a list has nothing in it, and the one thing to do about it (round 27: every list's empty state is
+ * this one, with the section's glyph in a soft disc above it when it has one, and its next step as a button).
+ */
+export function Empty({ title, detail, children, icon: Icon }: { title: string; detail?: string; children?: React.ReactNode; icon?: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }> }) {
   return (
-    <div data-empty="" className="px-6 py-10 text-center">
+    <div data-empty="" className="px-6 py-12 text-center">
+      {Icon ? (
+        <span aria-hidden className="mx-auto mb-3.5 grid h-11 w-11 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280]" data-empty-icon="">
+          <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+        </span>
+      ) : null}
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
       {detail ? <p className="mx-auto mt-1 max-w-sm text-[13.5px] leading-relaxed text-[#6b7280]">{detail}</p> : null}
       {children ? <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{children}</div> : null}
+    </div>
+  )
+}
+
+/** A list still on its way: the app's own spinner where the rows will be, never the word alone. */
+export function ListLoading() {
+  return (
+    <div data-list-loading="" aria-busy="true" className="grid place-items-center px-6 py-12">
+      <Loader2 aria-hidden className="h-5 w-5 animate-spin text-[#9ca3af] motion-reduce:animate-none" />
+      <span className="sr-only">{tt("Loading")}</span>
     </div>
   )
 }
@@ -421,61 +439,123 @@ export function PriceInput({ id, value, onChange, placeholder, invalid }: { id: 
  * pictures (lib/storage/chunked-upload: checked, stripped, stored in the
  * public picture bucket).
  */
+/** The largest picture PicturePick takes before resizing it here (a phone's 40MB photo goes up as a few hundred KB). */
+const PICTURE_MAX_BYTES = 25 * 1024 * 1024
+const PICTURE_TYPES = /^image\/(jpeg|png|webp|heic|heif)$/i
+
+/*
+  ROUND 27, THE OWNER: "image upload improvements". A logo or a cover now:
+    shows at once, from the file itself, while it goes up (no grey box with a spinner), with how far it is as a ring;
+    takes a picture dropped on it, not only one picked;
+    is made the size it is shown at before it leaves the device (lib/communities member media-compress: no HDR, no
+    location in the file, the long edge capped), so a phone's large photo goes up in a moment;
+    says what went wrong under itself, in words, when nobody else is listening for it.
+*/
 export function PicturePick({ value, onChange, shape, name, onError }: { value: string | null; onChange: (url: string | null) => void; shape: "square" | "wide"; name: string; onError?: (message: string) => void }) {
   const input = React.useRef<HTMLInputElement>(null)
   const [busy, setBusy] = React.useState(false)
-  const upload = async (file: File | undefined) => {
-    if (!file) return
+  const [percent, setPercent] = React.useState(0)
+  const [local, setLocal] = React.useState<string | null>(null)
+  const [over, setOver] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  React.useEffect(() => () => {
+    if (local) URL.revokeObjectURL(local)
+  }, [local])
+  const fail = (message: string) => {
+    if (onError) onError(message)
+    else setError(message)
+  }
+  const upload = async (picked: File | undefined) => {
+    if (!picked || busy) return
+    setError(null)
+    if (!PICTURE_TYPES.test(picked.type)) return fail(tt("That file is not a picture. Use a JPG, PNG or WebP."))
+    if (picked.size > PICTURE_MAX_BYTES) return fail(tt("That picture is over 25MB. Pick a smaller one."))
     setBusy(true)
-    const uploader = new DirectUploader({ file, folder: "product-images" })
+    setPercent(0)
+    const preview = URL.createObjectURL(picked)
+    setLocal(preview)
+    let file = picked
+    try {
+      const { compressPostPicture } = await import("@/components/community/member/media-compress")
+      file = await compressPostPicture(picked, { maxEdge: shape === "square" ? 800 : 2000, quality: 0.86 })
+    } catch {
+      /* A picture the browser cannot redraw goes up as it is. */
+    }
+    const uploader = new DirectUploader({ file, folder: "product-images", onProgress: (p) => setPercent(Math.round(p)) })
     try {
       const result = await uploader.start()
       if (result.publicUrl) onChange(result.publicUrl)
     } catch (e) {
-      onError?.((e as { message?: string })?.message || tt("The picture did not upload."))
+      fail((e as { message?: string })?.message || tt("The picture did not upload."))
+      setLocal(null)
     } finally {
       uploader.destroy()
       setBusy(false)
     }
   }
   const box = shape === "square" ? "h-16 w-16 rounded-2xl" : "h-16 w-full max-w-[208px] rounded-xl sm:w-[208px]"
+  const shown = busy ? local : value
+  const ring = 2 * Math.PI * 10
   return (
-    <div className="flex min-w-0 items-center gap-3" data-picture={shape}>
-      <button
-        type="button"
-        onClick={() => input.current?.click()}
-        disabled={busy}
-        aria-label={value ? tt("Change the {name}", { name }) : tt("Add a {name}", { name })}
-        className={cn("relative grid shrink-0 cursor-pointer place-items-center overflow-hidden border text-[#9ca3af] transition-colors", box, value ? "border-transparent" : "border-dashed border-[#d9dce1] bg-[#fafafb] hover:border-[#b9bdc4] hover:text-[#6b7280]")}
-      >
-        {value ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={optimizedImageUrl(value, shape === "square" ? 160 : 640)} alt="" className="absolute inset-0 h-full w-full object-cover" decoding="async" />
-        ) : busy ? (
-          <Loader2 aria-hidden className="h-5 w-5 animate-spin" />
-        ) : (
-          <ImagePlus aria-hidden className="h-5 w-5" />
-        )}
-        {value && busy ? (
-          <span className="absolute inset-0 grid place-items-center bg-white/70">
-            <Loader2 aria-hidden className="h-5 w-5 animate-spin text-[#1a1a2e]" />
-          </span>
-        ) : null}
-      </button>
-      <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = "" }} />
-      <div className="flex min-w-0 flex-col items-start gap-1">
-        <button type="button" onClick={() => input.current?.click()} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-          {busy ? tt("Uploading") : value ? tt("Change") : shape === "square" ? tt("Upload logo") : tt("Upload cover")}
+    <div className="min-w-0" data-picture={shape}>
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setOver(true)
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setOver(false)
+            void upload(e.dataTransfer.files?.[0])
+          }}
+          disabled={busy}
+          aria-label={value ? tt("Change the {name}", { name }) : tt("Add a {name}", { name })}
+          data-picture-drop={over ? "over" : undefined}
+          className={cn(
+            "relative grid shrink-0 cursor-pointer place-items-center overflow-hidden border text-[#9ca3af] transition-[border-color,background-color,box-shadow] duration-150",
+            box,
+            over ? "border-[#1a1a2e] bg-[#f1f2f4] shadow-[0_0_0_3px_rgba(26,26,46,0.08)]" : shown ? "border-transparent" : "border-dashed border-[#d9dce1] bg-[#fafafb] hover:border-[#b9bdc4] hover:text-[#6b7280]",
+          )}
+        >
+          {shown ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={busy ? shown : optimizedImageUrl(shown, shape === "square" ? 160 : 640)} alt="" className="absolute inset-0 h-full w-full object-cover" decoding="async" />
+          ) : (
+            <ImagePlus aria-hidden className="h-5 w-5" />
+          )}
+          {busy ? (
+            <span className="absolute inset-0 grid place-items-center bg-black/35" data-picture-progress={percent}>
+              <svg viewBox="0 0 24 24" className="h-7 w-7 -rotate-90" aria-hidden>
+                <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" />
+                <circle cx="12" cy="12" r="10" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={ring} strokeDashoffset={ring * (1 - Math.max(0.06, percent / 100))} className="transition-[stroke-dashoffset] duration-200" />
+              </svg>
+            </span>
+          ) : null}
         </button>
-        {value ? (
-          <button type="button" onClick={() => onChange(null)} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] sm:min-h-8 font-medium text-[#6b7280] hover:text-[#1a1a2e]">
-            <X aria-hidden className="h-3.5 w-3.5" />
-            {tt("Remove")}
+        <input ref={input} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = "" }} />
+        <div className="flex min-w-0 flex-col items-start gap-1">
+          <button type="button" onClick={() => input.current?.click()} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-8")}>
+            {busy ? tt("Uploading {percent}%", { percent }) : value ? tt("Change") : shape === "square" ? tt("Upload logo") : tt("Upload cover")}
           </button>
-        ) : (
-          <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? tt("Square, 400px or more") : tt("Wide, about 3 to 1")}</span>
-        )}
+          {value && !busy ? (
+            <button type="button" onClick={() => onChange(null)} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] sm:min-h-8 font-medium text-[#6b7280] hover:text-[#1a1a2e]">
+              <X aria-hidden className="h-3.5 w-3.5" />
+              {tt("Remove")}
+            </button>
+          ) : (
+            <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? tt("Square, 400px or more. Or drop it here.") : tt("Wide, about 3 to 1. Or drop it here.")}</span>
+          )}
+        </div>
       </div>
+      {error ? (
+        <p role="alert" className="mt-2 text-[12.5px] text-[#b42318]" data-picture-error="">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

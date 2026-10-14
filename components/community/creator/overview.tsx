@@ -19,7 +19,7 @@ import { money } from "@/lib/memberships/state"
 import { eventDateBadge, eventTime } from "@/lib/communities/format"
 import type { CommunityHead, OverviewData } from "./view-types"
 import { EVENT_KIND_LABEL } from "./logic"
-import { Section, buttonSecondary, card } from "./parts"
+import { Section, buttonPrimary, buttonSecondary, card } from "./parts"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -58,6 +58,55 @@ function CopyAddress({ path }: { path: string }) {
   )
 }
 
+/** The setup checklist: the next step first and filled, the others quiet, folded past three. */
+function NextSteps({ steps, created }: { steps: OverviewData["steps"]; created: boolean }) {
+  const [all, setAll] = React.useState(false)
+  const shown = all ? steps : steps.slice(0, 3)
+  const [first, ...rest] = shown
+  return (
+    <section className={cn(card, "p-4 sm:p-5")} aria-labelledby="next-steps-title" data-next-steps-card="">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="next-steps-title" className="text-[15px] font-semibold text-[#1a1a2e]">
+          {created ? tt("Your community is ready") : tt("Set up")}
+        </h2>
+        <span className="text-[12.5px] tabular-nums text-[#9ca3af]">{tt("{n, plural, one {# step left} other {# steps left}}", { n: steps.length })}</span>
+      </div>
+      {first ? (
+        <div className="mt-3 flex flex-col gap-3 rounded-xl border border-[#eceef1] bg-[#fafafb] p-3.5 sm:flex-row sm:items-center" data-step={first.id} data-step-next="">
+          <div className="min-w-0 flex-1">
+            <p className="text-[14.5px] font-semibold text-[#1a1a2e]">{first.title}</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{first.detail}</p>
+          </div>
+          <Link href={first.href} className={cn(buttonPrimary, "h-10 shrink-0 justify-center sm:h-9")}>
+            {first.action}
+          </Link>
+        </div>
+      ) : null}
+      {rest.length ? (
+        <ol className="mt-1.5 divide-y divide-[#f1f2f4]" data-next-steps="">
+          {rest.map((s) => (
+            <li key={s.id} data-step={s.id}>
+              <Link href={s.href} className="group/step -mx-2 flex min-h-12 items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-150 hover:bg-[#f7f7f8]">
+                <span aria-hidden className="h-[18px] w-[18px] shrink-0 rounded-full border-[1.5px] border-[#d5d8de]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{s.title}</span>
+                  <span className="block truncate text-[12.5px] text-[#6b7280]">{s.detail}</span>
+                </span>
+                <span className="shrink-0 text-[13px] font-medium text-[#4b5563] group-hover/step:text-[#1a1a2e]">{s.action}</span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      {steps.length > 3 ? (
+        <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 inline-flex min-h-10 items-center text-[13px] font-medium text-[#4b5563] hover:text-[#1a1a2e] sm:min-h-8" data-steps-toggle="">
+          {all ? tt("Show fewer") : tt("Show all {n}", { n: steps.length })}
+        </button>
+      ) : null}
+    </section>
+  )
+}
+
 export function Overview({ head, data, created }: { head: CommunityHead; data: OverviewData; created: boolean }) {
   const f = data.figures
   const base = `/app/community/${head.slug}`
@@ -79,42 +128,36 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
     f.openReports > 0 && head.can.review_reports ? { href: `${base}/moderation`, text: tt("{openReports} open {openReports, plural, one {report} other {reports}}", { openReports: f.openReports }) } : null,
   ].filter((x): x is { href: string; text: string } => x !== null)
 
+  const community = figures.slice(0, 4)
+  const moneyFigures = figures.slice(4)
+
   return (
     <div className="space-y-4" data-overview="">
-      {data.steps.length > 0 ? (
-        <Section title={created ? tt("Your community is ready") : tt("Next steps")} hint={created ? tt("A few things to do next. Each one goes away once it is done.") : undefined}>
-          <ol className="-mx-1 divide-y divide-[#f1f2f4]" data-next-steps="">
-            {data.steps.map((s, i) => (
-              <li key={s.id} data-step={s.id} className="flex items-center gap-3 px-1 py-3 first:pt-0 last:pb-0">
-                <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[#e1e3e7] text-[12.5px] font-semibold tabular-nums text-[#4b5563]">
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-medium text-[#1a1a2e]">{s.title}</p>
-                  <p className="mt-0.5 text-[12.5px] leading-snug text-[#6b7280]">{s.detail}</p>
-                </div>
-                <Link href={s.href} className={cn(buttonSecondary, "h-10 shrink-0 sm:h-8")}>
-                  {s.action}
-                </Link>
-              </li>
-            ))}
-          </ol>
-        </Section>
-      ) : null}
-
+      {/*
+        ROUND 27, THE OWNER: "redesign each management section". The overview opens on how the community is doing (the
+        figures, people first, then money in a row of its own, so no blank cells), and the setup is one checklist under it:
+        the next thing to do is a filled button, the rest wait in quiet rows, and past three they fold behind Show all.
+      */}
       <section className={cn(card, "overflow-hidden")} aria-label={tt("Figures")}>
-        {/* Hairlines between the figures are the 1px gaps of a grey grid behind white cells; blank cells finish the last row. */}
         <div className="grid grid-cols-2 gap-px bg-[#f1f2f4] sm:grid-cols-4" data-figures="">
-          {figures.map((x) => (
+          {community.map((x) => (
             <div key={x.label} className="bg-white">
               <Figure label={x.label} value={x.value} hint={x.hint} />
             </div>
           ))}
-          {Array.from({ length: (4 - (figures.length % 4)) % 4 }, (_, i) => (
-            <div key={`blank-${i}`} aria-hidden className={cn("bg-white", i >= figures.length % 2 && "max-sm:hidden")} />
-          ))}
         </div>
+        {moneyFigures.length ? (
+          <div className="grid grid-cols-2 gap-px border-t border-[#f1f2f4] bg-[#f1f2f4] sm:grid-cols-3" data-figures-money="">
+            {moneyFigures.map((x, i) => (
+              <div key={x.label} className={cn("bg-white", moneyFigures.length % 2 === 1 && i === moneyFigures.length - 1 && "max-sm:col-span-2")}>
+                <Figure label={x.label} value={x.value} hint={x.hint} />
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
+
+      {data.steps.length > 0 ? <NextSteps steps={data.steps} created={created} /> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         {head.eventsEnabled ? (

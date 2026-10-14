@@ -29,7 +29,7 @@ import { StatusBadge } from "@/app/app/orders/order-parts"
 import { eventTime } from "@/lib/communities/format"
 import { eventPriceLabel } from "@/lib/communities/event-tickets"
 import type { CommunityHead, EventEditView, EventTicketPanelView, InvitePickMember, TicketHolderView } from "./view-types"
-import { Confirm, Dialog, Empty, ListCard, Notice, SearchField, buttonPrimary, buttonSecondary, card, errorText, field, label, send, shortDate, useToast } from "./parts"
+import { Confirm, Dialog, Empty, ListCard, Notice, SearchField, buttonPrimary, buttonSecondary, card, errorText, field, label, send, shortDate, useToast, ListLoading } from "./parts"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -177,7 +177,7 @@ export function EventTicketsPanel({ head, event, currency, onBack }: { head: Com
       <ListCard busy={loading || undefined} toolbar={<SearchField value={query} onChange={setQuery} placeholder={tt("Search by name")} label={tt("Search the holders")} />}>
         {rows.length === 0 ? (
           loading ? (
-            <p className="px-4 py-6 text-[13.5px] text-[#6b7280] sm:px-5">{tt("Loading")}</p>
+            <ListLoading />
           ) : query.trim() ? (
             <Empty title={tt("Nobody by that name holds a ticket.")} />
           ) : (

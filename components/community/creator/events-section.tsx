@@ -20,7 +20,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import { CalendarDays, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { eventDateBadge, eventTime } from "@/lib/communities/format"
@@ -245,7 +245,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
       >
         {list.length === 0 ? (
           view === "upcoming" ? (
-            <Empty title={tt("No events scheduled.")} detail={tt("A call, a workshop or a Q&A. Members get a reminder before it starts.")}>
+            <Empty icon={CalendarDays} title={tt("No events scheduled.")} detail={tt("A call, a workshop or a Q&A. Members get a reminder before it starts.")}>
               <button type="button" onClick={() => setDraft(blankDraft())} className={cn(buttonPrimary, "h-10 px-4")}>
                 {tt("Schedule an event")}
               </button>

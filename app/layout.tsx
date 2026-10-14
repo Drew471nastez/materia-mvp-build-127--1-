@@ -1,6 +1,7 @@
 import type React from "react"
 import { APPEARANCE_BOOT } from "@/lib/appearance/site-appearance"
 import { SiteAppearance } from "@/components/platform/site-appearance"
+import { AppRouterHandle } from "@/lib/navigation/app-router-handle"
 import "./theme-dark.css"
 import type { Metadata, Viewport } from "next"
 /**
@@ -271,6 +272,7 @@ export default function RootLayout({
               {/* Community bar for /account, already mounted, so a tab to Profile does not paint the page and then the header.
                   Inside the providers: its account menu reads the locale, and outside LocaleProvider it threw and took /account down. */}
               <SiteAppearance />
+              <AppRouterHandle />
               <AccountCommunityChrome />
               {children}
               {/* Settings over the profile on a phone, an iPad and in the apps: no address of its own. Inside the providers
