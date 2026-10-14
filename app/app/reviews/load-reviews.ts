@@ -92,7 +92,21 @@ export async function loadSellerReviews() {
     : { data: [] as SellerProduct[] }
 
   const app = await loadReviewsApp(admin, creator.id).catch(() => null)
+  /*
+    REVIEW REQUESTS, AS COUNTS: how many emails asking for a review went out,
+    and how many of those led to one (review_requests, part 134). Null when the
+    table isn't there, so the overview says nothing rather than zero.
+  */
+  const countRequests = async (statuses: string[]) => {
+    const r = await admin.from("review_requests").select("id", { count: "exact", head: true }).eq("creator_id", creator.id).in("status", statuses)
+    return r.error ? null : (r.count ?? 0)
+  }
+  const [requestsSent, requestsReviewed] = await Promise.all([
+    countRequests(["sent", "reminded", "reviewed"]).catch(() => null),
+    countRequests(["reviewed"]).catch(() => null),
+  ])
   return {
+    requests: requestsSent === null ? null : { sent: requestsSent, reviewed: requestsReviewed ?? 0 },
     state: "ready" as const,
     /* Storelib Reviews: on or off, and whether its database part has run (moderation, featured, photos, import). */
     app: { enabled: app?.settings.enabled === true, ready: appReady && app?.ready !== false },

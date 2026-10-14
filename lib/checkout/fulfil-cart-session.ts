@@ -131,6 +131,7 @@ export async function fulfilCartSession(
     cardBrand: facts?.cardBrand ?? null,
     cardLast4: facts?.cardLast4 ?? null,
     device,
+    currency: session.currency ?? pi?.currency ?? null,
     origin: orderOriginFrom(metadata),
     /* What the cart route checked and put on the session (lib/attribution). */
     attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
@@ -231,7 +232,6 @@ export async function fulfilCartPayment(
     admin,
     sessionId,
     paymentIntentId: pi.id,
-    currency: pi.currency,
     creatorId,
     buyerId,
     buyerEmail,
@@ -243,6 +243,7 @@ export async function fulfilCartPayment(
     cardBrand: facts?.cardBrand ?? null,
     cardLast4: facts?.cardLast4 ?? null,
     device,
+    currency: pi.currency ?? null,
     origin: orderOriginFrom(metadata),
     attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
     feeAudit: { planUsed: metadata.plan_used || null, pricingTier: metadata.pricing_tier || null, feeRuleVersion: metadata.fee_rule_version || null },
@@ -518,7 +519,7 @@ async function sideEffects(
     if (s.couponId) await step("coupon use", () => recordCouponUse(admin, s.couponId, s.couponHolder))
     /* The seller's balance, once for the one payment, against the first line. */
     await step("ledger", () =>
-      recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId }),
+      recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId, currency: ctx.currency }),
     )
     /* ONE receipt email for the basket: the sender reads every line of this
        session and lists them with one total. */

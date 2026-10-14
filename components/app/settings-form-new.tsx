@@ -2329,7 +2329,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       <div
         data-settings-save-bar={barUp ? "up" : "down"}
         aria-hidden={!barUp || undefined}
-        className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 md:left-[240px] md:px-6 bottom-[calc(var(--app-nav-top)+10px)] md:bottom-[max(16px,env(safe-area-inset-bottom))]"
+        className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 md:left-[var(--app-rail-w,240px)] md:px-6 bottom-[calc(var(--app-nav-top)+10px)] md:bottom-[max(16px,env(safe-area-inset-bottom))]"
       >
         <div
           role="region"

@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { storeChargeCurrencyFor } from "@/lib/payments/fees/store-currency"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -373,7 +373,8 @@ async function handlePOST(request: Request) {
     heldCopies = copies.held
   }
 
-  const chargeCurrency = platformChargeCurrency()
+  /* The store's own currency, the one its website shows (lib/payments/fees/currency-rules storeChargeCurrency). */
+  const chargeCurrency = await storeChargeCurrencyFor(admin, creatorId)
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(totalCents, creatorId, admin, chargeCurrency)
@@ -412,7 +413,7 @@ async function handlePOST(request: Request) {
             product_data: {
               name: String(l.product.title ?? "Product"),
               ...(l.item.discountCents > 0 && coupon
-                ? { description: `$${(l.item.discountCents / 100).toFixed(2)} off with ${coupon.code}` }
+                ? { description: `${new Intl.NumberFormat("en-US", { style: "currency", currency: chargeCurrency.toUpperCase() }).format(l.item.discountCents / 100)} off with ${coupon.code}` }
                 : {}),
               ...(l.product.thumbnail_url ? { images: [String(l.product.thumbnail_url)] } : {}),
             },

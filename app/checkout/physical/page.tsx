@@ -3,6 +3,7 @@ import { requirePhysicalPage } from "@/lib/physical/gate"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { PhysicalCheckout } from "./physical-checkout"
+import { storeChargeCurrencyFor } from "@/lib/payments/fees/store-currency"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { DEFAULT_CHECKOUT } from "@/lib/store/checkout-config"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
@@ -32,16 +33,20 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
   let brand: CheckoutBrand = { name: "Checkout", imageUrl: null, kind: null }
   let config = DEFAULT_CHECKOUT
   let backTo: string | null = null
+  let currency: string | undefined
   if (shop && /^[0-9a-f-]{36}$/i.test(shop)) {
     const db = createAdminClient()
     /* The shop across the top, as the basket checkout draws it: its website's logo, its store name before the person's (lib/checkout/brand-server), and how its checkout behaves (Settings › Checkout). */
-    const [shopBrand, checkout, returns] = await Promise.all([
+    const [shopBrand, checkout, returns, charged] = await Promise.all([
       checkoutBrand(db, shop),
       loadCheckoutConfig(db, shop),
       /* Back goes to the store's own website only: any other address in ?return= is dropped (lib/checkout/site-hosts.ts). */
       asked ? checkoutReturns({ creatorId: shop, cancel: asked }) : Promise.resolve({ cancel: null }),
+      /* The store's own currency, the one the card is charged in (lib/payments/fees/currency-rules storeChargeCurrency). */
+      storeChargeCurrencyFor(db, shop),
     ])
     brand = shopBrand
+    currency = charged
     config = checkout
     backTo = returns.cancel
     /*
@@ -69,5 +74,5 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null
-  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} />
+  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} currency={currency} />
 }

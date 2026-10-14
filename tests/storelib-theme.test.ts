@@ -603,7 +603,7 @@ section("The language reference says what the engine does")
   const named = (list: readonly string[]) =>
     list.filter((n) => !new RegExp("`" + n + "(`|:)").test(doc))
   check("every control type the sidebar can draw is in it", named(CONTROL_TYPES).length === 0, named(CONTROL_TYPES).join(", "))
-  check("and it names no control type that does not exist", (doc.match(/`([a-z_]+_picker|toggle|alignment|divider|richtext|color_scheme)`/g) ?? []).every((m) => CONTROL_TYPES.includes(m.replace(/`/g, "") as never)))
+  check("and it names no control type that does not exist", (doc.match(/`([a-z_]+_picker|toggle|alignment|divider|richtext|color_scheme)`/g) ?? ([] as string[])).every((m) => CONTROL_TYPES.includes(m.replace(/`/g, "") as never)))
   const filters = FILTER_NAMES.filter((n) => n !== "escape_once")
   check("every filter is in it", named(filters).length === 0, named(filters).join(", "))
   check("every capability is in it", named(CAPABILITIES).length === 0, named(CAPABILITIES).join(", "))

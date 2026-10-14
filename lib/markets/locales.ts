@@ -137,3 +137,27 @@ export function languageFlag(locale: string): string | null {
   const region = /^[a-z]{2,3}-([A-Z]{2})$/.exec(locale)?.[1]
   return region ?? LANGUAGE_FLAG[baseLanguage(locale)] ?? null
 }
+
+/**
+ * The country whose flag stands for a language in the settings. A flag is
+ * not a language (lib/markets/model keeps them apart), so this is only a
+ * picture to find a row by: the region the tag names when it names one
+ * ("pt-BR" → BR), else the country most people mean by it. Null for a
+ * language with no obvious one, which then shows the plain grey tile.
+ */
+const LANGUAGE_COUNTRY: Record<string, string> = {
+  en: "US", es: "ES", fr: "FR", de: "DE", it: "IT", pt: "PT", nl: "NL", ro: "RO", pl: "PL", cs: "CZ", sk: "SK",
+  hu: "HU", bg: "BG", el: "GR", hr: "HR", sl: "SI", sr: "RS", sv: "SE", da: "DK", nb: "NO", no: "NO", nn: "NO",
+  fi: "FI", et: "EE", lv: "LV", lt: "LT", uk: "UA", ru: "RU", tr: "TR", ar: "SA", he: "IL", fa: "IR", hi: "IN",
+  bn: "BD", ur: "PK", th: "TH", vi: "VN", id: "ID", ms: "MY", fil: "PH", tl: "PH", ja: "JP", ko: "KR", ga: "IE",
+  is: "IS", mt: "MT", sq: "AL", mk: "MK", bs: "BA", ka: "GE", hy: "AM", az: "AZ", kk: "KZ", sw: "KE", af: "ZA",
+}
+
+export function languageCountry(locale: string): string | null {
+  const parts = locale.split("-")
+  const region = parts.slice(1).find((p) => /^[A-Za-z]{2}$/.test(p))
+  if (region) return region.toUpperCase()
+  const base = baseLanguage(locale)
+  if (base === "zh") return /Hant/i.test(locale) ? "TW" : "CN"
+  return LANGUAGE_COUNTRY[base] ?? null
+}

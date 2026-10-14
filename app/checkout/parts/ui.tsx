@@ -346,5 +346,6 @@ export function PoweredByStripe() {
 */
 export const CHECKOUT_CURRENCY = PLATFORM_CURRENCY
 
-export const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: CHECKOUT_CURRENCY.toUpperCase() }).format((cents || 0) / 100)
+/* `currency`: a store's own checkout charges in the store's currency (lib/payments/fees/currency-rules storeChargeCurrency) and passes it; every other checkout is the platform's. */
+export const money = (cents: number, currency: string = CHECKOUT_CURRENCY) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || CHECKOUT_CURRENCY).toUpperCase() }).format((cents || 0) / 100)

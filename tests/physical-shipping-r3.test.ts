@@ -259,7 +259,7 @@ async function main() {
     check("a shop that ships by state asks for the state, never says it can't ship there", /quote\.delivery\.needsRegion \? \(/.test(phys) && /data-needs-region=""/.test(phys) && /needsRegion\?: boolean/.test(phys))
     check("  and the totals say so too, on both checkouts", /quote\.delivery\.needsRegion \? `Choose your/.test(phys) && /quote\.delivery\.needsRegion && !address\.region\.trim\(\) \? `Choose your/.test(site))
     check("a free shipping code shows every method free, the old price struck through, on both checkouts", /quote\.coupon\?\.freeShipping && o\.priceCents > 0/.test(phys) && /quote\.coupon\?\.freeShipping && o\.priceCents > 0/.test(site))
-    check("the total never names its currency twice (RON 51.84)", /money\(t\.totalCents\)\.includes\(CHECKOUT_CURRENCY\.toUpperCase\(\)\) \? null/.test(phys))
+    check("the total never names its currency twice (RON 51.84)", /money\(t\.totalCents\)\.includes\(currency\.toUpperCase\(\)\) \? null/.test(phys))
     const pricing = read("lib/physical/checkout-pricing-server.ts")
     check("the page and the payment quote the same way (one quoteCheckout)", /export async function quoteCheckout/.test(pricing) && /quoteCheckout\(db, priced, address, input\.deliveryOptionId\)/.test(read("lib/physical/checkout-server.ts")))
   }

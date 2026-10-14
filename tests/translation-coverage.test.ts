@@ -59,8 +59,8 @@ check("an approved value stays live while its original changed (only drafts are 
 console.log("\n3. The home market's country, and what an order was paid in")
 check("the home country is read from default_country", /select\("default_country"\)/.test(readCode("lib/markets/server.ts")) && !/select\("country"\)/.test(readCode("lib/markets/server.ts")))
 const item = readCode("lib/checkout/fulfil-cart-item.ts")
-check("a website cart's order rows keep the payment's own currency", /currency: \(ctx\.currency \|\| platformChargeCurrency\(\)\)\.toLowerCase\(\)/.test(item) && !/currency: "usd",/.test(item))
-check("from the PaymentIntent, and a physical checkout's from its row", /currency: pi\.currency,/.test(readCode("lib/checkout/fulfil-cart-session.ts")) && /currency: typeof co\.currency === "string" \? co\.currency : null/.test(readCode("lib/physical/checkout-server.ts")))
+check("a website cart's order rows keep the payment's own currency", /currency: \(ctx\.currency \|\| "usd"\)\.toLowerCase\(\)/.test(item) && !/currency: "usd",/.test(item))
+check("from the PaymentIntent, and a physical checkout's from its row", /currency: pi\.currency \?\? null,/.test(readCode("lib/checkout/fulfil-cart-session.ts")) && /currency: co\.currency \?\? null,/.test(readCode("lib/physical/checkout-server.ts")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

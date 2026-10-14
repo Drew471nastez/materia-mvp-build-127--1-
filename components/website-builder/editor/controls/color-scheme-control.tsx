@@ -20,7 +20,7 @@
  * "Aa" in its text colour and a dot of its button colour.
  */
 import * as React from "react"
-import { Check, ChevronDown } from "lucide-react"
+import { Check, ChevronDown, Pencil } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
@@ -54,11 +54,26 @@ export function ColorSchemeControl({ value, onChange, fallback, label }: { value
     const schemes = themeColorSchemes({})
     const keys = Object.keys(schemes)
     return (
-      <div className="relative">
-        <select className={SELECT} aria-label={label} value={keys.includes(value) ? value : keys[0]} onChange={(e) => onChange(e.target.value)}>
-          {keys.map((k) => <option key={k} value={k}>{schemes[k].name}</option>)}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <div className="flex items-center gap-1.5" data-scheme-row="">
+        <div className="relative min-w-0 flex-1">
+          <select className={SELECT} aria-label={label} value={keys.includes(value) ? value : keys[0]} onChange={(e) => onChange(e.target.value)}>
+            {keys.map((k) => <option key={k} value={k}>{schemes[k].name}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        </div>
+        {/* Change the scheme's colours from here, rather than hunting for it in Theme settings. */}
+        {env?.openColorSchemes ? (
+          <button
+            type="button"
+            onClick={env.openColorSchemes}
+            aria-label="Edit color schemes"
+            title="Edit color schemes"
+            data-scheme-edit=""
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--wb-chrome-border,#e5e7eb)] text-[var(--wb-chrome-fg-3,#6b7280)] transition-colors hover:bg-[var(--wb-chrome-hover,#f3f4f6)] hover:text-[var(--wb-chrome-fg,#1a1a2e)]"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
       </div>
     )
   }

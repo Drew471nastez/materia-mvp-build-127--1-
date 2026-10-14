@@ -82,7 +82,7 @@ function main() {
    * React 19 abandons the tree — the sheet drew as an empty strip with none
    * of the panel in it.
    */
-  const updaters = sheet.match(/setExpanders\(\(list\) => [^)]*\)/g) ?? []
+  const updaters: string[] = sheet.match(/setExpanders\(\(list\) => [^)]*\)/g) ?? []
   check("the expand updaters are pure", updaters.length === 2, updaters.join(" | "))
   check(
     "and nothing sets state inside one",

@@ -2336,6 +2336,42 @@ const ARTICLES: Article[] = [
   /* ── Payouts, fees and policies ───────────────────────────────────── */
   {
     section: "Payouts, fees and policies",
+    slug: "store-currency",
+    updated: "2026-10-13",
+    title: "Your store's currency",
+    summary: "Which currency your prices are in, what buyers pay in, and how it reaches your bank.",
+    keywords: ["currency", "currencies", "euro", "eur", "usd", "dollar", "lei", "ron", "gbp", "exchange", "convert", "conversion", "markets", "stripe"],
+    related: ["physical-payouts", "checkout-settings"],
+    body: [
+      { type: "p", text: "Your store has one currency. Your prices are typed in it, your website shows them in it, and buyers pay in it at checkout." },
+      { type: "h", text: "Set it" },
+      {
+        type: "steps",
+        items: [
+          "Open Settings > Payments.",
+          "Choose your store currency, for example EUR.",
+          "Save. New prices you type are in that currency. Prices you already set keep their numbers, so check them after a change.",
+        ],
+      },
+      { type: "h", text: "What buyers pay in" },
+      { type: "p", text: "Checkout charges in your store currency: a €40 product is charged €40. The buyer's bank converts it if their card is in another currency." },
+      { type: "h", text: "How it reaches your bank" },
+      { type: "p", text: "You connect Stripe once in Settings > Payments. Stripe pays out to your bank in your bank's currency, and converts if the two are different. There is nothing else to connect for the currency." },
+      { type: "h", text: "Showing prices in a visitor's own currency" },
+      { type: "p", text: "Settings > Markets and languages can show visitors from chosen countries an estimate in their own currency, at the day's exchange rate. They still pay in your store currency, and checkout says so under the total. Language and currency are separate: changing the language never changes the price." },
+      { type: "h", text: "Good to know" },
+      {
+        type: "list",
+        items: [
+          "Creator pages and communities are sold in US dollars.",
+          "Store checkout runs in USD, EUR, GBP, CAD, AUD, JPY and RON today. A store set to another currency is charged in the platform's currency until it is added.",
+          "Orders, receipts, refunds and your balance all show the currency the order was charged in.",
+        ],
+      },
+    ],
+  },
+  {
+    section: "Payouts, fees and policies",
     slug: "physical-payouts",
     title: "Getting paid for physical orders",
     summary: "Where the money from a physical order goes, what Storelib keeps, and how it reaches your bank.",

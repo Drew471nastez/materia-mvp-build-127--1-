@@ -633,7 +633,7 @@ export function SettingsSheet({ children, label = tt("Settings"), overlay = fals
     <div
       className={cn(
         "fixed inset-0 z-[54]",
-        "max-lg:z-[49] max-lg:top-[calc(68px+env(safe-area-inset-top,0px))] md:max-lg:top-[calc(58px+env(safe-area-inset-top,0px))] md:max-lg:left-[240px]",
+        "max-lg:z-[49] max-lg:top-[calc(68px+env(safe-area-inset-top,0px))] md:max-lg:top-[calc(58px+env(safe-area-inset-top,0px))] md:max-lg:left-[var(--app-rail-w,240px)]",
         /* Slid away: nothing of it takes a press or covers the page while the address catches up (STUCK_MS). */
         gone && "pointer-events-none invisible",
       )}

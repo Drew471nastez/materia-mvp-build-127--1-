@@ -77,7 +77,7 @@ console.log("\nThe header, as on the library, at every width")
   check("nothing hides it on a phone any more: no rule, no wrapper", !/hidesHeaderOnPhone/.test(header) && !/data-header-phone/.test(header))
   /* Round 5: the cover runs edge to edge, so the column is drawn under it by the hub (components/account/account-column.tsx), not around everything by the layout. */
   /* Round 12: /@handle is the creator page's template now (components/profile/member-profile-page.tsx), so /account keeps its own 960 column. */
-  check("the column is the profile's own width", /max-w-\[960px\] pb-10/.test(read("components/account/account-column.tsx")) && /"pt-4 sm:pt-6"/.test(read("components/account/account-column.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(layout) )
+  check("the column is the profile's own width, the library a little wider and a course's lessons wider still (changed on purpose: \"too narrow\")", /width = "max-w-\[960px\]"/.test(read("components/account/account-column.tsx")) && /"max-w-\[1040px\]"/.test(read("components/account/account-column.tsx")) && /"max-w-\[1280px\]"/.test(read("components/account/account-column.tsx")) && /"pt-4 sm:pt-6"/.test(read("components/account/account-column.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(layout) )
 }
 
 console.log("\nThe hub: your own profile page, as everybody sees it, with your pills")
@@ -99,7 +99,7 @@ console.log("\nThe hub: your own profile page, as everybody sees it, with your p
   check("the owner's pills under it", /<ProfileOwnerPills communities=\{communities\}/.test(hub))
   check("the bio, the cover and the counts reach the hub from the layout's own reads", /async function readBio\(userId: string\)/.test(layout) && /personCover\(admin, user\.id\)/.test(layout) && /followCounts\(admin, user\.id\)/.test(layout))
   /* Round 5: "Library opens as its own page ... WITHOUT the profile hero above them (like /account/settings does)". */
-  check("Settings and the whole library are pages of their own: the hub draws none of the person there, only the profile's column", /if \(!showsProfileHeader\(pathname\)\) return <AccountColumn>\{children\}<\/AccountColumn>/.test(hub))
+  check("Settings and the whole library are pages of their own: the hub draws none of the person there, only the profile's column", /if \(!showsProfileHeader\(pathname\)\) return <AccountColumn width=\{accountWidth\(pathname\)\}>\{children\}<\/AccountColumn>/.test(hub))
   const where: Array<[string, boolean]> = [["/account", true], ["/account/communities", true], ["/account/library", false], ["/account/library/courses", false], ["/account/library/receipts/", false], ["/account/library/products/p1", false], ["/account/library/courses/c1", false], ["/account/library/memberships/m1", false], ["/account/settings", false]]
   for (const [path, want] of where) check(`  ${path}: ${want ? "the person over it" : "its own screen"}`, showsProfileHeader(path) === want)
   /* Edit profile is a button on the cover now, not a pill: every Settings address is the Settings pill. */

@@ -23,7 +23,8 @@
  */
 
 import * as React from "react"
-import { Loader2, Play } from "lucide-react"
+import { ChevronDown, Loader2, Play } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { LessonVideo, type VideoSource } from "./lesson-video"
 import { countLine, courseSeconds, lessonClock, lessonsIn, secondsIn, type OutlineLesson, type OutlineModule } from "@/lib/courses/outline"
@@ -98,6 +99,15 @@ function PreviewPlayer({ lesson }: { lesson: OutlineLesson }) {
 
 export function CourseOutline({ modules, colors = {} }: { modules: OutlineModule[]; colors?: OutlineColors }) {
   const [watching, setWatching] = React.useState<OutlineLesson | null>(null)
+  /* The first module open, the rest closed. */
+  const [open, setOpen] = React.useState<Set<string>>(() => new Set(modules[0] ? [modules[0].id] : []))
+  const toggle = (id: string) =>
+    setOpen((was) => {
+      const next = new Set(was)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   const total = lessonsIn(modules)
   const muted = colors.muted || "var(--muted-foreground)"
 
@@ -111,65 +121,84 @@ export function CourseOutline({ modules, colors = {} }: { modules: OutlineModule
           {modules.length} {modules.length === 1 ? "module" : "modules"} · {countLine(total, courseSeconds(modules))}
         </p>
       </div>
-      <div className="space-y-3">
+      {/*
+        ONE CARD, A ROW PER MODULE, EACH OPENING IN PLACE. The whole curriculum
+        drawn open filled the product page ("it occupies too much space"). Only
+        the first module starts open; a press opens or closes the others, the
+        height easing on grid rows so nothing jumps.
+      */}
+      <div
+        className="overflow-hidden rounded-2xl border"
+        style={{ backgroundColor: colors.card || "var(--card)", borderColor: colors.cardBorder || "var(--border)" }}
+      >
         {modules.map((module, idx) => {
           const lessons = module.lessons ?? []
+          const isOpen = open.has(module.id)
+          const panel = `outline-module-${module.id}`
           return (
-            <div
-              key={module.id}
-              data-outline-module=""
-              className="rounded-lg border"
-              style={{ backgroundColor: colors.card || "var(--card)", borderColor: colors.cardBorder || "var(--border)" }}
-            >
-              <div className="flex items-baseline justify-between gap-3 px-4 pb-1 pt-3.5">
-                <h3 className="min-w-0 font-medium" style={{ color: colors.cardText || "var(--foreground)" }}>
-                  {idx + 1}. {module.title}
-                </h3>
-                <span className="shrink-0 text-xs tabular-nums" style={{ color: muted }}>
-                  {countLine(lessons.length, secondsIn(lessons))}
+            <div key={module.id} data-outline-module="" data-open={isOpen ? "" : undefined} className={idx > 0 ? "border-t" : undefined} style={{ borderColor: colors.cardBorder || "var(--border)" }}>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={panel}
+                onClick={() => toggle(module.id)}
+                className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-black/[0.025] focus-visible:bg-black/[0.04] sm:px-5"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium leading-snug" style={{ color: colors.cardText || "var(--foreground)" }}>
+                    {module.title}
+                  </span>
+                  <span className="mt-0.5 block text-xs tabular-nums" style={{ color: muted }}>
+                    {countLine(lessons.length, secondsIn(lessons))}
+                  </span>
                 </span>
+                <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 transition-[rotate] duration-200 ease-out motion-reduce:transition-none", isOpen && "rotate-180")} style={{ color: muted }} />
+              </button>
+              <div id={panel} className={cn("grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+                <div className="min-h-0 overflow-hidden" inert={!isOpen}>
+                  {lessons.length ? (
+                    <ul className="px-2 pb-2.5 sm:px-3">
+                      {lessons.map((lesson) => {
+                        const time = lessonClock(lesson.duration_seconds)
+                        const inner = (
+                          <>
+                            {lesson.is_preview ? (
+                              <Play aria-hidden className="h-3.5 w-3.5 shrink-0 fill-current" />
+                            ) : (
+                              <span aria-hidden className="mx-[5px] h-1.5 w-1.5 shrink-0 rounded-full opacity-50" style={{ backgroundColor: "currentColor" }} />
+                            )}
+                            <span className="min-w-0 flex-1 break-words text-left">{lesson.title}</span>
+                            {lesson.is_preview ? <span className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium" style={{ borderColor: colors.cardBorder || "var(--border)" }}>Preview</span> : null}
+                            {time ? <span className="shrink-0 text-xs tabular-nums opacity-80">{time}</span> : null}
+                          </>
+                        )
+                        return (
+                          <li key={lesson.id}>
+                            {lesson.is_preview ? (
+                              <button
+                                type="button"
+                                data-preview-lesson={lesson.id}
+                                onClick={() => setWatching(lesson)}
+                                aria-label={`Watch the free preview: ${lesson.title}`}
+                                className="flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-current/40"
+                                style={{ color: colors.cardText || "var(--foreground)" }}
+                              >
+                                {inner}
+                              </button>
+                            ) : (
+                              <div className="flex min-h-10 items-center gap-2.5 px-2.5 py-2 text-sm" style={{ color: muted }}>
+                                {inner}
+                              </div>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="px-5 pb-3 text-sm" style={{ color: muted }}>No lessons yet.</p>
+                  )}
+                </div>
               </div>
-              {lessons.length ? (
-                <ul className="px-1.5 pb-2">
-                  {lessons.map((lesson) => {
-                    const time = lessonClock(lesson.duration_seconds)
-                    const inner = (
-                      <>
-                        {lesson.is_preview ? (
-                          <Play aria-hidden className="h-3.5 w-3.5 shrink-0 fill-current" />
-                        ) : (
-                          <span aria-hidden className="mx-[5px] h-1.5 w-1.5 shrink-0 rounded-full opacity-60" style={{ backgroundColor: "currentColor" }} />
-                        )}
-                        <span className="min-w-0 flex-1 break-words text-left">{lesson.title}</span>
-                        {lesson.is_preview ? <span className="shrink-0 text-xs font-medium underline underline-offset-2">Preview</span> : null}
-                        {time ? <span className="shrink-0 text-xs tabular-nums opacity-80">{time}</span> : null}
-                      </>
-                    )
-                    return (
-                      <li key={lesson.id}>
-                        {lesson.is_preview ? (
-                          <button
-                            type="button"
-                            data-preview-lesson={lesson.id}
-                            onClick={() => setWatching(lesson)}
-                            aria-label={`Watch the free preview: ${lesson.title}`}
-                            className="flex min-h-10 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm outline-none transition-colors hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-current/40"
-                            style={{ color: colors.cardText || "var(--foreground)" }}
-                          >
-                            {inner}
-                          </button>
-                        ) : (
-                          <div className="flex min-h-10 items-center gap-2.5 px-2.5 py-2 text-sm" style={{ color: muted }}>
-                            {inner}
-                          </div>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              ) : (
-                <div className="pb-2" />
-              )}
             </div>
           )
         })}

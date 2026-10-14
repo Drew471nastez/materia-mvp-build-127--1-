@@ -110,7 +110,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     })
   }, [])
   const [query, setQuery] = React.useState("")
-  const [filter, setFilter] = React.useState<Filter>("storelib")
+  const [filter, setFilter] = React.useState<Filter>("all")
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
      another integration, Back and Forward (show() below, so Back by the browser lands where you were too).
      Read before the first paint, so a link to a page never shows the list for a frame first. */
@@ -381,9 +381,11 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     of them whatever pill is on, so typing never finds nothing because of a pill.
   */
   const storelibIntegrations = shownAll.filter((i) => hasBuiltInArt(i.id))
+  /* Storelib's core settings (payments, shipping, taxes...) are not integrations: only the Essentials checklist names them. */
+  const appEntry = (a: StorelibApp): Entry => ({ kind: "app", id: a.id, app: a })
   const entries: Entry[] = [
     ...storelibIntegrations.map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
-    ...apps.map((a): Entry => ({ kind: "app", id: a.id, app: a })),
+    ...apps.filter((a) => !a.core).map(appEntry),
     ...shownAll.filter((i) => !hasBuiltInArt(i.id)).map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
   ]
   /* Storelib's own: its apps and the parts of Storelib shown as integrations (payments, shipping, taxes). All is the services from elsewhere, never these again. */
@@ -392,18 +394,19 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   const essentials = essentialIds(physical)
   const progress = essentialsProgress(physical, appStates?.states ?? {})
   const counts = new Map<Filter, number>([
-    ["all", entries.filter((e) => !isStorelib(e)).length],
+    ["all", entries.length],
     ["installed", entries.filter(isInstalled).length],
     ["storelib", entries.filter(isStorelib).length],
   ])
   for (const c of CATEGORY_ORDER) counts.set(c, shownAll.filter((i) => i.category === c).length)
-  const pills: Filter[] = ["storelib", "essentials", "all", "installed", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
+  /* All first, then what is installed, then the rest (the owner: "Storelib apps should not be the first pill, not even Essentials"). */
+  const pills: Filter[] = ["all", "installed", "essentials", "storelib", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
   const q = query.trim()
   const matches = (e: Entry) => (e.kind === "integration" ? searchIntegrations([e.item], q).length > 0 : `${e.app.name} ${e.app.summary} storelib`.toLowerCase().includes(q.toLowerCase()))
   const shown = q
     ? entries.filter(matches)
-    : entries.filter((e) => (filter === "all" ? !isStorelib(e) : filter === "installed" ? isInstalled(e) : filter === "storelib" ? isStorelib(e) : e.kind === "integration" && e.item.category === filter))
-  const essentialEntries = essentials.map((id) => entries.find((e) => e.id === id)).filter((e): e is Entry => !!e)
+    : entries.filter((e) => (filter === "all" ? true : filter === "installed" ? isInstalled(e) : filter === "storelib" ? isStorelib(e) : e.kind === "integration" && e.item.category === filter))
+  const essentialEntries = essentials.map((id) => entries.find((e) => e.id === id) ?? (apps.find((a) => a.id === id) ? appEntry(apps.find((a) => a.id === id)!) : undefined)).filter((e): e is Entry => !!e)
   const hrefOf = (a: StorelibApp) => appStates?.hrefs[a.id] ?? a.href
 
   /* Installed by the store (not the built in ones every store has), for the page's own list at the top. */
@@ -738,6 +741,8 @@ function IntegrationPage({
     window.setTimeout(() => el.querySelector<HTMLElement>("input, textarea, button")?.focus({ preventScroll: true }), reduced() ? 0 : 420)
   }
   const tracked = item.kind === "tracker" && item.trackerId ? tracking?.[item.trackerId] ?? null : null
+  /* The header's Tell me when it's ready sends the request itself; it only scrolled to the box under it, so a press looked like nothing. */
+  const [askTick, setAskTick] = React.useState(0)
 
   return (
     <div className="space-y-4 sm:space-y-5" data-integration-page={item.id}>
@@ -769,7 +774,7 @@ function IntegrationPage({
           </div>
           {action ? (
             /* On a phone the setup card is the very next thing on the screen, so the header keeps to the name and the status there. */
-            <button type="button" onClick={toSetup} className={cn(installed ? BTN_SECONDARY : BTN_PRIMARY, "hidden h-10 shrink-0 rounded-xl px-5 sm:inline-flex")} data-integration-action="">
+            <button type="button" onClick={() => { if (notifyOnly) setAskTick((n) => n + 1); toSetup() }} className={cn(installed ? BTN_SECONDARY : BTN_PRIMARY, "hidden h-10 shrink-0 rounded-xl px-5 sm:inline-flex")} data-integration-action="">
               {action}
               {!installed && !notifyOnly ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
             </button>
@@ -786,7 +791,7 @@ function IntegrationPage({
             <div className="px-4 py-4 sm:px-6 sm:py-5">
               {notifyOnly ? (
                 <div className="space-y-4">
-                  <NotifyMe item={item} />
+                  <NotifyMe item={item} askTick={askTick} />
                   {/* A key saved before this was marked Coming soon: shown, so it can be removed. */}
                   {item.kind === "commerce" && item.providerId && providerInfo(item.providerId) && providerState && providerState.status !== "disconnected" ? (
                     <ul className="border-t border-[#f1f2f4] pt-4 [&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
@@ -937,10 +942,11 @@ function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; va
  * (a request in /admin, once per store). "You're on the list" only once the
  * request is really kept.
  */
-function NotifyMe({ item }: { item: Integration }) {
+function NotifyMe({ item, askTick = 0 }: { item: Integration; askTick?: number }) {
   const [state, setState] = React.useState<"idle" | "sending" | "sent">("idle")
   const [error, setError] = React.useState<string | null>(null)
   const ask = async () => {
+    if (state !== "idle") return
     setState("sending")
     setError(null)
     const r = await api("/api/store/integrations/request", { method: "POST", body: { name: item.name, integrationId: item.id } })
@@ -950,6 +956,11 @@ function NotifyMe({ item }: { item: Integration }) {
     }
     setState("sent")
   }
+  /* Pressed in the header. */
+  React.useEffect(() => {
+    if (askTick > 0) void ask()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askTick])
   return (
     <div className="space-y-3" data-integration-notify={item.id}>
       <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("Not available yet. Ask for it and you'll be counted: the most asked for are built first.")}</p>

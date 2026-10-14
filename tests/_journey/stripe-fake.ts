@@ -100,7 +100,7 @@ export class StripeWorld {
 
   private chargeFor(pi: Obj, card: { brand?: string; last4?: string }): Obj {
     const transfer: Obj | null = pi.transfer_data?.destination
-      ? { id: id("tr"), object: "transfer", amount: pi.amount - (pi.application_fee_amount ?? 0), destination: pi.transfer_data.destination, destination_payment: id("py"), reversals: { data: [] }, amount_reversed: 0 }
+      ? { id: id("tr"), object: "transfer", amount: pi.amount - (pi.application_fee_amount ?? 0), currency: pi.currency, destination: pi.transfer_data.destination, destination_payment: id("py"), reversals: { data: [] }, amount_reversed: 0 }
       : null
     if (transfer) this.transfers.set(transfer.id, transfer)
     const charge: Obj = {

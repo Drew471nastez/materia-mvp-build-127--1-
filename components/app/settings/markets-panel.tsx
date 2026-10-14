@@ -78,6 +78,8 @@ export function MarketsPanel() {
   const [picking, setPicking] = React.useState(false)
   const [editing, setEditing] = React.useState<Market | "new" | null>(null)
   const [translating, setTranslating] = React.useState<string | null>(null)
+  /* A language just picked, while its save is on its way: Translate waits for it. */
+  const [adding, setAdding] = React.useState<string | null>(null)
   const savedRef = React.useRef<Localization | null>(draft)
   const queue = React.useRef<Promise<void>>(Promise.resolve())
 
@@ -92,10 +94,11 @@ export function MarketsPanel() {
   }, [])
 
   /* SAVED AS IT IS MADE: one at a time, in order; a refusal puts back what was saved last and says why. */
-  const commit = (next: Localization) => {
+  const commit = (next: Localization): Promise<boolean> => {
     setDraft(next)
     setError(null)
     setState("saving")
+    let landed = false
     queue.current = queue.current.then(async () => {
       const r = await api<{ localization: Localization }>(PATH, { method: "PUT", body: { localization: next } })
       if (!r.ok) {
@@ -104,12 +107,14 @@ export function MarketsPanel() {
         setState("idle")
         return
       }
+      landed = true
       savedRef.current = r.data.localization
       setDraft(r.data.localization)
       setData((d) => (d ? { ...d, localization: r.data.localization } : d))
       setState("saved")
       window.setTimeout(() => setState((s) => (s === "saved" ? "idle" : s)), 1600)
     })
+    return queue.current.then(() => landed)
   }
 
   if (!data || !draft) {
@@ -228,8 +233,8 @@ export function MarketsPanel() {
           {draft.markets.map((m) => (
             <li key={m.id} data-market={m.id}>
               <button type="button" onClick={() => setEditing(m)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#fafafb] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]">
-                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[13px]">
-                  {m.countries.length && !m.primary ? flagOf(m.countries[0]) : <Globe2 className="h-4 w-4 text-[#4b5563]" />}
+                <span aria-hidden className="flex w-7 shrink-0 justify-center">
+                  {m.countries.length && !m.primary ? <CountryFlag code={m.countries[0]} className="h-[16px] w-[24px]" /> : <Globe2 className="h-[18px] w-[18px] text-[#6b7280]" strokeWidth={1.8} />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
@@ -267,9 +272,19 @@ export function MarketsPanel() {
         onClose={() => setPicking(false)}
         onPick={(code) => {
           setPicking(false)
-          commit({ ...draft, languages: [...draft.languages, { code, published: false }] })
-          /* Straight into translating it: the next step is always the words. */
+          /*
+            Straight into translating it: the next step is always the words.
+            The sheet opens at once but reads only once the language is
+            saved. It used to read in the same moment, before the save
+            landed, and the server, not knowing the language yet, answered
+            with nothing: "Your website has no text to translate yet."
+          */
           setTranslating(code)
+          setAdding(code)
+          void commit({ ...draft, languages: [...draft.languages, { code, published: false }] }).then((ok) => {
+            setAdding(null)
+            if (!ok) setTranslating(null)
+          })
         }}
       />
       <MarketEditor
@@ -292,6 +307,7 @@ export function MarketsPanel() {
       />
       <TranslateSheet
         locale={translating}
+        waiting={!!translating && adding === translating}
         defaultLanguage={draft.defaultLanguage}
         published={!!draft.languages.find((l) => l.code === translating)?.published}
         onPublish={translating ? (v) => setPublished(translating, v) : undefined}
@@ -299,11 +315,6 @@ export function MarketsPanel() {
       />
     </div>
   )
-}
-
-/** A country's flag, from its two letters (regional indicator symbols): no picture to load. */
-function flagOf(code: string): string {
-  return /^[A-Z]{2}$/.test(code) ? String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)) : ""
 }
 
 /**
@@ -345,13 +356,12 @@ function LanguagePicker({ open, options, onClose, onPick }: { open: boolean; opt
         <ul className="-mx-1 max-h-[min(420px,55vh)] overflow-y-auto overscroll-contain">
           {shown.map((c) => (
             <li key={c}>
-              <button type="button" onClick={() => onPick(c)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#f8f9fa] active:bg-[#f3f4f6]" data-pick-language={c}>
+              <button type="button" onClick={() => onPick(c)} className="flex h-11 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-[#f8f9fa] active:bg-[#f3f4f6]" data-pick-language={c}>
                 <LanguageBadge code={c} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{languageName(c, activeLocale())}</span>
-                  <span className="block truncate text-[12.5px] text-[#6b7280]">{languageName(c)}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">
+                  <span className="font-medium">{languageName(c, activeLocale())}</span>
+                  {languageName(c) !== languageName(c, activeLocale()) ? <span className="text-[#6b7280]"> · {languageName(c)}</span> : null}
                 </span>
-                <Plus aria-hidden className="h-4 w-4 text-[#9ca3af]" />
               </button>
             </li>
           ))}
@@ -476,7 +486,7 @@ function MarketEditor({
                   return (
                     <li key={c.code}>
                       <button type="button" disabled={!!other} onClick={() => toggle(c.code)} className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left text-[14px]", other ? "cursor-not-allowed opacity-50" : "hover:bg-[#fafafb]")}>
-                        <span aria-hidden className="text-[16px]">{flagOf(c.code)}</span>
+                        <CountryFlag code={c.code} near={false} />
                         <span className="flex-1 text-[#1a1a2e]">{c.name}</span>
                         {other ? <span className="text-[12px] text-[#9ca3af]">{tt("In {other}", { other })}</span> : on ? <Check className="h-4 w-4 text-[#1a1a2e]" /> : <Plus className="h-4 w-4 text-[#9ca3af]" />}
                       </button>
@@ -498,7 +508,7 @@ function MarketEditor({
                   {m.countries.map((c) => (
                     <li key={c}>
                       <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#f3f4f6] pl-2.5 pr-1 text-[12.5px] font-medium text-[#1a1a2e]">
-                        <span aria-hidden>{flagOf(c)}</span>
+                        <CountryFlag code={c} className="h-[12px] w-[18px]" />
                         {countryName(c)}
                         <button type="button" aria-label={tt("Remove {count}", { count: countryName(c) })} onClick={() => toggle(c)} className="grid h-6 w-6 place-items-center rounded-full text-[#6b7280] hover:bg-[#e5e7eb]">
                           <X className="h-3.5 w-3.5" />

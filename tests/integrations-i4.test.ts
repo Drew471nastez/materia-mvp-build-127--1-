@@ -70,8 +70,8 @@ console.log("\nThe directory\n")
 {
   const ui = read("components/app/settings/integrations-directory.tsx")
   /* Changed on purpose (the owner: "make the Storelib integrations the main thing there, and don't mix them in All"): Storelib apps first and where the page opens, Essentials after it. */
-  check("Storelib apps is the first pill and where the page opens", /useState<Filter>\("storelib"\)/.test(ui) && /\["storelib", "essentials", "all", "installed"/.test(ui))
-  check("  All is the services from elsewhere, never Storelib's own again", /filter === "all" \? !isStorelib\(e\)/.test(ui) && /\["all", entries\.filter\(\(e\) => !isStorelib\(e\)\)\.length\]/.test(ui))
+  check("All is the first pill and where the page opens, then Installed (changed on purpose: the owner, \"Storelib apps should not be the first pill\")", /useState<Filter>\("all"\)/.test(ui) && /\["all", "installed", "essentials", "storelib"/.test(ui))
+  check("  All is everything; Storelib's core settings (payments, taxes...) are never listed as integrations", /filter === "all" \? true/.test(ui) && /\["all", entries\.length\]/.test(ui) && /apps\.filter\(\(a\) => !a\.core\)/.test(ui))
   check("  with N of M set up and a bar, waiting for the read before it counts", /`\$\{done\} of \$\{total\} set up`/.test(ui) && /progress=\{appStates \? progress : null\}/.test(ui) && /data-integration-essentials=""/.test(ui))
   check("a Storelib app card goes straight to where it is set up, with its state", /<Link href=\{hrefOf\(e\.app\)\} data-integration-card=\{e\.id\} data-storelib-app=\{e\.id\}/.test(ui) && /<AppBadge state=\{appState\(e\.id\)\} \/>/.test(ui))
   check("a search looks through everything whatever pill is on", /const shown = q\s*\? entries\.filter\(matches\)/.test(ui))

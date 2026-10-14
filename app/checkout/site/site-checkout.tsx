@@ -51,7 +51,7 @@ import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import type { SiteQuote } from "@/lib/checkout/site-quote-server"
-import { CheckRow, ErrorBanner, Field, PayButton, PayDock, PoweredByStripe, Reveal, SectionTitle, TextInput, inputClass, money, FIELD_SHADOW } from "../parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PayDock, PoweredByStripe, Reveal, SectionTitle, TextInput, inputClass, money as sharedMoney, FIELD_SHADOW } from "../parts/ui"
 import { DiscountForm, Totals } from "../parts/order-summary"
 import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
@@ -92,6 +92,8 @@ export interface SiteCheckoutProps {
   accountUrl?: string
   /** The visitor browsed in a market's currency (Markets and languages): what the card is charged in, said under the total. */
   currencyNote?: string | null
+  /** What the card is charged in: the store's own currency (lib/payments/fees/currency-rules storeChargeCurrency). */
+  currency?: string
 }
 
 const PAID_SCREEN_MS = 1100
@@ -99,6 +101,17 @@ const PAID_SCREEN_MS = 1100
 const INTENT_REUSE_MS = 25 * 60_000
 
 type Address = { line1: string; line2: string; city: string; region: string; postalCode: string; country: string; phone: string; company: string }
+/* What goes in each field, said in the field until something is typed (a field given its own placeholder keeps it). */
+const ADDRESS_PLACEHOLDER: Record<keyof Address, string> = {
+  line1: "Street and house number",
+  line2: "Apartment, floor, building",
+  city: "City",
+  region: "State or county",
+  postalCode: "Postal code",
+  country: "Country",
+  phone: "Phone number",
+  company: "Company name",
+}
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "", company: "" }
 
 function newKey(): string {
@@ -173,7 +186,10 @@ export function SiteCheckout({
   needsSignIn,
   accountUrl = "/account",
   currencyNote = null,
+  currency,
 }: SiteCheckoutProps) {
+  /* Every price on this page is in the store's currency, the one the card is charged in. */
+  const money = (cents: number) => sharedMoney(cents, currency)
   /* ── The cart ────────────────────────────────────────────────────── */
   const [items, setItems] = React.useState<LinkItem[] | null>(linkItems.length ? linkItems : null)
   const [wholeCart, setWholeCart] = React.useState(linkWhole)
@@ -519,8 +535,13 @@ export function SiteCheckout({
       if (box) bringIntoView(box)
       return "Sign in to check out."
     }
-    if (!quote || (quote.lines.length === 0 && !(quote.short ?? []).length)) return quoteError || "Your cart is empty."
+    if (!quote || (quote.lines.length === 0 && !(quote.short ?? []).length && !(quote.needsOption ?? []).length)) return quoteError || "Your cart is empty."
     if (quoting) return "Your order is being updated. Try again in a moment."
+    if ((quote.needsOption ?? []).length) {
+      const row = document.querySelector<HTMLElement>("[data-line-needs-option]")
+      if (row) bringIntoView(row)
+      return `Choose an option for ${quote.needsOption![0].title}.`
+    }
     if (quote.stockIssues.length) return "Some items don't have enough stock. Lower the quantity or remove them to continue."
     if (kind !== "free" && total > 0 && total < 50) return "The smallest card payment is $0.50."
     if (kind !== "express" || ships) {
@@ -679,6 +700,7 @@ export function SiteCheckout({
   const addressField = (key: keyof Address, label: string, props: React.InputHTMLAttributes<HTMLInputElement> & { id: string }) => (
     <Field id={props.id} label={label} error={errorOf(props.id.replace("checkout-", "")) ?? (key === "region" && regionAsked ? "Enter it to see delivery options." : null)}>
       <TextInput
+        placeholder={ADDRESS_PLACEHOLDER[key]}
         {...props}
         value={address[key]}
         invalid={!!errorOf(props.id.replace("checkout-", "")) || (key === "region" && regionAsked)}
@@ -884,6 +906,7 @@ export function SiteCheckout({
         <details className="group" open={initialNote ? true : undefined} data-shop-note="">
           <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-4">Add a note for the shop</summary>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className={cn(inputClass, "mt-2 h-auto py-2.5")} placeholder="Gift wrap, delivery instructions..." />
+          <p className="mt-1.5 text-[12.5px] text-[#6b7280]">{brand.name} sees it with your order.</p>
         </details>
       ) : null}
       {/* What the shop's cart asked (an imported theme's gift message, a delivery date): it goes on the order with the note. */}
@@ -977,6 +1000,19 @@ export function SiteCheckout({
             </div>
           </li>
         ))}
+        {/* No option chosen yet (a size, a colour): chosen right here, never dropped from the order. */}
+        {(quote.needsOption ?? []).map((l) => (
+          <li key={`choose:${l.productId}`} data-line-item="" data-line-needs-option="" className="flex items-start gap-3.5">
+            <LineImage url={l.imageUrl} />
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
+              <VariantEdit choices={quote.choices?.[l.productId]} currentId={null} currentName={null} title={l.title} busy={quoting} editable={editable} startOpen onChange={(v) => changeVariant({ productId: l.productId, variantId: null }, v)} />
+              {editable ? (
+                <LineControls title={l.title} quantity={l.quantity} max={l.quantity} stepper={false} busy={quoting} onChange={(q) => changeLine({ productId: l.productId, variantId: null }, q)} />
+              ) : null}
+            </div>
+          </li>
+        ))}
         {/* Short of stock: kept in the order with what is left, to lower or remove here rather than back on the site. */}
         {(quote.short ?? []).map((l) => (
           <li key={`short:${l.productId}:${l.variantId ?? ""}`} data-line-item="" data-line-short="" className="flex items-start gap-3.5">
@@ -1005,6 +1041,7 @@ export function SiteCheckout({
       </ul>
       <div className="border-t border-black/[0.07] pt-5">
         <Totals
+          currency={currency}
           part="top"
           subtotal={t?.itemsSubtotalCents ?? 0}
           discountCents={discountCents}
@@ -1058,7 +1095,7 @@ export function SiteCheckout({
           </dl>
         ) : null}
         <div className="mt-5">
-          <Totals part="bottom" subtotal={t?.itemsSubtotalCents ?? 0} discountCents={discountCents} total={total} />
+          <Totals currency={currency} part="bottom" subtotal={t?.itemsSubtotalCents ?? 0} discountCents={discountCents} total={total} />
           {currencyNote ? <p className="mt-2 text-[13px] leading-5 text-[#6b7280]" data-currency-note="">{currencyNote}</p> : null}
           {t && t.taxCents > 0 && t.taxIncluded ? <p className="mt-2 text-[13px] text-[#6b7280]">Includes {money(t.taxCents)} {(t.taxLabel || "tax").replace(/^Tax\b/, "tax")}</p> : null}
         </div>
@@ -1072,8 +1109,9 @@ export function SiteCheckout({
   )
 
   /* ── Nothing to pay for ──────────────────────────────────────────── */
+  /* The last line removed (or an empty cart): straight back to the website, where the buyer came from, never a "Your cart is empty" page on its own. */
   if (items !== null && items.length === 0) {
-    return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="Your cart is empty" message={null} />
+    return <BackToShop to={backTo} />
   }
   if (!quote && quoteError && !quoting) {
     return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="This cart can't be paid for yet" message={quoteError} />
@@ -1109,6 +1147,7 @@ export function SiteCheckout({
   } else {
     payment = (
       <StripePay
+        currency={currency}
         amountCents={Math.max(total, 50)}
         creatorName={brand.name}
         email={email}
@@ -1220,6 +1259,14 @@ export function SiteCheckout({
  * now, a product gone from sale. Said on the shop's own page, with the way
  * back, never a blank page.
  */
+/** Sends the buyer back to the website at once, with the page's own grey while it goes. */
+function BackToShop({ to }: { to: string }) {
+  React.useEffect(() => {
+    window.location.replace(to)
+  }, [to])
+  return <div aria-busy className="min-h-[60vh]" data-checkout-leaving="" />
+}
+
 export function SiteProblem({ brand, backTo, shopUrl, title, message }: { brand: ShopBrand; backTo: string | null; shopUrl: string | null; title: string; message: string | null }) {
   return (
     <div data-page="checkout" data-site-checkout="" className="min-h-dvh bg-[#f8f9fa]">

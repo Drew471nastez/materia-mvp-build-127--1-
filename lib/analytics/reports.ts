@@ -1010,14 +1010,34 @@ export function buildReports(input: {
   const placeLabel = (pt: string | null, pid: string | null) =>
     selector.type === "all" && pt ? propertyName({ type: pt as never, id: pid }, properties) : null
   const pageTotal = sum((now.pages ?? []).map((p) => Number(p[3]) || 0))
-  const topPages: PageRow[] = (now.pages ?? []).map(([pt, pid, path, views, visitors]) => ({
-    key: `${pt ?? ""}|${pid ?? ""}|${path ?? ""}`,
-    label: path ?? (pt === "onepage" ? "OnePage" : tt("Page unknown")),
-    place: placeLabel(pt, pid),
-    views: Number(views) || 0,
-    visitors: Number(visitors) || 0,
-    share: pageTotal ? (Number(views) || 0) / pageTotal : 0,
-  }))
+  /*
+    NO "PAGE UNKNOWN". A view with a place but no path (written before the
+    path was kept) is named by its place: "Creator page", the website's name,
+    "OnePage". Views with neither (from before places were kept) are one row,
+    "Earlier visits", last, so the list never fills with rows nobody can read.
+  */
+  const placeOf = (pt: string | null, pid: string | null) => (pt ? propertyName({ type: pt as never, id: pid }, properties) : null)
+  const named: PageRow[] = []
+  let earlier: PageRow | null = null
+  for (const [pt, pid, path, views, visitors] of now.pages ?? []) {
+    const v = Number(views) || 0
+    const u = Number(visitors) || 0
+    if (!path && !pt) {
+      earlier = earlier ?? { key: "earlier", label: tt("Earlier visits"), place: null, views: 0, visitors: 0, share: 0 }
+      earlier.views += v
+      earlier.visitors += u
+      continue
+    }
+    named.push({
+      key: `${pt ?? ""}|${pid ?? ""}|${path ?? ""}`,
+      label: path ?? placeOf(pt, pid) ?? tt("Earlier visits"),
+      place: path ? placeLabel(pt, pid) : null,
+      views: v,
+      visitors: u,
+      share: 0,
+    })
+  }
+  const topPages: PageRow[] = [...named, ...(earlier ? [earlier] : [])].map((r) => ({ ...r, share: pageTotal ? r.views / pageTotal : 0 }))
 
   /* Top links: the OnePage's blocks by the name they have on the page. */
   const linkTotal = sum((now.links ?? []).map((l) => Number(l[3]) || 0))
