@@ -202,23 +202,26 @@ section("Which model answers")
    * module — flipping the actual fallback to "openai" left it green.
    */
   /* Storelib AI runs on ChatGPT only for now (lib/sites/agent/provider.ts, OFFERED). */
-  check("ChatGPT is the default", DEFAULT_PROVIDER === "openai", DEFAULT_PROVIDER)
-  check("and the only provider offered", JSON.stringify(OFFERED) === JSON.stringify(["openai"]), JSON.stringify(OFFERED))
+  check("Claude is the default", DEFAULT_PROVIDER === "anthropic", DEFAULT_PROVIDER)
+  check("both providers are offered", JSON.stringify(OFFERED) === JSON.stringify(["anthropic", "openai"]), JSON.stringify(OFFERED))
   check(
-    "a request that still names Claude, or anything else, is answered by ChatGPT",
-    offeredProvider("anthropic") === "openai" && offeredProvider("gpt") === "openai" && offeredProvider(undefined) === "openai" && offeredProvider("openai") === "openai",
+    "valid provider choices are honored and unknown choices use the default",
+    offeredProvider("anthropic") === "anthropic" && offeredProvider("gpt") === "anthropic" && offeredProvider(undefined) === "anthropic" && offeredProvider("openai") === "openai",
   )
   {
     const had = process.env.OPENAI_API_KEY
+    const hadClaude = process.env.ANTHROPIC_API_KEY
+    delete process.env.ANTHROPIC_API_KEY
     process.env.OPENAI_API_KEY = "sk-test-placeholder"
     const resolved = resolveProvider({ requested: "anthropic", tier: "strong" })
     check(
-      "so an old tab asking for Claude Opus gets the stronger ChatGPT model, with no notice about Claude",
-      resolved.id === "openai" && resolved.model === "gpt-5.6-terra" && resolved.substitutedFor === null && substitutionNotice(resolved) === null,
+      "an unavailable provider uses a configured alternative with a notice",
+      resolved.id === "openai" && resolved.model === "gpt-5.6-terra" && resolved.substitutedFor === "anthropic" && !!substitutionNotice(resolved),
       JSON.stringify({ id: resolved.id, model: resolved.model }),
     )
     if (had === undefined) delete process.env.OPENAI_API_KEY
     else process.env.OPENAI_API_KEY = had
+    if (hadClaude !== undefined) process.env.ANTHROPIC_API_KEY = hadClaude
   }
   /* Kept, priced and tested, and reachable from nothing a browser sends. */
   check(
@@ -228,8 +231,8 @@ section("Which model answers")
     `${modelFor("anthropic", "fast")} / ${modelFor("anthropic", "strong")}`,
   )
   check(
-    "but no product path imports the Anthropic provider",
-    !/from "\.\/anthropic-provider"/.test(provider) &&
+    "product routes use the shared resolver and the resolver imports Claude",
+    /from "\.\/anthropic-provider"/.test(provider) &&
       ["app/api/website-builder/themes/[installId]/agent/route.ts", "app/api/sites/[siteId]/agent/route.ts", "app/api/app/products/category-suggestion/route.ts", "app/api/ai/seo/route.ts", "lib/products/category-suggest-ai.ts"].every(
         (f) => !/anthropic-provider|@anthropic-ai|api\.anthropic\.com/.test(readFileSync(join(root, f), "utf8")),
       ),
@@ -242,7 +245,7 @@ section("Which model answers")
    */
   check(
     "a provider this deployment cannot reach is checked BEFORE the run starts",
-    /export function isConfigured/.test(provider) && /OPENAI_API_KEY/.test(provider) && /if \(!isConfigured\(chosen\)\) throw new NoProviderConfiguredError\(\)/.test(provider),
+    /export function isConfigured/.test(provider) && /ANTHROPIC_API_KEY/.test(provider) && /if \(!available\) throw new NoProviderConfiguredError\(\)/.test(provider),
   )
   check(
     "the switch's value is untrusted: anything not offered is the default",
@@ -306,7 +309,7 @@ section("Which model answers")
     "the theme editor resolves the creator's choice instead of hard-coding a vendor",
     /* On the creator's own AI when they have one (tests/own-ai.test.ts), their switch honoured either way. */
     /* `wantsTier` is body.tier, lifted to "strong" when the ask is plainly a build (tests/theme-agent.test.ts). */
-    /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: wantsTier \}\)/.test(route) &&
+    /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: wantsTier, model: body.model \}\)/.test(route) &&
       !/provider: openAIProvider/.test(route),
   )
   /* Storelib's key for an offered provider, or the creator's own OpenAI key: a Claude key alone answers nothing now. */
@@ -314,7 +317,7 @@ section("Which model answers")
     "Storelib's OpenAI key, or one of the creator's own that can answer, is enough for the endpoint to be considered configured",
     /!\(await canAnswer\(/.test(route) &&
       /OFFERED\.some\(isConfigured\)/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")) &&
-      /ANSWERING_SOURCES: readonly KeySource\[\] = \["openai"\]/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")),
+      /ANSWERING_SOURCES: readonly KeySource\[\] = \["anthropic", "openai"\]/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")),
   )
   check("failures are reported in plain words, never the provider's", /plainRunError\(thrown, "theme agent"\)/.test(route) && !/thrown\.message/.test(route))
 }
@@ -363,13 +366,13 @@ section("The switch, where somebody can reach it")
   const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
 
   /* The list itself is lib/website-builder/ask-engines.ts, tested in tests/ask-engines.test.ts. */
-  check("the chat's choices are ChatGPT's, from one list", /from "@\/lib\/website-builder\/ask-engines"/.test(chat) && !/id: "claude/.test(chat) && !/provider: "anthropic"/.test(chat))
+  check("the chat reads one model catalog", /from "@\/lib\/website-builder\/ask-engines"/.test(chat) && /\/api\/ai-models/.test(chat))
   check(
-    "the default is the everyday ChatGPT model",
+    "the chat initializes its configured default",
     /React\.useState<EngineId>\(DEFAULT_ENGINE\)/.test(chat),
   )
   check(
-    "the choice is remembered per browser, and a saved Claude id reads as the default",
+    "the choice is remembered and validated per browser",
     /localStorage\.setItem\(ENGINE_KEY/.test(chat) && /engineFromSaved\(window\.localStorage\.getItem\(ENGINE_KEY\)\)/.test(chat),
   )
   check(

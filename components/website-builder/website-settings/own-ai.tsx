@@ -11,8 +11,7 @@
  *
  *   OpenAI       a key from platform.openai.com, pasted once.
  *
- * Storelib AI runs on OpenAI only (lib/sites/agent/provider.ts), so the
- * Claude key line is hidden; a key kept from before is not deleted.
+ * Claude and OpenAI keys answer the corresponding model choices in the chat.
  *
  * A connected key answers the chat's models on the creator's account, and
  * those edits do not count against the plan's AI edits. A key is checked
@@ -26,7 +25,7 @@
 
 import { useState, type ReactNode } from "react"
 import { Loader2 } from "lucide-react"
-import { OpenAIMark } from "@/components/website-builder/connection-marks"
+import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
 import { acceptOwnAi, useOwnAi, type OwnKey, type OwnSource } from "@/components/website-builder/use-own-ai"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { ConnectionRow, RowNote, type ConnectionTone } from "./connection-row"
@@ -39,12 +38,12 @@ const SOURCES: {
   mark: ReactNode
   paste?: { placeholder: string; where: string; href: string }
 }[] = [
-  /*
-    No Claude line while Storelib AI runs on OpenAI only (lib/sites/agent/provider.ts,
-    OFFERED). A Claude key connected before is still stored, unused and unshown;
-    the line comes back here, with ClaudeMark and console.anthropic.com, when
-    Claude is offered again.
-  */
+  {
+    id: "anthropic",
+    name: "Claude (Anthropic)",
+    mark: <ClaudeMark className="h-5 w-5 text-[#D97757]" />,
+    paste: { placeholder: "sk-ant-...", where: "console.anthropic.com", href: "https://console.anthropic.com/settings/keys" },
+  },
   {
     id: "openai",
     name: "ChatGPT (OpenAI)",
@@ -71,7 +70,7 @@ export function OwnAiSettings() {
     <section aria-label={tt("Your own AI")} data-own-ai="" className="mt-6 md:mt-7">
       <h2 className="text-[15px] font-semibold text-white md:text-[14.5px]">{tt("Use your own AI")}</h2>
       <p className="mt-1 max-w-[560px] text-[14px] leading-relaxed text-white/55 md:text-[13.5px]">
-        {tt("Storelib AI is already included in your plan. If you would rather it ran on your own OpenAI key, connect it here and those edits stop counting against your plan's AI edits.")}
+        {tt("Storelib AI is already included in your plan. Connect your own Claude or OpenAI API key to use your account for that provider without counting those edits against your plan.")}
       </p>
       {!own.setUp && <RowNote tone="bad">{tt("This is not switched on for your store yet.")}</RowNote>}
 
@@ -145,7 +144,7 @@ function SourceBody({
       setSaved(
         body.unchecked
           ? tt("Saved. We could not reach the provider to check it just now; your next message will.")
-          : tt("Connected. Storelib AI now answers on your OpenAI key."),
+          : source.id === "anthropic" ? tt("Connected. Claude now answers on your API account.") : tt("Connected. Storelib AI now answers on your OpenAI key."),
       )
     } catch {
       setError(tt("Could not reach Storelib. Check your connection and try again."))

@@ -152,12 +152,13 @@ const BodySchema = z.object({
   codeFocus: z.boolean().optional(),
   /**
    * WHOSE MODEL ANSWERS, from the switch in the panel. Untrusted, and
-   * "anthropic" is still accepted so an old tab's request is not refused: it
-   * is answered by ChatGPT (lib/sites/agent/provider.ts, offeredProvider).
+   * Both vendors go through the same validated coding agent. Model IDs are
+   * checked against the caller's available Claude models on the server.
    */
   provider: z.enum(["anthropic", "openai"]).optional(),
   /** How hard a model to use. "strong" is the creator asking for the bigger ChatGPT model. */
   tier: z.enum(["fast", "strong"]).optional(),
+  model: z.string().regex(/^claude-[a-z0-9-]{1,100}$/).optional(),
   /**
    * HOW HARD IT THINKS, the panel's Strength: Light, Standard or Deep. Only
    * these three are accepted from a browser; absent (an older client) leaves
@@ -361,8 +362,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * badly costs more than the difference between the two models. A
          * tweak, a question and a chat all stay on what they chose.
          */
-        const wantsTier = (shape.ambitious || bigIntent || intent.kind === "SECTION_REDESIGN") && body.tier !== "strong" ? "strong" : body.tier
-        const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: wantsTier })
+        const wantsTier = !body.model && (shape.ambitious || bigIntent || intent.kind === "SECTION_REDESIGN") && body.tier !== "strong" ? "strong" : body.tier
+        const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: wantsTier, model: body.model })
         /* Whose account answers, so the chat can say "On your OpenAI key" and not count it as Storelib AI. */
         send({ type: "account", own: resolved.own })
         /* Said out loud: the run is on a model they did not pick, and on their own account it is their bill. */

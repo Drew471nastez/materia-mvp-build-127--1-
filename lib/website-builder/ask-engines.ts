@@ -2,11 +2,9 @@
  * ===========================================================================
  *  THE MODELS ASK STORELIB OFFERS, AND HOW HARD EACH THINKS
  * ===========================================================================
- * Storelib AI runs on ChatGPT (lib/sites/agent/provider.ts, CHATGPT ONLY,
- * FOR NOW), so the switch lists OpenAI's two models and says in a line what
- * each is for. `provider` and `tier` are what the endpoint takes; the model
- * ids themselves are the server's (lib/sites/agent/models.ts), so a price
- * change or a new model is a change there and a label here.
+ * Claude and OpenAI share the same coding agent. The server lists the Claude
+ * models available to the account; tier defaults remain available when that
+ * list cannot be fetched. Exact IDs are checked again before generation.
  *
  * STRENGTH is the reasoning effort the model is asked for: Light, Standard
  * and Deep are OpenAI's low, medium and high. It is a separate choice from
@@ -14,11 +12,26 @@
  * careful small change, Terra on Light is a quick big one.
  *
  * Both are remembered per browser. An id saved before this list changed
- * (Claude Sonnet was "claude", Claude Opus "claude-opus") reads as the
- * default rather than as nothing.
+ * is checked before use, so removed or malformed choices have a default.
  */
 
 export const ENGINES = [
+  {
+    id: "claude",
+    label: "Claude Sonnet",
+    short: "Sonnet",
+    detail: "For building sections, pages and everyday edits",
+    provider: "anthropic",
+    tier: "fast",
+  },
+  {
+    id: "claude-opus",
+    label: "Claude Opus",
+    short: "Opus",
+    detail: "For complex code and larger changes",
+    provider: "anthropic",
+    tier: "strong",
+  },
   {
     id: "openai",
     label: "GPT-5.6 Luna",
@@ -37,15 +50,41 @@ export const ENGINES = [
   },
 ] as const
 
-export type Engine = (typeof ENGINES)[number]
-export type EngineId = Engine["id"]
+export interface Engine {
+  id: string
+  label: string
+  short: string
+  detail: string
+  provider: "anthropic" | "openai"
+  tier: "fast" | "strong"
+  model?: string
+}
+export type EngineId = string
 
-export const DEFAULT_ENGINE: EngineId = "openai"
+export const DEFAULT_ENGINE: EngineId = "claude"
 export const ENGINE_KEY = "storelib.theme-chat.engine"
 
-/** A saved or sent engine id, as one this list has: anything else, old Claude ids included, is the default. */
+/** Saved exact choices are revalidated by the account-scoped server catalog. */
 export function engineFromSaved(saved: unknown): EngineId {
-  return ENGINES.some((e) => e.id === saved) ? (saved as EngineId) : DEFAULT_ENGINE
+  return typeof saved === "string" && (ENGINES.some((e) => e.id === saved) || /^claude:claude-[a-z0-9-]{1,100}$/.test(saved)) ? saved : DEFAULT_ENGINE
+}
+
+/** Names and IDs come from the account's Models API, not browser guesses. */
+export function enginesWithClaudeModels(models: { id: string; display_name: string }[]): Engine[] {
+  const choices: Engine[] = models.filter((model) => /^claude-[a-z0-9-]{1,100}$/.test(model.id)).map((model) => ({
+    id: `claude:${model.id}`, label: model.display_name, short: model.display_name.replace(/^Claude\s+/i, ""),
+    detail: /haiku/i.test(model.id) ? "Fast edits and shorter requests" : /opus|fable|mythos/i.test(model.id) ? "Complex code and larger changes" : "Sections, pages and everyday edits",
+    provider: "anthropic", tier: /opus|fable|mythos/i.test(model.id) ? "strong" : "fast", model: model.id,
+  }))
+  if (!choices.length) return [...ENGINES]
+  const sonnet = choices.find((engine) => /sonnet/.test(engine.model!))
+  const opus = choices.find((engine) => /opus/.test(engine.model!))
+  return [
+    ...(sonnet ? [{ ...sonnet, id: "claude" }] : []),
+    ...(opus ? [{ ...opus, id: "claude-opus" }] : []),
+    ...choices.filter((engine) => engine !== sonnet && engine !== opus),
+    ...ENGINES.filter((engine) => engine.provider === "openai"),
+  ]
 }
 
 export const STRENGTHS = [
