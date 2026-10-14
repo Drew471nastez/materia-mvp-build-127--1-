@@ -42,13 +42,20 @@ export function siteCommerce(theme: Record<string, unknown> | null | undefined):
   }
 }
 
+const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`
+
 /** The banner's line, from what is in the cart and where free shipping starts (cents). Null: nothing to say. */
-export function freeShippingLine(subtotalCents: number, fromCents: number | null): { text: string; progress: number } | null {
+/**
+ * `money` writes the amount left: the store's dollars by default, the
+ * visitor's market's currency where the page shows one (the theme's
+ * useMoney, lib/markets/compat-prices.ts commerceInMarket).
+ */
+export function freeShippingLine(subtotalCents: number, fromCents: number | null, money: (cents: number) => string = dollars): { text: string; progress: number } | null {
   if (fromCents === null || !Number.isFinite(fromCents) || fromCents < 0) return null
   if (fromCents === 0) return { text: "Free shipping on every order", progress: 1 }
   const left = Math.max(0, fromCents - Math.max(0, subtotalCents))
   if (left === 0) return { text: "You have earned free shipping", progress: 1 }
-  return { text: `Spend $${(left / 100).toFixed(2)} more for free shipping`, progress: Math.max(0, Math.min(1, subtotalCents / fromCents)) }
+  return { text: `Spend ${money(left)} more for free shipping`, progress: Math.max(0, Math.min(1, subtotalCents / fromCents)) }
 }
 
 /** The cart's returns line. Null when returns are off or the shop never set them. */

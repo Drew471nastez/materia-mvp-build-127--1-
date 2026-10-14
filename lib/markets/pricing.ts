@@ -11,7 +11,7 @@
  *
  * Pure: the rates and the market are handed in.
  */
-import { convertMinor, formatMinor, minorUnits, type FxRates, type PriceRounding } from "./money"
+import { chargeNote, convertMinor, formatMinor, minorUnits, type FxRates, type PriceRounding } from "./money"
 
 export interface MarketPrice {
   id: string
@@ -81,6 +81,36 @@ export function convertPriceText(text: string, pricing: Pricing, locale = "en"):
   if (shown === null) return text
   const suffix = m[3].trim().startsWith("/") ? m[3].trim() : ""
   return `${shown}${suffix}`
+}
+
+/** A product card's prices, as a page is handed them: the written amounts ("$48.00", "$9.00/month") and each variant's. */
+export interface CardPrices {
+  price?: string
+  compare_price?: string
+  currency?: string
+  variants?: { price?: string; compare_price?: string }[]
+}
+
+/**
+ * A card's prices in the market's currency, written the way a reader of
+ * `locale` reads money: what the live site hands a page of a builder theme
+ * (lib/markets/live.ts Localizer.cards), and what the builder's canvas draws
+ * for the market it previews. Display only: checkout charges the store's.
+ */
+export function pricesInMarket<S extends CardPrices>(settings: S, pricing: Pricing, locale: string): S {
+  const price = (t: string | undefined) => (t ? convertPriceText(t, pricing, locale) : t)
+  return {
+    ...settings,
+    price: price(settings.price),
+    compare_price: price(settings.compare_price),
+    currency: pricing.currency,
+    variants: (settings.variants ?? []).map((v) => ({ ...v, price: price(v.price), compare_price: price(v.compare_price) })),
+  } as S
+}
+
+/** The conversion as plain data for the page (StorefrontContext display): the cart, the drawer and the product page convert their amounts with it, in the browser, as the cards were. */
+export function storefrontDisplay(pricing: Pricing, locale: string, chargeCurrency: string): StorefrontDisplay {
+  return { market: pricing.market, base: pricing.base, fx: pricing.fx, locale, note: chargeNote(pricing.currency, chargeCurrency) }
 }
 
 /** A converted amount in "cents" (hundredths of the major unit), as an imported theme's money filter counts, for any currency. */

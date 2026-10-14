@@ -38,6 +38,16 @@ export interface SiteLanguageChoice {
   currency?: { options: { id: string; label: string; country: string }[]; current: string; note: string | null }
 }
 
+/**
+ * The builder's canvas: the same switch, drawn as the website draws it, and
+ * a choice changes what the canvas previews (the language and the prices)
+ * instead of opening another address. Nothing is remembered for a visitor.
+ */
+export interface LanguageSwitchPreview {
+  language: (code: string) => void
+  currency: (id: string) => void
+}
+
 /** Addresses never given a language prefix: what is the visitor's own or not a page. */
 const KEEP = /^\/(?:checkout|account\/(?:logout|orders)|api|receipt|review|password|_next|media|files)(?:[/?#]|$)/
 
@@ -62,13 +72,14 @@ export function localizedHref(href: string, code: string, defaultLanguage: strin
   return `${path}${url.search}${url.hash}`
 }
 
-export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
+export function LanguageSwitch({ choice, preview }: { choice: SiteLanguageChoice; preview?: LanguageSwitchPreview }) {
   const id = useId()
   const codes = choice.languages.map((l) => l.code)
 
   /* Every link to another page of the website, in this page's language. */
   useEffect(() => {
-    if (choice.code === choice.defaultLanguage) return
+    /* In the builder's canvas the document is the editor's: its links are its own. */
+    if (preview || choice.code === choice.defaultLanguage) return
     const origin = window.location.origin
     const fix = (root: ParentNode) => {
       root.querySelectorAll?.("a[href]").forEach((a) => {
@@ -95,13 +106,14 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
     seen.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["href", "action"] })
     return () => seen.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [choice.code, choice.defaultLanguage, codes.join(",")])
+  }, [choice.code, choice.defaultLanguage, codes.join(","), !preview])
 
   const hasLanguages = choice.languages.length > 1
   const currency = choice.currency
   if (!hasLanguages && !currency) return null
   const go = (code: string) => {
     if (code === choice.code) return
+    if (preview) return preview.language(code)
     /* The visitor's language from now on: a market's own no longer greets them (proxy.ts marketLanguageStart). */
     try {
       document.cookie = `sl_lang=${encodeURIComponent(code.toLowerCase())}; Path=/; Max-Age=31536000; SameSite=Lax`
@@ -115,6 +127,7 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
   const pickCurrency = (id: string) => {
     const option = currency?.options.find((o) => o.id === id)
     if (!option || id === currency?.current) return
+    if (preview) return preview.currency(id)
     try {
       document.cookie = `sl_country=${encodeURIComponent(option.country)}; Path=/; Max-Age=31536000; SameSite=Lax`
     } catch {
@@ -134,7 +147,7 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
   return (
     <div data-language-switch="" className="flex flex-col items-center gap-2 px-4 py-4" style={{ background: "var(--theme-bg, transparent)", color: "var(--theme-text, inherit)" }}>
       {/* Show visitors their own language: the offer the proxy named for this visit, at the top of the page (lib/markets/suggest-script.ts). */}
-      {hasLanguages ? <LanguageSuggest conf={{ current: choice.code, defaultLanguage: choice.defaultLanguage, languages: codes, address: "path" }} /> : null}
+      {hasLanguages && !preview ? <LanguageSuggest conf={{ current: choice.code, defaultLanguage: choice.defaultLanguage, languages: codes, address: "path" }} /> : null}
       <div className="flex flex-wrap items-center justify-center gap-2">
         {hasLanguages ? (
           <div className="relative inline-flex items-center">
