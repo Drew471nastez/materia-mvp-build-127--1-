@@ -18,31 +18,83 @@ import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/
 import { CHROME_TYPES, chromeRefusal, declaredKind, kindTaken } from "@/lib/storelib-theme/chrome"
 import { recordVersion, saveDraft, sourceMap, type FileRow } from "./theme-file-drafts"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
-import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
-import { parseCompat } from "@/lib/storelib-theme/compat/parser"
-import { CompatSyntaxError } from "@/lib/storelib-theme/compat/lexer"
-import { validateBlockSchema, validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
-
-/** What is wrong with an imported theme's file: its markup, then its panel schema. Empty when nothing is. */
-function compatFileErrors(path: string, content: string): ThemeError[] {
-  const { markup, schema } = splitCompatFile(content)
-  try {
-    parseCompat(markup)
-  } catch (e) {
-    /* The markup starts on the file's second line, after <template compat="shopify">. */
-    return [{ stage: "template", file: path, line: e instanceof CompatSyntaxError ? e.line + 1 : undefined, message: (e as Error).message }]
-  }
-  const section = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
-  const block = path.match(/^blocks\/(_?[a-z][a-z0-9_-]*)\.storelib$/)
-  if (!section && !block) return []
-  if (!schema) return [{ stage: "schema", file: path, message: "The <schema> block is missing or is not JSON" }]
-  const { shopify: _theirs, ...panel } = schema as Record<string, unknown>
-  void _theirs
-  const r = section ? validateSectionSchema({ ...panel, type: section[1] }) : validateBlockSchema(panel, { type: block![1] })
-  return r.ok === false ? r.errors.map((e) => ({ ...e, file: path })) : []
-}
+import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import { compatOf, compatValues } from "@/lib/storelib-theme/compat/install"
+import {
+  SETTINGS_PANEL_FILE,
+  SETTINGS_SCHEMA_FILE,
+  buildSettingsPanel,
+  compatBlockTypes,
+  compatFileErrors,
+  compatSchemaWords,
+  rebuildsSettingsPanel,
+  settingsSchemaErrors,
+  syncCompatFile,
+  type SchemaWords,
+} from "@/lib/storelib-theme/compat/schema-sync"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+type TextRow = { path: string; content: string | null; draft_content?: string | null }
+const textOf = (r: TextRow | null | undefined) => (r ? (r.draft_content ?? r.content ?? null) : null)
+
+/** The file as the builder has it now (its draft first), or null. */
+async function currentText(db: Db, installId: string, path: string): Promise<string | null> {
+  const r = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", path).maybeSingle()
+  return r.error ? null : textOf(r.data as TextRow | null)
+}
+
+/**
+ * The words of an imported theme's `t:` labels: its default locales, drafts
+ * first, with the file being saved in place of its stored copy. Read only
+ * when one of its schemas is saved.
+ */
+async function compatWords(db: Db, installId: string, saving?: { path: string; text: string }): Promise<SchemaWords> {
+  const r = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).like("path", "shopify/locales/%default%")
+  const files: Record<string, string> = {}
+  for (const row of ((r.error ? [] : r.data) ?? []) as TextRow[]) {
+    const text = textOf(row)
+    if (typeof text === "string") files[row.path] = text
+  }
+  if (saving) files[saving.path] = saving.text
+  return compatSchemaWords(files)
+}
+
+/** The theme's block types, so a section that takes them by name keeps them in its panel. */
+async function themeBlockTypes(db: Db, installId: string): Promise<string[]> {
+  const r = await db.from("store_theme_custom_files").select("path").eq("install_id", installId).like("path", "blocks/%")
+  return compatBlockTypes((((r.error ? [] : r.data) ?? []) as { path: string }[]).map((x) => x.path))
+}
+
+/**
+ * THE THEME SETTINGS PANEL OF AN IMPORTED THEME, MADE AGAIN after its
+ * settings_schema.json, or the words its labels are in, was saved: from the
+ * drafts, with the theme's own values for its colour schemes, into the
+ * panel's own draft, so it is published with the schema it was made from.
+ * Nothing for a theme of Storelib's own.
+ */
+async function rebuildSettingsPanel(db: Db, installId: string, saved: { path: string; text: string }): Promise<string[]> {
+  const settingsRow = await db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle()
+  const row = settingsRow.data as { settings?: unknown; draft_settings?: unknown } | null
+  const settings = row?.draft_settings ?? row?.settings
+  if (settingsRow.error || !compatOf(settings)) return []
+  const schemaText = saved.path === SETTINGS_SCHEMA_FILE ? saved.text : await currentText(db, installId, SETTINGS_SCHEMA_FILE)
+  if (schemaText === null) return []
+  const tr = await compatWords(db, installId, saved.path === SETTINGS_SCHEMA_FILE ? undefined : saved)
+  const built = buildSettingsPanel(schemaText, compatValues(settings), tr)
+  if (built.ok === false) return []
+  if ((await currentText(db, installId, SETTINGS_PANEL_FILE)) !== built.panel) {
+    const put = await saveDraft(db, installId, SETTINGS_PANEL_FILE, built.panel)
+    if (put.ok === false) return [`${SETTINGS_PANEL_FILE}: Theme settings in the builder could not be updated just now. Save the file again.`]
+  }
+  return built.notes
+}
+
+/** The same, after the theme's values changed (a push of config/settings.json): a colour scheme added there gets its colours in the panel. */
+export async function refreshCompatSettingsPanel(db: Db, installId: string): Promise<string[]> {
+  const schemaText = await currentText(db, installId, SETTINGS_SCHEMA_FILE)
+  return schemaText === null ? [] : rebuildSettingsPanel(db, installId, { path: SETTINGS_SCHEMA_FILE, text: schemaText })
+}
 
 /** A theme file's source, at most. */
 export const MAX_FILE_BYTES = 1_000_000
@@ -60,7 +112,16 @@ export function safeThemePath(path: string): boolean {
 }
 
 export type SaveResult =
-  | { ok: true; row: FileRow; drafted: boolean; created: boolean }
+  | {
+      ok: true
+      row: FileRow
+      drafted: boolean
+      created: boolean
+      /** The text kept, when it is not the text sent: an imported theme's panel made again from its schema (lib/storelib-theme/compat/schema-sync.ts). */
+      source?: string
+      /** What the builder cannot show of a schema it took: a setting with no control, a block it cannot add. */
+      notes?: string[]
+    }
   | {
       ok: false
       status: number
@@ -120,9 +181,11 @@ export async function saveThemeFile(
   db: Db,
   installId: string,
   path: string,
-  content: string,
+  sent: string,
   opts: { baseUpdatedAt?: string } = {},
 ): Promise<SaveResult> {
+  let content = sent
+  let notes: string[] = []
   if (!safeThemePath(path)) return { ok: false, status: 400, error: "Invalid path" }
   if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) {
     return { ok: false, status: 413, error: `A file is at most ${MAX_FILE_BYTES / 1_000_000} MB` }
@@ -138,8 +201,24 @@ export async function saveThemeFile(
       AN IMPORTED SHOPIFY THEME'S FILE (lib/storelib-theme/compat): its markup
       read by the compatible profile's own parser, and the panel's schema
       checked as the builder reads it. Refused with the line, like any file.
+
+      A section's or block's panel is made again from the theme's own schema
+      whenever the schema changed, by the import's own functions, so the
+      builder shows the settings the page is drawn with: a new setting gets
+      its control, a removed one loses it, blocks and presets follow.
     */
+    if (/^(sections|blocks)\//.test(path)) {
+      const [previous, tr, blockTypes] = await Promise.all([currentText(db, installId, path), compatWords(db, installId), themeBlockTypes(db, installId)])
+      const synced = syncCompatFile(path, content, previous, { tr, blockTypes })
+      if (synced.ok === false) return { ok: false, status: 422, error: `${path} did not read`, errors: synced.errors }
+      content = synced.source
+      notes = synced.notes
+    }
     const errors = compatFileErrors(path, content)
+    if (errors.length) return { ok: false, status: 422, error: `${path} did not read`, errors }
+  } else if (path === SETTINGS_SCHEMA_FILE) {
+    /* An imported theme's settings are a list of groups; anything else would take every theme setting off the page. */
+    const errors = settingsSchemaErrors(content)
     if (errors.length) return { ok: false, status: 422, error: `${path} did not read`, errors }
   } else if (path.endsWith(".storelib") && path.startsWith("blocks/")) {
     /* A theme block: compiled by a block's rules (compile.ts, compileBlock). It is never a header or a footer, and its name is the Add block menu's, not Add section's. */
@@ -226,5 +305,13 @@ export async function saveThemeFile(
   const saved = await saveDraft(db, installId, path, content)
   if (saved.ok === false) return { ok: false, status: 500, error: saved.error }
   await recordVersion(db, installId, path, content, "save")
-  return { ok: true, row: saved.row, drafted: saved.drafts, created: !current }
+  if (rebuildsSettingsPanel(path)) notes = [...notes, ...(await rebuildSettingsPanel(db, installId, { path, text: content }))]
+  return {
+    ok: true,
+    row: saved.row,
+    drafted: saved.drafts,
+    created: !current,
+    ...(content !== sent ? { source: content } : {}),
+    ...(notes.length ? { notes } : {}),
+  }
 }

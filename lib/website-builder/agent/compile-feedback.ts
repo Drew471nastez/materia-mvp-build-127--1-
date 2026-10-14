@@ -27,6 +27,9 @@
 import { checkSectionQuality, describeQuality, qualityErrors, type QualityFinding } from "@/lib/storelib-ai/quality"
 import { checkSectionIntegration } from "@/lib/storelib-ai/integration"
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
+import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
+import { parseCompat } from "@/lib/storelib-theme/compat/parser"
+import { CompatSyntaxError } from "@/lib/storelib-theme/compat/lexer"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import { renderStorelibSection } from "../storelib-runtime"
 import type { SectionInstance, ThemeSettingsValues } from "../types"
@@ -98,6 +101,8 @@ export function checkSectionSource(input: {
   /** Quality findings are not held: the run was already sent back over them, or this is Storelib's own file. */
   lenient?: boolean
 }): SourceCheck {
+  /* An imported theme's file is the theme's own template language, not Storelib's: read by the theme engine's parser instead. */
+  if (isCompatSource(input.source)) return checkCompatSource(input.path, input.source)
   const compiled = compileSection(input.source, { file: input.path, expectType: input.type })
   if (compiled.ok === false) {
     return {
@@ -145,6 +150,37 @@ export function checkSectionSource(input: {
     }
   }
   return { ok: true }
+}
+
+/**
+ * AN IMPORTED THEME'S SECTION OR BLOCK (`<template compat="shopify">`): its
+ * markup read by the parser that draws it (lib/storelib-theme/compat), and
+ * its `<schema>` one JSON object. Storelib's compiler and quality rules are
+ * for Storelib's own format and refused every such file on its first tag,
+ * so Storelib AI could not change an imported theme's code at all. The
+ * builder's panel is made from the theme's schema when the file is kept
+ * (lib/storelib-theme/compat/schema-sync.ts), which checks it again.
+ */
+function checkCompatSource(path: string, source: string): SourceCheck {
+  const errors: ThemeError[] = []
+  const { markup, schema } = splitCompatFile(source)
+  try {
+    parseCompat(markup)
+  } catch (e) {
+    /* The markup starts on the file's second line, after <template compat="shopify">. */
+    errors.push({ stage: "template", file: path, line: e instanceof CompatSyntaxError ? e.line + 1 : undefined, message: (e as Error).message })
+  }
+  if (!errors.length && /^(sections|blocks)\//.test(path)) {
+    if (!/<schema>[\s\S]*<\/schema>/.test(source)) errors.push({ stage: "schema", file: path, message: "The <schema> block is missing. Keep it after </template>." })
+    else if (!schema || Array.isArray(schema)) errors.push({ stage: "schema", file: path, message: "The <schema> block is not one JSON object." })
+  }
+  if (!errors.length) return { ok: true }
+  return {
+    ok: false,
+    reason: "compile",
+    errors,
+    feedback: `${path} did not read, so nothing was saved and the file is unchanged:\n${plainCompileErrors(errors, source)}`,
+  }
 }
 
 /** What the model reads once a file has used up its attempts in this run. */

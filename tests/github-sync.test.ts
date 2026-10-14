@@ -44,7 +44,7 @@ import {
 } from "@/lib/github-sync/core"
 import { changesFor, describeChange } from "@/lib/github-sync/core"
 import { themeFiles, gitBlobSha, roleOf, readsBack } from "@/lib/github-sync/layout"
-import { compatSchemaChange } from "@/lib/github-sync/sync"
+import { syncCompatFile } from "@/lib/storelib-theme/compat/schema-sync"
 import { travels } from "@/lib/github-sync/mirror"
 import { wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
 import { untt } from "./i18n-source"
@@ -220,15 +220,27 @@ function main() {
     check("an imported theme's repository says what it holds and what comes back", /shopify\//.test(g) && /<template compat="shopify">/.test(g) && /schema block/.test(g) && /`main`/.test(g) && /Publish/.test(g) && !/\u2014/.test(g))
   }
   {
-    /* Round Z's rule, kept: an imported section's markup comes back from GitHub, its settings (the schema) do not. */
+    /*
+      Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar). Round Z refused an imported
+      section's schema from GitHub; now it is taken, and the builder's panel is made again from the theme's own
+      schema (lib/storelib-theme/compat/schema-sync.ts). A markup change alone still keeps the file as it was sent.
+    */
     const markup = "<div class=\"x\">{{ section.settings.title }}</div>"
     const theirs = { name: "Hero", settings: [{ type: "text", id: "title", label: "Title" }] }
-    const stored = `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify({ name: "Hero", settings: [{ type: "text", id: "title", label: "Title" }], shopify: theirs }, null, 2)}\n</schema>\n`
-    check("an imported section sent back unchanged is taken", compatSchemaChange("sections/hero.storelib", stored, stored) === null)
-    check("a markup change is taken with the settings kept", compatSchemaChange("sections/hero.storelib", stored, stored.replace("class=\"x\"", "class=\"y\"")) === null)
-    check("  and key order or spacing in the schema is not a change", compatSchemaChange("sections/hero.storelib", stored, stored.replace(/<schema>[\s\S]*<\/schema>/, `<schema>${JSON.stringify({ shopify: theirs, settings: [{ label: "Title", id: "title", type: "text" }], name: "Hero" })}</schema>`)) === null)
-    check("a settings change is refused and said so", /settings/.test(compatSchemaChange("sections/hero.storelib", stored, stored.split("\"Title\"").join("\"Headline\"")) ?? ""))
-    check("a schema that is not JSON is said so", /not valid JSON/.test(compatSchemaChange("sections/hero.storelib", stored, stored.replace(/<schema>[\s\S]*<\/schema>/, "<schema>{nope</schema>")) ?? ""))
+    const stored = `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify({ type: "hero", name: "Hero", settings: [{ type: "text", id: "title", label: "Title" }], shopify: theirs }, null, 2)}\n</schema>\n`
+    const ctx = { tr: (v: unknown, f: string) => (typeof v === "string" ? v : f), blockTypes: [] as string[] }
+    const same = syncCompatFile("sections/hero.storelib", stored, stored, ctx)
+    check("an imported section sent back unchanged is taken as it is", same.ok === true && same.source === stored && !same.rebuilt)
+    const marked = stored.replace("class=\"x\"", "class=\"y\"")
+    const markOnly = syncCompatFile("sections/hero.storelib", marked, stored, ctx)
+    check("a markup change is taken with the settings kept", markOnly.ok === true && markOnly.source === marked && !markOnly.rebuilt)
+    const reordered = stored.replace(/<schema>[\s\S]*<\/schema>/, `<schema>${JSON.stringify({ shopify: theirs, settings: [{ label: "Title", id: "title", type: "text" }], name: "Hero", type: "hero" })}</schema>`)
+    const spacing = syncCompatFile("sections/hero.storelib", reordered, stored, ctx)
+    check("  and key order or spacing in the schema is not a change", spacing.ok === true && !spacing.rebuilt)
+    const headline = syncCompatFile("sections/hero.storelib", stored.split("\"Title\"").join("\"Headline\""), stored, ctx)
+    check("a settings change is taken, its panel made again from the theme's schema", headline.ok === true && headline.rebuilt && /"label": "Headline"/.test(headline.source) && !/"Title"/.test(headline.source))
+    const nope = syncCompatFile("sections/hero.storelib", stored.replace(/<schema>[\s\S]*<\/schema>/, "<schema>{nope</schema>"), stored, ctx)
+    check("a schema that is not JSON is said so, with its line", nope.ok === false && /not valid JSON/.test(nope.errors[0].message) && typeof nope.errors[0].line === "number")
   }
 
   console.log("\nThe table")

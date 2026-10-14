@@ -1078,7 +1078,13 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       // not.
       setUnpublished(saved?.drafted !== false)
       if (historyOpen) void loadVersions()
-      setOriginalContent(fileContent)
+      /* An imported theme's section keeps the builder's settings made from its own schema: the editor shows the file as kept, so the next save starts from it. */
+      if (typeof saved?.stored === "string") {
+        setFileContent(saved.stored)
+        setOriginalContent(saved.stored)
+      } else {
+        setOriginalContent(fileContent)
+      }
       setCompileErrors([])
       // Saved is saved: the recovery copy for this file has done its job.
       setDrafts(prev => { const n = { ...prev }; delete n[selectedFile.path]; return n })
