@@ -73,6 +73,8 @@ export interface SiteData {
   canonicalHost?: string
   /** The page as Shopify's theme editor shows it: the builder's preview. */
   designMode?: boolean
+  /** What the theme itself is told (theme.ts, CompatPage.themeDesignMode): false in the canvas, so it moves as on the website. */
+  themeDesignMode?: boolean
   /** A product's own page data (its description as markup), when the catalogue's card is not enough. */
   product?: (handle: string) => Promise<(CardLike & { descriptionHtml?: string }) | null>
   /** Scripts the page carries besides the theme's: the preview's banner. */
@@ -630,6 +632,7 @@ const siteKeys = (site: SiteData): string[] => site.pageKeys ?? Object.keys(site
 function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> & { template: string; path: string }): CompatPage {
   return {
     designMode: site.designMode === true,
+    ...(site.themeDesignMode !== undefined ? { themeDesignMode: site.themeDesignMode } : {}),
     pageKeys: siteKeys(site),
     host: site.host,
     canonicalHost: site.canonicalHost,

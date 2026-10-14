@@ -21,6 +21,23 @@
  *   untouched. A change to the page's shape (a section added, moved,
  *   removed, hidden) or to the theme's settings draws the page again, where
  *   it was scrolled to.
+ *
+ *   THE THEME MOVES AS ON THE WEBSITE. The page is drawn for the builder
+ *   (`designMode`: sample reviews, links to pages not yet saved, Storelib's
+ *   own Buy it now and forms held back), but the theme is told what the
+ *   website tells it (`themeDesignMode: false`: request.design_mode and
+ *   Shopify.designMode false). Told it was in Shopify's theme editor, a
+ *   theme turned its own motion off: AOS.init({ disable:
+ *   Shopify.designMode }), a reveal class left out under
+ *   `{% unless request.design_mode %}`, Dawn's sections marked still on
+ *   every edit. Nothing in the canvas rose or faded in as it was scrolled
+ *   to, while the website played all of it (measured in
+ *   scripts/check-canvas-scroll-motion.ts). Selecting, outlining and
+ *   drawing sections again are the bridge's (canvas-bridge.ts), which sends
+ *   the editor's events itself and keeps what the theme's scripts did to a
+ *   section it swaps; none of it needs the theme to think it is in an
+ *   editor. A section's still preview (compat-section-preview.tsx) keeps
+ *   design mode: it is a picture, not a page.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
@@ -447,6 +464,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       suffix,
       path,
       designMode: true,
+      /* The theme is told it is on the website, so its own motion plays as there (THE THEME MOVES AS ON THE WEBSITE, at the top of this file). */
+      themeDesignMode: false,
       host: "",
       products,
       pickable: catalog,
@@ -512,7 +531,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   stampRef.current = stamp
   const canvasSite = (): SiteData => {
     const { products, catalog, collections, menus } = dataRef.current
-    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true, i18n }
+    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true, themeDesignMode: false, i18n }
   }
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
@@ -919,6 +938,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       shop: current.shop,
       host: "",
       designMode: true,
+      themeDesignMode: false,
       i18n,
       /* The product the page shows, with what is true now about its variants: a section drawn again on a choice (`?option_values=`, `?variant=`) says the same stock as the page did. */
       product: async (handle) => {
@@ -1103,7 +1123,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         }
       } else if (m.type === "storage") {
         const st = m as { area?: unknown; items?: unknown }
-        if ((st.area === "localStorage" || st.area === "sessionStorage") && st.items && typeof st.items === "object") {
+        if ((st.area === "localStorage" || st.area === "sessionStorage" || st.area === "cookie") && st.items && typeof st.items === "object") {
           canvasStorage.set(installId, { ...(canvasStorage.get(installId) ?? {}), [st.area]: st.items as Record<string, string> })
         }
       } else if (m.type === "navigate" && isFront) {

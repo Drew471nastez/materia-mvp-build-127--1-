@@ -113,16 +113,17 @@ export function shop() {
   return { products, collections, menus }
 }
 
-export async function converted() {
-  const r = await convertShopifyTheme(await fixtureZip())
+/** The fixture converted as an import converts it; `zip`, another theme in its place (scripts/check-canvas-scroll-motion.ts). */
+export async function converted(zip?: JSZip) {
+  const r = await convertShopifyTheme(zip ?? (await fixtureZip()))
   if (!r.ok) throw new Error("the fixture theme did not convert")
   return r.theme
 }
 
 /* ── live ─────────────────────────────────────────────────────────────────── */
 
-export async function serveLive(tweak?: (compat: { pages: Record<string, unknown[]> }) => void): Promise<{ server: Server; base: string }> {
-  const t = await converted()
+export async function serveLive(tweak?: (compat: { pages: Record<string, unknown[]> }) => void, zip?: JSZip): Promise<{ server: Server; base: string }> {
+  const t = await converted(zip)
   const files = t.files
   const theme = themeOfInstall(files, t.settings, {
     assetUrl: (n) => `/api/site-theme/assets/x/1/${encodeURIComponent(n)}`,
@@ -220,9 +221,9 @@ async function live(browser: Browser) {
 
 /* ── the editor ───────────────────────────────────────────────────────────── */
 
-export async function editorFor(browser: Browser, width: number, height: number, touch: boolean, tweak?: (compat: { pages: Record<string, unknown[]> }) => void): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
+export async function editorFor(browser: Browser, width: number, height: number, touch: boolean, tweak?: (compat: { pages: Record<string, unknown[]> }) => void, zip?: JSZip): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
   const { bundle, css } = (await import("./editor-probe-harness.mjs")) as { bundle: string; css: string }
-  const t = await converted()
+  const t = await converted(zip)
   const sources = Object.fromEntries(Object.entries(t.files).filter(([p]) => p.endsWith(".storelib")))
   const files = Object.fromEntries(Object.entries(t.files).filter(([p, v]) => p.startsWith("shopify/") && !v.startsWith("base64:")))
   const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections]))
