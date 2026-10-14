@@ -76,11 +76,14 @@ export function ReviewsClient({
   products,
   ready,
   app = { enabled: false, ready: false },
+  requests = null,
 }: {
   initialReviews: SellerReview[]
   products: SellerProduct[]
   ready: boolean
   app?: { enabled: boolean; ready: boolean }
+  /** Review request emails sent, and how many led to a review (review_requests); null when there is no table to read. */
+  requests?: { sent: number; reviewed: number } | null
 }) {
   const router = useRouter()
   const [reviews, setReviews] = useState(initialReviews)
@@ -231,16 +234,8 @@ export function ReviewsClient({
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        {stats.count > 0 ? (
-          <p data-reviews-summary="" className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-[#6b7280]">
-            <Stars rating={stats.average} size={15} />
-            <span className="font-semibold tabular-nums text-[#1a1a2e]">{stats.average.toFixed(1)}</span>
-            <span>
-              {tt("from {count, plural, one {# review} other {# reviews}}", { count: stats.count })}
-              {unanswered > 0 ? tt(" · {unanswered} without a reply", { unanswered }) : ""}
-              {pendingCount > 0 ? tt(" · {pendingCount} waiting for you", { pendingCount }) : ""}
-            </span>
-          </p>
+        {stats.count > 0 || (requests && requests.sent > 0) ? (
+          <ReviewsOverview reviews={inProduct} published={published} pending={pendingCount} unanswered={unanswered} requests={requests} />
         ) : null}
 
         {!ready ? (
@@ -711,5 +706,101 @@ function ReportDialog({ review, onClose, onReport }: { review: SellerReview; onC
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE OVERVIEW: WHAT A STORE WANTS TO KNOW AT A GLANCE
+ * ===========================================================================
+ * Read from the reviews on this page and the request rows, nothing else: the
+ * average and how many, how they spread over the five ratings, how many came
+ * in each of the last six months, what is waiting, how many are from buyers,
+ * how many have a reply, and how many request emails led to a review. No
+ * figure is shown that the data does not hold (no revenue, no "trust score").
+ */
+function ReviewsOverview({
+  reviews,
+  published,
+  pending,
+  unanswered,
+  requests,
+}: {
+  reviews: SellerReview[]
+  published: SellerReview[]
+  pending: number
+  unanswered: number
+  requests: { sent: number; reviewed: number } | null
+}) {
+  const count = published.length
+  const average = count ? published.reduce((n, r) => n + r.rating, 0) / count : 0
+  const byStar = [5, 4, 3, 2, 1].map((n) => ({ n, count: published.filter((r) => r.rating === n).length }))
+  const most = Math.max(1, ...byStar.map((b) => b.count))
+  const verified = published.filter((r) => r.verified).length
+  const replied = count - unanswered
+  /* The last six calendar months, oldest first, in the browser's own time. */
+  const months = (() => {
+    const now = new Date()
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
+      const next = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+      const n = reviews.filter((r) => {
+        const at = new Date(r.created_at)
+        return at >= d && at < next
+      }).length
+      return { label: d.toLocaleDateString(undefined, { month: "short" }), n }
+    })
+  })()
+  const monthMost = Math.max(1, ...months.map((m) => m.n))
+  const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 100)}%` : "0%")
+  const facts: { label: string; value: string; hint?: string }[] = [
+    { label: tt("Waiting for you"), value: String(pending) },
+    { label: tt("From buyers"), value: pct(verified, count), hint: tt("{verified} of {count} are verified purchases", { verified, count }) },
+    { label: tt("With a reply"), value: pct(replied, count) },
+    ...(requests ? [{ label: tt("Requests sent"), value: String(requests.sent), hint: requests.sent ? tt("{reviewed} led to a review", { reviewed: requests.reviewed }) : undefined }] : []),
+  ]
+  return (
+    <section data-reviews-overview="" aria-label={tt("Overview")} className={cn(card, "mt-1 grid gap-5 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]")}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+        <div className="shrink-0">
+          <p className="text-[34px] font-bold leading-none tabular-nums text-[#1a1a2e]">{average.toFixed(1)}</p>
+          <div className="mt-2"><Stars rating={average} size={15} /></div>
+          <p className="mt-1.5 text-[13px] text-[#6b7280]">{tt("{count, plural, one {# review} other {# reviews}}", { count })}</p>
+        </div>
+        <ul className="min-w-0 flex-1 space-y-1.5" aria-label={tt("Ratings")}>
+          {byStar.map((b) => (
+            <li key={b.n} className="grid grid-cols-[14px_minmax(0,1fr)_28px] items-center gap-2 text-[12.5px] text-[#6b7280]">
+              <span className="tabular-nums">{b.n}</span>
+              <span className="h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
+                <span className="block h-full rounded-full bg-[#1a1a2e]" style={{ width: `${(b.count / most) * 100}%` }} />
+              </span>
+              <span className="text-right tabular-nums">{b.count}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="grid gap-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+          {facts.map((f) => (
+            <div key={f.label} className="min-w-0" title={f.hint}>
+              <p className="truncate text-[12px] text-[#6b7280]">{f.label}</p>
+              <p className="mt-0.5 text-[18px] font-semibold tabular-nums text-[#1a1a2e]">{f.value}</p>
+            </div>
+          ))}
+        </div>
+        <div aria-label={tt("Reviews by month")}>
+          <div className="flex h-12 items-end gap-1.5">
+            {months.map((m) => (
+              <span key={m.label} className="flex-1 rounded-t-[3px] bg-[#e5e7eb]" style={{ height: `${Math.max(6, (m.n / monthMost) * 100)}%`, background: m.n ? "#1a1a2e" : undefined }} title={`${m.label}: ${m.n}`} />
+            ))}
+          </div>
+          <div className="mt-1 flex gap-1.5">
+            {months.map((m) => (
+              <span key={m.label} className="flex-1 text-center text-[11px] text-[#9ca3af]">{m.label}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }

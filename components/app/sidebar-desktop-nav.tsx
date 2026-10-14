@@ -34,6 +34,7 @@
  * fixed 20×20 box, so nothing an icon does can move the label beside it.
  */
 
+import { RailToggle } from "./rail-toggle"
 import Link from "next/link"
 import { isPlainClick, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import type * as React from "react"
@@ -612,7 +613,7 @@ export function DesktopNavItem({
   const label = (
     <>
       <NavIcon icon={item.icon} active={active} color={iconColor} />
-      <span className="whitespace-nowrap">{item.label}</span>
+      <span data-nav-label="" className="whitespace-nowrap">{item.label}</span>
     </>
   )
 
@@ -631,6 +632,8 @@ export function DesktopNavItem({
         {...handlers}
         className={cn(ROW, "text-left")}
         style={style}
+        title={item.label}
+        data-nav-row=""
       >
         {label}
       </button>
@@ -659,6 +662,8 @@ export function DesktopNavItem({
             onBlur={handlers.onBlur}
             className={cn(ROW, "pr-[38px]")}
             style={style}
+            title={item.label}
+            data-nav-row=""
           >
             {label}
           </Link>
@@ -677,6 +682,7 @@ export function DesktopNavItem({
             }}
             aria-label={expanded ? tt("Collapse {label}", { label: item.label }) : tt("Expand {label}", { label: item.label })}
             aria-expanded={expanded}
+            data-nav-chevron=""
             className="absolute right-[10px] top-1/2 flex h-5 w-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-[6px]"
             style={{ color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : LABEL_TEXT }}
           >
@@ -726,6 +732,8 @@ export function DesktopNavItem({
       onBlur={handlers.onBlur}
       className={ROW}
       style={style}
+      title={item.label}
+      data-nav-row=""
     >
       {label}
     </Link>
@@ -838,7 +846,7 @@ export function DesktopSidebarContent({
         </div>
 
         {storeUnpublishedNote && (
-          <div className="mt-4 rounded-[10px] border border-amber-100/80 bg-amber-50/80 px-3 py-2.5">
+          <div data-rail-hide="" className="mt-4 rounded-[10px] border border-amber-100/80 bg-amber-50/80 px-3 py-2.5">
             <p className="text-[12px] text-amber-700">{storeUnpublishedNote}</p>
           </div>
         )}
@@ -862,6 +870,7 @@ export function DesktopSidebarContent({
         <Link
           href={UPGRADE_HREF}
           data-upgrade-card=""
+          data-rail-hide=""
           onClick={(e) => { if (isPlainClick(e.nativeEvent)) onNavigate?.(UPGRADE_HREF) }}
           onMouseEnter={() => {
             if (!upgradeActive) onPrefetch?.(UPGRADE_HREF)
@@ -883,14 +892,17 @@ export function DesktopSidebarContent({
           {...settingsHandlers}
           className={ROW}
           style={rowStyle(settingsActive, settingsHovered)}
+          title={settingsLabel}
+          data-nav-row=""
         >
           <NavIcon
             icon={NAV_ICONS_EXTRA.settings}
             active={settingsActive}
             color={settingsActive ? ACTIVE_TEXT : settingsHovered ? HOVER_TEXT : REST_TEXT}
           />
-          <span className="whitespace-nowrap">{settingsLabel}</span>
+          <span data-nav-label="" className="whitespace-nowrap">{settingsLabel}</span>
         </Link>
+        <RailToggle />
       </div>
     </div>
   )

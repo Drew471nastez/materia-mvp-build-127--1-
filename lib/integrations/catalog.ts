@@ -505,7 +505,18 @@ const LEAD: Record<string, string> = {
   shipstation: "Paid orders go to ShipStation. Print the label there and the tracking comes back to the order.",
 }
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
+/*
+  NATIVE FULFILMENT IS NOT AN INTEGRATION. Shipping it yourself is what every
+  store does with nothing set up; a supplier's email is a location's "Who
+  ships the orders?" (Settings › Locations); the CSV of unfulfilled orders is
+  Orders › Export. They were cards here too, beside real services, and made
+  the catalog read as if Storelib's own features had to be installed. The
+  providers stay in lib/physical/providers.ts, where orders route by them.
+  Your own system (webhook) stays: its address and secret are set on its card.
+*/
+const NOT_LISTED = new Set(["manual", "supplier_email", "csv"])
+
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"
