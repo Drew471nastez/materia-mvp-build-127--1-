@@ -192,8 +192,9 @@ section("The page cannot re-render the chart for free")
      * wrapper completely — and it built a new Intl.NumberFormat on every
      * call, for every stat card and every tooltip line.
      */
-    /const formatPrice = useCallback\(\(cents: number\) => USD_FORMAT\.format/.test(PAGE) &&
-      /^const USD_FORMAT = new Intl\.NumberFormat/m.test(PAGE) &&
+    /* Changed on purpose (the owner: analytics in the store's own currency): formatCurrency keeps one formatter per currency, and the callback changes only with the currency. */
+    /const formatPrice = useCallback\(\(cents: number\) => formatCurrency\(cents \/ 100, storeCurrency, appLocale\(\)\), \[storeCurrency\]\)/.test(PAGE) &&
+      /const numberFormats = new Map<string, Intl\.NumberFormat>\(\)/.test(readFileSync(join(process.cwd(), "lib/markets/money.ts"), "utf8")) &&
       /const chartDisplayData = useMemo\(/.test(PAGE),
   )
 }

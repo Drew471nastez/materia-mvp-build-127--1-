@@ -108,6 +108,8 @@ async function main() {
   console.log("\nAn hour's run, against a model and a database")
   const http = createServer(answer)
   await new Promise<void>((r) => http.listen(0, "127.0.0.1", r))
+  /* The paid model is reached only with no free translator: the keyless fallback is off here. */
+  process.env.TRANSLATE_FREE_FALLBACK = "off"
   process.env.OPENAI_API_KEY = "test-key"
   process.env.OPENAI_BASE_URL = `http://127.0.0.1:${(http.address() as AddressInfo).port}/v1`
   const { autoTranslateStore } = await import("@/lib/markets/auto-translate")
