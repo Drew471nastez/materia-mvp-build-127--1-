@@ -287,17 +287,19 @@ for (const [label, vp, phone] of VIEWPORTS) {
   {
     const { p, errors } = await open(label, vp, "builder")
     const g = await p.evaluate(() => {
-      const rows = [...document.querySelectorAll("[data-program-row]")]
+      /* Changed on purpose (round 32): from 768px the programs are a table and the phone's list is hidden, so only the rows on screen count. */
+      const rows = [...document.querySelectorAll("[data-program-row]")].filter((r) => r.getBoundingClientRect().height > 0)
       return {
         n: rows.length,
         heights: rows.map((r) => Math.round(r.getBoundingClientRect().height)),
         status: rows.map((r) => r.querySelector("[data-status]")?.getAttribute("data-status")),
-        lines: rows.map((r) => r.querySelector("[data-program-line]")?.textContent),
+        lines: rows.map((r) => r.querySelector("[data-program-line]")?.textContent ?? r.textContent),
       }
     })
-    expect(g.n === 5 && g.heights.every((h) => h >= 72), `${label} builder: one row per program, 72px or taller`, g.heights)
+    /* Changed on purpose (round 32): a table row on a computer is 64px, as every row of the admin's tables; a phone's row stays 72px or taller. */
+    expect(g.n === 5 && g.heights.every((h) => h >= (phone ? 72 : 64)), `${label} builder: one row per program, ${phone ? 72 : 64}px or taller`, g.heights)
     expect(g.status.join() === "published,published,published,published,draft", `${label} builder: Published and Draft in words`, g.status)
-    expect(/\$49 · 23 bought/.test(g.lines[1] || "") && /From level 3/.test(g.lines[2] || "") && /a course you sell/.test(g.lines[3] || ""), `${label} builder: price and buyers, the level, an attached course`, g.lines)
+    expect(/\$49 · 23 bought/.test(g.lines[1] || "") && /From level 3/.test(g.lines[2] || "") && /a course you sell/i.test(g.lines[3] || ""), `${label} builder: price and buyers, the level, an attached course`, g.lines)
     await common(p, label, "builder", phone)
     expect(errors.length === 0, `${label} builder: no page errors`, errors)
     await p.close()

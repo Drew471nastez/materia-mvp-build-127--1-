@@ -496,6 +496,9 @@ export const isNativePlatform = () => false
     await p.screenshot({ path: join(shots, "feed-edit-1440.png") })
     await p.click("li[data-feed-editing] [data-composer-cancel]")
     await sleep(700)
+    /* Round 32: the card has a toolbar and a foot now, so after the edit the row can sit under the sticky header; bring it to the middle first. */
+    await p.evaluate(() => document.querySelector("li[data-feed-row]:nth-child(2)")?.scrollIntoView({ block: "center" }))
+    await sleep(200)
     await p.click("li[data-feed-row]:nth-child(2) [data-row-control] button")
     await sleep(400)
     const theirs = await p.evaluate(() => [...document.querySelectorAll("[role=menuitem]")].map((x) => x.textContent.trim()))
