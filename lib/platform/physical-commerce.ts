@@ -16,7 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * was stored is touched, so turning it back on restores it all.
  *
  * Stored in platform_settings like the other platform flags, read on the
- * server only, cached for 30 seconds and cleared at once when an admin
+ * server only, cached for five minutes and cleared at once when an admin
  * flips it. PHYSICAL_COMMERCE_ENABLED ("1"/"0") overrides it per deployment.
  */
 
@@ -44,7 +44,7 @@ async function readFromDb(): Promise<boolean> {
 
 export const isPhysicalCommerceEnabled = unstable_cache(async () => readFromDb(), ["physical-commerce-enabled"], {
   tags: [PHYSICAL_COMMERCE_CACHE_TAG],
-  revalidate: 30,
+  revalidate: 300,
 })
 
 export async function setPhysicalCommerceEnabled(enabled: boolean, updatedBy = "admin"): Promise<void> {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
-import { sweepDirectUploads, sweepImageMetadata } from "@/lib/storage/metadata-sweep"
+import { sweepDirectUploads, sweepImageMetadata, sweepWindowMinutes } from "@/lib/storage/metadata-sweep"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { recordCronRun } from "@/lib/observability/report"
 
@@ -14,7 +14,9 @@ import { recordCronRun } from "@/lib/observability/report"
  * (lib/storage/metadata-sweep.ts). The net under every upload that goes
  * straight from a browser to storage.
  *
- * ?minutes=10080 looks further back, for a first run by hand.
+ * ?minutes=10080 looks further back, for a first run by hand. Without it, a
+ * run looks back to the last complete run's start (sweepWindowMinutes), so
+ * each picture is read once rather than about 2.5 times.
  *
  * Protected by CRON_SECRET, like every other job here.
  * Schedule: hourly at :10 (vercel.json).
@@ -29,8 +31,10 @@ async function runJob(request: Request) {
 
   const minutes = Number(new URL(request.url).searchParams.get("minutes"))
   try {
-    const since = Number.isFinite(minutes) && minutes > 0 ? minutes : undefined
+    const asked = Number.isFinite(minutes) && minutes > 0 ? minutes : undefined
     const admin = createAdminClient()
+    const lookBack = await sweepWindowMinutes(admin)
+    const since = asked ?? lookBack
     const summary = await sweepImageMetadata(admin, { sinceMinutes: since })
     /* And everything else that landed in those buckets: a lead magnet, a
        video, anything the pass above does not read. Two small Range reads
@@ -38,7 +42,11 @@ async function runJob(request: Request) {
     const direct = await sweepDirectUploads(admin, { sinceMinutes: since, budgetMs: 120_000 })
     const errors = [...summary.errors, ...direct.errors]
     if (errors.length > 0) console.error("[strip-image-metadata]", errors.slice(0, 20).join("; "))
-    return NextResponse.json({ ...summary, direct }, { headers: { "Cache-Control": "no-store" } })
+    /* "complete" first in the answer: the run record keeps its first 500 characters, and the next run reads it from there
+       (answeredComplete). A narrower look by hand is never complete, so it never moves the start past what it skipped. */
+    const { complete: imagesComplete, ...images } = summary
+    const complete = imagesComplete && direct.complete && since >= lookBack
+    return NextResponse.json({ complete, window: since, ...images, direct }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("[strip-image-metadata]", error)
     return NextResponse.json({ error: "Sweep failed" }, { status: 500 })

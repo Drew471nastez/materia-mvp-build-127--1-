@@ -60,6 +60,7 @@ console.log("\nThe editor follows the site's links as the live site does")
 
 console.log("\nA push to GitHub reaches an open editor")
 {
+  // Changed on purpose (the owner: lower Vercel costs): ten seconds while someone is at the editor; left alone two minutes, every thirty (tests/polling-costs.test.ts). Coming back reads at once.
   check("an idle editor asks at least every ten seconds", nextPollDelay(POLL_MAX_MS, false) === 10_000)
   const hook = read("components/website-builder/site-connections.tsx")
   check("  and at once when the pointer comes back over it, at most every few seconds", /addEventListener\("pointerenter", wake\)/.test(hook) && /removeEventListener\("pointerenter", wake\)/.test(hook) && /if \(Date\.now\(\) - woke < WAKE_GAP_MS\) return/.test(hook))

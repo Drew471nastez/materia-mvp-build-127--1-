@@ -20,8 +20,20 @@ import "server-only"
  * lib/images/metadata.ts) and the orientation is kept.
  *
  * An image already clean is downloaded and left alone, so a run costs one
- * download per recent picture; the windows overlap so a missed hour is
- * caught by the next.
+ * download per recent picture.
+ *
+ * HOW FAR BACK A RUN LOOKS (sweepWindowMinutes). It looked back a fixed two
+ * and a half hours every hour, so every new picture was downloaded about 2.5
+ * times. Changed on purpose (the owner: lower Vercel costs): a run now looks
+ * back to the start of the last run that read everything in its window
+ * (public.cron_runs, part 68: ok, and its answer began {"complete":true}),
+ * plus CURSOR_OVERLAP_MIN, never more than the old 150 minutes. Both times
+ * are the database's own clock (cron_runs.started_at and objects.created_at
+ * are now() on the same server), so the overlap only has to cover an upload
+ * that was being written as the last run read. A run that failed, hit its
+ * limit, ran out of time, or could not download a file does not move the
+ * start, so the next one reads that stretch again; with no record at all
+ * (before part 68, a database that cannot be read) it is the old 150.
  *
  * The same pass is the file check for those uploads, since it already holds
  * each picture's bytes: the central check (lib/security/uploads/inspect.ts)
@@ -54,7 +66,49 @@ import { activeProviders } from "@/lib/security/uploads/providers"
 import { checkDirectUpload, PUBLIC_DIRECT_UPLOADS } from "@/lib/security/uploads/direct"
 import { isPublicImage } from "./file-signature"
 
+/** The old fixed look-back, and still the most a run ever reads. */
+export const MAX_WINDOW_MIN = 150
+/** Read again before the last complete run's start, for an upload being written as it read. */
+export const CURSOR_OVERLAP_MIN = 10
+const JOB = "/api/cron/strip-image-metadata"
+
+/** How many minutes back to look, given the last complete run's start (null: none known). Pure, for the tests. */
+export function windowFromCursor(lastCompleteStart: number | null, now: number): number {
+  if (lastCompleteStart === null || !Number.isFinite(lastCompleteStart) || lastCompleteStart > now) return MAX_WINDOW_MIN
+  const minutes = Math.ceil((now - lastCompleteStart) / 60_000) + CURSOR_OVERLAP_MIN
+  return Math.max(1, Math.min(MAX_WINDOW_MIN, minutes))
+}
+
+/** A recorded answer from a run that read everything it was asked to. */
+export function answeredComplete(detail: string | null | undefined): boolean {
+  return typeof detail === "string" && detail.startsWith('{"complete":true')
+}
+
+/**
+ * The look-back for this run, from the job's own run records. Any failure to
+ * read them is the old fixed window, so this only ever reads less than
+ * before when it knows the earlier stretch was read in full.
+ */
+export async function sweepWindowMinutes(admin: SupabaseClient, now = Date.now()): Promise<number> {
+  try {
+    const { data, error } = await admin
+      .from("cron_runs")
+      .select("started_at, detail")
+      .eq("job", JOB)
+      .eq("ok", true)
+      .order("started_at", { ascending: false })
+      .limit(6)
+    if (error || !data) return MAX_WINDOW_MIN
+    const last = (data as { started_at: string; detail: string | null }[]).find((r) => answeredComplete(r.detail))
+    return windowFromCursor(last ? Date.parse(last.started_at) : null, now)
+  } catch {
+    return MAX_WINDOW_MIN
+  }
+}
+
 export interface SweepSummary {
+  /** Every picture in the window was read: none left by the limit, none failed to download. */
+  complete: boolean
   checked: number
   stripped: number
   /** Files that were not pictures but programs, scripts or pages, removed. */
@@ -66,21 +120,28 @@ export async function sweepImageMetadata(
   admin: SupabaseClient,
   options: { sinceMinutes?: number; limit?: number } = {},
 ): Promise<SweepSummary> {
-  const summary: SweepSummary = { checked: 0, stripped: 0, removed: 0, errors: [] }
+  const summary: SweepSummary = { complete: false, checked: 0, stripped: 0, removed: 0, errors: [] }
   const providers = activeProviders()
+  const limit = Math.max(1, Math.min(options.limit ?? 200, 1000))
   const { data, error } = await admin.rpc("storage_recent_public_images", {
-    p_since_minutes: Math.max(1, Math.min(options.sinceMinutes ?? 150, 60 * 24 * 30)),
-    p_limit: Math.max(1, Math.min(options.limit ?? 200, 1000)),
+    p_since_minutes: Math.max(1, Math.min(options.sinceMinutes ?? MAX_WINDOW_MIN, 60 * 24 * 30)),
+    p_limit: limit,
   })
   if (error) {
     summary.errors.push(error.message)
     return summary
   }
 
-  for (const o of (data ?? []) as { bucket_id: string; name: string; mimetype: string }[]) {
+  const rows = (data ?? []) as { bucket_id: string; name: string; mimetype: string }[]
+  /* Fewer than the limit: nothing in the window was left for later. */
+  let complete = rows.length < limit
+  for (const o of rows) {
     try {
       const { data: blob, error: downloadError } = await admin.storage.from(o.bucket_id).download(o.name)
-      if (downloadError || !blob) continue
+      if (downloadError || !blob) {
+        complete = false
+        continue
+      }
       summary.checked++
       const bytes = new Uint8Array(await blob.arrayBuffer())
       /* Dangerous, not merely unusual: a program, a script or page, the EICAR file. */
@@ -110,13 +171,17 @@ export async function sweepImageMetadata(
       if (uploadError) summary.errors.push(`${o.bucket_id}/${o.name}: ${uploadError.message}`)
       else summary.stripped++
     } catch (e) {
+      complete = false
       summary.errors.push(`${o.bucket_id}/${o.name}: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
+  summary.complete = complete
   return summary
 }
 
 export interface DirectSweepSummary {
+  /** Every file in the window was read: none left by the limit or the budget. */
+  complete: boolean
   checked: number
   /** Files that did not belong in the bucket they were in, removed. */
   removed: number
@@ -137,28 +202,37 @@ export async function sweepDirectUploads(
   admin: SupabaseClient,
   options: { sinceMinutes?: number; limit?: number; budgetMs?: number } = {},
 ): Promise<DirectSweepSummary> {
-  const summary: DirectSweepSummary = { checked: 0, removed: 0, errors: [] }
+  const summary: DirectSweepSummary = { complete: false, checked: 0, removed: 0, errors: [] }
   const stopAt = Date.now() + (options.budgetMs ?? 120_000)
+  const limit = Math.max(1, Math.min(options.limit ?? 200, 1000))
   const { data, error } = await admin.rpc("storage_recent_public_objects", {
-    p_since_minutes: Math.max(1, Math.min(options.sinceMinutes ?? 150, 60 * 24 * 30)),
-    p_limit: Math.max(1, Math.min(options.limit ?? 200, 1000)),
+    p_since_minutes: Math.max(1, Math.min(options.sinceMinutes ?? MAX_WINDOW_MIN, 60 * 24 * 30)),
+    p_limit: limit,
   })
   if (error) {
     /* Part 68 has not run: nothing to read, and nothing to say twice. */
     if (!/storage_recent_public_objects/.test(error.message ?? "")) summary.errors.push(error.message)
+    else summary.complete = true
     return summary
   }
 
-  for (const o of (data ?? []) as { bucket_id: string; name: string }[]) {
-    if (Date.now() > stopAt) break
+  const rows = (data ?? []) as { bucket_id: string; name: string }[]
+  let complete = rows.length < limit
+  for (const o of rows) {
+    if (Date.now() > stopAt) {
+      complete = false
+      break
+    }
     if (!Object.hasOwn(PUBLIC_DIRECT_UPLOADS, o.bucket_id)) continue
     try {
       const result = await checkDirectUpload(admin, { bucket: o.bucket_id, path: o.name })
       summary.checked++
       if (!result.ok) summary.removed++
     } catch (e) {
+      complete = false
       summary.errors.push(`${o.bucket_id}/${o.name}: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
+  summary.complete = complete
   return summary
 }

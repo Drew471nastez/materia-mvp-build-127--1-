@@ -45,7 +45,9 @@ async function runJob(request: Request) {
     /* SEATS HELD FOR A CHECKOUT NOBODY FINISHED go back, so a sold out event is really sold out
        (lib/communities/server/event-tickets.ts releaseDeadHolds). One statement, nothing before part 105. */
     const seatsFreed = on ? await releaseDeadHolds(db).catch(() => 0) : 0
-    console.log(
+    /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
+    const didWork = summary.claimed + summary.scheduled + summary.failed + seatsFreed > 0
+    if (didWork) console.log(
       `[cron/community] ${summary.available ? "ran" : "not available (part 81 has not run)"}${on ? "" : " platform jobs only (communities off)"}: ${summary.claimed} claimed, ${summary.done} done, ${summary.continued} continued, ${summary.retried} retried, ${summary.failed} failed, ${summary.scheduled} scheduled, ${seatsFreed} held seats back, ${summary.ms}ms`,
     )
     return NextResponse.json(on ? { ...summary, seatsFreed } : { ...summary, skipped: "communities_off" }, { headers: NO_STORE })

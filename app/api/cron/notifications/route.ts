@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runNotificationEngine } from "@/lib/notifications/engine"
-import { sweepPayoutReminders } from "@/lib/notify/payout-weekly"
+import { isPayoutSweepHour, sweepPayoutReminders } from "@/lib/notify/payout-weekly"
 import { sweepPhysicalReadiness } from "@/lib/physical/readiness-server"
 import { reconcileStaleAccounts } from "@/lib/payments/stripe/reconcile"
 import { runNotificationWork } from "@/lib/notify/worker"
@@ -62,9 +62,12 @@ async function runJob(request: Request) {
       pusher: storelibPusher,
       deadline: started + RUN_BUDGET_MS,
     })
-    /* Payouts still not set up: one email a week each (lib/notify/payout-weekly.ts), planned before the worker runs so it sends them. */
-    const weekly = await sweepPayoutReminders(db, { budgetMs: 8_000 }).catch(() => null)
-    console.log(`[cron/notifications] payout weekly: ${weekly ? `${weekly.checked} creators, ${weekly.emitted} planned, ${weekly.toldThisWeek} already told this week` : "failed"}`)
+    /* Payouts still not set up: one email a week each (lib/notify/payout-weekly.ts), planned before the worker runs so it sends them.
+       Once a day, in the SWEEP_HOUR_UTC run; the event key keeps a second run that day from sending twice. */
+    if (isPayoutSweepHour(started)) {
+      const weekly = await sweepPayoutReminders(db, { budgetMs: 8_000 }).catch(() => null)
+      console.log(`[cron/notifications] payout weekly: ${weekly ? `${weekly.checked} creators, ${weekly.emitted} planned, ${weekly.toldThisWeek} already told this week` : "failed"}`)
+    }
     /* Stores selling physical products that went from ready to not ready since the last look (lib/physical/readiness-server.ts), planned before the worker runs. */
     const physical = await sweepPhysicalReadiness(db, { budgetMs: 8_000 }).catch(() => null)
     console.log(`[cron/notifications] physical readiness: ${physical ? (physical.available ? `${physical.checked} stores, ${physical.notified} told` : "off or not set up") : "failed"}`)

@@ -357,6 +357,8 @@ const SUITES = [
   "tests/link-menu.test.ts",
   "tests/anchors-motion.test.ts",
   "tests/connection-mark.test.ts",
+  /* Background reads and crons, cut on purpose (the owner: lower Vercel costs) */
+  "tests/polling-costs.test.ts",
   "tests/editor-fixes.test.ts",
   "tests/builder-round-3.test.ts",
   "tests/contrast.test.ts",
