@@ -58,8 +58,8 @@ import { ownedCommunities, ownedCommunity, type OwnedCommunity } from "@/lib/cus
  * A COMMUNITY'S DOMAIN (round 31). Only a community this creator owns
  * (communities.creator_id, read with the service role after the session
  * named the creator; ownedCommunity), one domain per community (checked
- * here and held by a unique index, part 179). Moving a domain off a
- * community clears what it pointed at. Until part 179 has run, community
+ * here and held by a unique index, part 185). Moving a domain off a
+ * community clears what it pointed at. Until part 185 has run, community
  * is not offered and asking for it is refused.
  *
  * The session decides whose domains these are (domainOwner, which reads the

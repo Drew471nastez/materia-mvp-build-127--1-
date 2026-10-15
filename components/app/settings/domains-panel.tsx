@@ -29,7 +29,7 @@
  * it to the creator page and back, keeping one primary per purpose.
  *
  * Round 31: or to one of the creator's communities. Community is the third
- * answer once the database has part 179 and the creator owns a community;
+ * answer once the database has part 185 and the creator owns a community;
  * picking it shows which community (one owned community is picked at once),
  * and the domain then shows that community and nothing else
  * (lib/custom-domains/community.ts). One domain per community: a community

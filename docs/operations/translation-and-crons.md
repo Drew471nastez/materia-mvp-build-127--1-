@@ -70,7 +70,7 @@ listed with its schedule and a "Run" button, and Logs shows each run.
 
 | Path | When | What it does |
 | --- | --- | --- |
-| `/api/cron/translation-jobs` | every 3 minutes | carries on a translation that ran out of time, so it finishes even with the tab closed |
+| `/api/cron/translation-jobs` | every 5 minutes | carries on a translation that ran out of time, so it finishes even with the tab closed |
 | `/api/cron/translations` | hourly, at :47 | translates new or changed text for stores that turned on "Translate changes automatically" |
 | `/api/cron/fx-rates` | weekdays, 15:35 UTC | the day's exchange rates for extra currencies |
 | `/api/cron/physical` | every 10 minutes | gives back stock held by unpaid checkouts, sends order emails and webhooks, and moves tracked parcels on |

@@ -142,6 +142,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "176", file: "176_store_currency.sql", sha256: "5fb8d6d92a03988dde5a5d25abb4ba48386afbb000d9b854d8dd62645258a4ec" },
   { part: "177", file: "177_translation_jobs.sql", sha256: "18b0172c415ba12483c37e036aacc24d62831504f1716d509da7af07f36888ae" },
   { part: "178", file: "178_translation_memory.sql", sha256: "ed0097c2b24f1aba1a2479d6ec000d376159572fd3ffc7a9228d7d069bdd9e52" },
-  { part: "179", file: "179_community_domains.sql", sha256: "cf8fc37d786bd7be59817e7b064c366971d71119b19ae548f46eb21328c50329" },
+  { part: "179", file: "179_cache_invalidation_pings.sql", sha256: "6782ec428c895abef8920e6daf39916bf42010018170c2e29d8c0325a2e6dddc" },
   { part: "184", file: "184_community_analytics.sql", sha256: "ffcb48cf432c715b31c848adf4ea22bf8bedd3ff1bb62ad1b643c87dd6131654" },
+  { part: "185", file: "185_community_domains.sql", sha256: "cf8fc37d786bd7be59817e7b064c366971d71119b19ae548f46eb21328c50329" },
 ]

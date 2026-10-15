@@ -22,8 +22,15 @@
  * EXTENSIONS ARE DROPPED. A browser with an ad blocker or a password manager
  * injects script into every page and reports every one of them. That is the
  * large majority of what arrives here and none of it is about this site.
+ *
+ * ONLY A SAMPLE ARRIVES. The proxy answers nineteen reports in twenty itself
+ * (CSP_REPORT_SAMPLE_RATE, lib/security/csp.ts), so this function is not
+ * called for them. What does arrive is logged, up to LINES_PER_MINUTE lines a
+ * minute on one instance, so a page that trips the policy on every load
+ * cannot fill the log on its own.
  */
 import { NextResponse } from "next/server"
+import { allowedBeacon, type HitStore } from "@/lib/perf/limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -32,6 +39,10 @@ export const dynamic = "force-dynamic"
 const MAX_BODY = 8 * 1024
 /** Nothing useful in a report is longer than this. */
 const MAX_FIELD = 300
+
+/** Log lines one instance writes a minute; past it, reports are read and not logged. */
+const LINES_PER_MINUTE = 30
+const lines: HitStore = new Map()
 
 /** Script a browser extension injected into the page. Not our violation. */
 const EXTENSION = /^(chrome|moz|safari|ms-browser|webkit-masked-url)[-a-z]*:/i
@@ -67,6 +78,7 @@ export async function POST(request: Request) {
       const directive = pathOnly(report["effective-directive"] ?? report["violated-directive"] ?? report.effectiveDirective)
       const document = pathOnly(report["document-uri"] ?? report.documentURL)
 
+      if (!allowedBeacon("csp", Date.now(), LINES_PER_MINUTE, lines)) break
       console.warn(`[csp] would have blocked ${blocked} (${directive}) on ${document}`)
     }
   } catch {

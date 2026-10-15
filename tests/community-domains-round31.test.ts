@@ -155,14 +155,14 @@ console.log("\napp/api/domains: the session's creator, a community they own, one
 console.log("\nThe database change")
 {
   const migration = raw("supabase/migrations/20270119_community_domains.sql")
-  const part = raw("supabase/sql/run-now/179_community_domains.sql")
+  const part = raw("supabase/sql/run-now/185_community_domains.sql")
   check("two nullable columns", /ADD COLUMN IF NOT EXISTS target_type TEXT;/.test(migration) && /ADD COLUMN IF NOT EXISTS target_id UUID;/.test(migration) && !/ADD COLUMN IF NOT EXISTS target_\w+ \w+ NOT NULL/.test(migration))
   check("community is a purpose, and a community domain names its community and is never primary",
     /CHECK \(purpose IN \('website', 'creator_page', 'community'\)\) NOT VALID/.test(migration) && /purpose = 'community' AND target_type = 'community' AND target_id IS NOT NULL AND is_primary = false/.test(migration))
   check("one domain per community, held by the database", /CREATE UNIQUE INDEX IF NOT EXISTS custom_domains_one_per_target ON public\.custom_domains \(target_type, target_id\) WHERE target_id IS NOT NULL/.test(migration))
   check("the run-now part: one statement a line, the same statements", part.trim().split("\n").every((l) => l.startsWith("/*") || l.endsWith(";")) && part.trim().split("\n").slice(1, -1).every((l) => migration.includes(l)) && part.trim().endsWith("notify pgrst, 'reload schema';"))
-  check("listed in the README and in the check after", /\| `179_community_domains\.sql` \|/.test(raw("supabase/sql/run-now/README.md")) && /as p179_community_domains/.test(raw("supabase/sql/run-now/99_check_after.sql")))
-  check("and in the files the owner runs", raw("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 179_community_domains.sql") && /part: "179", file: "179_community_domains\.sql"/.test(raw("lib/admin/sql-parts.generated.ts")))
+  check("listed in the README and in the check after", /\| `185_community_domains\.sql` \|/.test(raw("supabase/sql/run-now/README.md")) && /as p185_community_domains/.test(raw("supabase/sql/run-now/99_check_after.sql")))
+  check("and in the files the owner runs", raw("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 185_community_domains.sql") && /part: "185", file: "185_community_domains\.sql"/.test(raw("lib/admin/sql-parts.generated.ts")))
 }
 
 console.log("\nSettings › Domains: Community is an answer")
@@ -173,7 +173,7 @@ console.log("\nSettings › Domains: Community is an answer")
   const draw = (domains: DomainItem[], purposes: ("website" | "creator_page" | "community")[], list = communities) =>
     renderToStaticMarkup(createElement(DomainsPanel, { ...base, data: { domains, schema: "current", purposes, communities: list } }))
   const before = draw([row({})], ["website", "creator_page"])
-  check("before part 179, two answers", (before.match(/data-domain-connects-option=/g) ?? []).length === 2 && !/Community/.test(before))
+  check("before part 185, two answers", (before.match(/data-domain-connects-option=/g) ?? []).length === 2 && !/Community/.test(before))
   const noCommunity = draw([row({})], ["website", "creator_page", "community"], [])
   check("with no community of their own, two answers", (noCommunity.match(/data-domain-connects-option=/g) ?? []).length === 2)
   const three = draw([row({})], ["website", "creator_page", "community"])

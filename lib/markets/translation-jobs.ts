@@ -33,7 +33,7 @@ type Db = any
 const LEASE_MS = 330_000
 /** A job never runs more rounds than this (150 texts each): a very large website is finished by pressing again. */
 const MAX_ROUNDS = 40
-/** A job waiting for a translator's allowance is tried again after this long (the cron runs every three minutes). */
+/** A job waiting for a translator's allowance is tried again after this long (the cron runs every five minutes; a run that runs out of time asks for the next one at once, askNextRun). */
 const WAIT_MS = 4 * 60_000
 /** And stops waiting, and says why, after this long. */
 const WAIT_LIMIT_MS = 12 * 3_600_000

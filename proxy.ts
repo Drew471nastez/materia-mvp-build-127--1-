@@ -25,6 +25,8 @@ import { COUNTRY_COOKIE, FORGET_COUNTRY_COOKIE, readCountryCookie, seenCountry, 
 import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
+import { skipsSessionRefresh } from "@/lib/auth/no-session-paths"
+import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -1300,6 +1302,18 @@ async function routeRequest(request: NextRequest) {
   /* A public file at Storelib's own address (lib/storage/media-url.ts): on every host, straight to next.config's rewrite, never a page of a site. */
   if (pathname.startsWith("/media/")) return NextResponse.next()
   /*
+    MOST CSP REPORTS ARE ANSWERED HERE, NOT BY A FUNCTION. The report only
+    policy in vercel.json is on every page of every host, and each browser
+    that sees a violation posts it to /api/csp-report: one function call per
+    report, nearly all of them the same few lines. One in twenty
+    (CSP_REPORT_SAMPLE_RATE, lib/security/csp.ts) goes on to the route and is
+    logged; the rest get the route's own answer, 204, from here. A browser
+    does nothing with the answer either way.
+  */
+  if (pathname === CSP_REPORT_PATH && request.method === "POST" && !keepsCspReport(Math.random())) {
+    return new NextResponse(null, { status: 204 })
+  }
+  /*
     A PAGE ASKED FOR AS A PICTURE, A SCRIPT OR A FONT IS NOT RENDERED. A
     theme that wrote a country's code where its flag goes (src="DJ") had
     every visitor's browser ask for /DJ, /GQ, /KP... as images: 250 whole
@@ -2213,6 +2227,14 @@ async function routeRequest(request: NextRequest) {
      */
   }
   supabaseResponse = respond()
+
+  /*
+    A BEACON, A REPORT, A SCHEDULED JOB OR A WEBHOOK READS NO SESSION, so
+    none is read or renewed for it (lib/auth/no-session-paths.ts lists them,
+    and why each is safe). Everything above, the published site guards and
+    the custom domain lookup among it, has already run.
+  */
+  if (skipsSessionRefresh(pathname, request.cookies.getAll().map((c) => c.name))) return supabaseResponse
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY

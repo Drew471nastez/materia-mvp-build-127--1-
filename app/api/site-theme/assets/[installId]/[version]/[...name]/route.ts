@@ -6,8 +6,16 @@
  * Only files under `shopify/assets/` are served, which only an imported
  * theme has, each as the type its extension names. A theme's stylesheets and
  * scripts are what its pages already send every visitor, so nothing here is
- * private; the version in the address changes with every publish, so a
- * published file is cached for good.
+ * private.
+ *
+ * THE VERSION IN THE ADDRESS is a hash of what the file is drawn from
+ * (lib/storelib-theme/compat/asset-version.ts), so a file is cached for good
+ * and its address moves only when its output does. The `published_at`
+ * version addresses used before are still answered, cached as they always
+ * were, because a page cached before the change may still name them. A hash
+ * that is not the file's current one (a page drawn a moment before a save)
+ * is answered with the current file but held for a minute, not a year, so
+ * an address never keeps an output that is not its own.
  *
  * Read from any origin: the builder draws the page in a sandboxed frame,
  * whose module scripts are cross-origin requests.
@@ -20,6 +28,7 @@ import { installFiles, compatThemeFor } from "@/lib/website-builder/compat-site"
 import { themeAsset } from "@/lib/storelib-theme/compat/site"
 import { compileScss } from "@/lib/storelib-theme/compat/scss"
 import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
+import { assetVersion, isContentVersion, plainAssetVersion } from "@/lib/storelib-theme/compat/asset-version"
 
 export const runtime = "nodejs"
 
@@ -77,6 +86,8 @@ export async function GET(_req: Request, { params }: Params) {
   if (!UUID.test(installId) || !NAME.test(name) || !type) return new NextResponse("Not found", { status: 404, headers: cors })
   const draft = version === "edit" || version.startsWith("draft")
   const cache = draft ? "private, max-age=0, must-revalidate" : "public, max-age=31536000, immutable"
+  /* A hash that is not this file's: the current file, held for a minute. */
+  const cacheFor = (current: string | null) => (isContentVersion(version) && current !== version ? "public, max-age=60" : cache)
   const admin = createAdminClient()
   const cols = draft ? "path, content, draft_content" : "path, content"
   const { data } = await admin
@@ -91,15 +102,16 @@ export async function GET(_req: Request, { params }: Params) {
     const bytes = binaryOf(text)
     /* A stylesheet as the page draws its own (lib/storelib-theme/compat/css-fixes.ts). */
     const body = bytes ? new Blob([bytes as BlobPart]) : /^text\/css/.test(type) ? fixThemeCss(text) : text
-    return new NextResponse(body, { headers: { ...cors, "Content-Type": type, "Cache-Control": cache } })
+    return new NextResponse(body, { headers: { ...cors, "Content-Type": type, "Cache-Control": cacheFor(plainAssetVersion(text)) } })
   }
   if (!rows.some((r) => r.path.endsWith(".liquid"))) return new NextResponse("Not found", { status: 404, headers: cors })
   /* A `.css.liquid` asset is drawn with the theme's settings, which needs the theme. */
   const files = await installFiles(admin, installId, draft)
   const { data: settingsRow } = await admin.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle()
   const s = settingsRow as { settings?: unknown; draft_settings?: unknown } | null
-  const theme = compatThemeFor(installId, version, files, (draft ? s?.draft_settings ?? s?.settings : s?.settings) ?? {})
+  const settings = (draft ? s?.draft_settings ?? s?.settings : s?.settings) ?? {}
+  const theme = compatThemeFor(installId, version, files, settings)
   const out = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }), { scss: compileScss })
   if (!out) return new NextResponse("Not found", { status: 404, headers: cors })
-  return new NextResponse(typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]), { headers: { ...cors, "Content-Type": out.type, "Cache-Control": cache } })
+  return new NextResponse(typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]), { headers: { ...cors, "Content-Type": out.type, "Cache-Control": cacheFor(isContentVersion(version) ? assetVersion(files, name, settings) : null) } })
 }

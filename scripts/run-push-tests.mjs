@@ -359,6 +359,8 @@ const SUITES = [
   "tests/link-menu.test.ts",
   "tests/anchors-motion.test.ts",
   "tests/connection-mark.test.ts",
+  /* Background reads and crons, cut on purpose (the owner: lower Vercel costs) */
+  "tests/polling-costs.test.ts",
   "tests/editor-fixes.test.ts",
   "tests/builder-round-3.test.ts",
   "tests/contrast.test.ts",
@@ -411,6 +413,8 @@ const SUITES = [
   "tests/admin-auth.test.ts",
   "tests/stuck-layer.test.ts",
   "tests/site-cache-and-buttons.test.ts",
+  /* Marketing pages served from the CDN: their layout reads nothing about the request */
+  "tests/marketing-cache.test.ts",
   "tests/keyboard-watch.test.ts",
   "tests/agent-attachments.test.ts",
   "tests/work-panel.test.ts",
@@ -467,6 +471,7 @@ const SUITES = [
   "tests/checkout-phone.test.ts",
   "tests/translation-coverage.test.ts",
   "tests/vercel-costs.test.ts",
+  "tests/vercel-runtime-costs.test.ts",
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
@@ -633,6 +638,7 @@ const SUITES = [
   "tests/physical-ships-x1.test.ts",
   /* Round 25 */
   "tests/i18n25.test.ts",
+  "tests/publishing-cache.test.ts",
 ]
 
 /**

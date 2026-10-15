@@ -656,7 +656,8 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
       if (document.visibilityState !== "visible") return;
       load(period, true);
     };
-    const id = window.setInterval(tick, 15000);
+    /* Once a minute in the background (it was every 15s); coming back to the tab reads at once. Changed on purpose (the owner: lower Vercel costs). */
+    const id = window.setInterval(tick, 60000);
     const onVisible = () => tick();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -3314,7 +3315,8 @@ export function PayoutsClient({
       refreshBalances();
     };
     tick();
-    const id = window.setInterval(tick, 30000);
+    /* Every two minutes in the background (it was every 30s, four Stripe reads each); focus, visibility and actions still read at once. Changed on purpose (the owner: lower Vercel costs). */
+    const id = window.setInterval(tick, 120000);
     const onVisible = () => tick();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);

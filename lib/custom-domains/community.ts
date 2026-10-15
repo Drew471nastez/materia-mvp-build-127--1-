@@ -5,7 +5,7 @@
  * A creator can point a domain they own (club.maralind.com, maralind.club)
  * at one of their communities. The row in `custom_domains` says so with
  * purpose 'community', target_type 'community' and target_id the community's
- * id (run-now part 179). The id, not the slug: a renamed community keeps its
+ * id (run-now part 185). The id, not the slug: a renamed community keeps its
  * domain, and the slug is read again on every lookup.
  *
  * WHAT THE DOMAIN SERVES. Exactly one community, at the root:

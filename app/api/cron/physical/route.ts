@@ -63,7 +63,9 @@ async function runJob(request: Request) {
   /* Orders paid and still not shipped past their days: one reminder per store a day, in the one hour it is sent (lib/physical/orders-waiting-server.ts). */
   const waiting = Date.now() - started < 55_000 ? await noteOrdersWaiting(db) : { stores: 0, raised: 0 }
   const ms = Date.now() - started
-  console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, tracking ${tracking ? `${tracking.checked} read ${tracking.moved} moved` : "failed"}, ${unconfirmed.closed} deliveries not confirmed, ${ms}ms`)
+  /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
+  const didWork = !tracking || Number(expired ?? 0) + jobs.done + jobs.failed + tracking.checked + tracking.moved + unconfirmed.closed + swept.shipped + swept.baskets + marketing + waiting.raised > 0
+  if (didWork) console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, tracking ${tracking ? `${tracking.checked} read ${tracking.moved} moved` : "failed"}, ${unconfirmed.closed} deliveries not confirmed, ${ms}ms`)
   return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, marketing, tracking, unconfirmed: unconfirmed.closed, waiting, ms }, { headers: { "Cache-Control": "no-store" } })
 }
 

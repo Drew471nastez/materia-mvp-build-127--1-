@@ -20,6 +20,16 @@
 /** Just past the router's staleTimes (300s), so each pass really reads. */
 export const KEEP_FRESH_MS = 300_000 + 5_000
 
+/**
+ * At most this many pages kept read by a list of read aheads (the profile's
+ * pills): each pass is a whole dynamic page from the server, and six of them
+ * every five minutes for a profile left open was most of what it cost. The
+ * first two are the likely next press; the rest are read once on idle and the
+ * moment a finger lands on them, as before. Changed on purpose (the owner:
+ * lower Vercel costs).
+ */
+export const KEEP_FRESH_MAX = 2
+
 /** Calls `read` every KEEP_FRESH_MS while the page is shown, and when it is shown again. Returns the stop. */
 export function keepFresh(read: () => void): () => void {
   if (typeof window === "undefined") return () => {}

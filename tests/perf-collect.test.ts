@@ -209,7 +209,11 @@ async function main() {
     check("a route past its cap a minute is not recorded for the rest of it", allowed === 6 && underRouteCap("/api/x", 1_061_000, store, 6))
     const before = pendingTimings().length
     const handler = timed("builder", "/api/website-builder/themes/:id/sections", async (_req: Request) => new Response("ok", { status: 200 }))
+    /* Changed on purpose (the owner: lower Vercel costs): one call in four is timed (SERVER_SAMPLE_RATE), so this one is rolled into the sample. */
+    const realRandom = Math.random
+    Math.random = () => 0
     const res = await handler(new Request("https://storelib.com/api/website-builder/themes/1/sections", { headers: { "user-agent": "Mozilla/5.0 (Macintosh)" } }))
+    Math.random = realRandom
     check("the answer is untouched", res.status === 200 && (await res.text()) === "ok")
     check("and the call waits to be written", pendingTimings().length === before + 1)
     /* In a request, `after` runs this once the answer has gone (checked in source below); a test has no request. */

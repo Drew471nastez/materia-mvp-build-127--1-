@@ -36,7 +36,9 @@ async function runJob(request: Request) {
   try {
     const summary = await runNotificationWork(RUN_BUDGET_MS)
     const ms = Date.now() - started
-    console.log(
+    /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
+    const didWork = summary.events + summary.eventErrors + summary.planned + summary.cancelled + summary.jobs > 0
+    if (didWork) console.log(
       `[cron/notify] ${summary.available ? "ran" : "not available (its SQL has not run)"}: ${summary.events} events (${summary.eventErrors} errors), ${summary.planned} jobs planned, ${summary.cancelled} cancelled, ${summary.jobs} jobs run: ${summary.sent} sent, ${summary.skipped} skipped, ${summary.retried} to retry, ${summary.deferred} deferred, ${summary.failed} failed, ${ms}ms${summary.stoppedForTime ? ", stopped for time" : ""}`,
     )
     return NextResponse.json({ ...summary, ms }, { headers: { "Cache-Control": "no-store" } })

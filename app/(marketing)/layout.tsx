@@ -1,7 +1,6 @@
 import type React from "react"
 import { Suspense } from "react"
 import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
-import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
@@ -14,11 +13,29 @@ export default async function MarketingLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [initialWishlistCount, onPlatformDomain, buyerHeaderLight] = await Promise.all([
-    readWishlistCount(),
-    isPlatformDomain(),
-    isBuyerHeaderLight(),
-  ])
+  /*
+    NOTHING HERE ASKS WHO IS LOOKING, SO THE PAGES UNDER IT CAN BE HELD AT THE
+    EDGE (the owner: marketing pages served from the CDN). This read the
+    wishlist cookie and the Host header, and one request read in a layout
+    makes every page beneath it render per request: /pricing, /features and
+    /faq were served `private, no-store` and ran a function for every
+    visitor. Neither read drew anything a cached page cannot:
+
+      the wishlist count seeded a state whose value is never drawn (the
+      header has no heart, on any page), and the header still asks
+      /api/wishlist after it mounts;
+
+      the host told the header whether "/" is Storelib's own homepage. The
+      proxy already answers that: "/" on a creator's domain or a site's
+      subdomain is rewritten to their page, and an unknown domain is sent to
+      storelib.com, so this layout's own page at "/" is only ever drawn on
+      Storelib's domain. ConditionalHeader reads it from the route instead
+      (platformHomeFromRoute), and its effect still has the last word.
+
+    The header's colour is a platform setting held for 30 seconds
+    (unstable_cache), the same for every visitor.
+  */
+  const buyerHeaderLight = await isBuyerHeaderLight()
   return (
     /*
       ═══════════════════════════════════════════════════════════════════════
@@ -53,7 +70,7 @@ export default async function MarketingLayout({
       <RouteLoadingBar />
       {/* A Dashboard press: this page fades off the dashboard rather than being cut away (round 31). */}
       <LeaveIntoApp />
-      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
+      <ConditionalHeader platformHomeFromRoute buyerHeaderLight={buyerHeaderLight} />
 
       {/*
         ═══════════════════════════════════════════════════════════════════

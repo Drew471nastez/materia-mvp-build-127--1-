@@ -294,8 +294,15 @@ check(
       missing.push("header-props: not reading the cookie server-side")
     if (!/Number\.isInteger\(n\) && n >= 0/.test(headerProps))
       missing.push("header-props: client-written cookie not clamped")
-    if (!/readWishlistCount\(\)/.test(layout))
-      missing.push("marketing layout: no longer asks for the count")
+    /* Changed on purpose (the owner: marketing pages served from the CDN).
+       The marketing layout no longer reads the cookie: one request read in a
+       layout makes every page under it dynamic, and the header draws no
+       badge on any page, so the count it seeded was never on screen. The
+       account layout, which is per visitor anyway, still threads it. */
+    if (/readWishlistCount\(\)/.test(layout))
+      missing.push("marketing layout: reads the wishlist cookie again, which makes every marketing page dynamic")
+    if (!/readWishlistCount\(\)/.test(code("app/account/layout.tsx")))
+      missing.push("account layout: no longer asks for the count")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
@@ -514,8 +521,16 @@ check(
       /* The host test lives in lib/platform/header-props now; the layout
          still has to ask for it and thread it through. */
       /extractUsernameFromHost\(host\) === null && !isCustomDomain\(host\)/.test(code("lib/platform/header-props.ts")) &&
-      /isPlatformDomain\(\)/.test(layout) &&
-      /onPlatformDomain=\{onPlatformDomain\}/.test(layout) &&
+      /* Changed on purpose (the owner: marketing pages served from the CDN).
+         The marketing layout cannot read the Host header and stay static, so
+         it answers from the route: its own page at "/" is only drawn on
+         Storelib's domain, because the proxy rewrites "/" on every creator's
+         domain and site subdomain. The account layout still asks the host. */
+      !/isPlatformDomain\(\)/.test(layout) &&
+      /<ConditionalHeader platformHomeFromRoute /.test(layout) &&
+      /hostSaysPlatform \|\| \(platformHomeFromRoute && segmentBelow === null\)/.test(header) &&
+      /const segmentBelow = useSelectedLayoutSegment\(\)/.test(header) &&
+      /isPlatformDomain\(\)/.test(code("app/account/layout.tsx")) &&
       /pathname === "\/" && onPlatformDomain/.test(header)
     )
   })(),

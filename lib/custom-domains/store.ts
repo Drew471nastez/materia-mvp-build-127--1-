@@ -19,7 +19,7 @@ import "server-only"
  *   dns_records  the records last shown for it (read through brandRecord,
  *                so a row saved before domains.storelib.com shows it too)
  *
- * Since run-now part 179 (round 31) a row can also serve ONE COMMUNITY:
+ * Since run-now part 185 (round 31) a row can also serve ONE COMMUNITY:
  * purpose 'community', target_type 'community', target_id its id. One
  * domain per community; is_primary stays false on those rows, because the
  * community is what the domain names, not the creator
@@ -109,7 +109,7 @@ export function isMissingTable(error: { code?: string; message?: string } | null
 export const CURRENT_COLUMNS =
   "id, creator_id, domain, status, ssl_status, verified_at, verification_token, created_at, updated_at, purpose, is_primary, dns_records, last_checked_at"
 export const LEGACY_COLUMNS = "id, creator_id, domain, status, ssl_status, verified_at, verification_token, created_at, updated_at"
-/** CURRENT_COLUMNS and what a domain serves when it is a community's (run-now part 179). */
+/** CURRENT_COLUMNS and what a domain serves when it is a community's (run-now part 185). */
 export const TARGET_COLUMNS =
   "id, creator_id, domain, status, ssl_status, verified_at, verification_token, created_at, updated_at, purpose, is_primary, dns_records, last_checked_at, target_type, target_id"
 
@@ -139,7 +139,7 @@ export function toView(row: DomainRow, schema: Schema): DomainView {
 
 /**
  * A creator's domains, newest first, and which schema answered. `targets`
- * says whether the community columns are there (part 179): until they are,
+ * says whether the community columns are there (part 185): until they are,
  * the rows are read as before and no domain can be a community's.
  */
 export async function listCreatorDomains(admin: Admin, creatorId: string): Promise<{ rows: DomainRow[]; schema: Schema; error?: string; targets?: boolean }> {

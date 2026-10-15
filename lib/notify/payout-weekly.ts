@@ -7,8 +7,8 @@
  *
  * The other payment reminders answer a moment (setup was started, a product
  * went live) and stop after two. This one answers a state: a creator whose
- * payments cannot take a card. Each sweep (the hourly /api/cron/notifications)
- * finds those creators and emits payment_setup.weekly_check for each one
+ * payments cannot take a card. Each sweep (the hourly /api/cron/notifications,
+ * in its SWEEP_HOUR_UTC run only) finds those creators and emits payment_setup.weekly_check for each one
  * that has not had a payout setup email in the last seven days; the workflow
  * (workflows/unfinished.ts) turns that into PAYOUT_SETUP_WEEKLY, sent at once.
  *
@@ -59,6 +59,19 @@ export function wantsPayoutNudge(c: CreatorPaymentRow, airwallexReady: Set<strin
   return !paymentsComplete(c)
 }
 
+/**
+ * The one hour a day the hourly cron sweeps. It swept every hour, reading
+ * every creator 24 times a day for an email that goes once a week. Once a
+ * day keeps the weekly rhythm: "told this week" looks back seven days less
+ * an hour, so the same run a week later sends again. Changed on purpose
+ * (the owner: lower Vercel costs).
+ */
+export const SWEEP_HOUR_UTC = 15
+
+export function isPayoutSweepHour(now: number): boolean {
+  return new Date(now).getUTCHours() === SWEEP_HOUR_UTC
+}
+
 export function dayOf(now: number): string {
   return new Date(now).toISOString().slice(0, 10)
 }
@@ -72,8 +85,8 @@ export interface WeeklySummary {
 
 /**
  * One sweep. `budgetMs` stops it taking new pages when time is short; the
- * next hour carries on, and creators already emitted for today are skipped by
- * the event key.
+ * next day's sweep carries on, and creators already emitted for today are
+ * skipped by the event key.
  */
 export async function sweepPayoutReminders(db: AdminDb, opts: { now?: number; budgetMs?: number } = {}): Promise<WeeklySummary> {
   const now = opts.now ?? Date.now()
