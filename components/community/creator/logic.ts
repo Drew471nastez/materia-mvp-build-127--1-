@@ -1026,28 +1026,43 @@ export function memberConfirmText(choice: MemberChoice, name: string, person?: {
 
 /* ── Settings tabs ──────────────────────────────────────────────────────── */
 
-export type SettingsTab = "page" | "access" | "features" | "policies" | "roles" | "gamification" | "notifications" | "advanced"
+/*
+  ROUND 32: every panel's name in one list, a line each, so a new panel is one more line here and one more entry in
+  ./settings-section.tsx PANELS. "address" (the storelib address and the creator's own domain) and "discovery" (the
+  Explore category, Explore and search) were inside Page and Access; they are panels of their own now.
+*/
+export const SETTINGS_TABS = [
+  "page",
+  "address",
+  "access",
+  "discovery",
+  "features",
+  "advanced",
+  "policies",
+  "roles",
+  "gamification",
+  "notifications",
+  /* round32: features panels */
+] as const
+
+export type SettingsTab = (typeof SETTINGS_TABS)[number]
 
 /** A tab asked for by name, old names included, as the tab that holds it now. */
 export function settingsTabOf(raw: string | undefined | null): SettingsTab {
   switch (raw) {
-    case "access":
-    case "discovery":
-      return "access"
-    case "features":
+    case "domain":
+    case "domains":
+      return "address"
+    case "explore":
+    case "search":
+      return "discovery"
     case "welcome":
       return "features"
-    case "policies":
     case "rules":
     case "contact":
       return "policies"
-    case "roles":
-    case "gamification":
-    case "notifications":
-    case "advanced":
-      return raw
     default:
-      return "page"
+      return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "page"
   }
 }
 

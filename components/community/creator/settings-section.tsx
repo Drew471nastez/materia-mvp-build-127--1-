@@ -6,34 +6,39 @@
  * ===========================================================================
  * Panels named in the address (?tab=), grouped the way /app/settings groups them:
  *
- *   Page           what people see before they join: name, address,
- *                  tagline, category (the Explore pill it is found under),
- *                  description, logo, cover, the gallery of pictures and
+ *   Page           what people see before they join: name, logo, tagline,
+ *                  description, the cover and the gallery of pictures and
  *                  videos, what members get, questions, links.
- *   Access         who can join, approval, the tiers with their prices (a
- *                  recurring price is saved through the memberships engine:
+ *   Address and    the storelib.com address, and a domain of the creator's
+ *   domain         own (round 31's panel, ./community-domain-panel).
+ *   Access and     who can join, approval, the tiers with their prices (a
+ *   prices         recurring price is saved through the memberships engine:
  *                  members keep what they joined at), the other products
- *                  that let somebody in; then who can find it: Explore,
- *                  visibility, search words.
+ *                  that let somebody in.
+ *   Explore and    the Explore category, being shown in Explore, and the
+ *   search         title and line search engines show.
  *   Features       which sections are on, and the welcome a new member sees.
- *   Rules and      the rules (the same editor as Moderation's), and for the
- *   policies       owner the refund policy and how members reach them
- *                  (worker M's columns, run-now part 101).
- *   Roles          the owner's: what admins and moderators may do, a group
- *                  of actions at a time (run-now part 100).
+ *   Publish and    publish, videos, archive, delete (the name typed back;
+ *   archive        ?tab=advanced).
+ *   Rules and      the rules (the same editor as Moderation's), blocked
+ *   policies       words, and for the owner the refund policy and how
+ *                  members reach them.
+ *   Roles          the owner's: what admins and moderators may do.
  *   Points and     points, levels, badges (?tab=gamification).
  *   levels
  *   Notifications  what you hear about in this community.
- *   Publish and    publish, videos, archive, delete (the name typed back;
- *   archive        ?tab=advanced).
  *
- * The rules are written here and in Moderation, beside the reports.
- * Older links (?tab=general, ?tab=discovery) land on the tab that now holds
- * what they pointed at. A switch saves when it is flipped; a form saves
- * with its save bar (./parts EditorFoot, the /app Settings bar, round 31).
+ * ROUND 32, THE OWNER: "on desktop it looks absolutely horrible, too shrunk". Page held a second column 300px wide
+ * (the address, the domain, the logo, the look, the category), so the domain's line wrapped into a strip beside its
+ * button and every card was squeezed. Now every panel is one column of full width cards, as /app Settings draws its
+ * panels: the address and the domain are a panel of their own, the category is with Explore, the logo is in About.
+ * The look (White or Dark) is gone: a member picks their own (lib/communities/client/appearance-choice.ts).
+ *
+ * A switch saves when it is flipped; a form saves with its save bar (./parts EditorFoot, the /app Settings bar).
+ * Older links (?tab=general, ?tab=domain, ?tab=welcome) land on the panel that holds what they pointed at
+ * (./logic settingsTabOf).
  */
 import * as React from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react"
@@ -46,7 +51,7 @@ import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } f
 import { GALLERY_MAX, accessChoiceOf, coverItem as coverOf, settingsTabAsked, settingsTabOf, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
 import { accessSummary, privacyTitle, type CommunityPricing, type CommunityPrivacy } from "@/lib/communities/access-model"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
-import { communityAppearance, type CommunityAppearance } from "@/lib/communities/appearance"
+import { getMainDomain } from "@/lib/url-helpers"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
@@ -57,28 +62,53 @@ import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CoverField, GalleryEditor } from "./gallery-editor"
 import { CommunityDomainPanel } from "./community-domain-panel"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
-import { ChoiceCards, Confirm, Dialog, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, RemoveButton, Section, Segmented, SelectField, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
+import { ChoiceCards, Confirm, Dialog, EDITOR_CARD_TITLE, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, RemoveButton, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
 import { tt, ttx } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
 
 type SettingsGroup = "community" | "people" | "you"
 
+/** What every panel is drawn from. */
+export interface SettingsPanelProps {
+  head: CommunityHead
+  data: SettingsData
+  videoProviders: ProviderLine[]
+}
+
+/**
+ * ONE PANEL OF SETTINGS: its name in the column and the phone's list, the line under it saying what is in it, who may
+ * open it, its group, and what it draws. A new panel is one more entry here (and its name in ./logic SETTINGS_TABS);
+ * the column, the phone's list, the address and Back all follow from this list.
+ */
+export interface SettingsPanel {
+  value: SettingsTab
+  label: string
+  line: string
+  needs: keyof CommunityHead["can"]
+  group: SettingsGroup
+  /** Left out of the list when this says no (Roles before its data is there). */
+  shown?: (p: SettingsPanelProps) => boolean
+  render: (p: SettingsPanelProps) => React.ReactNode
+}
+
 /*
-  NAMES A BUSINESS READS AT A GLANCE (round 31). Each panel has a line under its name saying what is in it, shown in the
-  phone's list and under the panel's title. Gamification is Points and levels; Advanced is Publish and archive, which is what
-  it holds, and sits with the community's other panels.
+  NAMES A BUSINESS READS AT A GLANCE (round 31, round 32). Each panel has a line under its name saying what is in it, shown
+  in the phone's list and under the panel's title.
 */
-const TABS: { value: SettingsTab; label: string; line: string; needs: keyof CommunityHead["can"]; group: SettingsGroup }[] = [
-  { value: "page", get label() { return tt("Page") }, needs: "manage_settings", group: "community", get line() { return tt("Name, pictures, description and address") } },
-  { value: "access", get label() { return tt("Access") }, needs: "manage_settings", group: "community", get line() { return tt("Who can join, prices and who can find it") } },
-  { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community", get line() { return tt("Learn, Calendar, chat and the welcome") } },
-  { value: "advanced", get label() { return tt("Publish and archive") }, needs: "archive", group: "community", get line() { return tt("Publish, videos, archive or delete") } },
-  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") } },
+const PANELS: SettingsPanel[] = [
+  { value: "page", get label() { return tt("Page") }, needs: "manage_settings", group: "community", get line() { return tt("Name, logo, pictures and what members get") }, render: (p) => <PageSettings head={p.head} data={p.data} /> },
+  { value: "address", get label() { return tt("Address and domain") }, needs: "manage_settings", group: "community", get line() { return tt("Your link on Storelib, and a domain of your own") }, render: (p) => <AddressSettings head={p.head} /> },
+  { value: "access", get label() { return tt("Access and prices") }, needs: "manage_settings", group: "community", get line() { return tt("Who can join, approval and tiers") }, render: (p) => <Access head={p.head} data={p.data} /> },
+  { value: "discovery", get label() { return tt("Explore and search") }, needs: "manage_settings", group: "community", get line() { return tt("Category, Explore and search results") }, render: (p) => <Discovery head={p.head} data={p.data} /> },
+  { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community", get line() { return tt("Learn, Calendar, chat and the welcome") }, render: (p) => <Features head={p.head} data={p.data} /> },
+  { value: "advanced", get label() { return tt("Publish and archive") }, needs: "archive", group: "community", get line() { return tt("Publish, videos, archive or delete") }, render: (p) => <Advanced head={p.head} videoProviders={p.videoProviders} /> },
+  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") }, render: (p) => <Policies head={p.head} data={p.data} /> },
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
-  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") } },
-  { value: "gamification", get label() { return tt("Points and levels") }, needs: "manage_gamification", group: "people", get line() { return tt("Points, levels and badges") } },
-  { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "you", get line() { return tt("What you hear about from this community") } },
+  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") }, shown: (p) => !!p.data.roles, render: (p) => (p.data.roles ? <Roles head={p.head} roles={p.data.roles} /> : null) },
+  { value: "gamification", get label() { return tt("Points and levels") }, needs: "manage_gamification", group: "people", get line() { return tt("Points, levels and badges") }, render: (p) => <GamificationPanel head={p.head} levels={p.data.levels} badges={p.data.badges} /> },
+  { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "you", get line() { return tt("What you hear about from this community") }, render: (p) => <Notifications head={p.head} data={p.data} /> },
+  /* round32: features panels (a new panel: its entry here, its name in ./logic SETTINGS_TABS) */
 ]
 
 const GROUPS: { id: SettingsGroup; label: string }[] = [
@@ -91,17 +121,18 @@ const GROUPS: { id: SettingsGroup; label: string }[] = [
 const PANEL_ENTRY = "communitySettingsPanel"
 
 /*
-  THE /app SETTINGS WAY OF FINDING A PANEL (round 31). "A pill shaped selector that opens a bottom sheet: weird." From
-  1024px the panels are a column of groups beside the one open (components/app/settings-form-new.tsx data-settings-groups).
-  Below it Settings opens on the list itself, in its groups, a row each with what it holds and a chevron; a row opens its
-  panel under a back row, and Back (the row, the browser's, a phone's swipe) returns to the list. An address that names a
-  panel (?tab=) opens on it.
+  THE /app SETTINGS WAY OF FINDING A PANEL (round 31). From 1024px the panels are a column of groups beside the one open
+  (components/app/settings-form-new.tsx data-settings-groups: 232px and 48px from it from 1280px, as there). Below it
+  Settings opens on the list itself, in its groups, a row each with what it holds and a chevron; a row opens its panel
+  under a back row, and Back (the row, the browser's, a phone's swipe) returns to the list. An address that names a panel
+  (?tab=) opens on it.
 
   A PANEL YOU LEFT KEEPS WHAT YOU TYPED. Each panel stays mounted once it has been opened and is only hidden while another is
   showing, so going to Access and back to Page does not throw away an unsaved name.
 */
 export function SettingsSection({ head, data, tab: initialTab, asked = true, videoProviders = [] }: { head: CommunityHead; data: SettingsData; tab: SettingsTab; asked?: boolean; videoProviders?: ProviderLine[] }) {
-  const tabs = TABS.filter((t) => head.can[t.needs])
+  const props: SettingsPanelProps = { head, data, videoProviders }
+  const tabs = PANELS.filter((t) => head.can[t.needs] && (!t.shown || t.shown(props)))
   const [tab, setTab] = React.useState<SettingsTab>(tabs.some((t) => t.value === initialTab) ? initialTab : (tabs[0]?.value ?? "notifications"))
   /* Below 1024px only: the list of panels, or the one open. From 1024px both are drawn by CSS, whatever this says. */
   const [view, setView] = React.useState<"list" | "panel">(asked ? "panel" : "list")
@@ -151,14 +182,8 @@ export function SettingsSection({ head, data, tab: initialTab, asked = true, vid
     return () => window.removeEventListener("popstate", onPop)
   }, [])
   const current = tabs.find((t) => t.value === tab)
-  const panel = (t: SettingsTab, node: React.ReactNode) =>
-    opened.has(t) || tab === t ? (
-      <div key={t} hidden={tab !== t} data-settings-panel={t}>
-        {node}
-      </div>
-    ) : null
   return (
-    <div ref={root} data-settings="" data-tab={tab} data-view={view} className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-8">
+    <div ref={root} data-settings="" data-tab={tab} data-view={view} className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)] xl:gap-12">
       <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[136px] hidden lg:block">
         {GROUPS.map((g) => {
           const list = tabs.filter((t) => t.group === g.id)
@@ -180,13 +205,14 @@ export function SettingsSection({ head, data, tab: initialTab, asked = true, vid
                       on ? "bg-[#e9e9eb] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,18,27,0.08),inset_0_0_0_1px_rgba(16,18,27,0.05),inset_0_1px_0_rgba(255,255,255,0.7)]" : "text-[#4b5563] hover:bg-[#f1f1f3] hover:text-[#1a1a2e]",
                     )}
                   >
-                    {t.label}
+                    <span className="truncate">{t.label}</span>
                   </button>
                 )
               })}
             </div>
           )
         })}
+        {/* round32: features panels. New panels are registered in PANELS above; the column draws them in their group. */}
       </nav>
 
       {/* Below 1024px, the list of panels in their groups. */}
@@ -229,20 +255,13 @@ export function SettingsSection({ head, data, tab: initialTab, asked = true, vid
           <h2 className="text-[20px] font-bold leading-7 text-[#1a1a2e] lg:text-[22px]">{current?.label}</h2>
           <p className="mt-0.5 text-[14px] text-[#6b7280]">{current?.line}</p>
         </div>
-        {panel("page", <PageSettings head={head} data={data} />)}
-        {panel(
-          "access",
-          <div className="space-y-4">
-            <Access head={head} data={data} />
-            <Discovery head={head} data={data} />
-          </div>,
+        {tabs.map((t) =>
+          opened.has(t.value) || tab === t.value ? (
+            <div key={t.value} hidden={tab !== t.value} data-settings-panel={t.value}>
+              {t.render(props)}
+            </div>
+          ) : null,
         )}
-        {panel("features", <Features head={head} data={data} />)}
-        {panel("policies", <Policies head={head} data={data} />)}
-        {data.roles ? panel("roles", <Roles head={head} roles={data.roles} />) : null}
-        {panel("notifications", <Notifications head={head} data={data} />)}
-        {panel("gamification", <GamificationPanel head={head} levels={data.levels} badges={data.badges} />)}
-        {panel("advanced", <Advanced head={head} videoProviders={videoProviders} />)}
       </div>
     </div>
   )
@@ -273,10 +292,7 @@ function SaveBar({ dirty, busy, onSave, onReset, error, busyText }: { dirty: boo
 
 interface PageState {
   name: string
-  slug: string
   tagline: string
-  /** One of Explore's category ids, or "" for none. */
-  category: string
   description: string
   logoUrl: string | null
   coverUrl: string | null
@@ -286,18 +302,18 @@ interface PageState {
   links: CommunityLink[]
 }
 
+/*
+  THE PAGE, ONE COLUMN (round 32). The cards in the order the community's page reads, each the panel's full width: About
+  (the logo, the name, the tagline, the description), Photos and video (the cover, then the gallery, drawn as the product
+  editor draws a product's media), what members get, questions, links. One save bar for all of it.
+*/
 function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData }) {
   const router = useRouter()
   const toast = useToast()
-  const instant = useInstant(head)
-  const [look, setLook] = React.useState<CommunityAppearance>(communityAppearance(data.onboarding))
-  const [lookBusy, setLookBusy] = React.useState(false)
   const start = React.useMemo<PageState>(
     () => ({
       name: head.name,
-      slug: head.slug,
       tagline: data.tagline ?? "",
-      category: communityCategoryId(data.category) ?? "",
       description: data.description,
       logoUrl: head.logoUrl,
       coverUrl: head.coverUrl,
@@ -332,164 +348,147 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
     if (!res.ok) return setError(errorText(res.data.error))
     setSaved(JSON.stringify(s))
     toast(tt("Saved"))
-    /* A new address: these screens move with it (/app/community/<slug>), rather than reloading under the old one. */
-    if (typeof body.slug === "string" && body.slug !== before.slug) {
-      const { pathname, search } = window.location
-      router.replace(pathname.replace(`/app/community/${before.slug}`, `/app/community/${body.slug}`) + search, { scroll: false })
-    } else router.refresh()
+    router.refresh()
     /* The community open in another tab picks up the new cover, picture and name at once. */
     announceCommunityUpdated(head.id)
   }
 
-  /*
-    THE PRODUCT EDITOR'S PAGE (app/app/products/new): one column of cards
-    under 1024px, in the order the page reads; from 1024px the community
-    itself on the left (what it is called and says, its pictures, what
-    members get, questions, links) and how it is found on the right (its
-    address, logo and Explore category), with the save foot under both.
-  */
   return (
-    <div data-page-settings="">
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start xl:gap-5">
-        <div className="min-w-0 space-y-4">
-          <EditorCard title={tt("About")} id="about">
-            <div>
-              <label htmlFor="g-name" className={label}>
-                {tt("Name")}
-              </label>
-              <input id="g-name" value={s.name} onChange={(e) => set("name", e.target.value.slice(0, 80))} className={cn(field, "h-11 sm:h-10")} />
-            </div>
-            <div>
-              <label htmlFor="g-tagline" className={label}>
-                {tt("Tagline")}
-              </label>
-              <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder={tt("One line on cards and in Explore")} className={cn(field, "h-11 sm:h-10")} />
-            </div>
-            <div>
-              <label htmlFor="g-desc" className={label}>
-                {tt("Description")}
-              </label>
-              <textarea id="g-desc" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 10_000))} rows={6} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
-            </div>
-          </EditorCard>
-
-          <EditorCard title={tt("Photos and video")} hint={tt("The cover, then pictures and videos at the top of your page, the first one shown first.")} id="gallery">
-            <div className="min-w-0">
-              <p className={label}>{tt("Cover")}</p>
-              {/* A picture, or a YouTube or Vimeo video (round 11): then the gallery's first item, and its still the cover picture on Save. */}
-              <CoverField
-                communityId={head.id}
-                onBusy={setCoverUploading}
-                coverUrl={s.coverUrl}
-                gallery={s.gallery}
-                onChange={(next) => {
-                  setS((x) => ({ ...x, coverUrl: next.coverUrl, gallery: next.gallery }))
-                  setError(null)
-                }}
-                onError={setError}
-              />
-            </div>
-            {/* The cover video, when there is one, is the cover's to change; the gallery edits what follows it. */}
-            <GalleryEditor
-              communityId={head.id}
-              value={coverOf(s.gallery) ? s.gallery.slice(1) : s.gallery}
-              onChange={(v) => {
-                const cover = coverOf(s.gallery)
-                set("gallery", cover ? [cover, ...v] : v)
-              }}
-              max={coverOf(s.gallery) ? GALLERY_MAX - 1 : GALLERY_MAX}
-              videos={data.galleryVideos}
-              ready={data.galleryReady}
-              onError={setError}
-              onBusy={setUploading}
-            />
-          </EditorCard>
-
-          <EditorCard title={tt("What members get")} hint={tt("A line each, on the community's page.")}>
-            <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder={tt("A live call every week")} addLabel={tt("Add a line")} />
-          </EditorCard>
-
-          <EditorCard title={tt("Questions")} hint={tt("Answers to what people ask before joining.")}>
-            <PairEditor items={s.faq.map((r) => ({ a: r.q, b: r.a }))} onChange={(v) => set("faq", v.map((x) => ({ q: x.a, a: x.b })))} max={20} aPlaceholder={tt("Who is it for?")} bPlaceholder={tt("The answer")} addLabel={tt("Add a question")} />
-          </EditorCard>
-
-          <EditorCard title={tt("Links")}>
-            <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder={tt("Website")} bPlaceholder="https://" addLabel={tt("Add a link")} singleLine />
-          </EditorCard>
+    <div className="space-y-4" data-page-settings="">
+      <EditorCard title={tt("About")} id="about">
+        <div data-page-logo="">
+          <p className={label}>{tt("Logo")}</p>
+          <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
         </div>
-
-        <div className="min-w-0 space-y-4">
-          <EditorCard title={tt("Address")} id="address">
-            <div>
-              <label htmlFor="g-slug" className="sr-only">
-                {tt("Address")}
-              </label>
-              <div className="flex h-11 items-center overflow-hidden rounded-lg border border-[#e1e3e7] bg-white focus-within:border-[#1a1a2e]/50 sm:h-10">
-                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]">{"/community/"}</span>
-                <input id="g-slug" value={s.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))} className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]" />
-              </div>
-              {/* The old address is kept (run-now part 94): a shared link opens the community at its new address. */}
-              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">{tt("Links to /community/{slug} will open the new address.", { slug: start.slug })}</p> : <p className="mt-1 truncate text-[12px] text-[#9ca3af]">{"storelib.com/community/"}{s.slug || "..."}</p>}
-            </div>
-          </EditorCard>
-
-          {/* Round 31: a domain of the creator's own can show this community (components/community/creator/community-domain-panel.tsx). */}
-          <CommunityDomainPanel communityId={head.id} />
-
-          <EditorCard title={tt("Logo")}>
-            <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
-          </EditorCard>
-
-          <EditorCard title={tt("Look")} hint={tt("White or dark, everywhere in this community.")}>
-            <Segmented
-              label={tt("Look")}
-              value={look}
-              options={[
-                { value: "light", label: tt("White") },
-                { value: "dark", label: tt("Dark") },
-              ]}
-              onChange={(next) => {
-                if (lookBusy || next === look) return
-                const prev = look
-                setLook(next)
-                setLookBusy(true)
-                void instant({ appearance: next }, next === "dark" ? tt("Dark look on") : tt("White look on")).then((ok) => {
-                  setLookBusy(false)
-                  if (!ok) setLook(prev)
-                })
-              }}
-            />
-          </EditorCard>
-
-          <EditorCard title={tt("Category")} hint={tt("Where it shows up in Explore.")}>
-            {/* The same list as Explore's category pills: the one picked here is the pill it is found under. The /app Settings field (round 31), searchable. */}
-            <ChoicePicker
-              id="g-category"
-              name="community-category"
-              title={tt("Category")}
-              choices={[{ value: "", label: tt("No category") }, ...COMMUNITY_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))]}
-              value={s.category}
-              onChange={(v) => set("category", v)}
-              placeholder={tt("Search categories")}
-              fieldLabel={COMMUNITY_CATEGORIES.find((c) => c.id === s.category)?.label ?? tt("No category")}
-              fieldMuted={!s.category}
-              fieldClassName="h-11 rounded-lg border-[#e1e3e7] sm:h-10"
-            />
-          </EditorCard>
-
-          {head.can.manage_settings ? (
-            <p className="px-1 text-[13px] text-[#6b7280]">
-              {tt("Rules and the refund policy are in")}{" "}
-              <Link href={`/app/community/${head.slug}/settings?tab=policies`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-                {tt("Rules and policies")}
-              </Link>
-              .
-            </p>
-          ) : null}
+        <div>
+          <label htmlFor="g-name" className={label}>
+            {tt("Name")}
+          </label>
+          <input id="g-name" value={s.name} onChange={(e) => set("name", e.target.value.slice(0, 80))} className={cn(field, "h-11 sm:h-10")} />
         </div>
-      </div>
+        <div>
+          <label htmlFor="g-tagline" className={label}>
+            {tt("Tagline")}
+          </label>
+          <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder={tt("One line on cards and in Explore")} className={cn(field, "h-11 sm:h-10")} />
+        </div>
+        <div>
+          <label htmlFor="g-desc" className={label}>
+            {tt("Description")}
+          </label>
+          <textarea id="g-desc" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 10_000))} rows={6} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
+        </div>
+      </EditorCard>
+
+      <EditorCard title={tt("Photos and video")} hint={tt("The cover across the top of your page, then the gallery under it, in this order.")} id="gallery">
+        <div className="min-w-0">
+          <p className={label}>{tt("Cover")}</p>
+          {/* A picture, or a YouTube or Vimeo video (round 11): then the gallery's first item, and its still the cover picture on Save. */}
+          <CoverField
+            communityId={head.id}
+            onBusy={setCoverUploading}
+            coverUrl={s.coverUrl}
+            gallery={s.gallery}
+            onChange={(next) => {
+              setS((x) => ({ ...x, coverUrl: next.coverUrl, gallery: next.gallery }))
+              setError(null)
+            }}
+            onError={setError}
+          />
+        </div>
+        {/* The cover video, when there is one, is the cover's to change; the gallery edits what follows it. */}
+        <GalleryEditor
+          communityId={head.id}
+          value={coverOf(s.gallery) ? s.gallery.slice(1) : s.gallery}
+          onChange={(v) => {
+            const cover = coverOf(s.gallery)
+            set("gallery", cover ? [cover, ...v] : v)
+          }}
+          max={coverOf(s.gallery) ? GALLERY_MAX - 1 : GALLERY_MAX}
+          videos={data.galleryVideos}
+          ready={data.galleryReady}
+          onError={setError}
+          onBusy={setUploading}
+        />
+      </EditorCard>
+
+      <EditorCard title={tt("What members get")} hint={tt("A line each, on the community's page.")}>
+        <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder={tt("A live call every week")} addLabel={tt("Add a line")} />
+      </EditorCard>
+
+      <EditorCard title={tt("Questions")} hint={tt("Answers to what people ask before joining.")}>
+        <PairEditor items={s.faq.map((r) => ({ a: r.q, b: r.a }))} onChange={(v) => set("faq", v.map((x) => ({ q: x.a, a: x.b })))} max={20} aPlaceholder={tt("Who is it for?")} bPlaceholder={tt("The answer")} addLabel={tt("Add a question")} />
+      </EditorCard>
+
+      <EditorCard title={tt("Links")} hint={tt("Your website or social pages, on the community's page.")}>
+        <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder={tt("Website")} bPlaceholder="https://" addLabel={tt("Add a link")} singleLine />
+      </EditorCard>
 
       <SaveBar dirty={dirty} busy={busy || uploading} busyText={uploading ? tt("Uploading") : undefined} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
+    </div>
+  )
+}
+
+/* ── Address and domain ─────────────────────────────────────────────────── */
+
+/*
+  WHERE THE COMMUNITY OPENS (round 32: a panel of its own). The storelib.com address, saved with its own bar: a new
+  address moves these screens with it (/app/community/<slug>), and the old one keeps opening the community (run-now part
+  94). Under it the creator's own domain (./community-domain-panel), which saves as it goes.
+*/
+function AddressSettings({ head }: { head: CommunityHead }) {
+  const router = useRouter()
+  const toast = useToast()
+  const [slug, setSlug] = React.useState(head.slug)
+  const [saved, setSaved] = React.useState(head.slug)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const dirty = slug !== saved
+  const save = async () => {
+    setBusy(true)
+    const res = await send(`/api/app/community/${head.id}`, "PATCH", { slug })
+    setBusy(false)
+    if (!res.ok) return setError(errorText(res.data.error))
+    const before = saved
+    setSaved(slug)
+    setError(null)
+    toast(tt("Saved"))
+    /* A new address: these screens move with it, rather than reloading under the old one. */
+    const { pathname, search } = window.location
+    router.replace(pathname.replace(`/app/community/${before}`, `/app/community/${slug}`) + search, { scroll: false })
+    announceCommunityUpdated(head.id)
+  }
+  return (
+    <div className="space-y-4" data-address-settings="">
+      <EditorCard title={tt("Storelib address")} hint={tt("The link people open and share. Changing it keeps the old link working.")} id="address">
+        <div className="max-w-[560px]">
+          <label htmlFor="g-slug" className="sr-only">
+            {tt("Address")}
+          </label>
+          <div className="flex h-11 items-center overflow-hidden rounded-lg border border-[#e1e3e7] bg-white shadow-[0_1px_0_rgba(17,24,39,0.04)] transition-[border-color,box-shadow] focus-within:border-[#1a1a2e]/50 focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.07)] sm:h-10" data-slug-field="">
+            <span className="shrink-0 pl-3 text-[14px] text-[#9ca3af] max-sm:text-[13px]">{`${getMainDomain()}/community/`}</span>
+            <input
+              id="g-slug"
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))
+                setError(null)
+              }}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]"
+            />
+          </div>
+          {/* The old address is kept (run-now part 94): a shared link opens the community at its new address. */}
+          {dirty && head.status === "published" ? <p className="mt-1.5 text-[13px] text-[#6b7280]" data-slug-note="">{tt("Links to /community/{slug} will open the new address.", { slug: saved })}</p> : null}
+        </div>
+      </EditorCard>
+
+      {/* Round 31: a domain of the creator's own can show this community (./community-domain-panel). */}
+      <CommunityDomainPanel communityId={head.id} />
+
+      <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setSlug(saved); setError(null) }} />
     </div>
   )
 }
@@ -525,16 +524,17 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
 
   return (
     <div className="space-y-4" data-features="">
-      <Section title={tt("Sections")} hint={tt("Turned off, a section is hidden from members. Nothing in it is deleted.")}>
+      <EditorCard title={tt("Sections")} hint={tt("Turned off, a section is hidden from members. Nothing in it is deleted.")}>
         <div className="-my-1 divide-y divide-[#f1f2f4]">
           <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title={tt("Learn")} hint={tt("Your programs and lessons, inside the community.")} />
           <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title={tt("Calendar")} hint={tt("Calls, workshops and meetups with RSVPs.")} />
           <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title={tt("Chat")} hint={tt("Spaces of the chat kind, and messages between members.")} />
           <Toggle checked={features.directoryEnabled} onChange={(v) => void flip("directoryEnabled", v)} title={tt("Member directory")} hint={tt("Members can see who else is here.")} />
         </div>
-      </Section>
+      </EditorCard>
 
-      <Section title={tt("Welcome")} hint={tt("What a new member sees the first time they open it.")}>
+      <EditorCard title={tt("Welcome")} hint={tt("What a new member sees the first time they open it.")}>
+        <div>
         <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} title={tt("Show a welcome")} />
         {w.enabled ? (
           <div className="mt-2 space-y-1">
@@ -543,7 +543,8 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
             <Toggle checked={w.askIntro} onChange={(v) => setW({ ...w, askIntro: v })} title={tt("Ask them to introduce themselves")} />
           </div>
         ) : null}
-      </Section>
+        </div>
+      </EditorCard>
 
       <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setW(JSON.parse(saved)); setError(null) }} />
     </div>
@@ -666,28 +667,35 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
         </Notice>
       ) : null}
 
-      <Section title={tt("Who can get in, and what it costs")}>
+      <EditorCard title={tt("Who can get in, and what it costs")}>
+        {/* Round 32: the two choices side by side from 1280px, where the panel is wide enough for both; one under the other below it. */}
         {owner ? (
-          <>
-            <p className={cn(label, "mb-1")}>{tt("Who can get in")}</p>
-            <ChoiceCards rows value={privacy} onChange={(v) => void change({ privacy: v })} options={PRIVACY_OPTIONS} label={tt("Who can get in")} />
-            <p className={cn(label, "mb-1 mt-4 border-t border-[#f1f2f4] pt-3")}>{tt("What joining costs")}</p>
-            <ChoiceCards rows value={pricing} onChange={(v) => void change({ pricing: v })} options={PRICING_OPTIONS} label={tt("What joining costs")} />
-          </>
+          <div className="grid grid-cols-1 gap-x-10 gap-y-4 xl:grid-cols-2" data-access-choices="">
+            <div className="min-w-0">
+              <p className={cn(label, "mb-1")}>{tt("Who can get in")}</p>
+              <ChoiceCards rows value={privacy} onChange={(v) => void change({ privacy: v })} options={PRIVACY_OPTIONS} label={tt("Who can get in")} />
+            </div>
+            <div className="min-w-0 max-xl:border-t max-xl:border-[#f1f2f4] max-xl:pt-3">
+              <p className={cn(label, "mb-1")}>{tt("What joining costs")}</p>
+              <ChoiceCards rows value={pricing} onChange={(v) => void change({ pricing: v })} options={PRICING_OPTIONS} label={tt("What joining costs")} />
+            </div>
+          </div>
         ) : (
           <p className="text-[14px] text-[#1a1a2e]">
             {privacyTitle(privacy)}, {pricing === "paid" ? "paid" : "free"}{tt(". Only the owner changes this.")}
           </p>
         )}
-        <p className="mt-3 text-[13px] leading-snug text-[#4b5563]" data-access-summary="">
-          {accessSummary(privacy, pricing, priceOfTier)}
-        </p>
-        {typeError ? (
-          <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
-            {typeError}
+        <div>
+          <p className="rounded-lg bg-[#f7f7f8] px-3.5 py-2.5 text-[13.5px] leading-snug text-[#4b5563]" data-access-summary="">
+            {accessSummary(privacy, pricing, priceOfTier)}
           </p>
-        ) : null}
-        <div className="mt-3 border-t border-[#f1f2f4] pt-1.5">
+          {typeError ? (
+            <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
+              {typeError}
+            </p>
+          ) : null}
+        </div>
+        <div className="border-t border-[#f1f2f4] pt-1.5">
           <Toggle
             checked={approval}
             onChange={async (v) => {
@@ -698,9 +706,9 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
             hint={privacy === "private" ? tt("An invite is already an approval, so this only applies to anyone who asks without one.") : pricing === "paid" ? tt("People ask first; once you approve, they can pay.") : tt("People ask to join and you approve them under Members.")}
           />
         </div>
-      </Section>
+      </EditorCard>
 
-      <Section
+      <EditorCard
         title={tt("Tiers")}
         hint={tt("What people join on. A paid tier is sold through Storelib checkout, with the price on its product.")}
         action={
@@ -720,7 +728,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
           </div>
         )}
         {archived.length ? (
-          <div className="mt-4 border-t border-[#f1f2f4] pt-3">
+          <div className="border-t border-[#f1f2f4] pt-3">
             <p className="mb-2 text-[12.5px] font-medium text-[#6b7280]">{tt("Not sold any more")}</p>
             <ul className="space-y-1">
               {archived.map((t) => (
@@ -734,7 +742,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
             </ul>
           </div>
         ) : null}
-      </Section>
+      </EditorCard>
 
       <NewTierDialog head={head} open={adding} onClose={() => setAdding(false)} />
     </div>
@@ -993,22 +1001,31 @@ function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boo
   )
 }
 
-/* ── Discovery ──────────────────────────────────────────────────────────── */
+/* ── Explore and search ─────────────────────────────────────────────────── */
 
+/*
+  HOW PEOPLE FIND IT (round 32: a panel of its own). Explore: the switch (saved as it flips) and the category, the pill it
+  is found under there (from Explore's own list, searchable, a sheet on a phone). Search results: the title and the line a
+  search engine shows. Who can get in is set once, under Access and prices; it is not a second choice here.
+*/
 function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) {
   const router = useRouter()
   const toast = useToast()
   const instant = useInstant(head)
   const [discover, setDiscover] = React.useState(data.discoveryEnabled)
-  const start = { visibility: head.visibility, seoTitle: data.seoTitle ?? "", seoDescription: data.seoDescription ?? "" }
+  const start = React.useMemo(() => ({ category: communityCategoryId(data.category) ?? "", seoTitle: data.seoTitle ?? "", seoDescription: data.seoDescription ?? "" }), [data])
   const [s, setS] = React.useState(start)
   const [saved, setSaved] = React.useState(JSON.stringify(start))
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const dirty = JSON.stringify(s) !== saved
+  const listed = head.visibility === "public"
   const save = async () => {
+    const before = JSON.parse(saved) as typeof s
+    const body: Record<string, unknown> = {}
+    for (const k of Object.keys(s) as (keyof typeof s)[]) if (s[k] !== before[k]) body[k] = s[k]
     setBusy(true)
-    const res = await send(`/api/app/community/${head.id}`, "PATCH", s)
+    const res = await send(`/api/app/community/${head.id}`, "PATCH", body)
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error))
     setSaved(JSON.stringify(s))
@@ -1017,55 +1034,58 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
     router.refresh()
   }
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-discovery="">
       {data.platformHidden ? <Notice tone="warn">{tt("Storelib took this community out of Explore. Contact support to talk about it.")}</Notice> : null}
-      <Section title={tt("Who can find it")}>
-        <Toggle
-          checked={discover}
-          onChange={async (v) => {
-            setDiscover(v)
-            if (!(await instant({ discoveryEnabled: v }, v ? tt("Shown in Explore") : tt("Hidden from Explore")))) setDiscover(!v)
-          }}
-          title={tt("Show in Explore")}
-          hint={tt("Published public communities can be found in Explore and search.")}
-          disabled={s.visibility !== "public"}
-        />
-        <div className="mt-3 space-y-3.5 border-t border-[#f1f2f4] pt-3.5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label htmlFor="d-vis" className={label}>
-                {tt("Visibility")}
-              </label>
-              <SelectField
-                id="d-vis"
-                name="community-visibility"
-                title={tt("Visibility")}
-                value={s.visibility}
-                onChange={(v) => setS({ ...s, visibility: v })}
-                options={[
-                  { value: "public", label: tt("Public: anyone can see the page") },
-                  { value: "unlisted", label: tt("Unlisted: only with the link") },
-                  { value: "private", label: tt("Private: members only") },
-                ]}
-              />
-            </div>
-            {/* The category is chosen in Page, from Explore's own list. */}
-          </div>
-          <div>
-            <label htmlFor="d-seo-t" className={label}>
-              {tt("Search title")}
-            </label>
-            <input id="d-seo-t" value={s.seoTitle} onChange={(e) => setS({ ...s, seoTitle: e.target.value.slice(0, 200) })} placeholder={head.name} className={cn(field, "h-11 sm:h-10")} />
-          </div>
-          <div>
-            <label htmlFor="d-seo-d" className={label}>
-              {tt("Search description")}
-            </label>
-            <textarea id="d-seo-d" value={s.seoDescription} onChange={(e) => setS({ ...s, seoDescription: e.target.value.slice(0, 500) })} rows={2} placeholder={head.tagline ?? ""} className={cn(field, "resize-y py-2.5")} />
-          </div>
+      <EditorCard title={tt("Explore")} hint={tt("Where people browse communities on Storelib.")} id="explore">
+        <div className="-mb-1">
+          <Toggle
+            checked={discover}
+            onChange={async (v) => {
+              setDiscover(v)
+              if (!(await instant({ discoveryEnabled: v }, v ? tt("Shown in Explore") : tt("Hidden from Explore")))) setDiscover(!v)
+            }}
+            title={tt("Show in Explore")}
+            hint={listed ? tt("Published public communities can be found in Explore and search.") : tt("Only a community anyone can join is shown. Change that under Access and prices.")}
+            disabled={!listed}
+          />
         </div>
-      </Section>
-      <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => setS(JSON.parse(saved))} />
+        <div className="border-t border-[#f1f2f4] pt-4"><div className="max-w-[560px]">
+          <label htmlFor="g-category" className={label}>
+            {tt("Category")}
+          </label>
+          {/* The same list as Explore's category pills: the one picked here is the pill it is found under. */}
+          <ChoicePicker
+            id="g-category"
+            name="community-category"
+            title={tt("Category")}
+            choices={[{ value: "", label: tt("No category") }, ...COMMUNITY_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))]}
+            value={s.category}
+            onChange={(v) => {
+              setS({ ...s, category: v })
+              setError(null)
+            }}
+            placeholder={tt("Search categories")}
+            fieldLabel={COMMUNITY_CATEGORIES.find((c) => c.id === s.category)?.label ?? tt("No category")}
+            fieldMuted={!s.category}
+            fieldClassName="h-11 rounded-lg border-[#e1e3e7] sm:h-10"
+          />
+        </div></div>
+      </EditorCard>
+      <EditorCard title={tt("Search results")} hint={tt("What Google and other search engines show for the community's page.")} id="search">
+        <div>
+          <label htmlFor="d-seo-t" className={label}>
+            {tt("Search title")}
+          </label>
+          <input id="d-seo-t" value={s.seoTitle} onChange={(e) => setS({ ...s, seoTitle: e.target.value.slice(0, 200) })} placeholder={head.name} className={cn(field, "h-11 sm:h-10")} />
+        </div>
+        <div>
+          <label htmlFor="d-seo-d" className={label}>
+            {tt("Search description")}
+          </label>
+          <textarea id="d-seo-d" value={s.seoDescription} onChange={(e) => setS({ ...s, seoDescription: e.target.value.slice(0, 500) })} rows={3} placeholder={head.tagline ?? ""} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
+        </div>
+      </EditorCard>
+      <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
     </div>
   )
 }
@@ -1094,15 +1114,15 @@ function Notifications({ head, data }: { head: CommunityHead; data: SettingsData
   }
   return (
     <div className="space-y-4">
-      <Section title={tt("In the community")} hint={tt("What reaches your notifications in this community.")}>
+      <EditorCard title={tt("In the community")} hint={tt("What reaches your notifications in this community.")}>
         <ChoiceCards value={n.level} onChange={(v) => void save({ ...n, level: v })} options={LEVELS} label={tt("What you hear about")} columns={2} />
-      </Section>
-      <Section title={tt("By email")}>
+      </EditorCard>
+      <EditorCard title={tt("By email")}>
         <div className="divide-y divide-[#f1f2f4]">
           <Toggle checked={n.emailAnnouncements} onChange={(v) => void save({ ...n, emailAnnouncements: v })} title={tt("Announcements")} />
           <Toggle checked={n.emailEvents} onChange={(v) => void save({ ...n, emailEvents: v })} title={tt("Event reminders")} />
         </div>
-      </Section>
+      </EditorCard>
     </div>
   )
 }
@@ -1114,13 +1134,13 @@ function Policies({ head, data }: { head: CommunityHead; data: SettingsData }) {
     <div className="space-y-4" data-policies="">
       <section className={cn(card)} data-policies-rules="">
         <div className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-          <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Rules")}</h2>
+          <h2 className={EDITOR_CARD_TITLE}>{tt("Rules")}</h2>
         </div>
         <RulesEditor head={head} initial={data.rules} onSaved={() => {}} />
       </section>
       {/* The words a post or comment may not use (worker T2), beside the rules they back up; it reads its own list. */}
       <section className={cn(card, "overflow-hidden")} data-policies-words="">
-        <BlockedWords communityId={head.id} canEdit={head.can.manage_settings === true} />
+        <BlockedWords communityId={head.id} canEdit={head.can.manage_settings === true} card />
       </section>
       {data.policies ? <PolicyForm head={head} initial={data.policies} /> : null}
     </div>
@@ -1234,7 +1254,7 @@ function Roles({ head, roles }: { head: CommunityHead; roles: RolesView }) {
   return (
     <div className="space-y-4" data-roles="">
       {!roles.ready ? <Notice tone="info">{tt("Choosing what each role may do arrives with a Storelib update. Until then admins and moderators have the usual permissions shown below.")}</Notice> : null}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="space-y-4">
         {(["admin", "moderator"] as const).map((role) => (
           <EditorCard key={role} title={ROLE_COPY[role].title} hint={ROLE_COPY[role].hint} id={`role-${role}`}>
             <div className="-my-1 divide-y divide-[#f1f2f4]" data-role-groups={role}>
@@ -1283,35 +1303,48 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
   return (
     <div className="space-y-4">
       {error ? <Notice>{error}</Notice> : null}
+      {/* Round 32: each is its heading, its line and its one button at the right, so the line keeps the card's width. */}
       {!head.archived && head.can.manage_settings ? (
-        <Section title={head.status === "published" ? tt("Published") : tt("Draft")} hint={head.status === "published" ? tt("Anyone allowed can see it and join.") : tt("Only you and your team can see it.")}>
-          {head.status === "published" ? (
-            <button type="button" onClick={() => void run("unpublish", `/api/app/community/${head.id}`, { publish: false }, tt("Back to a draft"))} disabled={busy !== null} className={buttonSecondary}>
-              {busy === "unpublish" ? tt("Working") : tt("Unpublish")}
-            </button>
-          ) : (
-            <button type="button" onClick={() => void run("publish", `/api/app/community/${head.id}`, { publish: true }, tt("Published"))} disabled={busy !== null} className={buttonPrimary}>
-              {busy === "publish" ? tt("Publishing") : tt("Publish")}
-            </button>
-          )}
-        </Section>
+        <EditorCard
+          title={head.status === "published" ? tt("Published") : tt("Draft")}
+          hint={head.status === "published" ? tt("Anyone allowed can see it and join.") : tt("Only you and your team can see it.")}
+          action={
+            head.status === "published" ? (
+              <button type="button" onClick={() => void run("unpublish", `/api/app/community/${head.id}`, { publish: false }, tt("Back to a draft"))} disabled={busy !== null} className={buttonSecondary}>
+                {busy === "unpublish" ? tt("Working") : tt("Unpublish")}
+              </button>
+            ) : (
+              <button type="button" onClick={() => void run("publish", `/api/app/community/${head.id}`, { publish: true }, tt("Published"))} disabled={busy !== null} className={buttonPrimary}>
+                {busy === "publish" ? tt("Publishing") : tt("Publish")}
+              </button>
+            )
+          }
+        />
       ) : null}
       {videoProviders.length ? (
-        <Section title={tt("Videos")} hint={tt("Where replays and videos you upload to this community are kept.")}>
+        <EditorCard title={tt("Videos")} hint={tt("Where replays and videos you upload to this community are kept.")}>
           <VideoProviders providers={videoProviders} />
-        </Section>
+        </EditorCard>
       ) : null}
-      <Section title={head.archived ? tt("Archived") : tt("Archive")} hint={head.archived ? tt("Members can read it; nobody can post. Bringing it back makes it a draft.") : tt("Keep everything, stop new posts and new members. Members can still read it.")}>
-        <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? tt("Brought back as a draft") : tt("Archived"))} disabled={busy !== null} className={buttonSecondary}>
-          {busy === "archive" ? tt("Working") : head.archived ? tt("Bring it back") : tt("Archive")}
-        </button>
-      </Section>
-      {head.can.delete ? (
-        <Section title={tt("Delete")} hint={tt("It disappears for everyone. Orders and payments are kept. Not possible while members still pay for it.")}>
-          <button type="button" onClick={() => { setTyped(""); setDeleting(true) }} className="inline-flex h-10 items-center rounded-lg border border-[#fecaca] bg-white px-3 text-[13px] font-medium text-[#b42318] hover:bg-[#fef2f2] sm:h-8">
-            {tt("Delete community")}
+      <EditorCard
+        title={head.archived ? tt("Archived") : tt("Archive")}
+        hint={head.archived ? tt("Members can read it; nobody can post. Bringing it back makes it a draft.") : tt("Keep everything, stop new posts and new members. Members can still read it.")}
+        action={
+          <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? tt("Brought back as a draft") : tt("Archived"))} disabled={busy !== null} className={buttonSecondary}>
+            {busy === "archive" ? tt("Working") : head.archived ? tt("Bring it back") : tt("Archive")}
           </button>
-        </Section>
+        }
+      />
+      {head.can.delete ? (
+        <EditorCard
+          title={tt("Delete")}
+          hint={tt("It disappears for everyone. Orders and payments are kept. Not possible while members still pay for it.")}
+          action={
+            <button type="button" onClick={() => { setTyped(""); setDeleting(true) }} className="inline-flex h-10 items-center rounded-lg border border-[#fecaca] bg-white px-3.5 text-[13px] font-medium text-[#b42318] hover:bg-[#fef2f2] sm:h-8 sm:px-3">
+              {tt("Delete community")}
+            </button>
+          }
+        />
       ) : null}
       <Dialog
         open={deleting}

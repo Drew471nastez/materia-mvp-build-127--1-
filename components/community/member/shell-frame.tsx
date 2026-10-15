@@ -322,8 +322,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const searchNow = useSearchParams()
   useReturnScroll(scrollKeyFor(pathname || "", searchNow?.toString() ?? ""), { onlyOnArrival: true })
   /* The browser's bar, the phone's status bar and the canvas a bounce shows take the bar's own ground (round 29, top-bar.tsx TOP_BAR_GROUND): the bar pads itself under the clock, and the two are one surface. */
-  /* The creator's look, or the reader's own choice from the "..." menu (lib/communities/client/appearance-choice.ts). */
-  const { appearance } = useCommunityAppearance(community.appearance === "dark" ? "dark" : "light")
+  /* The reader's own choice from the "..." menu, else white (round 32: a community has no look of its own; lib/communities/client/appearance-choice.ts). */
+  const { appearance } = useCommunityAppearance()
   useCommunityTheme(appearance)
   useLightChrome(true, TOP_BAR_GROUND[appearance === "dark" ? "dark" : "light"])
   /*

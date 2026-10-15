@@ -35,8 +35,11 @@ export const buttonPrimary = cn(primaryDepth, "h-8 gap-1.5 rounded-lg px-3 text-
 export const buttonSecondary = cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]", "max-sm:h-10 max-sm:px-3.5")
 export { card }
 
-/** The width every section's content keeps, the same as the bar above it. */
-export const SECTION_WIDTH = "max-w-[1080px]"
+/**
+ * The width every section's content keeps, the same as the bar above it. Round 32 ("too shrunk on a computer"): the
+ * /app page container, as Settings, Products and the product editor keep it (1200px with its gutters), not 1080px.
+ */
+export const SECTION_WIDTH = "max-w-[1200px]"
 
 /** A text field, as the memberships settings draw one: 16px on a phone so iOS does not zoom. */
 export const field =
@@ -910,14 +913,28 @@ export function EditorFoot({
   )
 }
 
-/** A card of the product editor: its heading, a quiet line under it, then the fields. */
-export function EditorCard({ title, hint, children, id, className }: { title: string; hint?: React.ReactNode; children: React.ReactNode; id?: string; className?: string }) {
+/** The quiet line under a card's heading: /app Settings' (components/physical/ui MUTED), 13px on a phone and 14px wider. */
+export const EDITOR_CARD_HINT = "mt-0.5 text-[13px] leading-5 text-[#6b7280] sm:text-[14px]"
+
+/**
+ * A card of the product editor and of /app Settings: its heading, a quiet line under it, then the fields.
+ *
+ * Round 32: `action` puts a button at the heading's right on a computer and under the line on a phone (Add tier,
+ * Publish, Archive), so a card whose whole job is one button is the heading and the button, and the line beside it
+ * keeps the card's width rather than a column of its own. With no title and no action the card is its fields.
+ */
+export function EditorCard({ title, hint, action, children, id, className }: { title?: string; hint?: React.ReactNode; action?: React.ReactNode; children?: React.ReactNode; id?: string; className?: string }) {
   return (
     <section id={id} className={cn(EDITOR_CARD, className)} data-editor-card={id ?? ""}>
-      <div>
-        <h2 className={EDITOR_CARD_TITLE}>{title}</h2>
-        {hint ? <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{hint}</p> : null}
-      </div>
+      {title || action ? (
+        <div className={action ? "flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6" : undefined} data-editor-card-head="">
+          <div className="min-w-0">
+            {title ? <h2 className={EDITOR_CARD_TITLE}>{title}</h2> : null}
+            {hint ? <p className={EDITOR_CARD_HINT}>{hint}</p> : null}
+          </div>
+          {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
+        </div>
+      ) : null}
       {children}
     </section>
   )

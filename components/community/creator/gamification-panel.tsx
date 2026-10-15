@@ -13,7 +13,7 @@ import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { BadgeView, CommunityHead, LevelView } from "./view-types"
 import { checkLevels } from "./logic"
-import { Confirm, Notice, RemoveButton, Section, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
+import { Confirm, EditorCard, Notice, RemoveButton, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 
 export function GamificationPanel({ head, levels: initialLevels, badges: initialBadges }: { head: CommunityHead; levels: LevelView[]; badges: BadgeView[] }) {
@@ -78,11 +78,11 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
 
   return (
     <div className="space-y-4" data-gamification="">
-      <Section>
+      <EditorCard>
         <Toggle checked={enabled} onChange={(v) => void toggle(v)} title={tt("Points and levels")} hint={tt("Members earn points when their posts and comments get reactions, and climb levels. A leaderboard shows in the community.")} />
-      </Section>
+      </EditorCard>
 
-      <Section title={tt("Levels")} hint={tt("How many points each level takes. Level 1 is where everyone starts.")} action={dirty ? <button type="button" onClick={() => void saveLevels()} disabled={busy === "levels"} className={buttonPrimary}>{busy === "levels" ? tt("Saving") : tt("Save levels")}</button> : null}>
+      <EditorCard title={tt("Levels")} hint={tt("How many points each level takes. Level 1 is where everyone starts.")} action={dirty ? <button type="button" onClick={() => void saveLevels()} disabled={busy === "levels"} className={buttonPrimary}>{busy === "levels" ? tt("Saving") : tt("Save levels")}</button> : null}>
         <ol className="space-y-2" data-levels="">
           {levels.map((l, i) => (
             <li key={i} className="grid grid-cols-[28px_1fr_92px_40px] items-center gap-2 sm:grid-cols-[28px_1fr_110px_1fr_40px]">
@@ -102,16 +102,16 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
           ))}
         </ol>
         {levels.length < 20 ? (
-          <button type="button" onClick={() => setLevels([...levels, { name: "", minPoints: String((Number(levels[levels.length - 1]?.minPoints) || 0) * 2 || 10), reward: "" }])} className={cn(buttonSecondary, "mt-3")}>
+          <button type="button" onClick={() => setLevels([...levels, { name: "", minPoints: String((Number(levels[levels.length - 1]?.minPoints) || 0) * 2 || 10), reward: "" }])} className={cn(buttonSecondary, "self-start")}>
             <Plus aria-hidden className="h-4 w-4" />
             {tt("Add a level")}
           </button>
         ) : null}
-      </Section>
+      </EditorCard>
 
-      <Section title={tt("Badges")} hint={tt("Give them by hand from a member's row in Members.")}>
+      <EditorCard title={tt("Badges")} hint={tt("Give them by hand from a member's row in Members.")}>
         {badges.length ? (
-          <ul className="-my-1 mb-3 divide-y divide-[#f1f2f4]" data-badges="">
+          <ul className="-my-1 divide-y divide-[#f1f2f4]" data-badges="">
             {badges.map((b) => (
               <li key={b.id} className="flex min-h-12 items-center gap-3 py-2">
                 <span aria-hidden className="grid h-9 w-9 place-items-center rounded-lg bg-[#f3f4f6] text-[18px]">
@@ -151,7 +151,7 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
             </button>
           </div>
         </div>
-      </Section>
+      </EditorCard>
       {error ? <Notice>{error}</Notice> : null}
       <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this badge") })} detail={tt("Members who have it lose it.")} action="Delete" danger busy={busy === "delete"} onConfirm={() => void removeBadge()} />
     </div>
