@@ -83,7 +83,8 @@ async function main() {
   /* ── 17: the highlight ──────────────────────────────────────────────── */
   console.log("\n17. The new post's highlight")
   const arrive = code("components/community/member/arrive.ts")
-  check("a soft warm paper tint (#fdf8ec), not a yellow", HIGHLIGHT === "#fdf8ec")
+  /* Changed on purpose (round 28): the light tint is the fallback of a variable the dark look sets. */
+  check("a soft warm paper tint (#fdf8ec), not a yellow", HIGHLIGHT === "var(--sl-arrive, #fdf8ec)")
   check("held while the post lands, then eased out over about 1.2s", HIGHLIGHT_HOLD_MS >= 300 && HIGHLIGHT_HOLD_MS <= 600 && HIGHLIGHT_FADE_MS === 1200 && HIGHLIGHT_MS === HIGHLIGHT_HOLD_MS + HIGHLIGHT_FADE_MS)
   check("there from the post's first frame (it starts at full, so it fades in with the post: no tint popping on), on a long soft curve out", /tint\.animate\(\[\{ opacity: 1, easing: "linear" \}, \{ opacity: 1, offset: hold, easing: "cubic-bezier\(0\.4, 0, 0\.2, 1\)" \}, \{ opacity: 0 \}\]/.test(arrive))
 

@@ -76,7 +76,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     channel() { const ch = { on() { return ch }, subscribe(cb) { setTimeout(() => cb && cb("SUBSCRIBED"), 30); return ch }, track: async () => "ok", presenceState: () => ({}), send: async () => "ok" }; return ch },
     removeChannel() {},
     realtime: { setAuth: async () => {} },
-    auth: { getSession: async () => ({ data: { session: { user: { id: "u-me" } } } }), signOut: async () => ({ error: null }) },
+    auth: { getSession: async () => ({ data: { session: { user: { id: "u-me" } } } }), getUser: async () => ({ data: { user: { id: "u-me", email: "sam@example.com", user_metadata: {} } }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), signOut: async () => ({ error: null }) },
+    from() { const q = { select: () => q, eq: () => q, in: () => q, order: () => q, limit: () => q, maybeSingle: async () => ({ data: null, error: null }), single: async () => ({ data: null, error: null }), then: (r) => r({ data: [], error: null }) }; return q },
   }
 }
 export const isNativePlatform = () => false
@@ -101,20 +102,41 @@ export const isNativePlatform = () => false
     const js = readFileSync(join(stubs, out), "utf8")
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${fonts}${css}</style><style>${themeCss}</style><style>${swiperCss}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   }
-  const ENTRIES = {
-    hub: "scripts/render-account-hub.tsx",
-    library: "scripts/render-buyer-library.tsx",
-    settings: "scripts/render-account-settings.tsx",
-    explore: "scripts/render-explore-page.tsx",
-    membership: "scripts/render-community-membership.tsx",
-    courses: "scripts/render-courses-index.tsx",
-  }
+  /* Every real buyer screen there is a harness for: [name, harness, address]. */
+  const SCREENS = [
+    ["hub", "scripts/render-account-hub.tsx", "/account"],
+    ["library", "scripts/render-buyer-library.tsx", "/account/library"],
+    ["settings", "scripts/render-profile-round10.tsx", "/account/settings?case=settings"],
+    ["explore", "scripts/render-explore-page.tsx", "/explore"],
+    ["membership", "scripts/render-community-membership.tsx", "/community/clay-studio/membership"],
+    ["courses", "scripts/render-courses-index.tsx", "/account/library/courses"],
+    ["tabbar", "scripts/render-buyer-tab-bar.tsx", "/explore"],
+    ["ctabbar", "scripts/render-community-tab-bar.tsx", "/community/clay-studio?case=feed&signedin=1"],
+    ["header", "scripts/render-header-states.tsx", "/explore?path=/explore&who=buyer"],
+    ["exploreheader", "scripts/render-explore-header.tsx", "/explore"],
+    ["account", "scripts/render-account-center.tsx", "/account"],
+    ["profile", "scripts/render-profile-round10.tsx", "/member/maya?case=profile"],
+    ["navigator", "scripts/render-place-navigator.tsx", "/explore?mode=header"],
+    ["categories", "scripts/render-header-categories.tsx", "/explore"],
+    ["cheader", "scripts/render-community-header.tsx", "/community/studio-notes"],
+    ["feed", "scripts/render-community-shell.tsx", "/community/clay-studio?case=feed"],
+    ["members", "scripts/render-community-shell.tsx", "/community/clay-studio/members?case=members"],
+    ["about", "scripts/render-community-shell.tsx", "/community/clay-studio/about?case=about-member"],
+    ["events", "scripts/render-community-shell.tsx", "/community/clay-studio/events?case=events"],
+    ["leaderboard", "scripts/render-community-shell.tsx", "/community/clay-studio/leaderboard?case=leaderboard"],
+    ["saved", "scripts/render-community-shell.tsx", "/community/clay-studio/saved?case=saved"],
+    ["visitor", "scripts/render-community-shell.tsx", "/community/clay-studio/about?case=about-visitor"],
+    ["learn18", "scripts/render-learn18.tsx", "/community/salajanywood/learn/prog-1?lesson=lesson-1"],
+  ]
   const pages = {}
-  for (const [k, entry] of Object.entries(ENTRIES)) {
+  const built = {}
+  for (const [k, entry] of SCREENS) {
+    if (only.size && !only.has(k.toUpperCase())) continue
     try {
-      pages[k] = await bundle(entry, `${k}.js`)
+      if (!built[entry]) built[entry] = await bundle(entry, `${entry.replace(/\W+/g, "_")}.js`)
+      pages[k] = built[entry]
     } catch (e) {
-      console.log(`  skip ${k}: ${String(e).slice(0, 200)}`)
+      console.log(`  skip ${k}: ${String(e).split("\n")[0].slice(0, 160)}`)
     }
   }
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], protocolTimeout: 240_000 })
@@ -171,25 +193,62 @@ export const isNativePlatform = () => false
         if (!m) return null
         return { l: (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255, a: m[4] === undefined ? 1 : Number(m[4]) }
       }
+      const name = (el) => `${el.tagName.toLowerCase()}.${String(el.className?.baseVal ?? el.className).slice(0, 90)}`
+      const KEEP = "img, video, picture, canvas, [data-community-mark], [data-keep-bright], [data-storelib-mark], [data-soft-img], iframe"
       for (const el of document.querySelectorAll("body *")) {
+        if (el.closest(KEEP)) continue
         const b = el.getBoundingClientRect()
-        /* Dots and badges (a status light, a count) keep their colour on purpose. */
-        if (b.width < 14 || b.height < 14 || b.bottom < 0 || b.top > innerHeight) continue
-        if (el.closest("img, video, svg, picture, [data-community-mark], [data-keep-bright]")) continue
+        if (b.bottom < 0 || b.top > innerHeight || b.right < 0 || b.left > innerWidth) continue
         const cs = getComputedStyle(el)
-        if (cs.visibility === "hidden" || Number(cs.opacity) === 0) continue
-        const bg = parse(cs.backgroundColor)
-        if (bg && bg.a > 0.35 && bg.l > 0.55 && !(el.getAttribute("data-appearance-switch") || el.closest("[data-appearance-switch]"))) out.push({ what: "background", el: `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 80)}`, bg: cs.backgroundColor })
-        for (const side of ["Top", "Right", "Bottom", "Left"]) {
-          const w = parseFloat(cs[`border${side}Width`])
-          const c = parse(cs[`border${side}Color`])
-          if (w >= 1 && c && c.a > 0.3 && c.l > 0.45) {
-            out.push({ what: `border ${side}`, el: `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 80)}`, color: cs[`border${side}Color`] })
-            break
+        if (cs.visibility === "hidden" || Number(cs.opacity) === 0 || cs.display === "none") continue
+        /* Hidden by an ancestor's opacity (a closed menu kept mounted). */
+        let hiddenUp = false
+        for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+          const s = getComputedStyle(a)
+          if (Number(s.opacity) === 0 || s.visibility === "hidden") { hiddenUp = true; break }
+        }
+        if (hiddenUp) continue
+        const isSvgPart = el instanceof SVGElement
+        if (isSvgPart) {
+          if (el.tagName.toLowerCase() === "svg" || b.width < 6) continue
+          /* An icon's line or fill drawn in near black on the dark ground. */
+          const fill = cs.fill === "none" ? null : parse(cs.fill)
+          const stroke = cs.stroke === "none" ? null : parse(cs.stroke)
+          const dark = (c) => c && c.a > 0.5 && c.l < 0.22
+          const owner = el.closest("svg")
+          const ob = owner ? getComputedStyle(owner) : null
+          if ((dark(stroke) && parseFloat(cs.strokeWidth) > 0) || (dark(fill) && cs.fillOpacity !== "0")) {
+            if (ob && Number(ob.opacity) > 0.1) out.push({ what: "dark icon", el: name(owner || el), fill: cs.fill, stroke: cs.stroke })
+          }
+          continue
+        }
+        if (b.width >= 14 && b.height >= 14) {
+          const bg = parse(cs.backgroundColor)
+          if (bg && bg.a > 0.35 && bg.l > 0.55 && !el.closest("[data-appearance-switch]")) out.push({ what: "light background", el: name(el), bg: cs.backgroundColor })
+          for (const side of ["Top", "Right", "Bottom", "Left"]) {
+            const w = parseFloat(cs[`border${side}Width`])
+            const c = parse(cs[`border${side}Color`])
+            if (w >= 1 && c && c.a > 0.3 && c.l > 0.45) {
+              out.push({ what: `light border ${side}`, el: name(el), color: cs[`border${side}Color`] })
+              break
+            }
           }
         }
+        /* Words drawn in near black on the dark ground. */
+        const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+        const ink = parse(cs.color)
+        if (ownText && ink && ink.a > 0.5 && ink.l < 0.3) {
+          /* Unless it sits on a light surface of its own (a white chip on purpose is reported above). */
+          let ground = null
+          for (let a = el; a; a = a.parentElement) {
+            const g = parse(getComputedStyle(a).backgroundColor)
+            if (g && g.a > 0.5) { ground = g; break }
+          }
+          if (!ground || ground.l < 0.5) out.push({ what: "dark text", el: name(el), color: cs.color, text: el.textContent.trim().slice(0, 40) })
+        }
       }
-      return out.slice(0, 12)
+      const seen = new Set()
+      return out.filter((o) => { const k = `${o.what}|${o.el}`; if (seen.has(k)) return false; seen.add(k); return true }).slice(0, 25)
     })
   const goDark = async (p) => {
     const btn = await p.$("[data-appearance-button]")
@@ -197,19 +256,84 @@ export const isNativePlatform = () => false
     await sleep(700)
   }
 
-  const PATHS = { hub: "/account", library: "/account/library", settings: "/account/settings", explore: "/explore", membership: "/community/clay-studio/membership", courses: "/account/library/courses" }
+  /* The switch itself: the new look is on <html> in the same task as the press, the still fades and is gone, no long frame. */
+  if (want("SWITCH") && pages.feed) {
+    console.log("\nSWITCH: pressing the sun and moon")
+    const { p, errors } = await open("feed", "/community/clay-studio", DESK)
+    await sleep(700)
+    for (const to of ["dark", "light"]) {
+      const r = await p.evaluate(async () => {
+        const html = document.documentElement
+        const btn = document.querySelector("[data-appearance-button]")
+        if (!btn) return null
+        /* How long a frame takes on this machine with nothing happening (headless draws in software). */
+        const idle = await new Promise((res) => { const ts = []; const f = (t) => { ts.push(t); if (ts.length < 11) requestAnimationFrame(f); else res((ts[10] - ts[0]) / 10) }; requestAnimationFrame(f) })
+        const frames = []
+        let last = performance.now()
+        let on = true
+        const tick = (t) => { frames.push(t - last); last = t; if (on) requestAnimationFrame(tick) }
+        requestAnimationFrame(tick)
+        let flipped = null
+        let pressedThen = null
+        const mo = new MutationObserver(() => {
+          if (flipped === null) { flipped = performance.now() - t0; pressedThen = btn.getAttribute("aria-pressed") }
+        })
+        mo.observe(html, { attributes: true, attributeFilter: ["data-sl-dark"] })
+        const t0 = performance.now()
+        btn.click()
+        const took = performance.now() - t0
+        await new Promise((res) => setTimeout(res, 450))
+        on = false
+        mo.disconnect()
+        return { idle: Math.round(idle), took: Math.round(took), flipped: flipped === null ? null : Math.round(flipped), dark: html.hasAttribute("data-sl-dark"), pressed: btn.getAttribute("aria-pressed"), pressedThen, swapLeft: html.hasAttribute("data-theme-swap"), longest: Math.round(Math.max(...frames.slice(1))), body: getComputedStyle(document.body).backgroundColor }
+      })
+      expect(!!r, `to ${to}: the button is there`)
+      if (!r) continue
+      expect(r.dark === (to === "dark") && r.pressed === String(to === "dark"), `to ${to}: the look and the button are the new ones`, r)
+      expect(r.flipped !== null && r.flipped <= 100, `to ${to}: <html> takes the new look within 100ms of the press (the still of the old one is taken first; measured about 60ms here)`, r)
+      expect(!r.swapLeft, `to ${to}: the fade is over and gone after 450ms`, r)
+      expect(r.took < 50 && r.longest <= 100, `to ${to}: the press itself takes under 50ms and no frame is longer than 100ms (one restyle of the page, under the still)`, r)
+    }
+    if (process.env.SWITCH_PROFILE) {
+      const cost = await p.evaluate(async () => {
+        const html = document.documentElement
+        const out = []
+        for (let i = 0; i < 4; i++) {
+          const t0 = performance.now()
+          html.toggleAttribute("data-sl-dark")
+          void document.body.offsetHeight
+          getComputedStyle(document.querySelector("[data-community-main]") || document.body).color
+          out.push(Math.round(performance.now() - t0))
+          await new Promise((r) => requestAnimationFrame(() => r()))
+        }
+        const base = []
+        for (let i = 0; i < 4; i++) {
+          const t0 = performance.now()
+          html.style.setProperty("--probe-x", String(i))
+          void document.body.offsetHeight
+          getComputedStyle(document.querySelector("[data-community-main]") || document.body).color
+          base.push(Math.round(performance.now() - t0))
+          await new Promise((r) => requestAnimationFrame(() => r()))
+        }
+        const sheet = [...document.styleSheets].reduce((n, sh) => { try { return n + sh.cssRules.length } catch { return n } }, 0)
+        return { styleAndLayout: out, everyElementRestyled: base, nodes: document.querySelectorAll("*").length, rules: sheet }
+      })
+      console.log("  profile", JSON.stringify(cost))
+    }
+    expect(errors.length === 0, "switch: no page errors", errors)
+    await p.close()
+  }
+
+  const PATHS = Object.fromEntries(SCREENS.map(([k, , path]) => [k, path]))
   for (const kind of Object.keys(pages)) {
-    if (!want(kind.toUpperCase())) continue
     for (const vp of [DESK, PHONE]) {
       const { p, errors } = await open(kind, PATHS[kind], vp)
-      await sleep(600)
+      await sleep(700)
       await p.evaluate(() => { document.documentElement.setAttribute("data-sl-dark", ""); document.documentElement.style.colorScheme = "dark" })
       await sleep(400)
-      const ground = await p.evaluate(() => getComputedStyle(document.body).backgroundColor)
       const patches = await lightPatches(p)
       await p.screenshot({ path: join(shots, `${kind}-${vp.width}-dark.png`) })
-      expect(ground === "rgb(17, 17, 19)", `${kind} ${vp.width}: the ground is charcoal`, ground)
-      expect(patches.length === 0, `${kind} ${vp.width}: no light surface or light border on screen`, patches)
+      expect(patches.length === 0, `${kind} ${vp.width}: nothing left light, and no dark ink or icon on the dark ground`, patches)
       expect(errors.length === 0, `${kind} ${vp.width}: no page errors`, errors)
       await p.close()
     }

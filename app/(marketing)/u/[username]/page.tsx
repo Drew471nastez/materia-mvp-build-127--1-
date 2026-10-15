@@ -1,4 +1,5 @@
 import { personName } from "@/lib/profile/display-name"
+import { OWN_LOOK_BOOT } from "@/lib/appearance/site-appearance"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut } from "@/lib/products/sales-limit"
 import type React from "react"
@@ -1330,7 +1331,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * than what the Storelib app says. See storefront-chrome.ts.
            */
           style={storefrontRootStyle(chrome)}
+          /* A creator's page keeps its creator's colours in the person's dark look (lib/appearance, round 28). */
+          data-own-look=""
         >
+          <script dangerouslySetInnerHTML={{ __html: OWN_LOOK_BOOT }} />
           {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
           <CaptureTouch creatorId={creator.id} property="creator_page" />
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
@@ -1714,7 +1718,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       <div
         className="min-h-screen overflow-x-clip"
         style={{ background: STOREFRONT_PAGE_BACKGROUND }}
+        data-own-look=""
       >
+        <script dangerouslySetInnerHTML={{ __html: OWN_LOOK_BOOT }} />
         <CaptureTouch creatorId={creator.id} property="creator_page" />
         <DynamicFavicon avatarUrl={profile.avatar_url} />
         <BackLabelSetter label={profile.display_name || username} />

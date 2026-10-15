@@ -66,7 +66,7 @@ import {
 */
 export const SCREEN_LIMIT = 8
 
-const INK = "#1a1a2e"
+const INK = "var(--sl-ink-strong, #1a1a2e)"
 
 /** Explore's mode in the address, so View all stays in communities when that is what is being browsed. */
 function modeHere(): "products" | "communities" {

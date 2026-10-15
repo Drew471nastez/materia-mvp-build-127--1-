@@ -60,6 +60,22 @@ import {
   storefrontTabsSurface,
 } from "@/components/storefront/storefront-template"
 import { defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
+import type { StorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+
+/** PERSON_CHROME with each colour a variable over its own value: unchanged in light, the dark look's in dark. */
+const v = (name: string, value: string) => `var(--sl-profile-${name}, ${value})`
+const MEMBER_CHROME: StorefrontChrome = {
+  ...PERSON_CHROME,
+  text: v("text", PERSON_CHROME.text),
+  muted: v("muted", PERSON_CHROME.muted),
+  border: v("line", PERSON_CHROME.border),
+  avatarBorder: v("page", PERSON_CHROME.avatarBorder),
+  badgeBackground: v("badge", PERSON_CHROME.badgeBackground),
+  badgeText: v("text", PERSON_CHROME.badgeText),
+  footerBackground: v("page", PERSON_CHROME.footerBackground),
+  footerText: v("text", PERSON_CHROME.footerText),
+  footerMuted: v("muted", PERSON_CHROME.footerMuted),
+}
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 import type { CommunityCard } from "@/lib/communities/types"
@@ -125,7 +141,8 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
   const isSelf = !!viewerId && viewerId === profile.userId
   const first = profile.name.split(/\s+/)[0] || profile.name
   const { activity, communities } = extras
-  const chrome = PERSON_CHROME
+  /* Round 28: a person's page follows their dark look (app/theme-dark.css [data-member-profile]); its inline colours are variables over today's. */
+  const chrome = MEMBER_CHROME
   const showMemberships = profile.privacy.showCommunities || isSelf
   const memberCards = showMemberships ? communities.member : []
   const shared = extras.shared ?? []

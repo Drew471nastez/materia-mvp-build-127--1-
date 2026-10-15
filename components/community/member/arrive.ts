@@ -37,7 +37,7 @@ export const HIGHLIGHT_HOLD_MS = 450
 export const HIGHLIGHT_FADE_MS = 1200
 export const HIGHLIGHT_MS = HIGHLIGHT_HOLD_MS + HIGHLIGHT_FADE_MS
 /** The warm tint a new post is marked with, under its words (no violet in the member area). */
-export const HIGHLIGHT = "#fdf8ec"
+export const HIGHLIGHT = "var(--sl-arrive, #fdf8ec)"
 
 function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
