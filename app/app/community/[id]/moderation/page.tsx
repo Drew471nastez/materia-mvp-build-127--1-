@@ -4,6 +4,7 @@ import { auditLog, listReports } from "@/lib/communities/server/moderation"
 import { slowModeOf } from "@/lib/communities/server/safety"
 import { wordSettingsOf } from "@/lib/communities/word-filter"
 import { ModerationSection, type ModerationTab } from "@/components/community/creator/moderation-section"
+import { SectionSeed } from "@/components/community/creator/community-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -38,18 +39,20 @@ export default async function CommunityModerationPage({ params, searchParams }: 
   const asked = TABS.find((t) => t === query.tab) ?? "reports"
   const tab = (asked === "audit" && !audit) || (asked === "restricted" && !restrict) ? "reports" : asked
   return (
-    <ModerationSection
-      head={head}
-      meId={ctx.userId}
-      initialTab={tab}
-      initialReports={reports}
-      initialAudit={audit}
-      rules={Array.isArray(c.rules) ? c.rules : []}
-      restricted={muted && paused && banned ? { muted, paused, banned, removed: removed ?? { rows: [], next: null, capped: false } } : null}
-      tiers={(tiers.data as { id: string; name: string; kind: string }[] | null) ?? []}
-      badges={badges}
-      slowMode={slowModeOf(c)}
-      blockedWords={wordSettingsOf(c.onboarding)}
-    />
+    <SectionSeed id="moderation">
+      <ModerationSection
+        head={head}
+        meId={ctx.userId}
+        initialTab={tab}
+        initialReports={reports}
+        initialAudit={audit}
+        rules={Array.isArray(c.rules) ? c.rules : []}
+        restricted={muted && paused && banned ? { muted, paused, banned, removed: removed ?? { rows: [], next: null, capped: false } } : null}
+        tiers={(tiers.data as { id: string; name: string; kind: string }[] | null) ?? []}
+        badges={badges}
+        slowMode={slowModeOf(c)}
+        blockedWords={wordSettingsOf(c.onboarding)}
+      />
+    </SectionSeed>
   )
 }

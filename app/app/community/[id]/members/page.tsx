@@ -3,6 +3,7 @@ import { communityHead, listMembers, loadBadges, memberCounts, sectionPage } fro
 import { listInvites } from "@/lib/communities/server/invites"
 import { MembersSection } from "@/components/community/creator/members-section"
 import { parseMemberQuery } from "@/components/community/creator/logic"
+import { SectionSeed } from "@/components/community/creator/community-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -21,18 +22,21 @@ export default async function CommunityMembersPage({ params, searchParams }: { p
     can(ctx.role, "invite", ctx.viewer.perms) ? listInvites(ctx.db, ctx.community.id, null) : Promise.resolve({ rows: [], next: null }),
     ctx.community.gamification_enabled ? loadBadges(ctx.db, ctx.community.id) : Promise.resolve([]),
   ])
+  const openInvite = sp.invite === "1" && can(ctx.role, "invite", ctx.viewer.perms)
   return (
-    <MembersSection
-      head={head}
-      meId={ctx.userId}
-      initial={page}
-      counts={counts}
-      status={query.status}
-      tiers={(tiers.data as { id: string; name: string; kind: string }[] | null) ?? []}
-      canEmail={canEmail}
-      invites={invites}
-      openInvite={sp.invite === "1" && can(ctx.role, "invite", ctx.viewer.perms)}
-      badges={badges}
-    />
+    <SectionSeed id="members" stamp={openInvite ? "invite" : ""}>
+      <MembersSection
+        head={head}
+        meId={ctx.userId}
+        initial={page}
+        counts={counts}
+        status={query.status}
+        tiers={(tiers.data as { id: string; name: string; kind: string }[] | null) ?? []}
+        canEmail={canEmail}
+        invites={invites}
+        openInvite={openInvite}
+        badges={badges}
+      />
+    </SectionSeed>
   )
 }

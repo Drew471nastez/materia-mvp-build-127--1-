@@ -299,6 +299,11 @@ export function AppStage() {
     if (!pageChanged) return
     markLanded()
     /*
+      ANOTHER SECTION OF THE SAME COMMUNITY (round 31): its shell keeps each section's scroll and puts it back itself
+      (components/community/creator/community-shell.tsx), so the stage places nothing and plays no landing.
+    */
+    if (sameStageFrame(from, pathname)) return
+    /*
       NOTHING IN THE COMMIT THAT CAN WAIT FOR ITS FRAME. Placing the scroll
       and starting the landing read the new page's styles and layout, and
       reading them here made the browser work out the whole page inside
