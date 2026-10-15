@@ -50,36 +50,40 @@ function Swatch({ scheme, size = "row" }: { scheme: Scheme; size?: "row" | "list
 export function ColorSchemeControl({ value, onChange, fallback, label }: { value: string; onChange: (v: string) => void; fallback?: string; label?: string }) {
   const env = useEditorFieldEnv()
   const list = env?.colorSchemes
-  if (!list) {
-    const schemes = themeColorSchemes({})
-    const keys = Object.keys(schemes)
-    return (
-      <div className="flex items-center gap-1.5" data-scheme-row="">
-        <div className="relative min-w-0 flex-1">
-          <select className={SELECT} aria-label={label} value={keys.includes(value) ? value : keys[0]} onChange={(e) => onChange(e.target.value)}>
-            {keys.map((k) => <option key={k} value={k}>{schemes[k].name}</option>)}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        </div>
-        {/* Change the scheme's colours from here, rather than hunting for it in Theme settings. */}
-        {env?.openColorSchemes ? (
-          <button
-            type="button"
-            onClick={env.openColorSchemes}
-            aria-label="Edit color schemes"
-            title="Edit color schemes"
-            data-scheme-edit=""
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--wb-chrome-border,#e5e7eb)] text-[var(--wb-chrome-fg-3,#6b7280)] transition-colors hover:bg-[var(--wb-chrome-hover,#f3f4f6)] hover:text-[var(--wb-chrome-fg,#1a1a2e)]"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
+  /* Storelib's own themes: the theme's schemes as Theme settings has them (its own names and colours), not the defaults. */
+  const schemes = list ?? nativeSchemes(env?.themeSettings ?? null)
+  if (schemes.length === 0) return <p className={NOTE}>This theme saved no colour schemes to pick from. It draws this section with its own.</p>
+  const current = schemes.some((s) => s.id === value) ? value : schemes.some((s) => s.id === fallback) ? fallback! : schemes[0].id
+  return (
+    <div className="flex items-center gap-1.5" data-scheme-row="">
+      <div className="min-w-0 flex-1">
+        <SchemeSelect list={schemes} current={current} onChange={onChange} label={label ?? "Color scheme"} />
       </div>
-    )
-  }
-  if (list.length === 0) return <p className={NOTE}>This theme saved no colour schemes to pick from. It draws this section with its own.</p>
-  const current = list.some((s) => s.id === value) ? value : list.some((s) => s.id === fallback) ? fallback! : list[0].id
-  return <SchemeSelect list={list} current={current} onChange={onChange} label={label ?? "Color scheme"} />
+      {/* Every scheme can be edited from here: Theme settings opens at this one, rather than leaving it to be found. */}
+      {env?.openColorSchemes ? (
+        <button
+          type="button"
+          onClick={() => env.openColorSchemes?.(current)}
+          aria-label={`Edit ${schemes.find((s) => s.id === current)?.name ?? "color scheme"}`}
+          title="Edit"
+          data-scheme-edit=""
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--wb-chrome-border,#e5e7eb)] text-[var(--wb-chrome-fg-3,#6b7280)] transition-colors hover:bg-[var(--wb-chrome-hover,#f3f4f6)] hover:text-[var(--wb-chrome-fg,#1a1a2e)] max-sm:h-11 max-sm:w-11"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+/** Storelib's schemes as the field lists them: their names, backgrounds, text and button colours. */
+function nativeSchemes(theme: Record<string, unknown> | null): Scheme[] {
+  const all = themeColorSchemes(theme ?? {})
+  return Object.entries(all).map(([id, s]) => {
+    const c = s as unknown as Record<string, unknown>
+    const pick = (...keys: string[]) => keys.map((k) => c[k]).find((v): v is string => typeof v === "string" && v.length > 0)
+    return { id, name: String(c.name ?? id), background: pick("background") ?? "#ffffff", text: pick("text", "heading", "foreground") ?? "#1a1a2e", accent: pick("primary_button_background", "accent") ?? "#1a1a2e" }
+  })
 }
 
 function SchemeSelect({ list, current, onChange, label }: { list: Scheme[]; current: string; onChange: (v: string) => void; label: string }) {

@@ -18,6 +18,7 @@ import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
+import { currencyWord } from "@/lib/markets/money"
 import { isVideoUrl, videoDuration, videoMime, videoPosterUrl } from "@/lib/media/video"
 
 type O = Record<string, unknown>
@@ -1054,6 +1055,8 @@ export interface SiteI18n {
   /** The visitor's country and the currency prices are shown in, and every country offered (lib/markets, AC4). */
   country?: { code: string; name: string; currency: string }
   countries?: { code: string; name: string; currency: string }[]
+  /** The theme's own words in this language as the store translated them (Translate › Theme words, `tw:<key>`), by locale key: read before the theme's own files. */
+  words?: Record<string, string>
 }
 
 /** "/fr" for a language that is not the website's own, "" for it. */
@@ -1140,7 +1143,8 @@ function anyCase(o: O): O {
 export function currencySymbol(iso: string): string {
   try {
     const part = new Intl.NumberFormat("en", { style: "currency", currency: iso, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")
-    return part?.value ?? iso
+    /* A sign in letters is the currency's own word, never a lone letter (lib/markets/money currencyWord). */
+    return part && !/^\p{L}+$/u.test(part.value) ? part.value : (currencyWord(iso) ?? iso)
   } catch {
     return iso
   }

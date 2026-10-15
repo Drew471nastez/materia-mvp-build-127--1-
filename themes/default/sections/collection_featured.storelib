@@ -26,6 +26,7 @@
                 {% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="soldout">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
               </div>
               <h3 class="card__title">{{ block.settings.title }}</h3>
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if settings.show_price and block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
               {% endif %}
@@ -72,6 +73,9 @@
 .card__media { position: relative; overflow: hidden; border-radius: var(--s-radius); background: var(--s-border); }
 .card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .card__title { margin: 14px 0 0; font-size: 15px; font-weight: 600; color: var(--s-heading); }
+.card__rating { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1; color: var(--s-para); }
+.card__rating > span { position: relative; letter-spacing: 1px; color: var(--s-border); }
+.card__rating > span > span { position: absolute; left: 0; top: 0; overflow: hidden; white-space: nowrap; }
 .card__price { margin: 8px 0 0; display: flex; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 600; color: var(--s-heading); }
 .card__was { font-size: 13px; font-weight: 400; color: var(--s-para); opacity: 0.7; }
 .card__link { position: absolute; inset: 0; }
@@ -139,6 +143,7 @@
       ]
     },
     { "type": "toggle", "id": "show_price", "label": "Show prices", "default": true },
+    { "type": "toggle", "id": "show_rating", "label": "Show star ratings", "default": true, "info": "From Storelib Reviews, when it is on and a product has reviews." },
     { "type": "header", "id": "hdr_style", "label": "Style" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
     { "type": "header", "id": "hdr_spacing", "label": "Spacing" },

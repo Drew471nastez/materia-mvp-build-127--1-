@@ -1,10 +1,12 @@
 import { NextResponse, after } from "next/server"
+import { formatStoreMoney } from "@/lib/store/currency"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { getMainDomain } from "@/lib/url-helpers"
-import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
 import { allOwned, digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
 import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
@@ -24,7 +26,6 @@ import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/co
 import { statementParams } from "@/lib/payments/platform-descriptor"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { storeChargeCurrencyFor } from "@/lib/payments/fees/store-currency"
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin, type OrderOrigin } from "@/lib/orders/order-source"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
@@ -32,6 +33,9 @@ import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { timed } from "@/lib/perf/server-timing"
+import { checkoutMarket, countryOfRequest } from "@/lib/markets/checkout-market-server"
+import { quoteInMarket } from "@/lib/checkout/site-quote-market"
+import { convertOrder, lineTaxShares } from "@/lib/markets/checkout-charge"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -55,6 +59,9 @@ export const dynamic = "force-dynamic"
  *   confirm   paid: the order, written once (or found written by the
  *             webhook), and the thank you page on the site
  *   free      a code took it to $0: the order, no card
+ *   cod       a cart that ships, paid in cash when it arrives, when the
+ *             shop takes it (lib/physical/cash-on-delivery.ts): the order,
+ *             no card
  *   abandon   the buyer changed the order after Pay: the held stock and the
  *             code's place go back at once
  *   access    "Bought this before? Email me my link": the receipts of this
@@ -117,6 +124,8 @@ async function handlePOST(request: Request) {
       return confirm(request, admin, site, body)
     case "free":
       return free(request, admin, site, body)
+    case "cod":
+      return cashOnDelivery(request, admin, site, body)
     /* Both act for the visitor (an email sent, a cart cookie changed): only from this website's own page. */
     case "access":
     case "forget":
@@ -142,8 +151,17 @@ async function quote(request: Request, admin: Admin, site: SiteOfCheckout, body:
   const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(request)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
   if (limited) return limited
   const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
-  const answer = await siteQuote(admin, site.creatorId, body, detectedCountry(request.headers), owner ? { email: owner.email } : null)
-  return answer.ok ? json(answer.quote) : json({ error: answer.error }, answer.status)
+  const [answer, market] = await Promise.all([siteQuote(admin, site.creatorId, body, detectedCountry(request.headers), owner ? { email: owner.email } : null), checkoutMarket(site.creatorId, countryOfRequest(request), admin)])
+  if (!answer.ok) return json({ error: answer.error }, answer.status)
+  /* In the market's own currency when the checkout charges it, as the pages showed the prices (lib/checkout/site-quote-market). */
+  if (market.charge) answer.quote = quoteInMarket(answer.quote, market.charge)
+  /* The order's titles and option names in the checkout's language, when it is one of the website's (lib/markets/checkout-quote.ts). */
+  if (typeof body.lang === "string" && body.lang) {
+    const [{ checkoutLanguage }, { localizeQuote }] = await Promise.all([import("@/lib/markets/checkout-language"), import("@/lib/markets/checkout-quote")])
+    const language = await checkoutLanguage(site.creatorId, null, body.lang).catch(() => null)
+    if (language?.map) return json(localizeQuote(answer.quote, language.map))
+  }
+  return json(answer.quote)
 }
 
 /* ── Already yours ────────────────────────────────────────────────────── */
@@ -256,7 +274,7 @@ async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, b
   if (missing === "name" || missing === "last") return json({ error: missing === "last" ? "Enter your first and last name." : "Enter your name.", field: "name" }, 400)
   /* Settings › Checkout › Customer information: a field the store makes required is required here too, not only on the page. */
   if (missing === "company") return json({ error: "Enter the company name.", field: "company" }, 400)
-  if (missing === "phone") return json({ error: order.pickup ? "Enter a phone number for the pickup." : "Enter a phone number for the delivery.", field: "phone" }, 400)
+  if (missing === "phone") return json({ error: (clean(body.phone, 40) || clean(address.phone, 40)) ? "Check the phone number." : order.pickup ? "Enter a phone number for the pickup." : "Enter a phone number for the delivery.", field: "phone" }, 400)
   if (missing === "line2") return json({ error: "Enter the apartment, suite or unit.", field: "line2" }, 400)
   if (body.agreedToTerms !== true) return json({ error: "Agree to the Terms and Conditions to continue." }, 400)
   return { email, first, last, optedIn: config.marketingOptIn && body.emailOptIn === true, config, signedIn: !!buyer, ownerEmail: buyer?.email ?? null }
@@ -304,7 +322,18 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   if (decision.kind === "refuse" || priced.ok === false) return json({ error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }, decision.kind === "refuse" ? decision.status : 400)
   if (decision.kind === "free") return json({ error: "This order is free. Press Get it free.", free: true }, 409)
   if (decision.kind !== "pay") return json({ error: "Refresh the page and try again." }, 409)
-  if (priced.totalCents < MIN_CHARGE_CENTS) return json({ error: "Minimum payment amount is $0.50" }, 400)
+  /*
+    WHAT THE CARD IS CHARGED IN. The store's own currency (Settings › Country &
+    Currency), read fresh, which every price in the basket is in; or the
+    visitor's market's, the one the pages showed them, when Storelib can
+    charge it (lib/markets/checkout-market-server): then every line is
+    converted exactly as the quote converted it (lib/markets/checkout-charge).
+  */
+  const market = await checkoutMarket(site.creatorId, countryOfRequest(request), admin)
+  const chargeCurrencyUpper = market.chargeCurrency
+  const asLines = () => priced.lines.map((l) => ({ unitCents: l.item.priceCents, quantity: l.item.quantity, discountCents: l.item.discountCents }))
+  const goodsCents = market.charge ? convertOrder(asLines(), { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: 0, taxIncluded: true, totalCents: priced.totalCents }, market.charge).totals.totalCents : priced.totalCents
+  if (goodsCents < minimumChargeMinor(chargeCurrencyUpper)) return json({ error: `The smallest card payment is ${formatStoreMoney(minimumChargeMinor(chargeCurrencyUpper), chargeCurrencyUpper)}.` }, 400)
 
   const { data: creator } = await admin
     .from("creators")
@@ -341,13 +370,29 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   */
   const tax = await digitalCartTax(admin, site.creatorId, priced, body, detectedCountry(request.headers))
   if (tax.taxCents > 0) tax.lineTaxCents.forEach((t, i) => (priced.lines[i].item.taxCents = t))
-  const chargeCents = priced.totalCents + (tax.included ? 0 : tax.taxCents)
+  let chargeCents = priced.totalCents + (tax.included ? 0 : tax.taxCents)
+  let goodsCharged = priced.totalCents
+  let discountCharged = priced.discountCents
+  let taxCharged = tax.taxCents
+  if (market.charge) {
+    /* Each line as its card showed it in the market, its tax share with it: the order rows are written in the currency the card pays. */
+    const converted = convertOrder(asLines(), { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: tax.taxCents, taxIncluded: tax.included, totalCents: chargeCents }, market.charge)
+    const shares = lineTaxShares(converted.lines, converted.totals.taxCents)
+    converted.lines.forEach((l, i) => {
+      priced.lines[i].item.priceCents = l.unitCents
+      priced.lines[i].item.discountCents = l.discountCents
+      if (tax.taxCents > 0) priced.lines[i].item.taxCents = shares[i]
+    })
+    chargeCents = converted.totals.totalCents
+    goodsCharged = converted.totals.itemsSubtotalCents - converted.totals.discountCents
+    discountCharged = converted.totals.discountCents
+    taxCharged = converted.totals.taxCents
+  }
 
-  /* The store's own currency, the one its website shows (lib/payments/fees/currency-rules storeChargeCurrency). */
-  const chargeCurrency = await storeChargeCurrencyFor(admin, site.creatorId)
+  const chargeCurrency = chargeCurrencyUpper.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
-    fee = await calculatePlatformFeeForCheckout(priced.totalCents, site.creatorId, admin, chargeCurrency)
+    fee = await calculatePlatformFeeForCheckout(goodsCharged, site.creatorId, admin, chargeCurrency)
   } catch (e) {
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
     await releaseSales(admin, heldCopies, saleHolder)
@@ -380,8 +425,8 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     fee_rule_version: fee.feeRuleVersion ?? "",
     email_opt_in: contact.optedIn ? "true" : "false",
     agreed_to_terms: "true",
-    ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, discount_cents: String(priced.discountCents), ...(holder ? { coupon_holder: holder } : {}) } : {}),
-    ...(tax.taxCents > 0 ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_label: tax.label } : {}),
+    ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, discount_cents: String(discountCharged), ...(holder ? { coupon_holder: holder } : {}) } : {}),
+    ...(tax.taxCents > 0 ? { tax_cents: String(taxCharged), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_label: tax.label } : {}),
     ...packItems(priced.lines.map((l) => l.item)),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
     ...(saleHolder ? { [SALE_HOLDER_KEY]: saleHolder } : {}),
@@ -452,6 +497,8 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
   const name = `${contact.first} ${contact.last}`.trim()
   const address = body.address && typeof body.address === "object" ? { ...(body.address as Record<string, unknown>), name } : body.address
   const started = await startCheckout(admin, {
+    /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
+    marketCountry: countryOfRequest(request),
     shopId: site.creatorId,
     items: body.items,
     couponCode: body.couponCode,
@@ -478,7 +525,12 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     paymentMethods: body.paymentMethods,
   })
   if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
-  if (started.free) return json({ error: "This order is free. Press Place order.", free: true }, 409)
+  /* Nothing to pay after all (a code took it to 0): startCheckout has placed it as a free order. Its thank you page, so Place order is never pressed for it a second time. */
+  if (started.free) {
+    if (!started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
+    const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
+    return NextResponse.json({ free: true, thanks: siteThanksHref(started.receiptToken, { whole: body.wholeCart === true }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, body.wholeCart === true) })
+  }
   if (!started.clientSecret || !started.paymentIntentId) return json({ error: "Could not start the payment. Try again in a moment." }, 500)
   const pi = started.paymentIntentId
   after(async () => {
@@ -582,6 +634,74 @@ function basketError(reason: string): string {
   return "Your payment went through. The order is still being saved: refresh this page in a moment. You will not be charged again."
 }
 
+/* ── Cash on delivery ─────────────────────────────────────────────────── */
+
+/**
+ * The order, written now and paid in cash when it is delivered or picked up.
+ * Every rule is the server's (startCheckout with cashOnDelivery, codRefusal):
+ * the shop takes cash, everything in the cart ships, nothing is free.
+ */
+async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
+  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body, owner ? { email: owner.email } : null)
+  if (allOwned(priced)) return json({ error: "You already own this. It's in your downloads.", code: "already_owned" }, 409)
+  if (couponError) return json({ error: couponError, field: "code" }, 400)
+  if (decision.kind !== "ships") return json({ error: "Cash on delivery is only for things that are delivered or picked up. Pay by card for the rest." }, 400)
+  const pickup = isPickupOptionId(body.deliveryOptionId)
+  const contact = await contactOf(request, admin, site, body, { ships: true, pickup })
+  if (contact instanceof NextResponse) return contact
+  /* An order nobody pays for until it arrives: held to the same pace as a card payment. */
+  const limited = await rateLimit({
+    bucket: "payment",
+    subjects: [addressSubject(request), emailSubject(contact.email)],
+    windows: LIMITS.payment,
+    message: "Too many orders placed just now. Wait a few minutes and try again.",
+  })
+  if (limited) return limited
+  const origin = originFor(site, body)
+  const attribution = await attributionForCheckout(admin, { creatorId: site.creatorId, source: "website", origin, sent: body.origin })
+  const wholeCart = body.wholeCart === true
+
+  const { abandonCheckout, startCheckout } = await import("@/lib/physical/checkout-server")
+  /* A card payment started for an earlier version of this order lets go of its stock first, as Pay does. */
+  if (typeof body.replaces === "string" && body.replaces && body.replaces !== body.clientKey) {
+    await abandonCheckout(admin, { shopId: site.creatorId, clientKey: body.replaces }).catch(() => false)
+  }
+  const name = `${contact.first} ${contact.last}`.trim()
+  const started = await startCheckout(admin, {
+    /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
+    marketCountry: countryOfRequest(request),
+    shopId: site.creatorId,
+    items: body.items,
+    couponCode: body.couponCode,
+    email: contact.email,
+    name,
+    phone: body.phone,
+    address: body.address && typeof body.address === "object" ? { ...(body.address as Record<string, unknown>), name } : body.address,
+    deliveryOptionId: body.deliveryOptionId,
+    buyerNote: body.buyerNote,
+    cartAttributes: body.cartAttributes,
+    clientKey: body.clientKey,
+    origin,
+    attribution,
+    buyerId: null,
+    buyerSignedIn: contact.signedIn,
+    ownerEmail: contact.ownerEmail,
+    buyerEmailConfirmed: contact.signedIn,
+    platformOrigin: `https://${getMainDomain()}`,
+    backUrl: site.origin,
+    config: contact.config,
+    emailOptIn: contact.optedIn,
+    intent: true,
+    cashOnDelivery: true,
+  })
+  if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+  /* Nothing to pay after all (a code took it to 0): startCheckout has placed it as a free order, so its thank you page, never a second order. */
+  if ((!started.cod && !started.free) || !started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
+  const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
+  return NextResponse.json({ receiptToken: started.receiptToken, thanks: siteThanksHref(started.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, wholeCart) })
+}
+
 /* ── Free ─────────────────────────────────────────────────────────────── */
 
 async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
@@ -608,6 +728,8 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     const { startCheckout } = await import("@/lib/physical/checkout-server")
     const name = `${contact.first} ${contact.last}`.trim()
     const started = await startCheckout(admin, {
+      /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
+      marketCountry: countryOfRequest(request),
       shopId: site.creatorId,
       items: body.items,
       couponCode: body.couponCode,
@@ -668,6 +790,7 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     baseUrl: `https://${getMainDomain()}`,
     request,
     consent: contact.optedIn ? "ticked" : "none",
+    currency: (await readStoreCurrency(admin, site.creatorId)).currency,
   })
   if (written.ok === false) {
     await releaseSales(admin, heldCopies, saleHolder)

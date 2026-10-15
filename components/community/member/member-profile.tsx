@@ -133,9 +133,11 @@ function useNow(serverNow: number): number {
  * profile takes the middle and the right columns (shell-frame.tsx, wideCenter), so its cards run the frame's whole
  * middle, up to 992px, lined up with the left column's cards; it was 680px beside the right column's cards. Below
  * 1280px it is the middle column, and the whole width on a phone. Capped at the same 992px (PROFILE_COLUMN_PX,
- * lib/communities/member-cover.ts, the widest the cover's `sizes` names) wherever it is drawn outside the frame.
+ * lib/communities/member-cover.ts) wherever it is drawn outside the frame.
+ * Changed (the owner: "the content is a bit too wide"): from 1280px it is 95.2% of those two columns, at most 944px
+ * (PROFILE_COLUMN_SHARE, PROFILE_COLUMN_WIDE_PX), centred: 944px at 1440px, 24px either side. Phones and tablets unchanged.
  */
-const COLUMN_CLASS = "max-w-[992px]"
+const COLUMN_CLASS = "max-w-[992px] xl:max-w-[min(944px,95.2%)]"
 
 /** The router's "full" prefetch (the whole page, not only up to its loading screen), as shell-frame.tsx asks. */
 const FULL = "full" as never
@@ -205,8 +207,7 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
     <header ref={head} className={cn(CARD, "overflow-hidden")} data-member-profile-head="">
       {/*
         THE BAND'S SHAPE IS DRAWN FIRST: the picture fills a box that already exists, so nothing under it moves when it
-        comes. Round J1: one shape for everybody (2:1 on a phone, 16:5 wider up, so 179px on a 390px phone and 310px at
-        992px), their cover, else their creator page's (the loader), else a wash of their own photo's colours, never a
+        comes. Round J1: one shape for everybody (2:1 on a phone, 16:5 wider up, so 179px on a 390px phone), their cover, else their creator page's (the loader), else a wash of their own photo's colours, never a
         flat grey band (components/community/member/member-cover.tsx).
       */}
       <MemberCover url={person.coverUrl} crop={person.coverCrop} name={person.name} avatarUrl={person.avatarUrl} />

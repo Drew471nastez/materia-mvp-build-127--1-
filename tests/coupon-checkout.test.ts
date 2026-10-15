@@ -23,6 +23,7 @@ import { readFileSync } from "node:fs"
 import { checkCoupon, discountFor, findCoupon, recordCouponUse, validateCoupon, type CouponRow } from "@/lib/checkout/coupons"
 import { MIN_CHARGE_CENTS, priceOrder, totalsOf } from "@/lib/checkout/pricing"
 import { stripComments } from "./_source"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 let passed = 0
 let failed = 0
@@ -159,7 +160,7 @@ async function main() {
   check("for another product only: refused", why(ok(coupon({ product_ids: [OTHER] }))) === "That code does not apply to this product.")
   check("an empty product list means every product", ok(coupon({ product_ids: [] })).ok)
   check("a minimum of exactly the price: works", ok(coupon({ min_purchase_cents: 2999 })).ok)
-  check("a cent under the minimum: refused, saying the amount", why(ok(coupon({ min_purchase_cents: 3000 }))) === "That code needs an order of at least $30.00.")
+  check("a cent under the minimum: refused, saying the amount", why(ok(coupon({ min_purchase_cents: 3000 }))) === `That code needs an order of at least ${shopMoneyIn(3000, SHOP_CURRENCY)}.`)
   check("a code that takes nothing off this price: refused", why(ok(coupon(), 0)) === "That code takes nothing off this price.")
 
   console.log("\nFinding the code")
@@ -189,7 +190,7 @@ async function main() {
     const r = await priceOrder(store([coupon({ min_purchase_cents: 2000 })], [pwyw]), { productId: PRODUCT, customPriceCents: 2500, couponCode: "SAVE20" })
     check("pay what you want: the buyer's amount is the price, 20% of $25", r.ok === true && r.totals.discountCents === 500 && r.totals.totalCents === 2000, r.ok ? r.totals : r)
     const low = await priceOrder(store([coupon({ min_purchase_cents: 2000 })], [pwyw]), { productId: PRODUCT, customPriceCents: 1500, couponCode: "SAVE20" })
-    check("and the minimum order is measured against that amount", low.ok === false && low.error === "That code needs an order of at least $20.00.", low)
+    check("and the minimum order is measured against that amount", low.ok === false && low.error === `That code needs an order of at least ${shopMoneyIn(2000, SHOP_CURRENCY)}.`, low)
   }
   {
     const r = await priceOrder(store([coupon({ discount_value: 100 })]), { productId: PRODUCT, couponCode: "SAVE20" })

@@ -92,11 +92,11 @@ const CARD = `<article class="slrv-card"><div class="slrv-card-top"><span class=
 
 /** The widget, over `storelib_reviews` and `rv`. */
 export const REVIEWS_WIDGET_LIQUID = `{%- if storelib_reviews.enabled -%}{%- assign slrv_here = storelib_reviews.here -%}{%- assign slrv_per = rv.per_page | default: 5 -%}
-{%- if slrv_here.summary.count > 0 or storelib_reviews.can_write or request.design_mode -%}
+{%- if slrv_here.summary.count > 0 or storelib_reviews.can_write or storelib_reviews.sample -%}
 ${STYLE}
 <div class="slrv" id="reviews" style="--slrv-star: {% if rv.star_color != blank %}{{ rv.star_color | escape }}{% else %}{{ storelib_reviews.star_color | escape }}{% endif %};">
 {%- if rv.heading != blank -%}<h2 class="h2">{{ rv.heading | escape }}</h2>{%- endif -%}
-{%- if request.design_mode and storelib_reviews.sample -%}<p class="slrv-sample">Sample reviews. Your real reviews show here once you have some.</p>{%- endif -%}
+{%- if storelib_reviews.sample -%}<p class="slrv-sample">Sample reviews. Your real reviews show here once you have some.</p>{%- endif -%}
 {%- if rv.show_summary -%}<div class="slrv-top"><div class="slrv-sum">{%- if slrv_here.summary.count > 0 -%}<p class="slrv-avg">{{ slrv_here.summary.average_label }}</p><div><span class="slrv-stars" style="--rv: {{ slrv_here.summary.percent }}%; font-size: 20px;" role="img" aria-label="{{ slrv_here.summary.average_label }} out of 5 stars"></span><p class="slrv-count">Based on {{ slrv_here.summary.count_label }}</p></div>{%- else -%}<p class="slrv-none">No reviews yet</p>{%- endif -%}</div>
 {%- if rv.show_bars and slrv_here.summary.count > 0 -%}<ul class="slrv-bars">{%- for b in slrv_here.summary.bars -%}<li><span>{{ b.stars }} &#9733;</span><span class="slrv-bar"><span style="width: {{ b.percent }}%;"></span></span><span>{{ b.count }}</span></li>{%- endfor -%}</ul>{%- endif -%}</div>{%- endif -%}
 <p class="slrv-note" id="review-posted">Thanks. Your review is up.</p><p class="slrv-note" id="review-waiting">Thanks. Your review shows once the store has read it.</p><p class="slrv-note" id="review-check-email">Thanks. Check your email and open the link in it to post your review.</p><p class="slrv-note" id="review-error">That didn't go through. Check the form and try again.</p>
@@ -179,4 +179,88 @@ export function withStorelibReviewsSection(files: Record<string, string>): Recor
   if (files[REVIEWS_SECTION_PATH] !== undefined || files[`sections/${REVIEWS_SECTION_TYPE}.liquid`] !== undefined) return files
   if (!isCompatSource(files["layout/theme.storelib"])) return files
   return { ...files, [REVIEWS_SECTION_PATH]: reviewsSectionSource() }
+}
+
+/**
+ * ===========================================================================
+ *  EVERY PRODUCT PAGE OF AN IMPORTED THEME, WITHOUT PLACING ANYTHING
+ * ===========================================================================
+ * A theme imported from a Shopify store that never had a reviews app has no
+ * reviews block on its product template, so turning Storelib Reviews on
+ * showed nothing on its product pages until the store found the Storelib
+ * Reviews section and placed it. With the app's "Add to product pages" on,
+ * a product page that has no reviews of its own is drawn with:
+ *
+ *   THE THEME'S OWN STARS   its main product section's `rating` block (Dawn
+ *                           and every theme built on it have one, reading
+ *                           product.metafields.reviews.rating), put under
+ *                           the title when the section's schema has that
+ *                           block and the page did not place it
+ *   THE REVIEWS             the Storelib Reviews section, right under the
+ *                           main product section
+ *
+ * Drawn only: nothing is written to the theme, so the template the store
+ * edits is its own, and the app's switch takes both away again. A page that
+ * already has reviews (a section or block whose type names reviews, or a
+ * reviews app's block) is left as it is, and a main product section that
+ * has its stars keeps them. Pure.
+ */
+export const AUTO_REVIEWS_SECTION_ID = "storelib-reviews-auto"
+export const AUTO_RATING_BLOCK_ID = "storelib-rating-auto"
+
+/** Only what this needs of a page row's section (./page.ts StoredSection), so this file imports nothing of the page's. */
+interface PageSection {
+  id: string
+  type: string
+  group?: unknown
+  hidden?: boolean
+  settings?: Record<string, unknown>
+  blocks?: PageBlock[]
+}
+interface PageBlock {
+  id: string
+  type: string
+  settings?: Record<string, unknown>
+  blocks?: PageBlock[]
+}
+
+const MAIN_PRODUCT = /^(?:main[-_]?product(?:[-_][\w-]*)?|product[-_](?:template|information|main))$/i
+const CHROME = new Set(["header", "footer", "overlay"])
+
+const namesReviews = (type: string) => /review/i.test(type) || isReviewsAppBlock(type)
+function blocksNameReviews(blocks: PageBlock[] | undefined): boolean {
+  return (blocks ?? []).some((b) => namesReviews(String(b.type ?? "")) || blocksNameReviews(b.blocks))
+}
+function blocksHaveStars(blocks: PageBlock[] | undefined): boolean {
+  return (blocks ?? []).some((b) => b.type === "rating" || isReviewsAppBlock(b.type) || blocksHaveStars(b.blocks))
+}
+
+export function withProductPageReviews<T extends PageSection>(
+  sections: T[],
+  theme: { files: Record<string, string>; schemaOf: (folder: "sections" | "blocks", type: string) => Record<string, unknown> },
+): T[] {
+  if (theme.files[REVIEWS_SECTION_PATH] === undefined && theme.files[`sections/${REVIEWS_SECTION_TYPE}.liquid`] === undefined) return sections
+  const template = sections.filter((s) => !CHROME.has(String(s.group ?? "")))
+  if (template.some((s) => s.type === REVIEWS_SECTION_TYPE || /review/i.test(s.type) || blocksNameReviews(s.blocks))) return sections
+  const blockTypes = (type: string) => {
+    const blocks = theme.schemaOf("sections", type).blocks
+    return Array.isArray(blocks) ? blocks.map((b) => String((b as { type?: unknown }).type ?? "")) : []
+  }
+  const main = template.find((s) => !s.hidden && MAIN_PRODUCT.test(s.type)) ?? template.find((s) => !s.hidden && blockTypes(s.type).includes("buy_buttons"))
+  const out = [...sections]
+  let at = main ? out.indexOf(main) : -1
+  if (main && !blocksHaveStars(main.blocks) && blockTypes(main.type).includes("rating")) {
+    const blocks = main.blocks ?? []
+    const title = blocks.findIndex((b) => b.type === "title")
+    if (title >= 0) {
+      const rating: PageBlock = { id: AUTO_RATING_BLOCK_ID, type: "rating", settings: {} }
+      out[at] = { ...main, blocks: [...blocks.slice(0, title + 1), rating, ...blocks.slice(title + 1)] } as T
+    }
+  }
+  /* No main product section found: after the page's last section of its own, before the footer. */
+  if (at < 0) at = template.length ? out.indexOf(template[template.length - 1]) : -1
+  if (at < 0) return sections
+  const reviews = { id: AUTO_REVIEWS_SECTION_ID, type: REVIEWS_SECTION_TYPE, settings: {} } as unknown as T
+  out.splice(at + 1, 0, reviews)
+  return out
 }

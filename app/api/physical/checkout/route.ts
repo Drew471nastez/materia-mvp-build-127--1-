@@ -85,9 +85,12 @@ export async function POST(request: Request) {
     emailOptIn: body.emailOptIn,
     embedded: body.ui === "embedded",
     shopName: body.ui === "embedded" && shopId ? await loadStoreName(db, shopId) : null,
+    /* Paid in cash when it arrives (lib/physical/cash-on-delivery.ts), when the shop takes it. */
+    cashOnDelivery: body.cashOnDelivery === true,
   })
   if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
-  if (started.free) {
+  /* Written at once, with no payment form: the buyer's session sees the order. */
+  if (started.free || started.cod) {
     const { data: co } = await db.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
     if (co?.session_fingerprint) {
       const main = getMainDomain()
@@ -95,5 +98,5 @@ export async function POST(request: Request) {
       ;(await cookies()).set("materia_session", co.session_fingerprint, { httpOnly: true, secure: !local, sameSite: "lax", maxAge: 60 * 60 * 24 * 365, path: "/", domain: local ? undefined : `.${main}` })
     }
   }
-  return physicalJson({ url: started.url, free: started.free, ...(started.clientSecret ? { clientSecret: started.clientSecret } : {}) })
+  return physicalJson({ url: started.url, free: started.free, ...(started.cod ? { cod: true } : {}), ...(started.clientSecret ? { clientSecret: started.clientSecret } : {}) })
 }

@@ -78,6 +78,8 @@ export interface PhysicalSaleFacts {
   discountCents: number | null
   totalCents: number | null
   lines: { title: string; variantName: string | null; quantity: number; amountCents: number; fulfilment: string }[]
+  /** Paid in cash on delivery (lib/physical/cash-on-delivery.ts): the money is the seller's to collect, never on its way to their balance. */
+  cashDue?: boolean
 }
 
 const str = (v: unknown, max = 200) => cleanText(v, max)
@@ -159,6 +161,7 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
     discountCents: cents(co.discount_cents),
     totalCents: cents(co.total_cents),
     lines,
+    cashDue: co.provider === "cod",
   }
 }
 
@@ -184,7 +187,7 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
     note: facts.note,
     details: facts.details ?? [],
   }
-  const out: Record<string, unknown> = { ...data, fulfil }
+  const out: Record<string, unknown> = { ...data, fulfil, ...(facts.cashDue ? { cashDue: true } : {}) }
   const { subtotalCents: sub, discountCents: off, shippingCents: ship, taxCents: tax, totalCents: total } = facts
   if (sub !== null && total !== null) {
     const adds = sub - (off ?? 0) + (ship ?? 0) + (facts.taxIncluded ? 0 : tax ?? 0) === total

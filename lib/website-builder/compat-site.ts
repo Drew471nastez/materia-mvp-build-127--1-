@@ -14,6 +14,7 @@
  * so a page is drawn without parsing anything. A preview reads the drafts
  * and holds nothing.
  */
+import { siteOrigin } from "./site-seo-data"
 import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
@@ -45,6 +46,8 @@ import { shopFacts } from "@/lib/physical/storefront-facts"
 import { productFaqs } from "@/lib/products/product-section-data"
 import { withPageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { moneyFormatFor } from "@/lib/markets/pricing"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -261,6 +264,11 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   const key = name.toLowerCase()
   try {
     const found = await compatSiteFresh(name, host, previewToken)
+    /* Its own address (its primary domain), for the canonical and the languages: a page reached at its storelib.com name still names the domain. */
+    if (found.kind === "site" && previewToken === null) {
+      const origin = await siteOrigin(found.site.creatorId, name).catch(() => null)
+      if (origin) found.site.canonicalHost = new URL(origin).host
+    }
     if (found.kind === "site" && previewToken === null) {
       if (lastGoodSite.size >= 200 && !lastGoodSite.has(key)) lastGoodSite.delete(lastGoodSite.keys().next().value as string)
       lastGoodSite.set(key, found.site)
@@ -336,6 +344,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     ? await (draft ? readFacts() : heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false))
     : null
 
+  /* The store's own currency (Settings › Country & Currency): the theme writes its prices, cart and money format in it. */
+  const currency = await cachedStoreCurrency(creator.creatorId)
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,
@@ -345,7 +355,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
     /* The website's own brand name, else Store details' store name, else the person's (lib/website-builder/storefront-data dynamicContext, the same order). */
-    shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency: "USD", moneyFormat: "${{amount}}", policies },
+    shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency, moneyFormat: moneyFormatFor(currency), policies },
     host,
     designMode: false,
     /* SEO & Social and each page's own search result (Website settings), read by the theme's own head (lib/website-builder/page-seo.ts). */
@@ -435,6 +445,7 @@ export async function compatDraftHome(installId: string): Promise<string | null>
   ])
   const sections = pageSections<StoredSection[]>(pageRow.data as never, true) ?? []
   const theme = compatThemeFor(row.id, "edit", rows, settings)
+  const currency = await cachedStoreCurrency(row.creator_id)
   return drawPage(theme, {
     template: "index",
     path: "/",
@@ -442,7 +453,7 @@ export async function compatDraftHome(installId: string): Promise<string | null>
     products,
     collections,
     menus: compatMenus(menus as never, ["home"]),
-    shop: { name: row.name ?? "", currency: "USD", moneyFormat: "${{amount}}" },
+    shop: { name: row.name ?? "", currency, moneyFormat: moneyFormatFor(currency) },
   }, sections, { scripts: true }).html
 }
 

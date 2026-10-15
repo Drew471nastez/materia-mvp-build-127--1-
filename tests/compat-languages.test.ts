@@ -98,6 +98,21 @@ async function main() {
     check("localization, routes and roots read the same", localeRoot(i18n) === "/fr" && localeRoot(i18n, "en") === "" && String(routesFor(i18n).search_url) === "/fr/search" && (localizationObject("RON", i18n).available_languages as unknown[]).length === 3)
   }
 
+  console.log("\nThe theme's own words in a language it does not ship\n")
+  {
+    const words = theme.defaultWords()
+    check("its default words are listed by key, for Translate › Theme words", words.some((w) => w.key === "header.welcome" && w.value === "Welcome"))
+    const ro = String((await get({ ...base, i18n: { locale: "ro", defaultLanguage: "en", languages: ["en", "fr", "ro"], words: { "header.welcome": "Bun venit" } } }, "/")).body)
+    check("a language the theme has no file for reads the store's translation", /class="hdr">Bun venit/.test(ro), ro.match(/class="hdr">[^<]*/)?.[0])
+    const roNone = String((await get({ ...base, i18n: { locale: "ro", defaultLanguage: "en", languages: ["en", "fr", "ro"] } }, "/")).body)
+    check("  and the theme's default without one, never a key", /class="hdr">Welcome/.test(roNone))
+    const frOwn = String((await get({ ...base, i18n: { locale: "fr", defaultLanguage: "en", languages: ["en", "fr"], words: { "header.welcome": "Salut" } } }, "/")).body)
+    check("the store's translation over the theme's own file, so it can correct it", /class="hdr">Salut/.test(frOwn))
+    const compat = read("lib/markets/compat.ts")
+    check("the live site lays them over, each only while written for the theme's word as it is", /valueFor\(map, themeWordKey\(w\.key\), \{ approvedOnly: true, fresh: true \}, w\.value\)/.test(compat) && /i18n\.words = themeWords/.test(compat))
+    check("listed in Translate from the theme's default locale file", /compatTheme\.defaultWords\(\)\.map/.test(read("lib/markets/server.ts")) && /id: "theme-words", title: "Theme words"/.test(read("lib/markets/server.ts")))
+  }
+
   console.log("\nIts texts translated with its own schemas\n")
   {
     const { fieldsOf, blockFieldsOf } = compatFields(theme)
@@ -135,20 +150,23 @@ async function main() {
     check("the proxy picks the market from the visitor's choice, then their country", /request\.cookies\.get\("sl_country"\)/.test(proxy) && /x-vercel-ip-country/.test(proxy) && /if \(chosen === "home"\) return null/.test(proxy))
     check("  and a page in a market's currency is never kept by a shared cache", /private, no-cache/.test(proxy) && /!\(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\)/.test(proxy))
     const compat = read("lib/markets/compat.ts")
-    check("an imported theme's prices, shop currency and money format follow the market; the store's otherwise", /moneyFormat: moneyFormatFor\(pricing\.currency/.test(compat) && /price: shown\(settings\.price\)/.test(compat) && /: site\.shop,/.test(compat))
-    check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /const countries = countryList\(marketsFor, base\)/.test(compat) && /sl_country=\$\{country\}/.test(read("lib/storelib-theme/compat/site.ts")))
+    /* Changed on purpose (the owner: currency in the builder like the live site): the conversion moved to lib/markets/compat-prices.ts, which the builder's canvas uses too. */
+    const prices = read("lib/markets/compat-prices.ts")
+    check("an imported theme's prices, shop currency and money format follow the market; the store's otherwise", /moneyFormat: moneyFormatFor\(pricing\.currency/.test(prices) && /price: shownPrice\(settings\.price, pricing\)/.test(prices) && /: shop$/m.test(prices) && /shop: compatShop\(site\.shop, pricing/.test(compat) && /if \(pricing\) settings = compatPrices\(settings, pricing\)/.test(compat))
+    check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /const countries = countryList\(input\.markets, input\.base\)/.test(prices) && /* Changed on purpose (merge): the markets that convert today, a store's own rate included. */ /themeCountries\(\{ markets: converting, base,/.test(compat) && /sl_country=\$\{country\}/.test(read("lib/storelib-theme/compat/site.ts")))
     /* Changed on purpose (the owner): the charge currency is said at checkout and in the currency picker, never in a cart. */
     check("what the card is charged in is said at checkout and in the currency picker, not put into a theme's cart", !/chargeNoteScript/.test(compat) && /currencyNote=\{currencyNote\}/.test(read("app/checkout/site/page.tsx")) && /data-currency-note/.test(read("app/checkout/site/site-checkout.tsx")) && /data-currency-note/.test(read("components/website-builder/theme/language-switch.tsx")))
     check("a builder theme's product block converts the same way, never a pay what you want amount", /pricingFor\(product\.display\.market/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /!product\.pay_what_you_want/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
     check("the chosen country is in the cookie policy", /name: "sl_country"/.test(read("lib/consent/consent.ts")))
     /* Round AD: the theme's own selector shows, picks the visitor's country, and a market's language greets its visitors once. */
-    check("  the selector has every country even before Markets is saved, and starts on the visitor's own", /if \(!langs\.saved\) \{[\s\S]{0,300}countries,/.test(compat) && /wanted && \(!inMarket \|\| inMarket\.countries\.includes\(wanted\)\)/.test(compat) && /x-vercel-ip-country/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
+    /* Changed on purpose (the owner: currency in the builder like the live site): the country picked moved to lib/markets/compat-prices.ts themeCountries. */
+    check("  the selector has every country even before Markets is saved, and starts on the visitor's own", /if \(!langs\.saved\) \{[\s\S]{0,300}countries: shownCountries,/.test(compat) && /wanted && \(!inMarket \|\| inMarket\.countries\.includes\(wanted\)\)/.test(read("lib/markets/compat-prices.ts")) && /x-vercel-ip-country/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
     {
       const proxy = read("proxy.ts")
       check("a market's own language greets its visitors once, never a crawler, a script or checkout", /async function marketLanguageStart/.test(proxy) && /request\.cookies\.get\("sl_lang"\)/.test(proxy) && /CRAWLER\.test/.test(proxy) && /NEVER_STARTED = \/\^\\\/\(\?:checkout\|cart\|account/.test(proxy) && (proxy.match(/await marketLanguageStart\(request, /g) ?? []).length === 3)
       check("  and picking a language is remembered, on both kinds of theme", /sl_lang=\$\{chosen\.toLowerCase\(\)\}/.test(read("lib/storelib-theme/compat/site.ts")) && /document\.cookie = `sl_lang=/.test(read("components/website-builder/theme/language-switch.tsx")) && /name: "sl_lang"/.test(read("lib/consent/consent.ts")))
       check("  choosing the default language from /fr is not sent back to /fr", /sitePath !== "\/localization"/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
-      check("Languages and Markets each say how they work", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /title="Languages"\s*help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /title="Markets & Currency"\s*help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
+      check("Languages and Markets each say how they work", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /title="Languages"\s*help="languages"/.test(read("components/app/settings/markets-panel.tsx")) && /* And then: currency moved to Store details, so visitors' own currencies are an optional card. */ /* Changed on purpose (the owner: one store currency in Languages & Currency, the others "More currencies"). */ /title="More currencies"\s*help="markets"/.test(read("components/app/settings/markets-panel.tsx")) && /languages: \{\s*title: "How languages work"/.test(read("lib/settings/explainers.ts")))
     }
   }
 
@@ -165,7 +183,8 @@ async function main() {
   const panel = read("components/app/settings/markets-panel.tsx")
   check("every change saves as it is made, and a refusal puts the page back", /const commit = \(next: Localization\)/.test(panel) && /setDraft\(savedRef\.current\)/.test(panel) && !/data-markets-save/.test(panel))
   check("a language is added from a searchable list and opens straight into Translate", /function LanguagePicker/.test(panel) && /setTranslating\(code\)/.test(panel))
-  check("  published is a switch on its row and in Translate", /onCheckedChange=\{\(v\) => setPublished\(l\.code, v\)\}/.test(panel) && /data-translate-publish/.test(read("components/app/settings/translate-sheet.tsx")))
+  /* Changed on purpose: the row says where a language is (Default, Published, Translating) and offers its next step; Publish and Unpublish are in its menu too. */
+  check("  published from its row and its menu, and a switch in Translate", /data-publish-language=\{l\.code\}/.test(panel) && /label: l\.published \? "Unpublish" : "Publish", onClick: \(\) => setPublished\(l\.code, !l\.published\)/.test(panel) && /data-translate-publish/.test(read("components/app/settings/translate-sheet.tsx")))
   check("a market's countries go in a region at a time, or searched", /REGIONS\.map/.test(panel) && /data-market-chosen/.test(panel) && read("lib/markets/regions.ts").includes('id: "eu"'))
   check("AI translates everything in one press, batch after batch", /for \(let round = 0; round < 12; round\+\+\)/.test(read("components/app/settings/translate-sheet.tsx")))
   check("rates are fetched when the owner opens Markets and there are none fresh", /refreshRates\(c\.db\)/.test(read("app/api/store/markets/route.ts")))

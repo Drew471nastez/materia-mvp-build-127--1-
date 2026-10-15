@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { usePageMoney } from "@/components/platform/price-currency"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -35,6 +36,8 @@ interface StickyProductBarProps {
 }
 
 export function StickyProductBar({ settings, product, onAddToCart, onBuyNow, children }: StickyProductBarProps) {
+  /* In the page's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
   const [isVisible, setIsVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
 
@@ -62,10 +65,7 @@ export function StickyProductBar({ settings, product, onAddToCart, onBuyNow, chi
   if (!settings.visible) return null
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return pageMoney(cents, { grouping: true })
   }
 
   return (

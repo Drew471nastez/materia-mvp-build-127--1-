@@ -229,7 +229,8 @@ async function main() {
     const composer = code("components/community/member/composer.tsx")
     const upload = code("components/community/member/media-upload.ts")
     check("the composer sends a video with uploadPostVideo, its key, progress and the processing step", /uploadPostVideo\(\{ communityId, file, key: k, onProgress: \(p\) => patch\(k, \{ progress: p \}\), onProcessing: \(\) => patch\(k, \{ progress: 100 \}\) \}\)/.test(composer))
-    check("a failure stays on its tile (Post waits), a stop takes it off", /patch\(k, \{ error: message \}\)/.test(composer) && /if \(message === "Upload stopped"\) return drop\(k\)/.test(composer) && /const uploading = items\.some\(\(u\) => !u\.media\)/.test(composer))
+    /* Changed on purpose: a failed tile no longer counts as uploading; Post waits on it through its own condition in ready, !items.some((u) => u.error) (226342ba1). */
+    check("a failure stays on its tile (Post waits), a stop takes it off", /patch\(k, \{ error: message \}\)/.test(composer) && /if \(message === "Upload stopped"\) return drop\(k\)/.test(composer) && /const uploading = items\.some\(\(u\) => !u\.media && !u\.error\)/.test(composer) && /const ready = [^\n]*!uploading && !items\.some\(\(u\) => u\.error\)/.test(composer))
     check("the old 'add it again in a few minutes' is gone", !/Add it again in a few minutes/.test(composer))
     check("uploadPostVideo waits until it plays and can be stopped", /if \(sent\.status === "ready"\) return sent\s*input\.onProcessing\?\.\(\)\s*return await waitUntilPlayable\(\{ endpoint, video: sent, signal: ctrl\.signal \}\)/.test(upload) && /export function stopUpload\(key: string\)/.test(upload))
   }
@@ -248,7 +249,8 @@ async function main() {
     check("a finger holds before lifting, a mouse moves a few pixels", LIFT_HOLD_MS >= 150 && LIFT_HOLD_MS <= 300 && MOUSE_LIFT_PX >= 3 && MOUSE_LIFT_PX <= 6)
     const tray = code("components/community/member/attachment-tray.tsx")
     check("only translate, scale and box-shadow move, inline while dragging and cleared after", /el\.style\.translate = /.test(tray) && /el\.style\.scale = /.test(tray) && !/style\.(left|top|width|height|transform) =/.test(tray) && /clearStyles\(d\.els\)/.test(tray))
-    check("the order and the places change in one frame (flushSync), then the styles go", /flushSync\(\(\) => \{\s*setHeld\(null\)\s*if \(to !== d\.from\) onMove\(d\.key, to\)\s*\}\)\s*clearStyles\(d\.els\)/.test(tray))
+    /* Changed on purpose: a tile dropped by a finger in a new place also gives a light haptic tap (ddcbaf919). */
+    check("the order and the places change in one frame (flushSync), then the styles go", /flushSync\(\(\) => \{\s*setHeld\(null\)\s*if \(to !== d\.from\) \{\s*onMove\(d\.key, to\)\s*if \(d\.touch\) hapticTap\("light"\)\s*\}\s*\}\)\s*clearStyles\(d\.els\)/.test(tray))
     check("a lifted tile stops the page scrolling under the finger; reduced motion moves nothing", /window\.addEventListener\("touchmove", still, \{ passive: false \}\)/.test(tray) && /reducedMotion\(\)/.test(tray))
     check("remove stops the upload; the cross is a 40px target; arrow keys and Delete work", /stopUpload\(item\.key\)/.test(tray) && /h-10 w-10/.test(tray) && /ArrowLeft/.test(tray) && /e\.key === "Delete"/.test(tray))
     check("a failure says what happened and what to do", /\{failed\.error\} Remove it to post\./.test(read("components/community/member/attachment-tray.tsx")))

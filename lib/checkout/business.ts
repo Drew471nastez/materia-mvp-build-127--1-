@@ -26,6 +26,9 @@
 
 import { COUNTRY_CODES, countryName } from "./countries"
 
+/** Marks a sentence the website's checkout shows, so it is listed for translation (lib/markets/checkout-words checkoutMsg; kept here so this file needs nothing from there). */
+const checkoutMsg = <T extends string>(source: T): T => source
+
 export interface BusinessDetails {
   /** The company's legal name, as it should appear on the invoice. */
   company: string
@@ -261,14 +264,15 @@ export function addressWordsFor(country: string): AddressWords {
 /* ─── The check ───────────────────────────────────────────────────────── */
 
 /** "ZIP code" and "Eircode" keep their capitals mid sentence; "Postcode" does not. */
-const inSentence = (word: string) => (/^(ZIP|Eircode)/.test(word) ? word : word.toLowerCase())
+export const inSentence = (word: string) => (/^(ZIP|Eircode)/.test(word) ? word : word.toLowerCase())
 
 /** "the United Kingdom", "Germany". */
 const placeName = (code: string) => (code === "GB" || code === "NL" ? `the ${countryName(code)}` : countryName(code))
 
 export type BusinessCheck =
   | { ok: true; value: BusinessDetails }
-  | { ok: false; field: keyof BusinessDetails; error: string }
+  /* `say`: the same message as a sentence with blanks, for a checkout in another language (lib/markets/checkout-words). */
+  | { ok: false; field: keyof BusinessDetails; error: string; say?: { template: string; vars: Record<string, string> } }
 
 /** In the order the form asks, so the first problem named is the first one on the page. */
 export function checkBusiness(raw: unknown): BusinessCheck {
@@ -278,20 +282,20 @@ export function checkBusiness(raw: unknown): BusinessCheck {
   ) as unknown as BusinessDetails
   value.country = value.country.toUpperCase()
 
-  if (value.company.length < 2) return { ok: false, field: "company", error: "Enter the company's legal name." }
-  if (!COUNTRY_CODES.has(value.country)) return { ok: false, field: "country", error: "Choose the company's country or region." }
+  if (value.company.length < 2) return { ok: false, field: "company", error: checkoutMsg("Enter the company's legal name.") }
+  if (!COUNTRY_CODES.has(value.country)) return { ok: false, field: "country", error: checkoutMsg("Choose the company's country or region.") }
   if (value.taxId) {
     const tax = normaliseTaxId(value.taxId, value.country)
     if (!tax) {
       const { label, example } = taxIdFor(value.country)
       return TAX_FORMATS[value.country]
-        ? { ok: false, field: "taxId", error: `Check the ${label}. In ${placeName(value.country)} it looks like ${example}.` }
-        : { ok: false, field: "taxId", error: "A tax number is letters and digits, like DE123456789." }
+        ? { ok: false, field: "taxId", error: `Check the ${label}. In ${placeName(value.country)} it looks like ${example}.`, say: { template: checkoutMsg("Check the {label}. In {country} it looks like {example}."), vars: { label, country: value.country, example } } }
+        : { ok: false, field: "taxId", error: checkoutMsg("A tax number is letters and digits, like DE123456789.") }
     }
     value.taxId = tax
   }
-  if (value.line1.length < 3) return { ok: false, field: "line1", error: "Enter the street address." }
-  if (value.city.length < 2) return { ok: false, field: "city", error: "Enter the city." }
+  if (value.line1.length < 3) return { ok: false, field: "line1", error: checkoutMsg("Enter the street address.") }
+  if (value.city.length < 2) return { ok: false, field: "city", error: checkoutMsg("Enter the city.") }
   const words = addressWordsFor(value.country)
   if (!value.postalCode && needsPostalCode(value.country)) {
     return { ok: false, field: "postalCode", error: `Enter the ${inSentence(words.postal)}.` }

@@ -175,7 +175,8 @@ function main() {
     lighter than the bar and reads as a halo at the seam.
   */
   const css = read("app/globals.css")
-  check("the header has depth", /platform-header-depth/.test(header))
+  /* Changed on purpose: 158acdef (light buyer header theme) moved the bar's classes into lib/platform/header-chrome.ts; the dark bar keeps the depth and the header draws its root from there. */
+  check("the header has depth", /root: `platform-header-depth /.test(read("lib/platform/header-chrome.ts")) && /chrome\.root/.test(header))
   check("drawn from the shared token", /\.platform-header-depth \{\s*\n\s*box-shadow: var\(--bar-depth-dark\);/.test(css))
   check("and not a fourth copy of a shadow", !/\.platform-header-depth \{[^}]*rgba\(/.test(css))
 

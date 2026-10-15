@@ -50,9 +50,12 @@ console.log("\n1 and 2. the logged out row on a computer")
 {
   const row = fn(header, "GuestHeaderActions")
   check("there is one component for it", row.length > 0)
-  check("a thin vertical rule first", /data-guest-divider=""[^>]*h-6 w-px bg-white\/15/.test(row))
+  /* Changed on purpose: 158acdef (light buyer header theme) takes the row's colours from lib/platform/header-chrome.ts, the dark bar's still white at 15%. */
+  const chromeSrc = readCode("lib/platform/header-chrome.ts")
+  check("a thin vertical rule first", /data-guest-divider=""[^>]*className=\{cn\("ml-1 h-6 w-px", chrome\.guestDivider\)\}/.test(row) && /guestDivider: "bg-white\/15"/.test(chromeSrc))
   check("Sell on Storelib is a plain text link to /sell", /link\("\/sell"\)/.test(row) && /Sell on Storelib/.test(row) && !/data-guest-sell=""[^>]*bg-violet/.test(row))
-  check("Log in is outlined, to /login, and only where asked for", /\{withLogin && \(\s*<Link\s+\{\.\.\.link\("\/login"\)\}/.test(row) && /data-guest-login=""[\s\S]{0,40}className=\{cn\("[^"]*rounded-action border border-white\/30/.test(row))
+  /* Changed on purpose: 158acdef (light buyer header theme) moved the outline's colour into lib/platform/header-chrome.ts, the dark bar's still white at 30%. */
+  check("Log in is outlined, to /login, and only where asked for", /\{withLogin && \(\s*<Link\s+\{\.\.\.link\("\/login"\)\}/.test(row) && /data-guest-login=""[\s\S]{0,40}className=\{cn\("[^"]*rounded-action border [^"]*", chrome\.guestLogin/.test(row) && /guestLogin: "border-white\/30 /.test(chromeSrc))
   check("Sign up is filled Storelib purple, to /signup", /link\("\/signup"\)/.test(row) && /data-guest-signup=""[\s\S]{0,140}rounded-action bg-violet-600/.test(row) && />\s*Sign up\s*</.test(row))
   check("both buttons take the shared corner, and nothing in it is a pill", (row.match(/rounded-action/g) ?? []).length === 2 && !/rounded-full/.test(row))
   check("the marketing pages carry Log in", (header.match(/<GuestHeaderActions withLogin link=\{headerLink\}/g) ?? []).length === 2)
@@ -63,7 +66,8 @@ console.log("\n1 and 2. the logged out row on a computer")
 }
 
 console.log("\n   before the session is known")
-check("both computer rows wait with an invisible copy of the logged out row", (header.match(/<GuestHeaderActions [^>]*placeholder \/>/g) ?? []).length === 2 && /placeholder && "invisible"/.test(header))
+/* Changed on purpose: 158acdef (light buyer header theme) hands every row the bar's colours as chrome. */
+check("both computer rows wait with an invisible copy of the logged out row", (header.match(/<GuestHeaderActions [^>]*placeholder chrome=\{chrome\} \/>/g) ?? []).length === 2 && /placeholder && "invisible"/.test(header))
 check("the stand in cannot be reached or read", /aria-hidden=\{placeholder \|\| undefined\}/.test(header) && /inert=\{placeholder \|\| undefined\}/.test(header))
 check("no grey pills: the old skeleton is gone", !/HeaderActionsSkeleton|<Skeleton\b/.test(header))
 
@@ -85,7 +89,8 @@ console.log("\n4 and 5. the phone menu, logged out")
   check("or Log in outlined, to /login", /go\("\/login"\)\}\s*data-menu-log-in=""[^>]*border border-/.test(sheet))
   check("Sell on Storelib as purple text, to /sell", /go\("\/sell"\)\}\s*data-menu-sell=""[^>]*text-violet-600/.test(sheet))
   check("the buttons take the shared corner", /SHEET_BUTTON =\s*"[^"]*rounded-action/.test(header))
-  check("the marketing menu has Discover", /<GuestSheetActions second="discover"/.test(header))
+  /* Changed on purpose: e6a207bd (admin toggle to hide Discover) offers Discover only while the marketplace is on, and Log in in its place otherwise. */
+  check("the marketing menu has Discover", /<GuestSheetActions second=\{exploreMarketplaceOn \? "discover" : "login"\}/.test(header))
   /* Round 3: Explore's hamburger is the navigator, whose signed out foot is Log in and Start creating (lib/nav/places-shared navigatorModel). */
   check("Explore's menu is the navigator, with Log in and Start creating", /<PlaceNavigator\b/.test(header) && /key: "log-in", label: "Log in", href: "\/login"/.test(readCode("lib/nav/places-shared.ts")))
   check("and neither keeps the old Sign in and black Discover pair", !/data-menu-sign-in|bg-gray-900 text-white/.test(header))

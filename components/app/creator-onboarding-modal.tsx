@@ -144,7 +144,7 @@ function SocialToggleBadge({ on }: { on: boolean }) {
       <span className="relative block h-3 w-3">
         <Plus
           className={cn(
-            "absolute inset-0 h-3 w-3 transition-[opacity,transform] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "absolute inset-0 h-3 w-3 transition-[opacity,scale,rotate] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             on ? "scale-75 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100",
           )}
           strokeWidth={2.75}
@@ -152,7 +152,7 @@ function SocialToggleBadge({ on }: { on: boolean }) {
         />
         <Minus
           className={cn(
-            "absolute inset-0 h-3 w-3 transition-[opacity,transform] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "absolute inset-0 h-3 w-3 transition-[opacity,scale,rotate] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             on ? "scale-100 rotate-0 opacity-100" : "scale-75 -rotate-90 opacity-0",
           )}
           strokeWidth={2.75}
@@ -2072,7 +2072,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   data-onboarding-join-photo=""
                   aria-label={avatarUrl ? tt("Change photo") : tt("Add a photo")}
                   className={cn(
-                    "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
+                    "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
                     AVATAR_RING,
                     "[-webkit-tap-highlight-color:transparent]",
                   )}
@@ -2130,7 +2130,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   {socialPanel ? (
                     <label
                       className={cn(
-                        "flex h-[52px] w-full min-w-0 items-center gap-1 rounded-[14px] px-4 transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                        "flex h-[52px] w-full min-w-0 items-center gap-1 rounded-[14px] px-4 transition-[opacity,translate,scale] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                         FIELD_WELL,
                         socialPanelShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.985] opacity-0",
                       )}
@@ -2155,7 +2155,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
               <div
                 className={cn(
-                  "flex flex-wrap items-center justify-center gap-1.5 px-0.5 sm:gap-2 transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  "flex flex-wrap items-center justify-center gap-1.5 px-0.5 sm:gap-2 transition-[translate,opacity] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                   socialPanelShown ? "translate-y-0 opacity-100" : "translate-y-0 opacity-100",
                 )}
               >
@@ -2181,7 +2181,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     >
                       <span
                         className={cn(
-                          "grid h-10 w-10 place-items-center rounded-full bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.65),inset_0_0_0_1px_rgba(17,24,39,0.07),0_1px_3px_rgba(17,24,39,0.07)] transition-[box-shadow,transform] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                          "grid h-10 w-10 place-items-center rounded-full bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.65),inset_0_0_0_1px_rgba(17,24,39,0.07),0_1px_3px_rgba(17,24,39,0.07)] transition-[box-shadow,scale] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                           on && "scale-[1.04] shadow-[inset_0_0_0_2px_#6b7280,0_2px_6px_-2px_rgba(17,24,39,0.12)]",
                           filled && !on && "shadow-[inset_0_0_0_1.5px_#8b5cf6]",
                         )}

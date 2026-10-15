@@ -122,9 +122,10 @@ function main() {
     grid becomes a 9-card flash on every return and the exemption above is
     quietly wrong.
   */
+  /* Changed on purpose: e3e2428d (smooth explore back) also keeps the skeleton off while a Back restores the grid's scroll; that only narrows when it shows. */
   check(
     "the skeleton only exists while something the visitor started is pending",
-    /const showSkeletons = isPending \|\| isLoadingCategory/.test(explore),
+    /const showSkeletons = \(isPending \|\| isLoadingCategory\) && !restoringExploreScroll\n/.test(explore),
   )
   check(
     "and neither of those can be true on the first render",

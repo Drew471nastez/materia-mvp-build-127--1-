@@ -285,9 +285,11 @@ function main() {
     "a button or a checkbox is not a text field",
     /TEXT_INPUT\.test\(/.test(vars) && /el\.tagName !== "INPUT"\) return false/.test(vars),
   )
+  /* Changed on purpose: 5b333801 (post sheet keyboard gap) names the check clearEstimate and runs it again at 50ms and 180ms, for an iOS that reports the keyboard gone a frame late; the first pass still waits a frame. */
   check(
     "moving between two fields does not drop it for a frame",
-    /requestAnimationFrame\(\(\) => \{\s*\n\s*if \(!estimate \|\| takesAKeyboard\(document\.activeElement\)\) return/.test(vars),
+    /const clearEstimate = \(\) => \{\s*\n\s*if \(!estimate \|\| takesAKeyboard\(document\.activeElement\)\) return/.test(vars)
+      && /requestAnimationFrame\(clearEstimate\)/.test(vars),
   )
   check("both listeners come off on unmount", /removeEventListener\("focusin", onFocusIn\)/.test(vars) && /removeEventListener\("focusout", onFocusOut\)/.test(vars))
   check(

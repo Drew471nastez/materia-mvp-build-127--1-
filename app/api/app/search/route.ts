@@ -1,7 +1,25 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
-import { emptyResult, isSearchable, normalizeQuery, searchCreator } from "@/lib/search/app-search"
+import { emptyResult, isSearchable, normalizeQuery, searchCreator, type SearchGroupId } from "@/lib/search/app-search"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { actingStore } from "@/lib/team/server"
+import { memberCan, type TeamArea } from "@/lib/team/roles"
+
+/**
+ * Which part of a store each group belongs to (lib/team/roles), so a
+ * teammate finds only what their role opens: a manager orders and
+ * customers, staff the products, nobody another store's anything.
+ */
+const GROUP_AREA: Record<SearchGroupId, TeamArea> = {
+  orders: "orders",
+  customers: "customers",
+  products: "products",
+  collections: "products",
+  coupons: "products",
+  emails: "emails",
+  automations: "emails",
+}
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -40,6 +58,25 @@ export async function POST(request: Request) {
     message: "That is a lot of searching at once. Wait a moment and try again.",
   })
   if (limited) return limited
+
+  /*
+    WORKING IN SOMEBODY ELSE'S STORE (lib/team): that store, read with the
+    service role and held to it by the creator id every query names, and
+    only the groups the role opens. It used to search the teammate's own
+    account, which has nothing in it, so search found nothing at all.
+  */
+  const admin = createAdminClient()
+  const acting = await actingStore(admin, user.id).catch(() => null)
+  if (acting) {
+    const groups = new Set((Object.keys(GROUP_AREA) as SearchGroupId[]).filter((g) => memberCan(acting.role, GROUP_AREA[g])))
+    if (groups.size === 0) return NextResponse.json(emptyResult(), { headers: NO_STORE })
+    try {
+      return NextResponse.json(await searchCreator(admin, acting.creatorId, q, { groups }), { headers: NO_STORE })
+    } catch (err) {
+      console.error("[app-search] failed", err instanceof Error ? err.name : "error")
+      return NextResponse.json({ error: "Search is not working right now." }, { status: 500, headers: NO_STORE })
+    }
+  }
 
   const { data: creator, error: creatorError } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (creatorError) {

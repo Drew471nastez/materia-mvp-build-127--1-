@@ -10,6 +10,8 @@ import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
 import { LOCALE_TAG } from "@/lib/i18n/text"
 import { accountTimeZone } from "@/lib/account/time-zone"
+import { orderCurrency } from "@/lib/orders/money"
+import { minorUnits } from "@/lib/markets/money"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -63,11 +65,11 @@ export default async function CustomersPage() {
     readOrders(),
   ])
 
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+  /* In what the order was charged in, and a total in the platform's charge currency, every checkout's (lib/orders/money). */
+  const formatPrice = (cents: number, currency?: unknown) => {
+    const code = orderCurrency(currency)
+    const decimals = minorUnits(code)
+    return new Intl.NumberFormat(locale, { style: "currency", currency: code, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(cents / 10 ** decimals)
   }
 
   /* The day in the zone chosen in Settings, as the rest of /app shows it; the server's own clock is UTC. */
@@ -134,7 +136,7 @@ export default async function CustomersPage() {
                           <p className="font-medium truncate">{lastOrder.product?.title}</p>
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-muted-foreground">{formatDate(lastOrder.created_at)}</span>
-                            <span className="font-medium">{formatPrice(lastOrder.amount_cents)}</span>
+                            <span className="font-medium">{formatPrice(lastOrder.amount_cents, (lastOrder as { currency?: unknown }).currency)}</span>
                           </div>
                           <Badge variant="secondary" className="mt-2 capitalize text-xs">
                             {lastOrder.provider}

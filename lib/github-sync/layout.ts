@@ -299,7 +299,7 @@ export function themeFiles(
     reads_back: snap.compat
       ? ["config/settings.json", "templates/*.json", "sections/*-group.json", "sections/*.storelib", "blocks/*.storelib", "snippets/*.storelib", "layout/*.storelib", "shopify/** (pictures excepted)"]
       : ["config/settings.json", "templates/*.json", "sections/*-group.json", "sections/*.storelib", "blocks/*.storelib", "assets/*", "locales/*"],
-    reference_only: ["README.md", "AGENTS.md", "CLAUDE.md", "storelib.json", ...(snap.compat ? ["shopify/assets/<pictures>", "shopify/config/assets.json"] : ["config/settings_schema.json", "sections/<type>.json"])],
+    reference_only: ["README.md", "AGENTS.md", "CLAUDE.md", "storelib.json", ...(snap.compat ? ["shopify/assets/<pictures>", "shopify/config/assets.json", "shopify/config/settings_panel.json"] : ["config/settings_schema.json", "sections/<type>.json"])],
     edited_built_ins: overrides.map((o) => o.path),
     left_out: skipped.map((s) => s.path).sort(),
   }
@@ -464,14 +464,14 @@ export function repoReadme(opts: { siteName: string; branch: string; root: strin
         ["config/settings.json", "The theme's settings: colours, fonts, the values the theme editor shows. Under `shopify` are the imported theme's own settings.", "Yes"],
         ["templates/<page>.json", "Each page's own sections, their settings and blocks, in order. `home.json` is the home page.", "Yes"],
         ["sections/header-group.json, footer-group.json", "The header and footer, once, for every page.", "Yes"],
-        ["sections/*.storelib", "Each section's markup and schema, converted from the theme's own code. Edit the code between the `<template compat=\"shopify\">` lines.", "Yes"],
+        ["sections/*.storelib", "Each section's markup and schema, converted from the theme's own code. Edit the code between the `<template compat=\"shopify\">` lines. Its settings, blocks and presets are the theme's own schema, under `shopify` in `<schema>`: change them there, and the builder's settings panel (the rest of `<schema>`) is made from it.", "Yes"],
         ["blocks/, snippets/, layout/", "The theme's blocks, snippets and page shell, the same way.", "Yes"],
-        ["shopify/", "The theme's own files as they were imported: templates for account pages, config, locales, CSS, JavaScript and fonts.", "Yes, pictures excepted"],
+        ["shopify/", "The theme's own files as they were imported: templates for account pages, config, locales, CSS, JavaScript and fonts. `shopify/config/settings_schema.json` is the theme settings; the builder's Theme settings are made from it.", "Yes, pictures excepted"],
         ["shopify/assets/<pictures>", "The theme's pictures and videos, to look at. Upload a new one in Storelib's Files.", "No"],
       ]
     : [
         ["config/settings.json", "The theme's settings: colours, fonts, logo, menus. The ids are in config/settings_schema.json.", "Yes"],
-        ["config/settings_schema.json", "What each theme setting is. For reading.", "No"],
+        ["config/settings_schema.json", "What each theme setting is. Storelib's theme settings are the same on every Storelib theme, so this is for reading: change values in config/settings.json, and give a section a new setting in its own `<schema>`.", "No"],
         ["templates/<page>.json", "Each page's own sections, their settings and blocks, in order. `home.json` is the home page.", "Yes"],
         ["sections/header-group.json, footer-group.json", "The header and footer, once, for every page.", "Yes"],
         ["sections/*.storelib", "Every section: Storelib's built-in ones and this site's own.", "Yes"],

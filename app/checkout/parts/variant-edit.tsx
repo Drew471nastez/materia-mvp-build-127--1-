@@ -22,7 +22,8 @@
 import * as React from "react"
 import { ChevronDown } from "lucide-react"
 import type { VariantChoices } from "@/lib/checkout/variant-choices"
-import { money } from "./ui"
+import { useMoney } from "./ui"
+import { useCt } from "./words"
 
 const SELECT =
   "h-9 w-full cursor-pointer appearance-none truncate rounded-[8px] border border-[#e1e3e7] bg-white py-0 pl-2.5 pr-8 text-[16px] text-[#1a1a2e] shadow-[0_1px_1px_rgba(0,0,0,0.03)] outline-none transition-colors hover:border-[#d2d5da] focus:border-[#1a1a2e]/55 disabled:cursor-default disabled:opacity-60 sm:text-[13.5px]"
@@ -67,12 +68,14 @@ export function VariantEdit({
   startOpen?: boolean
   onChange: (variantId: string) => void
 }) {
+  const money = useMoney()
+  const ct = useCt()
   const [open, setOpen] = React.useState(startOpen)
   const id = React.useId()
   const canEdit = editable && !!choices && choices.variants.length > 1
   if (!canEdit) return currentName ? <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{currentName}</p> : null
   const current = choices.variants.find((v) => v.id === currentId) ?? null
-  const label = currentName ?? current?.name ?? "Choose an option"
+  const label = currentName ?? current?.name ?? ct("Choose an option")
   return (
     <div className="mt-0.5" data-variant-edit="">
       <p className="flex min-w-0 items-baseline gap-2 text-[13px] text-[#6b7280]">
@@ -81,12 +84,12 @@ export function VariantEdit({
           type="button"
           aria-expanded={open}
           aria-controls={id}
-          aria-label={open ? `Done changing ${title}` : `Change ${title}`}
+          aria-label={open ? ct("Done changing {title}", { title }) : ct("Change {title}", { title })}
           onClick={() => setOpen((o) => !o)}
           className="shrink-0 text-[13px] text-[#6b7280] underline decoration-[#d9dce1] underline-offset-2 hover:text-[#1a1a2e] hover:decoration-[#1a1a2e]"
           data-variant-edit-toggle=""
         >
-          {open ? "Done" : "Edit"}
+          {open ? ct("Done") : ct("Edit")}
         </button>
       </p>
       {open ? (
@@ -105,12 +108,12 @@ export function VariantEdit({
                       if (next && next !== currentId) onChange(next)
                     }}
                   >
-                    {current ? null : <option value="">Choose</option>}
+                    {current ? null : <option value="">{ct("Choose")}</option>}
                     {o.values.map((v) => {
                       const on = valueOn(choices, i, v)
                       return (
                         <option key={v} value={v} disabled={!on && v !== current?.values[i]}>
-                          {on ? v : `${v} (sold out)`}
+                          {on ? v : ct("{option} (sold out)", { option: v })}
                         </option>
                       )
                     })}
@@ -122,7 +125,7 @@ export function VariantEdit({
           ) : (
             <span className="relative block">
               <select
-                aria-label={`Option for ${title}`}
+                aria-label={ct("Option for {title}", { title })}
                 className={SELECT}
                 value={currentId ?? ""}
                 disabled={busy}
@@ -130,11 +133,10 @@ export function VariantEdit({
                   if (e.target.value && e.target.value !== currentId) onChange(e.target.value)
                 }}
               >
-                {current ? null : <option value="">Choose</option>}
+                {current ? null : <option value="">{ct("Choose")}</option>}
                 {choices.variants.map((v) => (
                   <option key={v.id} value={v.id} disabled={!v.available && v.id !== currentId}>
-                    {v.name} · {v.priceCents === 0 ? "Free" : money(v.priceCents)}
-                    {v.available ? "" : " (sold out)"}
+                    {v.available ? `${v.name} · ${v.priceCents === 0 ? ct("Free") : money(v.priceCents)}` : ct("{option} (sold out)", { option: `${v.name} · ${v.priceCents === 0 ? ct("Free") : money(v.priceCents)}` })}
                   </option>
                 ))}
               </select>

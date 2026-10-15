@@ -214,7 +214,7 @@
       "type": "header"
     },
     {
-      "id": "animation",
+      "id": "tab_animation",
       "label": "Tab switch animation",
       "type": "select",
       "default": "fade",
@@ -339,7 +339,7 @@
         "tab_position": "top",
         "tab_style": "underline",
         "alignment": "left",
-        "animation": "fade",
+        "tab_animation": "fade",
         "padding_top": 60,
         "padding_bottom": 60,
         "color_scheme": "white"

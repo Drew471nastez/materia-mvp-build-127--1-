@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import type { DeliveryStatus, FulfillmentStatus, PaymentStatus, ShipStage } from "@/lib/orders/order-view"
 import { FULFILLMENT_LABEL, PAYMENT_LABEL, SHIP_STAGE_LABEL, showsProblem } from "@/lib/orders/order-view"
 import { tt } from "@/lib/i18n/text"
-import { appLocale } from "@/lib/i18n/format"
+import { formatOrderMoney } from "@/lib/orders/money"
 
 export const INK = "#1a1a2e"
 
@@ -93,10 +93,9 @@ export function OrderBarFrame({
   )
 }
 
-const money = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
-
-export function formatMoney(cents: number): string {
-  return money.format((cents || 0) / 100)
+/** An amount in `currency` (the order's own, lib/orders/money); dollars only where no currency is given, as a product's price. */
+export function formatMoney(cents: number, currency: string = "USD"): string {
+  return formatOrderMoney(cents, currency)
 }
 
 /* ─── Badges ──────────────────────────────────────────────────────────── */
@@ -134,7 +133,7 @@ export function StatusBadge({ tone, children, className }: { tone: Tone; childre
 
 export function PaymentBadge({ status }: { status: PaymentStatus }) {
   const tone: Tone =
-    status === "pending" || status === "partially_refunded" ? "attention" : status === "failed" || status === "disputed" ? "critical" : "neutral"
+    status === "pending" || status === "cash_due" || status === "partially_refunded" ? "attention" : status === "failed" || status === "disputed" ? "critical" : "neutral"
   return <StatusBadge tone={tone}>{PAYMENT_LABEL[status]}</StatusBadge>
 }
 

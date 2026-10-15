@@ -78,8 +78,10 @@ export interface EditorFieldEnv {
    * themes, whose schemes are Storelib's.
    */
   colorSchemes?: { id: string; name: string; background: string; text: string; accent: string }[] | null
-  /** Opens Theme settings › Colors, where the schemes themselves are edited: the Edit beside a section's scheme. */
-  openColorSchemes?: () => void
+  /** Storelib's own themes: the theme's settings, whose schemes a `color_scheme` setting lists by their own names. */
+  themeSettings?: Record<string, unknown> | null
+  /** Opens Theme settings where the schemes themselves are edited, at the one named (the Edit beside a section's scheme). */
+  openColorSchemes?: (schemeId?: string) => void
   /**
    * An imported theme's own pictures by name, where they are stored
    * (shopify/config/assets.json): what a picture setting saved as

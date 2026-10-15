@@ -1,6 +1,7 @@
 "use client"
 
 import { hapticTap } from "@/lib/native-bridge"
+import { shopMoney } from "@/lib/store/shop-money"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useLinkReorder } from "@/components/onepage/link-reorder"
 
@@ -405,7 +406,7 @@ function getBlockPreviewData(block: OnePageBlock) {
       return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
     case "product": {
       const data = block.data as ProductBlockData
-      return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+      return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
     }
     case "group": {
       const data = block.data as GroupBlockData
@@ -4116,7 +4117,7 @@ function BlockItem({
         return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
       case "product": {
         const data = block.data as ProductBlockData
-        return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+        return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
       }
       case "group": {
         const data = block.data as GroupBlockData
@@ -7313,7 +7314,7 @@ function BlockEditor({
                     </span>
                     {selectedProduct && (
                       <span className="text-xs text-muted-foreground shrink-0">
-                        {selectedProduct.price_cents > 0 ? `$${(selectedProduct.price_cents / 100).toFixed(2)}` : 'Free'}
+                        {selectedProduct.price_cents > 0 ? shopMoney(selectedProduct.price_cents) : 'Free'}
                       </span>
                     )}
                   </div>
@@ -7375,7 +7376,7 @@ function BlockEditor({
                               {product.title}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {product.price_cents > 0 ? `$${(product.price_cents / 100).toFixed(2)}` : 'Free'}
+                              {product.price_cents > 0 ? shopMoney(product.price_cents) : 'Free'}
                             </p>
                           </div>
                           {data.product_id === product.id && (

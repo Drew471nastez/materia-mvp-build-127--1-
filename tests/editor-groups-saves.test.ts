@@ -29,7 +29,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
-const root = join(__dirname, "..")
+const root = process.cwd()
 const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 ;(async () => {

@@ -14,6 +14,7 @@ import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { loadReviewsApp } from "@/lib/reviews/app-server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 type Params = { params: Promise<{ installId: string }> }
@@ -71,7 +72,7 @@ async function getCreatorInstall(installId: string) {
 // GET /api/website-builder/themes/[installId]/sections?page=home
 export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, userId } = await getCreatorInstall(installId)
+  const { error, status, supabase, userId, creatorId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
   const limited = await rateLimit({ bucket: "site-sections-read", subjects: [`user:${userId}`], windows: RATE_LIMITS.siteRead })
@@ -79,6 +80,10 @@ export async function GET(req: Request, { params }: Params) {
 
   const { searchParams } = new URL(req.url)
   const pageKey = searchParams.get("page") ?? "home"
+  /* Storelib Reviews' "Add to product pages", read beside the page (used below). */
+  const reviewsRead: Promise<boolean> = pageKey === "product" && creatorId
+    ? loadReviewsApp(supabase, creatorId).then((r) => r.settings.enabled && r.settings.display.productPage, () => false)
+    : Promise.resolve(false)
 
   const { data, error: fetchErr } = await supabase
     .from("store_theme_pages")
@@ -180,10 +185,19 @@ export async function GET(req: Request, { params }: Params) {
       }
     : data
 
+  /*
+    The product page in a store with Storelib Reviews on and "Add to product
+    pages" on: the editor puts the stars and the reviews on it as the live
+    page does (lib/website-builder/product-page.ts withProductReviews), so
+    the creator sees them in the sidebar to move or remove.
+  */
+  const reviewsOn = await reviewsRead
+
   return NextResponse.json({
     page,
     sections: clean,
     has_draft: data?.draft_sections !== null,
+    ...(reviewsOn ? { reviews_on: true } : {}),
   })
 }
 

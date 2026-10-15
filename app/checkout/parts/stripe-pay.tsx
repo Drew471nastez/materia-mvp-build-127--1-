@@ -35,8 +35,13 @@ import { RefreshCw, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getStripePromise, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
-import { CHECKOUT_CURRENCY, FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
+import { FIELD_SHADOW, useCheckoutCurrency, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
 import { perfFail, perfStep, sinceScreenStart, timedStep } from "@/lib/perf/mark"
+import { checkoutMsg } from "@/lib/markets/checkout-words"
+import { useCheckoutLang, useCt } from "./words"
+
+/** The languages Stripe draws its card form in; any other is left to the browser (lib/markets/checkout-words). */
+const STRIPE_LOCALES = new Set(["ar", "bg", "cs", "da", "de", "el", "en", "en-GB", "es", "es-419", "et", "fi", "fil", "fr", "fr-CA", "he", "hr", "hu", "id", "it", "ja", "ko", "lt", "lv", "ms", "mt", "nb", "nl", "pl", "pt", "pt-BR", "ro", "ru", "sk", "sl", "sv", "th", "tr", "vi", "zh", "zh-HK", "zh-TW"])
 
 /** A phone's own keyboard zooms into any field set under 16px. */
 function touchScreen(): boolean {
@@ -91,9 +96,9 @@ const LOAD_PATIENCE_MS = 15_000
 
 /** Stripe's own words for a declined card are good; its plumbing's are not. */
 export function paymentErrorText(error: Pick<StripeError, "type" | "message"> | null | undefined): string {
-  if (!error) return "The payment did not go through. Nothing was charged."
-  if (error.type === "card_error" || error.type === "validation_error") return error.message || "Check the card details and try again."
-  return "The payment did not go through. Nothing was charged. Try again."
+  if (!error) return checkoutMsg("The payment did not go through. Nothing was charged.")
+  if (error.type === "card_error" || error.type === "validation_error") return error.message || checkoutMsg("Check the card details and try again.")
+  return checkoutMsg("The payment did not go through. Nothing was charged. Try again.")
 }
 
 /**
@@ -108,8 +113,8 @@ function noteConfirm(t0: number, error: Pick<StripeError, "type"> | null | undef
 
 /** A request that never reached the server reads as the connection, not as a refusal. */
 function networkText(e: unknown, fallback: string): string {
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return "You are offline. Nothing was charged. Reconnect and press Pay again."
-  if (e instanceof TypeError) return "The connection dropped before the payment started. Nothing was charged. Try again."
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return checkoutMsg("You are offline. Nothing was charged. Reconnect and press Pay again.")
+  if (e instanceof TypeError) return checkoutMsg("The connection dropped before the payment started. Nothing was charged. Try again.")
   return e instanceof Error ? e.message : fallback
 }
 
@@ -148,8 +153,26 @@ export interface StripePayProps {
   afterContact?: React.ReactNode
   /** The email is the signed in account's and cannot be changed here (Settings › Checkout, an account first). */
   emailLocked?: boolean
+  /** What is wrong with the email, said under it: a page that checks it and moves the focus here, as for any other field. */
+  emailError?: string | null
   /** Between the payment and Pay: business details, consent, a message. */
   beforePay: React.ReactNode
+  /**
+   * Cash on delivery, offered beside the card when the shop takes it and
+   * everything in the order ships (lib/physical/cash-on-delivery.ts). Chosen,
+   * the card form steps aside and Pay becomes Place order, which places the
+   * order with no card at all. Absent, nothing about the form changes.
+   */
+  cash?: {
+    note: string
+    place: () => Promise<void>
+    /** The shop's own words for paying on delivery (Settings › Checkout), under the note. */
+    instructions?: string | null
+    /** Said under the choice while the card is chosen: what choosing cash adds ("a fee of 10 lei"). */
+    aside?: string | null
+    /** Told which is chosen, so the order is priced again with cash's fee in it. */
+    onChoose?: (cash: boolean) => void
+  } | null
 }
 
 /** Whether this browser is online now, kept current. */
@@ -169,6 +192,8 @@ function useOnline(): boolean {
 }
 
 export function StripePay(props: StripePayProps) {
+  /* What the card is charged in: <CheckoutCurrency> around a store's checkout, the platform's anywhere else (./ui). */
+  const chargeCurrency = useCheckoutCurrency().toLowerCase()
   /* Which of the method lists this form is on (lib/checkout/payment-methods): the first, until Stripe refuses it. */
   const [setIndex, setSetIndex] = React.useState(0)
   /* A fresh Stripe.js and a fresh form, after Try again. */
@@ -177,18 +202,22 @@ export function StripePay(props: StripePayProps) {
   React.useEffect(() => setFontSize(touchScreen() ? "16px" : "15px"), [])
   const methods = METHOD_SETS[setIndex] as CheckoutMethod[]
   const appearance = React.useMemo(() => stripeAppearance(fontSize ?? "15px"), [fontSize])
+  /* The card form in the checkout's language, where Stripe has it (a declined card's message comes back in it too). */
+  const lang = useCheckoutLang()
+  const locale = (STRIPE_LOCALES.has(lang) ? lang : STRIPE_LOCALES.has(lang.split("-")[0]) ? lang.split("-")[0] : "auto") as StripeElementsOptions["locale"]
   const options = React.useMemo<StripeElementsOptions>(
     () => ({
       mode: props.mode ?? "payment",
       amount: props.amountCents,
-      /* The PaymentIntent's own currency (platformChargeCurrency, or the store's for its own checkout): Stripe refuses a confirm whose form was drawn for another. */
-      currency: (props.currency || CHECKOUT_CURRENCY).toLowerCase(),
+      /* The PaymentIntent's own currency (the store's on a website, the platform's on /checkout): Stripe refuses a confirm whose form was drawn for another. */
+      currency: chargeCurrency,
       paymentMethodTypes: methods,
       appearance,
       fonts: FONTS,
       loader: "auto",
+      locale,
     }),
-    [props.mode, props.amountCents, props.currency, methods, appearance],
+    [props.mode, props.amountCents, chargeCurrency, methods, appearance, locale],
   )
   const fallBack = React.useCallback(() => {
     setSetIndex((i) => (i < METHOD_SETS.length - 1 ? i + 1 : i))
@@ -241,7 +270,9 @@ function StripePayInner({
   contactExtra,
   afterContact,
   emailLocked = false,
+  emailError = null,
   beforePay,
+  cash = null,
 }: StripePayProps & {
   methods: CheckoutMethod[]
   stripePromise: ReturnType<typeof getStripePromise>
@@ -250,6 +281,7 @@ function StripePayInner({
 }) {
   const stripe = useStripe()
   const elements = useElements()
+  const ct = useCt()
   const online = useOnline()
   /** null while the wallets are being asked; then whether any can pay. */
   const [express, setExpress] = React.useState<boolean | null>(null)
@@ -294,15 +326,15 @@ function StripePayInner({
 
   const pay = async () => {
     onError(null)
-    if (!online) return onError("You are offline. Nothing was charged. Reconnect and press Pay again.")
+    if (!online) return onError(ct("You are offline. Nothing was charged. Reconnect and press Pay again."))
     const problem = check("card")
     if (problem) return onError(problem)
-    if (!stripe || !elements || !paymentReady) return onError("The payment form is still loading. Try again in a moment.")
+    if (!stripe || !elements || !paymentReady) return onError(ct("The payment form is still loading. Try again in a moment."))
     setBusy(true)
     try {
       const { error: submitError } = await elements.submit()
       if (submitError) {
-        onError(paymentErrorText(submitError))
+        onError(ct(paymentErrorText(submitError)))
         return
       }
       const intent = await timedStep("/step/checkout/intent", () => createIntent(undefined, methods))
@@ -320,7 +352,7 @@ function StripePayInner({
         })
         noteConfirm(t0, error)
         if (error) {
-          onError(paymentErrorText(error))
+          onError(ct(paymentErrorText(error)))
           return
         }
         await onPaid(setupIntent?.id ?? intent.paymentIntentId, setupIntent?.status ?? "unknown")
@@ -337,15 +369,27 @@ function StripePayInner({
       })
       noteConfirm(t0, error)
       if (error) {
-        onError(paymentErrorText(error))
+        onError(ct(paymentErrorText(error)))
         return
       }
       await onPaid(paymentIntent?.id ?? intent.paymentIntentId, paymentIntent?.status ?? "unknown")
     } catch (e) {
-      onError(networkText(e, "The payment did not go through. Nothing was charged."))
+      onError(ct(networkText(e, ct("The payment did not go through. Nothing was charged."))))
     } finally {
       setBusy(false)
     }
+  }
+
+  /* Card or cash, when the shop offers cash: the card first, as it always was. */
+  const [byCash, setByCash] = React.useState(false)
+  const cashOn = !!cash && byCash
+  const placeCash = async () => {
+    onError(null)
+    if (!cash) return
+    if (!online) return onError(ct("You are offline. Nothing was ordered. Reconnect and press Place order again."))
+    const problem = check("card")
+    if (problem) return onError(problem)
+    await cash.place()
   }
 
   const hideExpress = express === false || failed
@@ -354,7 +398,7 @@ function StripePayInner({
     <div>
       {/* ── Express ─────────────────────────────────────────────────── */}
       <section
-        aria-label="Express checkout"
+        aria-label={ct("Express checkout")}
         data-express={express === null ? "loading" : express ? "on" : "off"}
         /* No wallet here: gone for a screen reader and the keyboard too. */
         inert={hideExpress}
@@ -384,7 +428,7 @@ function StripePayInner({
               onClick={(e) => {
                 onError(null)
                 if (!online) {
-                  onError("You are offline. Nothing was charged. Reconnect and try again.")
+                  onError(ct("You are offline. Nothing was charged. Reconnect and try again."))
                   e.reject()
                   return
                 }
@@ -403,7 +447,7 @@ function StripePayInner({
                   const { error: submitError } = await elements.submit()
                   if (submitError) {
                     e.paymentFailed({ reason: "fail" })
-                    onError(paymentErrorText(submitError))
+                    onError(ct(paymentErrorText(submitError)))
                     return
                   }
                   const walletEmail = e.billingDetails?.email || email
@@ -418,14 +462,14 @@ function StripePayInner({
                   noteConfirm(t0, confirmed.error)
                   if (confirmed.error) {
                     e.paymentFailed({ reason: "fail" })
-                    onError(paymentErrorText(confirmed.error))
+                    onError(ct(paymentErrorText(confirmed.error)))
                     return
                   }
                   const done = "setupIntent" in confirmed ? confirmed.setupIntent : confirmed.paymentIntent
                   await onPaid(done?.id ?? intent.paymentIntentId, done?.status ?? "unknown")
                 } catch (err) {
                   e.paymentFailed({ reason: "fail" })
-                  onError(networkText(err, "The payment did not go through. Nothing was charged."))
+                  onError(ct(networkText(err, ct("The payment did not go through. Nothing was charged."))))
                 } finally {
                   setBusy(false)
                 }
@@ -436,11 +480,12 @@ function StripePayInner({
         </div>
       </section>
 
-      {failed ? (
+      {/* Paying in cash needs no card form: its failing to load is not the buyer's problem then. */}
+      {failed && !cashOn ? (
         <div data-pay-failed="" role="alert" className="checkout-rise mb-6 rounded-[10px] border border-[#e5e7eb] bg-[#f9fafb] px-4 py-4 text-center">
-          <p className="text-[14px] font-medium text-[#1a1a2e]">{online ? "The payment form did not load" : "You are offline"}</p>
+          <p className="text-[14px] font-medium text-[#1a1a2e]">{online ? ct("The payment form did not load") : ct("You are offline")}</p>
           <p className="mt-1 text-[13px] leading-snug text-[#6b7280]">
-            {online ? "Nothing was charged. Check your connection and load it again." : "Nothing was charged. It loads again by itself when you reconnect."}
+            {online ? ct("Nothing was charged. Check your connection and load it again.") : ct("Nothing was charged. It loads again by itself when you reconnect.")}
           </p>
           {online ? (
             <button
@@ -449,7 +494,7 @@ function StripePayInner({
               className="mt-3 inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border border-[#e1e3e7] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(0,0,0,0.04)] transition-colors hover:bg-[#f7f7f8]"
             >
               <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-              Try again
+              {ct("Try again")}
             </button>
           ) : null}
         </div>
@@ -458,7 +503,7 @@ function StripePayInner({
       {/* ── Contact ─────────────────────────────────────────────────── */}
       <section aria-labelledby="checkout-contact">
         <SectionTitle>
-          <span id="checkout-contact">Contact information</span>
+          <span id="checkout-contact">{ct("Contact information")}</span>
         </SectionTitle>
         <div className="min-h-[70px]">
           <TextInput
@@ -473,9 +518,16 @@ function StripePayInner({
             readOnly={emailLocked}
             aria-readonly={emailLocked || undefined}
             className={emailLocked ? "bg-[#f7f7f8] text-[#4b5563]" : undefined}
-            aria-label="Email"
+            aria-label={ct("Email")}
             data-checkout-email=""
+            invalid={!!emailError}
+            aria-describedby={emailError ? "checkout-email-error" : undefined}
           />
+          {emailError ? (
+            <p id="checkout-email-error" role="alert" className="mt-1.5 text-[13px] text-[#dc2626]">
+              {emailError}
+            </p>
+          ) : null}
         </div>
         <div className="mt-3.5">{contactExtra}</div>
       </section>
@@ -485,9 +537,51 @@ function StripePayInner({
       {/* ── Payment ─────────────────────────────────────────────────── */}
       <section aria-labelledby="checkout-payment" className="mt-8">
         <SectionTitle>
-          <span id="checkout-payment">Payment method</span>
+          <span id="checkout-payment">{ct("Payment method")}</span>
         </SectionTitle>
-        <div className="min-h-[200px]">
+        {cash ? (
+          <div role="radiogroup" aria-label={ct("How to pay")} data-pay-choice="" className="mb-3 grid grid-cols-2 gap-2">
+            {([
+              [false, ct("Card")],
+              [true, ct("Cash on delivery")],
+            ] as const).map(([value, label]) => (
+              <button
+                key={label}
+                type="button"
+                role="radio"
+                aria-checked={byCash === value}
+                data-pay-cash={value ? "" : undefined}
+                disabled={busy}
+                onClick={() => {
+                  setByCash(value)
+                  cash?.onChoose?.(value)
+                  onError(null)
+                }}
+                className={cn(
+                  /* At least 44px; a longer name in another language wraps rather than being cut off. */
+                  "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[8px] border bg-white px-3.5 py-2 text-left text-[14px] font-medium leading-[18px] text-[#1a1a2e] transition-colors [-webkit-tap-highlight-color:transparent] disabled:cursor-not-allowed",
+                  byCash === value ? "border-[#1a1a2e]" : "border-[#e1e3e7] hover:border-[#d2d5da]",
+                )}
+                style={{ boxShadow: FIELD_SHADOW }}
+              >
+                <span aria-hidden className={cn("grid h-4 w-4 shrink-0 place-items-center rounded-full border", byCash === value ? "border-[#1a1a2e]" : "border-[#c9ccd2]")}>
+                  {byCash === value ? <span className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}
+                </span>
+                <span className="min-w-0 break-words">{label}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {cashOn ? (
+          <div data-cash-note="" className="space-y-1 rounded-[8px] bg-[#f8f9fa] px-3.5 py-3 text-[14px] leading-5 text-[#4b5563]">
+            <p>{cash?.note}</p>
+            {cash?.instructions ? <p data-cash-instructions="">{cash.instructions}</p> : null}
+          </div>
+        ) : cash?.aside ? (
+          <p className="text-[13px] leading-5 text-[#6b7280]">{cash.aside}</p>
+        ) : null}
+        {/* Kept drawn while cash is chosen, so going back to the card is instant and keeps what was typed. */}
+        <div className={cn("min-h-[200px]", cashOn && "hidden")}>
           <PaymentElement
             onReady={() => {
               setPaymentReady(true)
@@ -511,14 +605,20 @@ function StripePayInner({
       {!online ? (
         <p role="status" className="checkout-rise mt-4 flex items-center justify-center gap-2 text-[13px] text-[#6b7280]">
           <WifiOff aria-hidden className="h-3.5 w-3.5" />
-          You are offline. Pay waits for the connection.
+          {ct("You are offline. Pay waits for the connection.")}
         </p>
       ) : null}
 
       <PayDock>
-        <PayButton onClick={() => void pay()} busy={busy} disabled={!stripe || !elements || !online}>
-          {busy ? "Processing" : payLabel}
-        </PayButton>
+        {cashOn ? (
+          <PayButton onClick={() => void placeCash()} busy={busy} disabled={!online}>
+            {busy ? ct("Processing") : ct("Place order")}
+          </PayButton>
+        ) : (
+          <PayButton onClick={() => void pay()} busy={busy} disabled={!stripe || !elements || !online}>
+            {busy ? ct("Processing") : payLabel}
+          </PayButton>
+        )}
       </PayDock>
     </div>
   )

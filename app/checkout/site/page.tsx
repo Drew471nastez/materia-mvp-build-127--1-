@@ -1,7 +1,5 @@
 import type { Metadata } from "next"
-import { marketOfCountry, siteLanguages } from "@/lib/markets/live"
 import { chargeNote } from "@/lib/markets/money"
-import { storeChargeCurrencyFor } from "@/lib/payments/fees/store-currency"
 import { cookies, headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { after } from "next/server"
@@ -18,8 +16,17 @@ import { CART_COOKIE, readCartCookie } from "@/lib/storelib-theme/compat/site"
 import type { LinkItem } from "@/lib/physical/cart-link"
 import { ensureSiteWalletDomain } from "@/lib/custom-domains/stripe-pmd"
 import { SiteCheckout, SiteProblem } from "./site-checkout"
+import { CheckoutCurrency } from "../parts/ui"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
+import { checkoutMarket, checkoutVisitorCountry } from "@/lib/markets/checkout-market-server"
+import { quoteInMarket } from "@/lib/checkout/site-quote-market"
+import { countryCode } from "@/lib/checkout/countries"
+import { CHECKOUT_COUNTRY_COOKIE } from "@/lib/checkout/checkout-country"
+import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { checkoutMsg, checkoutT } from "@/lib/markets/checkout-words"
+import { localizeQuote } from "@/lib/markets/checkout-quote"
+import { CheckoutWords } from "../parts/words"
 
 export const dynamic = "force-dynamic"
 
@@ -100,27 +107,32 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     }
   }
 
+  /*
+    THE DELIVERY COUNTRY, BEFORE THE FIRST FRAME (the owner: no jump while it
+    is worked out). The one the buyer picked at this checkout before (kept in
+    CHECKOUT_COUNTRY_COOKIE), else the one they chose in the website's own
+    selector, else where their connection is. Priced with it from the start,
+    so the first quote already has its delivery; the buyer can change it.
+  */
+  const visitorCountry = checkoutVisitorCountry(jar.get("sl_country")?.value, h.get("x-vercel-ip-country") || h.get("cf-ipcountry"))
+  const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(visitorCountry)
   /* The price waits only for who is signed in (what they own is not charged), not for the header, the settings or the payments check. */
   const buyerRead = siteBuyerFrom(admin, { host: site.host, cookieValue: jar.get(sessionCookieName(site.host))?.value, creatorId: site.creatorId })
-  const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }, null, b ? { email: b.email } : null) : null))
+  const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode, ...(initialCountry ? { country: initialCountry } : {}) }, null, b ? { email: b.email } : null) : null))
   /*
-    PRICES SEEN IN ANOTHER CURRENCY (Markets and languages): a visitor whose
-    country is in a market that shows its own currency saw estimates; the
-    card is charged in the store's own currency, and checkout says so under
-    the total.
+    THE CURRENCY IT IS CHARGED IN (lib/markets/checkout-market-server): the
+    one the website's pages showed this visitor. A market Storelib can
+    charge is charged in its own currency, the amounts they saw; one it
+    cannot shows the store's prices with a plain line saying so. A store
+    that sells in the visitor's currency shows no line at all.
   */
-  const visitorCountry = (() => {
-    const chosen = jar.get("sl_country")?.value
-    if (chosen === "home") return null
-    return (chosen && /^[A-Za-z]{2}$/.test(chosen) ? chosen : h.get("x-vercel-ip-country")) ?? null
-  })()
-  /* The store's own currency: what its prices are written in, and what the card is charged in. */
-  const currencyRead = storeChargeCurrencyFor(admin, site.creatorId)
-  const noteRead = siteLanguages(site.creatorId)
-    .then((langs) => marketOfCountry(langs, visitorCountry))
-    .then(async (m) => (m ? chargeNote(m.currency, (await currencyRead).toUpperCase()) : null))
+  const marketRead = checkoutMarket(site.creatorId, visitorCountry, admin)
+  const noteRead = marketRead
+    .then((m) => (m.pricing && !m.charge && chargeNote(m.pricing.currency, m.chargeCurrency) ? { display: m.pricing.currency, charge: m.chargeCurrency } : null))
     .catch(() => null)
-  const [brand, config, buyer, ready, answer, currencyNote, currency] = await Promise.all([
+  /* The checkout in the language of the page the visitor came from, or the one they chose on the website (lib/markets/checkout-language.ts). */
+  const languageRead = checkoutLanguage(site.creatorId, params.back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value, q.get("lang")).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null, available: undefined }))
+  const [brand, config, buyer, ready, priced, currencies, language, market] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     checkoutBrandOf(site.creatorId),
     loadCheckoutConfig(admin, site.creatorId),
@@ -128,8 +140,13 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     checkoutReadyForCreator(site.creatorId).catch(() => false),
     quoteRead,
     noteRead,
-    currencyRead,
+    languageRead,
+    marketRead,
   ])
+  /* The first quote in the currency it is charged in (lib/checkout/site-quote-market), as the route answers every quote after it. */
+  const answer = priced && priced.ok && market.charge ? { ...priced, quote: quoteInMarket(priced.quote, market.charge) } : priced
+  const t = checkoutT(language.lang, language.words)
+  const currencyNote = currencies ? t(checkoutMsg("Prices in {display} are for reference. You'll pay in {charge}; your bank converts it."), currencies) : null
   const shopUrl = `${site.origin}/`
   /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
   const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
@@ -138,14 +155,19 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   /* Priced (above, beside the rest) for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
   /* A cart that cannot be paid at all is said here, styled, with the way back. A free one needs no card, so no readiness. */
   if (answer && answer.ok && answer.quote.totals.totalCents > 0 && !ready) {
-    return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="Checkout is closed" message={BUYER_UNAVAILABLE} />
+    return (
+      <CheckoutWords lang={language.lang} words={language.words}>
+        <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title={checkoutMsg("Checkout is closed")} message={BUYER_UNAVAILABLE} />
+      </CheckoutWords>
+    )
   }
   const gate = siteGate(config, buyer)
 
   return (
-    <>
+    <CheckoutWords lang={language.lang} words={language.words}>
     {/* The store's own Google Analytics and pixels on its checkout: begin_checkout with what is in it (lib/store/ga.ts). */}
     <StoreTracking creatorId={site.creatorId} checkout={answer?.ok ? gaCheckoutOf(answer.quote.lines, null) : null} />
+    <CheckoutCurrency currency={market.chargeCurrency}>
     <SiteCheckout
       shopId={site.creatorId}
       brand={brand}
@@ -156,7 +178,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       couponCode={params.couponCode}
       initialNote={params.note}
       cartAttributes={params.attributes}
-      initialQuote={answer?.ok ? answer.quote : null}
+      initialQuote={answer?.ok ? localizeQuote(answer.quote, language.map) : null}
       initialError={answer && answer.ok === false ? answer.error : null}
       config={config}
       buyer={buyer ? { email: buyer.email, name: buyer.name } : null}
@@ -164,8 +186,12 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
       currencyNote={currencyNote}
-      currency={currency}
+      initialCountry={initialCountry}
+      backIsDefault={!back}
+      lang={language.lang}
+      languages={language.available && language.available.length > 1 ? language.available : undefined}
     />
-    </>
+    </CheckoutCurrency>
+    </CheckoutWords>
   )
 }

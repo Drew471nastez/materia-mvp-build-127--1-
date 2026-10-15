@@ -311,6 +311,8 @@ export interface NotifyStore {
   physicalReadiness?(creatorId: string): Promise<import("@/lib/physical/readiness").PhysicalReadiness | null>
   /** Physical commerce is on for all of Storelib (/admin, lib/platform/physical-commerce). Optional, like physicalSetup. */
   physicalCommerceEnabled?(): Promise<boolean>
+  /** Paid orders that ship and are still unsent past OVERDUE_DAYS (lib/physical/action-counts-server.ts): how many, and the one order's line id when there is one. Optional; null when it could not be read. */
+  ordersWaiting?(creatorId: string): Promise<{ count: number; days: number; orderId: string | null } | null>
   payoutStatus(payoutId: string): Promise<string | null | undefined>
   disputeClosed(disputeId: string): Promise<boolean | null>
   domainStatus(domainId: string): Promise<{ status: string | null; sslStatus: string | null } | null | undefined>
@@ -867,6 +869,18 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         return await computePhysicalReadiness(db, creatorId)
       } catch (error) {
         fail("read physical readiness", error as PgError)
+        return null
+      }
+    },
+
+    async ordersWaiting(creatorId) {
+      try {
+        const { commerceActionCounts } = await import("@/lib/physical/action-counts-server")
+        const { OVERDUE_DAYS } = await import("@/lib/physical/action-reminders")
+        const c = await commerceActionCounts(db, creatorId)
+        return { count: c.overdue, days: OVERDUE_DAYS, orderId: c.only?.overdue ?? null }
+      } catch (error) {
+        fail("read orders waiting", error as PgError)
         return null
       }
     },

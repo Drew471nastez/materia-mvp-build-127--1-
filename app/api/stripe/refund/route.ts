@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { formatStoreMoney } from "@/lib/store/currency"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
@@ -76,7 +77,22 @@ export async function POST(request: Request) {
 
     /* A sale paid through Storelib Payments on Airwallex carries its payment in provider_payment_id (part 76). */
     const onAirwallex = order.provider === "airwallex" && typeof order.provider_payment_id === "string" && order.provider_payment_id.startsWith("int_")
-    if (!order.stripe_payment_intent_id && !onAirwallex) {
+    /*
+      CASH ON DELIVERY (lib/physical/cash-on-delivery.ts): no card to send
+      money back to. Before the cash is in there is nothing to refund, and the
+      order is cancelled instead; after, the refund is the cash the seller
+      gives back, recorded here, with nothing sent to Stripe.
+    */
+    const byCash = order.provider === "cod"
+    if (byCash) {
+      const { data: co } = order.checkout_id
+        ? await dbClient.from("commerce_checkouts").select("cod_collected_at").eq("id", order.checkout_id).eq("creator_id", creator.id).maybeSingle()
+        : { data: null }
+      if (!(co as { cod_collected_at?: string | null } | null)?.cod_collected_at) {
+        return NextResponse.json({ error: "This order hasn't been paid yet: the cash is collected on delivery. Cancel the order instead." }, { status: 409 })
+      }
+    }
+    if (!order.stripe_payment_intent_id && !onAirwallex && !byCash) {
       return NextResponse.json({ error: "No payment intent found for this order" }, { status: 400 })
     }
 
@@ -90,13 +106,16 @@ export async function POST(request: Request) {
 
     if (refundAmountCents > maxRefundCents) {
       return NextResponse.json({
-        error: `Refund amount cannot exceed the order total of $${(maxRefundCents / 100).toFixed(2)}`,
+        error: `Refund amount cannot exceed the order total of ${formatStoreMoney(maxRefundCents, order.currency)}`,
       }, { status: 400 })
     }
 
     /* Airwallex: Storelib refunds the buyer and charges the creator's share back (lib/payments/refunds). */
     let refund: { id: string; status: string | null; currency: string | null }
-    if (onAirwallex) {
+    if (byCash) {
+      /* Keyed like a card refund, so a double tap records it once (the emitted event's key below). */
+      refund = { id: `cash_${orderId}_${alreadyRefunded}_${refundAmountCents}`, status: "succeeded", currency: (order.currency || "usd").toLowerCase() }
+    } else if (onAirwallex) {
       const done = await refundAirwallexOrder({
         orderId,
         creatorId: creator.id,
@@ -144,7 +163,7 @@ export async function POST(request: Request) {
     if (!onAirwallex && (refund.status === "failed" || refund.status === "canceled")) {
       return NextResponse.json({ error: "The refund didn't go through. Nothing was changed. Try again, or contact support." }, { status: 402 })
     }
-    if (!onAirwallex && refund.status !== "succeeded") {
+    if (!onAirwallex && !byCash && refund.status !== "succeeded") {
       await stripe.refunds.update(refund.id, { metadata: { settled_by: "webhook" } }).catch((e) => console.error("[Refund] pending tag failed:", e instanceof Error ? e.message : "unknown"))
       return NextResponse.json({ success: true, pending: true, refundId: refund.id, status: refund.status, amount: refundAmountCents })
     }
@@ -156,7 +175,7 @@ export async function POST(request: Request) {
     try {
       await dbClient
         .from("orders")
-        .update({ refunded_at: refundedAt, refund_reason: reason || "requested_by_customer", refund_amount_cents: refundedTotal, ...(onAirwallex ? {} : { stripe_refund_id: refund.id }) })
+        .update({ refunded_at: refundedAt, refund_reason: reason || "requested_by_customer", refund_amount_cents: refundedTotal, ...(onAirwallex || byCash ? {} : { stripe_refund_id: refund.id }) })
         .eq("id", orderId)
     } catch {
       /* Older databases have no refund columns; the status above is enough. */
@@ -189,8 +208,8 @@ export async function POST(request: Request) {
        applied to each row once (lib/stripe/refund-sync.ts). */
     const admin = tryCreateAdminClient()
     if (admin) {
-      /* Stripe's balance mirror (seller_ledger); an Airwallex creator's balance is their Airwallex wallet. */
-      if (!onAirwallex) {
+      /* Stripe's balance mirror (seller_ledger); an Airwallex creator's balance is their Airwallex wallet; cash never touched either. */
+      if (!onAirwallex && !byCash) {
         try {
           const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id, { expand: ["latest_charge"] })
           const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as import("stripe").Stripe.Charge) : null

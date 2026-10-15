@@ -83,7 +83,8 @@ function main() {
   {
     const line = describeTheme(state, "home", schemas)
     check("the section is described like any other", line.includes("[d1] drewwww") && !line.includes("← no file"))
-    check("its settings can be written, by name", fieldsFor("drewwww", schemas).map((f) => f.id).sort().join(",") === "heading,tint")
+    /* `animation` is how it arrives, the control every body section's design panel has (agent/operations SECTION_ENTRANCE_FIELD). */
+    check("its settings can be written, by name", fieldsFor("drewwww", schemas).map((f) => f.id).sort().join(",") === "animation,heading,tint")
     check("its blocks are known", blockSpecs("drewwww", schemas).map((b) => b.type).join(",") === "row")
     check("and how many it will take", maxBlocks("drewwww", schemas) === 12)
     check("it can be built from its preset", (() => {

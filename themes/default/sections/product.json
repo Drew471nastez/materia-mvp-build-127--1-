@@ -547,6 +547,68 @@
       ]
     },
     {
+      "type": "rating",
+      "name": "Star rating",
+      "limit": 1,
+      "fields": [
+        {
+          "id": "show_average",
+          "label": "Show the average",
+          "type": "toggle",
+          "default": true
+        },
+        {
+          "id": "show_count",
+          "label": "Show how many reviews",
+          "type": "toggle",
+          "default": true
+        },
+        {
+          "id": "size",
+          "label": "Star size",
+          "type": "range",
+          "min": 12,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "id": "star_color",
+          "label": "Star color",
+          "type": "color",
+          "default": "",
+          "info": "Empty uses the color set in Storelib Reviews."
+        },
+        {
+          "id": "align",
+          "label": "Alignment",
+          "type": "alignment",
+          "default": "left"
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 14
+        }
+      ]
+    },
+    {
       "type": "price",
       "name": "Price",
       "limit": 1,

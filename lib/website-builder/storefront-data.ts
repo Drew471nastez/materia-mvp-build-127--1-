@@ -239,13 +239,14 @@ export interface ProductRowLike {
  * so it goes out twice: as words, and as markup cleaned against the same
  * allow list a rich text setting is, which is the promise `raw` rests on.
  */
-export function productFacts(row: ProductRowLike | null | undefined): NonNullable<StorefrontData["product"]> | null {
+export function productFacts(row: ProductRowLike | null | undefined, currency?: string): NonNullable<StorefrontData["product"]> | null {
   if (!row) return null
   const images = imagesOnly([row.thumbnail_url, ...(row.gallery_urls ?? [])]).filter((u): u is string => typeof u === "string" && /^(https?:\/\/|\/(?![/\\]))/.test(u))
   const unique = [...new Set(images)]
   const html = sanitizeRichText(row.description ?? "")
-  const price = formatPrice(row.price_cents)
-  const was = formatPrice(row.compare_at_cents)
+  /* In the store's own currency (lib/store/selling-currency), the one the price is in. */
+  const price = formatPrice(row.price_cents, currency)
+  const was = formatPrice(row.compare_at_cents, currency)
   return {
     id: row.id,
     title: row.title ?? "",

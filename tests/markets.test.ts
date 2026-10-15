@@ -9,7 +9,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { storeChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { sellingCurrencyOf } from "@/lib/store/selling-currency"
 import { baseLanguage, dirOf, languageCountry, languageName, localeFromPath, localizedPath, normalizeLocale, preferredLocale } from "@/lib/markets/locales"
 import { convertMinor, formatMinor, chargeNote, fxFresh, minorUnits, type FxRates } from "@/lib/markets/money"
 import { defaultLocalization, isLocalized, marketForCountry, publishedLanguages, validateLocalization } from "@/lib/markets/model"
@@ -167,13 +167,14 @@ console.log("\nWired into the website\n")
   const render = read("app/(site)/w/[username]/render-site.tsx")
   check("hreflang for every language, x-default the website's own", /languages \? \{ languages \}/.test(render) && /x-default/.test(live))
   const theme = read("components/website-builder/theme/ThemePage.tsx")
-  check("the page's lang and dir, and the language switch under the footer (never in the editor)", /storefront\?\.language\?\.code \?\?/.test(theme) && /storefront\?\.language && !storefront\.inEditor \? <LanguageSwitch/.test(theme))
+  /* Changed on purpose (the owner: currency in the builder like the live site): in the editor too, where a choice changes the preview (storefront.preview), never the address. */
+  check("the page's lang and dir, and the language switch under the footer (in the editor only as a preview)", /storefront\?\.language\?\.code \?\?/.test(theme) && /storefront\?\.language && \(!storefront\.inEditor \|\| storefront\.preview\) \? <LanguageSwitch choice=\{storefront\.language\} preview=\{storefront\.inEditor \? storefront\.preview : undefined\} \/>/.test(theme))
   const form = read("components/app/settings-form-new.tsx")
-  check("Settings › Languages & Currency, fetched ahead like the others", /* Changed on purpose (the owner: call it Languages & Currency). */ /id: "markets", label: "Languages & Currency"/.test(form) && /markets: \(\) => \["\/api\/store\/markets"\]/.test(form) && /panelTab === "markets" && <MarketsPanel \/>/.test(form))
+  check("Settings › Languages, fetched ahead like the others", /* Changed on purpose (the owner: call it Languages & Currency; then just Languages, with the currency under Store details). */ /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /id: "markets", label: "Languages & Currency"/.test(form) && /markets: \(\) => \["\/api\/store\/markets"\]/.test(form) && /panelTab === "markets" && <MarketsPanel \/>/.test(form))
   const panel = read("components/app/settings/markets-panel.tsx")
-  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /title="Markets & Currency"\s*help="markets"/.test(panel) && !/MARKETS_ON/.test(panel))
+  check("Markets are live: the card is there for every store, no flag", /* Changed on purpose (round AE, then the owner: call it Markets & Currency). */ /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /title="More currencies"\s*help="markets"/.test(panel) && !/MARKETS_ON/.test(panel))
   const draft = read("app/api/store/translations/draft/route.ts")
-  check("AI drafts are rate limited and saved as drafts", /rateLimit|limit/i.test(draft) && /approved: false|ai: true/.test(draft))
+  check("AI drafts are rate limited and saved as drafts", /rateLimit|limit/i.test(draft) && /* Changed on purpose (overhaul): saved by the round the press and the job share. */ /approved: false, ai: true/.test(read("lib/markets/translation-press.ts")))
   const sql = read("supabase/sql/run-now/136_markets_languages.sql")
   check("part 136: three tables, service role only, row level security on", /store_localization/.test(sql) && /site_translations/.test(sql) && /fx_rates/.test(sql) && (sql.match(/ENABLE ROW LEVEL SECURITY/gi) ?? []).length >= 3 && /REVOKE ALL/i.test(sql))
   check("  and its migration is the same file", sql === read("supabase/migrations/20270110_markets_languages.sql"))
@@ -203,10 +204,11 @@ console.log("\nRound AE: no more English corners, and the builder previews every
   const api = read("app/api/store/translations/route.ts")
   check("the builder's preview reads the approved values only, with each one's original", /searchParams\.get\("values"\) === "1"/.test(api) && /r\.status === "approved" && r\.value/.test(api) && /h: r\.sourceHash/.test(api))
   const hook = read("components/website-builder/use-preview-language.ts")
-  check("  read again when the builder comes back into view, remembered for the tab", /visibilitychange/.test(hook) && /sessionStorage/.test(hook))
+  check("  read again when the builder comes back into view, remembered for the tab", /visibilitychange/.test(hook) && /* Changed on purpose (the owner: the editor opens on the defaults): nothing remembered. */ !/sessionStorage/.test(hook))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("  the canvas lays it over its sections, menus and products, and shows the shop's words", /localizeSections\(\s*drawnSections,\s*previewMap/.test(editor) && /localizeMenus\(canvasMenus/.test(editor) && /sections=\{drawnShown\}/.test(editor) && /words=\{previewLang\.words\}/.test(editor))
-  check("  a language button beside the page switcher, and a phone's in the menu", /<PreviewLanguageSwitch lang=\{previewLang\} \/>/.test(editor) && /Preview in \$\{languageName\(next, "en"\)\}/.test(editor))
+  /* Changed on purpose (the owner: currency in the builder like the live site): the same button previews the market's prices too. */
+  check("  a language button beside the page switcher, and a phone's in the menu", /* Changed on purpose (the owner: no selectors in the black bar; the theme's own are the canvas's): neither is there. */ !/PreviewLanguageSwitch/.test(editor) && !/Preview in \$\{languageName/.test(editor) && /language=\{canvasChoice\}/.test(editor))
   const canvas = read("components/website-builder/compat/compat-canvas.tsx")
   check("  an imported theme's canvas too: its sections, menus, products, its own | t words and request.locale", /compatFields\(compatTheme\)/.test(canvas) && /compat-locale=/.test(canvas) && /i18n,/.test(canvas) && /withoutLanguage\(n\.href/.test(canvas))
   check("  the theme's words for one language, from its own files, behind the owner's sign in", /searchParams\.get\("compat-locale"\)/.test(read("app/api/website-builder/themes/[installId]/files/route.ts")))
@@ -219,24 +221,26 @@ console.log("\nThis round: Translate waits for the language, flags, and the stor
   const sheet = read("components/app/settings/translate-sheet.tsx")
   check("a language just added is read only once its save has landed (no more \"no text to translate yet\")",
     /setAdding\(code\)/.test(panel) && /waiting=\{!!translating && adding === translating\}/.test(panel) && /if \(!waiting\) void load\(locale\)/.test(sheet))
-  check("  a language the server does not have is said, not drawn as an empty website", /if \(!r\.data\.locale\) return setError/.test(sheet))
+  check("  a language the server does not have is said, not drawn as an empty website", /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /if \(attempt >= 2\) return setError/.test(sheet))
   check("languages and markets show flags from the local sprite, never purple initials or emoji",
     /const flag = languageFlag\(code\)/.test(panel) && /<CountryFlag code=\{flag\}/.test(panel) && !/bg-\[#f1ecff\]/.test(panel) && !/fromCodePoint/.test(panel))
   check("  a language's flag: its region when the tag names one, else its usual country",
     languageCountry("pt-BR") === "BR" && languageCountry("fr") === "FR" && languageCountry("zh-Hant") === "TW" && languageCountry("zh-Hans") === "CN" && languageCountry("xx") === null)
-  check("a store's own checkout charges in the store's currency when payments are set up for it",
-    storeChargeCurrency("EUR") === "eur" && storeChargeCurrency("gbp") === "gbp" && storeChargeCurrency("JPY") === "jpy")
-  const platform = process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "usd" ? "usd" : "ron"
-  check("  and the platform's for one it is not (or nothing set)", storeChargeCurrency("XYZ") === platform && storeChargeCurrency("CHF") === platform && storeChargeCurrency(null) === platform)
-  check("  the website's basket, its physical checkout and the old cart route all use it",
-    /storeChargeCurrencyFor\(admin, site\.creatorId\)/.test(read("app/api/checkout/site/route.ts")) &&
-    /storeChargeCurrencyFor\(admin, creatorId\)/.test(read("app/api/checkout/cart/route.ts")) &&
-    /storeChargeCurrency\(creator\.payout_currency\)/.test(read("lib/physical/checkout-server.ts")))
+  /* Changed on purpose: the store's currency is its own setting (Store details › Country & Currency, lib/store/selling-currency), apart from the payout currency it was read from. */
+  check("a store's own checkout charges in the currency it sells in",
+    sellingCurrencyOf("EUR") === "EUR" && sellingCurrencyOf("gbp") === "GBP" && sellingCurrencyOf("RON") === "RON")
+  const platform = process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "usd" ? "USD" : "RON"
+  check("  and the platform's for one it can't charge (or nothing set)", sellingCurrencyOf("XYZ") === platform && sellingCurrencyOf("CHF") === platform && sellingCurrencyOf(null) === platform)
+  check("  the website's basket, its physical checkout and the old cart route all read it",
+    /readStoreCurrency\(admin, site\.creatorId\)/.test(read("app/api/checkout/site/route.ts")) &&
+    /readStoreCurrency\(admin, creatorId\)/.test(read("app/api/checkout/cart/route.ts")) &&
+    /readStoreCurrency\(db, priced\.creatorId\)/.test(read("lib/physical/checkout-server.ts")) &&
+    !/payout_currency/.test(read("lib/physical/checkout-server.ts")))
   check("  the checkout pages show that currency, and the card form is drawn for it",
-    /currency=\{currency\}/.test(read("app/checkout/site/page.tsx")) && /currency=\{currency\}/.test(read("app/checkout/physical/page.tsx")) &&
-    /\(props\.currency \|\| CHECKOUT_CURRENCY\)\.toLowerCase\(\)/.test(read("app/checkout/parts/stripe-pay.tsx")))
+    /* Changed on purpose (overhaul): the currency it is charged in, the store's or the visitor's market's. */ /<CheckoutCurrency currency=\{market\.chargeCurrency\}>/.test(read("app/checkout/site/page.tsx")) && /<CheckoutCurrency currency=\{currency\}>/.test(read("app/checkout/physical/page.tsx")) &&
+    /const chargeCurrency = useCheckoutCurrency\(\)\.toLowerCase\(\)/.test(read("app/checkout/parts/stripe-pay.tsx")))
   check("  a basket's order rows say what Stripe charged, not a fixed usd",
-    /currency: \(ctx\.currency \|\| "usd"\)\.toLowerCase\(\)/.test(read("lib/checkout/fulfil-cart-item.ts")) && /currency: session\.currency \?\? pi\?\.currency \?\? null/.test(read("lib/checkout/fulfil-cart-session.ts")))
+    /currency: \(ctx\.currency \|\| "usd"\)\.toLowerCase\(\)/.test(read("lib/checkout/fulfil-cart-item.ts")) && /currency: session\.currency \|\| pi\?\.currency \|\| null/.test(read("lib/checkout/fulfil-cart-session.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

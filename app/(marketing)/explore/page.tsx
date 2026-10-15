@@ -7,6 +7,7 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { settleWithin } from "@/lib/net/request"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { storeCurrencies } from "@/lib/store/store-currencies"
 import { offChannelAmong } from "@/lib/store/channel-filter"
 import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
 import { readInterests } from "@/lib/explore/read-interests"
@@ -172,8 +173,10 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
     intervalsPromise,
     /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server. */
     salesStandings(createAdminClient(), products.map((p) => p.id)),
+    /* Each card in its store's own currency (lib/store/store-currencies). */
+    storeCurrencies(createAdminClient(), products.map((p) => p.creator_id)),
   ])
-  const [offExplore, creators, profiles, intervals, standings] = await together
+  const [offExplore, creators, profiles, intervals, standings, currencies] = await together
   if (offExplore.size) products = products.filter((p) => !offExplore.has(p.id))
 
   const creatorById = new Map(creators.map((c) => [c.id, c]))
@@ -188,6 +191,7 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
     ...product,
     ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
     ...(salesSoldOut(standings.get(product.id)) ? { sold_out: true } : {}),
+    currency: currencies.get(product.creator_id) ?? null,
     creator: creatorOf(product),
     categories: [],
     categoryName: product.category || null,

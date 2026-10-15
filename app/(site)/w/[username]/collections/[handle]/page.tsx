@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { splitSiteName } from "@/lib/markets/site-name"
 import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { Metadata } from "next"
@@ -38,7 +39,9 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const found = HANDLE.test(handle) ? await publishedShopByName(splitSiteName(segment).name).catch(() => null) : null
   const inIt = found?.kind === "site" ? await collectionMembers(found.site.creatorId, handle).catch(() => null) : null
   const name = inIt?.collection.title?.trim()
-  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page) } : undefined)
+  /* Its own address for search engines, in each language: every collection used to name the collections index as its canonical. */
+  const path = HANDLE.test(handle) ? `/collections/${handle}` : undefined
+  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page), path } : { path })
 }
 
 /**
@@ -67,9 +70,11 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, productCount } = found
+  const { site: own, productCount } = found
   /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
-  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale, market), languageChoice(site.creatorId, locale, market)])
+  const [localizer, language] = await Promise.all([siteLocalizer(own.creatorId, locale, market), languageChoice(own.creatorId, locale, market)])
+  /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
+  const site = localizer ? { ...own, themeSettings: localizer.theme(own.themeSettings as Record<string, unknown>) as typeof own.themeSettings } : own
   const products = localizer && found.products ? localizer.cards(found.products) : found.products
   /* Held with the shop for its minute (lib/website-builder/collection-members.ts). */
   const inIt = await collectionMembers(site.creatorId, handle)
@@ -89,8 +94,10 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   const extra = older.length ? await pickedProducts(createAdminClient() as never, site.creatorId, { ids: older, slugs: [] }) : []
   const cards = [...pool.filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 
-  const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, inIt.collection, site.pages.collection)
-  const dressed = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "collection", inIt.collection.title)
+  /* Its name and description in the page's language (lib/markets/live.ts collection). */
+  const collection = localizer ? localizer.collection(inIt.collection) : inIt.collection
+  const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, collection, site.pages.collection)
+  const dressed = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "collection", collection.title, undefined, { cached: true, localizer })
   const sections = dressed.sections
   /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
@@ -102,7 +109,7 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
         emptyDetail="Nothing in this collection yet."
       />
       <TrackView creatorId={site.creatorId} />

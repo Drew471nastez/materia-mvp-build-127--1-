@@ -90,6 +90,16 @@ export const EXPLAINERS = {
     ] },
     guide: "/help/physical-products/checkout-settings",
   },
+  "cash-on-delivery": {
+    get title() { return tt("How cash on delivery works") },
+    art: "checkout",
+    get lines() { return [
+      tt("The buyer chooses Cash on delivery at checkout. The order is placed at once, with no card, and you send it as usual."),
+      tt("It reads Payment pending until you press Mark as paid on the order, once you have the cash. A parcel the buyer refuses: press Refused on delivery. Nothing is refunded, and what was sent comes back as a return."),
+      tt("No Storelib fee is taken, and the money never passes through your Storelib balance. A fee you set here is added to the order and shown before it is placed."),
+    ] },
+    guide: "/help/physical-products/cash-on-delivery",
+  },
   channels: {
     get title() { return tt("How sales channels work") },
     art: "channels",
@@ -146,7 +156,7 @@ export const EXPLAINERS = {
     get lines() { return [
       tt("Your store's name and contact details go on receipts, order emails and your checkout, so buyers know who they bought from."),
       tt("Your phone is shown to your payment provider and on order emails, so a buyer or a carrier can reach you about an order."),
-      tt("Where your store is based is the country new locations and tax regions start in. Prices are in your payout currency, set under Payments."),
+      tt("Your country is where new locations and tax regions start. Your currency is what your prices are in and what buyers pay, set under Country & Currency."),
       tt("Business details put your legal name, address and tax number on every receipt and invoice."),
     ] },
     guide: "/help/physical-products/store-details",
@@ -155,20 +165,31 @@ export const EXPLAINERS = {
     get title() { return tt("How languages work") },
     art: "languages",
     get lines() { return [
-      tt("Your website stays at its own address in your default language. Every other language gets the same pages under its code: yourstore.com/fr, yourstore.com/fr/products/mug."),
-      tt("Visitors switch with the language selector. On a Storelib theme it sits under the footer by itself. On a theme you imported from Shopify it is the theme's own selector, turned on in the editor (Show language, usually in the header or footer)."),
-      tt("With Show visitors their own language on, a first visit opens in the published language the browser asks for, once. A close match, or only the country to go by, gets a small offer on the page instead. A market can also start its countries in its own language. After that the visitor's choice wins, and search engines still see every language at its own address."),
-      tt("Only approved translations show, and only once a language is published. Anything not translated yet shows in your default language, never blank."),
+      tt("Each language gets its own address, like yourstore.com/fr."),
+      tt("Visitors switch with your theme's language selector. Turn on Show visitors their own language to open a first visit in their browser's language."),
+      tt("Only approved translations go live, once the language is published. The rest shows in your default language."),
     ] },
+    guide: "/help/physical-products/languages-and-currencies-for-visitors",
   },
-  markets: {
-    get title() { return tt("How markets and currencies work") },
+  currency: {
+    get title() { return tt("How your currency works") },
     art: "markets",
     get lines() { return [
-      tt("A market is a group of countries. Give it a currency and its visitors see your prices converted at the day's European Central Bank rate, with the rounding you pick."),
-      tt("Visitors are matched by the country they browse from, and can change it with the currency or country selector. Their choice is remembered."),
-      tt("Checkout charges what your store's prices are in, and says so next to the total, so a converted price is always shown as an estimate."),
+      tt("Your country is where your store is based. Your currency is the one your prices are typed in, and the one buyers pay in at checkout: a store in lei charges lei."),
+      tt("Changing the currency asks what happens to your prices: keep the numbers (100 EUR becomes 100 USD) or convert them at the day's exchange rate. Orders already placed keep their own currency."),
+      tt("Payouts arrive in your bank's currency. Stripe converts them, which never changes what a buyer paid."),
     ] },
+    guide: "/help/physical-products/country-and-currency",
+  },
+  markets: {
+    get title() { return tt("How visitor currencies work") },
+    art: "markets",
+    get lines() { return [
+      tt("Add a currency for a group of countries, and visitors from there see your prices converted at the day's European Central Bank rate, with the rounding you pick."),
+      tt("Visitors are matched by the country they browse from, and can change it with the currency selector. Their choice is remembered."),
+      tt("Checkout charges the visitor's currency, the amounts they saw. A currency Storelib can't charge yet is shown for reference, and checkout says it charges yours."),
+    ] },
+    guide: "/help/physical-products/languages-and-currencies-for-visitors",
   },
 } satisfies Record<string, Explainer>
 

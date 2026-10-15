@@ -813,7 +813,7 @@ function EmbedPosterFace({ item, posterWidth }: { item: Extract<ViewerItem, { ki
         <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
       )}
       <span
-        className={`relative flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full text-white shadow-[0_10px_40px_-8px_rgba(0,0,0,0.55)] transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/play:scale-[1.06] group-active/play:scale-[0.98] motion-reduce:transition-none ${
+        className={`relative flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full text-white shadow-[0_10px_40px_-8px_rgba(0,0,0,0.55)] transition-[scale,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/play:scale-[1.06] group-active/play:scale-[0.98] motion-reduce:transition-none ${
           item.provider === "youtube" ? "bg-[#ff0000]/95 group-hover/play:bg-[#ff0000]" : "bg-black/65 group-hover/play:bg-black/75"
         }`}
       >

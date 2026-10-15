@@ -49,6 +49,14 @@
     {
       "path": "/api/cron/community",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/translations",
+      "schedule": "47 * * * *"
+    },
+    {
+      "path": "/api/cron/translation-jobs",
+      "schedule": "*/3 * * * *"
     }
   ],
   "rewrites": [

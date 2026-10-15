@@ -11,7 +11,7 @@
  *
  * Pure: the rates and the market are handed in.
  */
-import { convertMinor, formatMinor, minorUnits, type FxRates, type PriceRounding } from "./money"
+import { chargeNote, convertMinor, currencyWord, formatMinor, minorUnits, type FxRates, type PriceRounding } from "./money"
 
 export interface MarketPrice {
   id: string
@@ -19,6 +19,8 @@ export interface MarketPrice {
   currency: string
   rounding: PriceRounding
   adjustBps: number
+  /** The store's own rate (1 of the store's currency in the market's), used instead of the day's (lib/markets/model.ts Market rate). */
+  rate?: number | null
 }
 
 export interface Pricing {
@@ -43,13 +45,62 @@ export interface StorefrontDisplay {
   base: string
   fx: FxRates
   locale: string
-  /** "Prices in EUR are an estimate. You'll pay in USD at checkout…" */
+  /** "Prices in PLN are for reference. You'll pay in RON…": only for a market whose currency the checkout cannot charge (lib/markets/checkout-charge). */
   note: string | null
+}
+
+/**
+ * A price read off a page that shows a market's currency ("44,50 €" in a
+ * section's own add-to-cart button, as hundredths: priceCentsFrom), back in
+ * the store's currency, which is what a cart line keeps and converts again
+ * to show. Without this the cart converted an already converted price. The
+ * market's adjustment is taken off; its rounding cannot be, so the line
+ * shows within a cent of the card. Null when the page shows the store's own.
+ */
+export function storeCentsFromShown(shownCents: number, display: StorefrontDisplay | null | undefined): number | null {
+  if (!display || !Number.isFinite(shownCents) || !pricingFor(display.market, display.base, display.fx)) return null
+  const shownMinor = Math.round((shownCents / 100) * 10 ** minorUnits(display.market.currency!))
+  const back = convertMinor(shownMinor, display.market.currency!, display.base, display.fx)
+  if (back === null) return null
+  const adjusted = back / (1 + (display.market.adjustBps ?? 0) / 10_000)
+  /* "Cents" as a cart line counts them: hundredths of the store currency's major unit. */
+  return Math.round((adjusted / 10 ** minorUnits(display.base)) * 100)
+}
+
+/** A market's own rate as a day's rates: 1 of `base` is `rate` of `currency`, everything per euro as the ECB writes it. */
+export function ownRates(base: string, currency: string, rate: number, now = Date.now()): FxRates {
+  const asOf = new Date(now).toISOString().slice(0, 10)
+  if (base === "EUR") return { asOf, rates: { [currency]: rate } }
+  if (currency === "EUR") return { asOf, rates: { [base]: 1 / rate } }
+  return { asOf, rates: { [base]: 1, [currency]: rate } }
+}
+
+/**
+ * Product cards with their prices in the market's currency: the card's price
+ * and the one before a sale, each option's, and the currency it says. The
+ * live site (live.ts cards) and the builder's market preview draw with this
+ * one function, so the two never disagree.
+ */
+export function convertCardPrices<T extends { settings: { price: string; compare_price: string; currency?: string; variants?: { price: string; compare_price: string }[] } }>(list: T[], pricing: Pricing | null | undefined, locale = "en"): T[] {
+  if (!pricing) return list
+  const price = (t: string) => (t ? convertPriceText(t, pricing, locale) : t)
+  return list.map((c) => ({
+    ...c,
+    settings: {
+      ...c.settings,
+      price: price(c.settings.price),
+      compare_price: price(c.settings.compare_price),
+      currency: pricing.currency,
+      variants: (c.settings.variants ?? []).map((v) => ({ ...v, price: price(v.price), compare_price: price(v.compare_price) })),
+    },
+  }))
 }
 
 /** The conversion for a market, or null when it shows the store's own prices (no currency of its own, the same currency, or no fresh rates). */
 export function pricingFor(market: MarketPrice | null | undefined, base: string, fx: FxRates | null | undefined, now = Date.now()): Pricing | null {
   if (!market || !market.currency || market.currency === base) return null
+  /* The store's own rate, written as the rates are (per euro), and today's: it never goes stale. */
+  if (typeof market.rate === "number" && market.rate > 0) fx = ownRates(base, market.currency, market.rate, now)
   const probe = convertMinor(100, base, market.currency, fx, { now })
   if (probe === null) return null
   const convert = (minor: number) => convertMinor(minor, base, market.currency, fx, { now, rounding: market.rounding, adjustBps: market.adjustBps })
@@ -83,6 +134,36 @@ export function convertPriceText(text: string, pricing: Pricing, locale = "en"):
   return `${shown}${suffix}`
 }
 
+/** A product card's prices, as a page is handed them: the written amounts ("$48.00", "$9.00/month") and each variant's. */
+export interface CardPrices {
+  price?: string
+  compare_price?: string
+  currency?: string
+  variants?: { price?: string; compare_price?: string }[]
+}
+
+/**
+ * A card's prices in the market's currency, written the way a reader of
+ * `locale` reads money: what the live site hands a page of a builder theme
+ * (lib/markets/live.ts Localizer.cards), and what the builder's canvas draws
+ * for the market it previews. Display only: checkout charges the store's.
+ */
+export function pricesInMarket<S extends CardPrices>(settings: S, pricing: Pricing, locale: string): S {
+  const price = (t: string | undefined) => (t ? convertPriceText(t, pricing, locale) : t)
+  return {
+    ...settings,
+    price: price(settings.price),
+    compare_price: price(settings.compare_price),
+    currency: pricing.currency,
+    variants: (settings.variants ?? []).map((v) => ({ ...v, price: price(v.price), compare_price: price(v.compare_price) })),
+  } as S
+}
+
+/** The conversion as plain data for the page (StorefrontContext display): the cart, the drawer and the product page convert their amounts with it, in the browser, as the cards were. */
+export function storefrontDisplay(pricing: Pricing, locale: string, chargeCurrency: string): StorefrontDisplay {
+  return { market: pricing.market, base: pricing.base, fx: pricing.fx, locale, note: chargeNote(pricing.currency, chargeCurrency) }
+}
+
 /** A converted amount in "cents" (hundredths of the major unit), as an imported theme's money filter counts, for any currency. */
 export function convertedCents(minorBase: number, pricing: Pricing): number | null {
   const out = pricing.convert(minorBase)
@@ -97,8 +178,10 @@ export function moneyFormatFor(currency: string, locale = "en"): string {
     const parts = new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: "narrowSymbol" }).formatToParts(1)
     const i = parts.findIndex((p) => p.type === "currency")
     const n = parts.findIndex((p) => p.type === "integer")
-    const symbol = parts[i]?.value ?? currency
-    return i < n ? `${symbol}${amount}` : `${amount} ${symbol}`
+    const narrow = parts[i]?.value ?? currency
+    /* A sign written in letters ("L" for lei in German, or the code) is the currency's own word after the amount, as every price is written (money.ts currencyWord). */
+    if (/^\p{L}+$/u.test(narrow)) return `${amount} ${currencyWord(currency) ?? currency.toUpperCase()}`
+    return i < n ? `${narrow}${amount}` : `${amount} ${narrow}`
   } catch {
     return `${amount} ${currency}`
   }

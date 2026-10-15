@@ -46,6 +46,8 @@ import { planContact } from "@/lib/contacts/checkout-contact"
 import { decodeItems } from "@/lib/physical/cart-link"
 import { FakeSupabase } from "./fake-supabase"
 import { stripComments } from "./_source"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { minimumChargeMinor, sellingCurrencyOf } from "@/lib/store/selling-currency"
 
 let passed = 0
 let failed = 0
@@ -208,7 +210,8 @@ async function main() {
     const foreign = await siteQuote(pricingDb({ products: [product(B, OTHER, 2500)] }), SHOP, { items: [{ productId: B }] })
     check("a cart that is all another shop's is refused on this site", foreign.ok === false, foreign)
     const tiny = await siteQuote(pricingDb({ products: [product(A, SHOP, 30)] }), SHOP, { items: [{ productId: A }] })
-    check("under the smallest card payment is refused before any form", tiny.ok === false && /0\.50/.test(tiny.error), tiny)
+    /* Changed on purpose: the smallest card payment is Stripe's in the store's currency (2 lei, 50 cents). */
+    check("under the smallest card payment is refused before any form", tiny.ok === false && tiny.error.includes(shopMoneyIn(minimumChargeMinor(sellingCurrencyOf(null)), sellingCurrencyOf(null))), tiny)
     const ships = await siteQuote(pricingDb({ products: [product(A, SHOP, 1500, { type: "physical" })] }), SHOP, { items: [{ productId: A }] })
     check("while physical commerce is off, a product that ships is left out, never charged", ships.ok === false, ships)
     const badCode = await priceSiteCart(db, SHOP, { items, couponCode: "NOPE" })
@@ -237,7 +240,7 @@ async function main() {
               matrix = false
               console.log("   matrix broke at", { company, phone, address2, nameFields })
             }
-            const filled = { email: "a@b.co", first: "Jane", last: "Smith", company: "Co", phone: "123", line2: "4B" }
+            const filled = { email: "a@b.co", first: "Jane", last: "Smith", company: "Co", phone: "+40 712 345 678", line2: "4B" } /* Changed on purpose (the owner: a phone is checked as a number, so a real one): was "123". */
             const empty = { email: "a@b.co", first: "Jane", last: "", company: "", phone: "", line2: "" }
             const want = nameFields === "first_and_last" ? "last" : company === "required" ? "company" : phone === "required" ? "phone" : address2 === "required" ? "line2" : null
             if (missingField(shipped, filled) !== null || missingField(shipped, empty) !== want) {

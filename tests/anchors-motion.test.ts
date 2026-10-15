@@ -29,6 +29,9 @@ import {
   splitSectionHref,
   themeAnimation,
   declaresOwnMotion,
+  entranceSetting,
+  tabSwitchUpgrade,
+  withTabSwitchKey,
   type SectionLike,
 } from "../lib/website-builder/section-anchors"
 import { LINK_CATEGORIES, linkCategoryOf, linkMenu, sectionLinkTargets, sectionTargetFor, drillsIntoSections, picksDirectly } from "../lib/website-builder/link-menu"
@@ -179,7 +182,34 @@ function main() {
   const renderer = read("components/website-builder/sections/SectionRenderer.tsx")
   check("every section's box carries its anchor and its key, in both",
     /data-anchor=\{sectionAnchor\(props\.section\.id\)\}/.test(renderer) && /data-section-key=\{props\.section\.id\}/.test(renderer))
-  check("and its own animation choice", /data-animation=\{sectionAnimationAttr\(props\.section\.settings\?\.animation\)\}/.test(renderer))
+  check("and its own animation choice", /data-animation=\{sectionAnimationAttr\(entranceSetting\(props\.section\)\)\}/.test(renderer))
+
+  /* Tabs kept its tab switch in `animation` before `tab_animation`: that is not an entrance (it faded every tabs section in with the theme's animations off). */
+  check("a tabs section saved before tab_animation has no entrance of its own", entranceSetting({ type: "tabs_content", settings: { animation: "fade" } }) === undefined)
+  check("  one saved since keeps the entrance it chose", entranceSetting({ type: "tabs_content", settings: { tab_animation: "slide", animation: "zoom" } }) === "zoom")
+  check("  every other section reads `animation` as before", entranceSetting({ type: "image_banner", settings: { animation: "fade" } }) === "fade")
+  check("  the schema calls the switch tab_animation", /"id": "tab_animation",\s*"label": "Tab switch animation"/.test(read("themes/default/sections/tabs_content.json")) && !/"id": "animation"/.test(read("themes/default/sections/tabs_content.json")))
+  const tabs = read("components/website-builder/sections/renderers/TabsContentSection.tsx")
+  check("  and the section still reads an old saved switch", /str\(s\.tab_animation, str\(s\.animation, "fade"\)\)/.test(tabs))
+  check("  a new tabs section is added with tab_animation, never animation", /"tab_animation": "fade"/.test(read("themes/default/sections/tabs_content.json")) && !/"animation": "fade"/.test(read("themes/default/sections/tabs_content.json")))
+  const upgraded = withTabSwitchKey<{ type: string; settings: Record<string, unknown> }>({ type: "tabs_content", settings: { animation: "slide", heading: "x" } })
+  check("  an old one is brought up to date as the editor loads it: the switch moved, the old key gone", upgraded.settings.tab_animation === "slide" && !("animation" in upgraded.settings) && upgraded.settings.heading === "x")
+  check("    so setting its switch later never turns the old value into an entrance", entranceSetting({ ...upgraded, settings: { ...upgraded.settings, tab_animation: "none" } }) === undefined)
+  check("    and the editor does it on every page it loads", /sec = withTabSwitchKey\(sec\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  const write = tabSwitchUpgrade({ type: "tabs_content", settings: { animation: "fade" } }, { tab_animation: "slide" })
+  check("  a write through the assistant or the agent API to an old one clears the old key", write.settings.tab_animation === "slide" && write.unset.join() === "animation")
+  const designPanel = read("components/website-builder/editor/design-panels.tsx")
+  check("  the panel offers the entrance for tabs too", /const own = entranceSetting\(section\)/.test(designPanel) && /const setAnimation = \(v: string\) => onUpdateSetting\("animation"/.test(designPanel))
+  check("the panel says the first section shows without an entrance", /firstBody \? <p[^>]*>\{?"?The first section is on screen as the page opens, so it shows without an entrance\."?\}?/.test(designPanel) && /firstBody=\{sections\.find\(\(x\) => !x\.hidden && !isChromeType\(x\.type\)\)\?\.id === section\.id\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("\"Same as theme\" names alternate sides, never fade up", /themeAlternates\(asRecord\(theme\)\) \? "alternate sides"/.test(designPanel))
+
+  /* A changed setting plays in the editor: the edited section is on screen, and on screen is never hidden. */
+  const revealCode = read("lib/website-builder/section-motion.ts")
+  check("the reveal can play an entrance on what is in view", /preview: \(keys: string\[\] \| null\) => void/.test(revealCode) && /if \(r\.bottom <= view\.top \|\| r\.top >= view\.bottom\) return/.test(revealCode))
+  check("  only what the plan animates: never the first section, the chrome or None", /const s = plan\[i\]\s*if \(!s \|\| b\.hasAttribute\("data-reveal"\)\) return/.test(revealCode))
+  const motionHook = read("components/website-builder/theme/use-site-motion.ts")
+  check("  the editor plays it after a change, never on first load or on the live page", /if \(!inEditor \|\| !before\) return/.test(motionHook) && /if \(before\.theme !== now\.theme\) return r\.preview\(null\)/.test(motionHook) && /if \(changed\.length\) r\.preview\(changed\)/.test(motionHook))
+  check("  and the plan's key reads the same entrance the renderer does", /* Changed on purpose (merge with main): only the sections that chose their own entrance are named, by id. */ /const own = entranceSetting\(s\)\s*return own == null \? \[\] : \[\[s\.id, own\]\]/.test(motionHook))
   const themePage = read("components/website-builder/theme/ThemePage.tsx")
   check("the published box keeps its section-<id> id", /wrapperId=\{`section-\$\{section\.id\}`\}/.test(themePage))
   check("ThemePage runs the motion for every surface", /useSiteMotion\(rootRef, theme, sections, storefront\?\.inEditor === true\)/.test(themePage) && /ref=\{rootRef\}/.test(themePage))
@@ -192,6 +222,11 @@ function main() {
   check("the address changes without a jump", /window\.history\.pushState\(window\.history\.state, "", url\.hash\)/.test(motion))
   check("a stylesheet's smooth scrolling is off while it runs", /styled\.style\.scrollBehavior = "auto"/.test(motion))
   check("sections are hidden only below the screen, and observed once", /if \(b\.getBoundingClientRect\(\)\.top < bottom\) return/.test(motion) && /io\.unobserve\(e\.target\)/.test(motion))
+  /* Changed on purpose (the owner: the builder plays the theme's animations like the live site). Measured in scripts/check-section-reveal.mjs, "The builder's canvas, edited". */
+  check("in the builder too: after an edit, a box not seen before is planned like any other, and none already seen is touched",
+    /const rescan = \(\) => \{/.test(motion) && /if \(seen\.has\(b\)\) return\s*seen\.add\(b\)/.test(motion) && !/for \(const b of boxes\) seen\.add\(b\)/.test(motion) && /reveal\.current\?\.rescan\(\)/.test(hook))
+  check("  a section added, removed or moved is not a new plan: only the sections that chose their own animation are named, by id",
+    /* Changed on purpose (merge): read through entranceSetting, which a tabs section's own animation goes by. */ /body\.flatMap\(\(s\) => \{\s*const own = entranceSetting\(s\)\s*return own == null \? \[\] : \[\[s\.id, own\]\]/.test(hook))
   check("on opacity and transforms only", /fill: "backwards"/.test(motion) && !/(height|top|margin)\s*:/.test(motion.slice(motion.indexOf("function keyframesFor"), motion.indexOf("export interface Reveal"))))
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
   check("the menu drawer closes, then scrolls", /window\.setTimeout\(go, CLOSE_MS\)/.test(header) && /if \(!followSectionLink\(href\)\) window\.location\.assign\(href\)/.test(header))

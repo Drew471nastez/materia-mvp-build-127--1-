@@ -108,7 +108,8 @@ async function main() {
   const hero = readCode("components/profile/profile-hero.tsx")
   check("the bar's height is measured, not guessed", PROFILE_CHROME_VAR === "--profile-chrome" && typeof stickyChromeHeight === "function")
   check("a bar that scrolls away with the page is measured as nothing", (() => {
-    const fake = { getElementById: () => null, defaultView: null } as unknown as Document
+    /* Changed on purpose: the height also reads a community's own top bar on /account (components/profile/profile-chrome-var.ts), found with querySelector. */
+    const fake = { getElementById: () => null, querySelector: () => null, defaultView: null } as unknown as Document
     return stickyChromeHeight(fake) === 0
   })())
   check("the pin is that height plus twelve", EDIT_PIN_TOP === "calc(max(64.6px, var(--profile-chrome, 0px)) + 12px)", EDIT_PIN_TOP)
@@ -116,10 +117,12 @@ async function main() {
   check("the row is sticky at that top", /className="sticky" style=\{\{ top: EDIT_PIN_TOP \}\}/.test(hero))
   check("it is no longer pinned 12px inside the band and left there", !/absolute inset-x-0 top-3 sm:bottom-4/.test(hero))
   check("its track runs from the band's top to its foot, so it holds while the cover does", /absolute inset-x-0 bottom-1 top-3/.test(hero))
-  check("the clipping moved to the picture's own box, so the sticky row can stick", /h-\[157px\] sm:h-\[233px\] lg:h-\[312px\] overflow-hidden/.test(hero) && !/relative w-full overflow-hidden bg-\[#eceef1\]/.test(hero))
-  check("the track takes no touches, the button does", /pointer-events-none absolute inset-x-0 bottom-1/.test(hero) && /pointer-events-auto h-10/.test(hero))
-  check("the full label wherever it fits, a short one only on a narrow phone", /<span className="min-\[390px\]:hidden">Edit<\/span>/.test(hero) && /<span className="hidden min-\[390px\]:inline">Edit profile<\/span>/.test(hero) && /aria-label="Edit profile"/.test(hero))
-  check("and it is still called Edit profile to a screen reader", /aria-label="Edit profile"/.test(hero))
+  /* Changed on purpose (arrived with ddcbaf919): the cover is 264px tall on a computer, and the button moved into components/account/edit-profile-door.tsx, a 44px touch with its own labels. */
+  const door = readCode("components/account/edit-profile-door.tsx")
+  check("the clipping moved to the picture's own box, so the sticky row can stick", /h-\[157px\] sm:h-\[233px\] lg:h-\[264px\] overflow-hidden/.test(hero) && !/relative w-full overflow-hidden bg-\[#eceef1\]/.test(hero))
+  check("the track takes no touches, the button does", /pointer-events-none absolute inset-x-0 bottom-1/.test(hero) && /<EditProfileDoor/.test(hero) && /pointer-events-auto relative min-h-\[44px\]/.test(door))
+  check("the full label wherever it fits, a short one only on a narrow phone", /<span className="min-\[390px\]:hidden">Edit<\/span>/.test(door) && /<span className="hidden min-\[390px\]:inline">Edit profile<\/span>/.test(door) && /aria-label="Edit profile"/.test(door))
+  check("and it is still called Edit profile to a screen reader", /aria-label="Edit profile"/.test(door))
   check("the page it sits in clips sideways without becoming a scroll box", /overflow-x-clip/.test(readCode("app/account/layout.tsx")) && !/overflow-x-hidden/.test(readCode("app/account/layout.tsx")))
 
   /* ── 4. The photo ─────────────────────────────────────────────────────── */

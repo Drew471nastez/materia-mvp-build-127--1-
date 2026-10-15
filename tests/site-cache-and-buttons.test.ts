@@ -152,7 +152,8 @@ function main() {
       check("the build agrees: the front page is cacheable", routes.includes("/w/[username]"), routes.join(", "))
       check("and so is every page under it", routes.includes("/w/[username]/[page]"))
       check("the preview is not, and must never be", !routes.includes("/w/[username]/preview/[token]"))
-      check("nor is a product page, which carries a cart", !routes.includes("/w/[username]/products/[slug]"))
+      /* Changed on purpose: the cart is the browser's (site-cart.tsx), the product is read without cookies, and a save purges the page (tests/live-speed-view). */
+      check("a product page is cacheable too: nothing in it is the visitor's", routes.includes("/w/[username]/products/[slug]"))
       /**
        * Nor the shop index, for the same reason: it is a wall of prices and
        * sold-out states. The catalogue behind both is cached for a minute on

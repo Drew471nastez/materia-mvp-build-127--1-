@@ -7,6 +7,7 @@
  *   npx esbuild tests/storefront-data.test.ts --bundle --platform=node --format=cjs \
  *     --alias:@=. --alias:server-only=/tmp/claude-0/empty.js --outfile=/tmp/t.cjs && node /tmp/t.cjs
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 

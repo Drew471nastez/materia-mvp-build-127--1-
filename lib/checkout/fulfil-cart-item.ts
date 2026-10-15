@@ -48,7 +48,7 @@ export interface FulfilContext {
   sessionId: string
   paymentIntentId: string | null
   /** "stripe", or "free" for a basket a code took to $0. */
-  provider?: "stripe" | "free"
+  provider?: "stripe" | "free" | "cod"
   creatorId: string
   buyerId: string | null
   buyerEmail: string | null
@@ -76,7 +76,7 @@ export interface FulfilContext {
   tax?: { included: boolean; country: string | null; label?: string | null } | null
   /** Who held the basket's copies under a product's sales limit when the payment started (lib/checkout/sales-limit). */
   saleHolder?: string | null
-  /** What the payment was actually charged in, as Stripe says (lowercase). USD when unknown, as every line was before. */
+  /** What Stripe charged in (the session's or the PaymentIntent's currency), kept on each order line. */
   currency?: string | null
 }
 

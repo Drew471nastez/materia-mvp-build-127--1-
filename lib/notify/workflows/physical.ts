@@ -29,6 +29,16 @@ import { DAY_MS, WORKFLOWS, cancelFor, job, plan, type Workflow } from "./common
 const MINUTE_MS = 60_000
 
 export const physical: Workflow = (event, ctx) => {
+  /*
+    PAID ORDERS STILL NOT SHIPPED (lib/physical/orders-waiting-server.ts): one
+    reminder for the store that day, sent at once, read again just before
+    it goes (conditions.ts orders_still_waiting) and a day's cooldown on top.
+  */
+  if (event.name === "physical.orders_waiting") {
+    const day = typeof event.payload.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(event.payload.day) ? event.payload.day : null
+    if (!day) return null
+    return plan([job("ORDERS_WAITING_TO_SHIP", event, ctx, { entityType: "creator", entityId: ctx.creatorId, step: `day_${day}`, expiresInMs: DAY_MS })])
+  }
   if (event.name !== "physical_readiness.not_ready") return null
   const episode = Number(event.payload.episode)
   if (!Number.isInteger(episode) || episode < 1) return null

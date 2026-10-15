@@ -253,8 +253,12 @@ const USER_CALL = /^(toast|toast\.(success|error|info|warning|message|loading|pr
 const TECH_CALL = /^(cn|clsx|cx|twMerge|classNames|cva|console\.\w+|require|import|fetch|postJson|getJson|putJson|patchJson|del|querySelector|querySelectorAll|closest|matches|getAttribute|setAttribute|removeAttribute|hasAttribute|addEventListener|removeEventListener|dispatchEvent|CustomEvent|Event|getItem|setItem|removeItem|localStorage\.\w+|sessionStorage\.\w+|parseInt|parseFloat|Number|String|Boolean|Symbol|BigInt|Date|RegExp|URL|URLSearchParams|Headers|Request|Response|Blob|File|FormData|Intl\.\w+|encodeURIComponent|decodeURIComponent|encodeURI|decodeURI|escape|unescape|btoa|atob|setTimeout|setInterval|requestAnimationFrame|useState|useRef|useMemo|useCallback|useReducer|useContext|createContext|forwardRef|memo|lazy|dynamic|redirect|notFound|permanentRedirect|revalidatePath|revalidateTag|cookies|headers|useSearchParams|usePathname|useRouter|useParams|createClient|from|storage|tt|t|getT|getServerT|getTranslation|dict|translate|keyOf|track|trackEvent|sendEvent|logEvent|captureException|captureMessage|reportError|playSound|haptic|vibrate|announceAvatar|startNavigationLoading|prefetchAppPage|openExternal|open|assertNever|invariant|expect|describe|it|test|check|eq|ok|equal|deepEqual|strictEqual|throws|rejects|match|includes|has|is)$/
 const TECH_METHOD = /^(get|set|has|delete|append|getAll|includes|startsWith|endsWith|indexOf|split|replace|replaceAll|match|test|search|padStart|padEnd|join|toLowerCase|toUpperCase|localeCompare|lastIndexOf|from|select|eq|neq|in|is|order|or|not|filter|match|ilike|like|gte|lte|gt|lt|contains|rpc|upload|download|remove|createSignedUrl|getPublicUrl|channel|on|subscribe|replace|prefetch|refresh|redirect|pushState|replaceState|postMessage|matchMedia|toLocaleString|toLocaleDateString|toLocaleTimeString|format|formatToParts|of|animate|scrollTo|scrollIntoView|focus|createElement|createTextNode|insertAdjacentHTML|setProperty|getPropertyValue|removeProperty|add|toggle|contains|item|key|call|apply|bind|emit|send|track|capture|identify|log|warn|debug|trace|mark|measure|getEntriesByName|observe|unobserve|disconnect|then|catch|finally|resolve|reject|stringify|parse|assign|keys|values|entries|freeze|defineProperty)$/
 
-/** Bindings that are themselves translations, so nothing inside is reported. */
-const TRANSLATED_CALL = /^(tt|ttx|msg|t|getT|getServerT|getTranslation|translate|tn|tp)$/
+/**
+ * Bindings that are themselves translations, so nothing inside is reported.
+ * ct is the website checkout's translator (app/checkout/parts/words.tsx): its
+ * sentences are the website's, listed by scripts/i18n/checkout-sentences.mjs.
+ */
+const TRANSLATED_CALL = /^(tt|ttx|msg|t|ct|getT|getServerT|getTranslation|translate|tn|tp)$/
 
 function calleeName(expr) {
   if (ts.isIdentifier(expr)) return expr.text

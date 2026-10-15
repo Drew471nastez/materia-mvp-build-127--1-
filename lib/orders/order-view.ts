@@ -17,6 +17,7 @@ import { cleanOrigin, type OrderOrigin, type OrderSource } from "./order-source"
 import { midnightOf, todayIn } from "../date-range/range"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { orderCurrency } from "./money"
 
 export interface OrderRow {
   id: string
@@ -41,6 +42,8 @@ export interface OrderRow {
   receipt_token?: string | null
   stripe_session_id?: string | null
   stripe_payment_intent_id?: string | null
+  /** What the buyer was charged in, upper case ISO (lib/orders/money orderCurrency); for an order that ships, its checkout's. */
+  currency?: string | null
   refund_reason?: string | null
   refund_amount_cents?: number | null
   refunded_at?: string | null
@@ -61,6 +64,8 @@ export interface OrderRow {
   physical_pickup?: boolean | null
   /** A parcel of this order is marked as a delivery problem (a fulfillment with status failed). */
   physical_problem?: boolean | null
+  /** Paid in cash on delivery and the seller has not marked the cash received (lib/physical/cash-on-delivery.ts). */
+  physical_cash_due?: boolean | null
   /** This line's share of what the buyer paid for delivery, inside `amount_cents` (lib/physical/checkout-server). */
   shipping_cents?: number | null
   /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
@@ -79,7 +84,9 @@ export interface OrderRow {
   } | null
 }
 
-export type PaymentStatus = "paid" | "pending" | "refunded" | "partially_refunded" | "failed" | "disputed"
+/** `cash_due`: paid in cash on delivery and not collected yet (lib/physical/cash-on-delivery.ts). A sale, to fulfil, with its money still to take. */
+/** `voided`: a cash on delivery order cancelled before the cash came in. No money moved, so it is no sale (lib/physical/orders-server.ts cancelOrder). */
+export type PaymentStatus = "paid" | "pending" | "cash_due" | "refunded" | "partially_refunded" | "failed" | "disputed" | "voided"
 export type FulfillmentStatus = "fulfilled" | "unfulfilled"
 export type DeliveryStatus = "delivered" | "failed" | null
 
@@ -102,6 +109,8 @@ export interface Shipping {
   pickup: boolean
   /** A parcel ran into a delivery problem: the badge says so instead of Fulfilled, as the buyer's order page does. */
   problem?: boolean
+  /** A return the buyer asked for that is not finished (requested or on its way back): the Returns view. */
+  returnOpen?: boolean
 }
 
 /** Whether a stage still shows a delivery problem: only while the parcel is out (not delivered, returned or cancelled). */
@@ -176,6 +185,8 @@ export interface Order {
   totalCents: number
   feeCents: number
   refundedCents: number
+  /** What every amount above is in, upper case ISO (lib/orders/money). */
+  currency: string
   itemCount: number
   payment: PaymentStatus
   fulfillment: FulfillmentStatus
@@ -223,7 +234,7 @@ function sourceDetailOf(rows: OrderRow[]): OrderOrigin | null {
 }
 
 function paymentOf(rows: OrderRow[], totalCents: number, refundedCents: number): PaymentStatus {
-  if (rows.every((r) => r.status === "failed")) return "failed"
+  if (rows.every((r) => r.status === "failed")) return rows.every((r) => r.payment_method === "cash_on_delivery") ? "voided" : "failed"
   if (rows.some((r) => r.status === "pending")) return "pending"
   /* The buyer's bank has taken the money back while it decides
      (app/api/stripe/webhook, charge.dispute.*). It read as "Paid", and so as
@@ -233,6 +244,8 @@ function paymentOf(rows: OrderRow[], totalCents: number, refundedCents: number):
   if (refundedCents > 0) {
     return totalCents > 0 && refundedCents < totalCents ? "partially_refunded" : "refunded"
   }
+  /* Cash on delivery not collected yet: an order to fulfil whose money is still to take, never "Paid". */
+  if (rows.some((r) => r.physical_cash_due === true)) return "cash_due"
   return "paid"
 }
 
@@ -249,7 +262,7 @@ function paymentOf(rows: OrderRow[], totalCents: number, refundedCents: number):
  * cards did not add up.
  */
 export function isSale(order: Pick<Order, "payment">): boolean {
-  return order.payment !== "failed" && order.payment !== "pending" && order.payment !== "disputed"
+  return order.payment !== "failed" && order.payment !== "pending" && order.payment !== "disputed" && order.payment !== "voided"
 }
 
 /**
@@ -306,6 +319,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       totalCents,
       feeCents: lines.reduce((n, r) => n + (r.fee_cents || 0), 0),
       refundedCents,
+      currency: orderCurrency(first.currency),
       itemCount: lines.reduce((n, r) => n + Math.max(1, r.quantity ?? 1), 0),
       payment,
       /* Something to ship: fulfilled once it has all shipped or arrived (or needs no shipping, or was cancelled). */
@@ -318,7 +332,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
           : "unfulfilled",
       delivery: delivered.length > 0 ? "delivered" : emailFailed ? "failed" : null,
       deliveredAt: delivered.at(-1) ?? null,
-      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true, problem: lines.some((r) => r.physical_problem === true) } : null,
+      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true, problem: lines.some((r) => r.physical_problem === true), returnOpen: shipped.physical_return === "requested" || shipped.physical_return === "in_progress" } : null,
     })
   }
 
@@ -367,12 +381,16 @@ export function startOfDay(ms: number, timeZone: string): number {
 
 /* ─── The list: views, search, filters, pages ─────────────────────────── */
 
-export type View = "all" | "unfulfilled" | "paid" | "pending" | "refunded"
+export type View = "all" | "unfulfilled" | "returns" | "cash" | "paid" | "pending" | "refunded"
 
 export const VIEWS: Array<{ value: View; label: string }> = [
   { value: "all", get label() { return tt("All") } },
   /* Shopify's own second tab: what is still to send. Shown only to a shop with something to ship (the list hides empty views). */
   { value: "unfulfilled", get label() { return tt("Unfulfilled") } },
+  /* Returns a buyer asked for and nobody has finished: where Home's "returns to review" line opens. Shown only while there is one. */
+  { value: "returns", get label() { return tt("Returns") } },
+  /* Cash on delivery still to collect (lib/physical/cash-on-delivery.ts): what to press Mark as paid on. Shown only while there is one. */
+  { value: "cash", get label() { return tt("Cash to collect") } },
   { value: "paid", get label() { return tt("Paid") } },
   { value: "pending", get label() { return tt("Payment pending") } },
   { value: "refunded", get label() { return tt("Refunded") } },
@@ -388,6 +406,10 @@ export function inView(order: Order, view: View): boolean {
       return true
     case "unfulfilled":
       return (order.shipping?.stage === "unfulfilled" || order.shipping?.stage === "partially_fulfilled") && order.payment !== "refunded" && isSale(order)
+    case "returns":
+      return order.shipping?.returnOpen === true
+    case "cash":
+      return order.payment === "cash_due"
     case "paid":
       return order.payment === "paid"
     case "pending":
@@ -556,10 +578,12 @@ export function hiddenColumnsFrom(cookie: string | undefined | null): ColumnKey[
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   get paid() { return tt("Paid") },
   get pending() { return tt("Payment pending") },
+  get cash_due() { return tt("Cash on delivery") },
   get refunded() { return tt("Refunded") },
   get partially_refunded() { return tt("Partially refunded") },
   get failed() { return tt("Failed") },
   get disputed() { return tt("Disputed") },
+  get voided() { return tt("Voided") },
 }
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {

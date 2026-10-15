@@ -62,6 +62,8 @@ import { AppLink } from "@/components/app/app-link"
 import { STRIP_ACTION, STRIP_SPARKLE, STRIP_TEXT, STRIP_TINT, STRIP_TITLE } from "@/components/app/announcement-bar-mobile"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { HomeBanner } from "@/components/app/home/home-banner"
+import { AttentionList } from "@/components/app/home/attention-list"
+import type { CommerceActionCounts } from "@/lib/physical/action-reminders"
 import { NO_SALES, type SalesSummary } from "@/lib/home/announcements"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { homeProgress, legacyFacts, type ProgressFacts } from "@/lib/home/progress"
@@ -77,6 +79,8 @@ import { PhysicalSetupCard } from "@/components/app/home/physical-setup-card"
 import { ReadinessBanner } from "@/components/physical/readiness-banner"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, weekdayNames } from "@/lib/i18n/format"
+import { orderCurrency } from "@/lib/orders/money"
+import { minorUnits } from "@/lib/markets/money"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -149,7 +153,8 @@ type Metric = Exclude<KPIType, null>
  */
 function tickText(metric: KPIType, v: number): string {
   const short = (n: number) => (n >= 1000 ? `${Number((n / 1000).toFixed(1))}k` : `${Number(n.toFixed(2))}`)
-  if (metric === "revenue") return `$${short(v)}`
+  /* Revenue in the platform's charge currency, what every checkout charged in (lib/orders/money). */
+  if (metric === "revenue") return new Intl.NumberFormat(appLocale(), { style: "currency", currency: orderCurrency(null), notation: v >= 1000 ? "compact" : "standard", maximumFractionDigits: v >= 1000 ? 1 : 2, minimumFractionDigits: 0 }).format(v)
   if (metric === "conversion") return `${Number(v.toFixed(2))}%`
   return short(v)
 }
@@ -239,7 +244,11 @@ export function DashboardTrendChart({
 
   const formatValue = useCallback((val: number | null) => {
     if (val === null) return tt("No visitors")
-    if (openKPIModal === "revenue") return `$${val.toFixed(2)}`
+    if (openKPIModal === "revenue") {
+      const currency = orderCurrency(null)
+      const decimals = minorUnits(currency)
+      return new Intl.NumberFormat(appLocale(), { style: "currency", currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val)
+    }
     if (openKPIModal === "conversion") return `${val}%`
     return val.toLocaleString(appLocale())
   }, [openKPIModal])
@@ -426,6 +435,8 @@ interface DashboardClientProps {
   sharePlatforms?: ConnectedPlatform[]
   /** The OnePage is published, so its address opens (app/app/page.tsx). */
   onePageLive?: boolean
+  /** What the store's orders need now, counted on the server; null when it took too long, and the list asks itself. */
+  initialAttention?: CommerceActionCounts | null
 }
 
 // Helper function to calculate percentage change
@@ -657,6 +668,7 @@ export function DashboardClient({
   websitePublished = false,
   subscriptionPlanId = "free",
   onePageLive = false,
+  initialAttention = null,
 }: DashboardClientProps) {
   /**
    * THE PERIOD, from the date picker every page in /app shares, remembered
@@ -825,22 +837,20 @@ export function DashboardClient({
   }, [])
   const greetingName = displayName === "there" ? "" : firstName(displayName)
 
+  /* Revenue is what checkouts charged, in the platform's charge currency (lib/orders/money); a whole amount without its .00. */
   const formatCurrency = (cents: number, compact = false) => {
-    const value = cents / 100
+    const currency = orderCurrency(null)
+    const decimals = minorUnits(currency)
+    const value = cents / 10 ** decimals
     if (compact && value >= 1000) {
-      if (value >= 1000000) {
-        return `$${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`
-      }
-      return `$${(value / 1000).toFixed(1).replace(/\.0$/, '')}K`
+      return new Intl.NumberFormat(appLocale(), { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(value)
     }
-    // Remove decimal places if they are .00
-    const formatted = new Intl.NumberFormat(appLocale(), {
+    return new Intl.NumberFormat(appLocale(), {
       style: "currency",
-      currency: "USD",
+      currency,
       minimumFractionDigits: 0,
-      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: value % 1 === 0 ? 0 : decimals,
     }).format(value)
-    return formatted
   }
 
   // Format numbers compactly (10.5K, 1.2M, etc.)
@@ -1367,6 +1377,9 @@ export function DashboardClient({
 
         {/* Physical products on sale that buyers can't check out with yet (components/physical/readiness-banner). Payments is the banner's own "payouts" announcement, so it is left out here. */}
         <ReadinessBanner surface="home" className="mb-6" />
+
+        {/* What the store's orders need now: orders to fulfill, returns, failed deliveries, disputes, stock (components/app/home/attention-list). Nothing when nothing waits. */}
+        <AttentionList initial={initialAttention} className="mb-6" />
 
         {/* Dashboard Banner: what matters now for this store, beside the globe (components/app/home/home-banner) */}
         <div className="mb-8">

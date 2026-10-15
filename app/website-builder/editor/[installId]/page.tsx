@@ -18,7 +18,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
-  Palette, ShoppingBag, ShoppingCart, Share2, Cookie, Languages,
+  Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,7 @@ import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
 import { SocialLinksEditor } from "@/components/website-builder/editor/social-links-editor"
 import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
+import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock } from "@/components/website-builder/editor/block-tree-rows"
@@ -67,7 +68,7 @@ import type {
 import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionColorSetting, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
 import { designSupport } from "@/lib/website-builder/design-support"
 import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
-import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
+import { remapScheme } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
 import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
@@ -80,7 +81,8 @@ import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
-import { mainProductSection, withDeliveryBlock, withProductBlocks } from "@/lib/website-builder/product-page"
+import { mainProductSection, withDeliveryBlock, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
+import { productRating, type StorefrontReviews } from "@/lib/reviews/storefront"
 import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import {
   groupOf,
@@ -170,9 +172,16 @@ import { cleanMenus } from "@/lib/storelib-theme/values"
 import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
-import { PreviewLanguageSwitch } from "@/components/website-builder/preview-language-switch"
-import { localizeCards, localizeMenus, localizeSections } from "@/lib/markets/translate"
-import { languageName } from "@/lib/markets/locales"
+import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
+import { ColorSchemeControl } from "@/components/website-builder/editor/controls/color-scheme-control"
+import { localizeCards, localizeMenus, localizeOptions, localizeSections, localizeTheme } from "@/lib/markets/translate"
+import { pricesInMarket, storefrontDisplay, type StorefrontDisplay } from "@/lib/markets/pricing"
+import { languageChoiceOf } from "@/lib/markets/choice"
+import { chargeCurrencyFor } from "@/lib/markets/checkout-charge"
+import { themeCountries } from "@/lib/markets/compat-prices"
+import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
+import type { LanguageSwitchPreview, SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
+import type { CompatMarkets } from "@/components/website-builder/compat/compat-canvas"
 import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
@@ -870,20 +879,8 @@ function FieldControl({
   }
 
   if (kind === "color_scheme") {
-    const schemes = themeColorSchemes({})
-    const keys = Object.keys(schemes)
-    return (
-      <div className="relative">
-        <select
-          className={cn("w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
-          value={typeof raw === "string" && keys.includes(raw) ? raw : keys[0]}
-          onChange={e => onChange(e.target.value)}
-        >
-          {keys.map(k => <option key={k} value={k}>{schemes[k].name}</option>)}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
-    )
+    /* The theme's own schemes by their names, with Edit beside them (controls/color-scheme-control.tsx). */
+    return <ColorSchemeControl value={typeof raw === "string" ? raw : ""} onChange={(v) => onChange(v)} />
   }
 
   if (kind === "alignment") {
@@ -2792,6 +2789,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [storelibSourcesRead, setStorelibSourcesRead] = useState(false)
   /** Raised when an imported theme's files changed elsewhere (a push to GitHub), so its canvas reads them again. */
   const [compatFilesVersion, setCompatFilesVersion] = useState(0)
+  /**
+   * Raised when an imported theme's Theme settings panel may have been made
+   * again on the server: its settings_schema.json changed, or its values did
+   * (a colour scheme added), by a push or by Storelib AI. The panel reads its
+   * one file again (CompatThemeSettings panelVersion).
+   */
+  const [compatPanelVersion, setCompatPanelVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (): Promise<Record<string, string> | null> => {
     try {
@@ -2922,6 +2926,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (data?.type === "storelib:file-saved") {
         void loadStorelibSources()
         setUnpublished(true)
+        /* An imported theme's own file (its settings_schema.json, a stylesheet): its canvas and Theme settings read them again. */
+        if (typeof data.path === "string" && data.path.startsWith("shopify/")) {
+          setCompatFilesVersion((n) => n + 1)
+          setCompatPanelVersion((n) => n + 1)
+        }
       }
     }
     window.addEventListener("message", onMessage)
@@ -3068,6 +3077,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const switchingPage = useRef(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>(null)
   const [editSchemeKey, setEditSchemeKey] = useState<string | null>(null)
+  /* An imported theme's scheme to open in its Theme settings (the Edit beside a section's scheme). */
+  const [compatSchemeFocus, setCompatSchemeFocus] = useState<{ id: string; n: number } | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
   /** A section just added, and where the page's sections were before it: see addSection. */
   const arrivalRef = useRef<{ id: string; before: Map<string, number>; bottomInset?: number } | null>(null)
@@ -3178,7 +3189,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     pushUndoRef.current()
 
     if (op.kind === "update_theme") {
-      setSettingsDraft(previous => applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues)
+      /* What the sidebar's own write carries along (updateSetting): the favicon in both places it lives, and the logo into the header section. */
+      let follows: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(op.settings)) follows = { ...follows, ...faviconFollows({ ...(settingsRef.current as Record<string, unknown>), ...follows }, key, value) }
+      setSettingsDraft(previous => ({ ...(applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues), ...follows }))
+      const logo = Object.entries(op.settings).filter(([key]) => key in LOGO_SYNC_THEME_TO_HEADER)
+      if (logo.length) {
+        setSections(prev => prev.map(s =>
+          s.type === "header" ? { ...s, settings: { ...s.settings, ...Object.fromEntries(logo.map(([key, value]) => [LOGO_SYNC_THEME_TO_HEADER[key], value])) } } : s
+        ))
+      }
       return
     }
 
@@ -3693,6 +3713,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // productData resolves — a transient API failure would otherwise reveal
     // the wrong product.
     loaded = loaded.map(sec => {
+      /* A tabs section saved before `tab_animation` (lib/website-builder/section-anchors withTabSwitchKey). */
+      sec = withTabSwitchKey(sec)
       if (!sec.settings || !("_product_data" in sec.settings)) return sec
       const { _product_data: _omit, ...rest } = sec.settings as Record<string, unknown>
       return { ...sec, settings: rest }
@@ -3749,6 +3771,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     loaded = loaded.map((s) => withProductBlocks(s))
     /* Delivery and pickup on a product section saved before the block existed, in the sidebar as on the live page; removed by the creator, it stays removed (lib/website-builder/product-page.ts withDeliveryBlock). */
     loaded = loaded.map((s) => withDeliveryBlock(s))
+    /* Storelib Reviews on, with "Add to product pages": the stars under the title and the reviews under the product, as the live page draws them, here to move or remove (lib/website-builder/product-page.ts withProductReviews). */
+    if (page === "product" && !importedTheme.current) loaded = withProductReviews(loaded, data.reviews_on === true)
 
     return loaded
   }, [installId])
@@ -3882,8 +3906,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // fetch throws on a network error, a 5xx, or if the response JSON is
   // malformed. Without this the page would sit on the auth/loader spinner
   // forever, which is exactly what the user reported.
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  /*
+    `quiet`: read again under an editor that is already open (a push to the
+    linked GitHub repository rewrote this page or the settings). The sidebar
+    and the canvas keep what they show until the new draft is here and then
+    take it in place, the open section stays open, and a read that fails
+    leaves the editor as it was rather than covering it with Try again.
+  */
+  const loadData = useCallback(async (opts: { quiet?: boolean } = {}) => {
+    const quiet = opts.quiet === true
+    if (!quiet) setLoading(true)
     setLoadFailed(false)
     /*
       ALL AT ONCE, NOT ONE AFTER ANOTHER. The page's sections waited for the
@@ -3906,7 +3938,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }, [700, 2000])
     if (!res.ok) {
       reportLoadProblem("editor", `the website answered ${res.status}`)
-      setLoadFailed(true)
+      if (!quiet) setLoadFailed(true)
       setLoading(false)
       return
     }
@@ -4030,12 +4062,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
     }
 
+    /* Read under an open editor: an edit made while it was on its way is not written over (the conflict line asks which to keep). */
+    if (quiet && (isDirtyRef.current || savingRef.current)) {
+      setSyncConflict((c) => c ?? { what: "this page", by: "GitHub" })
+      return
+    }
     setSettingsDraft(loadedSettings)
     setSections(loaded)
     } catch (err) {
       console.error("[editor] loadData failed:", err)
       reportLoadProblem("editor", err)
-      setLoadFailed(true)
+      if (!quiet) setLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -6489,6 +6526,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (events.length > 0) forgetPage()
     /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
     if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) setCompatFilesVersion((n) => n + 1)
+    /* And its Theme settings, made from its settings_schema.json and its values, both of which a push may have changed. */
+    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/"))) setCompatPanelVersion((n) => n + 1)
     /* Which of what is open was rewritten, for the conflict line: a page, home's header and footer, or the settings. */
     let replacedWhat: string | null = null
     /* An agent's own changes, counted for the "Publish to make them live" line (a push says its own, from the server). */
@@ -6563,11 +6602,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       copy held here would be autosaved over the new draft, so it is read
       again from the draft. An edit made here and not saved yet is kept
       instead, and the line says how to take GitHub's version.
+
+      In place: the sidebar and the canvas keep showing the page until the
+      draft is here, then take it, with the open section still open. The
+      editor is not loaded again around it.
     */
     if (replacedHere) {
       if (!isDirtyRef.current && !savingRef.current && !publishing) {
         clearHistory()
-        await loadData()
+        await loadData({ quiet: true })
       } else {
         /*
           BOTH CHANGED IT. The edit here is not saved yet and the draft under
@@ -6586,8 +6629,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const takeGitHubVersion = async () => {
     setSyncConflict(null)
     setIsDirty(false)
+    /* Their pick: the edit here is let go now, not on the next render. */
+    isDirtyRef.current = false
     clearHistory()
-    await loadData()
+    await loadData({ quiet: true })
   }
   /**
    * One button of the sync line, through the requests Website settings ›
@@ -6941,6 +6986,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return (
         <CompatThemeSettings
           installId={installId}
+          panelVersion={compatPanelVersion}
+          focusScheme={compatSchemeFocus}
           values={shopifyValues}
           open={expandedSettings}
           onOpen={(name) => (name === "__back__" ? (atTop ? undefined : setSelectedPanel({ type: "pages" })) : setExpandedSettings(name))}
@@ -7411,6 +7458,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               section={section}
               schema={schema}
               theme={settingsDraft}
+              firstBody={sections.find((x) => !x.hidden && !isChromeType(x.type))?.id === section.id}
               onUpdateSetting={(key, val) => updateSectionSetting(section.id, key, val)}
               onEditScheme={(schemeKey) => {
                 if (schemeKey) setEditSchemeKey(schemeKey)
@@ -7915,17 +7963,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       collections: builderCollections?.choices ?? null,
       /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
       colorSchemes: compatSchemes,
-      /* Storelib's own themes: Edit beside a section's scheme opens Theme settings › Colors. */
-      openColorSchemes: compatInstall ? undefined : () => {
+      themeSettings: compatInstall ? null : (settingsDraft as Record<string, unknown>),
+      /*
+        Edit beside a section's scheme: Theme settings opens at that scheme, on
+        any theme. Storelib's own open Colors with it chosen (ColorsPanel
+        initialActive); an imported theme's open the group that holds it, the
+        scheme open and in view (CompatThemeSettings focusScheme). Every
+        section using it changes on the canvas as its colours are edited.
+      */
+      openColorSchemes: (schemeId?: string) => {
         setSidebarMode("settings")
         setPageBrowserOpen(false)
         setSelectedPanel({ type: "theme_settings" })
-        setExpandedSettings("color_schemes")
+        if (compatInstall) {
+          if (schemeId) setCompatSchemeFocus((f) => ({ id: schemeId, n: (f?.n ?? 0) + 1 }))
+        } else {
+          if (schemeId) setEditSchemeKey(schemeId)
+          setExpandedSettings("color_schemes")
+        }
         if (isMobileView) setMobileSidebarOpen(true)
       },
       pictureMedia: compatInstall ? compatMedia : null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia, isMobileView],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -7947,7 +8007,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
   /* Storelib Reviews: a page with a review section draws the store's reviews, or samples (components/website-builder/use-canvas-reviews.ts). */
-  const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_")), previewedProduct?.id ?? null)
+  const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_") || (s.type === "product" && (s.blocks ?? []).some((b) => b.type === "rating"))), previewedProduct?.id ?? null)
   /*
     THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
     the page switcher): the approved translations laid over the page, its
@@ -7956,8 +8016,105 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const previewLang = usePreviewLanguage(installId)
   const previewMap = previewLang.map
+  /*
+    AND WITH PRICES IN A MARKET'S CURRENCY (the same button): every price
+    the page draws converted, rounded and written as a visitor in that
+    market sees it on the website, by the live site's own functions
+    (lib/markets/pricing pricingFor, pricesInMarket, storefrontDisplay).
+    Drawn only: nothing is saved, and checkout charges the store's prices.
+  */
+  const previewMarket = usePreviewMarket(installId)
+  const previewPricing = previewMarket.pricing
+  /* Money is written the page's language's way, as the live site's Localizer writes it. */
+  const moneyLocale = previewLang.locale ?? previewLang.defaultLanguage
+  const cardsInMarket = useCallback(
+    (list: ProductCard[]): ProductCard[] => (previewPricing ? list.map((c) => ({ ...c, settings: pricesInMarket(c.settings, previewPricing, moneyLocale) })) : list),
+    [previewPricing, moneyLocale],
+  )
+  /* The cart, the drawer, the free shipping banner and the product page convert their amounts with this, as on the website (storefront-context useMoney). */
+  const canvasDisplay = useMemo<StorefrontDisplay | undefined>(
+    () => (previewPricing ? storefrontDisplay(previewPricing, moneyLocale, chargeCurrencyFor(previewPricing, previewMarket.base)) : undefined),
+    [previewPricing, moneyLocale, previewMarket.base],
+  )
+  /*
+    THE THEME'S OWN LANGUAGE AND CURRENCY SELECTOR, as the website lists it
+    (lib/markets/choice.ts, the live site's languageChoice): the published
+    languages, a language previewed before it is published, and the
+    currencies a visitor can pick. A choice in it changes the preview.
+  */
+  const switchLanguages = useMemo(
+    () => previewLang.languages.filter((l) => l !== previewLang.defaultLanguage && (previewLang.published.includes(l) || l === previewLang.locale)),
+    [previewLang.languages, previewLang.defaultLanguage, previewLang.published, previewLang.locale],
+  )
+  const canvasChoice = useMemo<SiteLanguageChoice | undefined>(() => {
+    if (!previewMarket.saved && previewLang.languages.length < 2) return undefined
+    return languageChoiceOf({
+      defaultLanguage: previewLang.defaultLanguage,
+      others: switchLanguages,
+      locale: previewLang.locale,
+      /* The markets that convert today, the day's rates or the store's own rate for one, as the website offers them (lib/markets/live.ts languageChoice). */
+      markets: previewMarket.options,
+      fresh: previewMarket.options.length > 0,
+      pricing: previewPricing,
+      base: previewMarket.base,
+      charge: chargeCurrencyFor(previewPricing, previewMarket.base),
+    })
+  }, [previewMarket.saved, previewMarket.options, previewMarket.base, previewLang.languages.length, previewLang.defaultLanguage, previewLang.locale, switchLanguages, previewPricing])
+  /* The country chosen in an imported theme's own selector, so it shows that one picked (lib/markets/compat-prices.ts themeCountries); the market button sets the market's own. */
+  const [previewCountry, setPreviewCountry] = useState<string | null>(null)
+  const setPreviewLocale = previewLang.setLocale
+  const setPreviewMarket = previewMarket.setMarket
+  const marketOptions = previewMarket.options
+  const allMarkets = previewMarket.markets
+  const pickPreviewMarket = useCallback((id: string | null) => {
+    setPreviewCountry(null)
+    setPreviewMarket(id)
+  }, [setPreviewMarket])
+  const canvasSwitch = useMemo<LanguageSwitchPreview>(
+    () => ({
+      language: (code: string) => setPreviewLocale(code),
+      currency: (id: string) => pickPreviewMarket(id === "home" ? null : id),
+    }),
+    [setPreviewLocale, pickPreviewMarket],
+  )
+  /* A country chosen in the theme: the market it is in, when its prices can be shown today; else the store's own, as the website's proxy picks it. */
+  const pickInTheme = useCallback(
+    (choice: { language?: string; country?: string }) => {
+      if (choice.language) setPreviewLocale(choice.language)
+      if (choice.country) {
+        const m = allMarkets.find((x) => x.countries.includes(choice.country!))
+        setPreviewMarket(m && marketOptions.some((x) => x.id === m.id) ? m.id : null)
+        setPreviewCountry(choice.country)
+      }
+    },
+    [setPreviewLocale, setPreviewMarket, allMarkets, marketOptions],
+  )
+  const compatMarkets = useMemo<CompatMarkets | null>(() => {
+    const where = themeCountries({
+      markets: previewMarket.saved ? previewMarket.options : [],
+      base: previewMarket.base,
+      marketId: previewPricing?.market.id ?? null,
+      visitorCountry: previewCountry,
+      homeCountry: previewMarket.home.country,
+      fresh: previewMarket.options.length > 0,
+    })
+    return {
+      saved: previewMarket.saved,
+      defaultLanguage: previewLang.defaultLanguage,
+      languages: [previewLang.defaultLanguage, ...switchLanguages],
+      countries: where.countries,
+      ...(where.country ? { country: where.country } : {}),
+      pricing: previewPricing,
+      pick: pickInTheme,
+    }
+  }, [previewMarket.saved, previewMarket.options, previewMarket.base, previewMarket.home.country, previewPricing, previewCountry, previewLang.defaultLanguage, switchLanguages, pickInTheme])
+  /* The theme's settings as the website draws them in the language and the market: its menus translated (the header's and footer's links), and the currency a section reads as theme.currency.code. */
+  const canvasThemeShown = useMemo(() => {
+    const localized = previewMap ? (localizeTheme(canvasThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true, fresh: true }) as ThemeSettingsValues) : canvasThemeSettings
+    return previewPricing ? ({ ...localized, [DISPLAY_CURRENCY_KEY]: previewPricing.currency } as ThemeSettingsValues) : localized
+  }, [canvasThemeSettings, previewMap, previewPricing])
   const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
-  const catalogCardsShown = useMemo(() => localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true }), [catalogCardsForCanvas, previewMap])
+  const catalogCardsShown = useMemo(() => cardsInMarket(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true })), [catalogCardsForCanvas, previewMap, cardsInMarket])
   const canvasData = useMemo(
     () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderCollections, canvasReviews],
@@ -7972,7 +8129,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
   )
   /* The page in the language previewed: the text settings with an approved translation, read with the same schemas the website reads. */
-  const drawnShown = useMemo(
+  const drawnInLanguage = useMemo(
     () =>
       previewMap
         ? localizeSections(
@@ -7980,12 +8137,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             previewMap,
             (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
             (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields,
-            { approvedOnly: true },
-          )
+            { approvedOnly: true, fresh: true },
+          ).map((s) => {
+            /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx). */
+            const data = (s.settings as Record<string, unknown> | undefined)?._product_data
+            return data ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
+          })
         : drawnSections,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [drawnSections, previewMap, storelibSources, librarySchemas],
   )
-  const shopCardsShown = useMemo(() => localizeCards(shopCards, previewMap, { approvedOnly: true }), [shopCards, previewMap])
+  /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
+  /* The product's real stars for the Star rating block, as the website hands them over (lib/reviews/storefront.ts productRating): none while it has only sample reviews. */
+  const canvasRating = useMemo(() => productRating(canvasReviews as unknown as StorefrontReviews | undefined), [canvasReviews])
+  const drawnShown = useMemo(() => {
+    if (!previewPricing && !canvasRating) return drawnInLanguage
+    const display = previewPricing ? { market: previewPricing.market, base: previewPricing.base, fx: previewPricing.fx, locale: moneyLocale } : null
+    return drawnInLanguage.map((sec) => {
+      const raw = (sec.settings as Record<string, unknown> | undefined)?._product_data
+      if (!raw || typeof raw !== "object") return sec
+      const data = canvasRating ? { ...(raw as Record<string, unknown>), rating: canvasRating } : raw
+      return display ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : { ...sec, settings: { ...sec.settings, _product_data: data } }
+    })
+  }, [drawnInLanguage, previewPricing, moneyLocale, canvasRating])
+  const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true })), [shopCards, previewMap, cardsInMarket])
   const compatLanguage = useMemo(
     () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
     [previewLang.locale, previewLang.defaultLanguage, previewLang.languages, previewMap],
@@ -8606,13 +8781,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     handleUndo,
     handleRedo,
     requestExit,
-    previewIn: (code: string) => previewLang.setLocale(code),
   }
   const actionCalls = useRef(calls)
   actionCalls.current = calls
   const inCode = previewMode === "code"
-  const previewLangs = previewLang.languages
-  const previewLocaleShown = previewLang.locale ?? previewLang.defaultLanguage
   const siteLive = install?.status === "published"
   const actionItems = useMemo<ActionMenuItem[]>(() => {
     return [
@@ -8637,18 +8809,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         icon: <SlidersHorizontal className="h-4 w-4" />,
         onClick: () => actionCalls.current.openSettings(),
       },
-      /* A phone's way to the canvas's language (the desktop's is the button beside the page switcher): the next one, round. */
-      ...(isMobileView && previewLangs.length > 1
-        ? (() => {
-            const now = previewLangs.indexOf(previewLocaleShown)
-            const next = previewLangs[(now + 1) % previewLangs.length]
-            return [{
-              label: `Preview in ${languageName(next, "en")}`,
-              icon: <Languages className="h-4 w-4" />,
-              onClick: () => actionCalls.current.previewIn(next),
-            }]
-          })()
-        : []),
       {
         label: "Connect Claude Code or Codex",
         icon: <Plug className="h-4 w-4" />,
@@ -8697,7 +8857,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         separatorBefore: !websiteUrl,
       },
     ]
-  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, siteLive, installId, previewLangs, previewLocaleShown])
+  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, siteLive, installId])
   /**
    * The three dots. 32px drawn, and on a phone a 44px press area around it
    * (an invisible band, so the bar does not move). It presses in the way the
@@ -8745,7 +8905,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [forgetPage])
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
-  }, [loadStorelibSources])
+    /* An imported theme draws from its own files and its panel is made from its schema: both read again after a run that wrote code. */
+    if (compatInstall) {
+      setCompatFilesVersion((n) => n + 1)
+      setCompatPanelVersion((n) => n + 1)
+    }
+  }, [loadStorelibSources, compatInstall])
   /**
    * A SECTION FILE THE RUN HAS JUST WRITTEN, drawn now. It was compiled and
    * drawn on the server before it was sent, and it is saved when the run
@@ -9024,7 +9189,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )}
 
           {/* The language the canvas is drawn in, for a website with more than one. */}
-          {!isMobileView && <PreviewLanguageSwitch lang={previewLang} />}
 
           {!isMobileView && (
           <PageSwitcher
@@ -10211,10 +10375,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   siteUrl={websiteUrl}
                   warm={compatWarm}
                   language={compatLanguage}
+                  markets={compatMarkets}
+                  storeCurrency={previewMarket.base}
                 />
               ) : (
               <EditorCanvasPage
-                theme={canvasThemeSettings}
+                theme={canvasThemeShown}
                 sources={storelibSources}
                 pageTemplate={templateForPage(currentPage)}
                 sections={drawnShown}
@@ -10249,6 +10415,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 shopCards={shopCardsShown}
                 installId={installId}
                 words={previewLang.words}
+                display={canvasDisplay}
+                language={canvasChoice}
+                languagePreview={canvasSwitch}
+                storeCurrency={previewMarket.base}
               />
               )}
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
@@ -10849,6 +11019,10 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   installId,
   storefrontData: canvasStorefrontData,
   words,
+  display,
+  language,
+  languagePreview,
+  storeCurrency,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -10889,6 +11063,14 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   storefrontData?: import("@/lib/storelib-theme/types").StorefrontData
   /** The shop's own words in the language previewed (lib/markets/ui-words.ts). */
   words?: Record<string, string>
+  /** The market previewed: the cart's amounts in its currency, as on the website (storefront-context useMoney). */
+  display?: StorefrontDisplay
+  /** What the website's language and currency switch offers, drawn under the footer as on the website. */
+  language?: SiteLanguageChoice
+  /** What a choice in that switch does here: change the preview. */
+  languagePreview?: LanguageSwitchPreview
+  /** The store's own currency, as Settings › Languages & Currency saved it (/api/store/markets?preview=1 base); empty until read. */
+  storeCurrency?: string
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
@@ -10921,7 +11103,14 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
-  const storefront = useMemo(() => ({ inEditor: true, installId, words }), [installId, words])
+  /*
+    THE STORE'S OWN CURRENCY, the one it saved. It was read off the first
+    product card, so a store with no products yet drew the platform's
+    currency (USD) whatever it had chosen. The cards' is the fallback only
+    until the saved one is read.
+  */
+  const currency = storeCurrency || shopCards?.[0]?.settings.currency || undefined
+  const storefront = useMemo(() => ({ inEditor: true, installId, words, display, currency, language, preview: languagePreview }), [installId, words, display, currency, language, languagePreview])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
   const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
   return (

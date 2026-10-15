@@ -453,8 +453,8 @@ export function OrdersClient(props: OrdersClientProps) {
     setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, ...patch } : r)))
 
   /* A parcel fulfilled, delivered or returned on its page: its row in the list says so at once. */
-  const onShipping = useStable((checkoutId: string, fulfillment: string, returnStatus: string) =>
-    setRows((prev) => prev.map((r) => (r.checkout_id === checkoutId ? { ...r, physical_fulfillment: fulfillment, physical_return: returnStatus } : r))),
+  const onShipping = useStable((checkoutId: string, fulfillment: string, returnStatus: string, cashDue: boolean) =>
+    setRows((prev) => prev.map((r) => (r.checkout_id === checkoutId ? { ...r, physical_fulfillment: fulfillment, physical_return: returnStatus, physical_cash_due: cashDue } : r))),
   )
 
   /* What a send wrote to each row, straight from the server's answer: the
@@ -486,14 +486,14 @@ export function OrdersClient(props: OrdersClientProps) {
         })
         if (!res.ok) throw new Error(data?.error || tt("The refund did not go through."))
         const cents = typeof data?.amount === "number" ? data.amount : action.amountCents
-        if (data?.pending) return tt("Refund of {amount} is processing. The order updates once it goes through.", { amount: formatMoney(cents) })
+        if (data?.pending) return tt("Refund of {amount} is processing. The order updates once it goes through.", { amount: formatMoney(cents, order.currency) })
         patchRows([action.line.id], {
           status: "refunded",
           refund_amount_cents: cents,
           refunded_at: typeof data?.refundedAt === "string" ? data.refundedAt : new Date().toISOString(),
           refund_reason: action.reason,
         })
-        return tt("Refunded {amount}", { amount: formatMoney(cents) })
+        return tt("Refunded {amount}", { amount: formatMoney(cents, order.currency) })
       }
       case "resend": {
         const { res, data } = await postJson(`/api/app/orders/${encodeURIComponent(order.id)}/resend`)

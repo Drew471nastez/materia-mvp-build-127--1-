@@ -27,6 +27,7 @@
 import { decodeItems, encodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import type { CheckoutConfig, FieldRule } from "@/lib/store/checkout-config"
 import type { ShippingProfile } from "@/lib/physical/types"
+import { phoneForStorage } from "@/lib/account/phone"
 
 export const SITE_CHECKOUT_PATH = "/checkout"
 export const SITE_THANKS_PATH = "/checkout/thanks"
@@ -277,6 +278,8 @@ export function missingField(
   if (plan.splitName && !v.last.trim()) return "last"
   if (plan.company === "required" && !(v.company ?? "").trim()) return "company"
   if (plan.phone === "required" && !(v.phone ?? "").trim()) return "phone"
+  /* Written, but not a phone number (lib/account/phone): the same rule the order is kept by. */
+  if (plan.phone !== "off" && (v.phone ?? "").trim() && !phoneForStorage(v.phone)) return "phone"
   if (plan.address2 === "required" && !(v.line2 ?? "").trim()) return "line2"
   return null
 }

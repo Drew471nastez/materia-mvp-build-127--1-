@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { useStoreBuilder } from "./store-builder-context"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -566,10 +567,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
   )
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return shopMoney(cents, { grouping: true })
   }
 
   const handleSelectProductForEdit = (productId: string) => {

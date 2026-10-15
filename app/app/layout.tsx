@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { LiveStoreCurrency } from "@/lib/store/currency-context"
 import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
@@ -185,7 +187,7 @@ export default async function AppLayout({
     own client. The sale is found through its product's creator, as Home
     reads orders, so it no longer waits for the product ids to come back.
   */
-  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn] = await Promise.all([
+  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency] = await Promise.all([
     supabase.from("products").select("id").eq("creator_id", creator.id),
     supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
     supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
@@ -197,6 +199,8 @@ export default async function AppLayout({
       .limit(1),
     /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
     communitiesEnabled().catch(() => false),
+    /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
+    cachedStoreCurrency(creator.id).catch(() => null),
   ])
 
   /*
@@ -267,7 +271,9 @@ export default async function AppLayout({
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it
               via html.capacitor .app-content-scroll to avoid double padding on iOS */}
           <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">
-            {teamStore && acting ? <TeamBar store={acting.name} role={acting.role} ownStore={!!ownCreator}>{children}</TeamBar> : children}
+            <LiveStoreCurrency currency={storeCurrency}>
+              {teamStore && acting ? <TeamBar store={acting.name} role={acting.role} ownStore={!!ownCreator}>{children}</TeamBar> : children}
+            </LiveStoreCurrency>
           </div>
         </main>
         {/* Outside the page's scroll, so a drag on the sheet is never the page's pull to refresh. */}

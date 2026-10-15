@@ -39,6 +39,8 @@ import {
   type ThemeState,
 } from "@/lib/website-builder/agent/operations"
 import { schemaOf, type SchemaMap } from "@/lib/website-builder/agent/schemas"
+import { themeExtraFields, typographyWrite } from "@/lib/website-builder/agent/theme-extras"
+import { tabSwitchUpgrade } from "@/lib/website-builder/section-anchors"
 import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 
 /** What an agent sends: an operation with settings as objects, ids its own. */
@@ -138,7 +140,9 @@ export function checkOp(
       if (!raw || Object.keys(raw).length === 0) return { error: "settings is a non-empty object of setting id to value." }
       const checked = checkSettings(fieldsFor(found.type, schemas), raw, found.type)
       if (checked.error) return { error: checked.error }
-      return { op: { kind: "update_section", id: found.id, settings: checked.settings! }, note: checked.notes.join("; ") || undefined }
+      /* A tabs section saved before `tab_animation`: the write carries its switch under the new name (section-anchors tabSwitchUpgrade). */
+      const upgraded = tabSwitchUpgrade(found, checked.settings!)
+      return { op: { kind: "update_section", id: found.id, settings: upgraded.settings, ...(upgraded.unset.length ? { unset: upgraded.unset } : {}) }, note: checked.notes.join("; ") || undefined }
     }
 
     case "move_section": {
@@ -236,9 +240,20 @@ export function checkOp(
     case "update_theme": {
       const raw = settingsOf(input.settings)
       if (!raw || Object.keys(raw).length === 0) return { error: "settings is a non-empty object of theme setting id to value." }
-      const checked = checkSettings(themeFieldsFor(), raw, "The theme")
+      /* The same theme settings the builder's assistant may write, the sidebar's own outside the schema included (website-builder/agent/theme-extras). */
+      const rest = { ...raw }
+      let typography: { value: Record<string, unknown>; notes: string[] } | null = null
+      if (rest.typography_styles !== undefined) {
+        const t = typographyWrite(state.settings as Record<string, unknown>, rest.typography_styles)
+        if ("error" in t) return { error: t.error }
+        typography = t
+        delete rest.typography_styles
+      }
+      const checked = Object.keys(rest).length ? checkSettings([...themeFieldsFor(), ...themeExtraFields(state.settings as Record<string, unknown>)], rest, "The theme") : { settings: {}, notes: [] as string[] }
       if (checked.error) return { error: checked.error }
-      return { op: { kind: "update_theme", settings: checked.settings! }, note: checked.notes.join("; ") || undefined }
+      const settings = { ...checked.settings!, ...(typography ? { typography_styles: typography.value } : {}) }
+      const notes = [...checked.notes, ...(typography?.notes ?? [])]
+      return { op: { kind: "update_theme", settings }, note: notes.join("; ") || undefined }
     }
 
     default:

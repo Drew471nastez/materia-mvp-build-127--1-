@@ -2308,7 +2308,8 @@ check(
      * deferring it stops a RELATED one doing it inside the touch that caused
      * it. Same rule, one step further. See tests/control-frames.test.ts.
      */
-    /<EditorCanvasPage\s*\n\s*theme=\{canvasThemeSettings\}/.test(editor) &&
+    /* Changed on purpose (the owner: currency in the builder like the live site): the deferred settings, in the language and market previewed, memoised from them. */
+    (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeSettings\}/.test(editor) || (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeShown\}/.test(editor) && /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(canvasThemeSettings/.test(editor))) &&
     /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
     /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&
@@ -3136,7 +3137,8 @@ check(
   // word found four: the three sections, and the comment above them naming
   // the attribute. An assertion that reads its own documentation is an
   // assertion that passes when the code is deleted and the comment stays.
-  (wbPage.match(/data-page-block\s*>/g) ?? []).length === 3 &&
+  /* Changed on purpose: the Library block takes a dropped theme, so its attributes run on after the mark (9a60d8790). Still matched as an attribute of a <section>, never the comment's word. */
+  (wbPage.match(/<section\b[^>]*\sdata-page-block(?=[\s>])/g) ?? []).length === 3 &&
     !existsSync(join(root, "app/app/website-builder/skeleton.tsx")) &&
     !existsSync(join(root, "app/app/website-builder/loading.tsx")),
 )

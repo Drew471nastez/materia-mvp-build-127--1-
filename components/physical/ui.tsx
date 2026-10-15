@@ -23,6 +23,7 @@ import { createPortal } from "react-dom"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
 import { useMoneyMark } from "@/lib/store/currency-context"
+import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
 import { countTyped, decimalTyped, moneyTyped } from "@/lib/physical/typed-values"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -120,11 +121,12 @@ export function dollarsOf(cents: number | null | undefined): string {
   return cents === null || cents === undefined ? "" : (cents / 100).toFixed(2)
 }
 
-export function money(cents: number, currency = "USD"): string {
+/** An amount in `currency`, the shop's own (lib/store/shop-money.ts) unless an order says otherwise. */
+export function money(cents: number, currency = SHOP_CURRENCY): string {
   try {
     return new Intl.NumberFormat(appLocale(), { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
   } catch {
-    return `$${(cents / 100).toFixed(2)}`
+    return shopMoney(cents)
   }
 }
 
@@ -365,7 +367,11 @@ function refreshAfterWrite(path: string): void {
   }
 }
 
-export async function api<T = Record<string, unknown>>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
+export async function api<T = Record<string, unknown>>(
+  path: string,
+  /** `timeoutMs`: a longer wait for the one call that is slow by nature (an AI draft); every other call keeps the default (lib/net/request.ts WAIT_MS). */
+  init?: { method?: string; body?: unknown; timeoutMs?: number },
+): Promise<ApiResult<T>> {
   const method = init?.method ?? (init?.body ? "POST" : "GET")
   if (method === "GET") {
     const e = kept.get(path)
@@ -379,18 +385,29 @@ export async function api<T = Record<string, unknown>>(path: string, init?: { me
   return r
 }
 
-async function request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
+async function request<T>(path: string, init?: { method?: string; body?: unknown; timeoutMs?: number }): Promise<ApiResult<T>> {
   /* Bounded end to end (lib/net/request.ts): a request that never answers used to leave a panel's Save spinning for ever. */
   const r = await requestJson<Record<string, unknown>>(path, {
     method: init?.method ?? (init?.body ? "POST" : "GET"),
     json: init?.body ? init.body : undefined,
     credentials: "same-origin",
     cache: "no-store",
+    ...(init?.timeoutMs ? { timeoutMs: init.timeoutMs } : {}),
   })
   if (r.ok) return { ok: true, data: r.data as T }
   if (r.kind === "refused" || r.kind === "server" || r.kind === "auth")
-    return { ok: false, error: typeof r.data.error === "string" ? r.data.error : r.kind === "refused" ? tt("Something went wrong. Try again.") : tt(FAIL_COPY[r.kind]), data: r.data }
+    return { ok: false, error: typeof r.data.error === "string" ? r.data.error : r.kind === "refused" ? refusedWithoutWords(r.status) : tt(FAIL_COPY[r.kind]), data: r.data }
   return { ok: false, error: tt(FAIL_COPY[r.kind ?? "network"]) }
+}
+
+/**
+ * A refusal the server gave no words for. A 404 or 405 is an address this
+ * page knows and the server does not: the page is older or newer than the
+ * server it talks to (a deploy in between), and a refresh is the fix.
+ */
+function refusedWithoutWords(status: number): string {
+  if (status === 404 || status === 405) return tt("Storelib was just updated. Refresh the page and try again.")
+  return tt("Something went wrong. Try again.")
 }
 
 /** A random key per action, so a double press is one change. */

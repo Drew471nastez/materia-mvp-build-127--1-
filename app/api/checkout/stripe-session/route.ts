@@ -19,10 +19,12 @@ import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, channelOf, encodeOrigin, orderSourceFromRequest, originOf } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
-import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
+import { priceOrder } from "@/lib/checkout/pricing"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import { formatStoreMoney } from "@/lib/store/currency"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
@@ -148,8 +150,10 @@ async function handlePOST(request: Request) {
       )
     : null
   const chargeCents = tax ? tax.totalCents : totals.totalCents
-  if (totals.totalCents < MIN_CHARGE_CENTS) {
-    return NextResponse.json({ error: "The smallest card payment is $0.50. Add a tip or remove the code." }, { status: 400 })
+  /* The product's price is in its store's currency (lib/store/selling-currency): charged in it, held to Stripe's smallest charge in it. */
+  const storeCurrency = (await readStoreCurrency(admin, creator.id)).currency
+  if (totals.totalCents < minimumChargeMinor(storeCurrency)) {
+    return NextResponse.json({ error: `The smallest card payment is ${formatStoreMoney(minimumChargeMinor(storeCurrency), storeCurrency)}. Add a tip or remove the code.` }, { status: 400 })
   }
 
   /* Storelib Payments (Stripe Connect): checkout only when the creator account can accept charges. */
@@ -197,7 +201,7 @@ async function handlePOST(request: Request) {
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
-  const chargeCurrency = platformChargeCurrency()
+  const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(totals.totalCents, creator.id, admin, chargeCurrency)

@@ -2,11 +2,11 @@ import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { recordActivity } from "@/lib/activity/log-server"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { storeCurrencyOf } from "@/lib/store/currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
-import { statusOf, translationMap } from "@/lib/markets/translate"
+import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, statusOf, translationMap } from "@/lib/markets/translate"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,22 +22,26 @@ export const dynamic = "force-dynamic"
  *
  * The store's own, through its owner (lib/team: the website is not open to
  * team members yet). Only a language the website has may be read or written.
+ * The website's own language, when it is not English, holds the shop's own
+ * words and the checkout's only (translate.ts BUILT_IN_GROUPS): the rest of
+ * its text is already written in it.
  */
 async function storeLanguages(c: { db: any; creatorId: string }) {
-  /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
-  const db = c.db
-  const { data } = await db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
-  const loc = await localizationOf(c.db, c.creatorId, storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency))
+  const loc = await localizationOf(c.db, c.creatorId, (await readStoreCurrency(c.db, c.creatorId)).currency)
   return { ready: loc.ready, loc: loc.value, languages: editorLanguages(loc.value) }
 }
 
 export async function GET(request: Request) {
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
-  const { ready, loc, languages } = await storeLanguages(c)
   const url = new URL(request.url)
   const asked = normalizeLocale(url.searchParams.get("locale"))
-  const locale = asked && asked !== loc.defaultLanguage && languages.includes(asked) ? asked : null
+  /* The website's texts started beside the languages, not after them: they do not depend on which language, and they are most of the wait. Read only for the sheet, never for the builder's ?values=1 preview. */
+  const textsRead = asked && url.searchParams.get("values") !== "1" ? siteTexts(c.db, c.creatorId) : null
+  textsRead?.catch(() => undefined)
+  const { ready, loc, languages } = await storeLanguages(c)
+  const own = !!asked && asked === loc.defaultLanguage && !isEnglish(asked)
+  const locale = asked && (own || (asked !== loc.defaultLanguage && languages.includes(asked))) ? asked : null
   /*
     ?values=1, THE BUILDER'S PREVIEW IN ANOTHER LANGUAGE: the approved
     translations only, by key, as the live site lays them over (lib/markets
@@ -52,12 +56,36 @@ export async function GET(request: Request) {
     for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash }
     return physicalJson({ locale, defaultLanguage: loc.defaultLanguage, languages, published, values })
   }
+  /*
+    ?summary=1, SETTINGS › LANGUAGES: for each added language, how many of
+    the website's texts are translated and live, drafted by AI to review,
+    and still to translate (missing, or changed since). One read of the
+    texts for all of them.
+  */
+  if (url.searchParams.get("summary") === "1") {
+    const items = (await siteTexts(c.db, c.creatorId)).flatMap((g) => g.items)
+    const progress: Record<string, { done: number; draft: number; todo: number; total: number }> = {}
+    await Promise.all(
+      loc.languages.map(async (l) => {
+        const map = translationMap((await translationsOf(c.db, c.creatorId, l.code)).rows)
+        const row = { done: 0, draft: 0, todo: 0, total: items.length }
+        for (const t of items) {
+          const s = statusOf(map.get(t.key), t.source)
+          if (s === "done") row.done++
+          else if (s === "draft") row.draft++
+          else row.todo++
+        }
+        progress[l.code] = row
+      }),
+    )
+    return physicalJson({ ready, progress })
+  }
   if (!locale) return physicalJson({ ready, locale: null, defaultLanguage: loc.defaultLanguage, languages, groups: [] })
-  const [groups, saved] = await Promise.all([siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])
+  const [groups, saved] = await Promise.all([textsRead ?? siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])
   const map = translationMap(saved.rows)
   let done = 0
   let total = 0
-  const out = groups.map((g) => ({
+  const out = groups.filter((g) => !own || BUILT_IN_GROUPS.has(g.id)).map((g) => ({
     id: g.id,
     title: g.title,
     items: g.items.map((t) => {
@@ -80,7 +108,10 @@ export async function PUT(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const { loc, languages } = await storeLanguages(c)
   const locale = normalizeLocale(body.locale)
-  if (!locale || locale === loc.defaultLanguage || !languages.includes(locale)) return physicalJson({ error: "Add this language to your website first." }, 400)
+  const own = !!locale && locale === loc.defaultLanguage && !isEnglish(locale)
+  if (!locale || (!own && (locale === loc.defaultLanguage || !languages.includes(locale)))) return physicalJson({ error: "Add this language to your website first." }, 400)
+  /* In the website's own language, only the words Storelib writes in English. */
+  if (own && Array.isArray(body.items) && (body.items as { key?: unknown }[]).some((i) => typeof i?.key !== "string" || !isBuiltInWordKey(i.key))) return physicalJson({ error: "Your website is already written in this language." }, 400)
   const saved = await saveTranslations(c.db, c.creatorId, locale, body.items, c.userId)
   if (saved.ok === false) return physicalJson({ error: saved.error }, saved.status)
   await recordActivity(c.db, c, { action: "website.translations", meta: { locale, saved: saved.saved, removed: saved.removed } })

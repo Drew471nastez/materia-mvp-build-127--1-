@@ -61,7 +61,7 @@ export function snapshotFolder(userId: string, installId: string): string {
  * Every cover taken before version 2 is wrong, and not occasionally: the
  * capture copied the page's stylesheets into the picture, the theme's
  * section entrance animation replayed inside it from `opacity: 0`, and
- * `animations_enabled` is on by default. So those pictures are the header
+ * `animations_enabled` was on by default then (it is off now). So those pictures are the header
  * over a blank page. Showing one would be worse than the theme's drawn
  * stand-in, so they are never shown, and the route clears them out.
  *

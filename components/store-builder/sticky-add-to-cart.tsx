@@ -1,6 +1,8 @@
 "use client"
 
 import type React from "react"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { usePriceCurrency } from "@/components/platform/price-currency"
 import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -61,14 +63,15 @@ interface StickyAddToCartProps {
   scrollY?: number
 }
 
-function formatPrice(cents: number): string {
+function formatPrice(cents: number, currency: string): string {
   if (cents === 0) return "Free"
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+  return shopMoneyIn(cents, currency, { grouping: true })
 }
 
 /* The bar's price: a membership's is per month or year, "$9/month", as on the page above it. */
-function barPriceText(product: ProductData): string {
-  return product.price_cents ? perInterval(formatPrice(product.price_cents), intervalOf(product)) : formatPrice(0)
+/** In the page's store currency (components/platform/price-currency). */
+function barPriceText(product: ProductData, currency: string): string {
+  return product.price_cents ? perInterval(formatPrice(product.price_cents, currency), intervalOf(product)) : formatPrice(0, currency)
 }
 
 function getButtonText(style: StickyAddToCartSettings["buttonStyle"]): string {
@@ -174,6 +177,7 @@ export function EditorStickyAddToCart({
   onSelect,
   scrollY = 0,
 }: StickyAddToCartProps) {
+  const pageCurrency = usePriceCurrency()
   /*
     HOOKS FIRST. `settings.visible` is a switch the creator flips in the
     sidebar, so it changes between renders of this same component: with
@@ -347,7 +351,7 @@ export function EditorStickyAddToCart({
               <p className="truncate text-sm font-medium leading-tight" style={{ color: contentTextColor }}>
                 {product.title}
               </p>
-              {barPrice(barPriceText(product), contentTextColor, !!isDarkBg)}
+              {barPrice(barPriceText(product, pageCurrency), contentTextColor, !!isDarkBg)}
             </div>
           ) : (
             <div className="min-w-0">
@@ -368,7 +372,7 @@ export function EditorStickyAddToCart({
               className={cn("text-[17px] font-semibold tabular-nums", !contentTextColor && "text-gray-900")}
               style={{ color: contentTextColor }}
             >
-              {barPriceText(product)}
+              {barPriceText(product, pageCurrency)}
             </span>
           )}
           <Button
@@ -414,6 +418,7 @@ export function LiveStickyAddToCart({
   downloadFiles: serverDownloadFiles = [],
   soldOut = false,
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
+  const pageCurrency = usePriceCurrency()
   /* Browsing in the editor's canvas is the point; buying from it is not. */
   const inEditorFrame = useEditorFrame()
   const router = useRouter()
@@ -659,7 +664,7 @@ export function LiveStickyAddToCart({
               <p className="truncate text-sm font-medium leading-tight" style={{ color: contentTextColor }}>
                 {product.title}
               </p>
-              {barPrice(barPriceText(product), contentTextColor, !!isDarkBg)}
+              {barPrice(barPriceText(product, pageCurrency), contentTextColor, !!isDarkBg)}
             </div>
           </div>
           <Button
@@ -720,7 +725,7 @@ export function LiveStickyAddToCart({
               className={cn("text-[17px] font-semibold tabular-nums", !contentTextColor && "text-gray-900")}
               style={{ color: contentTextColor }}
             >
-              {barPriceText(product)}
+              {barPriceText(product, pageCurrency)}
             </span>
             <Button
               type="button"

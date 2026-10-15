@@ -48,6 +48,7 @@
  */
 
 import { fullyRefunded } from "../orders/refund-state"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 /* ─── Order state ─────────────────────────────────────────────────────── */
 
@@ -200,10 +201,10 @@ export function sumMoney(rows: MoneyRow[]) {
   )
 }
 
-/** ISO 4217, upper case, USD when the row never said. */
+/** ISO 4217, upper case; the store's own currency (lib/store/shop-money.ts) when the row never said, which is what it was charged in. */
 export function normaliseCurrency(value: string | null | undefined): string {
   const c = (value ?? "").toString().trim().toUpperCase()
-  return /^[A-Z]{3}$/.test(c) ? c : "USD"
+  return /^[A-Z]{3}$/.test(c) ? c : SHOP_CURRENCY
 }
 
 /**

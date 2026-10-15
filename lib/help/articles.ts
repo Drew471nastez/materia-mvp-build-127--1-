@@ -918,6 +918,8 @@ export function helpImages(a: HelpArticle): string[] {
  */
 export const HELP_MOVED: Record<string, string> = {
   "physical-products/tax-and-units": "physical-products/units-and-packages",
+  /* The currency is set in Store details › Country & Currency now, apart from the payout currency. */
+  "physical-products/store-currency": "physical-products/country-and-currency",
 }
 
 /** The articles most people come for, first on the Help Center's home. The physical ones show only while the guide is on. */

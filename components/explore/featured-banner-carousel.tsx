@@ -1,6 +1,7 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
+import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
 import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode, type PointerEvent } from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -54,12 +55,10 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
   const totalSlides = featuredProducts.length
 
   // Format price helper
-  const formatPrice = (cents?: number) => {
+  /* In each product's own store currency, when Explore read it (lib/store/store-currencies). */
+  const formatPrice = (cents?: number, currency?: string | null) => {
     if (!cents || cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return currency ? shopMoneyIn(cents, currency, { grouping: true }) : shopMoney(cents, { grouping: true })
   }
 
   // Reset progress when slide changes
@@ -264,7 +263,7 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
               </SmartLink>
               <span className="text-lg font-bold text-white drop-shadow-md">
                 {/* A membership's price is per month or year (lib/pricing/list-price). */}
-                {productPrice ? perInterval(formatPrice(productPrice), intervalOf(currentProduct ?? {})) : formatPrice(productPrice)}
+                {productPrice ? perInterval(formatPrice(productPrice, (currentProduct as { currency?: string | null } | undefined)?.currency), intervalOf(currentProduct ?? {})) : formatPrice(productPrice)}
               </span>
             </div>
           </div>

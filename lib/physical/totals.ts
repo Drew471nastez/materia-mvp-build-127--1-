@@ -62,6 +62,8 @@ export interface PhysicalTotals {
   discountCents: number
   shippingCents: number
   shippingDiscountCents: number
+  /** Cash on delivery's fee, in the total and paid with delivery; 0 for a card payment. */
+  codFeeCents: number
   taxCents: number
   taxRateBps: number
   taxIncluded: boolean
@@ -100,7 +102,15 @@ function taxOf(cents: number, bps: number, included: boolean): number {
 
 export function physicalTotals(
   lines: TotalsLine[],
-  opts: { shippingCents: number; freeShipping?: boolean; tax?: TaxSettings; country?: string | null; region?: string | null },
+  opts: {
+    shippingCents: number
+    freeShipping?: boolean
+    tax?: TaxSettings
+    country?: string | null
+    region?: string | null
+    /** Cash on delivery's fee, when the buyer pays that way (Settings › Checkout): paid with delivery, never taken off by a free shipping code, taxed as delivery is. */
+    codFeeCents?: number
+  },
 ): PhysicalTotals {
   const tax = opts.tax ?? NO_TAX
   let itemsSubtotalCents = 0
@@ -124,7 +134,8 @@ export function physicalTotals(
   }
   const shippingCents = Math.max(0, Math.round(opts.shippingCents))
   const shippingDiscountCents = opts.freeShipping ? shippingCents : 0
-  const shippingPaid = shippingCents - shippingDiscountCents
+  const codFeeCents = Math.max(0, Math.round(opts.codFeeCents ?? 0))
+  const shippingPaid = shippingCents - shippingDiscountCents + codFeeCents
   const taxIncluded = tax.pricesIncludeTax
   let itemsTax = 0
   if (own.size === 0) itemsTax = taxOf(taxableCents, taxRateBps, taxIncluded)
@@ -135,7 +146,7 @@ export function physicalTotals(
   const charged = new Set([...byRate.entries()].filter(([bps, cents]) => cents > 0 && bps > 0).map(([bps]) => bps))
   if (tax.taxOnShipping && shippingPaid > 0 && taxRateBps > 0) charged.add(taxRateBps)
   const labelBps = charged.size === 1 ? [...charged][0] : charged.size === 0 ? taxRateBps : 0
-  return { itemsSubtotalCents, discountCents, shippingCents, shippingDiscountCents, taxCents, taxRateBps, taxIncluded, taxLabel: taxLabel(row?.name, labelBps), totalCents }
+  return { itemsSubtotalCents, discountCents, shippingCents, shippingDiscountCents, codFeeCents, taxCents, taxRateBps, taxIncluded, taxLabel: taxLabel(row?.name, labelBps), totalCents }
 }
 
 /** Margin of a sale at a cost: null when the cost is unknown or the price is nothing. */

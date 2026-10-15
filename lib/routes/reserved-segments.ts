@@ -63,7 +63,13 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "onboarding",
   /* The OnePage editor's preview frame (components/onepage/live-preview). */
   "onepage-preview",
+  /* A buyer's case on an order: /order-help/<id>. */
+  "order-help",
   "p",
+  /* Where Stripe's wallet page lands in the app's browser: /pay/wallet-return. */
+  "pay",
+  /* Payout setup opened on its own in the app's browser. */
+  "payouts-sheet",
   "pricing",
   "privacy",
   "products",
@@ -83,6 +89,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "sites",
   "store",
   "store-builder",
+  /* Where Stripe sends the app's browser back once its own page is done. */
+  "stripe-done",
   /* A team invite opened: /team/join (app/team/join). */
   "team",
   "terms",

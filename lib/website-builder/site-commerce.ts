@@ -12,11 +12,12 @@
  *   show_stock_left           "Only 3 left" on product pages        on
  *   low_stock_text            the words, {count} for the number     "Only {count} left"
  *   free_shipping_bar         the banner over the header            off
- *   free_shipping_threshold   its amount in dollars; empty or 0:
+ *   free_shipping_threshold   its amount in the store's currency; empty or 0:
  *                             the amount from the shipping rates
  *   cart_returns_note         the return window and a link to the
  *                             refund policy, beside Check out       off
  */
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 export const DEFAULT_LOW_STOCK_TEXT = "Only {count} left"
 
@@ -42,13 +43,21 @@ export function siteCommerce(theme: Record<string, unknown> | null | undefined):
   }
 }
 
-/** The banner's line, from what is in the cart and where free shipping starts (cents). Null: nothing to say. */
-export function freeShippingLine(subtotalCents: number, fromCents: number | null): { text: string; progress: number } | null {
+/**
+ * The banner's line, from what is in the cart and where free shipping starts (cents). Null: nothing to say.
+ *
+ * `money` writes the amount left: the store's own currency by default (a
+ * code, Settings › Country & Currency), the visitor's market's currency
+ * where the page shows one (the theme's useMoney, lib/markets/compat-prices.ts
+ * commerceInMarket).
+ */
+export function freeShippingLine(subtotalCents: number, fromCents: number | null, money: string | ((cents: number) => string) = SHOP_CURRENCY): { text: string; progress: number } | null {
+  const write = typeof money === "function" ? money : (cents: number) => shopMoneyIn(cents, money)
   if (fromCents === null || !Number.isFinite(fromCents) || fromCents < 0) return null
   if (fromCents === 0) return { text: "Free shipping on every order", progress: 1 }
   const left = Math.max(0, fromCents - Math.max(0, subtotalCents))
   if (left === 0) return { text: "You have earned free shipping", progress: 1 }
-  return { text: `Spend $${(left / 100).toFixed(2)} more for free shipping`, progress: Math.max(0, Math.min(1, subtotalCents / fromCents)) }
+  return { text: `Spend ${write(left)} more for free shipping`, progress: Math.max(0, Math.min(1, subtotalCents / fromCents)) }
 }
 
 /** The cart's returns line. Null when returns are off or the shop never set them. */

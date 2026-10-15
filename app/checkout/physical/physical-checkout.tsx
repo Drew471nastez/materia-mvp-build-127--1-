@@ -25,9 +25,11 @@
  * Pay opens Stripe's own page as before.
  */
 
+import { codCountryAllowed } from "@/lib/physical/cash-on-delivery"
 import * as React from "react"
 import { includedTaxLabel } from "@/lib/tax/rules"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
+import { CheckoutPhone } from "../parts/phone-input"
 import { ChevronDown, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
@@ -46,8 +48,10 @@ import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { VariantEdit } from "../parts/variant-edit"
 import type { ChoicesByProduct } from "@/lib/checkout/variant-choices"
-import { CHECKOUT_CURRENCY, money as sharedMoney } from "../parts/ui"
+import { useCheckoutCurrency, useMoney } from "../parts/ui"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
+import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
+import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 
 interface QuoteLine {
   productId: string
@@ -73,7 +77,7 @@ interface Quote {
   couponError: string | null
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean; needsRegion?: boolean }
   pickups?: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
-  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string }
+  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string; codFeeCents?: number }
   /* The store's upsells and bundles (lib/offers): what this cart got, and what it could add. */
   offers?: { title: string; savedCents: number }[]
   suggestions?: Suggestion[]
@@ -91,10 +95,10 @@ const INPUT =
 */
 const FLOAT_INPUT = `${INPUT} peer h-[52px] pt-[17px] placeholder:text-transparent`
 const FLOAT_LABEL =
-  "pointer-events-none absolute left-3.5 right-3.5 top-1/2 -translate-y-1/2 truncate text-[15px] text-[#9ca3af] transition-[top,font-size,transform,color] duration-150 ease-out peer-focus:top-[8px] peer-focus:translate-y-0 peer-focus:text-[11.5px] peer-focus:text-[#6b7280] peer-[:not(:placeholder-shown)]:top-[8px] peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[11.5px] peer-[:not(:placeholder-shown)]:text-[#6b7280]"
+  "pointer-events-none absolute left-3.5 right-3.5 top-1/2 -translate-y-1/2 truncate text-[15px] text-[#9ca3af] transition-[top,font-size,translate,color] duration-150 ease-out peer-focus:top-[8px] peer-focus:translate-y-0 peer-focus:text-[11.5px] peer-focus:text-[#6b7280] peer-[:not(:placeholder-shown)]:top-[8px] peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[11.5px] peer-[:not(:placeholder-shown)]:text-[#6b7280]"
 const FLOAT_SELECT = `${INPUT} h-[52px] appearance-none pr-10 pt-[17px] data-[empty=true]:pt-0 data-[empty=true]:text-transparent`
 const FLOAT_SELECT_LABEL =
-  "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,transform] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
+  "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,translate] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
 
 function guessCountry(): string {
   try {
@@ -113,8 +117,10 @@ export function PhysicalCheckout({
   config = DEFAULT_CHECKOUT,
   buyer = { signedIn: true, confirmed: true },
   backTo = null,
-  currency = CHECKOUT_CURRENCY,
+  initialCountry = null,
 }: {
+  /** The delivery country before the first frame (./page.tsx). */
+  initialCountry?: string | null
   shopId: string | null
   shopName: string
   /** The shop across the top: its website's logo, or its photo beside its name (lib/checkout/brand-server). */
@@ -126,11 +132,10 @@ export function PhysicalCheckout({
   /** The store's Settings › Checkout (lib/store/checkout-config): which fields are asked for, and whether an account comes first. */
   config?: CheckoutConfig
   buyer?: { signedIn: boolean; confirmed: boolean }
-  /** What the card is charged in: the store's own currency (lib/payments/fees/currency-rules storeChargeCurrency). */
-  currency?: string
 }) {
-  /* Every price here in the currency the card is charged in. */
-  const money = (cents: number) => sharedMoney(cents, currency)
+  /* The store's own currency (<CheckoutCurrency> in ./page.tsx): every amount here is in it, and the card is charged in it. */
+  const money = useMoney()
+  const currency = useCheckoutCurrency()
   const needsSignIn = config.requireAccount && !buyer.signedIn
   const needsConfirm = config.requireConfirmedEmail && buyer.signedIn && !buyer.confirmed
   const [first, setFirst] = React.useState("")
@@ -147,7 +152,12 @@ export function PhysicalCheckout({
   const [quoting, setQuoting] = React.useState(false)
 
   const [email, setEmail] = React.useState("")
-  const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "", company: "" })
+  const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: initialCountry ?? "", phone: "", company: "" })
+  /* A country the buyer picks is the one their next checkout opens on (lib/checkout/checkout-country). */
+  const firstCountry = React.useRef(address.country)
+  React.useEffect(() => {
+    if (address.country && address.country !== firstCountry.current) rememberCheckoutCountry(address.country)
+  }, [address.country])
   /* First and last typed apart, sent as one name, the way every order reads a name. */
   React.useEffect(() => {
     if (config.nameFields !== "first_and_last") return
@@ -161,6 +171,8 @@ export function PhysicalCheckout({
   const [note, setNote] = React.useState("")
   const [summaryOpen, setSummaryOpen] = React.useState(false)
   const [paying, setPaying] = React.useState(false)
+  /* Cash on delivery chosen instead of the card (lib/physical/cash-on-delivery.ts), when the shop offers it. */
+  const [byCash, setByCash] = React.useState(false)
   /* Back from the payment page, restored from the browser's cache: not still paying. */
   useBackFromCache(() => setPaying(false))
   const [payError, setPayError] = React.useState<{ message: string; field: string | null } | null>(null)
@@ -214,7 +226,8 @@ export function PhysicalCheckout({
         const res = await fetch("/api/physical/checkout/quote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email }),
+          /* Paying on delivery is asked with it: the total then has the shop's fee in it, as the order will. */
+          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email, ...(byCash && config.cashOnDelivery ? { cashOnDelivery: true } : {}) }),
         })
         const data = await res.json().catch(() => ({}))
         if (n !== ask.current) return
@@ -241,10 +254,10 @@ export function PhysicalCheckout({
       } finally {
         if (n === ask.current) setQuoting(false)
       }
-    }, 250)
+    }, quote ? 200 : 0)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, optionId])
+  }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, optionId, byCash])
 
   /* A checkout offer taken: into the order, and the cart's too when the cart is where it came from. The server prices it again. */
   const addSuggestion = (sg: Suggestion, v: { id: string; name: string; priceCents: number } | null) => {
@@ -278,7 +291,15 @@ export function PhysicalCheckout({
       { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.priceCents } },
     )
   }
+  /* The buyer took the last line out here: back to the shop they came from, never an empty page of its own. */
+  const emptiedHere = React.useRef(false)
   const changeItems = (change: (prev: LinkItem[]) => LinkItem[], swap?: { productId: string; from: string | null; to: { variantId: string; variantName: string | null; priceCents: number } }) => {
+    if (items) {
+      const next = change(items)
+      if (next.length === 0) emptiedHere.current = true
+      /* The new amounts at once (lib/checkout/optimistic-quote); the server's quote replaces them when it answers. */
+      else if (!swap) setQuote((q) => (q ? (optimisticQuote(q, next) ?? q) : q))
+    }
     setItems((prev) => {
       if (!prev) return prev
       const next = change(prev)
@@ -327,6 +348,7 @@ export function PhysicalCheckout({
           buyerNote: note,
           emailOptIn: config.marketingOptIn ? emailOptIn : false,
           clientKey: clientKey.current,
+          ...(cashOn ? { cashOnDelivery: true } : {}),
           returnUrl: backUrl ?? window.location.href,
           /* Stripe's form inside this page; Stripe's own page in the app's shell, where Stripe.js cannot run. */
           ...(isCapacitorShell() ? {} : { ui: "embedded" }),
@@ -352,7 +374,7 @@ export function PhysicalCheckout({
         if (res.status === 409) setItems((x) => (x ? [...x] : x))
         return
       }
-      if (data.free === true && fromCart) {
+      if ((data.free === true || data.cod === true) && fromCart) {
         try {
           window.localStorage.removeItem(cartStorageKey(shopId))
         } catch {
@@ -361,7 +383,8 @@ export function PhysicalCheckout({
       }
       window.location.href = data.url
     } catch {
-      clientKey.current = actionKey()
+      /* A cash order may have been placed without the answer arriving: the same key again finds it rather than placing a second. */
+      if (!cashOn) clientKey.current = actionKey()
       setPayError({ message: "Could not reach the checkout. Check your connection and try again.", field: null })
       setPaying(false)
     }
@@ -404,6 +427,17 @@ export function PhysicalCheckout({
     return null
   })()
   const canPay = !!quote && quote.lines.length > 0 && quote.stockIssues.length === 0 && !missing && !paying && !quoting
+  /* Offered when the shop takes cash, everything ships or is picked up, and there is something to pay (codRefusal says the same on the server). */
+  const cashOffered =
+    config.cashOnDelivery &&
+    !!quote?.requiresShipping &&
+    !!quote &&
+    quote.lines.length > 0 &&
+    quote.lines.every((l) => l.type === "physical") &&
+    (quote.totals.totalCents ?? 0) > 0 &&
+    /* Only to the countries the shop takes cash in; a pickup is paid where it is picked up. */
+    (mode === "pickup" || codCountryAllowed(config.codCountries, address.country))
+  const cashOn = cashOffered && byCash
 
   const t = quote?.totals
   const summary = quote ? (
@@ -515,6 +549,12 @@ export function PhysicalCheckout({
               <dd className="tabular-nums text-[#1a1a2e]">{mode === "pickup" ? "Free" : !optionId ? (quote.delivery.needsRegion ? `Choose your ${(addressFormat(address.country).region?.label ?? "state").toLowerCase()}` : address.country ? "Not available" : "Enter your address") : t.shippingCents - t.shippingDiscountCents === 0 ? "Free" : money(t.shippingCents - t.shippingDiscountCents)}</dd>
             </div>
           ) : null}
+          {(t.codFeeCents ?? 0) > 0 ? (
+            <div className="flex justify-between" data-cod-fee="">
+              <dt className="text-[#4b5563]">Cash on delivery fee</dt>
+              <dd className="tabular-nums text-[#1a1a2e]">{money(t.codFeeCents ?? 0)}</dd>
+            </div>
+          ) : null}
           {t.taxCents > 0 ? (
             <div className="flex justify-between">
               <dt className="text-[#4b5563]">{t.taxIncluded ? includedTaxLabel(t.taxLabel) : t.taxLabel || "Tax"}</dt>
@@ -549,6 +589,20 @@ export function PhysicalCheckout({
     </label>
   )
 
+  /* The phone with its country's code in front, the same field as the website checkout (../parts/phone-input), as tall as this form's fields. */
+  const phoneField = (
+    <CheckoutPhone
+      id="physical-phone"
+      value={address.phone}
+      country={address.country}
+      invalid={payError?.field === "phone"}
+      placeholder={config.phone === "required" ? "Phone" : "Phone (optional)"}
+      label={config.phone === "required" ? "Phone" : "Phone (optional)"}
+      className="h-[52px] rounded-[10px]"
+      onChange={(v) => setAddress((a) => ({ ...a, phone: v.slice(0, 40) }))}
+    />
+  )
+
   /* One full name, or first and last apart, as Settings › Checkout asks. */
   const nameFields = (purpose?: string) =>
     config.nameFields === "first_and_last" ? (
@@ -566,6 +620,7 @@ export function PhysicalCheckout({
       field("name", purpose ? `Full name, ${purpose}` : "Full name", { autoComplete: "name" })
     )
 
+  if (items !== null && items.length === 0 && emptiedHere.current && (backUrl || shopUrl)) return <LeaveTo to={(backUrl ?? shopUrl) as string} />
   if (items !== null && (items.length === 0 || !shopId)) {
     return (
       <div className="min-h-dvh bg-[#f8f9fa]">
@@ -738,7 +793,7 @@ export function PhysicalCheckout({
                   ))}
                 </div>
                 {nameFields("for the pickup")}
-                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone" : "Phone (optional)", { autoComplete: "tel", inputMode: "tel" }) : null}
+                {config.phone !== "off" ? phoneField : null}
                 <p className="text-[12.5px] text-[#6b7280]">We'll email you when your order is ready to pick up.</p>
               </div>
             ) : null}
@@ -763,7 +818,7 @@ export function PhysicalCheckout({
                 {nameFields()}
                 {config.company !== "off" ? field("company", config.company === "required" ? "Company" : "Company (optional)", { autoComplete: "organization" }) : null}
                 {field("line1", "Address", { autoComplete: "address-line1" })}
-                {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment, suite or unit" : "Apartment, suite (optional)", { autoComplete: "address-line2" }) : null}
+                {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment" : "Apartment (optional)", { autoComplete: "address-line2" }) : null}
                 {/* The country's own words and fields (lib/address/format): no state where nobody writes one, a ZIP code in the US, a Postcode in the UK. */}
                 <div className={cn("grid gap-3", addressFormat(address.country).region ? "grid-cols-2 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1" : "grid-cols-2")}>
                   {field("city", "City", { autoComplete: "address-level2" })}
@@ -787,7 +842,7 @@ export function PhysicalCheckout({
                   )}
                   {field("postalCode", postalCodeRequired(address.country || "US") ? addressFormat(address.country || "US").postal.label : `${addressFormat(address.country).postal.label} (optional)`, { autoComplete: "postal-code" })}
                 </div>
-                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone, for the courier" : "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" }) : null}
+                {config.phone !== "off" ? phoneField : null}
               </div>
             ) : null}
 
@@ -834,15 +889,59 @@ export function PhysicalCheckout({
               <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className="mt-2 w-full rounded-[10px] border border-[#d9dce1] px-3.5 py-2.5 text-[15px] outline-none focus:border-[#1a1a2e]" placeholder="Gift wrap, delivery instructions..." />
             </details>
 
+            {cashOffered ? (
+              <div>
+                <h2 className="mb-3 text-[19px] font-semibold text-[#1a1a2e]">Payment</h2>
+                {/* One row each on a phone, as the shipping methods are; side by side where both names fit. */}
+                <div role="radiogroup" aria-label="How to pay" data-pay-choice="" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {([
+                    [false, "Card"],
+                    [true, "Cash on delivery"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      role="radio"
+                      aria-checked={byCash === value}
+                      data-pay-cash={value ? "" : undefined}
+                      disabled={paying}
+                      onClick={() => {
+                        setByCash(value)
+                        setPayError(null)
+                      }}
+                      className={cn(
+                        "flex h-12 items-center gap-2.5 rounded-[10px] border bg-white px-3.5 text-left text-[15px] font-medium text-[#1a1a2e] transition-colors disabled:cursor-not-allowed",
+                        byCash === value ? "border-[#1a1a2e]" : "border-[#d9dce1] hover:border-[#c4c8cf]",
+                      )}
+                    >
+                      <span aria-hidden className={cn("grid h-4 w-4 shrink-0 place-items-center rounded-full border", byCash === value ? "border-[#1a1a2e]" : "border-[#c9ccd2]")}>
+                        {byCash === value ? <span className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}
+                      </span>
+                      <span className="min-w-0">{label}</span>
+                    </button>
+                  ))}
+                </div>
+                {cashOn && t ? (
+                  <div data-cash-note="" className="mt-2 space-y-1 text-[13.5px] leading-5 text-[#4b5563]">
+                    <p>{mode === "pickup" ? `Pay ${money(t.totalCents)} in cash when you pick it up.` : `Pay ${money(t.totalCents)} in cash when it's delivered.`}</p>
+                    {/* The shop's own words for it (Settings › Checkout), as the order email repeats them. */}
+                    {config.codInstructions ? <p data-cash-instructions="">{config.codInstructions}</p> : null}
+                  </div>
+                ) : !cashOn && config.cashOnDelivery && (t?.codFeeCents ?? 0) === 0 && config.codFeeCents > 0 && cashOffered ? (
+                  <p className="mt-2 text-[13.5px] leading-5 text-[#4b5563]">{`Cash on delivery adds a fee of ${money(config.codFeeCents)}.`}</p>
+                ) : null}
+              </div>
+            ) : null}
+
             {payError ? <p role="alert" className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[14px] text-[#991b1b]">{payError.message}</p> : null}
 
             <button type="button" onClick={pay} disabled={!canPay} className="flex h-14 w-full items-center justify-center gap-2 rounded-[12px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.16)] transition-colors hover:bg-[#2a2a44] disabled:cursor-not-allowed disabled:opacity-50">
               <Lock className="h-4 w-4" />
-              {paying ? "Opening payment" : t && t.totalCents === 0 ? "Place order" : "Continue to payment"}
+              {paying ? (cashOn ? "Placing order" : "Opening payment") : cashOn || (t && t.totalCents === 0) ? "Place order" : "Continue to payment"}
             </button>
             <p className="text-center text-[12.5px] leading-[18px] text-[#6b7280]">
               {missing === "delivery" && quote?.requiresShipping ? (mode === "pickup" ? "Choose a pickup point to continue. " : "Choose a shipping method to continue. ") : ""}
-              Payment is taken securely by Stripe. Stock is held for you while you pay.
+              {cashOn ? "Nothing is charged now. The shop collects the cash." : "Payment is taken securely by Stripe. Stock is held for you while you pay."}
             </p>
           </div>
         </section>
@@ -853,4 +952,12 @@ export function PhysicalCheckout({
       </div>
     </main>
   )
+}
+
+/** Back to the shop at once, with the page's own grey while it goes. */
+function LeaveTo({ to }: { to: string }) {
+  React.useEffect(() => {
+    window.location.replace(to)
+  }, [to])
+  return <div aria-busy className="min-h-dvh bg-[#f8f9fa]" data-checkout-leaving="" />
 }

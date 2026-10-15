@@ -28,10 +28,11 @@
  */
 import "server-only"
 import { validateSection } from "@/lib/storelib-ai/validate"
-import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
+import { refreshCompatSettingsPanel, saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { publicError } from "@/lib/agent-access/operations"
 import { repoMayWrite } from "@/lib/agent-access/protected"
-import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
+import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import { SETTINGS_PANEL_FILE, SETTINGS_SCHEMA_FILE } from "@/lib/storelib-theme/compat/schema-sync"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { parseCompat } from "@/lib/storelib-theme/compat/parser"
 import { CompatSyntaxError } from "@/lib/storelib-theme/compat/lexer"
@@ -56,7 +57,7 @@ import {
   type PushPayload,
 } from "./core"
 import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, compareStatus, installationToken, listTree, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
-import { GENERATED, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
+import { GENERATED, SETTINGS_SCHEMA_PATH, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
 import { explainFailure, failureLine } from "./errors"
 import { readSnapshot, SnapshotError } from "./snapshot"
 import { recordEvent } from "./events"
@@ -269,25 +270,21 @@ function lineOf(message: string): number | undefined {
   return m ? Number(m[1]) : undefined
 }
 
-/** The same value, written the same way: key order and spacing do not count as a change. */
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value as object).sort().map((k) => `${JSON.stringify(k)}:${stable((value as Record<string, unknown>)[k])}`).join(",")}}`
-  }
-  return JSON.stringify(value ?? null)
-}
-
 /**
- * Why an imported section or block from the repository cannot be taken, or
- * null: its <schema> (the panel and the theme's own `shopify` settings) is
- * the import's, so a change to it is refused and said so. The markup is free.
+ * A schema in the repository that Storelib writes for reading, changed: why
+ * it is not taken, and what to change instead. Said as a refusal, with the
+ * commit red, because a quiet note under a green status read as "done" to
+ * the agent that pushed it, and the builder's panel never changed.
  */
-export function compatSchemaChange(path: string, stored: string, text: string): string | null {
-  const theirs = splitCompatFile(text)
-  if (theirs.schema === null && /<schema>/.test(text)) return `${path}: the <schema> block is not valid JSON`
-  if (stable(theirs.schema ?? {}) === stable(splitCompatFile(stored).schema ?? {})) return null
-  return `${path}: its settings (the <schema> block) changed. An imported theme's settings come from its import: change the markup here, or import the theme again`
+export function readOnlySchemaRefusal(path: string): string | null {
+  if (path === SETTINGS_SCHEMA_PATH) {
+    return `${path}: Storelib's theme settings are the same on every Storelib theme, so this file is for reading and a change to it is not taken. Change a theme setting's value in config/settings.json. A setting the creator should be able to change goes in a section's <schema> (sections/<type>.storelib), and shows in that section's panel in the builder`
+  }
+  const m = /^sections\/([a-z0-9_-]{1,64})\.json$/.exec(path)
+  if (m) {
+    return `${path}: this section is drawn by Storelib itself, so its schema here is for reading and a change to it is not taken. Write sections/${m[1]}.storelib with the same setting ids instead: this site then draws that file, with the settings its <schema> declares`
+  }
+  return null
 }
 
 /** The quality findings a built-in already has are not the edit's fault: only new ones refuse a copy of it. */
@@ -360,7 +357,10 @@ export async function applyFiles(
     }
     const role = roleOf(f.path, compat)
     if (!readsBack(role)) {
-      if (role === "media") out.notes.push({ path: f.path, note: `${f.path}: pictures are not taken from GitHub. Upload it in Files in the builder.` })
+      const refused = role === "reference" && !snap.compat && agreed[f.path] !== f.sha && currentSha.get(f.path) !== f.sha ? readOnlySchemaRefusal(f.path) : null
+      if (refused) out.failed.push({ path: f.path, error: refused, kind: "theme-settings" })
+      else if (role === "media") out.notes.push({ path: f.path, note: `${f.path}: pictures are not taken from GitHub. Upload it in Files in the builder.` })
+      else if (f.path === SETTINGS_PANEL_FILE) out.notes.push({ path: f.path, note: `${f.path} is made by Storelib from ${SETTINGS_SCHEMA_FILE}, which is the file to change. Theme settings in the builder follow it.` })
       else if (role === "reference") out.notes.push({ path: f.path, note: `${f.path} is there to read. Storelib does not take changes to it.` })
       else if (role === "generated") out.notes.push({ path: f.path, note: `${f.path} is written by Storelib, so this change is replaced on the next Push.` })
       continue
@@ -431,6 +431,8 @@ export async function applyFiles(
       conflictNote(f.path)
       out.saved.push(f.path)
       out.shas[f.path] = f.sha
+      /* An imported theme's Theme settings list its colour schemes from these values: made again with them. */
+      if (snap.compat) await refreshCompatSettingsPanel(db, link.install_id)
       await logActivity(db, link.install_id, who, { path: "settings", action: "page", detail: { replaced: true } })
       continue
     }
@@ -454,15 +456,13 @@ export async function applyFiles(
         continue
       }
       builtIn = allowed.override
-      /* An imported theme's settings come from its import: its markup changes here, its <schema> does not. */
-      const had = snap.compat && /^(sections|blocks)\//.test(f.path) ? snap.files[f.path] : undefined
-      if (had !== undefined) {
-        const schemaProblem = compatSchemaChange(f.path, had, text)
-        if (schemaProblem) {
-          out.failed.push({ path: f.path, error: schemaProblem, kind: "theme-settings" })
-          continue
-        }
-      }
+      /*
+        An imported theme's section or block takes its <schema> too: the
+        theme's own (under "shopify") is what the page draws, and the save
+        makes the builder's panel from it again (lib/storelib-theme/compat/
+        schema-sync.ts), so a setting, block or preset changed here is in
+        the builder's sidebar as soon as the push is.
+      */
       /* A section or block of a Storelib theme is held to every rule a creator's own section is, scripts included. */
       if (!snap.compat && /^(sections|blocks)\//.test(f.path)) {
         const type = f.path.replace(/^(sections|blocks)\//, "").replace(/\.storelib$/, "")
@@ -503,6 +503,8 @@ export async function applyFiles(
     conflictNote(f.path)
     out.saved.push(f.path)
     out.shas[f.path] = f.sha
+    /* What the builder cannot show of a schema it took (a setting with no control): said on the commit and in the builder. */
+    for (const note of saved.notes ?? []) out.notes.push({ path: f.path, note })
     const m = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(f.path)
     if (m) savedTypes.add(m[1])
     if (role === "source" && !snap.compat && repoMayWrite(f.path, compat).ok && (f.path in snap.defaults || (m && SECTION_SCHEMAS[m[1]]))) {

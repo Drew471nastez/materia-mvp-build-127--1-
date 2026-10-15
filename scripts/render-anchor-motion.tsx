@@ -10,8 +10,9 @@
  *   ?mode=canvas   the same page inside the builder's canvas frame, a
  *                  scrolling card, with the page marked as in the editor
  *   ?w=<px>&h=<px> the canvas frame's size
+ *   window.__edit  an edit made the way the editor makes it
  */
-import React from "react"
+import React, { useState } from "react"
 import { createRoot } from "react-dom/client"
 
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -23,6 +24,10 @@ declare global {
   interface Window {
     __ready: boolean
     __scrollToHash: (hash: string) => boolean
+    /* A setting changed while the page is open, as the editor's sidebar does it. */
+    __setSection: (key: string, patch: Record<string, unknown>) => void
+    __setTheme: (patch: Record<string, unknown>) => void
+    __edit: (kind: "type" | "add" | "select") => void
   }
 }
 
@@ -46,7 +51,7 @@ const canvas = params.get("mode") === "canvas"
 /** Tall enough to need a real scroll between any two sections. */
 const tall = { padding_top: 120, padding_bottom: 120 }
 
-const sections: SectionInstance[] = [
+const initialSections: SectionInstance[] = [
   fromPreset("header", "header-1", { header_sticky_enabled: true }, [
     nav("n1", "Pricing", "/#pricing"),
     nav("n2", "Questions", "/#section-faq-x1"),
@@ -63,7 +68,7 @@ const sections: SectionInstance[] = [
   fromPreset("footer", "footer-1"),
 ]
 
-const theme = {
+const initialTheme = {
   animations_enabled: true,
   animation_style: "fade-up",
   animation_duration: 600,
@@ -71,8 +76,30 @@ const theme = {
   background_color: "#ffffff",
 } as unknown as ThemeSettingsValues
 
+/*
+  The builder's edits, as the editor makes them: a letter typed into the
+  first section's heading (a new settings object, the same ids), a section
+  added at the end of the page, a section selected (a new list, nothing in
+  it changed). scripts/check-section-reveal.mjs makes them in the canvas.
+*/
+let typed = 0
+function edited(list: SectionInstance[], kind: "type" | "add" | "select"): SectionInstance[] {
+  if (kind === "select") return [...list]
+  if (kind === "type") {
+    typed++
+    return list.map((s) => (s.id === "intro-a1" ? { ...s, settings: { ...s.settings, heading: `Words that sell${"!".repeat(typed)}` } } : s))
+  }
+  const at = list.findIndex((s) => s.type === "footer")
+  return [...list.slice(0, at), fromPreset("rich_text", "added-e5", { ...tall, heading: "Just added" }), ...list.slice(at)]
+}
+
 function App() {
-  const page = <ThemePage theme={theme} sections={sections} storefront={canvas ? { inEditor: true } : undefined} />
+  const [list, setList] = useState(initialSections)
+  const [theme, setTheme] = useState(initialTheme)
+  window.__setSection = (key, patch) => setList((all) => all.map((s) => (s.id === key ? { ...s, settings: { ...s.settings, ...patch } } : s)))
+  window.__setTheme = (patch) => setTheme((t) => ({ ...t, ...patch }) as ThemeSettingsValues)
+  window.__edit = (kind) => setList((prev) => edited(prev, kind))
+  const page = <ThemePage theme={theme} sections={list} storefront={canvas ? { inEditor: true } : undefined} />
   if (!canvas) return page
   const w = Number(params.get("w") || 1000)
   const h = Number(params.get("h") || 700)

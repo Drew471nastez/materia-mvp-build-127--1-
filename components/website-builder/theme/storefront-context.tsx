@@ -18,11 +18,12 @@
  * the builder's canvas. A section reads it and decides whether it can do the
  * thing it offers.
  */
-import type { SiteLanguageChoice } from "./language-switch"
+import type { LanguageSwitchPreview, SiteLanguageChoice } from "./language-switch"
 import { createContext, useContext, useMemo, type ReactNode } from "react"
 import { pricingFor, type StorefrontDisplay } from "@/lib/markets/pricing"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
 import { uiWord, type UiWord } from "@/lib/markets/ui-words"
+import { shopMoneyIn, SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 export interface Storefront {
   /** The creator whose site this is. Absent in the editor's canvas. */
@@ -62,6 +63,18 @@ export interface Storefront {
    * product cards are, and says what checkout charges in.
    */
   display?: StorefrontDisplay
+  /**
+   * The store's own currency (Settings › Country & Currency,
+   * lib/store/selling-currency): what its prices are in and checkout charges.
+   * Absent, the platform's, which is what every store sold in before.
+   */
+  currency?: string
+  /**
+   * The builder's canvas only: what the language and currency switch does
+   * there, which is change the preview (the editor's use-preview-language
+   * and use-preview-market), never open another address.
+   */
+  preview?: LanguageSwitchPreview
 }
 
 const StorefrontContext = createContext<Storefront>({})
@@ -80,8 +93,8 @@ export function useWord(): (word: UiWord) => string {
   return (word) => uiWord(words, word)
 }
 
-/** The store's price as written on its website ("$48.00"), the shape every Storelib theme's cart used. */
-const ownMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
+/** The store's price as written on its website ("$48.00", "RON 48.00"), the shape every Storelib theme's cart used (lib/store/shop-money.ts). */
+const ownMoneyIn = (currency: string) => (cents: number) => shopMoneyIn(cents, currency)
 
 /**
  * An amount of the cart in the visitor's market's currency when the page
@@ -89,12 +102,13 @@ const ownMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
  * charges the store's prices, and useChargeNote says so.
  */
 export function useMoney(): (cents: number) => string {
-  const display = useContext(StorefrontContext).display
+  const { display, currency } = useContext(StorefrontContext)
   return useMemo(() => {
+    const ownMoney = ownMoneyIn(currency ?? SHOP_CURRENCY)
     const pricing = display ? pricingFor(display.market, display.base, display.fx) : null
     if (!pricing || !display) return ownMoney
     return (cents: number) => pricing.format(cents, display.locale) ?? ownMoney(cents)
-  }, [display])
+  }, [display, currency])
 }
 
 /** What checkout charges in, when the cart shows another currency; null otherwise. */

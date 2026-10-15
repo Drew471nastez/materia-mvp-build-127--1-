@@ -20,6 +20,8 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
+import { currencyMarkOf, formatCurrency } from "@/lib/markets/money"
+import { useCt } from "./words"
 
 export const INK = "#1a1a2e"
 
@@ -312,11 +314,12 @@ const STRIPE_WORDMARK =
  * order is still here after reading them.
  */
 export function PoweredByStripe() {
+  const ct = useCt()
   const link = "rounded-[4px] px-1 py-1.5 transition-colors hover:text-[#1a1a2e] focus-visible:outline-2 focus-visible:outline-[#1a1a2e]/40"
   return (
     <p data-powered-by="" className="mt-3.5 flex flex-wrap items-center justify-center gap-x-1 text-[12.5px] text-[#8b919a]">
       <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className={cn(link, "inline-flex items-center gap-1")}>
-        Powered by
+        {ct("Powered by")}
         <svg viewBox="0 120 640 272" aria-label="Stripe" role="img" className="mt-[1px] h-[14px] w-auto" fill="currentColor">
           <path d={STRIPE_WORDMARK} />
         </svg>
@@ -325,13 +328,13 @@ export function PoweredByStripe() {
         ·
       </span>
       <a href="/terms" target="_blank" className={link}>
-        Terms
+        {ct("Terms")}
       </a>
       <span aria-hidden className="text-[#c4c8ce]">
         ·
       </span>
       <a href="/privacy" target="_blank" className={link}>
-        Privacy
+        {ct("Privacy")}
       </a>
     </p>
   )
@@ -346,6 +349,48 @@ export function PoweredByStripe() {
 */
 export const CHECKOUT_CURRENCY = PLATFORM_CURRENCY
 
-/* `currency`: a store's own checkout charges in the store's currency (lib/payments/fees/currency-rules storeChargeCurrency) and passes it; every other checkout is the platform's. */
-export const money = (cents: number, currency: string = CHECKOUT_CURRENCY) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || CHECKOUT_CURRENCY).toUpperCase() }).format((cents || 0) / 100)
+/* `currency`: a checkout that knows its store's currency can pass it; inside <CheckoutCurrency>, useMoney() reads it for you. */
+export const money = (cents: number, currency: string = CHECKOUT_CURRENCY) => formatCurrency((cents || 0) / 100, (currency || CHECKOUT_CURRENCY).toUpperCase(), "en-US")
+
+/** The charge currency's own mark for an amount field ("$", "RON"), as money() writes it. */
+export const CURRENCY_MARK = markOf(CHECKOUT_CURRENCY)
+
+/** An amount in a given currency, written as money() writes the platform's. */
+export function moneyIn(cents: number, currency: string): string {
+  return formatCurrency((cents || 0) / 100, currency.toUpperCase(), "en-US")
+}
+
+/** A currency's own mark for an amount field ("$", "lei", "€"), as money() writes it. */
+export function markOf(currency: string): string {
+  return currencyMarkOf(currency, "en-US").mark
+}
+
+/*
+  THE CURRENCY THIS CHECKOUT CHARGES IN. A store's website checkout and its
+  cart checkout charge in the store's own currency (lib/store/selling-currency,
+  Settings › Country & Currency), and wrap themselves in <CheckoutCurrency>
+  with it; every amount, the tip and amount fields and Stripe's card form
+  then read it here. Storelib's own checkout (/checkout) sets none and keeps
+  the platform's currency, exactly as before.
+*/
+const CurrencyContext = React.createContext<string>(CHECKOUT_CURRENCY.toUpperCase())
+
+export function CheckoutCurrency({ currency, children }: { currency: string; children: React.ReactNode }) {
+  return <CurrencyContext.Provider value={currency.toUpperCase()}>{children}</CurrencyContext.Provider>
+}
+
+/** "RON": the currency this checkout charges in. */
+export function useCheckoutCurrency(): string {
+  return React.useContext(CurrencyContext)
+}
+
+/** money() in this checkout's currency. */
+export function useMoney(): (cents: number) => string {
+  const currency = useCheckoutCurrency()
+  return React.useCallback((cents: number) => moneyIn(cents, currency), [currency])
+}
+
+/** CURRENCY_MARK in this checkout's currency. */
+export function useCurrencyMark(): string {
+  return markOf(useCheckoutCurrency())
+}

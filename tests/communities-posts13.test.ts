@@ -81,7 +81,8 @@ async function main() {
   /* ── 1 ─────────────────────────────────────────────────────────────── */
   console.log("\n1. Switching lists with the same posts")
   check("a post drawn as a card on the last frame is drawn as a card again (no placeholder for it)", /i < firstCards \|\| whole \|\| onScreen\.current\.has\(p\.id\) \? <PostCard/.test(feed))
-  check("only cards new to the screen ease in; a list with nothing new does not move", /if \(before\.has\(id\)\) continue/.test(feed) && /const whole = afterSpinner\.current \|\| before\.size === 0/.test(feed))
+  /* Changed on purpose: round 15 (the owner: no fade on a switch; tests/communities-frame11.test.ts) took the per card ease off: a list over another list is simply there, the cards already on screen drawn as cards again, and only a list that takes the spinner's place comes up (ddcbaf919). */
+  check("only cards new to the screen ease in; a list with nothing new does not move", /onScreen\.current = new Set\(/.test(feed) && /const fromSpinner = afterSpinner\.current\s*afterSpinner\.current = false\s*if \(!fromSpinner \|\| !el/.test(feed) && (feed.match(/\.animate\(/g) ?? []).length === 1 && !/before\.has\(id\)/.test(feed))
   check("the cards stay keyed by the post's id in one list", /<PostCard key=\{p\.id\}/.test(feed))
 
   /* ── 2 ─────────────────────────────────────────────────────────────── */
@@ -145,7 +146,8 @@ async function main() {
   check("two or more: a grid in the card at every width, one fixed shape (2:1 phone, 8:3 computer), three or more with the first large", /aspect-\[2\/1\]/.test(media) && /sm:aspect-\[8\/3\]/.test(media) && /three && i === 0 \? "row-span-2" : ""/.test(media) && /className=\{several \? "mt-3" : "mt-3 sm:hidden"\}/.test(card))
   /* Changed on purpose (the owner: "no blur or fade, just optimised images, clean"): the box keeps its colour, the decoded picture is there in one frame. */
   check("never a blurred copy, never a fade: the box's own colour, then the whole decoded picture at once", !/data-soft-blur/.test(media) && !/blur-\[10px\]/.test(media) && /el\.decode\(\)\.then\(show, show\)/.test(media) && !/transition-opacity ease-out/.test(media))
-  check("a picture already in the cache is drawn at once (no blink when a card is drawn again)", /if \(el\?\.complete && el\.naturalWidth > 0\) setState\("cached"\)/.test(media))
+  /* Changed on purpose: a picture once painted is remembered (painted) and starts as cached on its next draw, before any effect (ddcbaf919). */
+  check("a picture already in the cache is drawn at once (no blink when a card is drawn again)", /* Changed on purpose (failing on main too): the picture's size is noted before it is shown. */ /if \(el\.complete && el\.naturalWidth > 0\) \{\s*painted\.add\(src\)\s*(note\(el\)\s*)?setState\("cached"\)/.test(media) && /useState<"cached" \| "wait" \| "in" \| "html">\(\(\) => \(src && painted\.has\(src\) \? "cached"/.test(media))
   check("a hairline and a light depth around a card's pictures", /ring-1 ring-inset ring-black\/\[0\.06\]/.test(media) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\)\]/.test(media))
   check("community pictures are drawn in standard dynamic range", /export const SDR = "\[dynamic-range-limit:standard\]"/.test(media) && (media.match(/\$\{SDR\}/g) ?? []).length >= 3 && /\[dynamic-range-limit:standard\]/.test(lightbox))
   check("a photo that may carry an HDR gain map is always written again (sRGB canvas), even a little bigger", /MAY_BE_HDR = \/\^image\\\/\(jpeg\|jpg\|heic\|heif\|avif\)\$\/i/.test(compress) && /!MAY_BE_HDR\.test\(file\.type\)/.test(compress) && /colorSpace: "srgb"/.test(compress))
@@ -168,7 +170,8 @@ async function main() {
   check("a reader who is not a member is sent to About, posts included", /if \(page\.state === "signed_out" \|\| page\.state === "not_member"\) \{\s*redirect\(`\/community\/\$\{page\.community\.slug\}\/about`\)/.test(layout) && /POST_PATH = \/\^\\\/community\\\/\[\^\/\?#\]\+\\\/post\\\//.test(layout))
   check("a public post's metadata is not forced noindex by the member layout", /export async function generateMetadata/.test(layout) && /if \(await publicPostOpen\(slug\)\) return \{\}/.test(layout))
   check("and nothing else: every other page still goes to About", /redirect\(`\/community\/\$\{page\.community\.slug\}\/about`\)/.test(layout))
-  check("the page asks publicPost again and reads the post and comments read only", /if \(!facts \|\| !publicPost\(facts\)\) notFound\(\)/.test(postPage) && /getPublicPostView\(db, community, reader, postId\)/.test(postPage) && /\{ publicRead: true \}/.test(postPage) && /readOnly\s*visitor=/.test(postPage))
+  /* Changed on purpose: the address carries a readable segment (words then a short id), so the page resolves it to the post's id first (lib/communities/server/post-resolve.ts, ddcbaf919). */
+  check("the page asks publicPost again and reads the post and comments read only", /if \(!facts \|\| !publicPost\(facts\)\) notFound\(\)/.test(postPage) && /const id = await resolvePostId\(db, community\.id, postId\)\s*if \(!id\) notFound\(\)\s*const post = await getPublicPostView\(db, community, reader, id\)/.test(postPage) && /\{ publicRead: true \}/.test(postPage) && /readOnly\s*visitor=/.test(postPage))
   check("the server's public read: published, an open space, never a chat", /if \(row\.status !== "published"\) return null/.test(serverFeed) && /if \(!space \|\| space\.kind === "chat" \|\| !isOpenRule\(space\.view_access\)\) return null/.test(serverFeed))
   check("the visitor sees a calm Join bar to the community's page, and no box", /data-visitor-join=""/.test(page) && /href=\{`\/community\/\$\{slug\}\/about`\}/.test(page) && /"Join the community to comment\."/.test(comments) && /const open = !visitor &&/.test(comments))
 
@@ -230,7 +233,8 @@ async function main() {
   check("gentle: about six hours", STAFF_BOOST_MS === 6 * H && boostStaff([p("m", "member", 1), p("a", "admin", 8)]).map((x) => x.id).join() === "m,a")
   check(
     "only in Default, inside the page already read (cursor is the keyset batch before reorder)",
-    /rankPostRows|boostStaff\(hydrated\)/.test(serverFeed) && /cursorAfter\(order, last\)/.test(serverFeed) && /before any in-page reorder/.test(serverFeed),
+    /* Changed on purpose: the rank's candidate window came in, and the phrase this read is a comment, which code() takes out; the cursor is read from the batch before any reorder (ddcbaf919). */
+    /rankPostRows|boostStaff\(hydrated\)/.test(serverFeed) && /cursorAfter\(order, last\)/.test(serverFeed) && /const last = rankDefault \? candidates\[candidates\.length - 1\] : page\[page\.length - 1\][\s\S]{0,400}const posts = order === "default" && !rankDefault \? boostStaff\(hydrated\) : hydrated/.test(serverFeed),
   )
 
   /* ── 17 ────────────────────────────────────────────────────────────── */

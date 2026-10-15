@@ -101,7 +101,8 @@ const TABS = [
   /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
   { id: "taxes", get label() { return tt("Taxes") }, icon: Receipt, group: "store", get line() { return tt("Tax you charge, by country") } },
   /* The website's languages, and the countries it sells to with their currency (components/app/settings/markets-panel.tsx, lib/markets). */
-  { id: "markets", get label() { return tt("Languages & Currency") }, icon: Languages, group: "store", get line() { return tt("Languages, countries and currencies") } },
+  /* The id stays "markets" so every link to /app/settings?tab=markets still opens it. */
+  { id: "markets", get label() { return tt("Languages & Currency") }, icon: Languages, group: "store", get line() { return tt("Your store currency and your website's languages") } },
   { id: "domains", get label() { return tt("Domains") }, icon: Globe, group: "store", get line() { return tt("Your own web address") } },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
   { id: "ai_memory", get label() { return tt("AI Memory") }, icon: Brain, group: "store", get line() { return tt("What Storelib AI remembers about your store") } },
@@ -2335,7 +2336,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           role="region"
           aria-label={tt("Unsaved changes")}
           /* Rises 16px and fades in over 320ms on the iOS curve, on the compositor; leaves the same way, a little quicker. */
-          className={`flex w-full max-w-[520px] items-center gap-2.5 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[transform,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
+          className={`flex w-full max-w-[520px] items-center gap-2.5 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
             barUp ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]"
           }`}
         >

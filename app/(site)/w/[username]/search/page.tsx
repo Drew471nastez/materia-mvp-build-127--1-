@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { splitSiteName } from "@/lib/markets/site-name"
 import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { Metadata } from "next"
@@ -63,9 +64,11 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, productCount } = found
+  const { site: own, productCount } = found
   /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
-  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale, market), languageChoice(site.creatorId, locale, market)])
+  const [localizer, language] = await Promise.all([siteLocalizer(own.creatorId, locale, market), languageChoice(own.creatorId, locale, market)])
+  /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
+  const site = localizer ? { ...own, themeSettings: localizer.theme(own.themeSettings as Record<string, unknown>) as typeof own.themeSettings } : own
   const products = localizer && found.products ? localizer.cards(found.products) : found.products
   /* Filtered here rather than in the database: the shop's catalogue is
      already fetched and cached by publishedShopByName, and a search that
@@ -84,7 +87,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
   const arranged = stored && stored.length > 0 ? stored : searchSections(site.pages.home ?? site.sections)
   /* Placeholders filled, menus and picked products in hand: see dressPage.
      Pickers name from the whole shop; `products` is what matched. */
-  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.search", "Search")
+  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.search", "Search", undefined, { cached: true, localizer })
   /* The query travels on the page rather than in the section's settings: it
      belongs to this request, not to anything the creator arranged. */
   /* The filters narrow what the words found, and say how many each would
@@ -101,7 +104,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
         emptyDetail={query ? `Nothing matched "${query}".` : "Type what you are looking for."}
       />
       {/* A page of the website like any other: one view, with its own path. */}

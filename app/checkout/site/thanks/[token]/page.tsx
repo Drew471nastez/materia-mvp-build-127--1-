@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { Check, Package } from "lucide-react"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -8,10 +8,15 @@ import { siteOfHost } from "@/lib/checkout/site-checkout-server"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { ShopBar } from "../../../parts/shop-bar"
 import { money } from "../../../parts/ui"
+import { currencyCode, formatMinor } from "@/lib/markets/money"
 import { ClearCart } from "./clear-cart"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaItem, type GaItem } from "@/lib/store/ga"
 import { storeCurrencyFor } from "@/lib/store/ga-server"
+import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { checkoutMsg, checkoutT } from "@/lib/markets/checkout-words"
+import { optionKey, valueFor } from "@/lib/markets/translate"
+import { CheckoutWords } from "../../../parts/words"
 
 export const dynamic = "force-dynamic"
 
@@ -19,6 +24,8 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Thank you", robots: { index: false, follow: false }, referrer: "no-referrer" }
 
 interface Line {
+  /** For its title in the page's language (`product:<id>:title`). */
+  productId?: string
   title: string
   variantName: string | null
   imageUrl: string | null
@@ -34,7 +41,11 @@ interface Summary {
   shippingCents: number | null
   taxCents: number
   shipTo: string | null
+  /** Picked up: where, said in the page's language. */
+  pickupAt?: string | null
   receipt: string
+  /** To be paid in cash when it arrives (lib/physical/cash-on-delivery.ts): "delivered" or "picked up", or null when it was paid. */
+  cashWhen?: "delivered" | "picked up" | null
   /** For the store's Google Analytics purchase: the order's own id (never the token, which is a credential) and what was bought. */
   ga: { id: string; items: GaItem[]; currency: string | null }
 }
@@ -47,7 +58,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
   try {
     const { data: co, error } = await db
       .from("commerce_checkouts")
-      .select("id, creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method, currency")
+      .select("id, creator_id, status, buyer_email, buyer_name, lines, total_cents, shipping_cents, shipping_discount_cents, tax_cents, shipping_rate, shipping_address, pickup, delivery_method, currency, provider, cod_collected_at, cancelled_at")
       .eq("receipt_token", token)
       .maybeSingle()
     if (error || !co || co.creator_id !== creatorId || co.status !== "paid") return null
@@ -57,12 +68,15 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
     return {
       email: co.buyer_email ?? null,
       firstName: typeof co.buyer_name === "string" ? co.buyer_name.trim().split(/\s+/)[0] || null : null,
-      lines: lines.map((l) => ({ title: l.title, variantName: l.variant_name, imageUrl: l.image_url, quantity: l.quantity, cents: Math.max(0, l.unit_cents * l.quantity - l.discount_cents) })),
+      lines: lines.map((l) => ({ productId: l.product_id, title: l.title, variantName: l.variant_name, imageUrl: l.image_url, quantity: l.quantity, cents: Math.max(0, l.unit_cents * l.quantity - l.discount_cents) })),
       totalCents: co.total_cents ?? 0,
       shippingCents: co.delivery_method === "none" ? null : Math.max(0, (co.shipping_cents ?? 0) - (co.shipping_discount_cents ?? 0)),
       taxCents: co.shipping_rate?.tax_included ? 0 : co.tax_cents ?? 0,
-      shipTo: co.delivery_method === "pickup" ? `Pick up at ${pickup?.name ?? "the shop"}` : address ? [address.line1, address.city].filter(Boolean).join(", ") : null,
+      shipTo: co.delivery_method === "pickup" ? null : address ? [address.line1, address.city].filter(Boolean).join(", ") : null,
+      pickupAt: co.delivery_method === "pickup" ? (pickup?.name ?? "") : null,
       receipt: `/checkout/physical/order/${encodeURIComponent(token)}`,
+      /* Still to pay: not once the shop has the cash, nor on an order that was cancelled or refused. */
+      cashWhen: co.provider === "cod" && !co.cod_collected_at && !co.cancelled_at ? (co.delivery_method === "pickup" ? "picked up" : "delivered") : null,
       ga: { id: String(co.id), items: lines.map((l) => gaItem({ id: l.product_id ?? "", title: l.title, priceCents: l.unit_cents, quantity: l.quantity, variant: l.variant_name, kind: l.type === "physical" ? "physical" : "digital" })).filter((i): i is GaItem => !!i), currency: typeof co.currency === "string" ? co.currency : null },
     }
   } catch {
@@ -74,7 +88,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
 async function basketOrder(db: Db, creatorId: string, token: string): Promise<Summary | null> {
   const { data: first } = await db
     .from("orders")
-    .select("id, product_id, stripe_session_id, buyer_email, buyer_first_name, amount_cents, quantity, product:products(creator_id, title)")
+    .select("id, product_id, stripe_session_id, buyer_email, buyer_first_name, amount_cents, quantity, currency, product:products(creator_id, title)")
     .eq("receipt_token", token)
     .maybeSingle()
   const product = Array.isArray(first?.product) ? first.product[0] : first?.product
@@ -94,7 +108,7 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
   const lines: Line[] = rows.map((r) => {
     const p = one(r.product as { title?: string; thumbnail_url?: string | null } | null)
     const v = one(r.variant as { name?: string | null } | null)
-    return { title: p?.title ?? "Your purchase", variantName: v?.name ?? null, imageUrl: p?.thumbnail_url ?? null, quantity: Number(r.quantity) || 1, cents: Number(r.amount_cents) || 0 }
+    return { productId: typeof r.product_id === "string" ? r.product_id : undefined, title: p?.title ?? checkoutMsg("Your purchase"), variantName: v?.name ?? null, imageUrl: p?.thumbnail_url ?? null, quantity: Number(r.quantity) || 1, cents: Number(r.amount_cents) || 0 }
   })
   return {
     email: first.buyer_email ?? null,
@@ -108,7 +122,8 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
     ga: {
       id: String(first.id),
       items: rows.map((r, i) => gaItem({ id: String(r.product_id ?? ""), title: lines[i]?.title, priceCents: Math.round((Number(r.amount_cents) || 0) / Math.max(1, Number(r.quantity) || 1)), quantity: Number(r.quantity) || 1, variant: lines[i]?.variantName, kind: "digital" })).filter((x): x is GaItem => !!x),
-      currency: null,
+      /* What the order was charged in, kept on each of its rows. */
+      currency: typeof first.currency === "string" && first.currency ? first.currency.toUpperCase() : null,
     },
   }
 }
@@ -122,18 +137,33 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
  * (the receipt and its downloads are served on this host too) and the way
  * back to the shop. The cart the order came from is emptied (?cart=1).
  */
-export default async function SiteThanksPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ cart?: string }> }) {
+export default async function SiteThanksPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ cart?: string; lang?: string }> }) {
   const [{ token }, sp] = await Promise.all([params, searchParams])
   if (!isPlausibleToken(token)) notFound()
   const admin = createAdminClient()
   const site = await siteOfHost(admin, (await headers()).get("host"))
   if (!site) notFound()
-  const [brand, order] = await Promise.all([checkoutBrand(admin, site.creatorId), shippedOrder(admin, site.creatorId, token).then((o) => o ?? basketOrder(admin, site.creatorId, token))])
+  /* In the language the checkout was in (?lang, which it hands on), else the one chosen on the website (lib/markets/checkout-language.ts). */
+  const chosen = sp.lang ?? (await cookies()).get("sl_lang")?.value
+  const [brand, order, language] = await Promise.all([
+    checkoutBrand(admin, site.creatorId),
+    shippedOrder(admin, site.creatorId, token).then((o) => o ?? basketOrder(admin, site.creatorId, token)),
+    checkoutLanguage(site.creatorId, null, chosen).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null })),
+  ])
   if (!order) notFound()
   const shopUrl = `${site.origin}/`
   const ships = order.shippingCents !== null
+  /* In the currency the order was charged in (the checkout's own), as the receipt and the order page write it. */
+  const orderCurrency = currencyCode(order.ga.currency)
+  const shown = (cents: number) => (orderCurrency ? formatMinor(cents, orderCurrency, "en-US") : money(cents))
+  const ct = checkoutT(language.lang, language.words)
+  const map = language.map
+  /* A line's title and its option's name in the page's language, as the checkout showed them (lib/markets/checkout-quote.ts). */
+  const titleOf = (l: Line) => (l.productId && map ? (valueFor(map, `product:${l.productId}:title`, { approvedOnly: true, fresh: true }, l.title) ?? ct(l.title)) : ct(l.title))
+  const nameOf = (n: string) => (map ? n.split(" / ").map((p) => valueFor(map, optionKey(p.trim()), { approvedOnly: true, fresh: true }, p.trim()) ?? p).join(" / ") : n)
 
   return (
+    <CheckoutWords lang={language.lang} words={language.words}>
     <div data-page="checkout-thanks" className="min-h-dvh bg-[#f8f9fa]">
       {sp.cart === "1" ? <ClearCart shopId={site.creatorId} /> : null}
       {/* The store's own Google Analytics and pixels hear the purchase, once per order in this browser (lib/store/tracking.ts purchaseTags). */}
@@ -144,13 +174,13 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
           <span className="grid h-11 w-11 place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(17,17,19,0.2)]">
             <Check className="h-5 w-5" strokeWidth={2.5} aria-hidden />
           </span>
-          <h1 className="mt-4 text-[24px] font-semibold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">{order.firstName ? `Thank you, ${order.firstName}` : "Thank you for your order"}</h1>
+          <h1 className="mt-4 text-[24px] font-semibold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">{order.firstName ? ct("Thank you, {name}", { name: order.firstName }) : ct("Thank you for your order")}</h1>
           <p className="mt-1.5 text-[14.5px] leading-6 text-[#6b7280]">
-            {order.email ? <>Your receipt is on its way to <span className="font-medium text-[#1a1a2e]">{order.email}</span>.</> : "Your receipt is on its way to your email."}
-            {ships ? " We'll email you when it ships." : ""}
+            {order.email ? ct("Your receipt is on its way to {email}.", { email: order.email }) : ct("Your receipt is on its way to your email.")}
+            {ships ? ` ${ct("We'll email you when it ships.")}` : ""}
           </p>
 
-          <section aria-label="Your order" className="mt-7 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <section aria-label={ct("Your order")} className="mt-7 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <ul className="space-y-4">
               {order.lines.map((l, i) => (
                 <li key={i} className="flex items-start gap-3.5">
@@ -165,45 +195,52 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
-                    {l.variantName ? <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{l.variantName}</p> : null}
-                    <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Qty {l.quantity}</p>
+                    <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{titleOf(l)}</p>
+                    {l.variantName ? <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{nameOf(l.variantName)}</p> : null}
+                    <p className="mt-0.5 text-[12.5px] text-[#6b7280]">{ct("Qty {quantity}", { quantity: l.quantity })}</p>
                   </div>
-                  <p className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{l.cents === 0 ? "Free" : money(l.cents)}</p>
+                  <p className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{l.cents === 0 ? ct("Free") : shown(l.cents)}</p>
                 </li>
               ))}
             </ul>
             <dl className="mt-5 space-y-2 border-t border-black/[0.07] pt-4 text-[14px]">
               {ships ? (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-[#6b7280]">Shipping</dt>
-                  <dd className="tabular-nums text-[#6b7280]">{order.shippingCents === 0 ? "Free" : money(order.shippingCents ?? 0)}</dd>
+                  <dt className="text-[#6b7280]">{ct("Shipping")}</dt>
+                  <dd className="tabular-nums text-[#6b7280]">{order.shippingCents === 0 ? ct("Free") : shown(order.shippingCents ?? 0)}</dd>
                 </div>
               ) : null}
               {order.taxCents > 0 ? (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-[#6b7280]">Tax</dt>
-                  <dd className="tabular-nums text-[#6b7280]">{money(order.taxCents)}</dd>
+                  <dt className="text-[#6b7280]">{ct("Tax")}</dt>
+                  <dd className="tabular-nums text-[#6b7280]">{shown(order.taxCents)}</dd>
                 </div>
               ) : null}
               <div className="flex items-baseline justify-between gap-4 pt-1">
-                <dt className="text-[15px] font-semibold text-[#1a1a2e]">Total</dt>
-                <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(order.totalCents)}</dd>
+                <dt className="text-[15px] font-semibold text-[#1a1a2e]">{ct("Total")}</dt>
+                <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{shown(order.totalCents)}</dd>
               </div>
             </dl>
             {order.shipTo ? <p className="mt-4 text-[13.5px] text-[#4b5563]">{order.shipTo}</p> : null}
+            {order.pickupAt !== null && order.pickupAt !== undefined ? <p className="mt-4 text-[13.5px] text-[#4b5563]">{order.pickupAt ? ct("Pick up at {place}", { place: order.pickupAt }) : ct("Pick up at the shop")}</p> : null}
+            {order.cashWhen ? (
+              <p data-cash-payment="" className="mt-3 rounded-[8px] bg-[#f8f9fa] px-3.5 py-2.5 text-[14px] leading-5 text-[#4b5563]">
+                {order.cashWhen === "picked up" ? ct("Pay {amount} in cash when you pick it up.", { amount: shown(order.totalCents) }) : ct("Pay {amount} in cash when it's delivered.", { amount: shown(order.totalCents) })}
+              </p>
+            ) : null}
           </section>
 
           <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
             <a href={order.receipt} data-receipt-link="" className="inline-flex h-11 flex-1 items-center justify-center rounded-[8px] bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_1px_rgba(0,0,0,0.12)] hover:bg-[#262640]">
-              {ships ? "View your order" : "View receipt and downloads"}
+              {ships ? ct("View your order") : ct("View receipt and downloads")}
             </a>
             <a href={shopUrl} data-continue="" className="inline-flex h-11 flex-1 items-center justify-center rounded-[8px] border border-[#e1e3e7] bg-white px-4 text-[15px] font-medium text-[#1a1a2e] hover:bg-[#fafafb]">
-              Continue shopping
+              {ct("Continue shopping")}
             </a>
           </div>
         </div>
       </main>
     </div>
+    </CheckoutWords>
   )
 }

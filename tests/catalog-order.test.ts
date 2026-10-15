@@ -193,7 +193,7 @@ check(
 )
 check(
   "the price is still on the phone row, under the title",
-  /barPrice\(barPriceText\(product\)/.test(bar),
+  /barPrice\(barPriceText\(product, pageCurrency\)/.test(bar),
   "moving the chip out must not take the price with it",
 )
 check(

@@ -217,6 +217,8 @@ console.log("\nStatuses")
   check("the four steps, and pickup says pickup", orderStep("unfulfilled") === 0 && orderStep("processing") === 1 && orderStep("partially_fulfilled") === 2 && orderStep("delivered") === 3 && fulfillmentLabel("fulfilled", "pickup").label === "Ready for pickup" && fulfillmentLabel("delivered", "pickup").label === "Picked up" && fulfillmentLabel("fulfilled").label === "Shipped")
   check("a pickup shipment reads as ready, then picked up", shipmentLabel("shipped", true).label === "Ready for pickup" && shipmentLabel("delivered", true).label === "Picked up" && shipmentLabel("shipped", false).label === "Shipped")
   check("a shipment only moves forward", canMoveShipment("shipped", "delivered") && !canMoveShipment("delivered", "in_transit") && !canMoveShipment("in_transit", "shipped") && canMoveShipment("pending", "cancelled") && !canMoveShipment("in_transit", "cancelled"))
+  /* Cancel fulfillment and Not ready after all start from a parcel marked shipped, the state every press makes. */
+  check("a parcel still with the shop (marked shipped) can be cancelled; delivered can't", canMoveShipment("shipped", "cancelled") && !canMoveShipment("out_for_delivery", "cancelled") && !canMoveShipment("delivered", "cancelled"))
   check("tracking links for known carriers, none invented", trackingUrl("UPS", "1Z999AA10123456784")?.startsWith("https://www.ups.com/") === true && trackingUrl("Local courier", "ABC12345") === null && trackingUrl("UPS", "bad number!") === null)
   check("order numbers are short and stable", orderNumber("0f3a9c2e-1111-2222-3333-444455556666") === "#0F3A9C2E")
 }

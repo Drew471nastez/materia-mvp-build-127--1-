@@ -50,13 +50,16 @@ export const SET_COLOR_SCHEME_TOOL = {
       scheme: { type: "string", description: 'The scheme key: a built-in one, or a new lowercase key like "night".' },
       name: { type: "string", description: 'What the creator sees it called, e.g. "Night". "" to keep the current name.' },
       colorsJson: { type: "string", description: 'JSON object as a string, key → hex. Keys: background, background_secondary, text, text_muted, heading, accent, link, border, primary_button_background, primary_button_text, primary_button_border, secondary_button_background, secondary_button_text, secondary_button_border, input_background, input_text, input_border.' },
+      gradient: { type: "string", description: '"keep" to leave it; a CSS gradient behind its sections, e.g. "linear-gradient(135deg, #1e3a8a, #7c3aed)"; "" removes it. Set background to one of its colours.' },
     },
-    required: ["scheme", "name", "colorsJson"],
+    required: ["scheme", "name", "colorsJson", "gradient"],
     additionalProperties: false,
   },
 } as const
 
 const HEX = /^#[0-9a-f]{6}$|^#[0-9a-f]{3}$/i
+/** A CSS gradient and nothing else: it is written into the theme's stylesheet, so no `;`, braces or quotes get through. */
+const GRADIENT = /^(repeating-)?(linear|radial|conic)-gradient\([#0-9a-z%.,\s()-]+\)$/i
 const SETTABLE = new Set<string>(SCHEME_COLOR_KEYS.filter((k) => !k.includes("_hover_")))
 
 export function setColorScheme(argumentsJson: string, state: ThemeState): { output: string; op?: ThemeOp; failed?: true } {
@@ -89,6 +92,7 @@ export function setColorScheme(argumentsJson: string, state: ThemeState): { outp
   const base = all[key] ?? all.white
   const merged: Record<string, string> = { ...(base as unknown as Record<string, string>) }
   for (const [k, v] of Object.entries(colors)) merged[k] = String(v).trim().toLowerCase()
+  const gradientSent = typeof args.gradient === "string" && args.gradient.trim() !== "keep"
   /* The hovers follow the buttons unless they were set: the editor derives them the same way. */
   Object.assign(merged, automaticHover(merged as Record<SchemeColorKey, string>))
 
@@ -109,12 +113,18 @@ export function setColorScheme(argumentsJson: string, state: ThemeState): { outp
 
   const name = typeof args.name === "string" && args.name.trim() ? args.name.trim().slice(0, 40) : base.name
   const own = state.settings.color_schemes && typeof state.settings.color_schemes === "object" ? (state.settings.color_schemes as Record<string, unknown>) : {}
-  const stored: Record<string, unknown> = { name, gradient: (base as { gradient?: string }).gradient ?? "" }
+  let gradient = (base as { gradient?: string }).gradient ?? ""
+  if (typeof args.gradient === "string" && args.gradient.trim() !== "keep") {
+    const g = args.gradient.trim()
+    if (g && (g.length > 400 || !GRADIENT.test(g))) return { output: 'gradient must be a CSS gradient like "linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%)", or "" to remove it. Nothing was changed.', failed: true }
+    gradient = g
+  }
+  const stored: Record<string, unknown> = { name, gradient }
   for (const k of SCHEME_COLOR_KEYS) stored[k] = merged[k]
   const next = { ...own, [key]: stored }
   const builtIn = (BUILT_IN_SCHEME_KEYS as readonly string[]).includes(key)
   return {
-    output: `${isNew ? "Added" : "Updated"} the colour scheme "${key}" (${name}): ${Object.keys(colors).join(", ")}. ${isNew || !builtIn ? `Sections use it with update_section color_scheme "${key}".` : "Every section on it changes with it."}`,
+    output: `${isNew ? "Added" : "Updated"} the colour scheme "${key}" (${name}): ${[...Object.keys(colors), ...(gradientSent ? [gradient ? "gradient" : "gradient removed"] : [])].join(", ")}. ${isNew || !builtIn ? `Sections use it with update_section color_scheme "${key}".` : "Every section on it changes with it."}`,
     op: { kind: "update_theme", settings: { color_schemes: next } },
   }
 }

@@ -36,7 +36,27 @@ export interface CheckoutConfig {
    * cancels and refunds from the order or keeps it (lib/physical/buyer-cancel.ts). Physical orders only.
    */
   buyerCancel: boolean
+  /**
+   * Cash on delivery beside card: the buyer pays in cash when a physical
+   * order is delivered or picked up (lib/physical/cash-on-delivery.ts).
+   * Off until the seller turns it on. Physical carts only.
+   */
+  cashOnDelivery: boolean
+  /**
+   * Where cash on delivery is offered: the countries an order is delivered to
+   * (ISO codes). Empty: everywhere the store ships. A pickup is paid where it
+   * is picked up, so it is never held to this list.
+   */
+  codCountries: string[]
+  /** A fee for paying on delivery, in the store's currency's hundredths: added to the order, shown at checkout before the order is placed. 0: none. */
+  codFeeCents: number
+  /** What the buyer reads under Cash on delivery at checkout and in the order email ("Have the exact amount ready"). "" for none. */
+  codInstructions: string
 }
+
+/** The largest cash on delivery fee, in hundredths: a fee, not a second price. */
+export const COD_FEE_MAX_CENTS = 100_000
+export const COD_INSTRUCTIONS_MAX = 280
 
 export const DEFAULT_CHECKOUT: CheckoutConfig = {
   abandonedRecovery: true,
@@ -48,6 +68,10 @@ export const DEFAULT_CHECKOUT: CheckoutConfig = {
   phone: "optional",
   address2: "optional",
   buyerCancel: true,
+  cashOnDelivery: false,
+  codCountries: [],
+  codFeeCents: 0,
+  codInstructions: "",
 }
 
 const RULES: FieldRule[] = ["off", "optional", "required"]
@@ -69,7 +93,25 @@ export function checkoutConfig(raw: unknown): CheckoutConfig {
     phone: rule(o.phone, DEFAULT_CHECKOUT.phone),
     address2: rule(o.address2, DEFAULT_CHECKOUT.address2),
     buyerCancel: bool(o.buyerCancel, DEFAULT_CHECKOUT.buyerCancel),
+    cashOnDelivery: bool(o.cashOnDelivery, DEFAULT_CHECKOUT.cashOnDelivery),
+    codCountries: countries(o.codCountries),
+    codFeeCents: cents(o.codFeeCents, COD_FEE_MAX_CENTS),
+    codInstructions: typeof o.codInstructions === "string" ? o.codInstructions.replace(/\s+/g, " ").trim().slice(0, COD_INSTRUCTIONS_MAX) : "",
   }
+}
+
+/** Two letter codes, upper case, once each, at most 250. Anything else is dropped. */
+function countries(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  const out = new Set<string>()
+  for (const c of v) if (typeof c === "string" && /^[A-Za-z]{2}$/.test(c.trim())) out.add(c.trim().toUpperCase())
+  return [...out].slice(0, 250)
+}
+
+/** Whole hundredths from 0 to max; anything else is 0. */
+function cents(v: unknown, max: number): number {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN
+  return Number.isFinite(n) && n > 0 ? Math.min(max, Math.round(n)) : 0
 }
 
 /** A change from the panel, merged into what is kept. */

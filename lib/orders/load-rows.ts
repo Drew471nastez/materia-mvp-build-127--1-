@@ -3,6 +3,8 @@ import "server-only"
 import type { OrderRow } from "./order-view"
 import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
 import { imagesOnly } from "@/lib/media/video"
+import { currencyCode } from "@/lib/markets/money"
+import { orderCurrency } from "./money"
 
 /**
  * EVERY ORDER A CREATOR HAS, AS THE ORDERS PAGE READS THEM
@@ -55,6 +57,7 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     receipt_token: order.receipt_token ?? null,
     stripe_session_id: order.stripe_session_id ?? null,
     stripe_payment_intent_id: order.stripe_payment_intent_id ?? null,
+    currency: orderCurrency(order.currency),
     refund_reason: order.refund_reason ?? null,
     refund_amount_cents: order.refund_amount_cents ?? null,
     refunded_at: order.refunded_at ?? null,
@@ -136,13 +139,14 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
   /* A physical order is fulfilled when it has shipped (lib/physical), not when it is paid: its stage, returns and delivery come from its checkout. */
   const checkoutIds = [...new Set(rows.map((r) => r.checkout_id).filter((id): id is string => !!id))]
   if (checkoutIds.length) {
-    type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; tax_cents?: number | null; shipping_rate: { name?: string; tax_label?: string; tax_included?: boolean } | null }
+    type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; tax_cents?: number | null; shipping_rate: { name?: string; tax_label?: string; tax_included?: boolean } | null; provider?: string | null; cod_collected_at?: string | null; currency?: string | null }
     const byCheckout = new Map<string, Checkout>()
     const problems = new Set<string>()
     for (let i = 0; i < checkoutIds.length; i += 500) {
       const slice = checkoutIds.slice(i, i + 500)
       const [{ data }, failed] = await Promise.all([
-        admin.from("commerce_checkouts").select("id, fulfillment_status, return_status, delivery_method, tax_cents, shipping_rate").eq("creator_id", creatorId).in("id", slice),
+        /* The provider, for cash on delivery: whether its cash is in is asked for below, for those orders only. */
+        admin.from("commerce_checkouts").select("id, fulfillment_status, return_status, delivery_method, tax_cents, shipping_rate, provider, currency").eq("creator_id", creatorId).in("id", slice),
         /* A parcel the carrier (or the seller) marked as a delivery problem: the list says so, as the buyer's page does. */
         Promise.resolve(admin.from("fulfillments").select("checkout_id").in("checkout_id", slice).eq("status", "failed")).then(
           (r: { data: { checkout_id: string }[] | null }) => r.data ?? [],
@@ -152,6 +156,15 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
       for (const c of (data ?? []) as Checkout[]) byCheckout.set(c.id, c)
       for (const f of failed) problems.add(f.checkout_id)
     }
+    /* Cash on delivery: whether the cash is in, read only for those orders (the column is SQL part 174's; no such order exists before it). */
+    const cashIds = [...byCheckout.values()].filter((c) => c.provider === "cod").map((c) => c.id)
+    for (let i = 0; i < cashIds.length; i += 500) {
+      const { data: cash } = await admin.from("commerce_checkouts").select("id, cod_collected_at").eq("creator_id", creatorId).in("id", cashIds.slice(i, i + 500))
+      for (const c of (cash ?? []) as { id: string; cod_collected_at: string | null }[]) {
+        const had = byCheckout.get(c.id)
+        if (had) had.cod_collected_at = c.cod_collected_at
+      }
+    }
     for (const r of rows) {
       const c = r.checkout_id ? byCheckout.get(r.checkout_id) : undefined
       if (!c) continue
@@ -160,6 +173,9 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
       r.physical_pickup = c.delivery_method === "pickup"
       r.physical_method = typeof c.shipping_rate?.name === "string" ? c.shipping_rate.name : null
       r.physical_problem = problems.has(c.id)
+      r.physical_cash_due = c.provider === "cod" && !c.cod_collected_at
+      /* The checkout's currency is what was charged (an order line can say "usd" from before lines kept it). */
+      if (currencyCode(c.currency)) r.currency = orderCurrency(c.currency)
       /* The tax's name as the physical checkout charged it ("VAT 19%"). */
       if (typeof c.shipping_rate?.tax_label === "string" && c.shipping_rate.tax_label.trim()) r.tax_label = c.shipping_rate.tax_label.trim().slice(0, 80)
     }

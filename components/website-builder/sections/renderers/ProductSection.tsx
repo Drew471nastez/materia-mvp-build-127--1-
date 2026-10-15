@@ -194,7 +194,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const qty = Math.min(quantity, maxQuantity)
   const pwyw = useMemo(() => {
     if (!facts.payWhatYouWant || pwywInput.trim() === "") return { cents: null as number | null, error: null as string | null }
-    const checked = checkPwyw(amountToCents(pwywInput), facts.minCents)
+    const checked = checkPwyw(amountToCents(pwywInput), facts.minCents, undefined, storefront.currency)
     return checked.ok === true ? { cents: checked.cents, error: null } : { cents: null, error: (checked as { error: string }).error }
   }, [facts.payWhatYouWant, facts.minCents, pwywInput])
 
@@ -302,7 +302,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     */
     money: (cents: number) => {
       const shown = displayPricing && !product.pay_what_you_want ? displayPricing.format(cents, product.display?.locale) : null
-      return shown ?? money(cents, { code: theme.currency_code_enabled === true })
+      return shown ?? money(cents, { code: theme.currency_code_enabled === true, currency: storefront.currency })
     },
   }
 

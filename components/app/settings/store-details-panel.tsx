@@ -17,8 +17,9 @@
  *                  changing it there
  *   phone          a number buyers and couriers can call, with the country's
  *                  calling code in front, suggested from where the person is
- *   based in       the country new locations and tax start in, suggested
- *                  from where the person is when it is not set
+ *   country and    where the store is based and the currency it sells in
+ *   currency       (./country-currency.tsx): the country new locations and
+ *                  tax start in, the currency its prices and checkout use
  *   orders from    (physical commerce on) the default location new orders
  *                  are assigned to and stock is taken from
  *
@@ -36,6 +37,7 @@ import { FilesLibraryChooser } from "@/components/files/files-library"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
 import { tt } from "@/lib/i18n/text"
+import { CurrencyLink } from "./country-currency"
 
 interface Settings {
   storeName: string | null
@@ -148,7 +150,7 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
         setData((d) => (d ? { ...d, settings: s, supportEmail: email } : d))
         onSupportEmail?.(email ?? "")
       }} />
-      <BasedIn data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />
+      <CurrencyLink />
       <Business data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />
       {physical ? <OrdersFrom locations={locations} value={defaultLocation} onSaved={setDefaultLocation} /> : null}
     </div>
@@ -247,41 +249,6 @@ function Identity({ data, onSaved }: { data: Loaded; onSaved: (s: Settings, emai
             }}
           />
         </div>
-      </div>
-    </Card>
-  )
-}
-
-function BasedIn({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => void }) {
-  const [country, setCountry] = React.useState(data.settings.defaultCountry ?? "")
-  const { state, error, save } = useSave()
-  const changed = country !== (data.settings.defaultCountry ?? "")
-  return (
-    <Card title={tt("Where your store is based")} description={tt("New locations and tax start here. Buyers can be anywhere.")}>
-      <div className="space-y-3">
-        <Field label={tt("Country")} htmlFor="store-country">
-          <SelectInput id="store-country" value={country} onChange={setCountry}>
-            <option value="">{tt("Choose a country")}</option>
-            {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.name}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        {!country && data.detectedCountry ? <Suggest code={data.detectedCountry} onUse={setCountry} /> : null}
-        {error ? <Notice>{error}</Notice> : null}
-        {changed ? (
-          <div className="flex justify-end">
-            <SaveButton
-              state={state}
-              onClick={async () => {
-                const saved = await save({ defaultCountry: country || null })
-                if (saved) onSaved(saved)
-              }}
-            />
-          </div>
-        ) : null}
       </div>
     </Card>
   )

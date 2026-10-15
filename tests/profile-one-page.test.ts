@@ -147,7 +147,12 @@ async function main() {
   check("a community's square mark keeps its letters", />CS</.test(renderToStaticMarkup(createElement(AppAvatar, { src: null, name: "Clay Studio", size: 44, className: "rounded-[10px]" }))))
   check("  told by its shape when nobody says", avatarKindFromClass("shrink-0 rounded-[10px]") === "mark" && avatarKindFromClass("mx-auto rounded-2xl") === "mark" && avatarKindFromClass("h-8 w-8 rounded-full") === "person" && avatarKindFromClass("ring-2 ring-white") === "person" && avatarKindFromClass(undefined) === "person")
   check("  or by kind", />CS</.test(renderToStaticMarkup(createElement(AppAvatar, { src: null, name: "Clay Studio", size: 44, kind: "mark" }))))
-  check("a photo on its way is not drawn over by a face or letters (unless asked)", !/data-avatar-default|>MO</.test(renderToStaticMarkup(createElement(AppAvatar, { src: "https://x.test/a.jpg", name: "Maya Ortiz", size: 40 }))))
+  /* Changed on purpose: 6a258481 (faster avatars) draws a person's default face under their photo from the first frame, so the circle is never blank; never letters, and a mark still waits blank unless asked. */
+  check("a photo on its way is not drawn over by a face or letters (unless asked)", (() => {
+    const person = renderToStaticMarkup(createElement(AppAvatar, { src: "https://x.test/a.jpg", name: "Maya Ortiz", size: 40 }))
+    const mark = renderToStaticMarkup(createElement(AppAvatar, { src: "https://x.test/a.jpg", name: "Clay Studio", size: 44, kind: "mark" }))
+    return !/>MO</.test(person) && /data-avatar-default=""/.test(person) && /<img\b/.test(person) && !/data-avatar-default|>CS</.test(mark) && />CS</.test(renderToStaticMarkup(createElement(AppAvatar, { src: "https://x.test/a.jpg", name: "Clay Studio", size: 44, kind: "mark", markWhileLoading: true })))
+  })())
 
   console.log("\nThe provider's photo, kept on every sign in until they have one (a stubbed auth user)")
   const GOOGLE = "https://lh3.googleusercontent.com/a/ACg8ocK-maya=s96-c"

@@ -3,7 +3,6 @@ import { requirePhysicalPage } from "@/lib/physical/gate"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { PhysicalCheckout } from "./physical-checkout"
-import { storeChargeCurrencyFor } from "@/lib/payments/fees/store-currency"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { DEFAULT_CHECKOUT } from "@/lib/store/checkout-config"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
@@ -13,6 +12,12 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { CheckoutCurrency } from "../parts/ui"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { platformSellingCurrency } from "@/lib/store/selling-currency"
+import { cookies, headers } from "next/headers"
+import { countryCode } from "@/lib/checkout/countries"
+import { CHECKOUT_COUNTRY_COOKIE } from "@/lib/checkout/checkout-country"
 
 export const dynamic = "force-dynamic"
 
@@ -33,21 +38,21 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
   let brand: CheckoutBrand = { name: "Checkout", imageUrl: null, kind: null }
   let config = DEFAULT_CHECKOUT
   let backTo: string | null = null
-  let currency: string | undefined
+  /* The store's own currency (Settings › Country & Currency): what its prices are in and its card payment is charged in. */
+  let currency: string = platformSellingCurrency()
   if (shop && /^[0-9a-f-]{36}$/i.test(shop)) {
     const db = createAdminClient()
     /* The shop across the top, as the basket checkout draws it: its website's logo, its store name before the person's (lib/checkout/brand-server), and how its checkout behaves (Settings › Checkout). */
-    const [shopBrand, checkout, returns, charged] = await Promise.all([
+    const [shopBrand, checkout, returns, store] = await Promise.all([
       checkoutBrand(db, shop),
       loadCheckoutConfig(db, shop),
       /* Back goes to the store's own website only: any other address in ?return= is dropped (lib/checkout/site-hosts.ts). */
       asked ? checkoutReturns({ creatorId: shop, cancel: asked }) : Promise.resolve({ cancel: null }),
-      /* The store's own currency, the one the card is charged in (lib/payments/fees/currency-rules storeChargeCurrency). */
-      storeChargeCurrencyFor(db, shop),
+      readStoreCurrency(db, shop),
     ])
     brand = shopBrand
-    currency = charged
     config = checkout
+    currency = store.currency
     backTo = returns.cancel
     /*
       FROM THE SHOP'S OWN WEBSITE: paid for on the website now, at its own
@@ -74,5 +79,12 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null
-  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} currency={currency} />
+  /* The delivery country before the first frame: the buyer's last pick at a checkout, else where their connection is (no guess, no jump). */
+  const [jar, h] = await Promise.all([cookies(), headers()])
+  const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(h.get("x-vercel-ip-country") || h.get("cf-ipcountry"))
+  return (
+    <CheckoutCurrency currency={currency}>
+      <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} initialCountry={initialCountry} />
+    </CheckoutCurrency>
+  )
 }

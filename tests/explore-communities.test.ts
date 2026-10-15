@@ -116,7 +116,9 @@ async function main() {
     check("the chip's switcher and the headline control only while communities are on", /onModeChange=\{communitiesEnabled \? handleModeChange : undefined\}/.test(client) && /discoverHeadlineSegmentEnabled=\{communitiesEnabled && discoverHeadlineSegmentEnabled\}/.test(client))
     check("the client never starts in communities mode while off", /if \(!communitiesEnabled\) return "products"/.test(client))
     check("the address always carries ?type=products or ?type=communities while communities are on", /if \(communitiesEnabled\) params\.set\("type", forMode === "communities" \? "communities" : "products"\)/.test(client))
-    check("switching catalogue writes the cookie and updates the address at once", /writeDiscoverModeCookie\(next\)/.test(client) && /replaceAddress\(href\)/.test(client) && /handleModeChange[\s\S]{0,400}replaceAddress\(href\)/.test(client))
+    /* Changed on purpose: the switch also starts the price, order and category over (ddcbaf919, "The two catalogues order and price differently"), so the handler outgrew a 400 character window; its own body is read instead. */
+    const modeChange = client.match(/const handleModeChange = useCallback\(\(next: DiscoverMode\) => \{([\s\S]*?)\n  \}, \[/)?.[1] ?? ""
+    check("switching catalogue writes the cookie and updates the address at once", /writeDiscoverModeCookie\(next\)/.test(modeChange) && /replaceAddress\(href\)/.test(modeChange))
     check("communities mode no longer reads membership products", !/isCommunity/.test(client) && !/type === "membership"/.test(client))
     check("communities mode draws ExploreCommunitiesResults with the pill, subcategory, word, order and price", /<ExploreCommunitiesResults[\s\S]{0,200}initial=\{initialCommunities\}[\s\S]{0,200}category=\{gridCategory\}\s*sub=\{gridSub\}\s*subLabel=\{selectedSubcategoryLabel\}\s*srt=\{deferredSort\}[\s\S]{0,40}price=\{deferredPrice\}/.test(client))
     /* Round 8: the products' row and the products' More in communities mode, whole tree and subcategories. */
@@ -331,7 +333,8 @@ async function main() {
     check("owners and unpublished communities are not counted", /if \(input\.status !== "published" \|\| input\.isOwner\) return/.test(record))
     const feed = code("app/(marketing)/community/[slug]/page.tsx")
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
-    check("the member feed and the sales page record a view, one call", (feed.match(/scheduleCommunityView\(/g) ?? []).length === 1 && /scheduleCommunityView\([\s\S]{0,200}\)[\s\S]*if \(load\.viewer\.active\)\s*return \(?\s*(<PullToRefreshEvent scope="community-feed">\s*)?<CommunityFeedPage/.test(feed))
+    /* Changed on purpose: round 15 seeds the member's home through PlacePage (components/community/member/place-page.tsx), which draws the feed inside the shell (ddcbaf919). */
+    check("the member feed and the sales page record a view, one call", (feed.match(/scheduleCommunityView\(/g) ?? []).length === 1 && /scheduleCommunityView\([\s\S]{0,200}\)[\s\S]*if \(load\.viewer\.active\) \{[\s\S]*return <PlacePage slug=\{load\.community\.slug\} place=\{place\} \/>\s*\}[\s\S]*<CommunitySalesPage/.test(feed))
     check("the about page records a view, one call", (about.match(/scheduleCommunityView\(/g) ?? []).length === 1)
     check("the server modules say server-only", ["views", "record-view"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
   }

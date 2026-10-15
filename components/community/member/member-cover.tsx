@@ -9,7 +9,7 @@
  * load with delay".
  *
  *   ONE SHAPE, DRAWN FIRST   the band is a box of a fixed shape (2:1 on a
- *                            phone, 16:5 wider up) before anything loads, so
+ *                            phone, 16:5 wider up, 10:3 from 1280px) before anything loads, so
  *                            nothing under it ever moves, with or without a
  *                            picture.
  *   NEVER A FLAT GREY        under the picture, and in its place for somebody
@@ -105,7 +105,8 @@ export function MemberCover({ url, crop, name }: { url: string | null; crop: Cov
   */
   return (
     <div
-      className="relative aspect-[2/1] w-full overflow-hidden bg-[#eef0f3] sm:aspect-[16/5]"
+      /* Changed (the owner: "the cover banner is too tall"): 10:3 from 1280px, with the column's 5% this is about 8% lower (309px became 283px at 1440px). Phones and tablets keep 2:1 and 16:5. */
+      className="relative aspect-[2/1] w-full overflow-hidden bg-[#eef0f3] sm:aspect-[16/5] xl:aspect-[10/3]"
       style={{ backgroundImage: nameWash(name) }}
       data-member-profile-cover={url ? "image" : "name-wash"}
     >

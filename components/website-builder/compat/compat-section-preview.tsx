@@ -25,6 +25,8 @@
  * pictures (measured on Posturex: 45 long tasks in nine seconds, frames at
  * 117ms). See PreviewSheet below.
  */
+import { moneyFormatFor } from "@/lib/markets/pricing"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
@@ -112,7 +114,8 @@ export function CompatPreviewProvider({
       products: [],
       collections: [],
       menus: {},
-      shop: { name: "My store", currency: "USD", moneyFormat: "${{amount}}" },
+      /* No products drawn here: the platform's currency, written its way. */
+      shop: { name: "My store", currency: SHOP_CURRENCY, moneyFormat: moneyFormatFor(SHOP_CURRENCY) },
       product: null,
       collection: null,
       search: null,

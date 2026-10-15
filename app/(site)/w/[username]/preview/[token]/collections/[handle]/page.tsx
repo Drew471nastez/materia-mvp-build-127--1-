@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
@@ -86,7 +87,7 @@ export default async function PreviewCollectionPage({ params, searchParams }: Pa
       <ThemePage
         theme={themeSettings}
         sections={dressed.sections}
-        storefront={{ creatorId, installId }}
+        storefront={{ creatorId, installId, currency: await cachedStoreCurrency(creatorId) }}
         emptyDetail="Nothing in this collection yet."
       />
     </StorelibSourcesProvider>

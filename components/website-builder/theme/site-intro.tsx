@@ -136,10 +136,16 @@ function transitionCss(t: { kind: "fade" | "slide" | "rise"; ms: number }): stri
       : t.kind === "rise"
         ? `::view-transition-old(root){animation-name:sl-page-out-fade}::view-transition-new(root){animation-name:sl-page-in-rise}@keyframes sl-page-out-fade{to{opacity:0}}@keyframes sl-page-in-rise{from{opacity:0;translate:0 18px}}`
         : ""
+  /*
+    The creator's own transition, over the live site's default one-frame cut
+    (lib/website-builder/live-navigation.ts VIEW_TRANSITION_CSS), whose
+    :root selectors outranked it, so the setting never showed: :root:root wins.
+  */
+  const own = (css: string) => css.replace(/(^|\})::view-transition/g, "$1:root:root::view-transition")
   return [
     `@view-transition{navigation:auto}`,
-    `::view-transition-old(root),::view-transition-new(root){${timing}}`,
-    motion,
+    `:root:root::view-transition-old(root),:root:root::view-transition-new(root){${timing}}`,
+    own(motion),
     `@media (prefers-reduced-motion: reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}`,
   ].join("\n")
 }

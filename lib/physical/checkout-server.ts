@@ -37,7 +37,6 @@ import "server-only"
 import { randomBytes } from "node:crypto"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
 import { apportionFee, chargeUnits } from "@/lib/checkout/cart-items"
 import { cartFingerprint, cartReceiptToken } from "@/lib/checkout/cart-tokens"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
@@ -48,7 +47,8 @@ import { recordCouponUse } from "@/lib/checkout/coupons"
 import { paymentFacts, recordSale } from "@/lib/checkout/fulfil-payment"
 import { recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
-import { storeChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordOrderAttribution, type Attribution } from "@/lib/attribution/server"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
@@ -70,11 +70,18 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { lineProperties, physicalCheckoutHref } from "./cart-link"
 import { cartAttributes } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
+import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./cash-on-delivery"
+import { phoneForStorage } from "@/lib/account/phone"
+import { formatCurrency } from "@/lib/markets/money"
+import { checkoutMarket } from "@/lib/markets/checkout-market-server"
+import { convertOrder } from "@/lib/markets/checkout-charge"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
 
 export interface StartInput {
+  /** A website's checkout: the visitor's country, for the market it charges in (lib/markets/checkout-market-server). Absent: the store's own currency. */
+  marketCountry?: string | null
   shopId: string | null
   items: unknown
   couponCode: unknown
@@ -116,6 +123,12 @@ export interface StartInput {
   intent?: boolean
   /** The ways to pay the form loaded with (lib/checkout/payment-methods). */
   paymentMethods?: unknown
+  /**
+   * Paid in cash on delivery (lib/physical/cash-on-delivery.ts): the order is
+   * written at once, as a free one is, with no card and no fee, and the
+   * seller collects the money when it is delivered or picked up.
+   */
+  cashOnDelivery?: boolean
   /** Signed in to the website's own customer account (lib/site-accounts), which counts as an account here. */
   buyerSignedIn?: boolean
   /** That account's address, proven by its sign in code: what it already owns is left out (lib/checkout/owned). Never a typed email. */
@@ -123,7 +136,7 @@ export interface StartInput {
 }
 
 export type StartResult =
-  | { ok: true; url: string; checkoutId: string; free: boolean; clientSecret?: string | null; paymentIntentId?: string | null; receiptToken?: string | null }
+  | { ok: true; url: string; checkoutId: string; free: boolean; cod?: boolean; clientSecret?: string | null; paymentIntentId?: string | null; receiptToken?: string | null }
   | { ok: false; status: number; error: string; field?: string; stock?: { title: string; available: number }[] }
 
 function clean(value: unknown, max: number): string {
@@ -177,6 +190,18 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, status: 400, error: "Enter your email address.", field: "email" }
   const clientKey = clean(input.clientKey, 120)
   if (clientKey.length < 8) return { ok: false, status: 400, error: "Refresh the page and try again." }
+  /*
+    PLACE ORDER AGAIN, after an answer that never arrived: the cash order the
+    first press placed, found before the cart is priced. Priced first, a press
+    that had taken the last units read "only 0 left" for an order already on
+    its way.
+  */
+  if (input.cashOnDelivery === true && input.shopId) {
+    const { data: placed } = await db.from("commerce_checkouts").select("id, status, receipt_token").eq("creator_id", input.shopId).eq("client_key", codClientKey(clientKey)).maybeSingle()
+    if (placed?.status === "paid" && placed.receipt_token) {
+      return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receipt_token as string)}`, checkoutId: placed.id as string, free: false, cod: true, receiptToken: placed.receipt_token as string }
+    }
+  }
 
   const items = readItems(input.items)
   const priced = await priceCheckout(db, { items, couponCode: input.couponCode, buyerId: input.buyerId, buyerEmail: email, ownerEmail: input.ownerEmail ?? null, shopId: input.shopId })
@@ -204,7 +229,16 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (wantsPickup && !clean(input.name, 200)) return { ok: false, status: 400, error: "Enter the name the order is under.", field: "name" }
   if (wantsPickup && config.nameFields === "first_and_last" && !/\S+\s+\S+/.test(clean(input.name, 200))) return { ok: false, status: 400, error: "Enter your first and last name.", field: "name" }
   if (wantsPickup && config.phone === "required" && !clean(input.phone, 40)) return { ok: false, status: 400, error: "Enter a phone number for the pickup.", field: "phone" }
-  const q = await quoteCheckout(db, priced, address, input.deliveryOptionId)
+  /* The phone outside an address (a pickup, a thing handed over): kept as E.164 when written with its code, refused when it is not a number at all. */
+  const ownPhone = config.phone === "off" ? "" : clean(input.phone, 40)
+  if (ownPhone && !phoneForStorage(ownPhone)) return { ok: false, status: 400, error: "Check the phone number.", field: "phone" }
+  /* Paying on delivery, in a shop that takes it: its fee is in the total from the start, as the page showed it (Settings › Checkout). */
+  const wantsCod = input.cashOnDelivery === true && config.cashOnDelivery
+  let q = await quoteCheckout(db, priced, address, input.deliveryOptionId, { codFeeCents: wantsCod ? config.codFeeCents : 0 })
+  /* A cart with nothing to pay is placed free, and a fee alone is never charged for it. */
+  if (q.totals.codFeeCents > 0 && q.totals.itemsSubtotalCents - q.totals.discountCents + q.totals.shippingCents - q.totals.shippingDiscountCents <= 0) {
+    q = await quoteCheckout(db, priced, address, input.deliveryOptionId)
+  }
   if (priced.requiresShipping) {
     if (wantsPickup) {
       if (q.option?.kind !== "pickup") return { ok: false, status: 409, error: "Pickup isn't available for everything in your cart any more. Choose shipping instead." }
@@ -216,46 +250,96 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       }
     }
   }
+  /*
+    A WEBSITE'S CHECKOUT IN THE VISITOR'S MARKET (lib/markets/checkout-market-
+    server): the currency its pages showed them, when Storelib can charge it.
+    Every line, the delivery and the totals are converted as the page's quote
+    converted them (lib/markets/checkout-charge), and the order is kept in it.
+  */
+  const market = input.marketCountry !== undefined ? await checkoutMarket(priced.creatorId, input.marketCountry, db) : null
+  if (market?.charge) {
+    const charge = market.charge
+    const converted = convertOrder(q.lines, q.totals, charge)
+    q = { ...q, lines: converted.lines, totals: converted.totals, option: q.option ? { ...q.option, priceCents: charge.amount(q.option.priceCents) } : q.option }
+  }
   const totals = q.totals
   const pickup = q.option?.kind === "pickup" ? (q.option.pickup ?? null) : null
 
   const { data: creator } = await db
     .from("creators")
-    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, payout_currency, charges_enabled, payouts_enabled, statement_descriptor")
+    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
     .eq("id", priced.creatorId)
     .maybeSingle()
   if (!creator) return { ok: false, status: 404, error: "Shop not found." }
-  /* The store's own currency, the one its prices are written in and its website shows (lib/payments/fees/currency-rules storeChargeCurrency). */
-  const chargeCurrency = storeChargeCurrency(creator.payout_currency)
 
   const free = totals.totalCents === 0
-  if (!free && totals.totalCents < MIN_CHARGE_CENTS) return { ok: false, status: 400, error: `The smallest card payment is ${money(MIN_CHARGE_CENTS, chargeCurrency)}.` }
+  /* The store's own currency (Settings › Country & Currency): what every price in the cart is in, and what the card is charged in. Read straight from the database, never a cached copy, so a store that has just changed it is never charged in the old one. */
+  const ownCurrency = (await readStoreCurrency(db, priced.creatorId)).currency
+  /* What the card is charged in: the market's when it charges it, else the store's own. */
+  const storeCurrency = market?.charge ? market.chargeCurrency : ownCurrency
+  /*
+    CASH ON DELIVERY (lib/physical/cash-on-delivery.ts): the shop has it on,
+    everything in the cart is delivered or picked up, and there is something
+    to pay. No card is asked for, so neither the card minimum nor the
+    seller's card payments being ready stand in the way: the money is the
+    seller's to collect.
+  */
+  const cod = input.cashOnDelivery === true && !free
+  if (cod) {
+    const why = codRefusal({ enabled: config.cashOnDelivery, lines: q.lines, requiresShipping: priced.requiresShipping, totalCents: totals.totalCents, countries: config.codCountries, country: pickup ? null : (address?.country ?? null) })
+    if (why) return { ok: false, status: 409, error: why }
+  }
+  if (!free && !cod && totals.totalCents < minimumChargeMinor(storeCurrency)) return { ok: false, status: 400, error: `The smallest card payment is ${money(minimumChargeMinor(storeCurrency), storeCurrency)}.` }
   /* Storelib's one readiness rule (lib/payments/stripe/readiness); the buyer is told nothing about the seller's verification. */
-  if (!free && (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string)))) {
+  if (!free && !cod && (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string)))) {
     return { ok: false, status: 409, error: BUYER_UNAVAILABLE }
+  }
+  /* Paid on delivery, its own row: a card checkout for the same cart is let go, so its stock hold does not sit beside this one. */
+  const rowKey = cod ? codClientKey(clientKey) : clientKey
+  if (cod) {
+    const { data: card } = await db.from("commerce_checkouts").select("id, status, stripe_payment_intent_id, stripe_session_id").eq("creator_id", priced.creatorId).eq("client_key", clientKey).maybeSingle()
+    if (card?.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
+    if (card?.status === "pending") {
+      /*
+        Its card payment is stopped at Stripe first, as Change does (abandonCheckout).
+        Let go without that, a card the bank charged a moment ago, whose answer had
+        not reached the page, was charged with no order behind it: its webhook finds
+        the checkout cancelled. One Stripe will not cancel is left to finish.
+      */
+      const letGo = card.stripe_payment_intent_id || card.stripe_session_id
+        ? await abandonCheckout(db, { shopId: priced.creatorId, clientKey })
+        : (await releaseCheckout(db, card.id as string, "cancelled", "Paying in cash on delivery instead"), true)
+      if (!letGo) return { ok: false, status: 409, error: "A card payment for this order is still going through. Wait a moment and refresh the page: if it went through, your order is placed." }
+    }
   }
 
   /* The same press again: the checkout it made, and its page while it is open. */
   const { data: existing } = await db
     .from("commerce_checkouts")
-    .select("id, status, stripe_session_id, stripe_payment_intent_id, total_cents, expires_at")
+    .select("id, status, stripe_session_id, stripe_payment_intent_id, total_cents, currency, expires_at, receipt_token")
     .eq("creator_id", priced.creatorId)
-    .eq("client_key", clientKey)
+    .eq("client_key", rowKey)
     .maybeSingle()
+  /* Place order pressed twice: the order the first press placed. */
+  if (existing && cod && existing.status === "paid" && existing.receipt_token) {
+    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(existing.receipt_token as string)}`, checkoutId: existing.id as string, free: false, cod: true, receiptToken: existing.receipt_token as string }
+  }
   if (existing) {
     if (existing.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
+    /* Reused only while it is still the same amount in the same currency: a store that changed its currency since never takes the old payment. */
+    const sameMoney = existing.total_cents === totals.totalCents && String(existing.currency ?? "").toUpperCase() === storeCurrency
     /* The card form's second press (a declined card, a bank's check abandoned): the same payment, while it can still be paid. */
-    if (input.intent && existing.status === "pending" && existing.stripe_payment_intent_id && existing.total_cents === totals.totalCents && new Date(existing.expires_at).getTime() > Date.now()) {
+    if (input.intent && existing.status === "pending" && existing.stripe_payment_intent_id && sameMoney && new Date(existing.expires_at).getTime() > Date.now()) {
       try {
         const pi = await stripe.paymentIntents.retrieve(existing.stripe_payment_intent_id)
-        if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status) && pi.client_secret) {
+        if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status) && pi.client_secret && pi.currency === storeCurrency.toLowerCase() && pi.amount === totals.totalCents) {
           return { ok: true, url: "", clientSecret: pi.client_secret, paymentIntentId: pi.id, checkoutId: existing.id, free: false }
         }
       } catch {
         /* Made again below under a new key. */
       }
     }
-    if (existing.status === "pending" && existing.stripe_session_id && existing.total_cents === totals.totalCents) {
+    if (existing.status === "pending" && existing.stripe_session_id && sameMoney) {
       try {
         const s = await stripe.checkout.sessions.retrieve(existing.stripe_session_id)
         if (s.status === "open" && (s.url || s.client_secret)) return { ok: true, url: s.url ?? "", clientSecret: s.client_secret ?? null, checkoutId: existing.id, free: false }
@@ -266,8 +350,10 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     return { ok: false, status: 409, error: "Refresh the page and try again." }
   }
 
+  const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>> | null = null
-  if (!free) {
+  /* No fee on cash on delivery: nothing passes through Storelib to take it from. */
+  if (!free && !cod) {
     try {
       fee = await calculatePlatformFeeForCheckout(totals.totalCents, priced.creatorId, db, chargeCurrency)
     } catch {
@@ -287,7 +373,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       buyer_id: input.buyerId,
       buyer_email: email,
       buyer_name: clean(input.name, 200) || address?.name || null,
-      buyer_phone: clean(input.phone, 40) || address?.phone || null,
+      buyer_phone: phoneForStorage(ownPhone) || address?.phone || null,
       status: "pending",
       fulfillment_status: priced.requiresShipping ? "unfulfilled" : "not_required",
       delivery_method: !priced.requiresShipping ? "none" : pickup ? "pickup" : "ship",
@@ -296,20 +382,21 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       currency: chargeCurrency.toUpperCase(),
       items_subtotal_cents: totals.itemsSubtotalCents,
       discount_cents: totals.discountCents,
-      shipping_cents: totals.shippingCents,
+      /* Cash on delivery's fee is paid with delivery: in the delivery charge, so every total that adds it up still does, and named in shipping_rate.cod_fee_cents. */
+      shipping_cents: totals.shippingCents + totals.codFeeCents,
       shipping_discount_cents: totals.shippingDiscountCents,
       tax_cents: totals.taxCents,
       total_cents: totals.totalCents,
       platform_fee_cents: fee?.platformFeeCents ?? 0,
       shipping_address: address,
       shipping_rate: option
-        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
-        : taxFacts,
+        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}), ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) }
+        : { ...taxFacts, ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) },
       lines: q.lines.map((l) => snapshotLine(l, propertiesFor(input.items, l))),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
-      provider: free ? "free" : "stripe",
-      client_key: clientKey,
+      provider: free ? "free" : cod ? COD_PROVIDER : "stripe",
+      client_key: rowKey,
       receipt_token: receiptToken,
       origin: input.origin,
       attribution: input.attribution,
@@ -319,7 +406,22 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     .select("id")
     .single()
   if (insertError || !checkout) {
-    if (insertError?.code === "23505") return { ok: false, status: 409, error: "Refresh the page and try again." }
+    if (insertError?.code === "23505") {
+      /* Place order pressed twice at once: the other press wrote it first. Its order, when it is placed, rather than an error. */
+      if (cod) {
+        for (let i = 0; i < 3; i++) {
+          const { data: won } = await db.from("commerce_checkouts").select("id, status, receipt_token").eq("creator_id", priced.creatorId).eq("client_key", rowKey).maybeSingle()
+          if (won?.status === "paid" && won.receipt_token) {
+            return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(won.receipt_token as string)}`, checkoutId: won.id as string, free: false, cod: true, receiptToken: won.receipt_token as string }
+          }
+          if (won && won.status !== "pending") break
+          await new Promise((r) => setTimeout(r, 400))
+        }
+      }
+      return { ok: false, status: 409, error: "Refresh the page and try again." }
+    }
+    /* The database has not taken SQL part 174 yet: its provider check refuses "cod". */
+    if (cod && insertError?.code === "23514") return { ok: false, status: 503, error: "Cash on delivery isn't available on this shop yet. Pay by card instead." }
     console.error("[physical] checkout insert failed:", insertError?.code)
     return { ok: false, status: insertError?.code === "42P01" ? 503 : 500, error: insertError?.code === "42P01" ? "This shop is not ready to sell physical products yet." : "Could not start the checkout." }
   }
@@ -389,10 +491,18 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     await db.from("commerce_checkouts").update({ coupon_holder: holder }).eq("id", checkoutId)
   }
 
-  if (free) {
-    const done = await completeCheckout(db, { checkoutId, sessionId: `free_${randomBytes(18).toString("base64url")}`, paymentIntentId: null, facts: null, baseUrl: input.platformOrigin })
-    if (!done.ok) return { ok: false, status: 500, error: "The order could not be saved. Try again in a moment." }
-    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: true, receiptToken }
+  if (free || cod) {
+    const done = await completeCheckout(db, { checkoutId, sessionId: `${cod ? "cod" : "free"}_${randomBytes(18).toString("base64url")}`, paymentIntentId: null, facts: null, baseUrl: input.platformOrigin })
+    if (!done.ok) {
+      /* A cash order that could not be written lets go of what it held, as an unpaid card checkout does. */
+      if (cod) {
+        await releaseCheckout(db, checkoutId, "failed", "The order could not be saved")
+        /* And the place its code held, so pressing Place order again can take it. */
+        if (holder && priced.coupon) await releaseCouponHold(db, priced.coupon.id, holder)
+      }
+      return { ok: false, status: 500, error: "The order could not be saved. Try again in a moment." }
+    }
+    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: !cod, cod, receiptToken }
   }
 
   if (input.intent) {
@@ -809,8 +919,8 @@ export async function completeCheckout(
       checkoutId: c.checkoutId,
       creatorId: co.creator_id,
       kind: "payment.paid",
-      message: co.provider === "free" ? "Order placed with a code, nothing to pay" : `Payment of ${money(co.total_cents, co.currency)} received`,
-      actor: co.provider === "free" ? "buyer" : "webhook",
+      message: co.provider === "free" ? "Order placed with a code, nothing to pay" : co.provider === COD_PROVIDER ? `Order placed, ${money(co.total_cents, co.currency)} to be paid in cash on delivery` : `Payment of ${money(co.total_cents, co.currency)} received`,
+      actor: co.provider === "free" || co.provider === COD_PROVIDER ? "buyer" : "webhook",
       key: `paid:${c.checkoutId}`,
     })
     if (again > 0) {
@@ -869,14 +979,14 @@ export async function completeCheckout(
         fee_cents: fees[i] ?? 0,
         application_fee_cents: fees[i] ?? 0,
         currency: String(co.currency || "USD").toLowerCase(),
-        provider: co.provider === "free" ? "free" : "stripe",
+        provider: co.provider === "free" ? "free" : co.provider === COD_PROVIDER ? COD_PROVIDER : "stripe",
         status: "completed",
         stripe_session_id: sessionId,
         stripe_payment_intent_id: c.paymentIntentId ?? co.stripe_payment_intent_id,
         session_fingerprint: fingerprint,
         receipt_token: receiptToken,
         allowed_fingerprints: [fingerprint],
-        payment_method: c.facts?.paymentMethod ?? (co.provider === "free" ? null : "card"),
+        payment_method: c.facts?.paymentMethod ?? (co.provider === "free" ? null : co.provider === COD_PROVIDER ? COD_PAYMENT_METHOD : "card"),
         card_brand: c.facts?.cardBrand ?? null,
         card_last4: c.facts?.cardLast4 ?? null,
         buyer_country: co.shipping_address?.country ?? null,
@@ -990,11 +1100,7 @@ function taxSharesOf(taxCents: number, co: Record<string, any>, lines: LineSnaps
 }
 
 function money(cents: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: String(currency || "USD").toUpperCase() }).format(cents / 100)
-  } catch {
-    return `$${(cents / 100).toFixed(2)}`
-  }
+  return formatCurrency(cents / 100, String(currency || "USD"), "en-US")
 }
 
 async function onceForOrder(
@@ -1027,7 +1133,7 @@ async function onceForOrder(
     admin: db,
     sessionId: s.sessionId,
     paymentIntentId: co.stripe_payment_intent_id ?? null,
-    provider: co.provider === "free" ? "free" : "stripe",
+    provider: co.provider === "free" ? "free" : co.provider === COD_PROVIDER ? COD_PROVIDER : "stripe",
     creatorId: co.creator_id,
     buyerId: co.buyer_id,
     buyerEmail: co.buyer_email,
@@ -1045,7 +1151,8 @@ async function onceForOrder(
   }
   await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.lines[0]?.product_id ?? null, co.email_opt_in === true ? "ticked" : "none"))
   if (co.coupon_id) await step("coupon use", () => recordCouponUse(db, co.coupon_id, co.coupon_holder))
-  await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId, currency: co.currency }))
+  /* Cash on delivery never passes through Storelib: nothing goes on the seller's payout balance (lib/physical/cash-on-delivery.ts). */
+  if (co.provider !== COD_PROVIDER) await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId, currency: co.currency }))
   await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
   await step("forwarding", () => queueForwarding(db, co.id, co.creator_id))
   /* ShipStation connected: the items the seller ships go there to be labelled (lib/integrations/shipping/shipstation-server.ts). */

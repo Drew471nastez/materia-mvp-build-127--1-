@@ -22,6 +22,7 @@
  * Pure: no database, no mailer, so tests/receipt-email.test.ts and
  * scripts/check-receipt-email.mjs draw exactly what is sent.
  */
+import { et } from "@/lib/emails/words"
 import { emailImageSrc, type SenderPicture } from "@/lib/email-campaigns/sender"
 import { emailDocument, emailKit, esc, identity, type EmailSender } from "@/lib/emails/layout"
 
@@ -101,31 +102,32 @@ export interface ReceiptEmailModel {
 /** The line under the totals that says the PDF is attached, and where to get it again. */
 function documentLine(m: ReceiptEmailModel): { html: string; text: string } | null {
   if (!m.document) return null
-  const noun = m.document.kind === "invoice" ? "invoice" : "receipt"
+  const invoice = m.document.kind === "invoice"
+  const said = invoice ? et("Your invoice is attached as a PDF.") : et("Your receipt is attached as a PDF.")
   return {
-    html: `Your ${noun} is attached as a PDF. <a class="e-link" href="${escapeHtml(m.document.link)}" style="color:#111827;text-decoration:underline;">Download it again</a>`,
-    text: `Your ${noun} is attached as a PDF. Download it again: ${m.document.link}`,
+    html: `${said} <a class="e-link" href="${escapeHtml(m.document.link)}" style="color:#111827;text-decoration:underline;">${et("Download it again")}</a>`,
+    text: `${said} ${et("Download it again")}: ${m.document.link}`,
   }
 }
 
 export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
   const sellerPlain = safeText(m.sellerName) || PLATFORM_BRAND_NAME
-  const first = safeName(m.firstName) || "there"
+  const first = safeName(m.firstName)
   const picture = m.sellerPicture
   const pictureUrl = picture ? emailImageSrc(picture.url, picture.kind === "logo" ? 120 : AVATAR_PX) : null
   const sender: EmailSender = { kind: "store", name: sellerPlain, pictureUrl, picture: picture?.kind === "photo" ? "avatar" : "logo", accent: m.accent ?? null }
   const k = emailKit(sender)
   const doc = documentLine(m)
   const totals = [
-    ...(m.subtotalText ? [{ label: "Subtotal", value: m.subtotalText }] : []),
-    ...(m.tipText ? [{ label: "Tip", value: m.tipText }] : []),
+    ...(m.subtotalText ? [{ label: et("Subtotal"), value: m.subtotalText }] : []),
+    ...(m.tipText ? [{ label: et("Tip"), value: m.tipText }] : []),
     ...(m.taxText && !m.taxIncluded ? [{ label: taxName(m), value: m.taxText }] : []),
-    { label: "Total", value: m.totalText, strong: true },
+    { label: et("Total"), value: m.totalText, strong: true },
     ...(m.taxText && m.taxIncluded ? [{ label: includedName(m), value: m.taxText }] : []),
-    ...(m.refundedText ? [{ label: "Refunded", value: m.refundedText }] : []),
+    ...(m.refundedText ? [{ label: et("Refunded"), value: m.refundedText }] : []),
   ]
   const rows = [
-    k.heading(m.heading ? safeText(m.heading) : `Thanks for your order, ${first}`, { sub: `Order ${m.orderNumber} · ${m.dateText}` }),
+    k.heading(m.heading ? safeText(m.heading) : first ? et("Thanks for your order, {name}", { name: first }) : et("Thanks for your order, there"), { sub: `${et("Order {number}", { number: m.orderNumber })} · ${m.dateText}` }),
     m.introHtml ? k.html(m.introHtml) : "",
     k.items(
       m.items.map((it) => ({
@@ -140,35 +142,36 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
     k.totals(totals, { below: doc ? 12 : 28 }),
     doc ? k.smallHtml(doc.html, { below: 24 }) : "",
     k.button(m.buttonLabel, m.link),
-    k.small("The button opens your receipt with the files, on any device, so keep this email.", { below: 8 }),
+    k.small(et("The button opens your receipt with the files, on any device, so keep this email."), { below: 8 }),
     k.fallback(m.link),
-    k.smallHtml(`Questions about the order? Reply to this email to reach ${esc(sellerPlain)}, or write to ${identity(m.supportEmail, false)}.`),
+    k.smallHtml(et("Questions about the order? Reply to this email to reach {shop}, or write to {email}.", { shop: esc(sellerPlain), email: identity(m.supportEmail, false) })),
   ]
   return emailDocument({
     sender,
-    subject: `Your receipt from ${sellerPlain}`,
-    preview: `Order ${m.orderNumber} from ${sellerPlain}, ${m.totalText}`,
+    subject: et("Your receipt from {shop}", { shop: sellerPlain }),
+    preview: et("Order {number} from {shop}, {total}", { number: m.orderNumber, shop: sellerPlain, total: m.totalText }),
     rows,
-    footer: { legal: legalText(m) ? `${legalText(m)}. Through ${PLATFORM_BRAND_NAME}.` : `Sold by ${sellerPlain} through ${PLATFORM_BRAND_NAME}.` },
+    footer: { legal: legalText(m) ? et("{seller}. Through {platform}.", { seller: legalText(m), platform: PLATFORM_BRAND_NAME }) : et("Sold by {shop} through {platform}.", { shop: sellerPlain, platform: PLATFORM_BRAND_NAME }) },
   })
 }
 
 /** The tax row's name: the checkout's own ("VAT 19%"), else "Tax". */
 function taxName(m: ReceiptEmailModel): string {
-  return safeText(m.taxLabel || "").replace(/[<>]/g, "").slice(0, 80) || "Tax"
+  return safeText(m.taxLabel || "").replace(/[<>]/g, "").slice(0, 80) || et("Tax")
 }
 
 /** Under the total, for prices that had the tax in them: "Including VAT 19%" (the same words as lib/tax/rules includedTaxLabel). */
 function includedName(m: ReceiptEmailModel): string {
-  const l = taxName(m)
-  return `Including ${/^tax\b/i.test(l) ? "tax" + l.slice(3) : l}`
+  const named = safeText(m.taxLabel || "").replace(/[<>]/g, "").slice(0, 80)
+  if (!named || /^tax$/i.test(named)) return et("Including tax")
+  return et("Including {tax}", { tax: /^tax\b/i.test(named) ? "tax" + named.slice(3) : named })
 }
 
 /** "Sold by Astrid SRL", its address and its tax number, one line each part, when the store gave its business details. */
 function legalText(m: ReceiptEmailModel): string {
   const l = m.legal
   if (!l?.name?.trim()) return ""
-  return [`Sold by ${safeText(l.name)}`, ...l.lines.map(safeText).filter(Boolean), l.taxId ? `${safeText(l.taxIdLabel || "Tax ID")} ${safeText(l.taxId)}` : ""].filter(Boolean).join(", ")
+  return [et("Sold by {name}", { name: safeText(l.name) }), ...l.lines.map(safeText).filter(Boolean), l.taxId ? `${safeText(l.taxIdLabel || et("Tax ID"))} ${safeText(l.taxId)}` : ""].filter(Boolean).join(", ")
 }
 
 export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
@@ -177,24 +180,24 @@ export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
     return `  ${name}: ${it.amountText}${it.note ? ` (${it.note})` : ""}`
   })
   return [
-    `Hi ${safeName(m.firstName) || "there"},`,
+    safeName(m.firstName) ? et("Hi {name},", { name: safeName(m.firstName) }) : et("Hi there,"),
     "",
-    m.heading ? safeText(m.heading) : `Thanks for your order from ${safeText(m.sellerName) || PLATFORM_BRAND_NAME}.`,
-    `Order ${m.orderNumber}, ${m.dateText}`,
+    m.heading ? safeText(m.heading) : et("Thanks for your order from {shop}.", { shop: safeText(m.sellerName) || PLATFORM_BRAND_NAME }),
+    `${et("Order {number}", { number: m.orderNumber })}, ${m.dateText}`,
     ...(m.introText ? ["", m.introText] : []),
     "",
     ...lines,
-    m.subtotalText ? `Subtotal: ${m.subtotalText}` : null,
-    m.tipText ? `Tip: ${m.tipText}` : null,
+    m.subtotalText ? `${et("Subtotal")}: ${m.subtotalText}` : null,
+    m.tipText ? `${et("Tip")}: ${m.tipText}` : null,
     m.taxText && !m.taxIncluded ? `${taxName(m)}: ${m.taxText}` : null,
-    `Total: ${m.totalText}`,
+    `${et("Total")}: ${m.totalText}`,
     m.taxText && m.taxIncluded ? `${includedName(m)}: ${m.taxText}` : null,
-    m.refundedText ? `Refunded: ${m.refundedText}` : null,
+    m.refundedText ? `${et("Refunded")}: ${m.refundedText}` : null,
     "",
     `${m.buttonLabel}: ${m.link}`,
     documentLine(m)?.text ?? null,
     "",
-    "Reply to this email to reach the seller.",
+    et("Reply to this email to reach the seller."),
     ...(legalText(m) ? ["", legalText(m)] : []),
   ]
     .filter((l): l is string => l !== null)

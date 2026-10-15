@@ -19,6 +19,7 @@ import "server-only"
  * end, invalidated by tag when the settings or a translation is saved.
  */
 import { uiTranslatables } from "./ui-words"
+import { checkoutTranslatables, emailTranslatables } from "./checkout-words"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { pageSections } from "@/lib/website-builder/preview-link"
@@ -29,7 +30,8 @@ import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
 import { defaultLocalization, validateLocalization, type Localization } from "./model"
 import { normalizeLocale } from "./locales"
-import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, seoTranslatables, sourceHash, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, optionTranslatables, themeWordKey, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { compatThemeFor, installFiles } from "@/lib/website-builder/compat-site"
@@ -51,11 +53,12 @@ export const translationsTag = (creatorId: string, locale: string) => `site-tran
 
 /** The store's own country (Store details), the home market's first country when nothing is set. */
 async function homeCountryOf(db: Db, creatorId: string): Promise<string | null> {
-  const { data } = await db.from("store_settings").select("country").eq("creator_id", creatorId).maybeSingle().then(
+  /* The column is default_country (supabase/migrations/20261201_store_settings.sql): reading "country" errored and the home market never had one. */
+  const { data } = await db.from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle().then(
     (r: { data: unknown }) => r,
     () => ({ data: null }),
   )
-  const c = (data as { country?: unknown } | null)?.country
+  const c = (data as { default_country?: unknown } | null)?.default_country
   return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : null
 }
 
@@ -91,14 +94,55 @@ export async function readLocalizationRow(db: Db, creatorId: string): Promise<{ 
   return db.from("store_localization").select("default_language, languages, markets").eq("creator_id", creatorId).maybeSingle()
 }
 
-export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization }> {
-  const { data, error } = await readLocalizationRow(db, creatorId)
+/** store_localization.auto_translate and auto_translate_run are SQL part 175's: a database without them reads as the setting off. */
+export function autoTranslateMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && /auto_translate/.test(error.message ?? "")
+}
+
+export const AUTO_TRANSLATE_NEEDS_PART = "Translating changes automatically needs a database update. Run SQL part 175 in Supabase, then turn it on again."
+
+/** What the last automatic run did (lib/markets/auto-translate.ts), for the switch to say. */
+export interface AutoTranslateRun {
+  /** When it ran, ISO. */
+  at: string
+  /** Texts translated and put live. */
+  translated: number
+  /** Texts still to do, for the next run. */
+  left: number
+  /** Set when Storelib AI could not be reached (no key, no credit, every call failed): the switch says it tries again. */
+  error?: "unavailable"
+}
+
+/** Translate changes automatically, and its last run. Off, with no run, before part 175 or on any failed read. */
+export async function readAutoTranslate(db: Db, creatorId: string): Promise<{ on: boolean; run: AutoTranslateRun | null; ready: boolean }> {
+  const { data, error } = await db.from("store_localization").select("auto_translate, auto_translate_run").eq("creator_id", creatorId).maybeSingle().then(
+    (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
+    (e: unknown) => ({ data: null, error: { message: String(e) } }),
+  )
+  if (error) return { on: false, run: null, ready: !autoTranslateMissing(error) && !marketsMissing(error) }
+  const row = data as { auto_translate?: boolean | null; auto_translate_run?: Partial<AutoTranslateRun> | null } | null
+  const r = row?.auto_translate_run
+  const run = r && typeof r.at === "string" ? { at: r.at, translated: Number(r.translated) || 0, left: Number(r.left) || 0, ...(r.error === "unavailable" ? { error: "unavailable" as const } : {}) } : null
+  return { on: row?.auto_translate === true, run, ready: true }
+}
+
+export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization; autoTranslateRun?: AutoTranslateRun | null }> {
+  const [{ data, error }, auto] = await Promise.all([readLocalizationRow(db, creatorId), readAutoTranslate(db, creatorId)])
   const fresh = async () => defaultLocalization(...(await Promise.all([homeCountryOf(db, creatorId), websiteLanguageOf(db, creatorId)])))
   if (error) return { ready: !marketsMissing(error), value: await fresh() }
   if (!data) return { ready: true, value: await fresh() }
   const row = data
-  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true }, { baseCurrency })
-  return { ready: true, value: checked.ok ? checked.value : defaultLocalization(await homeCountryOf(db, creatorId), row.default_language) }
+  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
+  if (checked.ok) return { ready: true, value: checked.value, autoTranslateRun: auto.run }
+  /*
+    A SAVED LIST NEVER LOST. Markets saved under another store currency can
+    stop passing the check after the currency changes; the languages did not
+    change, so they are kept and only the markets start again from the home
+    one. Losing them read as "French isn't saved on your website yet".
+  */
+  const home = defaultLocalization(await homeCountryOf(db, creatorId), row.default_language)
+  const kept = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: home.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
+  return { ready: true, value: kept.ok ? kept.value : home, autoTranslateRun: auto.run }
 }
 
 export async function saveLocalization(db: Db, creatorId: string, input: unknown, baseCurrency: string): Promise<{ ok: true; value: Localization } | { ok: false; status: number; error: string }> {
@@ -117,6 +161,17 @@ export async function saveLocalization(db: Db, creatorId: string, input: unknown
     v.visitorLanguage = false
   }
   if (error) return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save. Try again." }
+  /* Translate changes automatically: its own write, so a database without part 175 keeps everything else and the switch says what it needs. */
+  const auto = await db.from("store_localization").update({ auto_translate: v.autoTranslate === true }).eq("creator_id", creatorId).then(
+    (r: { error: { code?: string; message?: string } | null }) => r,
+    (e: unknown) => ({ error: { message: String(e) } }),
+  )
+  if (auto.error) {
+    revalidateTag(localizationTag(creatorId), { expire: 0 })
+    if (!autoTranslateMissing(auto.error)) return { ok: false, status: 500, error: "Could not save. Try again." }
+    if (v.autoTranslate) return { ok: false, status: 409, error: AUTO_TRANSLATE_NEEDS_PART }
+    v.autoTranslate = false
+  }
   revalidateTag(localizationTag(creatorId), { expire: 0 })
   return { ok: true, value: v }
 }
@@ -165,7 +220,15 @@ export function paragraphsOf(text: string): string {
 }
 
 /** One language's values, saved. Each is checked: a known key shape, a sane length, rich text cleaned, plain text kept plain. */
-export async function saveTranslations(db: Db, creatorId: string, locale: string, items: unknown, userId: string | null): Promise<{ ok: true; saved: number; removed: number } | { ok: false; status: number; error: string }> {
+export async function saveTranslations(
+  db: Db,
+  creatorId: string,
+  locale: string,
+  items: unknown,
+  userId: string | null,
+  /** keepManual: an AI write, which never replaces a translation the merchant wrote (read again here, just before the write). */
+  opts: { keepManual?: boolean } = {},
+): Promise<{ ok: true; saved: number; removed: number } | { ok: false; status: number; error: string }> {
   const lang = normalizeLocale(locale)
   if (!lang) return { ok: false, status: 400, error: "That isn't a language we recognise." }
   if (!Array.isArray(items) || items.length === 0) return { ok: true, saved: 0, removed: 0 }
@@ -186,6 +249,11 @@ export async function saveTranslations(db: Db, creatorId: string, locale: string
       continue
     }
     upserts.push({ creator_id: creatorId, locale: lang, key: raw.key, value, source_hash: sourceHash(source), status: raw.approved === false ? "draft" : "approved", source: raw.ai ? "ai" : "manual", updated_by: userId, updated_at: now })
+  }
+  if (upserts.length && opts.keepManual) {
+    const { data: theirs } = await db.from("site_translations").select("key").eq("creator_id", creatorId).eq("locale", lang).eq("source", "manual").in("key", upserts.map((u) => u.key as string))
+    const kept = new Set(((theirs ?? []) as { key: string }[]).map((r) => r.key))
+    for (let i = upserts.length - 1; i >= 0; i--) if (kept.has(upserts[i].key as string)) upserts.splice(i, 1)
   }
   if (upserts.length) {
     const { error } = await db.from("site_translations").upsert(upserts, { onConflict: "creator_id,locale,key" })
@@ -222,10 +290,25 @@ export interface TextGroup {
  * published yet, its draft, so a creator can prepare a language first.
  */
 export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]> {
+  /*
+    STARTED TOGETHER. The menus, the products and the collections need
+    nothing from the theme, and were read after it, one after another: four
+    round trips in a row before the translation sheet could open. They are
+    asked for now and awaited where they are used.
+  */
+  const menusRead = storeMenusOrNull(db, creatorId).catch(() => null)
+  /* `.then` is what sends a query (it is lazy until then); its failure is still this function's, below, and marked handled until it is awaited there. */
+  const productsRead = db.from("products").select("id, title, description, seo_title, seo_description").eq("creator_id", creatorId).eq("status", "published").order("created_at", { ascending: false }).limit(200).then((r: { data: unknown }) => r)
+  productsRead.catch(() => undefined)
+  const collectionsRead = db.from("product_collections").select("id, title, description").eq("creator_id", creatorId).limit(200).then(
+    (r: { data: unknown }) => r,
+    () => ({ data: [] }),
+  )
   const { data: install } = await db.from("store_theme_installs").select("id, status").eq("creator_id", creatorId).order("status", { ascending: false }).limit(5)
   const installs = (install ?? []) as { id: string; status: string }[]
   const chosen = installs.find((i) => i.status === "published") ?? installs[0]
   const groups: TextGroup[] = []
+  let themeWords: Translatable[] = []
   if (chosen) {
     const [sources, pagesRead, themeRead] = await Promise.all([
       sectionSources(db as never, chosen.id).catch(() => ({}) as Record<string, string>),
@@ -244,9 +327,12 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (compatOf(themeValues)) {
       const files = await installFiles(db, chosen.id, chosen.status !== "published").catch(() => null)
       if (files) {
-        const read = compatFields(compatThemeFor(chosen.id, "texts", files, themeValues))
+        const compatTheme = compatThemeFor(chosen.id, "texts", files, themeValues)
+        const read = compatFields(compatTheme)
         fieldsOf = read.fieldsOf
         blockFieldsOf = read.blockFieldsOf
+        /* Its own words (`| t`, its default locale file), for a language the theme does not ship: laid over by lib/markets/compat.ts. */
+        themeWords = compatTheme.defaultWords().map((w) => ({ key: themeWordKey(w.key), source: w.value, label: w.key, where: "Theme words", multiline: w.value.length > 80 }))
       }
     }
     const seenChrome = new Set<string>()
@@ -269,15 +355,18 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (chrome.length) groups.unshift({ id: "chrome", title: "Header and footer", items: chrome })
 
     /* The store's menus (the header's and footer's links), and the website's search engine text. */
-    const menus = await storeMenusOrNull(db, creatorId).catch(() => null)
+    const menus = await menusRead
     const theme = themeValues
     const menuItems = menuTranslatables((menus ?? (theme?.menus as never)) ?? null)
     if (menuItems.length) groups.splice(groups[0]?.id === "chrome" ? 1 : 0, 0, { id: "menus", title: "Menus", items: menuItems })
     const seoItems = seoTranslatables(theme)
     if (seoItems.length) groups.push({ id: "seo", title: "Search engines", items: seoItems })
+    /* The theme's own words: Branding's tagline and headline, the sale badge, the cookie banner (translate.ts themeTextTranslatables). */
+    const themeItems = themeTextTranslatables(theme, THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? []))
+    if (themeItems.length) groups.push({ id: "theme", title: "Theme settings", items: themeItems })
   }
 
-  const { data: products } = await db.from("products").select("id, title, description, seo_title, seo_description").eq("creator_id", creatorId).eq("status", "published").order("created_at", { ascending: false }).limit(200)
+  const { data: products } = await productsRead
   const productItems: Translatable[] = []
   for (const p of (products ?? []) as Record<string, unknown>[]) {
     const title = typeof p.title === "string" ? p.title : ""
@@ -288,11 +377,23 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (typeof p.seo_description === "string" && p.seo_description.trim()) productItems.push({ key: `product:${p.id}:seo_description`, source: p.seo_description, label: "Search engine description", where, multiline: true })
   }
   if (productItems.length) groups.push({ id: "products", title: "Products", items: productItems })
+  /* Their option names and values (Size, Small), once each for the whole shop (translate.ts optionKey). */
+  const productIds = ((products ?? []) as { id?: unknown }[]).map((p) => p.id).filter((id): id is string => typeof id === "string")
+  if (productIds.length) {
+    const { data: optionRows } = await db.from("product_options").select("product_id, name, values, position").in("product_id", productIds).order("position", { ascending: true }).then(
+      (r: { data: unknown }) => r,
+      () => ({ data: [] }),
+    )
+    const lists = productIds.map((id) =>
+      ((optionRows ?? []) as { product_id?: unknown; name?: unknown; values?: unknown }[])
+        .filter((o) => o.product_id === id && typeof o.name === "string" && Array.isArray(o.values))
+        .map((o) => ({ name: o.name as string, values: (o.values as unknown[]).filter((v): v is string => typeof v === "string") })),
+    )
+    const optionItems = optionTranslatables(lists)
+    if (optionItems.length) groups.push({ id: "options", title: "Product options", items: optionItems })
+  }
 
-  const { data: collections } = await db.from("product_collections").select("id, title, description").eq("creator_id", creatorId).limit(200).then(
-    (r: { data: unknown }) => r,
-    () => ({ data: [] }),
-  )
+  const { data: collections } = await collectionsRead
   const collectionItems: Translatable[] = []
   for (const c of (collections ?? []) as Record<string, unknown>[]) {
     const title = typeof c.title === "string" ? c.title : ""
@@ -300,8 +401,13 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (typeof c.description === "string" && c.description.trim()) collectionItems.push({ key: `collection:${c.id}:description`, source: c.description, label: "Description", where: title || "Collection", multiline: true })
   }
   if (collectionItems.length) groups.push({ id: "collections", title: "Collections", items: collectionItems })
+  if (themeWords.length) groups.push({ id: "theme-words", title: "Theme words", items: themeWords })
   /* The words the theme draws itself: the cart's, the buy buttons' (lib/markets/ui-words.ts). */
   groups.push({ id: "ui", title: "Shop words", items: uiTranslatables() })
+  /* The website's checkout, sentence by sentence (lib/markets/checkout-words.ts). */
+  groups.push({ id: "checkout", title: "Checkout", items: checkoutTranslatables() })
+  /* A buyer's emails: order confirmed, shipped, a return, a refund (lib/emails/words.ts). */
+  groups.push({ id: "emails", title: "Order emails", items: emailTranslatables() })
   return groups
 }
 

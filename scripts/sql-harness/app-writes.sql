@@ -23,5 +23,11 @@ insert into public.email_flows (creator_id, name, trigger_type, status) values
 insert into public.reviews (product_id, creator_id, buyer_id, order_id, rating, content, reviewer_name, status, seller_reply) values
   ('00000000-0000-4000-c000-0000000000a1', '00000000-0000-4000-b000-000000000001', null, '00000000-0000-4000-d000-0000000000a1', 4, 'A guest review', 'Guest', 'hidden', 'Thank you');
 insert into public.push_tokens (user_id, token, platform) values ('00000000-0000-4000-a000-000000000001', 'web-push-token', 'web');
+-- Part 174: a cash on delivery order, its cash marked received.
+insert into public.commerce_checkouts (creator_id, buyer_email, status, provider, total_cents, client_key, receipt_token, cod_collected_at) values
+  ('00000000-0000-4000-b000-000000000001', 'ben@example.com', 'paid', 'cod', 2500, 'cod-client-key-a1', 'cod-receipt-a1', now());
+-- Part 175: a store translating its changes automatically, with its last run.
+insert into public.store_localization (creator_id, default_language, languages, auto_translate, auto_translate_run) values
+  ('00000000-0000-4000-b000-000000000001', 'en', '[{"code":"fr","published":true}]', true, '{"at":"2026-10-13T10:00:00Z","translated":12,"left":0}');
 update public.onepages set share_image_mode = 'card' where id = '00000000-0000-4000-e000-000000000001';
 reset role;

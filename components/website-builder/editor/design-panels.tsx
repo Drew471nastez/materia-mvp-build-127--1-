@@ -61,7 +61,7 @@ import type { SchemaField, SectionInstance, ThemeSettingsValues } from "@/lib/we
 import { ColorChip } from "./color-chip"
 import { GRADIENT_PRESETS, GradientEditor } from "./gradient-editor"
 import { Collapse } from "./collapse"
-import { SECTION_ANIMATION_OPTIONS, isChromeType, themeAnimation, type SectionAnimation } from "@/lib/website-builder/section-anchors"
+import { SECTION_ANIMATION_OPTIONS, entranceSetting, isChromeType, themeAlternates, themeAnimation, type SectionAnimation } from "@/lib/website-builder/section-anchors"
 import { tt } from "@/lib/i18n/text"
 
 /** The theme's animation in the words the section's own choices use. */
@@ -636,6 +636,7 @@ export function SectionDesignPanel({
   onUpdateSetting,
   onEditScheme,
   compact,
+  firstBody = false,
 }: {
   section: SectionInstance
   schema: { fields?: SchemaField[] } | null | undefined
@@ -644,6 +645,8 @@ export function SectionDesignPanel({
   onEditScheme?: (key: string) => void
   /** Inside another panel (the header's), without the outer border and padding. */
   compact?: boolean
+  /** The page's first section under the header: on screen as the page opens, so it never arrives (section-anchors revealPlan). */
+  firstBody?: boolean
 }) {
   const support = designSupport(schema)
   const s = section.settings
@@ -680,11 +683,16 @@ export function SectionDesignPanel({
    * its own panel already shows. lib/website-builder/section-anchors.ts.
    */
   const showAnimation = !isChromeType(section.type) && !schema?.fields?.some((f) => f.id === "animation")
-  const animation = typeof s.animation === "string" && SECTION_ANIMATION_OPTIONS.some((o) => o.value === s.animation) ? s.animation : "theme"
+  const own = entranceSetting(section)
+  const animation = typeof own === "string" && SECTION_ANIMATION_OPTIONS.some((o) => o.value === own) ? own : "theme"
   const themeMotion = themeAnimation(asRecord(theme))
+  /* "Alternate sides" is its own style: sections come in from the left and the right in turn, never "fade up". */
+  const themeMotionLabel = themeAlternates(asRecord(theme)) ? tt("alternate sides") : THEME_MOTION_LABEL[themeMotion]
   const animationOptions = SECTION_ANIMATION_OPTIONS.map((o) =>
-    o.value === "theme" ? { ...o, label: tt("Same as theme ({themeMotion})", { themeMotion: THEME_MOTION_LABEL[themeMotion] }) } : o,
+    o.value === "theme" ? { ...o, label: tt("Same as theme ({themeMotion})", { themeMotion: themeMotionLabel }) } : o,
   )
+  /* A tabs section saved before `tab_animation` is brought up to date as the editor loads it (section-anchors withTabSwitchKey), so `animation` here is always the entrance. */
+  const setAnimation = (v: string) => onUpdateSetting("animation", v === "theme" ? undefined : v)
 
   if (!support.colorScheme && !support.typography && !showAnimation) return null
 
@@ -813,7 +821,8 @@ export function SectionDesignPanel({
       {showAnimation && (
         <div className="space-y-3">
           <p className={LABEL}>{tt("Animation")}</p>
-          <Select value={animation} onChange={(v) => onUpdateSetting("animation", v === "theme" ? undefined : v)} options={animationOptions} />
+          <Select value={animation} onChange={setAnimation} options={animationOptions} />
+          {firstBody ? <p className="text-[12px] leading-[17px] text-muted-foreground">{tt("The first section is on screen as the page opens, so it shows without an entrance.")}</p> : null}
         </div>
       )}
     </div>

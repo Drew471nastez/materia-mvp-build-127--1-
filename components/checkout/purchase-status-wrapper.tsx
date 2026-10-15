@@ -1,6 +1,8 @@
 "use client"
 
 import { ReactNode, useState, useCallback, useEffect, useMemo } from "react"
+import { shopAmountIn } from "@/lib/store/shop-money"
+import { usePageMoney, usePriceCurrency } from "@/components/platform/price-currency"
 import { usePurchaseStatus } from "./use-purchase-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -130,6 +132,9 @@ function DigitalPurchaseStatus({
   membership = null,
   sales = null,
 }: PurchaseStatusWrapperProps) {
+  /* In the page's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
+  const pageCurrency = usePriceCurrency()
   const {
     hasPurchased,
     assetId: hookAssetId,
@@ -244,16 +249,13 @@ function DigitalPurchaseStatus({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return pageMoney(cents, { grouping: true })
   }
 
   // Format minimum price as hint text like "$10+"
   const formatMinHint = (cents: number): string => {
-    if (cents === 0) return "$0+"
-    return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}+`
+    if (cents === 0) return `${shopAmountIn(0, pageCurrency)}+`
+    return `${pageMoney(cents).replace(/\.00$/, "")}+`
   }
 
   // Get custom price for buy button

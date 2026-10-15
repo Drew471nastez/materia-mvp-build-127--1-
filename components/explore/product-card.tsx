@@ -2,7 +2,8 @@
 
 import { personName } from "@/lib/profile/display-name"
 import { listPrice } from "@/lib/pricing/list-price"
-import { memo, useRef, useCallback, useEffect, useState } from "react"
+import { usePageCurrency } from "@/components/platform/price-currency"
+import { memo, useRef, useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
@@ -10,8 +11,12 @@ import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { saveExploreScrollNow } from "@/lib/explore/use-explore-scroll"
 import { Star } from "lucide-react"
-import { leanImages, leanSizes, previewUrl } from "@/lib/images/lean"
+import { leanImages, leanSizes } from "@/lib/images/lean"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
+
+/** Covers this tab has already drawn: a card mounted again (back to Explore, another page of it) shows its cover at once. */
+const drawnCovers = new Set<string>()
 
 interface ProductCardProps {
   product: {
@@ -28,6 +33,8 @@ interface ProductCardProps {
     type: string
     /* A membership's billing interval, when its plan was read: "$9/month" or "$90/year" (lib/pricing/list-price). */
     price_interval?: "month" | "year" | null
+    /* The currency its store sells in (lib/store/store-currencies), when the list read it. */
+    currency?: string | null
     category?: string | null // Direct category field from product
     categoryName?: string | null // Pre-computed category name for display
     reviews_count?: number | null
@@ -143,26 +150,52 @@ export const ProductCard = memo(function ProductCard({
   showCreator = true,
   surface,
 }: ProductCardProps) {
+  /* A card on one store's page (its creator page) is in that store's currency when the row does not say (components/platform/price-currency). */
+  const pageCurrency = usePageCurrency()
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const router = useRouter()
   /*
-    THE COVER ON A SLOW CONNECTION (lib/images/lean.ts). A 32px copy paints
-    blurred at once and the cover fades in over it when it has arrived. On
-    3G, data saver or a 2 GB phone, a cover that has not started loading yet
-    asks for a 1x file: a cover already on its way is left alone, so nothing
-    is fetched twice.
+    THE COVER IS THERE, OR IT ARRIVES QUIETLY (the owner: "cleaner and
+    calmer", no visible fade for a picture already loaded, at most a short
+    one for a new one, no blur).
+
+    "drawn": shown at once with no opacity transition. That is a cover in the
+      page's HTML (shown as the browser has it, lib/ui/drawn-by-server), one
+      this tab has drawn before (back to Explore), and one the browser has
+      complete before the first paint (read in a layout effect, so the hidden
+      frame is never painted).
+    "wait": a new cover on its way; the card's own grey box until it loads.
+    "in": it arrived after the box was painted, and comes up over 150ms.
+
+    There used to be a blurred 32px copy under every cover and a 500ms fade
+    over it, and both played on every return to Explore because the card
+    started hidden and only found out after painting that its cover was
+    already there.
+
+    On 3G, data saver or a 2 GB phone (lib/images/lean.ts), a cover that has
+    not started loading yet still asks for a 1x file: a cover already on its
+    way is left alone, so nothing is fetched twice.
   */
   const coverRef = useRef<HTMLImageElement>(null)
-  const [coverShown, setCoverShown] = useState(false)
+  const fromServer = useDrawnByServer()
+  const coverSrc = product?.thumbnail_url || ""
+  const [cover, setCover] = useState<"drawn" | "wait" | "in">(() =>
+    priority || fromServer || drawnCovers.has(coverSrc) ? "drawn" : "wait",
+  )
   const [leanSizesValue, setLeanSizesValue] = useState<string | null>(null)
+  useLayoutEffect(() => {
+    const img = coverRef.current
+    if (img?.complete && img.naturalWidth > 0) {
+      drawnCovers.add(coverSrc)
+      setCover((c) => (c === "wait" ? "drawn" : c))
+    }
+  }, [coverSrc])
   useEffect(() => {
     const img = coverRef.current
-    if (img?.complete && img.naturalWidth > 0) setCoverShown(true)
     if (priority || !leanImages() || img?.currentSrc) return
     setLeanSizesValue(leanSizes(sizes, window.devicePixelRatio || 1))
   }, [priority, sizes])
-  const preview = product.thumbnail_url ? previewUrl(product.thumbnail_url) : null
   /**
    * ═════════════════════════════════════════════════════════════════════════
    *  PREFETCHED ON INTENT, NOT ON SIGHT
@@ -231,7 +264,7 @@ export const ProductCard = memo(function ProductCard({
   if (!product) return null
 
   /* Free, pay what you want, a price and a saving: one rule for every card (lib/pricing/list-price). */
-  const priceLabel = listPrice(product)
+  const priceLabel = listPrice({ ...product, currency: product.currency ?? pageCurrency })
 
   const creatorName = personName({ name: product.creator?.profile?.display_name, username: product.creator?.profile?.username, slug: product.creator?.slug })
   // Only use the profile username — it's what /u/[username] routes look up.
@@ -299,32 +332,28 @@ export const ProductCard = memo(function ProductCard({
         className="relative aspect-video bg-muted overflow-hidden transition-[filter] duration-100 active:brightness-95"
       >
         {product.thumbnail_url ? (
-          <>
-            {preview && !coverShown && (
-              <span
-                aria-hidden
-                className="absolute inset-0 scale-110 bg-cover bg-center blur-[10px]"
-                style={{ backgroundImage: `url("${preview}")` }}
-              />
-            )}
-            <Image
-              ref={coverRef}
-              src={product.thumbnail_url}
-              alt={product.title || "Product"}
-              fill
-              sizes={leanSizesValue ?? sizes}
-              className={
-                "object-cover transition-[scale,opacity] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-[opacity] [@media(hover:hover)]:group-hover:scale-[1.02] " +
-                (coverShown || priority ? "opacity-100" : "opacity-0")
-              }
-              priority={priority}
-              loading={priority ? undefined : "lazy"}
-              fetchPriority={priority ? undefined : "low"}
-              decoding="async"
-              onLoad={() => setCoverShown(true)}
-              onError={() => setCoverShown(true)}
-            />
-          </>
+          <Image
+            ref={coverRef}
+            src={product.thumbnail_url}
+            alt={product.title || "Product"}
+            fill
+            sizes={leanSizesValue ?? sizes}
+            className={
+              "object-cover transition-[scale,opacity] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none [@media(hover:hover)]:group-hover:scale-[1.02] " +
+              (cover === "wait" ? "opacity-0" : "opacity-100")
+            }
+            /* The hover zoom keeps its 500ms; opacity moves only for a cover that arrived after its box was painted, over 150ms. */
+            style={{ transitionDuration: cover === "in" ? "500ms, 150ms" : "500ms, 0s" }}
+            priority={priority}
+            loading={priority ? undefined : "lazy"}
+            fetchPriority={priority ? undefined : "low"}
+            decoding="async"
+            onLoad={() => {
+              drawnCovers.add(coverSrc)
+              setCover((c) => (c === "wait" ? "in" : c))
+            }}
+            onError={() => setCover((c) => (c === "wait" ? "in" : c))}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <span className="text-4xl">

@@ -111,3 +111,6 @@ tsconfig.*.generated.json
 .receipt-downloads/
 .onepage-downloads/
 .orders20-probe/
+
+# Local single-test bundles (esbuild output), never committed
+.tmp-test/

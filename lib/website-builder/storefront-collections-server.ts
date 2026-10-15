@@ -23,11 +23,12 @@
  * in a collection here exactly when it is in it everywhere else.
  */
 import "server-only"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 import { COLLECTION_SORTS, inSmartCollection, readRules, sortProducts, type CollectionSort, type RuleProduct } from "@/lib/physical/collections"
 import type { StorefrontCollection } from "@/lib/storelib-theme/types"
 import { plainText } from "@/lib/storelib-theme/values"
-import { toCard } from "./shop-products"
+import { toCard, withRatings, type ProductCard } from "./shop-products"
 import { offChannel } from "@/lib/store/channel-filter"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,7 +99,7 @@ export async function siteCollections(
     const listed = [...new Set(((items ?? []) as { product_id: string }[]).map((i) => i.product_id))].slice(0, 2000)
     let pq = db.from("products").select("*").eq("creator_id", creatorId).eq("status", "published")
     if (!smart) pq = listed.length ? pq.in("id", listed) : null
-    const [{ data: productRows }, offStore] = await Promise.all([pq ? pq.limit(2000) : Promise.resolve({ data: [] }), offChannel(db, creatorId, "storefront")])
+    const [{ data: productRows }, offStore, store] = await Promise.all([pq ? pq.limit(2000) : Promise.resolve({ data: [] }), offChannel(db, creatorId, "storefront"), readStoreCurrency(db, creatorId)])
     /* Settings › Sales channels: a product taken off the Online store is in none of its collections. */
     const products = ((productRows ?? []) as Record<string, any>[]).filter((p) => !offStore.has(String(p.id))).map((p) => ({
       row: p,
@@ -133,7 +134,7 @@ export async function siteCollections(
       }
       const sort: CollectionSort = (COLLECTION_SORTS as readonly string[]).includes(r.sort) ? r.sort : "manual"
       const sorted = sortProducts(members, sort)
-      const cards = sorted.slice(0, COLLECTION_PRODUCTS).map((p) => toCard(byId.get(p.id)!.row as never))
+      const cards = sorted.slice(0, COLLECTION_PRODUCTS).map((p) => toCard(byId.get(p.id)!.row as never, [], [], store.currency))
       const image = httpsOrPath(r.image_url) || cards[0]?.settings.image || ""
       const handle = String(r.slug ?? "")
       const id = String(r.id).toLowerCase()
@@ -150,6 +151,12 @@ export async function siteCollections(
         products: cards,
       }
     }
+    /* Storelib Reviews' stars on these cards too, as on the shop's (shop-products.ts withRatings): one read for every collection's products. */
+    const unique = new Map<string, ProductCard>()
+    for (const c of Object.values(collections)) for (const card of c.products as ProductCard[]) unique.set(card.id, card)
+    const rated = await withRatings(db, creatorId, [...unique.values()]).catch(() => [] as ProductCard[])
+    const ratings = new Map(rated.filter((c) => c.rating).map((c) => [c.id, c.rating]))
+    if (ratings.size) for (const c of Object.values(collections)) c.products = (c.products as ProductCard[]).map((card) => (ratings.has(card.id) ? { ...card, rating: ratings.get(card.id) } : card)) as typeof c.products
     return { collections, choices }
   } catch {
     return empty

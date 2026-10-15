@@ -20,7 +20,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
-const read = (p: string) => untt(readFileSync(join(__dirname, "..", p), "utf8"), p)
+const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
 ;(async () => {
   console.log("\nA read a live site depends on\n")

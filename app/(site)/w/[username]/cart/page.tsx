@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { CartPageBody } from "@/components/website-builder/cart-page-body"
@@ -47,11 +48,13 @@ export default async function SiteCartPage({ params }: PageProps) {
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products, productCount } = found
-  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale, market), languageChoice(site.creatorId, locale, market)])
+  const { site: own, products, productCount } = found
+  const [localizer, language] = await Promise.all([siteLocalizer(own.creatorId, locale, market), languageChoice(own.creatorId, locale, market)])
+  /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
+  const site = localizer ? { ...own, themeSettings: localizer.theme(own.themeSettings as Record<string, unknown>) as typeof own.themeSettings } : own
   /* The header and footer, with any placeholder in them filled in, in the page's language. */
   const chrome = chromeSections(site.pages.home ?? site.sections)
-  const { sections } = await dressPage(site, localizer ? localizer.sections(chrome, site.sources) : chrome, localizer ? localizer.cards(products) : products, productCount, "cart", "Cart")
+  const { sections } = await dressPage(site, localizer ? localizer.sections(chrome, site.sources) : chrome, localizer ? localizer.cards(products) : products, productCount, "cart", "Cart", undefined, { cached: true, localizer })
 
   /* The theme's default surface, resolved on the server: the cart is not a
      section and has no section settings of its own to resolve from. */
@@ -69,7 +72,7 @@ export default async function SiteCartPage({ params }: PageProps) {
     <ThemePage
       theme={site.themeSettings}
       sections={sections}
-      storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
+      storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
     >
       <CartPageBody
         radius={radius}

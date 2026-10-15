@@ -265,7 +265,8 @@ function main() {
 
   console.log("\nThe $99 plan still works for the people on it")
 
-  check("its fee still resolves to 1.5%", getFeePreview(1000, "pro").feePercent === 0.015 && getFeePreview(1000, "pro").planId === "pro")
+  /* Changed on purpose: the fee engine has one paid rate, so the $99 plan pays Pro's 3% (2a8b4df92; tests/fees-free-plan pins it). In dollars, as this suite is written. */
+  check("its fee still resolves to Pro's 3%", getFeePreview(1000, "pro", "USD").feePercent === 0.03 && getFeePreview(1000, "pro", "USD").feePercent === getFeePreview(1000, "growth", "USD").feePercent && getFeePreview(1000, "pro", "USD").planId === "pro")
   check("its site limits are untouched", siteLimits("pro").customCode === true && siteLimits("pro").maxSites === 10)
   check("its name on billing screens is Pro", planDisplayName("pro") === "Pro" && planDisplayName("professional") === "Pro")
   check("growth is also named Pro", planDisplayName("growth") === "Pro" && withPlanLabel({ id: "growth", name: "Growth" })!.name === "Pro")

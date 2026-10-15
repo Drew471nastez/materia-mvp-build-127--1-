@@ -100,7 +100,8 @@ const pay = String((compatFilter("payment_button") as unknown as (v: unknown, a:
 check("payment_button is Shopify's unbranded Buy it now, a submit named checkout", /shopify-payment-button__button--unbranded/.test(pay) && /name="checkout"/.test(pay) && /data-storelib-buy-now/.test(pay) && />Buy it now</.test(pay), pay)
 const boot = shopifyBootstrap({ currency: "USD", designMode: false, shopName: "S" } as never)
 check("the page catches it before a theme's own submit handler, and posts with checkout", /closest\("\[data-storelib-buy-now\]"\)/.test(boot) && /stopImmediatePropagation/.test(boot) && /c\.name="checkout"/.test(boot) && /,true\)/.test(boot))
-check("not in the builder's canvas", /if\(!S\.designMode\)document\.addEventListener\("click"/.test(boot))
+/* Changed on purpose (the owner: canvas animations as on the live site): the theme is told designMode false in the canvas too, so Storelib's own scripts go by EDITING, the page drawn for the builder. */
+check("not in the builder's canvas", /if\(!EDITING\)document\.addEventListener\("click"/.test(boot) && /var EDITING=false;/.test(boot) && /var EDITING=true;/.test(shopifyBootstrap({ currency: "USD", designMode: false, inBuilder: true, shopName: "S" } as never)))
 const site = read("lib/storelib-theme/compat/site.ts")
 check("the site sends that item alone to checkout and leaves the cart as it was", /if \(buyNow\) return \{ \.\.\.checkoutHandoff\(site, asked, false[^)]*\), cart: req\.cart/.test(site) && /const buyNow = !ajax && field\(req\.body, "checkout"\) !== undefined/.test(site))
 
@@ -109,7 +110,8 @@ const rules = JSON.stringify(SITE_PREFETCH_RULES)
 check("a link rested on is prefetched, never prerendered", /"prefetch"/.test(rules) && !/prerender/.test(rules) && /"moderate"/.test(rules))
 check("never the cart, checkout, account or the API", ["/cart", "/checkout", "/account", "/api/*"].every((x) => rules.includes(`"${x}`)))
 check("on Storelib themes' sites", /type="speculationrules"/.test(read("app/(site)/layout.tsx")))
-check("and imported themes' sites (not in the canvas)", /speculationrules/.test(boot) && /if\(!S\.designMode&&HTMLScriptElement\.supports/.test(boot))
+/* Changed on purpose (the owner: canvas animations as on the live site): EDITING, not the theme's designMode. */
+check("and imported themes' sites (not in the canvas)", /speculationrules/.test(boot) && /if\(!EDITING&&HTMLScriptElement\.supports/.test(boot))
 check("the logo is decoded with the page, no blank first frame", /decoding="sync"/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")))
 const canvas2 = read("components/website-builder/compat/compat-canvas.tsx")
 check("an imported theme's canvas shows a page's outline until it has painted, then fades", /function CanvasPlaceholder/.test(canvas2) && /const shown = painted && slots\.length > 0/.test(canvas2) && /<CanvasPlaceholder hidden=\{shown\}/.test(canvas2) && !/Loading \{compat\?\.theme \?\? "the theme"\}…<\/div>/.test(canvas2))

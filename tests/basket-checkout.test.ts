@@ -17,6 +17,7 @@
  *   (lib/checkout/brand-server);
  *   the session keeps every guard it had, made inside the page.
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { priceCart } from "@/lib/checkout/pricing"
 import { ONE_SHOP_ONLY, basketDecision } from "@/lib/checkout/basket-decision"
@@ -210,14 +211,14 @@ async function main() {
   check("  an embedded session made before the change still completes to the basket's return", /ui_mode: "embedded" as const,\s*return_url: successUrl/.test(route) && /clientSecret: session\.client_secret/.test(route))
   check("  and only Stripe's hosted page keeps a cancel address", /: \{ success_url: successUrl, cancel_url: `\$\{siteOrigin\}\$\{returnPath\}` \}/.test(route))
   check("  the site it names is taken only when it is this shop's own", /const namedOrigin = named \? await safeReturnOrigin\(named\.origin, creatorId\) : null/.test(route))
-  check("  the session keeps its guards: server prices, the readiness rule, one shop, coupon places, the fee", /unit_amount: part\.unitCents/.test(route) && /checkoutReadyForCreator\(creator\.id as string\)/.test(route) && /basketDecision\(priced\)/.test(route) && /holdCouponUse\(admin, coupon\.id, holder\)/.test(route) && /application_fee_amount: fee\.platformFeeCents/.test(route))
+  check("  the session keeps its guards: server prices, the readiness rule, one shop, coupon places, the fee", /unit_amount: part\.unitCents/.test(route) && /checkoutReadyForCreator\(creator\.id as string\)/.test(route) && /* Changed on purpose: held to the store currency's minimum. */ /basketDecision\(priced, \{ currency: /.test(route) && /holdCouponUse\(admin, coupon\.id, holder\)/.test(route) && /application_fee_amount: fee\.platformFeeCents/.test(route))
   check("  a call that makes a session is rate limited", /const limited = ui \|\| body\.buyer/.test(route) && /bucket: "payment"/.test(route))
   check("the old page draws nothing: an old link goes on to the shop's own site, Back checked on the server", !/EmbeddedCheckout|priceCart/.test(oldPage) && /checkoutReturns\(\{ creatorId: shop, cancel: back \}\)/.test(oldPage) && /redirect\(legacyBasketTarget\(origin, q/.test(oldPage))
-  check("the site's page prices again for the HOST's shop, deciding as the route does", /* Changed on purpose (round AB): priced as soon as the buyer is known, beside the other reads. */ /siteQuote\(admin, site\.creatorId, \{ items, couponCode: params\.couponCode \}, null, b \? \{ email: b\.email \} : null\)/.test(page) && /const quoteRead = buyerRead\.then/.test(page) && /priceCart\(db, \{ items: body\.items/.test(quote) && /basketDecision\(priced, \{ shopId: creatorId \}\)/.test(quote))
+  check("the site's page prices again for the HOST's shop, deciding as the route does", /* Changed on purpose (round AB): priced as soon as the buyer is known, beside the other reads. */ /* Changed on purpose (checkout, currency and translation overhaul): with the delivery country known before the first frame. */ /siteQuote\(admin, site\.creatorId, \{ items, couponCode: params\.couponCode, \.\.\.\(initialCountry \? \{ country: initialCountry \} : \{\}\) \}, null, b \? \{ email: b\.email \} : null\)/.test(page) && /const quoteRead = buyerRead\.then/.test(page) && /priceCart\(db, \{ items: body\.items/.test(quote) && /* Changed on purpose: held to the store currency's minimum. */ /basketDecision\(priced, \{ shopId: creatorId, currency: \(await readStoreCurrency\(db, creatorId\)\)\.currency \}\)/.test(quote))
   check("  something that ships is priced by the physical checkout, on the same page", /if \(decision\.kind === "ships"\) return shippedQuote\(db, creatorId, body, owner\)/.test(quote))
   check("  a shop that cannot take payments is said on the page, never sent to Stripe", /checkoutReadyForCreator\(site\.creatorId\)/.test(page) && /BUYER_UNAVAILABLE/.test(page))
-  check("the client pays in Storelib's own form with the lines, never Stripe's embedded or hosted page", /<StripePay/.test(client) && !/EmbeddedCheckout/.test(client) && /action: "intent", \.\.\.body/.test(client) && /origin: checkoutOrigin\(shopId\)/.test(client))
-  check("  a cart that cannot be paid is a styled message with the way back to the shop", /title="This cart can't be paid for yet"/.test(client) && /Continue shopping/.test(client))
+  check("the client pays in Storelib's own form with the lines, never Stripe's embedded or hosted page", /<StripePay/.test(client) && !/EmbeddedCheckout/.test(client) && /action: "intent", \.\.\.body/.test(client) && /* Changed on purpose: with the page's language for the buyer's emails. */ /origin: pageLang \? \{ \.\.\.\(checkoutOrigin\(shopId\) \?\? \{\}\), lang: pageLang \} : checkoutOrigin\(shopId\)/.test(client))
+  check("  a cart that cannot be paid is a styled message with the way back to the shop", /* Changed on purpose: the checkout's words go through ct() (lib/markets/checkout-words). */ /title=\{ct\("This cart can't be paid for yet"\)\}/.test(client) && /ct\("Continue shopping"\)/.test(client))
 
   console.log("\nThe physical checkout, branded and paid in the page")
   const phys = code("lib/physical/checkout-server.ts")

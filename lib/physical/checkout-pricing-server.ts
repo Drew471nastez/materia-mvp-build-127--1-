@@ -37,7 +37,8 @@ import { loadOffers } from "@/lib/offers/offers-server"
 import { orderLimits, overLimit } from "./order-limit"
 import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 import { liveCarrierQuotes } from "@/lib/integrations/shipping/checkout-rates-server"
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { shopMoneyIn } from "@/lib/store/shop-money"
 
 export const MAX_CHECKOUT_LINES = 50
 export const MAX_LINE_QUANTITY = 999
@@ -392,7 +393,7 @@ export async function priceCheckout(
   if (!applies.some(Boolean)) return { ok: false, status: 400, error: "That code does not apply to anything in your cart." }
   const eligible = lines.reduce((n, l, i) => n + (applies[i] ? l.unitCents * l.quantity : 0), 0)
   if (c.min_purchase_cents && eligible < c.min_purchase_cents) {
-    return { ok: false, status: 400, error: `That code needs an order of at least $${(c.min_purchase_cents / 100).toFixed(2)}.` }
+    return { ok: false, status: 400, error: `That code needs an order of at least ${shopMoneyIn(c.min_purchase_cents, (await readStoreCurrency(db, creatorId)).currency)}.` }
   }
   if (c.per_customer_limit && c.per_customer_limit > 0 && req.buyerEmail) {
     const { count } = await db
@@ -409,7 +410,7 @@ export async function priceCheckout(
   discounts.forEach((d, i) => (lines[i].discountCents += d))
   const freeShipping = c.free_shipping === true
   if (!freeShipping && discounts.every((d) => d <= 0)) return { ok: false, status: 400, error: "That code takes nothing off this order." }
-  const label = [Number(c.discount_value) > 0 ? couponLabel(c) : null, freeShipping ? "free shipping" : null].filter(Boolean).join(" and ")
+  const label = [Number(c.discount_value) > 0 ? couponLabel(c, (await readStoreCurrency(db, creatorId)).currency) : null, freeShipping ? "free shipping" : null].filter(Boolean).join(" and ")
   return { ...base, coupon: c, couponLabel: label, freeShipping }
 }
 
@@ -433,7 +434,14 @@ export interface CheckoutQuote {
  * stock at that location. When something can't ship to the address, the
  * buyer is told which item, by name.
  */
-export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok: true }>, address: (Pick<Address, "country" | "region"> & { postalCode?: string | null }) | null, optionId?: unknown): Promise<CheckoutQuote> {
+export async function quoteCheckout(
+  db: Db,
+  priced: Extract<PricedCheckout, { ok: true }>,
+  address: (Pick<Address, "country" | "region"> & { postalCode?: string | null }) | null,
+  optionId?: unknown,
+  /** Paying on delivery: its fee (Settings › Checkout), in the total the buyer is shown and the order keeps. */
+  pay: { codFeeCents?: number } = {},
+): Promise<CheckoutQuote> {
   let quote: Quote = { ok: true, required: false, options: [] }
   let pickups: DeliveryOption[] = []
   if (priced.requiresShipping) {
@@ -441,14 +449,15 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
     if (!address?.country) {
       quote = { ok: true, required: true, options: [] }
     } else {
-      const [profiles, packageGrams] = await Promise.all([loadProfiles(db, priced.creatorId), defaultPackageGrams(db, priced.creatorId)])
+      const [profiles, packageGrams, store] = await Promise.all([loadProfiles(db, priced.creatorId), defaultPackageGrams(db, priced.creatorId), readStoreCurrency(db, priced.creatorId)])
       /* Carrier calculated rates: priced live by Shippo or EasyPost, in a few seconds or left out (lib/integrations/shipping/checkout-rates-server.ts). */
       const carrierQuotes = await liveCarrierQuotes(db, {
         creatorId: priced.creatorId,
         profiles,
         destination: { country: address.country, region: address.region ?? null, postalCode: address.postalCode ?? null },
         grams: priced.lines.filter((l) => l.requiresShipping).reduce((n, l) => n + Math.max(0, l.weightGrams) * l.quantity, 0),
-        currency: platformChargeCurrency(),
+        /* Carriers price in the store's own currency, as its rates and the charge are. */
+        currency: store.currency.toLowerCase(),
       }).catch(() => undefined)
       quote = quoteDelivery(
         profiles,
@@ -489,7 +498,7 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
   const taxPlace = pickup && handOver ? { country: handOver.country, region: handOver.region } : { country: address?.country ?? null, region: address?.region ?? null }
   const totals = physicalTotals(
     lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable, digital: l.type !== "physical" })),
-    { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null },
+    { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null, codFeeCents: pay.codFeeCents ?? 0 },
   )
   return { quote, pickups, option, totals, lines }
 }

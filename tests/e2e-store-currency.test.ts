@@ -1,10 +1,11 @@
 /**
  * A STORE PRICED IN EUROS, BOUGHT FROM END TO END
  *
- * The store's currency (Settings › Payments, creators.payout_currency) is
- * what its products are priced in and what its website shows. Its own
- * checkouts now charge in it too (lib/payments/fees/currency-rules
- * storeChargeCurrency). This walks a euro store through the real routes over
+ * The store's currency (Settings › Store details › Country & Currency,
+ * store_settings.currency, lib/store/selling-currency) is what its products
+ * are priced in, what its website shows and what its own checkouts charge.
+ * Its payout currency (Settings › Payments) is where the money lands, a
+ * separate setting. This walks a euro store through the real routes over
  * the journey harness (tests/_journey: in-memory PostgREST, a Stripe world
  * whose webhooks are signed and delivered to the real webhook route):
  *
@@ -43,7 +44,13 @@ async function main() {
   j.world.activate(acct)
   await j.webhook("account.updated", j.world.account(acct), { connect: true, account: acct })
   const cur = await j.call("POST /api/settings/payments", { as: seller, body: { defaultCurrency: "EUR" } })
-  check("Settings › Payments saves the store's currency as EUR", cur.status === 200 && j.rows("creators")[0].payout_currency === "EUR", { status: cur.status, body: cur.json, row: j.rows("creators")[0].payout_currency })
+  check("Settings › Payments saves its payouts in EUR", cur.status === 200 && j.rows("creators")[0].payout_currency === "EUR", { status: cur.status, body: cur.json, row: j.rows("creators")[0].payout_currency })
+  /* Changed on purpose: the store's selling currency is its own setting, apart from payouts. A store with no prices yet has nothing to keep or convert. */
+  const sells = await j.call("PUT /api/store/currency", { as: seller, body: { country: "DE", currency: "EUR", key: "eur-store-currency-1" } })
+  const settingsRow = j.rows("store_settings").find((r) => r.creator_id === j.rows("creators")[0].id)
+  check("Country & Currency: the store sells in EUR", sells.status === 200 && sells.json?.currency === "EUR" && settingsRow?.currency === "EUR", { status: sells.status, body: sells.json, row: settingsRow?.currency })
+  const again = await j.call("PUT /api/store/currency", { as: seller, body: { currency: "EUR", key: "eur-store-currency-1" } })
+  check("  saving it again changes nothing and writes no second change", again.status === 200 && j.rows("store_currency_changes").length === 1, { status: again.status, changes: j.rows("store_currency_changes").length })
 
   await j.call("POST /api/physical/onboarding", { as: seller, body: { model: "self" } })
   const locId = j.rows("inventory_locations")[0].id as string
@@ -171,20 +178,21 @@ async function renderBuyerPage(token: string): Promise<string> {
 async function renderSiteCheckout(quote: any, shopId: string, _host: string): Promise<string> {
   try {
     const { Totals } = await import("@/app/checkout/parts/order-summary")
-    const { money } = await import("@/app/checkout/parts/ui")
-    const { storeChargeCurrencyFor } = await import("@/lib/payments/fees/store-currency")
+    const { money, CheckoutCurrency } = await import("@/app/checkout/parts/ui")
+    const { readStoreCurrency } = await import("@/lib/store/selling-currency-read")
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const { renderToStaticMarkup } = await import("react-dom/server")
-    const { createElement, Fragment } = await import("react")
-    const currency = await storeChargeCurrencyFor(createAdminClient(), shopId)
+    const { createElement } = await import("react")
+    /* As app/checkout/site/page.tsx does: the store's currency read from its settings, every amount inside <CheckoutCurrency> drawn in it. */
+    const currency = (await readStoreCurrency(createAdminClient(), shopId)).currency
     const t = quote?.totals ?? {}
     return renderToStaticMarkup(
       createElement(
-        Fragment,
-        null,
+        CheckoutCurrency,
+        { currency } as { currency: string; children: never },
         createElement("p", null, money((quote?.lines?.[0]?.unitCents ?? 0) * (quote?.lines?.[0]?.quantity ?? 1), currency)),
-        createElement(Totals, { currency, part: "top", subtotal: t.itemsSubtotalCents ?? 0, discountCents: t.discountCents ?? 0, total: t.totalCents ?? 0 }),
-        createElement(Totals, { currency, part: "bottom", subtotal: t.itemsSubtotalCents ?? 0, discountCents: t.discountCents ?? 0, total: t.totalCents ?? 0 }),
+        createElement(Totals, { part: "top", subtotal: t.itemsSubtotalCents ?? 0, discountCents: t.discountCents ?? 0, total: t.totalCents ?? 0 }),
+        createElement(Totals, { part: "bottom", subtotal: t.itemsSubtotalCents ?? 0, discountCents: t.discountCents ?? 0, total: t.totalCents ?? 0 }),
       ),
     )
   } catch (e) {

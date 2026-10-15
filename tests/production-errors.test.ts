@@ -14,6 +14,7 @@
  * Run with:  npm run test:push
  */
 
+import "./_usd"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { listPrice } from "@/lib/pricing/list-price"

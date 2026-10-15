@@ -38,6 +38,14 @@ import { isOwnMedia } from "@/lib/storage/media-url"
  */
 export const PROFILE_COLUMN_PX = 992
 
+/**
+ * From 1280px (a computer) the profile takes this share of those two columns, centred, and at most
+ * PROFILE_COLUMN_WIDE_PX: the owner found it a bit too wide, so about 5% narrower (992px became 944px at 1440px). Below
+ * 1280px (a phone, a tablet) the column is as it was.
+ */
+export const PROFILE_COLUMN_SHARE = 0.952
+export const PROFILE_COLUMN_WIDE_PX = 944
+
 /** File widths offered, every one in next.config's image sizes (the optimizer refuses any other). */
 export const MEMBER_COVER_WIDTHS = [640, 750, 828, 1080, 1200, 1920, 2048] as const
 
@@ -53,7 +61,8 @@ const file = (url: string, w: number) => `/_next/image?url=${encodeURIComponent(
 
 /**
  * How wide the band is drawn, at each width of the window, for `sizes`:
- *   from 1280px  the middle and right columns, at most PROFILE_COLUMN_PX (1360 frame, 32px gutters, 280 left, 24 gap)
+ *   from 1280px  PROFILE_COLUMN_SHARE of the middle and right columns (1360 frame, 32px gutters, 280 left, 24 gap), at
+ *                most PROFILE_COLUMN_WIDE_PX
  *   1024-1279    the middle column (32px gutters, 260 left, 24 gap)
  *   640-1023     one column, 24px gutters
  *   below        one column, 16px gutters
@@ -62,8 +71,9 @@ const file = (url: string, w: number) => `/_next/image?url=${encodeURIComponent(
 export function memberCoverSizes(zoom = 1): string {
   const z = Math.round(Math.min(4, Math.max(1, Number.isFinite(zoom) ? zoom : 1)) * 1000) / 1000
   const wide = (gutters: number) => (z === 1 ? `calc(100vw - ${gutters}px)` : `calc((100vw - ${gutters}px) * ${z})`)
+  const share = Math.round(PROFILE_COLUMN_SHARE * z * 1000) / 1000
   return [
-    `(min-width: 1280px) min(${Math.round(PROFILE_COLUMN_PX * z)}px, ${wide(368)})`,
+    `(min-width: 1280px) min(${Math.round(PROFILE_COLUMN_WIDE_PX * z)}px, calc((100vw - 368px) * ${share}))`,
     `(min-width: 1024px) ${wide(348)}`,
     `(min-width: 640px) ${wide(48)}`,
     wide(32),

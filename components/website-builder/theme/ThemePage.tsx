@@ -30,7 +30,7 @@
 import { SiteIntro } from "./site-intro"
 import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
-import { StorefrontProvider, type Storefront } from "./storefront-context"
+import { StorefrontProvider, useMoney, type Storefront } from "./storefront-context"
 import { ReturnFacts, useShopCommerce } from "./shop-commerce"
 import { freeShippingLine, siteCommerce } from "@/lib/website-builder/site-commerce"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
@@ -308,7 +308,9 @@ function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
   /* No amount typed: where the shop's own rates make shipping free (Settings › Shipping and delivery), so the banner and the checkout agree. */
   const facts = useShopCommerce(c.freeShippingBar && c.freeShippingAmount === null)
   const fromCents = c.freeShippingAmount !== null ? Math.round(c.freeShippingAmount * 100) : (facts?.freeShippingFromCents ?? null)
-  const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents) : null
+  /* The amount left in the visitor's market's currency when the page shows one, else the store's own, as the cart's totals are (storefront-context useMoney). */
+  const money = useMoney()
+  const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents, money) : null
 
   if (!said) return null
   const progress = said.progress
@@ -467,6 +469,28 @@ export function ThemePage({
    */
   const rootRef = useRef<HTMLDivElement | null>(null)
   useSiteMotion(rootRef, theme, sections, storefront?.inEditor === true)
+  /* The page's language and its direction (right to left for Arabic, Hebrew, Persian, Urdu: lib/markets/locales dirOf). */
+  const pageLang = storefront?.language?.code ?? siteLanguage(theme as Record<string, unknown>)
+  const pageDir = storefront?.language ? dirOf(storefront.language.code) : siteDirection(theme as Record<string, unknown>)
+  /*
+    ON THE WHOLE DOCUMENT, on a live page: the cart drawer, the phone menu
+    and search are drawn at the end of <body>, outside the theme root, and
+    read their direction from <html>, which said lang="en" and nothing else.
+    Never in the editor, whose document is the editor's.
+  */
+  useEffect(() => {
+    if (storefront?.inEditor || typeof document === "undefined") return
+    const html = document.documentElement
+    const before = { lang: html.getAttribute("lang"), dir: html.getAttribute("dir") }
+    if (pageLang) html.setAttribute("lang", pageLang)
+    html.setAttribute("dir", pageDir ?? "ltr")
+    return () => {
+      if (before.lang === null) html.removeAttribute("lang")
+      else html.setAttribute("lang", before.lang)
+      if (before.dir === null) html.removeAttribute("dir")
+      else html.setAttribute("dir", before.dir)
+    }
+  }, [pageLang, pageDir, storefront?.inEditor])
 
   const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>, sectionFamilies(sections))
   /**
@@ -524,8 +548,8 @@ export function ThemePage({
       data-cart-type={themeCartType(theme)}
       /* Website Settings › General › Language. Absent until one is chosen,
          so the document's own `lang` stands. */
-      lang={storefront?.language?.code ?? siteLanguage(theme as Record<string, unknown>)}
-      dir={storefront?.language ? dirOf(storefront.language.code) : siteDirection(theme as Record<string, unknown>)}
+      lang={pageLang}
+      dir={pageDir}
       className={className}
       /*
         A WIDTH CONTAINER, on the live page and in the canvas alike. The
@@ -612,7 +636,8 @@ export function ThemePage({
 
       {footers.map((section) => render(section, "footer", false))}
       {/* The website's other languages, under its footer (./language-switch). */}
-      {storefront?.language && !storefront.inEditor ? <LanguageSwitch choice={storefront.language} /> : null}
+      {/* In the builder's canvas too, as the website draws it, where a choice changes the preview (storefront.preview). */}
+      {storefront?.language && (!storefront.inEditor || storefront.preview) ? <LanguageSwitch choice={storefront.language} preview={storefront.inEditor ? storefront.preview : undefined} /> : null}
       {/* The Overlay group: what floats over every page (a popup, a bar fixed to the bottom of a phone), after everything it floats over. */}
       {overlays.map((section) => render(section, "overlay", false))}
 

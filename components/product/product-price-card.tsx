@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { usePageMoney } from "@/components/platform/price-currency"
 import { Badge } from "@/components/ui/badge"
 import { VariantSelector, type ProductVariant } from "./variant-selector"
 
@@ -40,6 +41,8 @@ export function ProductPriceCard({
   hasPurchased = false,
   className,
 }: ProductPriceCardProps) {
+  /* In the page's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
   // If variants exist, use first variant's price as initial price
   // Otherwise use base product price
   const initialPrice = variants.length > 0 ? (variants[0]?.price_cents || 0) : basePrice
@@ -56,10 +59,7 @@ export function ProductPriceCard({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return pageMoney(cents, { grouping: true })
   }
 
   // Compare at price logic - only relevant when no variants, or we could compare variant price

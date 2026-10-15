@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { CheckRow, Field, TextInput, inputClass } from "./ui"
+import { useCheckoutLang, useCountryName, useCt } from "./words"
 
 /** The reveal's length, shared by the class below and the wait before scrolling the first box into view. */
 export const BUSINESS_REVEAL_MS = 300
@@ -56,6 +57,11 @@ export function CountrySelect({
   describedBy?: string
   autoComplete?: string
 }) {
+  const ct = useCt()
+  const lang = useCheckoutLang()
+  const countryName = useCountryName()
+  /* Named and sorted in the checkout's language. */
+  const countries = React.useMemo(() => COUNTRIES.map((c) => ({ code: c.code, name: countryName(c.code) })).sort((a, b) => a.name.localeCompare(b.name, lang)), [countryName, lang])
   return (
     <div className="relative">
       <select
@@ -68,9 +74,9 @@ export function CountrySelect({
         className={cn(inputClass, "cursor-pointer appearance-none pr-10 [&>option]:text-[#1a1a2e]", !value && "text-[#a2a7b0]")}
       >
         <option value="" disabled>
-          Select a country
+          {ct("Select a country")}
         </option>
-        {COUNTRIES.map((c) => (
+        {countries.map((c) => (
           <option key={c.code} value={c.code}>
             {c.name}
           </option>
@@ -97,6 +103,7 @@ export function BusinessFields({
   errors: Errors
 }) {
   const companyRef = React.useRef<HTMLInputElement>(null)
+  const ct = useCt()
   const set = (key: keyof BusinessDetails) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [key]: e.target.value })
   const words = addressWordsFor(value.country)
   const tax = taxIdFor(value.country)
@@ -113,8 +120,8 @@ export function BusinessFields({
   return (
     <div data-business={on ? "open" : "closed"}>
       <CheckRow id="buying-for-business" checked={on} onChange={toggle}>
-        <span className="font-medium text-[#1a1a2e]">Buying for a business</span>
-        <span className="block text-[13px] text-[#6b7280]">Get an invoice with your company&apos;s name, tax number and address.</span>
+        <span className="font-medium text-[#1a1a2e]">{ct("Buying for a business")}</span>
+        <span className="block text-[13px] text-[#6b7280]">{ct("Get an invoice with your company's name, tax number and address.")}</span>
       </CheckRow>
 
       <div
@@ -138,7 +145,7 @@ export function BusinessFields({
             )}
             style={{ transitionDuration: `${BUSINESS_REVEAL_MS}ms` }}
           >
-            <Field id="business-company" label="Company name" error={errors.company} className="min-[380px]:col-span-2">
+            <Field id="business-company" label={ct("Company name")} error={errors.company} className="min-[380px]:col-span-2">
               <TextInput
                 ref={companyRef}
                 id="business-company"
@@ -153,7 +160,7 @@ export function BusinessFields({
                 maxLength={120}
               />
             </Field>
-            <Field id="business-country" label="Country or region" error={errors.country} className="min-[380px]:col-span-2">
+            <Field id="business-country" label={ct("Country or region")} error={errors.country} className="min-[380px]:col-span-2">
               <CountrySelect
                 id="business-country"
                 value={value.country}
@@ -162,7 +169,7 @@ export function BusinessFields({
                 describedBy={described("business-country", "country")}
               />
             </Field>
-            <Field id="business-tax" label={`${tax.label} (optional)`} error={errors.taxId} className="min-[380px]:col-span-2">
+            <Field id="business-tax" label={ct("{field} (optional)", { field: ct(tax.label) })} error={errors.taxId} className="min-[380px]:col-span-2">
               <TextInput
                 id="business-tax"
                 autoComplete="off"
@@ -177,7 +184,7 @@ export function BusinessFields({
                 maxLength={32}
               />
             </Field>
-            <Field id="business-line1" label="Address" error={errors.line1} className="min-[380px]:col-span-2">
+            <Field id="business-line1" label={ct("Address")} error={errors.line1} className="min-[380px]:col-span-2">
               <TextInput
                 id="business-line1"
                 autoComplete="address-line1"
@@ -190,10 +197,10 @@ export function BusinessFields({
                 maxLength={120}
               />
             </Field>
-            <Field id="business-line2" label="Apartment, suite, etc. (optional)" className="min-[380px]:col-span-2">
+            <Field id="business-line2" label={ct("Apartment, suite, etc. (optional)")} className="min-[380px]:col-span-2">
               <TextInput id="business-line2" autoComplete="address-line2" placeholder={words.example.line2} value={value.line2} onChange={set("line2")} maxLength={120} />
             </Field>
-            <Field id="business-city" label="City" error={errors.city}>
+            <Field id="business-city" label={ct("City")} error={errors.city}>
               <TextInput
                 id="business-city"
                 autoComplete="address-level2"
@@ -206,7 +213,7 @@ export function BusinessFields({
                 maxLength={80}
               />
             </Field>
-            <Field id="business-postal" label={value.country && !needsPostalCode(value.country) ? `${words.postal} (optional)` : words.postal} error={errors.postalCode}>
+            <Field id="business-postal" label={value.country && !needsPostalCode(value.country) ? ct("{field} (optional)", { field: ct(words.postal) }) : ct(words.postal)} error={errors.postalCode}>
               <TextInput
                 id="business-postal"
                 autoComplete="postal-code"
@@ -222,7 +229,7 @@ export function BusinessFields({
                 maxLength={20}
               />
             </Field>
-            <Field id="business-region" label={`${words.region} (optional)`} className="min-[380px]:col-span-2">
+            <Field id="business-region" label={ct("{field} (optional)", { field: ct(words.region) })} className="min-[380px]:col-span-2">
               <TextInput id="business-region" autoComplete="address-level1" placeholder={words.example.region} value={value.region} onChange={set("region")} maxLength={80} />
             </Field>
           </div>

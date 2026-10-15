@@ -3,25 +3,19 @@ import "server-only"
 /**
  * The product a page is about, as the store's Google Analytics names it:
  * its id, title, price and whether it ships (lib/store/ga.ts gaItem), in the
- * store's own currency (creators.payout_currency, a private column read on
- * the server). Read only when the store has Google Analytics on, once a
- * request, and never throws: an event with the id alone is still an event.
+ * store's own selling currency (Settings › Country & Currency,
+ * lib/store/selling-currency), the one its prices are in. Read only when
+ * the store has Google Analytics on, once a request, and never throws: an
+ * event with the id alone is still an event.
  */
 import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { storeCurrencyOf } from "@/lib/store/currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { gaItem, type GaItem } from "./ga"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const storeCurrencyFor = cache(async (creatorId: string): Promise<string> => {
-  try {
-    const { data } = await createAdminClient().from("creators").select("payout_currency").eq("id", creatorId).maybeSingle()
-    return storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency)
-  } catch {
-    return storeCurrencyOf(null)
-  }
-})
+export const storeCurrencyFor = cache(async (creatorId: string): Promise<string> => (await readStoreCurrency(createAdminClient(), creatorId)).currency)
 
 export const gaProductFor = cache(async (creatorId: string, slug: string | null, id: string | null = null): Promise<{ item: GaItem; currency: string | null } | null> => {
   if (!UUID.test(creatorId)) return null

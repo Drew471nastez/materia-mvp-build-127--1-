@@ -92,7 +92,8 @@ async function main() {
   console.log("\n18. GIFs play in the feed and the opened post")
   const media = code("components/community/member/media.tsx")
   check("one shared IntersectionObserver, a margin ahead of the screen", /screenWatch \?\?= new IntersectionObserver\(/.test(media) && /rootMargin: "120px 0px"/.test(media))
-  check("the moving picture on screen, the still off it, in the same <img>", /src=\{moving \? motion : still\}/.test(media) && /data-gif-state=\{moving \? "playing" : "paused"\}/.test(media))
+  /* Changed on purpose: the address is chosen once as `src` (the still stays until the moving file has arrived) and the one <img> takes it (ddcbaf919). */
+  check("the moving picture on screen, the still off it, in the same <img>", /const src = moving \? motion : still\s*[\s\S]{0,200}<img ref=\{ref\} src=\{src\}/.test(media) && /data-gif-state=\{moving \? "playing" : "paused"\}/.test(media))
   check("reduced motion keeps the still", /* Changed on purpose: the moving file is fetched before it is swapped in. */ /prefers-reduced-motion: reduce\)"\)\.matches\) return[\s\S]{0,120}return watchOnScreen\(el, setWanted\)/.test(media))
   check("the card's thumbnail, the card's pictures, the opened post's tile and a comment's tile all play", (media.match(/<GifImg /g) ?? []).length >= 4)
   const gif = { type: "gif" as const, url: "https://media2.giphy.com/media/a/200w.gif", still: "https://media2.giphy.com/media/a/200w_s.gif", w: 200, h: 150 }
@@ -123,7 +124,8 @@ async function main() {
   /* ── 22: the composer opens without a morph ─────────────────────────── */
   console.log("\n22. The composer opens without a morph")
   const composer = code("components/community/member/composer.tsx")
-  check("one picture of the member in the card, 40px, for the card's whole life (the editor has none of its own)", (composer.match(/<AppAvatar src=\{me\.avatarUrl\} name=\{me\.name\} alt="" size=\{40\}/g) ?? []).length === 1 && !/data-composer-editor=""[\s\S]{0,300}AppAvatar/.test(composer))
+  /* Changed on purpose: every face in a community goes through MemberAvatar, the one wrapper around AppAvatar (components/community/member/member-avatar.tsx, ddcbaf919). */
+  check("one picture of the member in the card, 40px, for the card's whole life (the editor has none of its own)", (composer.match(/<MemberAvatar src=\{me\.avatarUrl\} name=\{me\.name\} alt="" size=\{40\}/g) ?? []).length === 1 && !/data-composer-editor=""[\s\S]{0,300}(AppAvatar|MemberAvatar)/.test(composer))
   check("the card grows, the field's words go, then the content fades in; Cancel the same backwards", /CONTENT_DELAY_MS = 110/.test(composer) && /delay: CONTENT_DELAY_MS/.test(composer) && /delay: FOLD_DELAY_MS/.test(composer) && /delay: FIELD_BACK_DELAY_MS/.test(composer))
 
   /* ── 23: popovers inside the window ─────────────────────────────────── */
@@ -136,7 +138,8 @@ async function main() {
   const emoji = code("components/app/rich-text/emoji-picker.tsx")
   check("the GIF popover and the emoji popover use it (no fixed height left)", /\{\.\.\.FIT_POPOVER\}\s*style=\{fitBox\(GIF_POPOVER\.w, GIF_POPOVER\.h\)\}/.test(gifBtn) && !/h-\[420px\]/.test(gifBtn) && /\{\.\.\.FIT_POPOVER\}\s*style=\{fitBox\(size\.w, size\.h\)\}/.test(emoji) && !/h-\[360px\]/.test(emoji))
   check("the composer and the comment box ask for the smaller emoji", /<EmojiControl className=\{TOOL\} size=\{EMOJI_POPOVER\}/.test(composer) && /size=\{EMOJI_POPOVER\}/.test(code("components/community/member/comments.tsx")))
-  check("on a phone they are still the app's sheets", /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} label="GIFs"/.test(gifBtn) && /<BottomSheet\s+isOpen=\{open\}\s+onClose=\{close\}\s+label="Emoji"/.test(emoji))
+  /* Changed on purpose: the GIF sheet's props are one to a line, with its height tied to the visible viewport (ddcbaf919). */
+  check("on a phone they are still the app's sheets", /<BottomSheet\s+isOpen=\{open\}\s+onClose=\{\(\) => setOpen\(false\)\}\s+label="GIFs"/.test(gifBtn) && /<BottomSheet\s+isOpen=\{open\}\s+onClose=\{close\}\s+label="Emoji"/.test(emoji))
 
   /* ── 24: links, videos, polls ───────────────────────────────────────── */
   console.log("\n24. Links, videos by link, polls")

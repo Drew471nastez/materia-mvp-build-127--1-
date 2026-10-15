@@ -106,7 +106,7 @@ check("the header and the tab bar, neither printed", /<ConditionalHeader/.test(r
 check("the header draws there", /p\.startsWith\("\/receipt\/"\)/.test(code("components/marketing/conditional-header.tsx")))
 check("the tab bar is on a receipt, with Library lit", buyerTabsBelongOn("/receipt/abc") && buyerTabFor("/receipt/abc") === 2)
 const receiptView = code("app/receipt/[token]/receipt-view.tsx")
-check("a back that returns where they came from, never into the checkout, else the library", /<BackControl fallback="\/account\/library" label="Back" skipBack=\{\(path\) => path\.startsWith\("\/checkout"\)\}/.test(receiptView))
+check("a back that returns where they came from, never into the checkout, else the library", /* Changed on purpose: in the buyer's language (ct). */ /<BackControl fallback="\/account\/library" label=\{ct\("Back"\)\} skipBack=\{\(path\) => path\.startsWith\("\/checkout"\)\}/.test(receiptView))
 check("the page no longer pads under the clock itself (the header does)", !/safe-area-inset-top/.test(receiptView) && !/safe-area-inset-top/.test(read("app/receipt/[token]/loading.tsx")))
 
 console.log("\n6. The navigator opens a library product on the client")
@@ -149,7 +149,8 @@ check("the tick: the plugin on the bridge first (no chunk to fetch at the thresh
 console.log("\n10. Settings' back")
 check("the shared back control: a real back to the kept profile, first tap, pressed on touch", /<BackControl fallback=\{BACK_TO\} label="Back to profile"/.test(code("components/account/account-settings.tsx")) && /const BACK_TO = "\/account"/.test(code("components/account/account-settings.tsx")))
 const back = code("components/navigation/back-control.tsx")
-check("  which is 40px with 44px of reach, darkens on the touch and goes on the lift", /h-10 w-10/.test(back) && /before:-inset-\[3px\]/.test(back) && /useFirstTap/.test(back) && /usePressFeedback/.test(back) && /goBackOr\(fallback/.test(back))
+/* Changed on purpose: 3b5c4dae (back and edge swipe) made the back a 44px rounded square with 2px of reach around it. */
+check("  which is 44px with 48px of reach, darkens on the touch and goes on the lift", /h-11 w-11/.test(back) && /before:-inset-\[2px\]/.test(back) && /useFirstTap/.test(back) && /usePressFeedback/.test(back) && /goBackOr\(fallback/.test(back))
 check("press feedback writes the DOM, not state", /setAttribute\("data-pressed", ""\)/.test(code("lib/navigation/press-feedback.ts")) && !/useState/.test(code("lib/navigation/press-feedback.ts")))
 
 console.log("\nCopy")

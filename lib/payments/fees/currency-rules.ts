@@ -66,25 +66,6 @@ export function platformChargeCurrency(): string {
   return fromEnv === "usd" ? "usd" : "ron"
 }
 
-/**
- * WHAT A STORE'S OWN CHECKOUT CHARGES IN: the store's currency
- * (creators.payout_currency, lib/store/currency), the one its products are
- * priced in and its website shows. A store priced in euros was shown €25 on
- * its website and then charged 25 in the platform's currency at checkout.
- * Stripe takes a destination charge in any of these and settles it to the
- * seller's own currency. A store currency with no fee rule above (CHF, SEK,
- * NOK, NZD today: adding one is a new fee rule version, supabase/sql run-now)
- * falls back to the platform's, as every checkout did before. Lowercase, as Stripe
- * wants it.
- *
- * The store's own checkouts only (its website's basket and its physical
- * checkout). Creator pages and communities stay in the platform's currency.
- */
-export function storeChargeCurrency(storeCurrency: unknown): string {
-  const code = typeof storeCurrency === "string" ? storeCurrency.trim().toUpperCase() : ""
-  return /^[A-Z]{3}$/.test(code) && CURRENCY_FEE_RULES[code] ? code.toLowerCase() : platformChargeCurrency()
-}
-
 export function platformChargeCurrencyUpper(): string {
   return normalizeChargeCurrency(platformChargeCurrency())
 }

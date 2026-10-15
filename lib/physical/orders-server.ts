@@ -31,6 +31,8 @@ import { cartAttributes } from "@/lib/checkout/site-checkout"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
+import { COD_PAYMENT_METHOD, COD_PROVIDER, paymentStateOf, type PaymentState } from "./cash-on-delivery"
+import { currencyCode, formatMinor } from "@/lib/markets/money"
 
 export interface OrderLine {
   orderId: string
@@ -124,6 +126,13 @@ export interface PhysicalOrder {
   totalCents: number
   refundedCents: number
   platformFeeCents: number
+  /**
+   * How it was paid, or is to be (lib/physical/cash-on-delivery.ts): by card,
+   * free with a code, or in cash on delivery, still to collect or collected.
+   */
+  payment: PaymentState
+  /** When the seller marked the cash received. Null for every order not paid in cash, and for one still to collect. */
+  cashCollectedAt: string | null
   couponCode: string | null
   address: Record<string, any> | null
   /** `kind` local: the seller brings it (lib/physical/local-delivery.ts), with their note. */
@@ -254,6 +263,8 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     totalCents: co.total_cents,
     refundedCents: refunded,
     platformFeeCents: co.platform_fee_cents,
+    payment: paymentStateOf(co.provider, co.cod_collected_at ?? null),
+    cashCollectedAt: co.provider === COD_PROVIDER ? (co.cod_collected_at ?? null) : null,
     couponCode: co.coupon_code,
     address: co.shipping_address,
     delivery: co.shipping_rate?.name
@@ -339,7 +350,12 @@ async function restate(db: Db, creatorId: string, checkoutId: string): Promise<P
   const openReturns = order.returns.filter((r) => ["requested", "approved", "in_transit"].includes(r.status)).length
   const ret = order.returns.some((r) => r.status === "requested") && !order.returns.some((r) => r.status === "received" || r.status === "completed") ? "requested" : returnStatusOf(progress, openReturns)
   const patch: Record<string, unknown> = { fulfillment_status: fulfillment, return_status: ret, updated_at: new Date().toISOString() }
-  if (fulfillment === "fulfilled") patch.fulfilled_at = new Date().toISOString()
+  /*
+    When the last parcel it needed left (Analytics' time to ship reads it), from the shipments
+    themselves: the same on every restate, so a tracking fix, a return or a refund later never
+    moves it. It used to be "now" at each of those.
+  */
+  if (fulfillment === "fulfilled" || fulfillment === "delivered") patch.fulfilled_at = live.map((sh) => sh.shippedAt ?? sh.createdAt).filter((t): t is string => !!t).sort().pop() ?? new Date().toISOString()
   /* When the last parcel arrived: the carrier's own time when it said (lib/physical/tracking), else now. */
   if (fulfillment === "delivered" && !order.deliveredAt) patch.delivered_at = live.map((sh) => sh.deliveredAt).filter((t): t is string => !!t).sort().pop() ?? new Date().toISOString()
   if (order.status === "refunded" || order.status === "partially_refunded") {
@@ -448,6 +464,24 @@ export async function fulfilItems(
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
 }
 
+/**
+ * Why a shipment can't be cancelled because of a return, or null. Cancelling it takes its items off
+ * what was fulfilled; a return (asked, approved, on its way, received or complete) counts on them
+ * having gone out, and a received one put them back on the shelf already.
+ */
+async function shipmentInReturn(db: Db, creatorId: string, checkoutId: string, fulfillmentId: string): Promise<string | null> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  const shipment = order?.shipments.find((s) => s.id === fulfillmentId)
+  if (!order || !shipment) return null
+  const live = order.returns.filter((r) => r.status !== "rejected" && r.status !== "cancelled")
+  for (const item of shipment.items) {
+    const line = order.lines.find((l) => l.orderId === item.orderId)
+    const inReturns = live.reduce((n, r) => n + r.items.filter((i) => i.orderId === item.orderId).reduce((m, i) => m + i.quantity, 0), 0)
+    if (line && inReturns > 0 && line.fulfilled - item.quantity < inReturns) return "Items in this shipment are in a return. Close the return first, or keep the shipment."
+  }
+  return null
+}
+
 export async function updateShipment(
   db: Db,
   creatorId: string,
@@ -478,6 +512,14 @@ export async function updateShipment(
     Object.assign(patch, { carrier, tracking_number: tracking, tracking_url: url })
   }
   const to = typeof input.status === "string" ? (input.status as ShipmentStatus) : null
+  if (to === "cancelled" && canMoveShipment(f.status, to)) {
+    /*
+      Its items go back to unfulfilled and back on the shelf. Not while they are in a return (open, or
+      received and restocked): the return already brings them back, and both would put them on the shelf.
+    */
+    const refused = await shipmentInReturn(db, creatorId, f.checkout_id, fulfillmentId)
+    if (refused) return { ok: false, error: refused }
+  }
   if (to) {
     if (!canMoveShipment(f.status, to)) return { ok: false, error: "A shipment can't go back to that status." }
     patch.status = to
@@ -496,7 +538,30 @@ export async function updateShipment(
     for (const i of (items ?? []) as { order_id: string; quantity: number }[]) {
       const { data: moved } = await db.from("inventory_movements").select("variant_id, location_id").eq("idempotency_key", `fulfill:${fulfillmentId}:${i.order_id}`).maybeSingle()
       if (!moved?.variant_id || !moved.location_id) continue
-      await applyInventory(db, { creatorId, variantId: moved.variant_id, locationId: moved.location_id, onHand: i.quantity, committed: i.quantity, reason: "correction", refType: "fulfillment", refId: fulfillmentId, key: `unfulfill:${fulfillmentId}:${i.order_id}`, note: "Shipment cancelled" })
+      /*
+        Held for this order again the way checkout held it: the reservation physical_fulfill counted as
+        fulfilled owes these units again. Without that, cancelling the order (or refunding it in full)
+        afterwards released nothing, since physical_cancel_unfulfilled only lets go of what a
+        reservation still owes, and the units stayed committed for good. An order with no open
+        reservation (cancelled since, or sold without one) gets the units back on the shelf only.
+      */
+      const { data: held } = await db
+        .from("inventory_reservations")
+        .select("id, fulfilled_quantity")
+        .eq("checkout_id", f.checkout_id)
+        .eq("variant_id", moved.variant_id)
+        .eq("location_id", moved.location_id)
+        .in("status", ["sold", "fulfilled"])
+        .order("fulfilled_quantity", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const res = held as { id: string; fulfilled_quantity: number } | null
+      const back = res ? Math.max(0, Math.min(i.quantity, Number(res.fulfilled_quantity) || 0)) : 0
+      const done = await applyInventory(db, { creatorId, variantId: moved.variant_id, locationId: moved.location_id, onHand: i.quantity, committed: back, reason: "correction", refType: "fulfillment", refId: fulfillmentId, key: `unfulfill:${fulfillmentId}:${i.order_id}`, note: "Shipment cancelled" })
+      /* Once: a repeat of the same movement (its key) changes neither the shelf nor the reservation. */
+      if (res && back > 0 && done.ok && done.applied) {
+        await db.from("inventory_reservations").update({ fulfilled_quantity: Number(res.fulfilled_quantity) - back, status: "sold", updated_at: new Date().toISOString() }).eq("id", res.id)
+      }
     }
   }
   if (to || trackingChanged) {
@@ -607,6 +672,8 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   if (order.shipments.some((s) => s.status !== "cancelled")) return { ok: false, error: "Part of this order has shipped. Cancel the shipment first, or start a return." }
   await db.rpc("physical_cancel_unfulfilled", { p_checkout: checkoutId })
   const now = new Date().toISOString()
+  /* Cash on delivery not collected: no money ever moved, so its lines stop being a sale. "failed" is what every figure already leaves out (lib/orders/order-view isSale, the analytics SQL), and the order reads Voided (paymentOf). A card order is cancelled and then refunded instead. */
+  if (order.payment === "cod_due") await db.from("orders").update({ status: "failed" }).eq("checkout_id", checkoutId).eq("payment_method", COD_PAYMENT_METHOD)
   await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? "Cancelled by the shop", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
   await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `Order cancelled${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: "creator", key: `cancelled:${checkoutId}` })
   await queueCancelledEmail(db, checkoutId, creatorId)
@@ -694,6 +761,87 @@ export async function addNote(db: Db, creatorId: string, checkoutId: string, tex
   })
   if (error && error.code !== "23505") return { ok: false, error: "The note could not be saved. Try again." }
   const fresh = await loadOrder(db, { creatorId, checkoutId })
+  return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * CASH ON DELIVERY, RECEIVED: the seller says the buyer paid in cash. Only
+ * for a cash order still to collect and not cancelled; once, however often
+ * it is pressed (the update names the empty column). The order reads Paid
+ * from then on, and a refund of it is cash given back (app/api/stripe/refund).
+ */
+export async function markCashCollected(db: Db, creatorId: string, checkoutId: string): Promise<Outcome> {
+  const now = new Date().toISOString()
+  const { data: changed, error } = await db
+    .from("commerce_checkouts")
+    .update({ cod_collected_at: now, updated_at: now })
+    .eq("id", checkoutId)
+    .eq("creator_id", creatorId)
+    .eq("provider", COD_PROVIDER)
+    .eq("status", "paid")
+    .is("cancelled_at", null)
+    .is("cod_collected_at", null)
+    .select("id, total_cents, currency")
+  if (error) return { ok: false, error: "Could not mark it as paid. Try again." }
+  const row = Array.isArray(changed) ? (changed[0] as { total_cents?: number; currency?: string } | undefined) : undefined
+  if (row) {
+    await addOrderEvent(db, {
+      checkoutId,
+      creatorId,
+      kind: "payment.paid",
+      /* In the currency's own decimals: ¥2,500, never "25.00 JPY". */
+      message: `Cash on delivery received: ${formatMinor(row.total_cents ?? 0, currencyCode(row.currency) ?? "USD", "en")}`,
+      actor: "creator",
+      key: `cod_collected:${checkoutId}`,
+    })
+  }
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (!row && order.payment !== "cod_collected") return { ok: false, error: order.cancelledAt ? "This order was cancelled." : "This order isn't paid in cash on delivery.", status: 409 }
+  return { ok: true, order }
+}
+
+/**
+ * CASH ON DELIVERY, REFUSED: the buyer would not pay when the courier came,
+ * or the parcel could not be delivered. Nothing was paid, so nothing is
+ * refunded. What went out comes back as a return the shop has opened
+ * (restocked when it is marked received); what never left is let go as a
+ * cancel lets it go; the lines stop being a sale, and the order reads
+ * cancelled with the reason. Only for a cash order still to collect.
+ * Safe to press twice: a refused order is already cancelled.
+ */
+export async function refusedOnDelivery(db: Db, creatorId: string, checkoutId: string): Promise<Outcome> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (order.cancelledAt) return { ok: true, order }
+  if (order.payment === "cod_collected") return { ok: false, error: "The cash was already collected. Start a return and refund it instead." }
+  if (order.payment !== "cod_due") return { ok: false, error: "Only an order paid in cash on delivery can be refused on delivery." }
+  /* Everything that went out and isn't already in an open return. */
+  const out = returnableQuantities(progressOf(order))
+  for (const r of order.returns.filter((x) => ["requested", "approved", "in_transit"].includes(x.status))) {
+    for (const i of r.items) out.set(i.orderId, Math.max(0, (out.get(i.orderId) ?? 0) - i.quantity))
+  }
+  const items = [...out.entries()].filter(([, q]) => q > 0).map(([orderId, quantity]) => ({ orderId, quantity, restock: true }))
+  if (items.length) {
+    const opened = await openReturn(db, checkoutId, { creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery" })
+    if (opened.ok === false) return opened
+  }
+  await db.rpc("physical_cancel_unfulfilled", { p_checkout: checkoutId })
+  const now = new Date().toISOString()
+  /* No money ever moved: the lines stop being a sale, as a cancelled cash order's do. */
+  await db.from("orders").update({ status: "failed" }).eq("checkout_id", checkoutId).eq("payment_method", COD_PAYMENT_METHOD)
+  await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: "Refused on delivery", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId).is("cancelled_at", null)
+  await addOrderEvent(db, {
+    checkoutId,
+    creatorId,
+    kind: "order.cancelled",
+    message: items.length ? "Refused on delivery. Nothing was paid. What was sent comes back as a return." : "Refused on delivery. Nothing was paid. Stock released.",
+    actor: "creator",
+    key: `refused:${checkoutId}`,
+  })
+  await queueCancelledEmail(db, checkoutId, creatorId)
+  /* The stored status the list and its filters read: Cancelled, never left at Unfulfilled or Shipped. */
+  const fresh = await restate(db, creatorId, checkoutId)
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }
 

@@ -11,10 +11,17 @@
  *   receipt         the receipt page: the store's name and logo, its business details, VAT 19%
  *   order           the physical order page: date, VAT 19%, currency, Sold by
  *   store           Settings › Store details with Business details filled in
+ *   site-cod        the website's checkout with Cash on delivery offered beside the card
+ *   site-fr         the same, in French: the store's approved translations of the checkout's words (lib/markets/checkout-words)
+ *   physical-cod    Storelib's cart checkout with Cash on delivery offered
+ *   order-cod       the physical order page of a cash on delivery order, cash still to pay
+ *   order-fr        the physical order page in French, with its help panel
+ *   receipt-fr      the receipt page in French
  */
 import * as React from "react"
 import CheckoutPageClient from "@/app/checkout/checkout-client"
 import { SiteCheckout } from "@/app/checkout/site/site-checkout"
+import { CheckoutWords } from "@/app/checkout/parts/words"
 import { PhysicalCheckout } from "@/app/checkout/physical/physical-checkout"
 import { ReceiptView } from "@/app/receipt/[token]/receipt-view"
 import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
@@ -77,7 +84,10 @@ function stubFetch() {
       body = String(init?.body)
     }
     calls.push({ url, body })
+    /* Cash on delivery placed: the thank you page, as the route answers it. */
+    if (url.startsWith("/api/checkout/site") && (body as { action?: string } | null)?.action === "cod") return json({ receiptToken: "rt_cod", thanks: "/checkout/thanks/rt_cod" })
     if (url.startsWith("/api/checkout/site")) return json(quote)
+    if (url === "/api/physical/checkout") return json({ url: "/checkout/physical/order/rt_cod", free: false, cod: true })
     if (url.startsWith("/api/physical/checkout/quote")) return json(quote)
     if (url.startsWith("/api/store/settings")) return json(settings)
     if (url.startsWith("/api/physical/settings")) return json({ settings: { defaultLocationId: null }, locations: [] })
@@ -87,14 +97,68 @@ function stubFetch() {
 
 const brand = { name: "Bread Studio", imageUrl: null, kind: null } as never
 
+/** What a French store's Translate › Checkout holds once approved. */
+const FRENCH: Record<string, string> = {
+  "Contact information": "Coordonnées",
+  "Payment method": "Moyen de paiement",
+  "Card": "Carte",
+  "Cash on delivery": "Paiement à la livraison",
+  "Delivery": "Livraison",
+  "Shipping method": "Mode de livraison",
+  "Pay {amount}": "Payer {amount}",
+  "Pay {shop}": "Payer {shop}",
+  "Subtotal": "Sous-total",
+  "Total due": "Total à payer",
+  "Order summary": "Récapitulatif",
+  "First name": "Prénom",
+  "Last name": "Nom",
+  "Address": "Adresse",
+  "City": "Ville",
+  "Country/region": "Pays ou région",
+  "Phone": "Téléphone",
+  "Email me with news and offers": "Recevoir les nouveautés et les offres par e-mail",
+  "I agree to the [Terms and Conditions] and the [Refund policy]": "J'accepte les [Conditions générales] et la [Politique de remboursement]",
+  "Add a note for the shop": "Ajouter une note pour la boutique",
+  "Continue shopping": "Continuer mes achats",
+  "Powered by": "Fourni par",
+  "Pay {amount} in cash when it's delivered.": "Payez {amount} en espèces à la livraison.",
+  "Place order": "Passer la commande",
+  "Enter a valid email address.": "Saisissez une adresse e-mail valide.",
+  /* The order page and the receipt (app/checkout/physical/order, app/receipt). */
+  "Order {number}": "Commande {number}",
+  "Your order is confirmed": "Votre commande est confirmée",
+  "Confirmed": "Confirmée",
+  "Processing": "En préparation",
+  "Shipped": "Expédiée",
+  "Delivered": "Livrée",
+  "{method}, usually {estimate} after it ships.": "{method}, en général {estimate} après l'expédition.",
+  "{min} to {max} business days": "{min} à {max} jours ouvrés",
+  "Items": "Articles",
+  "Qty {quantity}": "Qté {quantity}",
+  "Shipping": "Livraison",
+  "Total": "Total",
+  "Shipping address": "Adresse de livraison",
+  "Need help with this order?": "Besoin d'aide pour cette commande ?",
+  "Write to {shop} about anything with this order.": "Écrivez à {shop} pour toute question sur cette commande.",
+  "Contact the shop": "Contacter la boutique",
+  "Thanks, {name}": "Merci, {name}",
+  "Order {number} · {date}": "Commande {number} · {date}",
+  "Sold by {name} (trading as {store})": "Vendu par {name} (sous le nom {store})",
+  "Download invoice (PDF)": "Télécharger la facture (PDF)",
+}
+
 export function boot(render: (el: React.ReactElement) => void) {
   stubFetch()
   const which = new URLSearchParams(location.search).get("case") || "site"
   const wrap = (el: React.ReactElement) => <div data-case={which}>{el}</div>
-  if (which === "site-gate" || which === "site") {
+  const cod = which.endsWith("-cod")
+  const withCash = (c: ReturnType<typeof checkoutConfig>) => (cod ? { ...c, cashOnDelivery: true } : c)
+  if (which === "site-gate" || which === "site" || which === "site-cod" || which === "site-fr") {
     const gate = which === "site-gate"
+    const fr = which === "site-fr"
     render(
       wrap(
+        <CheckoutWords lang={fr ? "fr" : "en"} words={fr ? FRENCH : {}}>
         <SiteCheckout
           shopId={SHOP}
           brand={brand}
@@ -105,19 +169,21 @@ export function boot(render: (el: React.ReactElement) => void) {
           couponCode={null}
           initialQuote={quote}
           initialError={null}
-          config={gate ? checkoutConfig({ requireAccount: true }) : STRICT}
+          config={gate ? checkoutConfig({ requireAccount: true }) : fr ? { ...STRICT, cashOnDelivery: true } : withCash(STRICT)}
           buyer={null}
           lockedEmail={null}
           needsSignIn={gate}
-        />,
+          lang={fr ? "fr" : undefined}
+        />
+        </CheckoutWords>,
       ),
     )
     return
   }
-  if (which === "physical-gate" || which === "physical") {
+  if (which === "physical-gate" || which === "physical" || which === "physical-cod") {
     if (!location.search.includes("items=")) history.replaceState(null, "", `${location.pathname}?case=${which}&shop=${SHOP}&items=${encodeItems([{ productId: MUG, variantId: null, quantity: 2 }])}`)
     const gate = which === "physical-gate"
-    render(wrap(<PhysicalCheckout shopId={SHOP} shopName="Bread Studio" brand={brand} config={gate ? checkoutConfig({ requireAccount: true }) : STRICT} buyer={gate ? { signedIn: false, confirmed: false } : { signedIn: true, confirmed: true }} />))
+    render(wrap(<PhysicalCheckout shopId={SHOP} shopName="Bread Studio" brand={brand} config={gate ? checkoutConfig({ requireAccount: true }) : withCash(STRICT)} buyer={gate ? { signedIn: false, confirmed: false } : { signedIn: true, confirmed: true }} />))
     return
   }
   if (which === "digital") {
@@ -135,11 +201,13 @@ export function boot(render: (el: React.ReactElement) => void) {
     )
     return
   }
-  if (which === "receipt") {
+  if (which === "receipt" || which === "receipt-fr") {
+    const fr = which === "receipt-fr"
     render(
       wrap(
+        <CheckoutWords lang={fr ? "fr" : "en"} words={fr ? FRENCH : {}}>
         <ReceiptView
-          locale="en-US"
+          locale={fr ? "fr" : "en-US"}
           viewer={{ signedIn: false, isBuyer: false }}
           receipt={{
             number: "1042",
@@ -160,15 +228,19 @@ export function boot(render: (el: React.ReactElement) => void) {
             primary: { orderId: "o1", token: "rt_" + "a".repeat(40) },
             invoice: true,
           }}
-        />,
+        />
+        </CheckoutWords>,
       ),
     )
     return
   }
-  if (which === "order") {
+  if (which === "order" || which === "order-cod" || which === "order-fr") {
+    const fr = which === "order-fr"
     render(
       wrap(
+        <CheckoutWords lang={fr ? "fr" : "en"} words={fr ? FRENCH : {}}>
         <OrderStatusView
+          help={fr ? { openCase: null } : null}
           token={"t".repeat(30)}
           justPaid={false}
           canReturn={false}
@@ -186,11 +258,13 @@ export function boot(render: (el: React.ReactElement) => void) {
             pickup: null,
             processing: false,
             totals: { subtotal: 4000, discount: 0, shipping: 500, tax: 760, taxIncluded: false, taxLabel: "VAT 19%", total: 5260, refunded: 0, currency: "RON" },
+            cash: which === "order-cod" ? "due" : null,
             lines: [{ orderId: "o1", title: "Stoneware mug", variantName: null, imageUrl: null, quantity: 2, cents: 4000, type: "physical", receiptToken: null, returnable: 0 }],
             shipments: [],
             returns: [],
           }}
-        />,
+        />
+        </CheckoutWords>,
       ),
     )
     return

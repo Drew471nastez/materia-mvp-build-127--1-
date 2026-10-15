@@ -8,6 +8,7 @@
  * (lib/checkout/access-link), so it tells nobody what another person bought.
  */
 import * as React from "react"
+import { useCt } from "./words"
 
 /**
  * "Bought this before?" for a guest. Sends the receipts of that email's
@@ -15,16 +16,17 @@ import * as React from "react"
  * exactly what the server said.
  */
 export function AccessLink({ email, send }: { email: string; send: (email: string) => Promise<{ ok: boolean; message: string }> }) {
+  const ct = useCt()
   const [state, setState] = React.useState<{ kind: "idle" } | { kind: "busy" } | { kind: "said"; ok: boolean; message: string }>({ kind: "idle" })
   const ask = async () => {
     const typed = email.trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed)) {
-      setState({ kind: "said", ok: false, message: "Type the email you bought it with above, then press this again." })
+      setState({ kind: "said", ok: false, message: ct("Type the email you bought it with above, then press this again.") })
       document.getElementById("checkout-email")?.focus()
       return
     }
     setState({ kind: "busy" })
-    const said = await send(typed).catch(() => ({ ok: false, message: "That didn't go through. Try again in a moment." }))
+    const said = await send(typed).catch(() => ({ ok: false, message: ct("That didn't go through. Try again in a moment.") }))
     setState({ kind: "said", ok: said.ok, message: said.message })
   }
   return (
@@ -33,9 +35,9 @@ export function AccessLink({ email, send }: { email: string; send: (email: strin
         <p role="status" className="text-[#166534]">{state.message}</p>
       ) : (
         <p>
-          Bought this before?{" "}
+          {ct("Bought this before?")}{" "}
           <button type="button" onClick={() => void ask()} disabled={state.kind === "busy"} className="cursor-pointer font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 disabled:cursor-default disabled:opacity-60">
-            {state.kind === "busy" ? "Sending" : "Email me my link"}
+            {state.kind === "busy" ? ct("Sending") : ct("Email me my link")}
           </button>
         </p>
       )}

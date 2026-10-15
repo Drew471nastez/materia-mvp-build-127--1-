@@ -19,6 +19,7 @@
  *   old sections     a product section saved before blocks draws what its
  *                    switches said, and nothing stored is removed
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import {
   amountToCents,

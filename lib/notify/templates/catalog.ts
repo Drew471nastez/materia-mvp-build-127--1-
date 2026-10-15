@@ -77,6 +77,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PHYSICAL_SETUP_UNFINISHED_2: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "paymentsMissing"],
   PHYSICAL_STORE_NOT_READY: ["items", "blockingCount", "liveCount", "reason"],
   PHYSICAL_STORE_NOT_READY_2: ["items", "blockingCount", "liveCount", "reason"],
+  ORDERS_WAITING_TO_SHIP: ["count", "days", "orderId"],
   PAYMENT_SETUP_REMINDER: [],
   PAYMENT_SETUP_REMINDER_2: [],
   PAYOUT_SETUP_UNFINISHED: ["started", "productTitle"],
@@ -560,15 +561,20 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   }
 
   const buyer = firstName || "A customer"
+  /* Paid in cash on delivery: the money is collected by the seller, so nothing "goes to your balance". */
+  const cash = d.bool("cashDue") === true
   const preview = free
     ? `${buyer} got ${thing} for free.`
-    : join(`${buyer} bought ${thing}.`, (netText || total) && `${netText || total} goes to your balance.`)
+    : cash
+      ? join(`${buyer} ordered ${thing}.`, total && `Collect ${total} in cash on delivery.`)
+      : join(`${buyer} bought ${thing}.`, (netText || total) && `${netText || total} goes to your balance.`)
 
   const sentence = free ? `${who} got ${thing} from your store for free.` : `${who} bought ${thing} from your store.`
   const next = fulfil?.text("nextStep", 300) ?? ""
+  const cashLine = cash ? `Paid in cash on delivery: collect ${total || "the total"} ${pickup ? "when it's picked up" : "when it's delivered"}, then press Mark as paid on the order.` : ""
   const paragraphs = first
-    ? [sentence, "Congratulations on your first sale on Storelib. Here are the details.", next]
-    : [sentence, next]
+    ? [sentence, "Congratulations on your first sale on Storelib. Here are the details.", cashLine, next]
+    : [sentence, cashLine, next]
 
   /* The order: items, totals, then what the seller receives. */
   const orderLines = lines.map((l) => {
@@ -591,9 +597,9 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   if (tip !== null && tip > 0) totals.push({ label: "Tip", value: d.moneyOf("tipCents") })
   if (tax !== null && tax > 0) totals.push({ label: d.bool("taxIncluded") ? "Tax (included)" : "Tax", value: d.moneyOf("taxCents") })
   /* Honest money: a free claim reads "Free", never $0.00. */
-  if (total) totals.push({ label: free ? "Total" : "Total paid", value: free ? "Free" : total, strong: true })
+  if (total) totals.push({ label: free ? "Total" : cash ? "Total to collect" : "Total paid", value: free ? "Free" : total, strong: true })
   const payout: SummaryRow[] = []
-  if (net !== null && netText) {
+  if (net !== null && netText && !cash) {
     if (fee !== null && fee > 0) payout.push({ label: "Storelib fee", value: `\u2212${d.moneyOf("feeCents")}` })
     payout.push({ label: "You receive", value: netText, strong: true })
   }
@@ -880,6 +886,32 @@ export const CATALOG: Record<NotificationType, Entry> = {
       action: { label: first ? first.title : "Open shipping settings", path: first ? first.path : READINESS_PATH },
       notice: items.length > 1 ? { title: "Everything in one place", text: "Settings has the full list, with a fix link for each.", link: { label: "Open the checklist", path: READINESS_PATH } } : null,
       inApp: { title: broke ? "Buyers can't check out right now" : "Your physical products can't be bought yet", body: first ? (one ? `${first.title}. ${first.why}` : `${first.title}, and ${items.length - 1} more.`) : "Check your shipping setup.", actionLabel: "Fix it", actionPath: first ? first.path : READINESS_PATH },
+    }
+  },
+
+  /*
+     Paid orders that ship, still not sent after a few days (conditions.ts orders_still_waiting): how many, and
+     the Unfulfilled view oldest first, or the one order when there is one.
+  */
+  ORDERS_WAITING_TO_SHIP: (d) => {
+    const count = Math.max(1, d.count("count") ?? 1)
+    const days = Math.max(1, d.count("days") ?? 3)
+    const one = count === 1
+    const orderId = d.text("orderId", 64)
+    const path = one && orderId ? PATHS.order(orderId) : "/app/orders?view=unfulfilled&sort=oldest"
+    const what = one ? "1 order is" : `${count} orders are`
+    return {
+      family: "action_required",
+      audience: "creator",
+      subject: one ? "An order is waiting to ship" : `${count} orders are waiting to ship`,
+      preview: `${what} paid and not shipped after ${days} days.`,
+      heading: one ? "An order is waiting to ship" : `${count} orders are waiting to ship`,
+      paragraphs: [
+        `${what} paid and still not shipped after more than ${days} days. Your buyers are waiting for them.`,
+        "Open each order to ship it, or to tell the buyer what is happening.",
+      ],
+      action: { label: one ? "Open the order" : "Open orders to ship", path },
+      inApp: { title: one ? "An order is waiting to ship" : `${count} orders are waiting to ship`, body: `Paid more than ${days} days ago.`, actionLabel: one ? "Open order" : "Open orders", actionPath: path },
     }
   },
 

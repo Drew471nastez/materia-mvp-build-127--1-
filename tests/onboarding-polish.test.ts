@@ -83,11 +83,13 @@ function main() {
   check("what went wrong is a row of its own under the top row, never over the heading",
     /\{switchBackError && \(\s*<p role="alert" className="shrink-0 px-3 pt-1\.5/.test(creator))
   /* "Increase the whole modal a bit so it expands a little more on the screen, but without touching the edges." 930 by 540 became 1040 by 610. */
-  check("the card is 1040 by 610 on a computer and never closer than 24px to the window's edges (a 768px tablet once had it 81px off each side)",
+  /* Changed on purpose: 71769f95 (join card matches OnePage size) made the card 930 by 540, clamped to the window, and its column's limit follows it. */
+  check("the card is 930 by 540 on a computer and never closer than 24px to the window's edges (a 768px tablet once had it 81px off each side)",
     /sm:w-\[min\(930px,calc\(100vw-48px\)\)\] sm:max-w-\[min\(930px,calc\(100vw-48px\)\)\] sm:h-\[min\(540px,calc\(100dvh-48px\)\)\]/.test(creator)
-      && /sm:max-h-\[min\(610px,calc\(100dvh-48px\)\)\]/.test(creator) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator))
+      && /sm:max-h-\[min\(540px,calc\(100dvh-48px\)\)\]/.test(creator) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator))
+  /* Changed on purpose: 0be8bd1a (two slide first run) lets Next drop its minimum width and set smaller type under 384px, instead of keeping 88px. */
   check("the row of buttons gives up padding under 384px, where the roomy one stops fitting",
-    (creator.match(/max-\[384px\]:/g) ?? []).length >= 6 && /max-\[384px\]:min-w-\[88px\]/.test(creator))
+    (creator.match(/max-\[384px\]:/g) ?? []).length >= 6 && /min-w-\[110px\] sm:min-w-\[140px\] max-\[384px\]:min-w-0 max-\[384px\]:px-3 max-\[384px\]:text-\[13px\]/.test(creator))
   check("every step has the same bottom padding, so a step change cannot resize the panel it happens in",
     !/currentStep === 2 && "sm:pb-7"/.test(creator))
   /*
@@ -101,9 +103,11 @@ function main() {
       && /\[\{ opacity: 1, translate: "0 0" \}, \{ opacity: 0, translate: `\$\{-dx\}px 0` \}\]/.test(creator)
       && /data-onboarding-leaving=\{leavingStep\.step\}/.test(creator) && /data-onboarding-steps="" className="grid min-h-full"/.test(creator)
       && !/flex-1 min-h-0 overflow-y-auto transition-all/.test(creator) && !/isAnimating|slideDirection|STEP_SWAP_MS/.test(creator))
+  /* Changed on purpose: 783f7748 (smoother morph) gives a join slide its own named arrival time, JOIN_STEP_IN_MS, on the same curve. */
   check("one clock for every move: the step's times and curve are named once",
     /const STEP_IN_MS = 280/.test(creator) && /const STEP_OUT_MS = 160/.test(creator) && /const MOTION_EASE = "cubic-bezier\(0\.22, 1, 0\.36, 1\)"/.test(creator)
-      && /duration: STEP_IN_MS, easing: MOTION_EASE/.test(creator) && /duration: STEP_OUT_MS, easing: MOTION_EASE/.test(creator))
+      && /const JOIN_STEP_IN_MS = 320/.test(creator) && /const inMs = joinSlide \? JOIN_STEP_IN_MS : STEP_IN_MS/.test(creator)
+      && /duration: inMs, easing: MOTION_EASE/.test(creator) && /duration: STEP_OUT_MS, easing: MOTION_EASE/.test(creator))
   check("a second press while a step is arriving is ignored, the next step starts at its top, and the old one is held where it was scrolled",
     /const goToStep = \(next: number, direction: "left" \| "right"\) => \{\s*if \(leavingStep\) return/.test(creator)
       && /stepScrollRef\.current\?\.scrollTo\(\{ top: 0, behavior: "instant" as ScrollBehavior \}\)/.test(creator)
@@ -123,14 +127,17 @@ function main() {
 
   /* "in the store category step, make sure the Other button is next to See more, not in the bar at the bottom with Back, Skip, Next." */
   check("Other sits beside See more among the categories, and the row at the bottom is Back, Skip and Next",
-    /data-onboarding-other=""/.test(creator) && creator.indexOf("See more") < creator.indexOf("data-onboarding-other") && creator.indexOf("data-onboarding-other") < creator.indexOf("{/* Back, on the left */}")
+    /* Changed on purpose: 6450c5d3 (join onboarding UI) dropped the "Back, on the left" note this read as its marker; the Back button's own attribute marks the row now. */
+    /data-onboarding-other=""/.test(creator) && creator.indexOf("See more") < creator.indexOf("data-onboarding-other") && creator.indexOf("data-onboarding-other") < creator.indexOf('data-onboarding-back=""')
+      && creator.lastIndexOf('data-onboarding-back=""') < creator.lastIndexOf('data-onboarding-skip=""') && creator.lastIndexOf('data-onboarding-skip=""') < creator.lastIndexOf('data-onboarding-next=""')
       && !/See more\.{2,}/.test(creator))
   check("a chosen category changes colour, not size: the ring is a shadow",
     /const CATEGORY_ON = "bg-\[#1a1a2e\] text-white shadow-\[0_0_0_1px_#1a1a2e/.test(creator) && /aria-pressed=\{selectedCategory === category\}/.test(creator))
   /* "text font size better, the heading, subheading ... cohesive." */
   check("one heading and one line under it on every step, in the app's own ink",
-    /* The store's four steps, and round 13's question, name, photo and notifications steps. */
-    (creator.match(/<h1 className=\{HEADING\}>/g) ?? []).length === 8 && (creator.match(/<p className=\{SUBHEADING\}>/g) ?? []).length === 8
+    /* The store's four steps and the notifications step. Changed on purpose: 8d55c630 (join onboarding as profile then username) made the join branch two slides with a heading of their own, still one heading and one line in the app's ink. */
+    (creator.match(/<h1 className=\{HEADING\}>/g) ?? []).length === 5 && (creator.match(/<p className=\{SUBHEADING\}>/g) ?? []).length === 5
+      && (creator.match(/<h1 className="text-\[28px\] font-bold leading-\[1\.15\] tracking-\[-0\.03em\] text-\[#1a1a2e\] sm:text-\[3[02]px\]">[^<]+<\/h1>\s*<p className="mt-1\.5 text-\[15px\] leading-6 text-\[#6b7280\]">/g) ?? []).length === 2
       && /const HEADING = "text-\[26px\] font-bold leading-\[1\.15\] tracking-\[-0\.02em\] text-\[#1a1a2e\] sm:text-\[36px\]"/.test(creator)
       && /const SUBHEADING = "mt-2 text-\[15px\]/.test(creator) && !/text-gray-500 text-xs sm:text-base/.test(creator))
   /* "cutted there, up": the plans ran into the top row and the Back button in a hard line. */

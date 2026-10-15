@@ -27,6 +27,7 @@
  */
 
 import { cleanList, isProductId, merged, WISHLIST_MAX } from "./wishlist-list"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { isMissingTable, UUID, type Db } from "./db"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 
@@ -150,9 +151,11 @@ export async function wishlistCards(db: Db, creatorId: string, ids: string[]): P
       .eq("status", "published")
     if (error || !Array.isArray(data)) return []
     const byId = new Map((data as { id: string }[]).map((r) => [String(r.id).toLowerCase(), r]))
+    /* In the store's own currency, the one its prices are in. */
+    const { currency } = await readStoreCurrency(db, creatorId)
     return wanted.flatMap((id) => {
       const row = byId.get(id)
-      return row ? [toCard(row as Parameters<typeof toCard>[0])] : []
+      return row ? [toCard(row as Parameters<typeof toCard>[0], [], [], currency)] : []
     })
   } catch {
     return []

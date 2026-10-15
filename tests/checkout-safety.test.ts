@@ -186,7 +186,8 @@ async function main() {
     const client = read("app/checkout/checkout-client.tsx")
     check("after paying, the payment goes in the address before the order is asked for", /url\.searchParams\.set\("payment_intent", paymentIntentId\)/.test(client))
     check("  and making the order is retried before giving up", /for \(const wait of \[0, 1500, 4000\]\)/.test(client))
-    check("the $0.50 minimum is said before a wallet opens", /total < MIN_CHARGE_CENTS/.test(client))
+    /* Changed on purpose: Stripe's smallest charge in the store's currency. */
+    check("the smallest card payment is said before a wallet opens", /total < minimumChargeMinor\(chargeCurrency\)/.test(client))
     check("nothing is payable once paid", /busy=\{busy \|\| !!paid \|\| settled\}/.test(client) && /inert=\{!!paid\}/.test(client))
     check("Stripe.js waits until the app is known not to be the app", /useState<boolean \| null>\(null\)/.test(client))
   }
@@ -201,7 +202,7 @@ async function main() {
     check(
       /* Changed on purpose: the tip is folded again by default ("Add a tip should be collapsed as default"); the line still names the creator and the same amounts are sent. */
       "the tip and the code are kept (the tip folded under its Add a tip line, which names the creator)",
-      />Add a tip<\/span>/.test(summary) && /<span className="text-\[#6b7280\]"> for \{creatorName\}<\/span>/.test(summary) && /const TIPS = \[0, 100, 300, 500\] as const/.test(summary) && /Enter discount code/.test(summary),
+      /* Changed on purpose: in the visitor's language (ct). */ /\{ct\("Add a tip"\)\}<\/span>/.test(summary) && /<span className="text-\[#6b7280\]"> \{ct\("for \{shop\}", \{ shop: creatorName \}\)\}<\/span>/.test(summary) && /const TIPS = \[0, 100, 300, 500\] as const/.test(summary) && /Enter discount code/.test(summary),
     )
   }
   check("wallets come from Stripe's express element; Link is off", /ExpressCheckoutElement/.test(read("app/checkout/parts/stripe-pay.tsx")) && /link: "never"/.test(read("app/checkout/parts/stripe-pay.tsx")) && !/LinkAuthenticationElement/.test(read("app/checkout/parts/stripe-pay.tsx")))

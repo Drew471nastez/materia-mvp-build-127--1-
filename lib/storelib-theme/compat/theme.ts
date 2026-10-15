@@ -241,8 +241,26 @@ export interface CompatPage {
   suffix?: string
   path: string
   query?: Record<string, string>
+  /** Drawn for the builder (its canvas, a section's preview): Storelib's own sample reviews, links and site scripts go by this. */
   designMode: boolean
+  /**
+   * What the THEME is told: `request.design_mode` in its Liquid and
+   * `Shopify.designMode` in its scripts. Absent, the same as designMode.
+   * The canvas sets it false (components/website-builder/compat/
+   * compat-canvas.tsx): a theme that is told it is in Shopify's theme
+   * editor turns its own motion off there (AOS.init({ disable:
+   * Shopify.designMode }), a reveal class left out under
+   * `{% unless request.design_mode %}`, Dawn's sections marked still), so
+   * nothing in the canvas rose or faded in as it was scrolled to, while the
+   * website played all of it. Told the website's value, the theme moves
+   * in the canvas as it does there; the builder's own editing (selection,
+   * sections drawn again in place, the editor's events) is the bridge's
+   * (canvas-bridge.ts) and does not depend on it.
+   */
+  themeDesignMode?: boolean
   host?: string
+  /** The website's own address, for its canonical (SiteData canonicalHost). */
+  canonicalHost?: string
   title?: string
   description?: string
   products: CardLike[]
@@ -360,6 +378,27 @@ export class CompatTheme {
   /** The language the theme's own default locale file is in (locales/<lang>.default.json). */
   get language(): string {
     return this.lang
+  }
+  /**
+   * Every word of the theme's default locale file, by its dotted key
+   * ("products.product.add_to_cart", "cart.item_count.one"): what the
+   * website's Translate lists as Theme words, for a language the theme does
+   * not ship. Only text a visitor reads; nothing from the editor's schema.
+   */
+  private wordsListed: { key: string; value: string }[] | null = null
+  defaultWords(): { key: string; value: string }[] {
+    if (this.wordsListed) return this.wordsListed
+    const out: { key: string; value: string }[] = []
+    const walk = (node: unknown, path: string) => {
+      if (typeof node === "string") {
+        if (node.trim() && out.length < 2000) out.push({ key: path, value: node })
+        return
+      }
+      if (node && typeof node === "object" && !Array.isArray(node)) for (const [k, v] of Object.entries(node as O)) walk(v, path ? `${path}.${k}` : k)
+    }
+    walk(this.locale, "")
+    this.wordsListed = out
+    return out
   }
   private schemaLocale: O | null
   readonly settingsSchema: O[]
@@ -531,7 +570,23 @@ export class CompatTheme {
     lack, so nothing ever shows as a key.
   */
   private wordsHeld = new Map<string, O | null>()
-  private translateIn(lang: string): (key: string) => unknown {
+  private translateIn(lang: string, words?: Record<string, string>): (key: string) => unknown {
+    const fromFiles = this.translateInFiles(lang)
+    if (!words || Object.keys(words).length === 0) return fromFiles
+    /* The store's own translation first (it can correct the theme's), then the theme's file, then its default. A plural ("cart.item_count") is the object its forms make. */
+    return (key: string) => {
+      if (typeof words[key] === "string") return words[key]
+      const prefix = `${key}.`
+      const forms = Object.keys(words).filter((k) => k.startsWith(prefix) && !k.slice(prefix.length).includes("."))
+      if (forms.length === 0) return fromFiles(key)
+      const base = fromFiles(key)
+      const merged: O = base && typeof base === "object" ? { ...(base as O) } : {}
+      for (const k of forms) merged[k.slice(prefix.length)] = words[k]
+      return merged
+    }
+  }
+
+  private translateInFiles(lang: string): (key: string) => unknown {
     const files = [`locales/${lang}.json`, `locales/${lang.toLowerCase()}.json`, `locales/${lang.split("-")[0].toLowerCase()}.json`]
     const found: O[] = []
     for (const f of files) {
@@ -638,14 +693,15 @@ export class CompatTheme {
       cart,
       /* In another of the website's languages: its prefix on every route, its language as request.locale and in the selector (lib/markets). */
       routes: page.i18n ? routesFor(page.i18n) : SHOPIFY_ROUTES,
-      request: requestObject(page.template, page.path, page.designMode, page.host, this.lang, page.i18n),
+      request: requestObject(page.template, page.path, page.themeDesignMode ?? page.designMode, page.host, this.lang, page.i18n),
       localization: localizationObject(currency, page.i18n, this.lang),
       template,
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
-      canonical_url: page.host ? `https://${page.host}${page.path}` : page.path,
+      /* The website's own address, as its built pages name it, whatever host this page was reached at. */
+      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${page.path}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
-      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
+      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.themeDesignMode ?? page.designMode, inBuilder: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
       collections,
       all_products,
       linklists,
@@ -700,7 +756,8 @@ export class CompatTheme {
       moneyWithCurrencyFormat: `${moneyFormat} ${currency}`,
       currency,
       /* The theme's own words in the page's language (locales/fr.json), its default ones for anything that file lacks. */
-      translate: page.i18n && page.i18n.locale.toLowerCase() !== this.lang.toLowerCase() ? this.translateIn(page.i18n.locale) : this.translate,
+      /* And the store's translations of them (page.i18n.words), for a language the theme does not ship or words it should say otherwise. */
+      translate: page.i18n && (page.i18n.locale.toLowerCase() !== this.lang.toLowerCase() || page.i18n.words) ? this.translateIn(page.i18n.locale, page.i18n.words) : this.translate,
     }
     const ctx = new Ctx(globals, this.env(page))
     pageCtx = ctx

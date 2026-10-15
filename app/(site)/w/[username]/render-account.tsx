@@ -29,6 +29,7 @@
  * copy of the site to keep in step.
  */
 import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
@@ -90,22 +91,24 @@ export async function renderAccountPage(
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products, productCount } = found
-  const stored = site.pages[key]
-  const own = stored && stored.length > 0 ? stored : (accountPageSections(key, site.pages.home ?? site.sections) ?? [])
+  const { site: published, products, productCount } = found
+  const stored = published.pages[key]
+  const own = stored && stored.length > 0 ? stored : (accountPageSections(key, published.pages.home ?? published.sections) ?? [])
   /*
     AN IMPORTED SHOPIFY THEME draws its own header and footer around this
     page (lib/storelib-theme/compat/site.ts, accountShell), and this page is
     shown inside it: the theme's chrome cannot be drawn here, so none is.
   */
-  const base = compatOf(site.themeSettings) ? withoutChrome(own) : own
+  const base = compatOf(published.themeSettings) ? withoutChrome(own) : own
   /* Drawn like every other page: live links, then the shop's own facts (placeholders, menus, picked products). */
-  const linked = pageWithLiveLinks(base, new Set(Object.keys(site.pages)))
+  const linked = pageWithLiveLinks(base, new Set(Object.keys(published.pages)))
   const template = templateForPage(key)
   /* In the page's language: its texts, the header and footer, the shop's own words and the language switch (lib/markets/live.ts). */
-  const [localizer, language] = extras.lang ? await Promise.all([siteLocalizer(site.creatorId, extras.lang.locale, extras.lang.market), languageChoice(site.creatorId, extras.lang.locale, extras.lang.market)]) : [null, undefined]
+  const [localizer, language] = extras.lang ? await Promise.all([siteLocalizer(published.creatorId, extras.lang.locale, extras.lang.market), languageChoice(published.creatorId, extras.lang.locale, extras.lang.market)]) : [null, undefined]
+  /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
+  const site = localizer ? { ...published, themeSettings: localizer.theme(published.themeSettings as Record<string, unknown>) as typeof published.themeSettings } : published
   const shown = localizer ? localizer.sections(linked, site.sources) : linked
-  const { sections, data } = await dressPage(site, shown, localizer ? localizer.cards(products ?? []) : products, productCount, template, pageTitleFromKey(key))
+  const { sections, data } = await dressPage(site, shown, localizer ? localizer.cards(products ?? []) : products, productCount, template, pageTitleFromKey(key), undefined, { cached: true, localizer })
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },
@@ -131,7 +134,7 @@ export async function renderAccountPage(
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
       />
       {/* The contact page and the wishlist are pages of the website like any
           other, and a visit to either counts in Analytics, with its path. The

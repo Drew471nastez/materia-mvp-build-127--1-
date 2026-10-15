@@ -14,6 +14,7 @@
  *
  *   NODE_OPTIONS="--conditions=react-server" npx tsx tests/physical-shipping-r3.test.ts
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { freeShippingFrom, partOfCountry, pickOption, quoteDelivery, ratePrice, zoneFor, type QuoteLine } from "@/lib/physical/rates"
@@ -213,7 +214,7 @@ async function main() {
     const threshold = schema.blocks.find((b) => b.type === "low_stock")?.fields.find((f) => f.id === "threshold")
     check("  a new low stock block follows each product's line (0)", threshold?.default === 0 && threshold?.min === 0)
     check("the returns line sits under Check out in the cart drawer and on the cart page", /<CartReturnsNote/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /<CartReturnsNote/.test(read("components/website-builder/cart-page-body.tsx")))
-    check("the live site tells the page which page it is", /* Changed on purpose (round AB): the website in another language. */ /pageKey(, language)?(, words: localizer\?\.words, display: localizer\?\.display)? \}\}/.test(read("app/(site)/w/[username]/render-site.tsx")))
+    check("the live site tells the page which page it is", /* Changed on purpose (round AB): the website in another language. */ /pageKey(, language)?(, words: localizer\?\.words, display: localizer\?\.display)?(, currency: await cachedStoreCurrency\(site\.creatorId\))? \}\}/.test(read("app/(site)/w/[username]/render-site.tsx")))
     const shop = read("app/api/physical/storefront/shop/route.ts")
     check("the website reads only returns and the free shipping amount, public, cached, behind the physical switch", /physicalApiGate\(\)/.test(shop) && /shopFacts\(createAdminClient\(\), creatorId\)/.test(shop) && /freeShippingFrom\(general, country\)/.test(read("lib/physical/storefront-facts.ts")) && /s-maxage=60/.test(shop) && !/price_cents|address_line/.test(shop))
     const ws = read("components/website-builder/website-settings/commerce.tsx")
@@ -257,7 +258,7 @@ async function main() {
     const phys = read("app/checkout/physical/physical-checkout.tsx")
     const site = read("app/checkout/site/site-checkout.tsx")
     check("a shop that ships by state asks for the state, never says it can't ship there", /quote\.delivery\.needsRegion \? \(/.test(phys) && /data-needs-region=""/.test(phys) && /needsRegion\?: boolean/.test(phys))
-    check("  and the totals say so too, on both checkouts", /quote\.delivery\.needsRegion \? `Choose your/.test(phys) && /quote\.delivery\.needsRegion && !address\.region\.trim\(\) \? `Choose your/.test(site))
+    check("  and the totals say so too, on both checkouts", /quote\.delivery\.needsRegion \? `Choose your/.test(phys) && /* Changed on purpose: the website checkout says it in the visitor's language (ct). */ /quote\.delivery\.needsRegion && !address\.region\.trim\(\) \? \(fmt\.region \? ct\(`Choose your/.test(site))
     check("a free shipping code shows every method free, the old price struck through, on both checkouts", /quote\.coupon\?\.freeShipping && o\.priceCents > 0/.test(phys) && /quote\.coupon\?\.freeShipping && o\.priceCents > 0/.test(site))
     check("the total never names its currency twice (RON 51.84)", /money\(t\.totalCents\)\.includes\(currency\.toUpperCase\(\)\) \? null/.test(phys))
     const pricing = read("lib/physical/checkout-pricing-server.ts")

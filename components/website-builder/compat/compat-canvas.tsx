@@ -21,6 +21,23 @@
  *   untouched. A change to the page's shape (a section added, moved,
  *   removed, hidden) or to the theme's settings draws the page again, where
  *   it was scrolled to.
+ *
+ *   THE THEME MOVES AS ON THE WEBSITE. The page is drawn for the builder
+ *   (`designMode`: sample reviews, links to pages not yet saved, Storelib's
+ *   own Buy it now and forms held back), but the theme is told what the
+ *   website tells it (`themeDesignMode: false`: request.design_mode and
+ *   Shopify.designMode false). Told it was in Shopify's theme editor, a
+ *   theme turned its own motion off: AOS.init({ disable:
+ *   Shopify.designMode }), a reveal class left out under
+ *   `{% unless request.design_mode %}`, Dawn's sections marked still on
+ *   every edit. Nothing in the canvas rose or faded in as it was scrolled
+ *   to, while the website played all of it (measured in
+ *   scripts/check-canvas-scroll-motion.ts). Selecting, outlining and
+ *   drawing sections again are the bridge's (canvas-bridge.ts), which sends
+ *   the editor's events itself and keeps what the theme's scripts did to a
+ *   section it swaps; none of it needs the theme to think it is in an
+ *   editor. A section's still preview (compat-section-preview.tsx) keeps
+ *   design mode: it is a picture, not a page.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
@@ -30,7 +47,7 @@ import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } fro
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
-import type { CollectionLike, MenuLinkLike } from "@/lib/storelib-theme/compat/objects"
+import type { CollectionLike, MenuLinkLike, SiteI18n } from "@/lib/storelib-theme/compat/objects"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { isLive, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
@@ -41,8 +58,12 @@ import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 import { shopImageName } from "@/lib/website-builder/picture-address"
 import { compatFields } from "@/lib/markets/compat-fields"
+import { moneyFormatFor } from "@/lib/markets/pricing"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { localizeMenus, localizeRecord, localizeSections, type TranslationMap } from "@/lib/markets/translate"
 import { localePrefix } from "@/lib/markets/locales"
+import { compatPrices, compatShop, type ThemeCountry } from "@/lib/markets/compat-prices"
+import type { Pricing } from "@/lib/markets/pricing"
 
 export interface CompatCanvasProps {
   installId: string
@@ -108,6 +129,31 @@ export interface CompatCanvasProps {
    * website's own language.
    */
   language?: { locale: string; defaultLanguage: string; languages: string[]; map: TranslationMap | null } | null
+  /**
+   * The store's languages and markets as the website reads them
+   * (use-preview-market.ts): what the theme's own language and country
+   * selectors list, and the market the canvas shows prices in, converted
+   * as lib/markets/compat.ts converts them on the website. Absent: one
+   * language and the store's prices, as before.
+   */
+  markets?: CompatMarkets | null
+  /** The store's own currency as Settings › Languages & Currency saved it; empty until read, when the cards' is used. */
+  storeCurrency?: string
+}
+
+/** The website's languages and countries, and the market previewed, for an imported theme's canvas. */
+export interface CompatMarkets {
+  /** The store saved Markets and languages: its default language is the website's. Not saved: the theme's own, alone. */
+  saved: boolean
+  defaultLanguage: string
+  /** The languages the theme's selector lists: the published ones, the website's own first (and one previewed before it is published). */
+  languages: string[]
+  countries: ThemeCountry[]
+  country?: ThemeCountry
+  /** The market's prices; null, the store's own. */
+  pricing: Pricing | null
+  /** The theme's selector, in the canvas: a language or a country chosen changes the preview, never the address. */
+  pick: (choice: { language?: string; country?: string }) => void
 }
 
 /*
@@ -189,7 +235,7 @@ const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.
 /** A product in the language previewed: its title and description, as lib/markets/compat.ts lays them over on the website. */
 function inLanguage(card: ProductCard, map: TranslationMap): ProductCard {
   const c = card as ProductCard & { descriptionHtml?: string }
-  const opts = { approvedOnly: true }
+  const opts = { approvedOnly: true, fresh: true }
   const settings = localizeRecord(c.settings as unknown as Record<string, unknown>, `product:${c.id}`, ["title", "description"], map, opts)
   const html = c.descriptionHtml !== undefined ? (localizeRecord({ description: c.descriptionHtml }, `product:${c.id}`, ["description"], map, opts).description as string) : undefined
   if (settings === (c.settings as unknown) && html === c.descriptionHtml) return card
@@ -206,7 +252,7 @@ function withoutLanguage(href: string, lang: string): string {
 }
 
 export function CompatCanvas(props: CompatCanvasProps) {
-  const { installId, sources, pageKey, collections, shopName } = props
+  const { installId, sources, pageKey, shopName } = props
   /*
     A THEME SETTING UNDER A FINGER IS DRAWN TOO. A slider or a colour in
     Theme settings writes its values to the live layer while the finger is
@@ -305,13 +351,50 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const map = language?.map ?? null
   const fields = useMemo(() => (compatTheme && map ? compatFields(compatTheme) : null), [compatTheme, map])
   const sections = useMemo(
-    () => (fields && map ? (localizeSections(ownSections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true }) as unknown as StoredSection[]) : ownSections),
+    () => (fields && map ? (localizeSections(ownSections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true, fresh: true }) as unknown as StoredSection[]) : ownSections),
     [ownSections, fields, map],
   )
-  const products = useMemo(() => (map ? props.products.map((c) => inLanguage(c, map)) : props.products), [props.products, map])
-  const catalog = useMemo(() => (map && props.catalog ? props.catalog.map((c) => inLanguage(c, map)) : props.catalog), [props.catalog, map])
+  /*
+    IN THE MARKET PREVIEWED: every product's prices and its variants' in the
+    market's currency, and the shop's money format, by the functions the
+    website converts with (lib/markets/compat-prices.ts). The cart, the
+    drawer and the theme's money filter all read these.
+  */
+  const markets = props.markets ?? null
+  const pricing = markets?.pricing ?? null
+  const inPreview = useMemo(() => {
+    if (!map && !pricing) return null
+    return (c: ProductCard): ProductCard => {
+      const card = map ? inLanguage(c, map) : c
+      return pricing ? ({ ...card, settings: compatPrices(card.settings as unknown as Record<string, unknown>, pricing) } as unknown as ProductCard) : card
+    }
+  }, [map, pricing])
+  const products = useMemo(() => (inPreview ? props.products.map(inPreview) : props.products), [props.products, inPreview])
+  const catalog = useMemo(() => (inPreview && props.catalog ? props.catalog.map(inPreview) : props.catalog), [props.catalog, inPreview])
+  const collections = useMemo(
+    () => (pricing && inPreview ? props.collections.map((c) => (c.products ? { ...c, products: (c.products as unknown as ProductCard[]).map(inPreview) } : c)) as CollectionLike[] : props.collections),
+    [props.collections, pricing, inPreview],
+  )
   const menus = useMemo(() => (map ? localizeMenus(props.menus as never, map, { approvedOnly: true }) as CompatCanvasProps["menus"] : props.menus), [props.menus, map])
-  const i18n = useMemo(() => (language ? { locale: language.locale, defaultLanguage: language.defaultLanguage, languages: language.languages } : undefined), [language?.locale, language?.defaultLanguage, language?.languages.join(",")])
+  /*
+    THE THEME'S LANGUAGE AND COUNTRY SELECTORS list what the website's do
+    (lib/markets/compat.ts localizeCompatSite): every published language,
+    and every country with the currency it sees prices in. A store that
+    never saved Markets and languages: the theme's own language, alone.
+  */
+  const ownLanguage = compatTheme?.language ?? "en"
+  const i18nKey = JSON.stringify([language?.locale, language?.defaultLanguage, language?.languages, markets?.saved, markets?.defaultLanguage, markets?.languages, markets?.country, markets?.countries.length, markets?.countries.map((c) => c.currency).join(""), ownLanguage])
+  const i18n = useMemo((): SiteI18n | undefined => {
+    const where = markets ? { countries: markets.countries, ...(markets.country ? { country: markets.country } : {}) } : {}
+    if (markets && !markets.saved) return { locale: ownLanguage, defaultLanguage: ownLanguage, languages: [ownLanguage], ...where }
+    if (markets) return { locale: language?.locale ?? markets.defaultLanguage, defaultLanguage: markets.defaultLanguage, languages: markets.languages.length ? markets.languages : [markets.defaultLanguage], ...where }
+    return language ? { locale: language.locale, defaultLanguage: language.defaultLanguage, languages: language.languages } : undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18nKey])
+  /* Money written the market's way in the page's language, as the website writes it. */
+  /* The store's own currency, which its cards are priced in (lib/website-builder/shop-products), as the live site says it (compat-site); a market converts from it. */
+  const storeCurrency = pricing?.base || props.storeCurrency || (props.products[0] ?? props.catalog?.[0])?.settings.currency || SHOP_CURRENCY
+  const shop = useMemo(() => compatShop({ name: shopName, currency: storeCurrency, moneyFormat: moneyFormatFor(storeCurrency, i18n?.locale ?? ownLanguage) }, pricing, i18n?.locale ?? ownLanguage), [shopName, storeCurrency, pricing, i18n?.locale, ownLanguage])
 
   /*
     BY WHAT THEY HOLD, NOT BY WHICH OBJECT. The editor makes its menus again
@@ -321,9 +404,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const productId = props.productId ?? null
   const pageKeys = props.pageKeys
-  const dataKey = JSON.stringify([products, catalog, collections, menus, shopName, pageKeys])
-  const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys })
-  dataRef.current = { products, catalog, collections, menus, shopName, pageKeys }
+  const dataKey = JSON.stringify([products, catalog, collections, menus, shop, pageKeys])
+  const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys, shop })
+  dataRef.current = { products, catalog, collections, menus, shopName, pageKeys, shop }
   /*
     THE PRODUCT PAGE'S VARIANTS, AS THE LIVE SITE DRAWS THEM. The cards are
     the shop's list copy; what is true now about each variant (on sale or
@@ -369,7 +452,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const stockKey = stock ? `${JSON.stringify(stock)}:${showLeft}` : ""
   /* The page a key draws, as the canvas draws it: the one in front (`page`), or one drawn ahead out of sight (KEPT PAGES). */
   const pageFor = (pageKey: string, productId: string | null): CompatPage => {
-    const { products, catalog, collections, menus, shopName, pageKeys } = dataRef.current
+    const { products, catalog, collections, menus, pageKeys, shop } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
     const found = picked ?? products[0] ?? null
@@ -381,13 +464,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
       suffix,
       path,
       designMode: true,
+      /* The theme is told it is on the website, so its own motion plays as there (THE THEME MOVES AS ON THE WEBSITE, at the top of this file). */
+      themeDesignMode: false,
       host: "",
       products,
       pickable: catalog,
       collections,
       menus,
       pageKeys: pageKeys ? [...pageKeys] : undefined,
-      shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
+      shop,
       i18n,
       /* The builder's own cart (canvasCarts), so the cart page and a drawer drawn again show what was added. */
       cart: cartLines({ products }, canvasCarts.get(installId)?.cart ?? []),
@@ -446,7 +531,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   stampRef.current = stamp
   const canvasSite = (): SiteData => {
     const { products, catalog, collections, menus } = dataRef.current
-    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true, i18n }
+    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true, themeDesignMode: false, i18n }
   }
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
@@ -565,7 +650,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const key = docKeyFor(warm.pageKey, null, null)
     if (slotsRef.current.some((x) => x.key === key)) return
     /* In the language previewed, as the page in front is (`sections`, above). */
-    const list = fields && map ? (localizeSections(warm.sections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true }) as unknown as StoredSection[]) : warm.sections
+    const list = fields && map ? (localizeSections(warm.sections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true, fresh: true }) as unknown as StoredSection[]) : warm.sections
     if (keptRef.current.some((x) => x.key === key && x.stamp === stampRef.current && holds(x, list))) return
     let html: string
     try {
@@ -822,6 +907,23 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const answerRequest = (win: Window, m: { id?: unknown; method?: unknown; url?: unknown; body?: unknown; ajax?: unknown }) => {
     if (!compatTheme || typeof m.id !== "number" || typeof m.url !== "string") return
+    /*
+      THE THEME'S LANGUAGE AND COUNTRY SELECTOR (form 'localization'): on the
+      website it opens the page in the language chosen and remembers the
+      country (lib/storelib-theme/compat/site.ts). Here it changes what the
+      canvas previews, the language and the market's prices, and the page
+      stays where it is. A language or a country the website does not list
+      changes nothing, as there.
+    */
+    const asked = (() => { try { return new URL(m.url, "https://canvas.invalid").pathname.replace(/\/+$/, "") } catch { return "" } })()
+    if (String(m.method ?? "GET").toUpperCase() === "POST" && /^(\/[a-z]{2,3}(-[a-z0-9]{2,8})*)?\/localization$/i.test(asked) && props.markets) {
+      const body = m.body && typeof m.body === "object" ? (m.body as Record<string, unknown>) : {}
+      const lang = typeof body.language_code === "string" ? i18n?.languages.find((l) => l.toLowerCase() === String(body.language_code).toLowerCase()) : undefined
+      const country = typeof body.country_code === "string" ? i18n?.countries?.find((c) => c.code === String(body.country_code).toUpperCase())?.code : undefined
+      if (lang || country) props.markets.pick({ ...(lang ? { language: lang } : {}), ...(country ? { country } : {}) })
+      win.postMessage({ storelib: 1, type: "response", id: m.id, status: 200, contentType: "text/html; charset=utf-8", body: "" }, "*")
+      return
+    }
     const { products, catalog, collections, menus, pageKeys } = dataRef.current
     const current = pageRef.current
     const site: SiteData = {
@@ -836,6 +938,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       shop: current.shop,
       host: "",
       designMode: true,
+      themeDesignMode: false,
       i18n,
       /* The product the page shows, with what is true now about its variants: a section drawn again on a choice (`?option_values=`, `?variant=`) says the same stock as the page did. */
       product: async (handle) => {
@@ -1020,7 +1123,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         }
       } else if (m.type === "storage") {
         const st = m as { area?: unknown; items?: unknown }
-        if ((st.area === "localStorage" || st.area === "sessionStorage") && st.items && typeof st.items === "object") {
+        if ((st.area === "localStorage" || st.area === "sessionStorage" || st.area === "cookie") && st.items && typeof st.items === "object") {
           canvasStorage.set(installId, { ...(canvasStorage.get(installId) ?? {}), [st.area]: st.items as Record<string, string> })
         }
       } else if (m.type === "navigate" && isFront) {

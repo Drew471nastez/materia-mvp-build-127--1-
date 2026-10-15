@@ -84,7 +84,7 @@ export function formatMoney(usdCents: number, currency: CurrencyCode): string {
  * moment the platform charges in lei, the numbers stop being converted, and
  * there is no window where the two disagree.
  */
-export function formatPlatformMoney(cents: number): string {
+export function formatPlatformMoney(cents: number, from?: string | null): string {
   /**
    * ONE ANSWER, FROM ONE PLACE.
    *
@@ -101,7 +101,11 @@ export function formatPlatformMoney(cents: number): string {
    * there is only one place that decides it.
    */
   const storedIsLei = PLATFORM_CURRENCY === "ron"
-  const amount = ((cents || 0) / 100) * (storedIsLei ? 1 : USD_RATES.RON)
+  /* A store that sells in its own currency (lib/store/selling-currency) has its amounts in it: lei as they are, another currency through the dollar at the same table. */
+  const own = typeof from === "string" ? (from.toUpperCase() as CurrencyCode) : null
+  const amount = own && own in USD_RATES
+    ? ((cents || 0) / 100) * (USD_RATES.RON / USD_RATES[own])
+    : ((cents || 0) / 100) * (storedIsLei ? 1 : USD_RATES.RON)
   try {
     return new Intl.NumberFormat("ro-RO", {
       style: "currency",

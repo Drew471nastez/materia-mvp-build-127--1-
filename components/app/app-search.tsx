@@ -55,6 +55,10 @@ const EXTERNAL: Record<string, string> = {
 
 /** How long a pause in typing before the server is asked. */
 export const SEARCH_DEBOUNCE_MS = 200
+/** How long one search is waited for before it says so and offers Try again. */
+export const SEARCH_WAIT_MS = 10_000
+/** How long an answer is drawn again for the same words without asking. */
+export const ANSWER_KEEP_MS = 30_000
 
 export type AppSearchHandle = { open: () => void }
 
@@ -155,13 +159,31 @@ export const AppSearch = memo(
     /* ── Asking the server ─────────────────────────────────────────────── */
     const q = normalizeQuery(query)
     const searchable = isSearchable(q)
+    /*
+      ANSWERS ALREADY HAD, for ANSWER_KEEP_MS: backspacing from "john" to
+      "jo" draws "jo" again at once instead of asking again. Kept for this
+      page only, and a Try again always asks.
+    */
+    const answers = useRef(new Map<string, { at: number; result: SearchResult }>())
     useEffect(() => {
       if (!open) return
       if (!searchable) {
         setRemote({ status: "idle" })
         return
       }
+      const kept = answers.current.get(q)
+      /* Only answers are kept, and Try again only follows a failure, so it always asks. */
+      if (kept && Date.now() - kept.at < ANSWER_KEEP_MS) {
+        setRemote({ status: "done", q, result: kept.result })
+        return
+      }
       const controller = new AbortController()
+      /* Never a spinner for good: a search with no answer in SEARCH_WAIT_MS says so and offers Try again. */
+      let timedOut = false
+      const deadline = window.setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, SEARCH_DEBOUNCE_MS + SEARCH_WAIT_MS)
       const timer = window.setTimeout(async () => {
         setRemote((prev) => ({
           status: "loading",
@@ -177,6 +199,10 @@ export const AppSearch = memo(
             cache: "no-store",
           })
           const data = await res.json().catch(() => null)
+          if (timedOut) {
+            setRemote({ status: "error", q, message: tt("Search took too long. Try again.") })
+            return
+          }
           if (controller.signal.aborted) return
           if (!res.ok || !data?.groups) {
             const message =
@@ -188,14 +214,22 @@ export const AppSearch = memo(
             setRemote({ status: "error", q, message })
             return
           }
+          answers.current.set(q, { at: Date.now(), result: data as SearchResult })
           setRemote({ status: "done", q, result: data as SearchResult })
         } catch {
+          if (timedOut) {
+            setRemote({ status: "error", q, message: tt("Search took too long. Try again.") })
+            return
+          }
           if (controller.signal.aborted) return
           setRemote({ status: "error", q, message: tt("Could not reach Storelib. Check your connection.") })
+        } finally {
+          window.clearTimeout(deadline)
         }
       }, SEARCH_DEBOUNCE_MS)
       return () => {
         window.clearTimeout(timer)
+        window.clearTimeout(deadline)
         controller.abort()
       }
     }, [open, q, searchable, retry])
@@ -370,7 +404,7 @@ export const AppSearch = memo(
                 aria-controls="app-search-list"
                 aria-activedescendant={active && flat.length ? optionId(active.key) : undefined}
                 aria-autocomplete="list"
-                aria-label={tt("Search orders, customers, products, emails and pages")}
+                aria-label={tt("Search orders, customers, products, collections, coupons, emails and pages")}
                 placeholder={tt("Search orders, customers, products")}
                 autoComplete="off"
                 autoCorrect="off"

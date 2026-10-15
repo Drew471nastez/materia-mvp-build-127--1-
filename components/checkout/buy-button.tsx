@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { usePageMoney } from "@/components/platform/price-currency"
 
 import { useEditorFrame } from "@/components/storefront/use-editor-frame"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,8 @@ export function BuyButton({
   callToAction,
   customPriceCents,
 }: BuyButtonProps) {
+  /* In the page's store currency (components/platform/price-currency). */
+  const pageMoney = usePageMoney()
   const router = useRouter()
   /* Pressed until the page is shown again: a product page restored from history never keeps a spent Buy button (lib/navigation/press-pending). */
   const [loading, startLoading] = usePressPending()
@@ -48,10 +51,7 @@ export function BuyButton({
   const inEditorFrame = useEditorFrame()
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
+    return pageMoney(cents, { grouping: true })
   }
 
   const checkoutUrl = (() => {

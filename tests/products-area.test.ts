@@ -604,8 +604,9 @@ check("  React's leftover pseudo animations are read from the document's list, w
 check("a press's answer is not taken away while the shell still has a page on its way",
   /let cap = window\.setTimeout\(function again\(\) \{\s*if \(getAppNavigation\(\)\) \{\s*cap = window\.setTimeout\(again, LAYER_PRESS_KEPT_MS\)\s*return\s*\}\s*release\(\)\s*\}, LAYER_PRESS_KEPT_MS\)/.test(layer))
 check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
+/* Changed on purpose: the stage also holds its landing while a pull to refresh is showing (pullRefreshVisualActive, ddcbaf919; page-performance pins it). */
 check("the stage plays no landing of its own under a layer's move (the mark read on the commit, and again on the frame the landing would start)",
-  /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
+  /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?( \|\| pullRefreshVisualActive\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
 const ret = code("app/app/products/list-return.ts")
 /* "Exit must not leave the editor in the browser's forward/back stack in a surprising way." */
 /* And a back that does nothing is followed by the list itself, rather than by

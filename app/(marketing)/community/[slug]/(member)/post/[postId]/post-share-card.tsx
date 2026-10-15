@@ -8,7 +8,7 @@
  *                   poster or embed thumb; title and community over it
  *   ANY OTHER       generic members-only card (no post content)
  *
- * No Storelib branding on the artwork — only the community and the post.
+ * No Storelib branding on the artwork, only the community and the post.
  */
 import { clip } from "@/components/community/public/share-card"
 import { compactCount } from "@/lib/communities/format"

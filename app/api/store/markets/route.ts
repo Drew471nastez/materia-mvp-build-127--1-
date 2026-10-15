@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { recordActivity } from "@/lib/activity/log-server"
-import { storeCurrencyOf } from "@/lib/store/currency"
-import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { localizationOf, saveLocalization } from "@/lib/markets/server"
-import { latestRates, refreshRates } from "@/lib/markets/fx-server"
+import { cachedRates, latestRates, refreshRates } from "@/lib/markets/fx-server"
+import { siteLanguages } from "@/lib/markets/live"
 import { fxFresh } from "@/lib/markets/money"
+import { canDraftWithAi } from "@/lib/markets/translate-ai"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,16 +18,40 @@ export const dynamic = "force-dynamic"
  * whether today's exchange rates are in (a market shows converted prices
  * only while they are).
  */
-async function base(c: { db: any; creatorId: string }) {
-  /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
-  const db = c.db
-  const { data } = await db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
-  return storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency)
+/* The currency the store's prices are in and charged in (Settings › Country & Currency, lib/store/selling-currency), not its payout currency: what a market converts from. */
+async function base(c: { db: unknown; creatorId: string }) {
+  return (await readStoreCurrency(c.db, c.creatorId)).currency
 }
 
 let lastFetch = 0
 
-export async function GET() {
+/**
+ * ?preview=1, THE BUILDER'S CANVAS IN A MARKET (components/website-builder/
+ * use-preview-market.ts): the markets exactly as the live site reads them
+ * (lib/markets/live.ts siteLanguages: active, with a currency of their own),
+ * the home market, the prices' own currency, the day's rates the website
+ * converts with, and what the card is charged in. Read only, for the
+ * website's editors: nothing here is saved or charged.
+ */
+async function preview() {
+  const c = await shopCaller("website")
+  if (c instanceof NextResponse) return c
+  const langs = await siteLanguages(c.creatorId)
+  const markets = langs.saved ? langs.markets : []
+  const [fx, own] = await Promise.all([markets.length ? cachedRates().catch(() => null) : null, base(c)])
+  return physicalJson({
+    saved: langs.saved,
+    /* The store's own currency (Settings › Country & Currency): what its prices are typed in, and what the canvas shows with no market. */
+    base: own,
+    chargeCurrency: own,
+    home: { name: langs.homeName ?? null, country: langs.homeCountry ?? null },
+    markets: markets.map((m) => ({ id: m.id, name: m.name, currency: m.currency, countries: m.countries, rounding: m.rounding, adjustBps: m.adjustBps, ...(m.rate ? { rate: m.rate } : {}) })),
+    fx: fx && fxFresh(fx) ? { asOf: fx.asOf, rates: fx.rates } : null,
+  })
+}
+
+export async function GET(request: Request) {
+  if (new URL(request.url).searchParams.get("preview") === "1") return preview()
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const baseCurrency = await base(c)
@@ -47,9 +72,13 @@ export async function GET() {
   return physicalJson({
     ready: loc.ready,
     localization: loc.value,
+    /* Translate changes automatically: what its last run did, and whether Storelib AI can run at all. */
+    autoTranslate: { run: loc.autoTranslateRun ?? null, available: canDraftWithAi() },
     baseCurrency,
-    chargeCurrency: platformChargeCurrencyUpper(),
-    fx: fx ? { asOf: fx.asOf, fresh: fxFresh(fx), currencies: ["EUR", ...Object.keys(fx.rates)].sort() } : null,
+    /* A store's checkout charges in its own currency, the one its prices are in. */
+    chargeCurrency: baseCurrency,
+    /* With the rates, so the builder can show a market's prices as the website does (components/website-builder/use-preview-language.ts). */
+    fx: fx ? { asOf: fx.asOf, fresh: fxFresh(fx), currencies: ["EUR", ...Object.keys(fx.rates)].sort(), rates: fx.rates } : null,
   })
 }
 

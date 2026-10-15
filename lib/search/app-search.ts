@@ -37,15 +37,20 @@
 import { groupOrders, matchesSearch, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { formatOrderMoney, orderCurrency } from "@/lib/orders/money"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
-export type SearchGroupId = "orders" | "customers" | "products" | "emails" | "automations"
+export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "coupons" | "emails" | "automations"
 
-export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "emails", "automations"]
+export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "collections", "coupons", "emails", "automations"]
 
 export const GROUP_LABELS: Record<SearchGroupId, string> = {
   get orders() { return tt("Orders") },
   get customers() { return tt("Customers") },
   get products() { return tt("Products") },
+  get collections() { return tt("Collections") },
+  get coupons() { return tt("Coupons") },
   get emails() { return tt("Emails") },
   get automations() { return tt("Automations") },
 }
@@ -71,7 +76,7 @@ export interface SearchResult {
 }
 
 export function emptyResult(): SearchResult {
-  return { groups: { orders: [], customers: [], products: [], emails: [], automations: [] }, unavailable: [] }
+  return { groups: { orders: [], customers: [], products: [], collections: [], coupons: [], emails: [], automations: [] }, unavailable: [] }
 }
 
 /** Trimmed, one space between words, and no longer than MAX_QUERY_LENGTH. */
@@ -137,7 +142,8 @@ async function readWithFallback(group: SearchGroupId, run: (columns: string) => 
 
 const text = (v: unknown): string => (typeof v === "string" ? v : "")
 
-const usd = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
+/* A product's price and a coupon's amount in the shop's currency (lib/store/shop-money.ts: lei, or dollars on a deployment that charges in them), in the dashboard's language; an order's total is in what it was charged (lib/orders/money). */
+const shopPrice = (units: number, currency: string = SHOP_CURRENCY) => new Intl.NumberFormat(appLocale(), { style: "currency", currency }).format(units)
 
 function sentenceCase(v: string): string {
   const t = v.replace(/_/g, " ").trim()
@@ -170,7 +176,7 @@ async function readProducts(db: Db, creatorId: string): Promise<ProductIndex[]> 
 /* ─── Orders and the people who placed them ──────────────────────────── */
 
 const ORDER_COLUMNS =
-  "id, product_id, created_at, stripe_session_id, amount_cents, tip_cents, status, buyer_email, customer_email, buyer_first_name, buyer_last_name, refund_amount_cents"
+  "id, product_id, created_at, stripe_session_id, amount_cents, tip_cents, status, buyer_email, customer_email, buyer_first_name, buyer_last_name, refund_amount_cents, currency"
 
 /** Every order row on the creator's products, a thousand at a time, as the Orders page reads them. */
 async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow[]> {
@@ -208,10 +214,42 @@ async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow
       buyer_last_name: nullable(o.buyer_last_name),
       stripe_session_id: nullable(o.stripe_session_id),
       refund_amount_cents: typeof o.refund_amount_cents === "number" ? o.refund_amount_cents : null,
+      currency: orderCurrency(o.currency),
       product: product ? { id: product.id, title: product.title } : null,
     }
     return row
   })
+}
+
+/*
+  THE ORDERS, READ ONCE WHILE SOMEBODY TYPES. Numbering an order needs every
+  order of the store (see the top of this file), so each pause in typing read
+  all of them again: "jo", "joh", "john" was three full reads of a store's
+  orders. They are kept here, on this server instance, for ORDER_INDEX_MS,
+  keyed by the store, and two searches at once share one read. Never the
+  query, never sent anywhere: the same rows the search was about to read.
+*/
+const ORDER_INDEX_MS = 20_000
+const ORDER_INDEX_MAX = 50
+const orderIndex = new Map<string, { at: number; read: Promise<Order[]> }>()
+
+function cachedOrders(db: Db, creatorId: string, products: ProductIndex[], now = Date.now()): Promise<Order[]> {
+  const hit = orderIndex.get(creatorId)
+  if (hit && now - hit.at < ORDER_INDEX_MS) return hit.read
+  const read = readOrderRows(db, products).then(groupOrders)
+  orderIndex.set(creatorId, { at: now, read })
+  /* A failed read is not kept: the next search reads again. */
+  read.catch(() => {
+    if (orderIndex.get(creatorId)?.read === read) orderIndex.delete(creatorId)
+  })
+  /* The oldest store out first, so the map never grows past a handful. */
+  while (orderIndex.size > ORDER_INDEX_MAX) orderIndex.delete(orderIndex.keys().next().value as string)
+  return read
+}
+
+/** For tests: forget what was kept. */
+export function forgetOrderIndex(): void {
+  orderIndex.clear()
 }
 
 function orderHit(order: Order): SearchHit {
@@ -221,7 +259,7 @@ function orderHit(order: Order): SearchHit {
   return {
     id: order.id,
     title: tt("Order #{number}", { number: order.number }),
-    detail: [who, what, usd.format(order.totalCents / 100)].filter(Boolean).join(" · "),
+    detail: [who, what, formatOrderMoney(order.totalCents, order.currency)].filter(Boolean).join(" · "),
     href: `/app/orders?order=${encodeURIComponent(order.id)}`,
   }
 }
@@ -350,9 +388,60 @@ async function readAutomations(db: Db, creatorId: string, q: string): Promise<Se
   }))
 }
 
+/* ─── Collections and coupons ────────────────────────────────────────── */
+
+async function readCollections(db: Db, creatorId: string, q: string): Promise<SearchHit[]> {
+  const rows = await readWithFallback(
+    "collections",
+    (columns) =>
+      db
+        .from("product_collections")
+        .select(columns)
+        .eq("creator_id", creatorId)
+        .ilike("title", containsPattern(q))
+        .order("created_at", { ascending: false })
+        .limit(GROUP_LIMIT),
+    "id, title, published",
+  )
+  return rows.map((r) => ({
+    id: text(r.id),
+    title: text(r.title) || tt("Untitled collection"),
+    detail: r.published === false ? tt("Hidden") : tt("Published"),
+    /* The collection opens in its editor (app/app/products/collections ?collection=). */
+    href: `/app/products/collections?collection=${encodeURIComponent(text(r.id))}`,
+  }))
+}
+
+async function readCoupons(db: Db, creatorId: string, q: string, currency: Promise<string>): Promise<SearchHit[]> {
+  const rows = await readWithFallback(
+    "coupons",
+    (columns) =>
+      db
+        .from("coupons")
+        .select(columns)
+        .eq("creator_id", creatorId)
+        .ilike("code", containsPattern(q))
+        .order("created_at", { ascending: false })
+        .limit(GROUP_LIMIT),
+    "id, code, discount_type, discount_value, is_active",
+  )
+  const inCurrency = await currency
+  return rows.map((r) => {
+    /* A percentage, or an amount in whole units as the coupon form keeps it (app/app/coupons/coupon-form.ts). */
+    const value = typeof r.discount_value === "number" ? r.discount_value : Number(r.discount_value)
+    const off = !Number.isFinite(value) ? "" : r.discount_type === "percentage" ? tt("{value}% off", { value }) : tt("{value} off", { value: shopPrice(value, inCurrency) })
+    return {
+      id: text(r.id),
+      title: text(r.code) || tt("Coupon"),
+      detail: [off, r.is_active === false ? tt("Off") : tt("On")].filter(Boolean).join(" · "),
+      href: `/app/coupons/${encodeURIComponent(text(r.id))}`,
+    }
+  })
+}
+
 /* ─── Products ───────────────────────────────────────────────────────── */
 
-function productHits(products: ProductIndex[], q: string): SearchHit[] {
+function productHits(products: ProductIndex[], q: string, currency: string): SearchHit[] {
   const needle = q.trim().toLowerCase()
   return products
     .filter((p) => p.title.toLowerCase().includes(needle))
@@ -360,7 +449,7 @@ function productHits(products: ProductIndex[], q: string): SearchHit[] {
     .map((p) => ({
       id: p.id,
       title: p.title,
-      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? usd.format(p.price_cents / 100) : "Free") : ""]
+      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? shopPrice(p.price_cents / 100, currency) : tt("Free")) : ""]
         .filter(Boolean)
         .join(" · "),
       href: `/app/products/${encodeURIComponent(p.id)}`,
@@ -373,10 +462,17 @@ function productHits(products: ProductIndex[], q: string): SearchHit[] {
  * The five groups for one query, for one creator. `creatorId` must be the
  * signed in person's own, read on the server: nothing from the request.
  */
-export async function searchCreator(db: Db, creatorId: string, rawQuery: string): Promise<SearchResult> {
+export async function searchCreator(
+  db: Db,
+  creatorId: string,
+  rawQuery: string,
+  /** `groups`: only these are read (a teammate's role, app/api/app/search); every group when left out. */
+  opts: { groups?: ReadonlySet<SearchGroupId> } = {},
+): Promise<SearchResult> {
   const result = emptyResult()
   const q = normalizeQuery(rawQuery)
   if (!creatorId || !isSearchable(q)) return result
+  const wants = (g: SearchGroupId) => !opts.groups || opts.groups.has(g)
 
   const failed = (group: SearchGroupId, err: unknown) => {
     if (!result.unavailable.includes(group)) result.unavailable.push(group)
@@ -385,32 +481,42 @@ export async function searchCreator(db: Db, creatorId: string, rawQuery: string)
     console.warn(`[app-search] ${group} unavailable (${code})`)
   }
 
-  const productsRead = readProducts(db, creatorId).catch((err) => {
-    failed("products", err)
-    return null
-  })
+  /* Prices and fixed coupons are in the store's own currency (Settings › Country & Currency). */
+  const storeCurrency = readStoreCurrency(db, creatorId).then((s) => s.currency as string)
+  const needOrders = wants("orders") || wants("customers")
+  const productsRead =
+    wants("products") || needOrders
+      ? readProducts(db, creatorId).catch((err) => {
+          failed("products", err)
+          return null
+        })
+      : Promise.resolve(null)
+  /* The email list is read beside the orders, not after them: it needs nothing from them. */
+  const contactsRead: Promise<Contact[] | null> = wants("customers")
+    ? readContacts(db, creatorId, q).catch((err) => {
+        failed("customers", err)
+        return null
+      })
+    : Promise.resolve(null)
 
   const ordersAndCustomers = (async () => {
+    if (!needOrders) return
     const products = await productsRead
     let orders: Order[] = []
     if (products) {
       try {
-        orders = groupOrders(await readOrderRows(db, products))
+        orders = await cachedOrders(db, creatorId, products)
       } catch (err) {
         failed("orders", err)
       }
     } else {
       failed("orders", new GroupUnavailable("orders", "products"))
     }
-    result.groups.orders = orders.filter((o) => matchesSearch(o, q)).slice(0, GROUP_LIMIT).map(orderHit)
+    if (wants("orders")) result.groups.orders = orders.filter((o) => matchesSearch(o, q)).slice(0, GROUP_LIMIT).map(orderHit)
+    if (!wants("customers")) return
 
     const buyers = buyersMatching(orders, q)
-    let contacts: Contact[] = []
-    try {
-      contacts = await readContacts(db, creatorId, q)
-    } catch (err) {
-      failed("customers", err)
-    }
+    const contacts = (await contactsRead) ?? []
     const seen = new Set(buyers.map((b) => b.key))
     const people: SearchHit[] = buyers.map((b) => ({
       id: `buyer:${b.key}`,
@@ -432,20 +538,26 @@ export async function searchCreator(db: Db, creatorId: string, rawQuery: string)
     result.groups.customers = people.slice(0, GROUP_LIMIT)
   })()
 
-  const productsFound = productsRead.then((products) => {
-    if (products) result.groups.products = productHits(products, q)
+  const productsFound = productsRead.then(async (products) => {
+    if (products && wants("products")) result.groups.products = productHits(products, q, await storeCurrency)
   })
 
-  const emails = readEmails(db, creatorId, q).then(
-    (hits) => void (result.groups.emails = hits),
-    (err) => failed("emails", err),
-  )
-  const automations = readAutomations(db, creatorId, q).then(
-    (hits) => void (result.groups.automations = hits),
-    (err) => failed("automations", err),
-  )
+  const group = (g: SearchGroupId, read: () => Promise<SearchHit[]>) =>
+    wants(g)
+      ? read().then(
+          (hits) => void (result.groups[g] = hits),
+          (err) => failed(g, err),
+        )
+      : Promise.resolve()
 
-  await Promise.all([ordersAndCustomers, productsFound, emails, automations])
+  await Promise.all([
+    ordersAndCustomers,
+    productsFound,
+    group("collections", () => readCollections(db, creatorId, q)),
+    group("coupons", () => readCoupons(db, creatorId, q, storeCurrency)),
+    group("emails", () => readEmails(db, creatorId, q)),
+    group("automations", () => readAutomations(db, creatorId, q)),
+  ])
   result.unavailable.sort((a, b) => SEARCH_GROUPS.indexOf(a) - SEARCH_GROUPS.indexOf(b))
   return result
 }

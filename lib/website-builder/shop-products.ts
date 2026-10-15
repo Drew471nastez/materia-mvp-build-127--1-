@@ -61,12 +61,15 @@ import { listedOn } from "@/lib/store/channels"
 import { offChannel } from "@/lib/store/channel-filter"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { imagesOnly, isPosterName, isVideoUrl } from "@/lib/media/video"
+import { plainDescription } from "@/lib/products/plain-description"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
 
-/** Every price on Storelib is charged in US dollars. */
-export const SHOP_CURRENCY = "USD"
+/** The currency every store's prices are in and charged in (lib/store/shop-money.ts): not always dollars. */
+export { SHOP_CURRENCY }
 
 /** One option of a product, as a section reads it. */
 export interface ProductVariantCard {
@@ -151,10 +154,10 @@ export interface ProductPageData extends ProductCard {
   }
 }
 
-/** `price_cents` is USD cents. One place, so every section agrees. */
-export function formatPrice(cents: number | null | undefined): string {
+/** `price_cents` is hundredths of the store's own currency (lib/store/selling-currency). One place, so every section agrees. */
+export function formatPrice(cents: number | null | undefined, currency: string = SHOP_CURRENCY): string {
   if (typeof cents !== "number" || !Number.isFinite(cents) || cents <= 0) return ""
-  return `$${(cents / 100).toFixed(2)}`
+  return shopMoneyIn(cents, currency)
 }
 
 /** Never more than this, whatever a section asks for. */
@@ -219,11 +222,11 @@ function askingCents(row: { price_cents: number | null; pay_what_you_want?: bool
   return row.price_cents ?? 0
 }
 
-function wasPrice(now: number, was: number | null | undefined): string {
+function wasPrice(now: number, was: number | null | undefined, currency: string = SHOP_CURRENCY): string {
   // Only when it is actually more than the price. A "was" that is lower
   // than the "now" is a mistake somewhere, and printing it is worse than
   // leaving it out.
-  return typeof was === "number" && was > now ? formatPrice(was) : ""
+  return typeof was === "number" && was > now ? formatPrice(was, currency) : ""
 }
 
 /**
@@ -250,13 +253,13 @@ function mediaWithVideos(row: ProductRow): string[] | null {
 }
 
 /** One option, as a section reads it. */
-export function toVariant(productId: string, v: VariantRow, available: boolean): ProductVariantCard {
+export function toVariant(productId: string, v: VariantRow, available: boolean, currency: string = SHOP_CURRENCY): ProductVariantCard {
   const cents = askingCents(v)
   return {
     id: v.id,
     name: (v.name ?? "").trim() || "Option",
-    price: formatPrice(cents),
-    compare_price: wasPrice(cents, v.compare_at_price_cents),
+    price: formatPrice(cents, currency),
+    compare_price: wasPrice(cents, v.compare_at_price_cents, currency),
     free: cents <= 0 && !v.pay_what_you_want,
     available,
     checkout_url: available ? checkoutUrl(productId, v.id) : "",
@@ -283,23 +286,23 @@ export function soldOut(row: { inventory_count?: number | null; track_inventory?
 }
 
 /** A row to the card a section draws. Exported so a test can drive it. */
-export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows: OptionRow[] = []): ProductCard {
+export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows: OptionRow[] = [], currency: string = SHOP_CURRENCY): ProductCard {
   const cents = askingCents(row)
   const images = pictures(row)
   const available = !soldOut(row)
   const options = variants
     .filter((v) => v.product_id === row.id && onSale(v))
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || askingCents(a) - askingCents(b))
-    .map((v) => toVariant(row.id, v, available))
+    .map((v) => toVariant(row.id, v, available, currency))
   return {
     id: row.id,
     type: "product",
     settings: {
       title: row.title ?? "",
       /* A membership's price is per month, "$9.00/month", as on Storelib's own cards (lib/pricing/list-price). */
-      price: row.type === "membership" && cents > 0 ? `${formatPrice(cents)}/month` : formatPrice(cents),
-      compare_price: wasPrice(cents, row.compare_at_cents),
-      currency: SHOP_CURRENCY,
+      price: row.type === "membership" && cents > 0 ? `${formatPrice(cents, currency)}/month` : formatPrice(cents, currency),
+      compare_price: wasPrice(cents, row.compare_at_cents, currency),
+      currency,
       free: cents <= 0 && !row.pay_what_you_want,
       pay_what_you_want: row.pay_what_you_want === true,
       image: mediaUrl(row.thumbnail_url) ?? images[0] ?? "",
@@ -348,37 +351,12 @@ export async function productOptions(db: Db, productIds: string[]): Promise<Opti
   }
 }
 
-/** Tags after which words must not run together. */
-const BLOCK_END = /<\/(?:p|div|li|h[1-6]|blockquote|pre|tr)>|<br\s*\/?>/gi
-
-/**
- * A product description as plain text that keeps its paragraphs. It is stored
- * as rich text from the product editor, and a section prints it escaped
- * rather than trusting it as markup: the product page's own renderer does
- * the same, for the same reason (a stored description is user input).
- */
-export function plainDescription(html: string | null | undefined, max = 5_000): string {
-  if (!html) return ""
-  const text = html
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
-    .replace(BLOCK_END, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/[ \t\f\v]+/g, " ")
-    .replace(/ *\n */g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
-}
+/* A product description as plain text that keeps its paragraphs (lib/products/plain-description.ts), here for the callers that always read it from this file. */
+export { plainDescription }
 
 /** The product a product page is about, from the row its route already read. */
-export function toProductPage(row: ProductRow, variants: VariantRow[] = []): ProductPageData {
-  const card = toCard(row, variants)
+export function toProductPage(row: ProductRow, variants: VariantRow[] = [], currency: string = SHOP_CURRENCY): ProductPageData {
+  const card = toCard(row, variants, [], currency)
   return { ...card, settings: { ...card.settings, description: plainDescription(row.description) } }
 }
 
@@ -442,12 +420,14 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
 export const PRODUCT_COLUMN_SETS = [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL] as const
 
 /** Rows to cards, with their options (variants) and a shipped product's Size and Colour. Never throws. */
-export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?: string): Promise<ProductCard[]> {
+export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?: string, currency?: string): Promise<ProductCard[]> {
   if (rows.length === 0) return []
+  /* In the store's own currency (Settings › Country & Currency), the one its prices are in. */
+  const shown = currency ?? (creatorId ? (await readStoreCurrency(db, creatorId)).currency : SHOP_CURRENCY)
   const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
   /* In batches, so a long shop does not ask for hundreds of ids in one address. */
   const [variants, options] = await Promise.all([variantsInBatches(db as Db, rows.map((r) => r.id)), optionsInBatches(db as Db, physical)])
-  const cards = rows.map((r) => toCard(r, variants, options))
+  const cards = rows.map((r) => toCard(r, variants, options, shown))
   const stocked = creatorId ? await withPhysicalStock(db as Db, creatorId, rows, cards).catch(() => cards) : cards
   const capped = await withSalesLimits(db, rows, stocked).catch(() => stocked)
   const fielded = await withCustomFields(db as Db, capped).catch(() => capped)

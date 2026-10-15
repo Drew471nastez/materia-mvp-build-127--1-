@@ -84,6 +84,24 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
     setEditing({ key: Date.now(), collection })
     setOpen(true)
   }
+  /*
+    ?collection=<id>, from the search in the header (lib/search/app-search.ts):
+    that collection opens as its row would open it. Read once, then taken
+    out of the address, so Back and a reload land on the list.
+  */
+  const openedFromLink = React.useRef(false)
+  React.useEffect(() => {
+    if (openedFromLink.current) return
+    openedFromLink.current = true
+    const url = new URL(window.location.href)
+    const id = url.searchParams.get("collection")
+    if (!id) return
+    url.searchParams.delete("collection")
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
+    const found = list.find((c) => c.id === id)
+    if (found) start(found)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   /** Takes the editor down; `then` runs once it has gone (by default, it is put away). */
   const close = (then?: () => void) => {
     afterClose.current = then ?? (() => setEditing(null))

@@ -11,6 +11,7 @@
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { emailImageSrc, senderPicture, type SenderPicture } from "@/lib/email-campaigns/sender"
 import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
+import { et, inEmailLanguage } from "@/lib/emails/words"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 import { creatorTimeZone, formatForCreator } from "@/lib/account/time-zone"
 import type { MailAttachment } from "./mailgun"
@@ -23,6 +24,7 @@ import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { buyerRefundEmail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
+import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -151,6 +153,8 @@ export interface SendBuyerEmailParams {
    * (getStableBaseUrl), so this is taken as it is.
    */
   receiptBaseUrl?: string | null
+  /** The language the order was placed in (its origin's `lang`): the email is written in it (lib/emails/words.ts). */
+  lang?: string | null
 }
 
 export interface SendSellerEmailParams {
@@ -520,7 +524,8 @@ async function receiptEmailModel(
   }
 
   const amount = Number(params.fallback.amountCents) || 0
-  const amountText = amount === 0 ? "Free" : formatMoney(amount, "USD", "en-US")
+  /* The receipt could not be read: the amount in the store's own currency, what it was charged in (lib/store/shop-money.ts), never dollars over lei. */
+  const amountText = amount === 0 ? "Free" : formatMoney(amount, SHOP_CURRENCY, "en-US")
   return {
     firstName: params.buyerFirstName,
     sellerName: params.sellerName,
@@ -734,7 +739,7 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
     try {
       /* The cart's attributes are SQL part 164's column: read without them where it has not run, so the rest of the order still shows. */
       const read = (cols: string) => admin.from("commerce_checkouts").select(cols).eq("id", checkoutId).eq("creator_id", params.creatorId!).maybeSingle()
-      const base = "delivery_method, shipping_address, shipping_rate, shipping_cents, shipping_discount_cents, tax_cents, items_subtotal_cents, discount_cents, total_cents, lines, pickup, buyer_note"
+      const base = "delivery_method, shipping_address, shipping_rate, shipping_cents, shipping_discount_cents, tax_cents, items_subtotal_cents, discount_cents, total_cents, lines, pickup, buyer_note, provider"
       let { data: co, error: coError } = await read(`${base}, cart_attributes`)
       if (coError && (coError.code === "42703" || coError.code === "PGRST204")) ({ data: co } = await read(base))
       const [{ physicalSaleFacts, withPhysicalSale }, { sellerNextStepFor }] = await Promise.all([import("@/lib/notify/seller-commerce"), import("@/lib/physical/orders-server")])
@@ -870,12 +875,22 @@ export async function sendBuyerDownloadEmail(
     }
   }
   const firstTitle = model.items[0]?.title ?? productTitle
-  const subject = await withReceiptCopy(
-    admin,
-    creatorId,
-    model,
-    model.items.length > 1 ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items` : `Your receipt for ${safeText(firstTitle)}`,
-  )
+  /* In the language the order was placed in (lib/emails/words.ts): the model's own words, the subject and the email are built in it. */
+  const language = creatorId ? await import("@/lib/emails/words-server").then((m) => m.emailLanguageFor(creatorId, params.lang)).catch(() => null) : null
+  const say = <T,>(build: () => T): T => inEmailLanguage(language?.lang, language?.words, build)
+  const standard = say(() => {
+    const word = (v: string | null | undefined) =>
+      v === "Free" ? et("Free") : v === "Download your files" ? et("Download your files") : v === "View your receipt" ? et("View your receipt") : v === "Waiting for payment" ? et("Waiting for payment") : v === "Refunded" ? et("Refunded") : v === "Payment failed" ? et("Payment failed") : v === "On hold" ? et("On hold") : v
+    model.buttonLabel = word(model.buttonLabel) ?? model.buttonLabel
+    model.totalText = word(model.totalText) ?? model.totalText
+    model.subtotalText = word(model.subtotalText) ?? model.subtotalText
+    model.items = model.items.map((i) => ({ ...i, note: word(i.note) ?? null, amountText: word(i.amountText) ?? i.amountText }))
+    return model.items.length > 1 ? et("Your receipt from {shop}: {count} items", { shop: safeText(model.sellerName), count: model.items.length }) : et("Your receipt for {title}", { title: safeText(firstTitle) })
+  })
+  /* The store's own words (Settings › Customer emails) are in its website's language: a buyer in another gets the standard ones in theirs. */
+  const subject = language && !language.own ? standard : await withReceiptCopy(admin, creatorId, model, standard)
+  const html = say(() => buyerReceiptEmailHtml(model))
+  const text = say(() => buyerReceiptEmailText(model))
 
   try {
     const result = await withRetry(
@@ -885,8 +900,8 @@ export async function sendBuyerDownloadEmail(
           to: customerEmail,
           replyTo,
           subject,
-          html: buyerReceiptEmailHtml(model),
-          text: buyerReceiptEmailText(model),
+          html,
+          text,
           attachments,
         })
 

@@ -62,6 +62,7 @@ import Link from "next/link"
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { BarChart3, Bookmark, Lock, MessageCircle, Paperclip, VolumeX, Ban } from "lucide-react"
 import { FlagIcon } from "@solar-icons/react/linear/flag"
+import { LinkMinimalistic2Icon } from "@solar-icons/react/linear/link-minimalistic-2"
 import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
 import { PenIcon } from "@solar-icons/react/linear/pen"
 import { PinIcon } from "@solar-icons/react/linear/pin"
@@ -222,6 +223,11 @@ export const PHONE_ROW =
 export const FIRST_CARDS = 8
 /** How long a finger rests on a card before it counts as a press worth reading ahead for (a scroll cancels it sooner). */
 export const READ_AHEAD_TOUCH_MS = 90
+/**
+ * How long a mouse rests on a card before its opened post's pictures are fetched ahead (round 13 of the desktop post: the
+ * picture is in hand when the panel opens, not grey). Long enough that a pointer crossing the feed fetches nothing.
+ */
+export const WARM_ON_HOVER_MS = 120
 /*
   NO LINK IN A CARD FETCHES AHEAD (round 25, scrolling "smooth ... and good on slow networks"). Next fetches a page ahead
   for every link that scrolls into view; a card has six (the author twice, the post twice, its space, its comments), and
@@ -363,6 +369,9 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     void readAheadComments(post.communityId, post.id)
   }
   useEffect(() => () => window.clearTimeout(aheadTimer.current), [])
+  /* A mouse resting on the card: its pictures only (the comments still wait for the press). */
+  const hoverTimer = useRef(0)
+  useEffect(() => () => window.clearTimeout(hoverTimer.current), [])
 
   /* The card opens its post over the feed; a link or a button inside it does its own thing. */
   const openPost = (e: React.MouseEvent) => {
@@ -416,6 +425,16 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     if (how === "copied") toast("Link copied")
     else if (how === "failed") toast(url)
   }
+  /* Copy link: the same address, straight to the clipboard, for a browser with no share sheet too. */
+  const copyLink = async () => {
+    const url = `${SHARE_ORIGIN}${href}?v=3`
+    try {
+      await navigator.clipboard.writeText(url)
+      toast("Link copied")
+    } catch {
+      toast(url)
+    }
+  }
 
   const moderate = (action: "pin" | "unpin" | "lock" | typeof REOPEN, done: (p: FeedPostView) => FeedPostView, said: string) => async () => {
     const r = await actOnContent(post.communityId, { action, targetType: "post", targetId: post.id })
@@ -426,6 +445,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
 
   const items: ActionMenuItem[] = []
   if (canShare) items.push({ label: "Share post", icon: <ShareIcon size={16} />, onClick: () => void share() })
+  items.push({ label: "Copy link", icon: <LinkMinimalistic2Icon size={16} />, onClick: () => void copyLink() })
   if (!full && viewer.active) items.push({ label: bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" strokeWidth={1.75} />, onClick: () => save() })
   if (own && !readOnly) {
     items.push({ label: "Edit post", icon: <PenIcon size={16} />, onClick: startEdit })
@@ -624,6 +644,12 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           window.clearTimeout(aheadTimer.current)
           aheadTimer.current = 0
         }}
+        onPointerEnter={(e) => {
+          if (e.pointerType !== "mouse" || !media.length) return
+          window.clearTimeout(hoverTimer.current)
+          hoverTimer.current = window.setTimeout(() => warmPostMedia(media, post.communityId, post.id), WARM_ON_HOVER_MS)
+        }}
+        onPointerLeave={() => window.clearTimeout(hoverTimer.current)}
       >
         {pinnedLine}
         {head}

@@ -4,7 +4,7 @@
  * ===========================================================================
  *  THE BUILDER'S CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE
  * ===========================================================================
- * The language picked over the canvas (preview-language-switch.tsx), and
+ * The language picked in the theme's own selector in the canvas, and
  * what the canvas lays over the page in it: the approved translations
  * (GET /api/store/translations?values=1), read with the same functions the
  * live site uses (lib/markets/translate.ts), so /fr in the builder and /fr
@@ -36,8 +36,6 @@ export interface PreviewLanguage {
 type Values = Record<string, { v: string; h: string }>
 type Answer = { locale: string | null; defaultLanguage: string; languages: string[]; published?: string[]; values: Values }
 
-const remembered = (installId: string) => `wb-preview-lang:${installId}`
-
 export function usePreviewLanguage(installId: string): PreviewLanguage {
   const [info, setInfo] = useState<{ languages: string[]; published: string[]; defaultLanguage: string }>({ languages: [], published: [], defaultLanguage: "en" })
   const [locale, setLocaleState] = useState<string | null>(null)
@@ -68,17 +66,11 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
     }
   }, [])
 
-  /* The language picked earlier in this tab, then the website's languages. */
+  /* The editor opens in the website's own language, as a visitor's first page does; the theme's own selector in the canvas changes it. */
   useEffect(() => {
-    let code: string | null = null
-    try {
-      code = sessionStorage.getItem(remembered(installId)) || null
-    } catch {
-      code = null
-    }
-    localeRef.current = code
-    setLocaleState(code)
-    void read(code)
+    localeRef.current = null
+    setLocaleState(null)
+    void read(null)
   }, [installId, read])
 
   useEffect(() => {
@@ -99,15 +91,9 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
       localeRef.current = next
       setLocaleState(next)
       if (!next) setValues(null)
-      try {
-        if (next) sessionStorage.setItem(remembered(installId), next)
-        else sessionStorage.removeItem(remembered(installId))
-      } catch {
-        /* Remembered for this visit only. */
-      }
       if (next) void read(next)
     },
-    [info.defaultLanguage, installId, read],
+    [info.defaultLanguage, read],
   )
 
   const map = useMemo(() => {

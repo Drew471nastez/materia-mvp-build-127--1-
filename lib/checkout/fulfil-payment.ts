@@ -40,6 +40,7 @@ import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { postLedger } from "@/lib/payments/ledger"
+import { ledgerAmountText, toLedger } from "@/lib/payments/ledger-currency"
 import { markFeeRecord, paidAirwallexCheckout, type PaidCheckout } from "@/lib/payments/checkout"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 import { SALE_HOLDER_KEY, claimSale, releaseSale } from "./sales-limit"
@@ -263,7 +264,8 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     variant_id: variantId,
     variant_name: variantName,
     variant_price_cents: variantPriceCents,
-    variant_currency: "USD",
+    /* What the buyer was charged in, not a fixed USD. */
+    variant_currency: (paid.currency || m.currency || "usd").toUpperCase(),
     variant_snapshot: variantId && variantName ? { id: variantId, name: variantName, price_cents: variantPriceCents } : null,
     agreed_to_terms: m.agreed_to_terms === "true",
     agreed_at: m.agreed_at || new Date(paid.createdSeconds * 1000).toISOString(),
@@ -369,7 +371,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   /* Stripe's balance is mirrored in seller_ledger; an Airwallex creator's balance is Airwallex's own
      (their wallet), so nothing is mirrored for them: the payment's fee record says it succeeded. */
   if (paid.provider === "stripe") {
-    await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId }))
+    await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId, currency: row.currency }))
     await step("stripe processing fee", async () => {
       if (!facts.chargeId) return
       const { processingFeeFromChargeId, persistOrderStripeEconomics } = await import("@/lib/payments/stripe/reconcile-processing-fee")
@@ -398,7 +400,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
           status: "completed",
           amount_cents: total,
           tip_cents: tipCents,
-          currency: "usd",
+          currency: row.currency,
           buyer_email: buyerEmail,
           buyer_first_name: m.buyer_first_name || null,
           buyer_last_name: m.buyer_last_name || null,
@@ -491,7 +493,7 @@ async function refundedOverLimit(
   /* The sale on the ledger once (its key is the order), on the first pass only. */
   if (paid.provider === "stripe" && !o.retry) {
     try {
-      await recordSale(admin, { creatorId: o.creatorId, orderId: o.orderId, total: o.total, fee: o.feeCents, destinationPaymentId: o.destinationPaymentId })
+      await recordSale(admin, { creatorId: o.creatorId, orderId: o.orderId, total: o.total, fee: o.feeCents, destinationPaymentId: o.destinationPaymentId, currency: paid.currency })
     } catch (e) {
       console.error("[fulfil] ledger for a sold out order:", e instanceof Error ? e.message : e)
     }
@@ -596,19 +598,21 @@ async function grant(
  */
 export async function recordSale(
   admin: Db,
-  s: { creatorId: string; orderId: string; total: number; fee: number; destinationPaymentId: string | null; currency?: string | null },
+  s: {
+    creatorId: string
+    orderId: string
+    /** In the currency the buyer was charged in. */
+    total: number
+    fee: number
+    destinationPaymentId: string | null
+    /** That currency: a store's own (lib/store/selling-currency), turned into the wallet's here (lib/payments/ledger-currency). Absent, the wallet's. */
+    currency?: string | null
+  },
 ) {
   if (s.total <= 0) return
-  const net = s.total - s.fee
-  /* What the sale was charged in: a store's own checkout charges in the store's currency (lib/payments/fees/currency-rules storeChargeCurrency). USD when not said, as every sale was before. */
-  const currency = (s.currency || "usd").toLowerCase()
-  const amount = (cents: number) => {
-    try {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
-    } catch {
-      return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`
-    }
-  }
+  const wallet = await toLedger([s.total, s.fee], s.currency)
+  const [total, fee] = wallet.amounts
+  const net = total - fee
 
   /* Held until Stripe says the money is available on the seller's side. */
   let holdUntil: Date | null = null
@@ -629,6 +633,8 @@ export async function recordSale(
     holdUntil.setDate(holdUntil.getDate() + 3)
   }
 
+  const saleText = `Sale: ${ledgerAmountText(total, wallet, { amount: s.total, currency: s.currency })} (net ${ledgerAmountText(net, { ...wallet, converted: false }, { amount: net, currency: wallet.currency })})`
+
   /* Once per order, in one locked step in the database (lib/payments/ledger): the
      webhook's Checkout Session path writes the same key, so a sale is never counted twice. */
   const posted = await postLedger(admin, {
@@ -638,15 +644,15 @@ export async function recordSale(
     amountCents: net,
     event: {
       event_type: "sale",
-      amount_cents: s.total,
+      amount_cents: total,
       net_seller_cents: net,
-      fee_cents: s.fee,
-      currency,
+      fee_cents: fee,
+      currency: wallet.currency,
       order_id: s.orderId,
       hold_until: holdUntil.toISOString(),
-      description: `Sale: ${amount(s.total)} (net ${amount(net)})`,
-      add_lifetime_earnings: s.total,
-      add_lifetime_fees: s.fee,
+      description: saleText,
+      add_lifetime_earnings: total,
+      add_lifetime_fees: fee,
     },
   })
   if (!posted.unavailable) return
@@ -667,21 +673,21 @@ export async function recordSale(
     .from("seller_ledger")
     .update({
       pending_amount: (ledger.pending_amount || 0) + pending,
-      lifetime_earnings: (ledger.lifetime_earnings || 0) + s.total,
-      lifetime_fees: (ledger.lifetime_fees || 0) + s.fee,
+      lifetime_earnings: (ledger.lifetime_earnings || 0) + total,
+      lifetime_fees: (ledger.lifetime_fees || 0) + fee,
       negative_balance: negative,
     })
     .eq("creator_id", s.creatorId)
   await admin.from("ledger_events").insert({
     creator_id: s.creatorId,
     event_type: "sale",
-    amount_cents: s.total,
+    amount_cents: total,
     net_seller_cents: net,
-    fee_cents: s.fee,
-    currency,
+    fee_cents: fee,
+    currency: wallet.currency,
     pending_delta: pending,
     order_id: s.orderId,
     hold_until: holdUntil.toISOString(),
-    description: `Sale: ${amount(s.total)} (net ${amount(net)})`,
+    description: saleText,
   })
 }

@@ -21,6 +21,7 @@
  *
  *   npx tsx tests/shopify-parity-u.test.ts
  */
+import "./_usd"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 

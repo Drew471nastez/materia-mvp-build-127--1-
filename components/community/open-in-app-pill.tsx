@@ -34,6 +34,7 @@ import { usePathname } from "next/navigation"
 import { X } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/platform-utils"
+import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 import { COMMUNITY_FLOAT_BOTTOM, startCommunityFixedFootWatch } from "@/components/community/fixed-foot-chrome"
 import { APP_PILL_KEY, APP_PILL_QUIET_DAYS, pageAppLink, pillPhone, storeLink, type Phone } from "@/lib/platform/open-in-app"
 
@@ -74,7 +75,8 @@ export function OpenInAppPill() {
   useEffect(() => {
     const read = () => {
       const vv = window.visualViewport
-      const inset = vv ? Math.max(0, window.innerHeight - vv.offsetTop - vv.height) : 0
+      /* Its own reading when the platform gave one, the published floor when it did not (lib/ui/keyboard-safe-sheet.ts). */
+      const inset = vv ? keyboardInsetOrFloor(Math.max(0, window.innerHeight - vv.offsetTop - vv.height)) : 0
       setKeyboard(inset > 80)
     }
     read()

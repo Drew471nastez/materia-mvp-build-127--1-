@@ -14,7 +14,7 @@ import {
   publishAnchorOffset,
   type Reveal,
 } from "@/lib/website-builder/section-motion"
-import { isChromeType } from "@/lib/website-builder/section-anchors"
+import { entranceSetting, isChromeType } from "@/lib/website-builder/section-anchors"
 import { installMediaFade } from "@/lib/website-builder/media-fade"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -28,13 +28,22 @@ export function useSiteMotion(
   const headerId = sections.find((s) => s.type === "header" && !s.hidden)?.id ?? ""
   const body = sections.filter((s) => !s.hidden && !isChromeType(s.type))
   const bodyIds = body.map((s) => s.id).join(" ")
-  /* What the plan depends on: the theme's four settings and each section's own choice. */
+  /*
+    What the plan depends on: the theme's four settings and each section's
+    own choice. Only the sections that made one are named, by id, so a
+    section added, removed or moved in the builder is not a new plan (that
+    stopped the reveal and armed again every section below the screen,
+    those already played included); the rescan below takes it in.
+  */
   const motionKey = JSON.stringify([
     t.animations_enabled ?? null,
     t.animation_style ?? null,
     t.animation_duration ?? null,
     t.animation_stagger ?? null,
-    body.map((s) => s.settings?.animation ?? null),
+    body.flatMap((s) => {
+      const own = entranceSetting(s)
+      return own == null ? [] : [[s.id, own]]
+    }),
   ])
 
   /* The header's height, measured and shared: the scroll lands under it, and
@@ -69,9 +78,13 @@ export function useSiteMotion(
   }, [rootRef, inEditor])
 
   const reveal = useRef<Reveal | null>(null)
-  const lastIds = useRef<string>("")
   const themeRef = useRef(t)
   themeRef.current = t
+  /* What the last plan was made from, to tell a changed setting from a first load (the editor's preview, below). */
+  const lastMotion = useRef<{ theme: string; own: Map<string, unknown> } | null>(null)
+  const motionNow = { theme: JSON.stringify([t.animations_enabled ?? null, t.animation_style ?? null, t.animation_duration ?? null, t.animation_stagger ?? null]), own: new Map(body.map((s) => [s.id, entranceSetting(s) ?? null])) }
+  const motionRef = useRef(motionNow)
+  motionRef.current = motionNow
 
   useEffect(() => {
     const root = rootRef.current
@@ -82,7 +95,19 @@ export function useSiteMotion(
     const frame = requestAnimationFrame(() => {
       r = installReveal(root, themeRef.current)
       reveal.current = r
-      lastIds.current = rootRef.current ? currentIds(rootRef.current) : ""
+      /*
+        IN THE EDITOR, A CHANGED SETTING PLAYS. The section being edited is on
+        screen, and on screen is never hidden, so a new entrance showed only
+        after scrolling it away and back. Now the sections in view play it
+        once: every one for a theme setting, the edited ones for their own.
+      */
+      const before = lastMotion.current
+      const now = motionRef.current
+      lastMotion.current = now
+      if (!inEditor || !before) return
+      if (before.theme !== now.theme) return r.preview(null)
+      const changed = [...now.own.keys()].filter((id) => before.own.has(id) && before.own.get(id) !== now.own.get(id))
+      if (changed.length) r.preview(changed)
     })
     return () => {
       cancelAnimationFrame(frame)
@@ -92,28 +117,17 @@ export function useSiteMotion(
   }, [rootRef, motionKey])
 
   /*
-    The sections changed under a running reveal. A different page (nothing in
-    common with the last) is planned afresh; a section added, removed or moved
-    on the same page is left on screen, never hidden.
+    The sections changed under a running reveal: another page, or a section
+    added, removed, moved or shown again on this one. Only boxes the reveal
+    has not seen are planned (section-motion.ts installReveal): one put in
+    below the screen arrives when it is scrolled to, as on the website, and
+    nothing already painted hides or plays again. A setting typed into a
+    section changes no id, so it never gets here at all.
   */
   useEffect(() => {
     const root = rootRef.current
     if (!root) return
-    const frame = requestAnimationFrame(() => {
-      const r = reveal.current
-      if (!r) return
-      const now = currentIds(root)
-      const before = new Set(lastIds.current.split(" ").filter(Boolean))
-      const fresh = !now.split(" ").some((id) => id && before.has(id))
-      lastIds.current = now
-      r.rescan(fresh)
-    })
+    const frame = requestAnimationFrame(() => reveal.current?.rescan())
     return () => cancelAnimationFrame(frame)
   }, [rootRef, bodyIds])
-}
-
-function currentIds(root: HTMLElement): string {
-  return Array.from(root.querySelectorAll<HTMLElement>(":scope > [data-section-box]:not([data-chrome])"))
-    .map((b) => b.dataset.sectionKey ?? "")
-    .join(" ")
 }

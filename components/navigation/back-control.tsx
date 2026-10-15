@@ -4,7 +4,7 @@
  * ===========================================================================
  *  A ROUND BACK CHEVRON THAT ANSWERS THE FIRST TAP
  * ===========================================================================
- * The settings page, the receipt: a 40px round chevron at the top left that
+ * The settings page, the receipt: a 44px round chevron at the top left that
  * goes back where the person came from, or to `fallback` when nothing of
  * ours is behind (a receipt opened from an email, settings opened cold).
  *

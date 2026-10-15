@@ -450,6 +450,172 @@ export const CANVAS_BRIDGE = `
     post({ type: "pick", sectionId: id, blockPath: path });
   }, true);
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
+  /*
+    A SECTION PUT IN BELOW THE SCREEN STILL ARRIVES AS IT DOES LIVE. Told
+    shopify:section:load, a Dawn family theme (animations.js) marks every
+    .scroll-trigger in the section scroll-trigger--design-mode, which
+    turns its reveal off for good: in the canvas, nothing below the screen
+    rose or faded in once the section had been edited. The mark is the theme
+    editor's, so it stays on what is on screen or above (nothing there hides
+    or plays again under an edit); one wholly below the screen goes back to
+    waiting off screen (scroll-trigger--offscreen, as the theme's own
+    observer leaves it on the website) and comes in when it is scrolled to,
+    exactly as the theme's onIntersection does it. Never under reduced
+    motion, where the theme shows everything as it is.
+
+    The canvas now tells the theme it is on the website (Shopify.designMode
+    false, theme.ts themeDesignMode), so Dawn no longer marks anything; this
+    stays for a theme that marks its sections still by some other sign.
+  */
+  var waking = null;
+  var wake = function (scope) {
+    if (!scope || !scope.querySelectorAll || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var marked = Array.prototype.slice.call(scope.querySelectorAll(".scroll-trigger--design-mode"));
+    if (!marked.length) return;
+    if (!waking) waking = new (window.__slIO || IntersectionObserver)(function (entries) {
+      entries.filter(function (e) { return e.isIntersecting; }).forEach(function (e, i) {
+        var el = e.target;
+        waking.unobserve(el);
+        if (!el.classList.contains("scroll-trigger--offscreen")) return;
+        el.classList.remove("scroll-trigger--offscreen");
+        if (el.hasAttribute("data-cascade")) el.style.setProperty("--animation-order", String(i));
+      });
+    }, { rootMargin: "0px 0px -50px 0px" });
+    marked.forEach(function (el) {
+      if (el.getBoundingClientRect().top < innerHeight) return;
+      el.classList.remove("scroll-trigger--design-mode");
+      el.classList.add("scroll-trigger--offscreen");
+      waking.observe(el);
+    });
+  };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A SECTION DRAWN AGAIN KEEPS WHAT THE THEME'S SCRIPTS DID TO IT
+    ═══════════════════════════════════════════════════════════════════════
+    A section swapped in (swap, below) is new markup, as the theme's Liquid
+    draws it: none of what the theme's scripts did to the one it replaces.
+    A theme that brings its sections in as they are scrolled to watches
+    them from the start (an IntersectionObserver made as the page opens)
+    and adds a class when each arrives, so the new markup was nobody's to
+    bring in: measured on the fixture (scripts/check-canvas-scroll-motion.ts)
+    a section on screen went from shown to opacity 0 at the swap and stayed
+    there, and one below the screen never arrived. Shopify's theme editor
+    hides this by telling the theme it is in the editor, where most themes
+    show everything still; the canvas tells it the website's value, so the
+    theme moves as it does there, and this keeps a swap honest instead:
+
+      WHAT WAS WATCHED IS WATCHED. The theme's own observers (CANVAS_HEAD
+      notes which element each one watches) watch the new element in place
+      of the one it replaces, and a block new to the section is watched by
+      whatever watches its look-alikes (the same tag and classes). The
+      theme's own code then brings it in when it is scrolled to, as on the
+      website. Not an observer whose root is an element of the page (a
+      carousel watching its own slides): that root is gone with the section.
+
+      WHAT WAS SHOWN STAYS SHOWN. An element that was showing before the
+      swap and is hidden after it gets back what the theme's scripts had
+      changed on it (its classes, its inline style, its data- attributes),
+      unless a look-alike beside it is showing (one slide of a slideshow
+      among others, hidden on purpose); and an entrance that starts on it at
+      the swap is put where it ends. Nothing fades or rises again under an
+      edit, wherever it stands on the page.
+  */
+  var watch = window.__slWatch || null;
+  var shownNow = function (el) {
+    var cs = getComputedStyle(el);
+    return cs.display !== "none" && cs.visibility !== "hidden" && parseFloat(cs.opacity) >= 0.5;
+  };
+  var sigOf = function (el) { return el.tagName + "." + words(el.getAttribute("class")).sort().join("."); };
+  var elementsOf = function (n) {
+    return childrenOf(n).filter(function (c) { return c.nodeType === 1 && c.tagName !== "SCRIPT" && c.tagName !== "STYLE" && c.tagName !== "TEMPLATE"; });
+  };
+  /* The element on the page, the markup it was drawn from, and the new element, side by side wherever the three agree. Read before the swap. */
+  var pairsOf = function (live, a, b, out) {
+    if (!live || !a || !b || live.tagName !== a.tagName || b.tagName !== a.tagName || sigOf(a) !== sigOf(b)) return out;
+    out.push({ live: live, a: a, b: b, shown: shownNow(live) });
+    var kl = elementsOf(live), ka = elementsOf(a), kb = elementsOf(b);
+    if (kl.length !== ka.length) return out;
+    for (var i = 0; i < ka.length && i < kb.length; i++) pairsOf(kl[i], ka[i], kb[i], out);
+    return out;
+  };
+  /* What the theme's scripts changed on the old element (live against the markup), written on the new one. */
+  var carry = function (p) {
+    var names = {}, i;
+    for (i = 0; i < p.a.attributes.length; i++) names[p.a.attributes[i].name] = 1;
+    for (i = 0; i < p.live.attributes.length; i++) names[p.live.attributes[i].name] = 1;
+    Object.keys(names).forEach(function (n) {
+      if (n !== "class" && n !== "style" && (n.indexOf("data-") !== 0 || n.indexOf("data-sl") === 0)) return;
+      var va = p.a.getAttribute(n), vl = p.live.getAttribute(n);
+      if (va === vl) return;
+      if (n === "class") {
+        var wa = words(va), wl = words(vl);
+        wl.forEach(function (w) { if (wa.indexOf(w) < 0) p.b.classList.add(w); });
+        wa.forEach(function (w) { if (wl.indexOf(w) < 0) p.b.classList.remove(w); });
+      } else if (n === "style") {
+        var da = declarations(va), dl = declarations(vl);
+        Object.keys(da).forEach(function (k) { if (!(k in dl)) p.b.style.removeProperty(k); });
+        Object.keys(dl).forEach(function (k) {
+          if (da[k] === dl[k]) return;
+          var v = dl[k], important = /!important$/i.test(v);
+          p.b.style.setProperty(k, important ? v.replace(/\\s*!important$/i, "") : v, important ? "important" : "");
+        });
+      } else if (vl === null) p.b.removeAttribute(n);
+      else p.b.setAttribute(n, vl);
+    });
+  };
+  var usable = function (io) { return !watch || watch.usable(io); };
+  /* WHAT WAS WATCHED IS WATCHED: \`pairs\` from a swap (none for a section added), \`root\` the new section. */
+  var rewatch = function (pairs, root) {
+    if (!watch) return;
+    var paired = new Set();
+    pairs.forEach(function (p) {
+      paired.add(p.b);
+      var by = watch.watching.get(p.live);
+      if (by) by.forEach(function (io) { if (usable(io)) { try { io.observe(p.b); } catch (e) {} } });
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("[class]"), function (el) {
+      if (paired.has(el)) return;
+      var by = watch.bySig.get(sigOf(el));
+      if (by) by.forEach(function (io) { if (usable(io)) { try { io.observe(el); } catch (e) {} } });
+    });
+  };
+  /* WHAT WAS SHOWN STAYS SHOWN. Each is decided first, against the page as the swap left it, then written. */
+  var keepShown = function (pairs) {
+    var hidden = pairs.filter(function (p) { return p.shown && p.b.isConnected && !shownNow(p.b); });
+    /* A look-alike: the same tag and a class in common (a slide's own state class aside, "slide" and "slide is-active" are the same kind). */
+    var alike = function (x, y) { var wy = words(y.getAttribute("class")); return x.tagName === y.tagName && words(x.getAttribute("class")).some(function (w) { return wy.indexOf(w) >= 0; }); };
+    var lonely = hidden.filter(function (p) {
+      var parent = p.b.parentElement;
+      return !parent || !elementsOf(parent).some(function (c) { return c !== p.b && alike(c, p.b) && shownNow(c); });
+    });
+    lonely.forEach(carry);
+    pairs.forEach(function (p) {
+      if (!p.shown || !p.b.isConnected || !p.b.getAnimations) return;
+      try {
+        p.b.getAnimations().forEach(function (x) { var t = x.effect && x.effect.getComputedTiming(); if (t && isFinite(t.endTime)) x.finish(); });
+      } catch (e) {}
+    });
+  };
+  /*
+    A SELECTED BLOCK IN A ROW THAT SCROLLS SIDEWAYS (a slideshow, a carousel
+    of cards) is brought into that row, as Dawn's theme-editor.js did when
+    the theme was told it was in the editor (the canvas no longer loads it:
+    it is drawn only under request.design_mode). Only a row the visitor can
+    scroll; a slider that moves by transform is the theme's to move.
+  */
+  var showAcross = function (el) {
+    for (var n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+      if (n.scrollWidth <= n.clientWidth + 1) continue;
+      var ox = getComputedStyle(n).overflowX;
+      if (ox !== "auto" && ox !== "scroll") continue;
+      var nr = n.getBoundingClientRect(), er = el.getBoundingClientRect();
+      if (er.left >= nr.left - 1 && er.right <= nr.right + 1) return;
+      var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      n.scrollTo({ left: n.scrollLeft + er.left - nr.left, behavior: still ? "auto" : "smooth" });
+      return;
+    }
+  };
   var selected = { section: null, block: null };
   /* Where the selected section is on screen, for the builder's toolbar over the canvas. */
   var boxFrame = 0;
@@ -544,6 +710,7 @@ export const CANVAS_BRIDGE = `
     if (b) {
       if (inspect) { b.setAttribute("data-sl-selected-block", ""); b.removeAttribute("data-sl-hover"); }
       fire(b, "shopify:block:select", { blockId: blockId, sectionId: sectionId, load: false });
+      showAcross(b);
     }
     if (scroll) {
       var r = (b || s).getBoundingClientRect();
@@ -571,7 +738,7 @@ export const CANVAS_BRIDGE = `
     document.head.appendChild(l);
     return kept[href];
   };
-  var swap = function (id, html) {
+  var swap = function (id, html, prev) {
     var tpl = document.createElement("template");
     tpl.innerHTML = html;
     var next = tpl.content.firstElementChild;
@@ -581,6 +748,13 @@ export const CANVAS_BRIDGE = `
       links.forEach(function (l) { l.remove(); });
       var el = document.getElementById("shopify-section-" + id);
       if (!el) { post({ type: "missing", id: id }); return; }
+      /* What the theme's scripts did to it, read before it goes (KEEPS WHAT THE THEME'S SCRIPTS DID TO IT). */
+      var from = drawn[id] || prev, pairs = [];
+      if (typeof from === "string") {
+        var tf = document.createElement("template");
+        tf.innerHTML = from;
+        try { pairs = pairsOf(el, tf.content.firstElementChild, next, []); } catch (e) { pairs = []; }
+      }
       fire(el, "shopify:section:unload", { sectionId: id, load: true });
       /* Held at its height until its pictures are in: a new <img> has no size until it decodes. */
       var y = scrollY;
@@ -599,6 +773,9 @@ export const CANVAS_BRIDGE = `
       if (scrollY !== y) scrollTo(0, y);
       drawn[id] = html;
       fire(next, "shopify:section:load", { sectionId: id, load: true });
+      wake(next);
+      rewatch(pairs, next);
+      keepShown(pairs);
       if (selected.section === id) mark(selected.section, selected.block, false);
       reportSoon();
     });
@@ -841,6 +1018,8 @@ export const CANVAS_BRIDGE = `
       var id = el.getAttribute("data-section-id");
       runScripts(el);
       fire(el, "shopify:section:load", { sectionId: id, load: true });
+      wake(el);
+      rewatch([], el);
     });
     if (scrollY !== y) scrollTo(0, y);
     if (selected.section) mark(selected.section, selected.block, false);
@@ -884,7 +1063,7 @@ export const CANVAS_BRIDGE = `
         if (asked[m.id] !== n) return;
         var done = false;
         try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
-        if (!done) return swap(m.id, m.html);
+        if (!done) return swap(m.id, m.html, m.prev);
       }).catch(function () {});
     } else if (m.type === "select") {
       leaving = false;
@@ -1184,11 +1363,24 @@ export const CANVAS_REQUESTS = `
  * FIRST IN THE CANVAS PAGE'S HEAD. A frame with no origin of its own has no
  * storage: `localStorage` and `sessionStorage` throw, and a theme that keeps
  * its recently viewed products there stops on its first line. Each gets a
- * store in memory, and `document.cookie` reads empty. The store outlives the
+ * store in memory, and so does `document.cookie`. The store outlives the
  * frame: what it held is sent to the builder as it changes and handed to
  * the next page drawn (window.__slSeed), so a heart pressed on one page is
  * still pressed on the next, and the wishlist count agrees, as on the site.
+ * The cookies too: the theme is told it is on the website (theme.ts,
+ * themeDesignMode), so its newsletter pop-up opens as it does there, and
+ * closed once it stays closed on the next page, as on the site, rather than
+ * opening again on every page the canvas draws.
  */
+/*
+  WHAT THE THEME'S OBSERVERS WATCH. IntersectionObserver is the theme's
+  own, with one thing noted: which element of a section each observer
+  watches, and the look of it (its tag and classes) as it was given. A
+  section drawn again in place is new markup, and the bridge has the
+  observers watch it in place of the old (canvas-bridge.ts, A SECTION
+  DRAWN AGAIN KEEPS WHAT THE THEME'S SCRIPTS DID TO IT). The original is
+  window.__slIO, for the bridge's own.
+*/
 /*
   A CHOICE IN THE CANVAS WRITES NO ADDRESS. The page is a sandboxed frame
   with no origin of its own, where history.replaceState to
@@ -1199,5 +1391,6 @@ export const CANVAS_REQUESTS = `
 */
 export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{display:none!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
-try{document.cookie}catch(e){try{Object.defineProperty(document,"cookie",{get:function(){return ""},set:function(){},configurable:true})}catch(e2){}}
+try{document.cookie}catch(e){var jar=S("cookie");try{Object.defineProperty(document,"cookie",{get:function(){var o=[];for(var i=0;i<jar.length;i++){var k=jar.key(i);o.push(k+"="+jar.getItem(k))}return o.join("; ")},set:function(v){var parts=String(v).split(";"),first=parts.shift()||"",at=first.indexOf("=");if(at<1)return;var k=first.slice(0,at).trim(),val=first.slice(at+1).trim(),gone=false;parts.forEach(function(p){var q=p.split("="),n=(q[0]||"").trim().toLowerCase(),x=q.slice(1).join("=").trim();if(n==="max-age"&&Number(x)<=0)gone=true;if(n==="expires"){var t=Date.parse(x);if(!isNaN(t)&&t<=Date.now())gone=true}});if(gone)jar.removeItem(k);else jar.setItem(k,val)},configurable:true})}catch(e2){}}
+if(typeof IntersectionObserver==="function"){var IO=IntersectionObserver,watching=new WeakMap(),bySig=new Map(),gone=new WeakSet();var sig=function(el){return el.tagName+"."+String(el.getAttribute("class")||"").split(/\\s+/).filter(Boolean).sort().join(".")};var W=class extends IO{observe(t){try{gone.delete(this);if(t&&t.nodeType===1&&t.closest&&t.closest(".shopify-section")){var by=watching.get(t);if(!by)watching.set(t,by=new Set());by.add(this);if(String(t.getAttribute("class")||"").trim()){var k=sig(t),set=bySig.get(k);if(!set)bySig.set(k,set=new Set());set.add(this)}}}catch(e){}return super.observe(t)}unobserve(t){try{var by=watching.get(t);if(by)by.delete(this)}catch(e){}return super.unobserve(t)}disconnect(){gone.add(this);var me=this;bySig.forEach(function(set){set.delete(me)});return super.disconnect()}};window.IntersectionObserver=W;window.__slIO=IO;window.__slWatch={watching:watching,bySig:bySig,usable:function(io){var r=io.root;return !gone.has(io)&&(!r||r.nodeType===9)}}}
 ["pushState","replaceState"].forEach(function(k){var f=history[k];if(typeof f!=="function")return;history[k]=function(s,t){try{return f.apply(this,arguments)}catch(e){try{return f.call(this,s,t)}catch(e2){}}}});})();</script><script>${CANVAS_REQUESTS}</script>`

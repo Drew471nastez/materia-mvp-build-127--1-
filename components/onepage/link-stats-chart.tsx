@@ -17,6 +17,7 @@
  * than the violet, as the owner asked for everything in the OnePage editor.
  */
 import * as React from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { AnalyticsChartWithTooltip, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { MetricTab } from "@/components/app/metric-tab"
 import { longDate } from "@/lib/date-range/range"
@@ -50,7 +51,7 @@ function daysOf(start: string, end: string): string[] {
   return out
 }
 
-const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`
+const formatPrice = (cents: number) => shopMoney(cents)
 
 export function LinkStatsChart({
   stats,

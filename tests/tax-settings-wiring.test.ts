@@ -120,8 +120,8 @@ console.log("\nWebsite basket (the website's own checkout, and Storelib's basket
   const quote = read("lib/checkout/site-quote-server.ts")
   check("the website's own checkout (/checkout on the site) shows the same tax for a cart of downloads", /basketTax\(await loadTaxForCheckout\(db, creatorId\)/.test(quote) && /taxCents: tax\.taxCents, taxIncluded: tax\.included, totalCents: priced\.totalCents \+ \(tax\.included \? 0 : tax\.taxCents\)/.test(quote))
   const site = read("app/api/checkout/site/route.ts")
-  check("  and its Pay charges it: the amount, each line's share and the tax on the payment", /const tax = await digitalCartTax\(admin, site\.creatorId, priced, body, detectedCountry\(request\.headers\)\)/.test(site) && /amount: chargeCents,/.test(site) && /tax_cents: String\(tax\.taxCents\)/.test(site) && /priced\.lines\[i\]\.item\.taxCents = t/.test(site))
-  check("  the fee stays on the price there too", /calculatePlatformFeeForCheckout\(priced\.totalCents, site\.creatorId/.test(site))
+  check("  and its Pay charges it: the amount, each line's share and the tax on the payment", /const tax = await digitalCartTax\(admin, site\.creatorId, priced, body, detectedCountry\(request\.headers\)\)/.test(site) && /amount: chargeCents,/.test(site) && /* Changed on purpose (overhaul): the tax in the currency it is charged in. */ /tax_cents: String\(taxCharged\)/.test(site) && /priced\.lines\[i\]\.item\.taxCents = t/.test(site))
+  check("  the fee stays on the price there too", /* Changed on purpose (overhaul): on the goods as charged, in the market's currency when it is charged in it. */ /calculatePlatformFeeForCheckout\(goodsCharged, site\.creatorId/.test(site) && /let goodsCharged = priced\.totalCents/.test(site))
   check("  and its paid order keeps the tax", (read("lib/checkout/fulfil-cart-session.ts").match(/tax: metadata\.tax_cents \? \{ included: metadata\.tax_included === "true"/g) ?? []).length === 2)
   const line = read("lib/checkout/fulfil-cart-item.ts")
   check("each basket order is charged its share of added tax and keeps its tax", /lineTotalCents\(line\) \+ \(ctx\.tax\?\.included \? 0 : taxCents\)/.test(line) && /update\(\{ tax_cents: Math\.min\(taxCents, amountCents\), tax_country: country \}\)/.test(line) && /update\(\{ tax_included: true \}\)/.test(line))
@@ -146,17 +146,17 @@ console.log("\nReceipts and orders\n")
   check("the receipt reads each order's tax in its own read, so an older database still shows it", /async function readTax/.test(load) && /select\("id, tax_cents, tax_included"\)/.test(load) && /select\("id, tax_cents"\)/.test(load))
   check("  tax added on top comes out of the subtotal, so Subtotal + Tax = Total", /if \(taxCents > 0 && !taxIncluded\) totals\.subtotalCents = Math\.max\(0, totals\.subtotalCents - taxCents\)/.test(load))
   const view = read("app/receipt/[token]/receipt-view.tsx")
-  check("the receipt page shows Tax, or Including tax", /<Row label=(?:"Tax"|\{receipt\.taxLabel \|\| "Tax"\}) value=\{money\(receipt\.taxCents \?\? 0\)\} \/>/.test(view) && /<Row label=(?:"Including tax"|\{includedTaxLabel\(receipt\.taxLabel\)\})/.test(view) && /<Row label="Total"/.test(view))
+  check("the receipt page shows Tax, or Including tax", /* Changed on purpose: in the buyer's language (ct). */ /<Row label=\{receipt\.taxLabel \|\| ct\("Tax"\)\} value=\{money\(receipt\.taxCents \?\? 0\)\} \/>/.test(view) && /<Row label=\{includedTax\}/.test(view) && /ct\("Including tax"\)/.test(view) && /<Row label=\{ct\("Total"\)\}/.test(view))
   const mail = read("lib/receipts/email.ts")
-  check("the receipt email too", /\{ label: taxName\(m\), value: m\.taxText \}/.test(mail) && /\{ label: includedName\(m\), value: m\.taxText \}/.test(mail) && /\|\| "Tax"/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
+  check("the receipt email too", /\{ label: taxName\(m\), value: m\.taxText \}/.test(mail) && /\{ label: includedName\(m\), value: m\.taxText \}/.test(mail) && /\|\| et\("Tax"\)/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
   const [sale] = groupOrders([
     { id: "o1", product_id: "p1", amount_cents: 5831, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:00Z", stripe_session_id: "cs_1", tax_cents: 931, tax_included: false },
     { id: "o2", product_id: "p2", amount_cents: 1050, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:01Z", stripe_session_id: "cs_1", tax_cents: 50, tax_included: false },
   ] as never)
   check("Orders in the app: Subtotal + Tax = Total for a taxed basket", sale.taxCents === 981 && !sale.taxIncluded && sale.subtotalCents === 5900 && sale.totalCents === 6881, sale && { tax: sale.taxCents, sub: sale.subtotalCents })
-  check("  the order page shows the Tax row and each line at its price", /<Row label=(?:"Tax"|\{order\.taxLabel \|\| "Tax"\}) value=\{formatMoney\(order\.taxCents\)\} \/>/.test(read("app/app/orders/order-detail.tsx")) && /line\.tax_included \? 0 : line\.tax_cents/.test(read("app/app/orders/order-detail.tsx")) && /tax_cents: Number\(order\.tax_cents\) \|\| 0/.test(read("lib/orders/load-rows.ts")))
+  check("  the order page shows the Tax row and each line at its price", /<Row label=(?:"Tax"|\{order\.taxLabel \|\| "Tax"\}) value=\{formatMoney\(order\.taxCents, order\.currency\)\} \/>/.test(read("app/app/orders/order-detail.tsx")) && /line\.tax_included \? 0 : line\.tax_cents/.test(read("app/app/orders/order-detail.tsx")) && /tax_cents: Number\(order\.tax_cents\) \|\| 0/.test(read("lib/orders/load-rows.ts")))
   check("the single product checkout records whether its tax was included", /update\(\{ tax_included: true \}\)/.test(read("lib/checkout/fulfil-payment.ts")))
-  check("physical order emails show tax from the checkout", /tax: co\.tax_cents/.test(read("lib/physical/jobs-server.ts")) && /t\.taxIncluded \? `Including \$\{/.test(read("lib/physical/email-templates.ts")) && /taxLabel: typeof co\.shipping_rate\?\.tax_label/.test(read("lib/physical/jobs-server.ts")))
+  check("physical order emails show tax from the checkout", /tax: co\.tax_cents/.test(read("lib/physical/jobs-server.ts")) && /* Changed on purpose: in the buyer's language (lib/emails/words.ts). */ /t\.taxIncluded \? et\("Including \{tax\}"/.test(read("lib/physical/email-templates.ts")) && /taxLabel: typeof co\.shipping_rate\?\.tax_label/.test(read("lib/physical/jobs-server.ts")))
 }
 
 console.log("\nA basket's invoice\n")

@@ -629,7 +629,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
       body.style.width = "100%"
       locked = true
     }
-    const unlock = () => {
+    const release = () => {
       if (!locked) return
       body.style.position = ""
       body.style.top = ""
@@ -645,7 +645,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     }
     const onFocusOut = () => {
       window.setTimeout(() => {
-        if (!inDock(document.activeElement)) unlock()
+        if (!inDock(document.activeElement)) release()
       }, 60)
     }
     document.addEventListener("pointerdown", onPointerDown, true)
@@ -653,7 +653,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true)
       document.removeEventListener("focusout", onFocusOut, true)
-      unlock()
+      release()
     }
   }, [dockPhone])
 

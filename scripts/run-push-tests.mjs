@@ -21,7 +21,6 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
-  "tests/claude-integration.test.ts",
   "tests/community-profile-j1.test.ts",
   "tests/surfaces25.test.ts",
   "tests/variants25.test.ts",
@@ -30,14 +29,32 @@ const SUITES = [
   "tests/explore25.test.ts",
   "tests/proxy-auth-speed.test.ts",
   "tests/net-request.test.ts",
+  "tests/live-speed-view.test.ts",
+  "tests/translate-ai-speed.test.ts",
+  "tests/open-translate.test.ts",
+  "tests/commerce-attention.test.ts",
+  "tests/cash-on-delivery.test.ts",
+  "tests/order-currency.test.ts",
+  "tests/ai-theme-settings.test.ts",
+  "tests/translation-integrity.test.ts",
+  "tests/shop-money.test.ts",
+  "tests/store-currency.test.ts",
+  "tests/checkout-market-overhaul.test.ts",
+  "tests/languages-panel.test.ts",
+  "tests/auto-translate.test.ts",
+  "tests/checkout-words.test.ts",
+  "tests/order-emails-language.test.ts",
+  "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
   "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
   "tests/storelib-reviews.test.ts",
+  "tests/reviews-product-page.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",
+  "tests/canvas-scroll-motion.test.ts",
   "tests/builder25.test.ts",
   "tests/help23.test.ts",
   "tests/help-center.test.ts",
@@ -377,6 +394,7 @@ const SUITES = [
   "tests/github-sync.test.ts",
   "tests/github-theme-sync.test.ts",
   "tests/github-publish-sync.test.ts",
+  "tests/schema-edits-sidebar.test.ts",
   "tests/date-range.test.ts",
   "tests/cookie-consent.test.ts",
   "tests/marketing-footer.test.ts",
@@ -440,6 +458,8 @@ const SUITES = [
   "tests/settings-account-fixes.test.ts",
   "tests/settings-country.test.ts",
   "tests/payouts-phone.test.ts",
+  "tests/checkout-phone.test.ts",
+  "tests/translation-coverage.test.ts",
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
@@ -461,6 +481,7 @@ const SUITES = [
   "tests/markets.test.ts",
   "tests/visitors25.test.ts",
   "tests/compat-languages.test.ts",
+  "tests/canvas-currency.test.ts",
   "tests/analytics-ad.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",
@@ -614,6 +635,18 @@ const STRICT_SUITES = [
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
   "tests/e2e-store-currency.test.ts",
+  /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
+  "tests/e2e-cash-on-delivery.test.ts",
+  /* The seller ships it themselves: part shipped with tracking, the number fixed, the rest from a second place, a fulfilment undone, a return restocked and refunded, a cancel after an undo, a pickup, refused cash (tests/_journey) */
+  "tests/e2e-manual-fulfillment.test.ts",
+  /*
+    The Claude provider's suite, here and not in the list above: its imports
+    (the Anthropic SDK's types) change how the loose compile reads other
+    files, and `value.match(...) ?? []` in a dozen of them became `never`,
+    stopping the whole run before any suite. Compiled strict on its own it is
+    clean.
+  */
+  "tests/claude-integration.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

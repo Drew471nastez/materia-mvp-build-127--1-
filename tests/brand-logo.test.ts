@@ -195,6 +195,8 @@ function main() {
     "app/api/invoice/route.ts",
     "app/(marketing)/page.tsx",
     "app/(marketing)/blog/[slug]/page.tsx",
+    /* Changed on purpose: a3e63b12 (checkout previews follow the product) gives /checkout's share card the logo's address when the product has no picture: metadata, not a page drawing it. */
+    "lib/checkout/share-meta.ts",
   ])
   const reaching = code.filter((f) => !ALLOWED.has(f) && NAMES_ASSET.test(read(f)))
   check("no other file names the logo's picture", reaching.length === 0, reaching.join(", "))

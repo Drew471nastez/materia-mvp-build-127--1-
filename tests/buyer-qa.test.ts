@@ -43,14 +43,15 @@ async function membershipPrices() {
   check("a missing table is the default, never a failure", (await planIntervals(broken, ["x"])).size === 0)
 
   const wired: Array<[string, RegExp]> = [
-    ["components/explore/product-card.tsx", /listPrice\(product\)/],
+    /* Changed on purpose: with its store's currency. */
+    ["components/explore/product-card.tsx", /listPrice\(\{ \.\.\.product, currency: /],
     ["app/(marketing)/explore/page.tsx", /planIntervals\(supabase/],
     ["app/(marketing)/explore/[category]/page.tsx", /planIntervals\(supabase/],
     ["app/(marketing)/u/[username]/page.tsx", /price_interval: intervals\.get\(p\.id\)/],
     ["components/storefront/storefront-product-card.tsx", /price_interval: product\.price_interval/],
     ["components/store-builder/unified-section-renderer.tsx", /priced\(productPrice\)/],
     ["app/(marketing)/p/[slug]/page.tsx", /price_interval: membershipInfo\?\.interval/],
-    ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product\)/],
+    ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product, pageCurrency\)/],
     ["lib/nav/quick-search.ts", /withPriceIntervals\(client, found\)/],
     /* The header's results draw the price quick-search already worked out (listPrice, above); the drawing moved out of the header itself. */
     ["components/platform/header-search-results.tsx", /\{hit\.price\}/],
@@ -82,7 +83,8 @@ console.log("\nA half set up seller opens /sell where they left it (scripts/chec
   const sell = code("app/(auth)/sell/page.tsx")
   check("/sell reads it back only for a setup that was started", /if \(access\.state === "started"\)/.test(sell) && /resume=\{resume\}/.test(sell))
   const modal = code("components/app/creator-onboarding-modal.tsx")
-  check("and the sign in's name never replaces a store name read back", /full_name && !resume\?\.displayName/.test(modal))
+  /* Changed on purpose: d5b64308 (Name your store starts from the current name) starts from the profile's name, then the sign in's; neither replaces a store name read back. */
+  check("and the sign in's name never replaces a store name read back", /const fromAccount = profileName \|\| \(user\.user_metadata\?\.full_name/.test(modal) && /if \(fromAccount && !resume\?\.displayName\)/.test(modal))
 }
 
 console.log("\nOne heading on every library tab (scripts/check-course-player.mjs draws the courses list)")
@@ -119,8 +121,9 @@ console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it
    call stack size exceeded" on every priced product page. */
 {
   const src = read("components/store-builder/sticky-add-to-cart.tsx")
-  const body = src.match(/function barPriceText\(product: ProductData\): string \{([\s\S]*?)\n\}/)?.[1] ?? ""
-  check("the sticky buy bar's price is formatted, not recursive", body.length > 0 && !/barPriceText\(/.test(body) && /formatPrice\(product\.price_cents\)/.test(body))
+  /* Changed on purpose: in the page's store currency. */
+  const body = src.match(/function barPriceText\(product: ProductData, currency: string\): string \{([\s\S]*?)\n\}/)?.[1] ?? ""
+  check("the sticky buy bar's price is formatted, not recursive", body.length > 0 && !/barPriceText\(/.test(body) && /formatPrice\(product\.price_cents, currency\)/.test(body))
 }
 
 membershipPrices().then(() => {

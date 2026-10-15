@@ -22,6 +22,7 @@ import type { PackedItem } from "./cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { ownedKey, ownedLines } from "./owned"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -429,6 +430,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const checked = checkCouponLines(
     coupon,
     lines.map((l) => ({ productId: l.item.productId, creatorId: l.product.creator_id, cents: l.item.priceCents * l.item.quantity })),
+    /* Its amounts said in the store's own currency, which its prices are in. */
+    { currency: coupon ? (await readStoreCurrency(db, coupon.creator_id)).currency : undefined },
   )
   if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
   checked.discounts.forEach((d, i) => (lines[i].item.discountCents = d))

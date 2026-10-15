@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
 import { countryName } from "@/lib/checkout/countries"
 import { deliveryEstimate } from "@/lib/physical/rates"
-import { CARRIERS, RETURN_LABEL, guessCarrier, orderNumber, trackingUrl as trackingLink } from "@/lib/physical/status"
+import { CARRIERS, RETURN_LABEL, canMoveShipment, guessCarrier, orderNumber, trackingUrl as trackingLink } from "@/lib/physical/status"
 import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { NOTE_MAX } from "@/lib/physical/notes"
@@ -48,6 +48,7 @@ import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet } from "./ui"
 import { LabelFields, ShipModeSwitch, useLabelFlow, useOrderLabels, voidLabelRequest } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
+import type { PaymentState } from "@/lib/physical/cash-on-delivery"
 
 export interface PhysicalLine {
   orderId: string
@@ -120,6 +121,9 @@ export interface PhysicalOrder {
   cartAttributes?: Record<string, string>
   merchantNote: string | null
   cancelledAt: string | null
+  /** How it is paid (lib/physical/cash-on-delivery.ts): cash still to collect on delivery, or collected. */
+  payment?: PaymentState
+  cashCollectedAt?: string | null
   lines: PhysicalLine[]
   shipments: PhysicalShipment[]
   returns: ReturnRec[]
@@ -275,7 +279,55 @@ export function PhysicalFulfillment({
 
   return (
     <div className={cn("grid min-w-0 gap-4", className)} data-physical-order="">
-      {order.cancelledAt ? <Notice tone="gray">{tt("This order was cancelled and its stock released. Refund the payment with Refund if you haven't.")}</Notice> : null}
+      {order.cancelledAt ? (
+        <Notice tone="gray">
+          {order.payment === "cod_due" ? tt("This order was cancelled and its stock released. It was to be paid in cash on delivery, so there is nothing to refund.") : tt("This order was cancelled and its stock released. Refund the payment with Refund if you haven't.")}
+        </Notice>
+      ) : null}
+
+      {/* Paid in cash when it arrives (lib/physical/cash-on-delivery.ts): the shop marks the cash received here. */}
+      {!order.cancelledAt && order.payment === "cod_due" ? (
+        <section className={cn(card, "min-w-0 px-4 py-3.5")} data-cash-due="">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="attention">{tt("Cash on delivery")}</StatusBadge>
+          </div>
+          <p className="mt-2 text-[13.5px] leading-5 text-[#1a1a2e]">
+            {pickup ? tt("{amount} to collect when it's picked up.", { amount: money(order.totalCents - order.refundedCents, order.currency) }) : tt("{amount} to collect when it's delivered.", { amount: money(order.totalCents - order.refundedCents, order.currency) })}
+          </p>
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            {/* The buyer would not pay, or it could not be delivered: nothing to refund, and what went out comes back as a return. */}
+            <button
+              type="button"
+              className={cn(buttonSecondary, "h-9 sm:h-8")}
+              disabled={busy}
+              data-cash-refused=""
+              onClick={() => {
+                if (!window.confirm(pickup ? tt("Mark this order as not picked up? It is cancelled, nothing is refunded, and its stock goes back.") : tt("Mark this order as refused on delivery? It is cancelled, nothing is refunded, and what was sent comes back as a return."))) return
+                void run({ action: "cash_refused" }, tt("Marked as refused"))
+              }}
+            >
+              {pickup ? tt("Not picked up") : tt("Refused on delivery")}
+            </button>
+            <button
+              type="button"
+              className={cn(buttonPrimary, "h-9 sm:h-8")}
+              disabled={busy}
+              data-cash-collected=""
+              onClick={() => {
+                if (!window.confirm(tt("Mark this order as paid? Only do this once you have the cash."))) return
+                void run({ action: "cash_collected" }, tt("Marked as paid"))
+              }}
+            >
+              {tt("Mark as paid")}
+            </button>
+          </div>
+        </section>
+      ) : null}
+      {order.payment === "cod_collected" && order.cashCollectedAt ? (
+        <p className="px-1 text-[13px] leading-5 text-[#6b7280]" data-cash-paid="">
+          {tt("Paid in cash on {date}", { date: dateTime(order.cashCollectedAt) })}
+        </p>
+      ) : null}
 
       {/* The buyer pressed Cancel order on their order page (lib/physical/buyer-cancel.ts): the shop's answer, here. */}
       {request ? (
@@ -397,7 +449,8 @@ export function PhysicalFulfillment({
               ...(!pickup && !delivered && s.tracking?.mode === "paused" ? [{ label: tt("Resume automatic updates"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: true }, tt("Automatic updates on again")) }] : []),
               ...(returnable ? [{ label: tt("Start return"), icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
               { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, s.items.map((i) => ({ ...order.lines.find((l) => l.orderId === i.orderId)!, quantity: i.quantity, fulfilled: 0 })).filter((l) => l.title)) },
-              ...(!delivered
+              /* Only while the parcel is still with the shop (lib/physical/status canMoveShipment): one the carrier has comes back as a return. */
+              ...(canMoveShipment(s.status, "cancelled")
                 ? [{
                     label: pickup ? tt("Not ready after all") : tt("Cancel fulfillment"),
                     icon: <X className="h-4 w-4" />,

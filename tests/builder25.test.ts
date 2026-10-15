@@ -73,7 +73,7 @@ function main() {
     check("the list opens the way the font field's does: from the field at a computer, the sheet on a phone", /<FieldPopover\s*\n\s*float/.test(schemes) && /role="listbox"/.test(schemes) && /role="option"/.test(schemes) && /data-scheme-row=\{i\}/.test(schemes))
     check("  one scheme a line, the chosen one ticked, arrows and Enter", /flex h-10 cursor-pointer items-center gap-2\.5 rounded-lg px-1\.5/.test(schemes) && /\{on \? <Check/.test(schemes) && /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(schemes))
     check("a swatch is the scheme's background, Aa in its text colour, a dot of its button", /style=\{\{ background: scheme\.background, color: scheme\.text \}\}/.test(schemes) && /style=\{\{ background: scheme\.accent \}\}/.test(schemes))
-    check("Storelib's own themes keep their select", /<select className=\{SELECT\} aria-label=\{label\}/.test(schemes))
+    check("Storelib's own themes keep their select", /* Changed on purpose (checkout, currency and translation overhaul): Storelib's themes list their own schemes in the same field, with Edit. */ /nativeSchemes\(env\?\.themeSettings \?\? null\)/.test(schemes) && /<SchemeSelect list=\{schemes\}/.test(schemes))
   }
 
   console.log("\nA page switch (editor/[installId]/page.tsx)\n")

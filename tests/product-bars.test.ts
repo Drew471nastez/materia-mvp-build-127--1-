@@ -157,7 +157,7 @@ function main() {
   /* The right-hand end: price, then the button. */
   const desktopRow = buyBar.slice(buyBar.indexOf('<div className="hidden sm:block py-3 px-[15px]">'))
   check("there is a desktop row to look at", desktopRow.length > 0)
-  const priceAt = desktopRow.indexOf("{barPriceText(product)}")
+  const priceAt = desktopRow.indexOf("{barPriceText(product, pageCurrency)}")
   const buttonAt = desktopRow.indexOf("{buttonText}")
   check("the price is on the right, before the button", priceAt > 0 && buttonAt > priceAt)
   const thumbAt = desktopRow.indexOf("{thumbnail}")
@@ -182,7 +182,7 @@ function main() {
   check("the chip is not on the desktop row any more", !desktopRow.slice(0, priceAt).includes("priceBadge"))
   check("nor on the phone row", !/priceBadge/.test(buyBar))
   check("the phone row leads with the picture", /\{thumbnail\}\n\s*<div className="min-w-0">/.test(buyBar))
-  check("and still says the price, under the title", /barPrice\(barPriceText\(product\)/.test(buyBar))
+  check("and still says the price, under the title", /barPrice\(barPriceText\(product, pageCurrency\)/.test(buyBar))
 
   /* Five stars became one; the count is still there. */
   check("one star, not five", !/\[1, 2, 3, 4, 5\]\.map/.test(buyBar))

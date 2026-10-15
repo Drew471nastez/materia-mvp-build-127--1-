@@ -7,6 +7,7 @@
  * Analytics (components/app/product-picker.tsx).
  */
 import * as React from "react"
+import { shopMoney } from "@/lib/store/shop-money"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { pickerSurface, usePhone } from "@/components/app/date-range-picker"
@@ -25,7 +26,7 @@ export interface PickedProduct {
 
 export function priceLabel(cents: number | null | undefined): string {
   if (typeof cents !== "number" || !Number.isFinite(cents) || cents <= 0) return "Free"
-  return `$${(cents / 100).toFixed(2)}`
+  return shopMoney(cents)
 }
 
 let cache: { creatorId: string; products: PickedProduct[] } | null = null

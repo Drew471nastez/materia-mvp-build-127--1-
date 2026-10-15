@@ -51,6 +51,7 @@ import { signInNotice } from "@/lib/website-builder/account-pages"
 import { siteTabTitle, withTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
 import { ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
+import { withProductPageReviews } from "./storelib-reviews"
 
 type O = Record<string, unknown>
 
@@ -68,8 +69,12 @@ export interface SiteData {
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shop: CompatPage["shop"]
   host: string
+  /** The website's own address (its primary domain), which its canonical and its languages name whatever host the page was reached at. */
+  canonicalHost?: string
   /** The page as Shopify's theme editor shows it: the builder's preview. */
   designMode?: boolean
+  /** What the theme itself is told (theme.ts, CompatPage.themeDesignMode): false in the canvas, so it moves as on the website. */
+  themeDesignMode?: boolean
   /** A product's own page data (its description as markup), when the catalogue's card is not enough. */
   product?: (handle: string) => Promise<(CardLike & { descriptionHtml?: string }) | null>
   /** Scripts the page carries besides the theme's: the preview's banner. */
@@ -336,7 +341,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
-  const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0)
+  const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0, site.shop.currency ?? undefined)
   const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${languageLinks(site, path)}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
@@ -348,8 +353,9 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
 /** The same page in every language of the website, for search engines (hreflang, x-default the website's own). */
 function languageLinks(site: SiteData, path: string): string {
   const i18n = site.i18n
-  if (!i18n || i18n.languages.length < 2 || !site.host) return ""
-  const at = (code: string) => `https://${site.host}${localeRoot(i18n, code)}${path === "/" && localeRoot(i18n, code) ? "" : path}`
+  const host = site.canonicalHost ?? site.host
+  if (!i18n || i18n.languages.length < 2 || !host) return ""
+  const at = (code: string) => `https://${host}${localeRoot(i18n, code)}${path === "/" && localeRoot(i18n, code) ? "" : path}`
   const links = i18n.languages.map((l) => `<link rel="alternate" hreflang="${escapeHtml(l)}" href="${escapeHtml(at(l))}">`)
   links.push(`<link rel="alternate" hreflang="x-default" href="${escapeHtml(at(i18n.defaultLanguage))}">`)
   return links.join("")
@@ -626,8 +632,10 @@ const siteKeys = (site: SiteData): string[] => site.pageKeys ?? Object.keys(site
 function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> & { template: string; path: string }): CompatPage {
   return {
     designMode: site.designMode === true,
+    ...(site.themeDesignMode !== undefined ? { themeDesignMode: site.themeDesignMode } : {}),
     pageKeys: siteKeys(site),
     host: site.host,
+    canonicalHost: site.canonicalHost,
     query: Object.fromEntries(req.query.entries()),
     products: site.products,
     pickable: site.pickable,
@@ -745,7 +753,10 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const selectedVariantId = req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values"))
     /* Its SEO title, when its creator wrote one, is the theme's page_title and the tab, as on Shopify. */
     const seoTitle = typeof card.settings.seo_title === "string" && card.settings.seo_title.trim() ? card.settings.seo_title.trim() : undefined
-    const route = at("product", { product: card, selectedVariantId, selectedValues, title: seoTitle ?? String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) }, undefined, seoTitle)
+    const reviews = await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") })
+    const route = at("product", { product: card, selectedVariantId, selectedValues, title: seoTitle ?? String(card.settings.title ?? ""), reviews }, undefined, seoTitle)
+    /* Storelib Reviews on, with "Add to product pages": the theme's stars under the title and the reviews under the product, on a page that has none (./storelib-reviews.ts). */
+    if (route && reviews && reviews.enabled === true && reviews.product_page === true) route.sections = withProductPageReviews(route.sections, site.theme)
     /* Signed in and already theirs: said at the foot of the page, with the way to the downloads. */
     const owned = route && req.account?.customer && req.owned ? await req.owned(card.id).catch(() => null) : null
     if (route && owned) {
