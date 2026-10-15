@@ -17,8 +17,10 @@
  *             sampled each frame at 4x CPU throttle keeps scale 1 and no
  *             matrix of any kind (no bump); the page changes and the tab it went to
  *             fills; the glass clears
- *   SLIDE     the glass follows the finger one to one, lifts and stretches,
- *             and the slot it is let go over is where the page goes
+ *   SLIDE     the glass follows the finger (since round 31 on a spring a
+ *             few pixels behind it, scripts/check-lens-round31.mjs), lifts
+ *             and stretches, and the slot it is let go over is where the
+ *             page goes
  *   KEYBOARD  the bar slides away while a field has the focus, and back
  *   PRODUCT   a creator's page or product has no tab bar, browsed from
  *             Storelib or on the open web, and its own buy bar is at the foot

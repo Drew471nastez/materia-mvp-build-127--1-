@@ -390,6 +390,9 @@ html[data-sl-dark] {
   /* A tap shows no glass in the dark; a drag a faint whole (components/nav/buyer-tab-bar.tsx, round 30). */
   --sl-tab-lens-tap: 0;
   --sl-tab-lens-drag: 0.75;
+  /* Under a dragging finger the glass's rim and its sheen (round 31): the same shapes as the light look, far fainter, and no cool shade, which on the dark bar would only read as a smudge. */
+  --sl-tab-lens-rim: inset 0 1px 1.5px -0.5px rgba(255,255,255,0.12), inset 0 -1px 1.5px -0.5px rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.035), 0 4px 12px -3px rgba(0,0,0,0.3);
+  --sl-tab-lens-spec: radial-gradient(34% 26% at 36% 32%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 100%), radial-gradient(28% 18% at 66% 78%, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
   --sl-ink-strong: ${P.ink};
   --sl-arrive: rgba(253,248,236,0.07);
 }
