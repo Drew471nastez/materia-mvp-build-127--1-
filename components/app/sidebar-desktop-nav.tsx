@@ -830,7 +830,16 @@ export function DesktopSidebarContent({
       {/* px-[7px] — the rows carry their own 14px inner padding, so the
           sidebar's own gutter is only the gap between a row's rounded edge
           and the border. */}
-      <nav className="sidebar-nav flex-1 overflow-y-auto px-[7px] py-3">
+      {/*
+        THE COLLAPSE CONTROL, AN ICON IN THE TOP CORNER (round 29). It sat
+        under Settings as a full row reading "Collapse"; up here it is out of
+        the rows' way, where Linear, Notion and Vercel keep theirs. Its
+        tooltip says what it does and the shortcut (components/app/rail-toggle).
+      */}
+      <div className="relative h-[40px] shrink-0">
+        <RailToggle />
+      </div>
+      <nav className="sidebar-nav min-h-0 flex-1 overflow-y-auto px-[7px] pb-3 pt-[2px]">
         <div className="space-y-[2px]">
           {items.map((item) => (
             <DesktopNavItem
@@ -845,9 +854,14 @@ export function DesktopSidebarContent({
           ))}
         </div>
 
+        {/* Folded away while the sidebar is a row of icons, at its open width, so its words never rewrap as the sidebar narrows. */}
         {storeUnpublishedNote && (
-          <div data-rail-hide="" className="mt-4 rounded-[10px] border border-amber-100/80 bg-amber-50/80 px-3 py-2.5">
-            <p className="text-[12px] text-amber-700">{storeUnpublishedNote}</p>
+          <div data-rail-fold="">
+            <div>
+              <div className="mt-4 min-w-[225px] rounded-[10px] border border-amber-100/80 bg-amber-50/80 px-3 py-2.5">
+                <p className="text-[12px] text-amber-700">{storeUnpublishedNote}</p>
+              </div>
+            </div>
           </div>
         )}
       </nav>
@@ -867,10 +881,18 @@ export function DesktopSidebarContent({
           page: fetched ahead under the pointer, and the navigation recorded
           on the click, so the shell answers it the same.
         */}
+        {/*
+          FOLDED, NOT REMOVED, while the sidebar is a row of icons (round 29):
+          its height closes on the sidebar's own curve as it fades, instead
+          of vanishing on the first frame, and Settings at the foot never
+          moves. 225px wide however narrow the sidebar is on the way, so
+          nothing in it rewraps.
+        */}
+        <div data-rail-fold="">
+        <div>
         <Link
           href={UPGRADE_HREF}
           data-upgrade-card=""
-          data-rail-hide=""
           onClick={(e) => { if (isPlainClick(e.nativeEvent)) onNavigate?.(UPGRADE_HREF) }}
           onMouseEnter={() => {
             if (!upgradeActive) onPrefetch?.(UPGRADE_HREF)
@@ -878,7 +900,7 @@ export function DesktopSidebarContent({
           onFocus={() => {
             if (!upgradeActive) onPrefetch?.(UPGRADE_HREF)
           }}
-          className="group/upgrade flex items-center justify-between gap-3 rounded-[12px] border border-violet-100/60 bg-gradient-to-r from-violet-50/80 to-purple-50/80 py-3 pl-[14px] pr-3 transition-[border-color,--tw-gradient-from,--tw-gradient-to] duration-[140ms] ease-out hover:border-violet-200/70 hover:from-violet-100/80 hover:to-purple-100/80"
+          className="group/upgrade flex min-w-[225px] items-center justify-between gap-3 rounded-[12px] border border-violet-100/60 bg-gradient-to-r from-violet-50/80 to-purple-50/80 py-3 pl-[14px] pr-3 transition-[border-color,--tw-gradient-from,--tw-gradient-to] duration-[140ms] ease-out hover:border-violet-200/70 hover:from-violet-100/80 hover:to-purple-100/80"
         >
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold text-neutral-900">{upgradeTitle}</p>
@@ -886,6 +908,8 @@ export function DesktopSidebarContent({
           </div>
           <UpgradeBolt size={28} />
         </Link>
+        </div>
+        </div>
 
         <Link
           href="/app/settings"
@@ -902,7 +926,6 @@ export function DesktopSidebarContent({
           />
           <span data-nav-label="" className="whitespace-nowrap">{settingsLabel}</span>
         </Link>
-        <RailToggle />
       </div>
     </div>
   )

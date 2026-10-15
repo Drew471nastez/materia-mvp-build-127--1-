@@ -265,7 +265,7 @@ export default async function AppLayout({
             header, so its own rounded top was never on the glass. The rounded
             corners where the page meets the bar hang from the header at every
             width (components/app/app-top-corners.tsx). */}
-        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[var(--app-rail-w,240px)] transition-[padding-left] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content">
+        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[var(--app-rail-w,240px)] transition-[padding-left] duration-(--rail-ms) ease-(--rail-ease) motion-reduce:transition-none bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content">
           {/* pb ensures content at scroll-bottom is never hidden under the iOS home indicator
               or Android gesture-nav bar. env() = 0 in browsers so this is a no-op there. */}
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it

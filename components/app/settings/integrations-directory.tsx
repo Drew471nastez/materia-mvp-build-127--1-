@@ -47,6 +47,19 @@ type Filter = "all" | "installed" | "storelib" | IntegrationCategory
 type Entry = { kind: "integration"; id: string; item: Integration } | { kind: "app"; id: string; app: StorelibApp }
 
 const APPS_PATH = "/api/store/integrations/apps"
+const TRACKING_APP_PATH = "/api/store/tracking-app"
+
+/*
+  WHERE STORELIB'S OWN APPS SIT AMONG THE CATEGORIES (round 29). The ones
+  with a page in the catalog carry a category already (Storelib Reviews in
+  Reviews, Courier tracking in Shipping); Email marketing did not, so the
+  Email marketing pill showed Klaviyo and Mailchimp and not Storelib's own.
+  The others (bundles, languages, GitHub) fit no category: Storelib apps and
+  All hold them.
+*/
+const APP_CATEGORY: Partial<Record<string, IntegrationCategory>> = {
+  "storelib-email-marketing": "email",
+}
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 /* A card with a little depth: the hairline, a contact shadow and a soft one under it, as the rail's open row sits over its column. */
@@ -59,6 +72,33 @@ const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px
 */
 const SWAP_MS = 120
 const SWAP_FROM = 0.55
+
+/* A category switch (round 29): the cards crossfade in this long, and a shorter list eases to its height in this long. */
+const CROSSFADE_MS = 180
+const HEIGHT_MS = 220
+
+/**
+ * A still copy of the cards on screen, laid over the new ones for the
+ * crossfade. Inert and hidden from assistive tech, and without the hooks a
+ * card is found by (focus on Back, the probes), so nothing mistakes it for
+ * the list.
+ */
+function stillOf(grid: HTMLElement): HTMLElement {
+  const still = document.createElement("div")
+  still.setAttribute("aria-hidden", "true")
+  still.inert = true
+  still.setAttribute("data-integration-still", "")
+  Object.assign(still.style, { position: "absolute", top: "0", left: "0", right: "0", pointerEvents: "none", mixBlendMode: "plus-lighter" })
+  for (const child of grid.children) {
+    if (!(child instanceof HTMLElement) || child.hidden || child.hasAttribute("data-integration-still")) continue
+    const copy = child.cloneNode(true) as HTMLElement
+    for (const el of [copy, ...copy.querySelectorAll<HTMLElement>("*")]) {
+      for (const name of ["id", "data-integration-card", "data-storelib-app", "data-integration-grid", "data-integration-empty"]) el.removeAttribute(name)
+    }
+    still.appendChild(copy)
+  }
+  return still
+}
 
 function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -109,6 +149,21 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       if (r.ok) setMarketing(r.data.marketing)
     })
   }, [])
+  /*
+    THE STORE'S OWN TRACKING ACCOUNT (round 29). AfterShip is the store's own
+    AfterShip account in place of Storelib's tracking, and it was never read
+    here: its card said Not connected and Installed left it out even when its
+    key was saved. Read the way its page reads it (/api/store/tracking-app).
+  */
+  type TrackingRead = { tracking?: { own?: { provider?: string } | null } }
+  const [ownTracking, setOwnTracking] = React.useState<string | null>(() => peekGet<TrackingRead>(TRACKING_APP_PATH)?.tracking?.own?.provider ?? null)
+  const readOwnTracking = React.useCallback(() => {
+    if (!physical) return
+    void api<TrackingRead>(TRACKING_APP_PATH).then((r) => {
+      if (r.ok) setOwnTracking(r.data.tracking?.own?.provider ?? null)
+    })
+  }, [physical])
+  React.useEffect(() => readOwnTracking(), [readOwnTracking])
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Filter>("all")
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
@@ -180,13 +235,15 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
 
   const installed = React.useCallback(
     (i: Integration): boolean => {
+      /* AfterShip only with the store's own AfterShip account, never its 17TRACK one. */
+      if (i.id === "aftership") return ownTracking === "aftership"
       if (i.kind === "app") return !!(i.appId && appsOn[i.appId])
       if (i.kind === "tracker") return !!(i.trackerId && (tracking?.[i.trackerId] || marketing?.some((m) => m.provider === i.trackerId && m.connected)))
       if (i.kind !== "commerce" || i.comingSoon) return false
       const s = states?.find((x) => x.provider === i.providerId)
       return !!s && s.status !== "disconnected"
     },
-    [tracking, states, appsOn, marketing],
+    [tracking, states, appsOn, marketing, ownTracking],
   )
 
   /* One word for where each stands, read off what is really saved: never an installed state that isn't. */
@@ -299,21 +356,64 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     words went white before it arrived; the cards faded up from half on every
     press. Both read as a glitch, so both are gone.
   */
+  /*
+    A CATEGORY CROSSFADES (round 29, the owner: "no flash, no glitch, no
+    abrupt appearing"). The fade from 0.55 above was itself the flash: on the
+    press the whole list dropped to half in one frame, then came back. Now:
+
+      no remount   every card is drawn once and a pill only shows or hides
+                   it (`hidden`), so a logo is never loaded or decoded again
+      a crossfade  a still copy of the cards as they were sits over the new
+                   ones and fades out while they fade in, 180ms, added light
+                   (plus-lighter in an isolated box), so a card that is in
+                   both stays solid instead of dimming halfway through
+      the height   held where it was on the press, then eased down only as
+                   far as the page can go without moving: a short category
+                   under pills scrolled to the top used to clamp the scroll
+                   and throw the pills down the screen. The room left under
+                   the cards goes as the page is scrolled back up, below the
+                   screen's edge, where nothing is seen to move.
+  */
   const pillsRef = React.useRef<HTMLDivElement>(null)
   const filterChanged = React.useRef(false)
   const gridRef = React.useRef<HTMLUListElement>(null)
+  const gridBox = React.useRef<HTMLDivElement>(null)
   const pillsAt = React.useRef<number | null>(null)
+  const heldAt = React.useRef<number | null>(null)
+  const crossfade = React.useRef<HTMLElement | null>(null)
+  const settle = React.useRef<(() => void) | null>(null)
+  const roomOff = React.useRef<(() => void) | null>(null)
+  React.useEffect(
+    () => () => {
+      settle.current?.()
+      roomOff.current?.()
+    },
+    [],
+  )
   const chooseFilter = (f: Filter) => {
     if (f === filter) return
     const box = scroller()
     const row = pillsRef.current
     pillsAt.current = box && row ? row.getBoundingClientRect().top - box.getBoundingClientRect().top : null
+    /* A switch still fading lands first, so the copy is of what is on screen now. */
+    settle.current?.()
+    roomOff.current?.()
+    const grid = gridBox.current
+    heldAt.current = grid ? grid.getBoundingClientRect().height : null
+    crossfade.current = grid && !reduced() && typeof grid.animate === "function" ? stillOf(grid) : null
     filterChanged.current = true
     setFilter(f)
   }
   React.useLayoutEffect(() => {
     if (!filterChanged.current) return
     filterChanged.current = false
+    const still = crossfade.current
+    crossfade.current = null
+    const was = heldAt.current
+    heldAt.current = null
+    const grid = gridBox.current
+    /* Held at the old height before anything reads the layout, so the scroll cannot clamp in between. */
+    if (grid && was !== null) grid.style.minHeight = `${was}px`
     const box = scroller()
     const row = pillsRef.current
     if (box && row && pillsAt.current !== null) {
@@ -330,12 +430,58 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       const to = row.scrollLeft > left ? left : row.scrollLeft < right ? right : row.scrollLeft
       if (to !== row.scrollLeft) row.scrollTo({ left: to, behavior: reduced() ? "auto" : "smooth" })
     }
-    /*
-      THE NEW CATEGORY EASES IN, ALL AT ONCE (the owner: switching showed the cards "too direct"; before that, a staggered
-      rise read as glitchy). The list as one, a short fade from most of the way there: no card moves, none waits for another.
-    */
-    const list = gridRef.current
-    if (list && !reduced() && typeof list.animate === "function") list.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 140, easing: "cubic-bezier(0.4, 0, 0.2, 1)" })
+    if (!grid || was === null) return
+    const live = [...grid.children].filter((c): c is HTMLElement => c instanceof HTMLElement && !c.hidden && !c.hasAttribute("data-integration-still"))
+    const naturalNow = () => live.reduce((h, c) => h + c.getBoundingClientRect().height, 0)
+    /* How tall the list has to stay for the page to stay where it is: the cards, and any room the screen still shows under them while it is scrolled. */
+    const keepFor = (height: number, natural: number) => (box && box.scrollTop > 0 ? Math.max(natural, Math.min(height, box.scrollTop + box.clientHeight - (box.scrollHeight - height))) : natural)
+    const natural = naturalNow()
+    const keep = keepFor(was, natural)
+    /* The room under the cards, given back as the page is scrolled up and it goes under the screen's edge. */
+    const hold = () => {
+      if (keep <= natural + 0.5 || !box) {
+        grid.style.minHeight = ""
+        return
+      }
+      grid.style.minHeight = `${keep}px`
+      const onScroll = () => {
+        const now = keepFor(grid.getBoundingClientRect().height, naturalNow())
+        if (now > naturalNow() + 0.5) grid.style.minHeight = `${now}px`
+        else roomOff.current?.()
+      }
+      box.addEventListener("scroll", onScroll, { passive: true })
+      roomOff.current = () => {
+        box.removeEventListener("scroll", onScroll)
+        grid.style.minHeight = ""
+        roomOff.current = null
+      }
+    }
+    if (!still) {
+      hold()
+      return
+    }
+    /* The list as one, never card by card: the old still out, the new cards in, on one curve, so the two always add up to one. */
+    grid.appendChild(still)
+    const timing = { duration: CROSSFADE_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)" }
+    const runs: Animation[] = [still.animate([{ opacity: 1 }, { opacity: 0 }], { ...timing, fill: "forwards" })]
+    for (const c of live) {
+      c.style.mixBlendMode = "plus-lighter"
+      runs.push(c.animate([{ opacity: 0 }, { opacity: 1 }], timing))
+    }
+    /* Shorter: eased down from where it was, as far as the page allows. Taller: it simply is, the new cards fading in where the old ones were. */
+    if (keep < was - 0.5) runs.push(grid.animate([{ minHeight: `${was}px` }, { minHeight: `${keep}px` }], { duration: HEIGHT_MS, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" }))
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      settle.current = null
+      for (const r of runs) r.cancel()
+      still.remove()
+      for (const c of live) c.style.mixBlendMode = ""
+      hold()
+    }
+    settle.current = finish
+    void Promise.all(runs.map((r) => r.finished)).then(finish, finish)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
@@ -367,6 +513,8 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
             setAppsOn((a) => ({ ...a, [appId]: on }))
             /* Reviews' card and its Essentials row follow its switch at once. */
             if (appId === "storelib_reviews") setAppStates((x) => (x ? { ...x, states: { ...x.states, "storelib-reviews": on ? "on" : "off" } } : x))
+            /* Which account it is now (AfterShip's card follows only an AfterShip one). */
+            if (appId === "courier_tracking") readOwnTracking()
             window.dispatchEvent(new Event("storelib:integrations-changed"))
           }}
           onBack={() => open(null)}
@@ -376,34 +524,58 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   }
 
   /*
-    THE CARDS. Storelib's own apps first (the ones with a page, then the ones
-    that open their settings), then every service. A search looks through all
+    THE CARDS, IN ONE ORDER FOR EVERY PILL (round 29). Storelib's own first
+    (the ones with a page, then the ones that open their settings), then the
+    services that work today, then the ones coming soon, each run in the
+    categories' order. It used to be the catalog's order, which put Clarity
+    after the ad pixels and Hotjar between Prodigi and the Snapchat Pixel, so
+    All read as shuffled and a category opened on Coming soon cards ahead of
+    working ones. A pill only picks from this one list, so a card keeps its
+    place among the others whichever pill is on. A search looks through all
     of them whatever pill is on, so typing never finds nothing because of a pill.
   */
   const storelibIntegrations = shownAll.filter((i) => hasBuiltInArt(i.id))
+  const later = (i: Integration) => (i.comingSoon || i.paused ? 1 : 0)
+  const services = shownAll
+    .filter((i) => !hasBuiltInArt(i.id))
+    .map((item, at) => ({ item, at }))
+    .sort((a, b) => later(a.item) - later(b.item) || CATEGORY_ORDER.indexOf(a.item.category) - CATEGORY_ORDER.indexOf(b.item.category) || a.at - b.at)
+    .map(({ item }) => item)
   /* Storelib's core settings (payments, shipping, taxes...) are not integrations: only the Essentials checklist names them. */
   const appEntry = (a: StorelibApp): Entry => ({ kind: "app", id: a.id, app: a })
   const entries: Entry[] = [
     ...storelibIntegrations.map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
     ...apps.filter((a) => !a.core).map(appEntry),
-    ...shownAll.filter((i) => !hasBuiltInArt(i.id)).map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
+    ...services.map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
   ]
-  /* Storelib's own: its apps and the parts of Storelib shown as integrations (payments, shipping, taxes). All is the services from elsewhere, never these again. */
+  /* Storelib's own: its apps and the parts of Storelib shown as integrations (Reviews, Courier tracking, the webhook). All holds them as well as every service. */
   const isStorelib = (e: Entry) => e.kind === "app" || hasBuiltInArt(e.id)
-  const isInstalled = (e: Entry) => (e.kind === "integration" ? installed(e.item) || e.item.builtIn : appState(e.id) === "on")
+  /*
+    INSTALLED IS WHAT WORKS IN THIS STORE NOW (round 29): a service with its
+    key or ID saved, Storelib's own app switched on, and Courier tracking,
+    which is on for every store that ships. Not the webhook until its address
+    is saved: "built in" there only meant there is nothing to install, and it
+    counted as installed in every store, sending nothing anywhere.
+  */
+  const isInstalled = (e: Entry) => (e.kind === "integration" ? installed(e.item) || (e.item.builtIn && e.item.kind === "app") : appState(e.id) === "on")
+  const categoryOf = (e: Entry): IntegrationCategory | null => (e.kind === "integration" ? e.item.category : (APP_CATEGORY[e.id] ?? null))
+  /* One test per pill, for its count and for the cards it shows alike, so the number on a pill is always the cards under it. */
+  const inPill = (e: Entry, pill: Filter) => (pill === "all" ? true : pill === "installed" ? isInstalled(e) : pill === "storelib" ? isStorelib(e) : categoryOf(e) === pill)
   const counts = new Map<Filter, number>([
     ["all", entries.length],
     ["installed", entries.filter(isInstalled).length],
     ["storelib", entries.filter(isStorelib).length],
   ])
-  for (const c of CATEGORY_ORDER) counts.set(c, shownAll.filter((i) => i.category === c).length)
+  for (const c of CATEGORY_ORDER) counts.set(c, entries.filter((e) => inPill(e, c)).length)
   /* All first, then what is installed, then the rest. No Essentials pill (the owner: "get rid of the Essential pill"): payments, shipping and taxes are under Settings, the apps under Storelib apps. */
   const pills: Filter[] = ["all", "installed", "storelib", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
   const q = query.trim()
   const matches = (e: Entry) => (e.kind === "integration" ? searchIntegrations([e.item], q).length > 0 : `${e.app.name} ${e.app.summary} storelib`.toLowerCase().includes(q.toLowerCase()))
   const shown = q
     ? entries.filter(matches)
-    : entries.filter((e) => (filter === "all" ? true : filter === "installed" ? isInstalled(e) : filter === "storelib" ? isStorelib(e) : e.kind === "integration" && e.item.category === filter))
+    : entries.filter((e) => inPill(e, filter))
+  const showing = new Set(shown.map((e) => e.id))
+  const firstShown = shown[0]?.id ?? null
   const hrefOf = (a: StorelibApp) => appStates?.hrefs[a.id] ?? a.href
 
   /* Installed by the store (not the built in ones every store has), for the page's own list at the top. */
@@ -480,19 +652,20 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       </div>
 
       {error ? <Notice>{error}</Notice> : null}
-      {shown.length === 0 ? (
-        <div className={cn(CARD, "px-5 py-10 text-center")}>
+      {/* Isolated, so the crossfade's two layers add up inside it and nowhere else. */}
+      <div ref={gridBox} className="relative isolate" data-integration-grid-box="">
+        <div hidden={shown.length > 0} className={cn(CARD, "px-5 py-10 text-center")} data-integration-empty="">
           <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "installed" && !q ? tt("Nothing installed yet") : tt("Nothing matches")}</p>
           <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setRequesting(true)}>
             {tt("Request integration")}
           </button>
         </div>
-      ) : (
-        /* One list for every pill: a switch only adds and removes cards, each keeping its place, so nothing flashes or zooms.
-           On a phone it is one card of rows; from 640px a grid of cards. */
-        <ul ref={gridRef} className={cn(CARD, "divide-y divide-[#f1f2f4] overflow-hidden sm:grid sm:grid-cols-2 sm:gap-3 sm:divide-y-0 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none", page && "lg:grid-cols-3")} data-integration-grid="">
-          {shown.map((e) => (
-            <li key={e.id}>
+        {/* One list for every pill, every card in it from the start: a switch only shows and hides cards, each keeping its place,
+            so nothing is mounted again, and no logo loads or flashes again. On a phone it is one card of rows, a hairline between
+            the rows shown; from 640px a grid of cards. */}
+        <ul ref={gridRef} hidden={shown.length === 0} className={cn(CARD, "overflow-hidden sm:grid sm:grid-cols-2 sm:gap-3 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none", page && "lg:grid-cols-3")} data-integration-grid="">
+          {entries.map((e) => (
+            <li key={e.id} hidden={!showing.has(e.id)} className={e.id === firstShown ? undefined : "border-t border-[#f1f2f4] sm:border-t-0"}>
               {e.kind === "app" ? (
                 <Link href={hrefOf(e.app)} data-integration-card={e.id} data-storelib-app={e.id} className={ENTRY}>
                   <EntryBody mark={<Mark item={{ id: e.id, name: e.app.name, logo: null }} />} name={e.app.name} summary={e.app.summary} badge={<AppBadge state={appState(e.id)} />} />
@@ -510,7 +683,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
             </li>
           ))}
         </ul>
-      )}
+      </div>
       <RequestForm open={requesting} onClose={() => setRequesting(false)} />
     </div>
   )
