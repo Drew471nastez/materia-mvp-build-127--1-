@@ -627,6 +627,7 @@ const SUITES = [
   "tests/physical-ships-x1.test.ts",
   /* Round 25 */
   "tests/i18n25.test.ts",
+  "tests/publishing-cache.test.ts",
 ]
 
 /**

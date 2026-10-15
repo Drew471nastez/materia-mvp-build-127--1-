@@ -26,6 +26,7 @@ import { readStoreMenus, storeMenusOrNull } from "@/lib/website-builder/store-me
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { assetAddresses, compatOf } from "@/lib/storelib-theme/compat/install"
+import { assetVersion, themeDigest } from "@/lib/storelib-theme/compat/asset-version"
 import { drawPage, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import { POLICY_HANDLES, type CartStock, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { isBlankHtml, policyBodyOf } from "@/lib/website-builder/policy-editing"
@@ -96,11 +97,33 @@ function shopImage(media: Record<string, string>, v: string): string {
   }
 }
 
-/** The theme an install draws, with its assets where they are served from. */
+/**
+ * The theme an install draws, with its assets where they are served from.
+ *
+ * A live file's address is versioned by what it is drawn from, not by the
+ * publish (lib/storelib-theme/compat/asset-version.ts): a setting saved
+ * without Publish moves the address of a `.css.liquid` file, and a Publish
+ * that left a file alone leaves its address, and the visitor's cached copy,
+ * alone. Worked out once per file per theme; the theme is held per publish
+ * and settings (holdTheme). A draft keeps its own version, which the route
+ * never caches.
+ */
 export function compatThemeFor(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
   const media = assetAddresses(rows)
+  const draft = version === "edit" || version.startsWith("draft")
+  const versions = new Map<string, string>()
+  let digest: string | null = null
+  const versionOf = (name: string): string => {
+    if (draft) return version
+    let v = versions.get(name)
+    if (v === undefined) {
+      v = assetVersion(rows, name, settings, () => (digest ??= themeDigest(rows))) ?? version
+      versions.set(name, v)
+    }
+    return v
+  }
   return themeOfInstall(rows, settings, {
-    assetUrl: (name) => media[name] ?? themeAssetUrl(installId, version, name),
+    assetUrl: (name) => media[name] ?? themeAssetUrl(installId, versionOf(name), name),
     assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
     /* "shopify://shop_images/logo.png" is a file of the store the theme came from: the theme's own picture of that name where it brought one. */
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : shopImage(media, v)),
