@@ -19,7 +19,7 @@ import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
-import { resolveMarketCountries } from "@/lib/markets/market-countries"
+import { countryOfCurrency, resolveMarketCountries } from "@/lib/markets/market-countries"
 import { COUNTRY_COOKIE, FORGET_COUNTRY_COOKIE, readCountryCookie, seenCountry, visitorCountryFrom } from "@/lib/markets/visitor-country"
 import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
@@ -477,11 +477,15 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
       const own = rawMarkets.some((m) => m.primary !== true)
         ? await db
             .from("store_settings")
-            .select("default_country")
+            .select("default_country, currency")
             .eq("creator_id", facts.creatorId)
             .maybeSingle()
             .then(
-              (r) => (r.data as { default_country?: unknown } | null)?.default_country,
+              /* No country set: the one whose currency the store sells in (RON: Romania), so the store's own visitors are never put in another currency. */
+              (r) => {
+                const d = r.data as { default_country?: unknown; currency?: unknown } | null
+                return (typeof d?.default_country === "string" && d.default_country) || countryOfCurrency(d?.currency)
+              },
               () => null,
             )
         : null

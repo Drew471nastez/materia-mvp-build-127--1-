@@ -32,7 +32,7 @@ import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRe
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { currencyCode, type PriceRounding } from "./money"
 import { languageChoiceOf } from "./choice"
-import { resolveMarketCountries, storeHomeCountry } from "./market-countries"
+import { countryOfCurrency, resolveMarketCountries, storeHomeCountry } from "./market-countries"
 import { chargeCurrencyFor } from "./checkout-charge"
 import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import { cachedRates } from "./fx-server"
@@ -67,12 +67,14 @@ const NONE: SiteLanguages = { saved: false, defaultLanguage: "en", others: [], m
 
 /** The store's own country (Settings › Store currency): where a visitor whose country is unknown starts, and the builder's preview. */
 async function storeCountry(creatorId: string): Promise<string | null> {
-  const { data } = await createAdminClient().from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle().then(
+  const { data } = await createAdminClient().from("store_settings").select("default_country, currency").eq("creator_id", creatorId).maybeSingle().then(
     (r: { data: unknown }) => r,
     () => ({ data: null }),
   )
-  const c = (data as { default_country?: unknown } | null)?.default_country
-  return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : null
+  const d = data as { default_country?: unknown; currency?: unknown } | null
+  const c = d?.default_country
+  /* No country set: the one whose currency the store sells in (RON: Romania). */
+  return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : countryOfCurrency(d?.currency)
 }
 
 async function readLanguages(creatorId: string): Promise<SiteLanguages> {
