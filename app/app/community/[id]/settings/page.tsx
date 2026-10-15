@@ -16,7 +16,7 @@ export default async function CommunitySettingsPage({ params, searchParams }: { 
   if (!ctx) return null
   return (
     <SectionSeed id="settings">
-      <Suspense fallback={<SectionFrame id="settings" />}>
+      <Suspense fallback={<SectionFrame id="settings" facts={{ settingsList: !settingsTabAsked(query.tab) }} />}>
         {settingsBody({ ctx, query })}
       </Suspense>
     </SectionSeed>

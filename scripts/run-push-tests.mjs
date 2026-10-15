@@ -617,6 +617,8 @@ const SUITES = [
   "tests/communities-shell15.test.ts",
   /* Round 31: the community admin shell keeps its sections, the settings list, the save bar, the gallery drag (scripts/check-community-admin-round31.mjs measures them). */
   "tests/communities-admin31.test.ts",
+  /* Round 32: moving between a community's sections (scripts/check-community-admin-round32.mjs, scripts/measure-community-admin-server.mjs measure it). */
+  "tests/communities-admin32.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",

@@ -59,7 +59,7 @@ import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { AppLink } from "@/components/app/app-link"
-import { prefetchAppPage, sameStageFrame, useShownPath } from "@/lib/ui/app-navigation"
+import { prefetchAppPage, sameStageFrame, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { connectionFacts, readAheadAllowed } from "@/lib/communities/client/place-cache"
 import { ArrowLeft, Copy, ExternalLink, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -79,21 +79,29 @@ export const SECTION_ARRIVE_RISE_PX = 3
 /** A section taking its frame's place: the same 55%, quicker, and no rise (its cards are already where they will be). */
 export const SECTION_FILL_MS = 120
 const SECTION_ARRIVE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+const ARRIVE: Keyframe[] = [{ opacity: SECTION_ARRIVE_FROM, translate: `0 ${SECTION_ARRIVE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }]
 
 /**
  * THE WIDTH OF THE PAGE (round 32, the owner: "everything on desktop is too
  * shrunk"). It was 1080px; it is now the widest /app list's column, Products'
- * (app/app/products/products-client.tsx PAGE_WIDTH and PAGE_GUTTER): 1200px,
- * and from 1024px 1323px with 35px either side. The bar, the tabs and the
- * section share it, so the name, the first tab and the first card start on
- * one line.
+ * (app/app/products/products-client.tsx PAGE_WIDTH): 1200px, and 1323px from
+ * 1024px, inside the app's own gutter (32px there). Not Products' 35px
+ * gutter: up to 1320px wide the rail leaves less than the column anyway, and
+ * the wider gutter would have made a 1280px screen 6px narrower than before.
+ * Measured (scripts/check-community-admin-round32.mjs WIDTH): the section is
+ * 1136px at 1440 (was 1016) and 1259 at 1920 (was 1016). The bar, the tabs
+ * and the section share it, so the name, the first tab and the first card
+ * start on one line.
  */
 const SHELL_WIDTH = "max-w-[1200px] lg:max-w-[1323px]"
-const SHELL_GUTTER = "app-gutter lg:px-[35px]"
+const SHELL_GUTTER = "app-gutter"
 
-/** What a section's frame needs from the head (section-frame.tsx): Posts draws the writer's card for whoever may post. */
-export function frameFacts(head: CommunityHead): SectionFrameFacts {
-  return { composer: head.can.post === true && !head.archived && !!head.me }
+/**
+ * What a section's frame needs beyond its name (section-frame.tsx): Posts draws the writer's card for whoever may post,
+ * and Settings opens on the list of panels on a phone when the address names none.
+ */
+export function frameFacts(head: CommunityHead, search: string): SectionFrameFacts {
+  return { composer: head.can.post === true && !head.archived && !!head.me, settingsList: !new URLSearchParams(search).get("tab")?.trim() }
 }
 
 export interface SectionTab {
@@ -313,7 +321,7 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
   }, [active])
   return (
     <nav aria-label={tt("Community sections")} data-community-tabs="">
-      <div ref={strip} data-section-tabs="" className="app-gutter-bleed flex items-center gap-1 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] md:gap-0.5 md:[mask-image:none]">
+      <div ref={strip} data-section-tabs="" className="app-gutter-bleed flex items-center gap-1 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] md:gap-0.5 xl:[mask-image:none]">
         {tabs.map((t) => {
           const on = t.id === active
           return (
@@ -356,7 +364,12 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 
   /* What the shell holds: every section drawn so far, as the router drew it. */
   const store = React.useRef(new Map<AdminSection, Held>())
-  const [, held] = React.useReducer((n: number) => n + 1, 0)
+  /*
+    What each kept place draws, as state (round 32): a render reads what was committed, never the store a later answer
+    has already written into, so a section drawn again in a transition stays as it is on every urgent render until its
+    new reads are in.
+  */
+  const [drawn, setDrawn] = React.useState<ReadonlyMap<AdminSection, Held>>(() => new Map())
   const [active, setActive] = React.useState<AdminSection>(() => adminSectionOf(pathname))
   const activeRef = React.useRef(active)
   activeRef.current = active
@@ -377,15 +390,18 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     if (prev) for (const [k, h] of store.current) if (k !== id) h.stale = true
     /* Read ahead a while ago (round 32): it is shown as read, and read again behind it once it is looked at (FRESH). */
     const aheadAt = prev ? 0 : (readAhead.current.get(id) ?? 0)
-    store.current.set(id, { node, stamp, at: aheadAt || Date.now(), stale: false, version: (prev?.version ?? 0) + (prev && sectionRestarts(prev.stamp, stamp) ? 1 : 0) })
+    const entry: Held = { node, stamp, at: aheadAt || Date.now(), stale: false, version: (prev?.version ?? 0) + (prev && sectionRestarts(prev.stamp, stamp) ? 1 : 0) }
+    store.current.set(id, entry)
+    const draw = () => setDrawn((m) => new Map(m).set(id, entry))
     /*
       In the commit that brought it, before it is painted: a new section gets its place, a held one is drawn again in it.
       Drawn again in a transition (round 32): the section's reads stream in under a Suspense boundary on the server
       (app/app/community/[id]/<section>/page.tsx), and an urgent update would put a section already on screen back to its
       frame until they came. In a transition React keeps what is shown until the new reads are in.
     */
-    if (keptRef.current.includes(id)) React.startTransition(() => held())
+    if (keptRef.current.includes(id)) React.startTransition(draw)
     else {
+      draw()
       keptRef.current = [...keptRef.current, id]
       setKept(keptRef.current)
       if (aheadAt && sectionStale({ at: aheadAt, stale: false }, Date.now())) staleArrival.current = id
@@ -494,6 +510,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 
   /* ── The press lights the tab at once; a link inside a section going to another one shows that one's frame ── */
   const going = useShownPath() || pathname
+  const shownSearch = useShownSearch()
   const pendingId = sameStageFrame(pathname, going) && going !== pathname ? adminSectionOf(going) : null
   const shown: AdminSection = pendingId ?? active
   screenRef.current = shown
@@ -562,6 +579,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 
   /* ── Scroll and the arrival, before the frame is painted ── */
   const painted = React.useRef(false)
+  /* When the section on screen began its arrival (0 for none), for the section that takes its frame's place. */
+  const arrivedAt = React.useRef(0)
   React.useLayoutEffect(() => {
     if (!painted.current) {
       painted.current = true
@@ -573,10 +592,16 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     const screen = el.querySelector<HTMLElement>(`[data-section-screen="${shown}"]`)
     const back = traversing.current
     traversing.current = false
+    arrivedAt.current = 0
     if (back || !screen || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    screen.animate([{ opacity: SECTION_ARRIVE_FROM, translate: `0 ${SECTION_ARRIVE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }], { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
+    arrivedAt.current = performance.now()
+    screen.animate(ARRIVE, { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
   }, [shown])
-  /* The section taking its frame's place: its cards are where the frame's were, and it comes up from 55% over 120ms, with no rise. */
+  /*
+    THE SECTION TAKING ITS FRAME'S PLACE. Its cards are where the frame's were. While the frame is still arriving the
+    section carries on that same arrival from where it had got to (so nothing jumps by what was left of the rise);
+    after it, the section comes up from 55% over 120ms with no rise.
+  */
   const lastFramed = React.useRef<AdminSection | null>(null)
   React.useLayoutEffect(() => {
     const was = lastFramed.current
@@ -584,6 +609,12 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     if (!was || framed === was || was !== shown) return
     const screen = pane.current?.querySelector<HTMLElement>(`[data-section-screen="${was}"][data-section-kept]`)
     if (!screen || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const into = arrivedAt.current ? performance.now() - arrivedAt.current : Infinity
+    if (into < SECTION_ARRIVE_MS) {
+      const a = screen.animate(ARRIVE, { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
+      a.currentTime = into
+      return
+    }
     screen.animate([{ opacity: SECTION_ARRIVE_FROM }, { opacity: 1 }], { duration: SECTION_FILL_MS, easing: SECTION_ARRIVE_EASE })
   }, [framed, shown])
 
@@ -606,7 +637,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
                 {children}
               </div>
               {kept.map((id) => {
-                const h = store.current.get(id)
+                const h = drawn.get(id)
                 if (!h) return null
                 return (
                   <div key={id} data-section-screen={id} data-section-kept="" hidden={shown !== id}>
@@ -616,7 +647,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
               })}
               {framed ? (
                 <div key={`frame:${framed}`} data-section-screen={framed} data-section-framed="">
-                  <SectionFrame id={framed} facts={frameFacts(head)} />
+                  <SectionFrame id={framed} facts={frameFacts(head, shownSearch)} />
                 </div>
               ) : null}
             </div>

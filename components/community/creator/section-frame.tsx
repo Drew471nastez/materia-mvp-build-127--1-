@@ -29,6 +29,33 @@ import type { AdminSection } from "./logic"
 export interface SectionFrameFacts {
   /** Posts: the writer's card above the list (the section draws it for whoever may post somewhere). */
   composer?: boolean
+  /** Settings: the address names no panel, so a phone opens on the list of panels (settings-section.tsx). */
+  settingsList?: boolean
+}
+
+/** Settings' list of panels on a phone, in its three groups: a group's name over a card of 60px rows. */
+function SettingsListFrame() {
+  return (
+    <Shimmer className="space-y-5 lg:hidden">
+      {[4, 3, 1].map((rows, g) => (
+        <div key={g}>
+          <div className="mb-1.5 flex h-[19.5px] items-center px-1">
+            <ShimmerBlock className="h-2.5 w-20 rounded-full" />
+          </div>
+          <div className={cn(card, "divide-y divide-[#f1f2f4] overflow-hidden")} data-frame-card="">
+            {Array.from({ length: rows }, (_, i) => (
+              <div key={i} className="flex min-h-[60px] items-center px-4 py-2.5">
+                <span className="min-w-0 flex-1">
+                  <ShimmerBlock className="h-3 w-28 rounded-full" />
+                  <ShimmerBlock className="mt-2 h-2.5 w-48 max-w-full rounded-full" />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </Shimmer>
+  )
 }
 
 const HEAD = "flex min-h-[52px] items-center gap-2 border-b border-[#eef0f2] py-1.5 pl-1.5 pr-2 md:min-h-12 md:pl-2 md:pr-3"
@@ -121,7 +148,7 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
         <>
           {facts.composer ? (
             <section className={cn(card, "flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5")} data-frame-card="" data-frame-composer="">
-              <Shimmer className="flex flex-1 items-center gap-3">
+              <Shimmer className="flex h-11 flex-1 items-center gap-3">
                 <ShimmerBlock className="h-10 w-10 shrink-0 rounded-full" />
                 <ShimmerBlock className="h-3 w-44 rounded-full" />
               </Shimmer>
@@ -156,11 +183,11 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
     case "analytics":
       body = (
         <>
-          <Shimmer className="flex h-10 items-center">
-            <ShimmerBlock className="h-10 w-48 rounded-[10px]" />
+          <Shimmer className="flex h-8 items-center">
+            <ShimmerBlock className="h-8 w-48 rounded-[10px]" />
           </Shimmer>
           <section className={cn(card, "p-4 sm:p-5")} data-frame-card="">
-            <ShimmerChart height={300} figure />
+            <ShimmerChart height={320} figure />
           </section>
         </>
       )
@@ -168,14 +195,35 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
     case "settings":
       body = (
         <div className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-8">
+          {/* From 1024px the column of panels (the groups' names, then 36px rows), and the panel with its name over it. */}
           <Shimmer className="hidden lg:block">
-            {Array.from({ length: 6 }, (_, i) => (
-              <div key={i} className="flex h-9 items-center px-3">
-                <ShimmerBlock className="h-2.5 rounded-full" style={{ width: 64 + ((i * 29) % 50) }} />
+            {[4, 3, 1].map((rows, g) => (
+              <div key={g} className={cn("mb-1", g > 0 && "mt-4")}>
+                <div className="flex h-[22px] items-center px-3 pb-1">
+                  <ShimmerBlock className="h-2 w-16 rounded-full" />
+                </div>
+                {Array.from({ length: rows }, (_, i) => (
+                  <div key={i} className="flex h-9 items-center px-3">
+                    <ShimmerBlock className="h-2.5 rounded-full" style={{ width: 64 + (((g * 4 + i) * 29) % 50) }} />
+                  </div>
+                ))}
               </div>
             ))}
           </Shimmer>
-          <PanelFrame rows={6} />
+          {facts.settingsList ? <SettingsListFrame /> : null}
+          <div className={cn("min-w-0", facts.settingsList && "max-lg:hidden")}>
+            <Shimmer className="mb-4 lg:mb-5">
+              {/* The way back to the list, on a phone. */}
+              <div className="mb-1.5 h-10 lg:hidden" />
+              <p className="text-[20px] font-bold leading-7 lg:text-[22px]">
+                <ShimmerBlock className="inline-block h-4 w-32 rounded-full align-middle" />
+              </p>
+              <p className="mt-0.5 text-[14px]">
+                <ShimmerBlock className="inline-block h-2.5 w-64 max-w-full rounded-full align-middle" />
+              </p>
+            </Shimmer>
+            <PanelFrame rows={5} />
+          </div>
         </div>
       )
       break
