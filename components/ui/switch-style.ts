@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils"
  * until the owner found the toggles in the builder's sidebar too fat; two
  * pixels off the height, two off the width, and the knob's travel is the
  * same 16px, so on still reads as on from across the panel. Off is a quiet grey, not a colour.
- * The knob moves by transform only; the track changes colour only.
+ * The knob moves by translate only; the track changes colour only. The
+ * knob's colour (the dark look turns it near black) eases over the same
+ * 200ms as its move, so nothing on it snaps while it slides.
  *
  * A SOFT SQUARE, NOT A PILL. The owner asked for the toggles not to be
  * fully round: an 8px track corner and a 6px knob, which reads as a control
@@ -24,7 +26,7 @@ const TRACK =
 const TRACK_ON = "bg-[#111113] shadow-[inset_0_1px_2px_rgba(0,0,0,0.5),0_0_0_0.5px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.6)]"
 const TRACK_OFF = "bg-[#e4e5e9] shadow-[inset_0_1px_2px_rgba(16,24,40,0.16),inset_0_0_0_0.5px_rgba(16,24,40,0.1),0_1px_0_rgba(255,255,255,0.7)]"
 const KNOB =
-  "pointer-events-none absolute left-[2px] top-[2px] block h-[16px] w-[16px] rounded-[6px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.24),0_2px_6px_-2px_rgba(0,0,0,0.26),inset_0_-1px_0_rgba(0,0,0,0.07)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+  "pointer-events-none absolute left-[2px] top-[2px] block h-[16px] w-[16px] rounded-[6px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.24),0_2px_6px_-2px_rgba(0,0,0,0.26),inset_0_-1px_0_rgba(0,0,0,0.07)] transition-[translate,transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
 
 export const switchTrack = (on: boolean) => cn(TRACK, on ? TRACK_ON : TRACK_OFF)
 export const switchKnob = (on: boolean) => cn(KNOB, on ? "translate-x-4" : "translate-x-0")
