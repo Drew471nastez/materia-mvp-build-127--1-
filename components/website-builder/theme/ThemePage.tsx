@@ -30,7 +30,7 @@
 import { SiteIntro } from "./site-intro"
 import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
-import { StorefrontProvider, useMoney, type Storefront } from "./storefront-context"
+import { StorefrontProvider, useAmountMoney, type Storefront } from "./storefront-context"
 import { ReturnFacts, useShopCommerce } from "./shop-commerce"
 import { freeShippingLine, siteCommerce } from "@/lib/website-builder/site-commerce"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
@@ -308,8 +308,8 @@ function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
   /* No amount typed: where the shop's own rates make shipping free (Settings › Shipping and delivery), so the banner and the checkout agree. */
   const facts = useShopCommerce(c.freeShippingBar && c.freeShippingAmount === null)
   const fromCents = c.freeShippingAmount !== null ? Math.round(c.freeShippingAmount * 100) : (facts?.freeShippingFromCents ?? null)
-  /* The amount left in the visitor's market's currency when the page shows one, else the store's own, as the cart's totals are (storefront-context useMoney). */
-  const money = useMoney()
+  /* The amount left in the visitor's market's currency when the page shows one, at the rate as checkout converts shipping, else the store's own. */
+  const money = useAmountMoney()
   const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents, money) : null
 
   if (!said) return null

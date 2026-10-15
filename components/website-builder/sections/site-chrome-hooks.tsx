@@ -33,7 +33,7 @@ import {
 } from "@/lib/website-builder/storefront-hooks"
 import { useSiteCart, lineKey } from "../site-cart"
 import { drawerCheckout } from "@/lib/website-builder/cart-checkout"
-import { useMoney, useStorefront } from "../theme/storefront-context"
+import { useCartMoney, useStorefront } from "../theme/storefront-context"
 import { storeCentsFromShown } from "@/lib/markets/pricing"
 import { useDrawerHost } from "../site-drawer-host"
 import { buttonRadiusStyle, sectionColors } from "./_shared"
@@ -85,8 +85,8 @@ export function useStorefrontHooks({
 }): { onTrigger: (e: MouseEvent<HTMLElement>) => boolean; layers: ReactNode } {
   const flags = useMemo(() => hooksIn(html), [html])
   const cart = useSiteCart()
-  /* The cart's amounts as the product cards show them (the visitor's market's currency, or the store's). */
-  const money = useMoney()
+  /* The cart's amounts as the product cards show them and checkout adds them up (the visitor's market's currency, or the store's: lib/markets/cart-money). */
+  const cartMoney = useCartMoney()
   /* The market's currency the page shows, if any: a button's printed price is in it (storeCentsFromShown). */
   const display = useStorefront().display
   /* A section with a cart panel of its own draws that, never the built-in drawer as well. */
@@ -140,7 +140,8 @@ export function useStorefrontHooks({
     const empty = cart.ready ? cart.lines.length === 0 : true
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartEmpty}]`).forEach((el) => { el.hidden = !empty })
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartFilled}]`).forEach((el) => { el.hidden = empty })
-    scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartSubtotal}]`).forEach((el) => { el.textContent = money(cart.subtotalCents) })
+    const amounts = cartMoney(cart.lines)
+    scriptRoot.querySelectorAll<HTMLElement>(`[${H.cartSubtotal}]`).forEach((el) => { el.textContent = amounts.subtotal })
     scriptRoot.querySelectorAll<HTMLButtonElement>(`[${H.checkout}]`).forEach((el) => {
       el.toggleAttribute("disabled", empty || checkingOut)
       el.setAttribute("aria-busy", String(checkingOut))
@@ -152,7 +153,7 @@ export function useStorefrontHooks({
       if (!pattern) return
       pattern.hidden = true
       if (!cart.ready) return
-      for (const line of cart.lines) {
+      cart.lines.forEach((line, i) => {
         const root = pattern.cloneNode(true) as HTMLElement
         root.removeAttribute(H.cartLine)
         root.hidden = false
@@ -162,7 +163,7 @@ export function useStorefrontHooks({
         const text = (sel: string, value: string) => all(sel).forEach((el) => { el.textContent = value })
         text("[data-line-title]", line.title)
         text("[data-line-variant]", line.variantName ?? "")
-        text("[data-line-price]", (line.priceCents * line.quantity > 0 ? money(line.priceCents * line.quantity) : "Free"))
+        text("[data-line-price]", (line.priceCents * line.quantity > 0 ? amounts.lines[i] : "Free"))
         text("[data-line-qty]", String(line.quantity))
         all<HTMLImageElement>("img[data-line-image]").forEach((img) => {
           const src = safeHref(line.thumbnailUrl)
@@ -173,9 +174,9 @@ export function useStorefrontHooks({
         all<HTMLAnchorElement>("a[data-line-url]").forEach((el) => { el.href = line.slug ? `/products/${encodeURIComponent(line.slug)}` : "#" })
         all<HTMLElement>("[data-line-inc]").forEach((b) => b.toggleAttribute("disabled", line.digital))
         list.appendChild(root)
-      }
+      })
     })
-  }, [scriptRoot, html, flags.cartPanel, panelOpen, cart.lines, cart.ready, cart.subtotalCents, checkingOut, money])
+  }, [scriptRoot, html, flags.cartPanel, panelOpen, cart.lines, cart.ready, checkingOut, cartMoney])
 
   /* Escape closes the section's own panel, as it closes the built-in drawer. */
   useEffect(() => {

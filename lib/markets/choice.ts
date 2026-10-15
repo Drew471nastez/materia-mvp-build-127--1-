@@ -18,7 +18,7 @@
  */
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import { languageName } from "./locales"
-import { chargeNote } from "./money"
+import { chargeNote, currencyMarkOf } from "./money"
 import type { Pricing } from "./pricing"
 
 /** A market as the selector reads it. */
@@ -27,6 +27,12 @@ export interface ChoiceMarket {
   name: string
   currency: string
   countries: string[]
+}
+
+/** A currency as the selector names it, its code and the mark its prices are written with: "RON lei", "EUR €", "PLN zł". */
+export function currencyLabel(code: string): string {
+  const mark = currencyMarkOf(code).mark
+  return mark && mark !== code ? `${code} ${mark}` : code
 }
 
 export function languageChoiceOf(input: {
@@ -49,7 +55,7 @@ export function languageChoiceOf(input: {
   const code = (input.locale && all.find((l) => l.toLowerCase() === input.locale!.toLowerCase())) || input.defaultLanguage
   const currencies =
     input.fresh && input.markets.length
-      ? [{ id: "home", label: input.base, country: "home" }, ...input.markets.filter((m) => m.countries.length).map((m) => ({ id: m.id, label: `${m.name} (${m.currency})`, country: m.countries[0] }))]
+      ? [{ id: "home", label: currencyLabel(input.base), country: "home" }, ...input.markets.filter((m) => m.countries.length).map((m) => ({ id: m.id, label: `${m.name} (${currencyLabel(m.currency)})`, country: m.countries[0] }))]
       : []
   return {
     code,

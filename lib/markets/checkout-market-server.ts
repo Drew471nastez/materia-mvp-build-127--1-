@@ -34,6 +34,22 @@ export function countryOfRequest(request: Request): string | null {
   return checkoutVisitorCountry(chosen ? decodeURIComponent(chosen) : null, request.headers.get("x-vercel-ip-country") || request.headers.get("cf-ipcountry"))
 }
 
+/**
+ * The delivery country a checkout starts on, from the website's selector and
+ * where the visitor is. The selector names a market by its first country
+ * (lib/markets/choice.ts), so a visitor in France who went to lei and back
+ * to euros has Germany in the cookie: where they are wins while it is in the
+ * same market. Choosing the store's own prices ("home") moves nobody, and a
+ * country picked in an imported theme's list stays picked.
+ */
+export function deliveryCountryGuess(markets: { countries: string[] }[], chosen: string | null | undefined, seen: string | null | undefined): string | null {
+  const where = checkoutVisitorCountry(null, seen)
+  const picked = checkoutVisitorCountry(chosen, null)
+  if (!picked) return where
+  if (!where || where === picked) return picked
+  return markets.some((m) => m.countries.includes(picked) && m.countries.includes(where)) ? where : picked
+}
+
 export interface CheckoutMarket {
   /** The store's own currency: what every price is typed in. */
   storeCurrency: string

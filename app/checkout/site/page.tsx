@@ -19,8 +19,10 @@ import { SiteCheckout, SiteProblem } from "./site-checkout"
 import { CheckoutCurrency } from "../parts/ui"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
-import { checkoutMarket, checkoutVisitorCountry } from "@/lib/markets/checkout-market-server"
+import { checkoutMarket, checkoutVisitorCountry, deliveryCountryGuess } from "@/lib/markets/checkout-market-server"
+import { siteLanguages } from "@/lib/markets/live"
 import { quoteInMarket } from "@/lib/checkout/site-quote-market"
+import { checkoutConfigInMarket } from "@/lib/markets/checkout-charge"
 import { countryCode } from "@/lib/checkout/countries"
 import { CHECKOUT_COUNTRY_COOKIE } from "@/lib/checkout/checkout-country"
 import { checkoutLanguage } from "@/lib/markets/checkout-language"
@@ -114,8 +116,10 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     selector, else where their connection is. Priced with it from the start,
     so the first quote already has its delivery; the buyer can change it.
   */
-  const visitorCountry = checkoutVisitorCountry(jar.get("sl_country")?.value, h.get("x-vercel-ip-country") || h.get("cf-ipcountry"))
-  const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(visitorCountry)
+  const seenCountry = h.get("x-vercel-ip-country") || h.get("cf-ipcountry")
+  const visitorCountry = checkoutVisitorCountry(jar.get("sl_country")?.value, seenCountry)
+  /* Where they are, when the selector's country is only the first of the same market (deliveryCountryGuess). */
+  const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(deliveryCountryGuess((await siteLanguages(site.creatorId)).markets, jar.get("sl_country")?.value, seenCountry))
   /* The price waits only for who is signed in (what they own is not charged), not for the header, the settings or the payments check. */
   const buyerRead = siteBuyerFrom(admin, { host: site.host, cookieValue: jar.get(sessionCookieName(site.host))?.value, creatorId: site.creatorId })
   const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode, ...(initialCountry ? { country: initialCountry } : {}) }, null, b ? { email: b.email } : null) : null))
@@ -180,7 +184,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       cartAttributes={params.attributes}
       initialQuote={answer?.ok ? localizeQuote(answer.quote, language.map) : null}
       initialError={answer && answer.ok === false ? answer.error : null}
-      config={config}
+      /* Its cash on delivery fee in the currency the quote is in (lib/markets/checkout-charge). */
+      config={checkoutConfigInMarket(config, market.charge)}
       buyer={buyer ? { email: buyer.email, name: buyer.name } : null}
       accountUrl={`${site.origin}/account`}
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}

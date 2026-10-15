@@ -5,6 +5,8 @@ export interface VariantChoice {
   /** The value of each option, in the options' order; empty for a download. */
   values: string[]
   priceCents: number
+  /** The same price in the store's currency, when `priceCents` is a market's (lib/checkout/site-quote-market): what a cart line keeps. */
+  storeCents?: number
   available: boolean
 }
 
