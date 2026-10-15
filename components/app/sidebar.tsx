@@ -980,10 +980,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       {/* top and height mirror the desktop header: 58 px content row +
           env(safe-area-inset-top) padding. In a browser env() = 0 so
           this is identical to the previous top-[58px] / calc(100svh-58px). */}
+      {/*
+        ITS WIDTH IS THE ONE THING THAT ANIMATES (round 29), on the curve the
+        page's padding beside it uses (--rail-ms and --rail-ease, app/globals.css),
+        so the two edges never part (scripts/check-sidebar-round29 measures
+        them within 0.02px on every frame). What happens to the rows inside
+        while it moves is in the same place in globals.css.
+      */}
       <aside
+        id="app-rail"
         data-shell-chrome=""
         data-rail-aside=""
-        className="fixed left-0 z-40 hidden w-[var(--app-rail-w,240px)] flex-col overflow-hidden border-r border-neutral-200/60 bg-white transition-[width] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none md:flex"
+        className="fixed left-0 z-40 hidden w-[var(--app-rail-w,240px)] flex-col overflow-hidden border-r border-neutral-200/60 bg-white transition-[width] duration-(--rail-ms) ease-(--rail-ease) motion-reduce:transition-none md:flex"
         style={{
           top: 'calc(58px + env(safe-area-inset-top, 0px))',
           height: 'calc(100svh - 58px - env(safe-area-inset-top, 0px))',

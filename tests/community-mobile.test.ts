@@ -64,7 +64,7 @@ console.log("\nTHE FEED'S PICTURES")
   const rs = read("components/community/member/return-scroll.ts")
   check("cards are not skipped off screen (the skip was 32px too tall per card and cost more than it saved)", !/\[content-visibility:auto\]/.test(card) && !/containIntrinsicSize/.test(card))
   /* Changed on purpose (the owner: no blur, no fade): there is no blurred copy to take away. */
-  check("no blurred copy and no fade under a picture", !/data-soft-blur/.test(media) && !/blur-\[10px\]/.test(media) && /el\.decode\(\)\.then\(show, show\)/.test(media) && !/transition-opacity ease-out/.test(media))
+  check("no blurred copy and no fade under a picture", !/data-soft-blur/.test(media) && !/blur-\[10px\]/.test(media) && /el\.decode\(\)\.then\(show, show\)/.test(media) && /* Changed on purpose (round 29): a video's first frame and an opened post's poster fade in (the owner asked for it); a picture (SoftImg) still never fades. */ !/transition-opacity ease-out/.test(media.slice(media.indexOf("export function SoftImg"), media.indexOf("export function fileSize"))))
   check("the first two cards ask for their pictures at once and first", /priority=\{i < 2\}/.test(feed) && /eager=\{priority\}\s*fetchPriority=\{priority \? "high" : undefined\}/.test(media.slice(media.indexOf("function CardPictureImg"))))
   check("the scroll's place is noted when it rests, not written to storage on every frame", /timer = window\.setTimeout\(flush, 150\)/.test(rs) && !/requestAnimationFrame\(\(\) => \{\s*frame = 0\s*write\(/.test(rs))
 }

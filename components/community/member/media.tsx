@@ -41,7 +41,7 @@ import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Play } from "lucide-react"
 import { CommunityFileAttachment, CommunityFileAttachmentSplit } from "./community-file-attachment"
-import { StorelibVideo, posterSource } from "@/components/video/storelib-video"
+import { StorelibVideo, fetchPlayback, posterSource } from "@/components/video/storelib-video"
 import { drawnStill, noteDrawnStill } from "@/lib/images/drawn-stills"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { BLUR_QUALITY, BLUR_WIDTH, FEED_PICTURE_QUALITY, NO_PICTURE, feedSlot, loadPolicy, type FeedSlotName } from "@/lib/images/slots"
@@ -361,10 +361,125 @@ export function GifImg({ still, motion, className = "", alt = "", width, height,
   )
 }
 
-/** The card's one thumbnail, or nothing. */
-export function PostThumb({ media, className = "" }: { media: PostMedia[]; className?: string }) {
+/**
+ * ===========================================================================
+ *  A VIDEO WITH NO STILL OF ITS OWN (round 29)
+ * ===========================================================================
+ * The owner: "a post with a video shows no thumbnail where a picture's would
+ * be". A video's card picture is the still cut in the browser when it was
+ * sent (media-upload.ts uploadVideoPoster); a file the browser could not
+ * decode (an iPhone's HEVC .mov on a computer's Chrome, say) has none, and
+ * on Storelib's own storage the video service has none to give either, so
+ * the thumbnail on the right of the card, the phone's picture under the
+ * words and the opened post's player were all an empty dark box.
+ *
+ * Such a video now shows its own first frame. As the box nears the screen
+ * the play address is asked for (the light file, the same answer the player
+ * and its preview use, kept for the page: storelib-video.tsx fetchPlayback);
+ * a service that has a still gives that, otherwise a muted <video> that
+ * loads only its metadata and first frame (preload="metadata", `#t=0.1` so
+ * iOS draws one) is put in the box and fades in once the frame is there.
+ * The box keeps its shape and its quiet ground the whole time.
+ */
+export function bareVideo(media: PostMedia[]): Extract<PostMedia, { type: "video" }> | null {
+  if (media.some((m) => m.type === "image" || (m.type === "video" && !!m.poster))) return null
+  return media.find((m): m is Extract<PostMedia, { type: "video" }> => m.type === "video" && !m.poster) ?? null
+}
+
+/** How long a first frame (or a still that arrives late) takes to come in. */
+export const VIDEO_FRAME_IN_MS = 200
+
+export function VideoFrame({ communityId, videoId, className = "" }: { communityId: string; videoId: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [src, setSrc] = useState<{ kind: "img" | "video"; url: string } | null>(null)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let cancelled = false
+    const go = () =>
+      void fetchPlayback(communityId, videoId, { light: true }).then((got) => {
+        if (cancelled || !got.ok) return
+        setSrc(got.playback.poster ? { kind: "img", url: got.playback.poster } : { kind: "video", url: got.playback.url })
+      })
+    if (typeof IntersectionObserver === "undefined") {
+      go()
+      return () => void (cancelled = true)
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
+        go()
+      },
+      { rootMargin: "320px" },
+    )
+    io.observe(el)
+    return () => {
+      cancelled = true
+      io.disconnect()
+    }
+  }, [communityId, videoId])
+  const look = `absolute inset-0 h-full w-full object-cover transition-opacity ease-out motion-reduce:transition-none ${SDR} ${shown ? "opacity-100" : "opacity-0"}`
+  return (
+    <span ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 block ${className}`} data-video-frame={shown ? "shown" : src ? "loading" : "wait"}>
+      {src?.kind === "video" ? (
+        <video
+          src={/#t=/.test(src.url) ? src.url : `${src.url}#t=0.1`}
+          muted
+          playsInline
+          preload="metadata"
+          disablePictureInPicture
+          disableRemotePlayback
+          tabIndex={-1}
+          className={look}
+          style={{ transitionDuration: `${VIDEO_FRAME_IN_MS}ms` }}
+          /* Its size known, the frame at 0.1s is asked for: a browser that stopped at the metadata then loads just that frame (seeked). */
+          onLoadedMetadata={(e) => {
+            const v = e.currentTarget
+            if (v.readyState < 2 && v.currentTime < 0.05) v.currentTime = 0.1
+          }}
+          onLoadedData={() => setShown(true)}
+          onSeeked={() => setShown(true)}
+        />
+      ) : src?.kind === "img" ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src.url} alt="" decoding="async" className={look} style={{ transitionDuration: `${VIDEO_FRAME_IN_MS}ms` }} onLoad={(e) => {
+          const el = e.currentTarget
+          const show = () => setShown(true)
+          if (typeof el.decode === "function") el.decode().then(show, show)
+          else show()
+        }} />
+      ) : null}
+    </span>
+  )
+}
+
+/** The round play mark over a video's picture, at a card's size. */
+function PlayMark({ size = "md" }: { size?: "sm" | "md" }) {
+  return (
+    <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
+      <span className={`flex items-center justify-center rounded-full bg-black/55 text-white ${size === "sm" ? "h-7 w-7" : "h-11 w-11"}`}>
+        <Play className={`ml-0.5 fill-current ${size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5"}`} />
+      </span>
+    </span>
+  )
+}
+
+/** The card's one thumbnail, or nothing. A video with no still shows its first frame (round 29) when the card says whose it is. */
+export function PostThumb({ media, className = "", communityId }: { media: PostMedia[]; className?: string; communityId?: string }) {
   const thumb = cardThumb(media)
   const [failed, setFailed] = useState(false)
+  const bare = bareVideo(media)
+  if (bare && communityId && (!thumb || thumb.kind !== "image")) {
+    return (
+      <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#1f2230] shadow-[0_1px_2px_rgba(16,24,40,0.06)] sm:h-24 sm:w-24 ${className}`} data-post-thumb="video" data-post-thumb-frame="">
+        <VideoFrame communityId={communityId} videoId={bare.videoId} />
+        <span aria-hidden className={PICTURE_EDGE} />
+        <PlayMark size="sm" />
+      </span>
+    )
+  }
   if (!thumb || failed) return null
   /* The thumbnail is a square crop: the picture's own shape says how much wider than the square it is drawn. */
   const shaped = media.find((m): m is Extract<PostMedia, { type: "image" | "video" }> => m.type === "image" || (m.type === "video" && !!m.poster))
@@ -388,11 +503,7 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
       )}
       <span aria-hidden className={PICTURE_EDGE} />
       {thumb.kind === "video" ? (
-        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white">
-            <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
-          </span>
-        </span>
+        <PlayMark size="sm" />
       ) : thumb.kind === "gif" ? (
         <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/55 px-1 text-[10px] font-semibold leading-[15px] text-white" aria-hidden>
           GIF
@@ -423,10 +534,20 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
  * the feed shows them in one step rather than a grey box, then a blur, then the picture (round 24, measured: about ten grey
  * frames on a client arrival, because the first screenful was lazy too).
  */
-export function CardMedia({ media, className = "", priority = false, phoneOnly = false }: { media: PostMedia[]; className?: string; priority?: boolean; /** Hidden from 640px (a card that shows a thumbnail there): nothing is fetched there. */ phoneOnly?: boolean }) {
+export function CardMedia({ media, className = "", priority = false, phoneOnly = false, communityId }: { media: PostMedia[]; className?: string; priority?: boolean; /** Hidden from 640px (a card that shows a thumbnail there): nothing is fetched there. */ phoneOnly?: boolean; /** Whose the post is: a video with no still shows its first frame (round 29). */ communityId?: string }) {
   const pics = cardPictures(media)
-  if (!pics.length) return null
+  const bare = bareVideo(media)
   const box = "relative overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)]"
+  if (!pics.length && bare && communityId) {
+    return (
+      <div className={`${box} bg-[#1f2230] ${className}`} style={{ aspectRatio: String(bare.w && bare.h ? Math.min(Math.max(bare.w / bare.h, 1), 2) : 16 / 9) }} data-card-media="single" data-card-media-frame="">
+        <VideoFrame communityId={communityId} videoId={bare.videoId} />
+        <span aria-hidden className={PICTURE_EDGE} />
+        <PlayMark />
+      </div>
+    )
+  }
+  if (!pics.length) return null
   if (pics.length === 1) {
     const p = pics[0]
     const ratio = p.w && p.h ? Math.min(Math.max(p.w / p.h, 1), 2) : 16 / 9
@@ -488,11 +609,7 @@ function CardPictureImg({ p, slot, priority = false, hiddenFrom }: { p: CardPict
         />
       )}
       {p.kind === "video" ? (
-        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white">
-            <Play className="ml-0.5 h-5 w-5 fill-current" />
-          </span>
-        </span>
+        <PlayMark />
       ) : p.kind === "gif" ? (
         <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 text-[11px] font-semibold leading-[18px] text-white" aria-hidden>
           GIF
@@ -532,7 +649,7 @@ export function PostMediaGrid({ media, communityId, postId, priority = false }: 
     return kind ? [{ assetId: f.assetId, item: (kind === "image" ? { kind: "image", url: fileUrl(f.assetId), raw: true } : { kind: "clip", url: fileUrl(f.assetId) }) as ViewerItem }] : []
   })
   const tile = (i: number, fit: Fit, shape: string, more = 0) => (
-    <Tile key={i} index={i} item={items[i]} fit={fit} shape={shape} more={more} priority={priority} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
+    <Tile key={i} index={i} item={items[i]} fit={fit} shape={shape} more={more} priority={priority} communityId={communityId} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
   )
   const motionPair = layout.kind === "pair" && items.every(isMotion)
 
@@ -725,11 +842,68 @@ function ratioOf(item: ViewerItem): number {
   return item.kind === "video" ? 16 / 9 : 4 / 3
 }
 
+/*
+  AN OPENED POST'S VIDEO, AT ONCE AND SOFTLY (round 29, the owner: "opening a post with a video takes too long and the video
+  appears abruptly"). The player's box has the video's shape from the first frame (StorelibVideo, its width and height), on
+  a quiet ground rather than black. Under the player (whose own ground is made clear until it plays, and whose own poster
+  is not drawn) is VideoPoster: the copy of the still the feed already drew, at once from the cache, then the poster's own
+  file fading in once it is loaded and decoded (POSTER_FADE_MS); a video with no still its first frame (VideoFrame). The
+  play button and the muted preview are the player's, over it, as before.
+*/
+const POSTER_FADE_MS = 200
+function VideoPoster({ url }: { url: string }) {
+  const source = posterSource(url)
+  const [still] = useState(() => drawnStill(url))
+  const ref = useRef<HTMLImageElement>(null)
+  const [shown, setShown] = useState(false)
+  /* Already decoded when it was drawn (a warm, a second opening): shown on this frame, nothing to fade. */
+  const [instant, setInstant] = useState(false)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el && el.complete && el.naturalWidth > 0) {
+      setInstant(true)
+      setShown(true)
+    }
+  }, [])
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0 block" data-video-poster-layer={shown ? "shown" : "wait"}>
+      {still && !(shown && instant) ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={still.src} referrerPolicy={still.referrerPolicy} alt="" draggable={false} decoding="sync" className={`absolute inset-0 h-full w-full object-cover ${SDR}`} data-video-poster-still="" />
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={ref}
+        src={source.src}
+        srcSet={source.srcSet}
+        sizes={source.sizes}
+        alt=""
+        decoding="async"
+        fetchPriority="high"
+        onLoad={(e) => {
+          const el = e.currentTarget
+          const show = () => setShown(true)
+          if (typeof el.decode === "function") el.decode().then(show, show)
+          else show()
+        }}
+        onError={() => setShown(true)}
+        className={`absolute inset-0 h-full w-full object-cover ${SDR} ${shown ? "opacity-100" : "opacity-0"} ${instant ? "" : "transition-opacity ease-out motion-reduce:transition-none"}`}
+        style={instant ? undefined : { transitionDuration: `${POSTER_FADE_MS}ms` }}
+      />
+    </span>
+  )
+}
+
 /** One thing alone: large, at the post's full width. */
 function Single({ item, communityId, priority = false, onOpen }: { item: ViewerItem; communityId: string; priority?: boolean; onOpen: () => void }) {
   if (item.kind === "video") {
     return (
-      <div className="overflow-hidden rounded-2xl bg-black shadow-[0_8px_28px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/10 [&_[data-storelib-video]]:rounded-none" data-media-tile="video" data-post-media-grid="single">
+      <div
+        className="relative overflow-hidden rounded-2xl bg-[#1f2230] shadow-[0_8px_28px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/10 [&_[data-storelib-video]]:rounded-none [&_[data-storelib-video]:not([data-video-state=playing])]:bg-transparent [&_[data-video-poster]]:hidden [&_[data-video-still]]:hidden"
+        data-media-tile="video"
+        data-post-media-grid="single"
+      >
+        {item.poster ? <VideoPoster url={item.poster} /> : <VideoFrame communityId={communityId} videoId={item.videoId} />}
         <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} width={item.w} height={item.h} />
       </div>
     )
@@ -769,7 +943,7 @@ function Single({ item, communityId, priority = false, onOpen }: { item: ViewerI
 /** The full picture's fade when it arrives after the post opened (written out in the tile's class too: Tailwind reads the class as text). */
 export const POST_PICTURE_IN_MS = 180
 
-function Tile({ index, item, fit, shape, more = 0, priority = false, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; priority?: boolean; onOpen: () => void }) {
+function Tile({ index, item, fit, shape, more = 0, priority = false, communityId, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; priority?: boolean; communityId?: string; onOpen: () => void }) {
   const picture = item.kind === "image" ? item.url : item.kind === "gif" ? item.url : item.kind === "video" ? item.poster : item.kind === "embed" ? item.thumb : item.poster
   const local = (item.kind === "image" && !item.raw) || item.kind === "video"
   const size = SIZES[fit]
@@ -830,7 +1004,10 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, onOpen }: {
           className={`absolute inset-0 h-full w-full [transition:scale_300ms_ease-out,opacity_180ms_ease-out] group-hover/tile:scale-[1.015] motion-reduce:transition-none ${shaped}`}
         />
       ) : (
-        <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
+        <span className="absolute inset-0 bg-[#1f2230]" aria-hidden>
+          {/* A video with no still: its own first frame (round 29). */}
+          {item.kind === "video" && communityId ? <VideoFrame communityId={communityId} videoId={item.videoId} /> : null}
+        </span>
       )}
       {more ? (
         <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[22px] font-semibold tabular-nums text-white" aria-hidden data-media-more="">

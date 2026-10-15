@@ -49,7 +49,8 @@ async function main() {
   console.log("\nThe program's cover never stands in for a lesson")
   check("the stage is not handed the program's picture at all", !/poster=\{data\.thumbnailUrl\}/.test(player) && !/poster: string \| null/.test(player) && !/props\.poster/.test(player))
   check("a video lesson plays with no poster", /<LessonVideo[\s\S]{0,200}poster=\{null\}/.test(player))
-  check("while it is asked for: a black 16:9 still, its spinner only past half a second", /data-stage-still=""/.test(player) && /relative aspect-video w-full overflow-hidden bg-black/.test(player) && /delay-500[^"]*starting:opacity-0/.test(player))
+  /* Changed on purpose (round 29): the still's black is bg-[rgb(0,0,0)], which the dark stylesheet leaves black, as the video's own box is. */
+  check("while it is asked for: a black 16:9 still, its spinner only past half a second", /data-stage-still=""/.test(player) && /relative aspect-video w-full overflow-hidden bg-\[rgb\(0,0,0\)\]/.test(player) && /delay-500[^"]*starting:opacity-0/.test(player))
   check("a text lesson has no stage and is not asked for", /if \(play\.state === "text"\) return null/.test(player) && /if \(l\.kind === "text"\) return \{ state: "text" \}/.test(player))
 
   console.log("\nChanging lessons happens in place")

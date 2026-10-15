@@ -125,11 +125,11 @@ export function CoursesSkeleton({ empty = false, still = false }: { empty?: bool
               <div className={`h-4 w-2/3 ${LINE} ${pulse}`} />
               <div className={`mt-2 h-3.5 w-28 ${SOFT} ${pulse}`} />
               <div className="mt-auto pt-2.5">
-                <div className="h-1.5 w-full rounded-full bg-[#ede9fe]" />
+                <div className="h-1.5 w-full rounded-full bg-[#eceef1]" />
               </div>
             </div>
             <div className="hidden w-[200px] shrink-0 items-center justify-end sm:flex">
-              <div className="h-10 w-32 rounded-lg bg-[#ede9fe]" />
+              <div className="h-10 w-32 rounded-lg bg-[#eceef1]" />
             </div>
           </div>
         ))}

@@ -295,9 +295,8 @@ function soundContext(): AudioContext | null {
  * ===========================================================================
  * The same switch, the same rules, the same quiet: a comment sent is a soft
  * two note "tick" (a little under a tenth of a second, lower than a like);
- * a post sent is a short, soft "whoosh": filtered noise whose band sweeps
- * up and fades over about a third of a second, very quiet. Both are made on
- * the spot (no file), in the press itself.
+ * a post sent is a soft two note chime (round 29, POST_CHIME below; it was a
+ * whoosh). Both are made on the spot (no file).
  */
 export function commentSound(): boolean {
   const ctx = soundContext()
@@ -329,84 +328,72 @@ export function commentSound(): boolean {
   }
 }
 
-/** Made ready in a press, for a sound played a moment later (a post's whoosh once the server has it): a browser starts audio only from a press. */
+/** Made ready in a press, for a sound played a moment later (a post's chime once the server has it): a browser starts audio only from a press. */
 export function primeSounds(): void {
   soundContext()
 }
 
-/** A soft tap when Post is pressed, before the network answers. */
-export function postPressSound(): boolean {
-  const ctx = soundContext()
-  if (!ctx) return false
-  try {
-    const t = ctx.currentTime + 0.002
+/*
+  ROUND 29, THE OWNER: "I don't like the post sound". The whoosh (filtered noise sweeping up, a chime on top, and a tap on
+  the press before it) was three sounds for one act. A post sent is now ONE soft two note chime and nothing on the press:
+  two sine notes a fifth apart (E5, then B5 75ms later), each struck like a felt mallet (a 12ms rise, so no click, and a
+  long soft fall), with a faint octave over the first that is gone in a tenth of a second, all through a gentle low pass so
+  nothing is bright. Peaks well under a like's, about half a second long. POST_CHIME is the shape, for the probe to render
+  offline and measure (scripts/check-composer-round29.mjs).
+*/
+export const POST_CHIME = {
+  notes: [
+    { freq: 659.25, at: 0, peak: 0.03, length: 0.3 },
+    { freq: 987.77, at: 0.075, peak: 0.024, length: 0.44 },
+  ],
+  /** The first note's faint octave, for a little shimmer, gone quickly. */
+  overtone: { ratio: 2, peak: 0.006, length: 0.11 },
+  rise: 0.012,
+  lowpass: 2600,
+} as const
+
+/** The chime, drawn into any context (a live one, or an offline one for a test) from `at`, into `out`. */
+export function postChime(ctx: BaseAudioContext, at: number, out: AudioNode): number {
+  const soften = ctx.createBiquadFilter()
+  soften.type = "lowpass"
+  soften.frequency.setValueAtTime(POST_CHIME.lowpass, at)
+  soften.Q.setValueAtTime(0.5, at)
+  soften.connect(out)
+  let end = at
+  let live = 0
+  const strike = (freq: number, start: number, peak: number, length: number) => {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.type = "triangle"
-    osc.frequency.setValueAtTime(420, t)
-    osc.frequency.exponentialRampToValueAtTime(680, t + 0.07)
-    gain.gain.setValueAtTime(0.0001, t)
-    gain.gain.exponentialRampToValueAtTime(0.028, t + 0.012)
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09)
+    osc.type = "sine"
+    osc.frequency.setValueAtTime(freq, start)
+    gain.gain.setValueAtTime(0.0001, start)
+    gain.gain.exponentialRampToValueAtTime(peak, start + POST_CHIME.rise)
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + length)
     osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start(t)
-    osc.stop(t + 0.1)
+    gain.connect(soften)
+    osc.start(start)
+    osc.stop(start + length + 0.02)
+    end = Math.max(end, start + length + 0.02)
+    live++
     osc.onended = () => {
       osc.disconnect()
       gain.disconnect()
+      /* The filter goes with the last note. */
+      if (--live === 0) soften.disconnect()
     }
-    return true
-  } catch {
-    return false
   }
+  for (const n of POST_CHIME.notes) strike(n.freq, at + n.at, n.peak, n.length)
+  const first = POST_CHIME.notes[0]
+  strike(first.freq * POST_CHIME.overtone.ratio, at, POST_CHIME.overtone.peak, POST_CHIME.overtone.length)
+  return end
 }
 
-/** The post's whoosh: noise through a band that sweeps up, with a soft chime when it lands. */
+/** A post sent: the soft two note chime (POST_CHIME), played once the server has the post. */
 export function postSound(): boolean {
   const ctx = soundContext()
   if (!ctx) return false
   try {
-    const length = 0.34
-    const t = ctx.currentTime + 0.003
-    const frames = Math.ceil(ctx.sampleRate * length)
-    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate)
-    const data = buffer.getChannelData(0)
-    for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1
-    const noise = ctx.createBufferSource()
-    noise.buffer = buffer
-    const band = ctx.createBiquadFilter()
-    band.type = "bandpass"
-    band.Q.setValueAtTime(0.85, t)
-    band.frequency.setValueAtTime(480, t)
-    band.frequency.exponentialRampToValueAtTime(2400, t + length * 0.68)
-    const gain = ctx.createGain()
-    gain.gain.setValueAtTime(0.0001, t)
-    gain.gain.exponentialRampToValueAtTime(0.044, t + length * 0.22)
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + length)
-    const chime = ctx.createOscillator()
-    const chimeGain = ctx.createGain()
-    chime.type = "sine"
-    chime.frequency.setValueAtTime(880, t + length * 0.42)
-    chimeGain.gain.setValueAtTime(0.0001, t + length * 0.42)
-    chimeGain.gain.exponentialRampToValueAtTime(0.018, t + length * 0.5)
-    chimeGain.gain.exponentialRampToValueAtTime(0.0001, t + length * 0.92)
-    noise.connect(band)
-    band.connect(gain)
-    chime.connect(chimeGain)
-    gain.connect(ctx.destination)
-    chimeGain.connect(ctx.destination)
-    noise.start(t)
-    chime.start(t + length * 0.42)
-    noise.stop(t + length + 0.02)
-    chime.stop(t + length + 0.02)
-    noise.onended = () => {
-      noise.disconnect()
-      band.disconnect()
-      gain.disconnect()
-      chime.disconnect()
-      chimeGain.disconnect()
-    }
+    postChime(ctx, ctx.currentTime + 0.004, ctx.destination)
     return true
   } catch {
     return false
