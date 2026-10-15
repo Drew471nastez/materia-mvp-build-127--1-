@@ -25,6 +25,7 @@ import "server-only"
  *
  * Called by /api/cron/translations, behind the cron secret.
  */
+import { defaultLanguageScope, writtenLanguage } from "./detect-language"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
@@ -45,18 +46,21 @@ export async function autoTranslateStore(db: Db, creatorId: string, deadlineAt: 
   const loc = (await localizationOf(db, creatorId, (await readStoreCurrency(db, creatorId)).currency)).value
   if (!loc.autoTranslate) return null
   const locales = loc.languages.map((l) => l.code).filter((c) => c !== loc.defaultLanguage)
-  /* A website written in another language than English takes the shop's own words and the checkout's in it too (translate.ts BUILT_IN_GROUPS). */
-  const own = isEnglish(loc.defaultLanguage) ? [] : [loc.defaultLanguage]
   const run: AutoTranslateRun = { at: new Date().toISOString(), translated: 0, left: 0 }
-  if (locales.length === 0 && own.length === 0) return run
   const [groups, store] = await Promise.all([siteTexts(db, creatorId), storeIdentity(db, creatorId).catch(() => null)])
-  const texts = groups.flatMap((g) => g.items)
+  /* The default language: every text when the website is written in another, else the shop's own words when it is not English (./detect-language.ts). */
+  const written = writtenLanguage(groups)
+  const scope = defaultLanguageScope(loc.defaultLanguage, written)
+  const own = scope === "all" || !isEnglish(loc.defaultLanguage) ? [loc.defaultLanguage] : []
+  if (locales.length === 0 && own.length === 0) return run
+  const from = written ?? loc.defaultLanguage
+  const texts = [...new Map(groups.flatMap((g) => g.items).map((t) => [t.key, t])).values()]
   const builtIn = groups.filter((g) => BUILT_IN_GROUPS.has(g.id)).flatMap((g) => g.items)
   let unreachable = false
   for (const locale of [...own, ...locales]) {
     const saved = await translationsOf(db, creatorId, locale)
     const map = translationMap(saved.rows)
-    const todo = (locale === loc.defaultLanguage ? builtIn : texts).filter((t) => aiMayWrite(map.get(t.key), t.source))
+    const todo = (locale === loc.defaultLanguage && scope === "builtIn" ? builtIn : texts).filter((t) => aiMayWrite(map.get(t.key), t.source))
     if (todo.length === 0) continue
     /* No time for another call, or Storelib AI already said no: counted for the next run. */
     if (unreachable || Date.now() > deadlineAt - 20_000) {
@@ -64,7 +68,7 @@ export async function autoTranslateStore(db: Db, creatorId: string, deadlineAt: 
       continue
     }
     const batch = todo.slice(0, PER_LANGUAGE)
-    const { drafts, unavailable } = await draftReusing(batch.map((t) => ({ key: t.key, source: t.source })), saved.rows, loc.defaultLanguage, locale, store?.name || "the store", { deadlineAt })
+    const { drafts, unavailable } = await draftReusing(batch.map((t) => ({ key: t.key, source: t.source })), saved.rows, from, locale, store?.name || "the store", { deadlineAt })
     if (unavailable && drafts.size === 0) unreachable = true
     /* Live at once, and labelled as Storelib AI's: the Translate sheet shows it, and an edit there makes it the merchant's. */
     const items = batch.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: true, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))

@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs"
 import { join as joinPath } from "node:path"
 import { cut, join, wordsOf } from "../lib/markets/translate-segments"
 import { keepsFixedParts } from "../lib/markets/draft-check"
-import { detectLanguage } from "../lib/markets/detect-language"
+import { defaultLanguageScope, detectLanguage } from "../lib/markets/detect-language"
 
 let passed = 0
 let failed = 0
@@ -232,7 +232,12 @@ async function main() {
   check("an English website reads as English", detectLanguage(en) === "en", String(detectLanguage(en)))
   check("a French one as French", detectLanguage(fr) === "fr", String(detectLanguage(fr)))
   check("a handful of words says nothing", detectLanguage(["Shop", "Home"]) === null)
-  check("Settings offers to make the written language the default", /data-fix-default-language/.test(read("components/app/settings/markets-panel.tsx")) && /writtenIn = detectLanguage\(/.test(read("app/api/store/translations/route.ts")))
+  /* Changed on purpose (the owner: "if they set the default language to French, everything should be French"): the default is what the website shows, translated from what it is written in. */
+  check("a default other than the written language means every text is translated into it", defaultLanguageScope("es", "en") === "all" && defaultLanguageScope("en", "en") === "builtIn" && defaultLanguageScope("pt-BR", "pt") === "builtIn" && defaultLanguageScope("fr", null) === "builtIn")
+  check("no notice telling the owner their default is wrong", !/data-fix-default-language/.test(read("components/app/settings/markets-panel.tsx")))
+  check("the run translates from the written language, everything when the default differs", /const from = writtenIn \?\?/.test(read("lib/markets/translation-press.ts")) && /where\.own && scope === "builtIn" \? allGroups\.filter/.test(read("lib/markets/translation-press.ts")))
+  check("the live site lays every default-language translation over its own address", !/ownWords/.test(read("lib/markets/live.ts")) && !/ownWords/.test(read("lib/markets/compat.ts")))
+  check("the editor canvas opens in the default language's translations", /const shown = locale \?\? info\.defaultLanguage/.test(read("components/website-builder/use-preview-language.ts")) && /const shown = locale \?\? \(asked \? null : loc\.defaultLanguage\)/.test(read("app/api/store/translations/route.ts")))
   check("an automatic translation is saved live, not a draft", /approved: true, ai: true/.test(read("lib/markets/translation-press.ts")))
   check("drafts from before are put live by the next run", /const waiting = all\.filter\(\(t\) => map\.get\(t\.key\)\?\.source === "ai"/.test(read("lib/markets/translation-press.ts")))
   check("a write never touches one key twice (Postgres refused the whole save)", /ONE ROW PER KEY/.test(read("lib/markets/server.ts")))

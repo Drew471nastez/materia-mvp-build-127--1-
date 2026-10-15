@@ -4,7 +4,7 @@ import { recordActivity } from "@/lib/activity/log-server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { normalizeLocale } from "@/lib/markets/locales"
-import { detectLanguage } from "@/lib/markets/detect-language"
+import { defaultLanguageScope, writtenLanguage } from "@/lib/markets/detect-language"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
 import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, statusOf, translationMap } from "@/lib/markets/translate"
@@ -41,8 +41,17 @@ export async function GET(request: Request) {
   const textsRead = asked && url.searchParams.get("values") !== "1" ? siteTexts(c.db, c.creatorId) : null
   textsRead?.catch(() => undefined)
   const { ready, loc, languages } = await storeLanguages(c)
-  const own = !!asked && asked === loc.defaultLanguage && !isEnglish(asked)
-  const locale = asked && (own || (asked !== loc.defaultLanguage && languages.includes(asked))) ? asked : null
+  /*
+    THE DEFAULT LANGUAGE, WHEN THE WEBSITE IS WRITTEN IN ANOTHER: every text
+    is translated into it (lib/markets/detect-language.ts defaultLanguageScope),
+    and the website shows it by default. Written in it already: the shop's
+    own built-in words only.
+  */
+  const isDefault = !!asked && asked === loc.defaultLanguage
+  const scope = isDefault && textsRead ? defaultLanguageScope(loc.defaultLanguage, writtenLanguage(await textsRead)) : "builtIn"
+  const own = isDefault && (scope === "all" || !isEnglish(asked!))
+  /* The builder's preview reads the default language's translations too, whatever they cover. */
+  const locale = asked && (own || (isDefault && url.searchParams.get("values") === "1") || (!isDefault && languages.includes(asked))) ? asked : null
   /*
     ?values=1, THE BUILDER'S PREVIEW IN ANOTHER LANGUAGE: the approved
     translations only, by key, as the live site lays them over (lib/markets
@@ -50,12 +59,14 @@ export async function GET(request: Request) {
   */
   if (url.searchParams.get("values") === "1") {
     const published = loc.languages.filter((l) => l.published).map((l) => l.code)
-    if (!locale) return physicalJson({ locale: null, defaultLanguage: loc.defaultLanguage, languages, published, values: {} })
-    const saved = await translationsOf(c.db, c.creatorId, locale)
+    /* No language asked for: the default's, which the canvas opens in (every text, when the website is written in another language). */
+    const shown = locale ?? (asked ? null : loc.defaultLanguage)
+    if (!shown) return physicalJson({ locale: null, defaultLanguage: loc.defaultLanguage, languages, published, values: {} })
+    const saved = await translationsOf(c.db, c.creatorId, shown)
     /* With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus). */
     const values: Record<string, { v: string; h: string }> = {}
     for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash }
-    return physicalJson({ locale, defaultLanguage: loc.defaultLanguage, languages, published, values })
+    return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values })
   }
   /*
     ?summary=1, SETTINGS › LANGUAGES: for each added language, how many of
@@ -67,10 +78,13 @@ export async function GET(request: Request) {
     const groups = await siteTexts(c.db, c.creatorId)
     const items = groups.flatMap((g) => g.items)
     /* The language the website's own text is in (not the shop's built-in words, which are English): Settings says so when it is not the default. */
-    const writtenIn = detectLanguage(groups.filter((g) => !BUILT_IN_GROUPS.has(g.id)).flatMap((g) => g.items.map((t) => t.source)))
+    const writtenIn = writtenLanguage(groups)
     const progress: Record<string, { done: number; draft: number; todo: number; total: number }> = {}
+    /* The default language too, when every text is translated into it. */
+    const counted = defaultLanguageScope(loc.defaultLanguage, writtenIn) === "all" ? [loc.defaultLanguage, ...loc.languages.map((l) => l.code)] : loc.languages.map((l) => l.code)
     await Promise.all(
-      loc.languages.map(async (l) => {
+      counted.map(async (code) => {
+        const l = { code }
         const map = translationMap((await translationsOf(c.db, c.creatorId, l.code)).rows)
         const row = { done: 0, draft: 0, todo: 0, total: items.length }
         for (const t of items) {
@@ -89,7 +103,7 @@ export async function GET(request: Request) {
   const map = translationMap(saved.rows)
   let done = 0
   let total = 0
-  const out = groups.filter((g) => !own || BUILT_IN_GROUPS.has(g.id)).map((g) => ({
+  const out = groups.filter((g) => !own || scope === "all" || BUILT_IN_GROUPS.has(g.id)).map((g) => ({
     id: g.id,
     title: g.title,
     items: g.items.map((t) => {
@@ -112,10 +126,12 @@ export async function PUT(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const { loc, languages } = await storeLanguages(c)
   const locale = normalizeLocale(body.locale)
-  const own = !!locale && locale === loc.defaultLanguage && !isEnglish(locale)
+  const isDefault = !!locale && locale === loc.defaultLanguage
+  const scope = isDefault ? defaultLanguageScope(loc.defaultLanguage, writtenLanguage(await siteTexts(c.db, c.creatorId))) : "builtIn"
+  const own = isDefault && (scope === "all" || !isEnglish(locale!))
   if (!locale || (!own && (locale === loc.defaultLanguage || !languages.includes(locale)))) return physicalJson({ error: "Add this language to your website first." }, 400)
-  /* In the website's own language, only the words Storelib writes in English. */
-  if (own && Array.isArray(body.items) && (body.items as { key?: unknown }[]).some((i) => typeof i?.key !== "string" || !isBuiltInWordKey(i.key))) return physicalJson({ error: "Your website is already written in this language." }, 400)
+  /* In the website's own language, when it is written in it, only the words Storelib writes in English. */
+  if (own && scope === "builtIn" && Array.isArray(body.items) && (body.items as { key?: unknown }[]).some((i) => typeof i?.key !== "string" || !isBuiltInWordKey(i.key))) return physicalJson({ error: "Your website is already written in this language." }, 400)
   const saved = await saveTranslations(c.db, c.creatorId, locale, body.items, c.userId)
   if (saved.ok === false) return physicalJson({ error: saved.error }, saved.status)
   await recordActivity(c.db, c, { action: "website.translations", meta: { locale, saved: saved.saved, removed: saved.removed } })

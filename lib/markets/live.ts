@@ -174,10 +174,14 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   const langs = await siteLanguages(creatorId)
   const code = locale ? (langs.others.find((l) => l.toLowerCase() === locale.toLowerCase()) ?? null) : null
   const pricing = market ? await marketPricing(creatorId, market, base) : null
-  /* In the website's own language, when it is not English: the shop's own words in it (translate.ts BUILT_IN_GROUPS), and nothing else to lay over. */
-  const ownWords = !code && !isEnglish(langs.defaultLanguage)
-  if (!code && !pricing && !ownWords) return null
-  const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : ownWords ? (await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => isBuiltInWordKey(r.key)) : []
+  /*
+    IN THE WEBSITE'S DEFAULT LANGUAGE: every translation into it is laid
+    over. A website written in English whose default is Spanish shows
+    Spanish at its own address (lib/markets/detect-language.ts
+    defaultLanguageScope); one written in its default has only the shop's
+    built-in words translated, so only those are there to lay over.
+  */
+  const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])
   if (!code && !pricing && rows.length === 0) return null
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
   const opts = { approvedOnly: true, fresh: true }

@@ -74,9 +74,8 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
     ...(shownCountry ? { country: shownCountry } : {}),
   }
 
-  /* The website's own language, when it is not English, still has its built-in words translated (translate.ts BUILT_IN_GROUPS): the theme's own among them. */
-  const ownWords = !code && !isEnglish(langs.defaultLanguage)
-  const rows = code ? await cachedTranslations(site.creatorId, code).catch(() => []) : ownWords ? (await cachedTranslations(site.creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => isBuiltInWordKey(r.key)) : []
+  /* In the default language, every translation into it is laid over (an English theme on a Spanish store reads Spanish): the theme's own words among them (lib/markets/detect-language.ts defaultLanguageScope). */
+  const rows = code ? await cachedTranslations(site.creatorId, code).catch(() => []) : await cachedTranslations(site.creatorId, langs.defaultLanguage).catch(() => [])
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
   /* THE THEME'S OWN WORDS (`| t`) as the store translated them, each only while written for the theme's word as it is now. */
   const themeWords: Record<string, string> = {}

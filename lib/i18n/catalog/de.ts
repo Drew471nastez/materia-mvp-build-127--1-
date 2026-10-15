@@ -6649,6 +6649,7 @@ const words: Record<string, string> = {
  "Translate the rest with AI": "Den Rest mit KI übersetzen",
  "Translate to {name}": "In {name} übersetzen",
  "Translate with AI": "Mit KI übersetzen",
+ "Translated from {written}": "Übersetzt aus dem {written}",
  "Translating": "Wird übersetzt",
  "Translating {done} of {total}": "Übersetze {done} von {total}",
  "Translating {name}": "{name} wird übersetzt",

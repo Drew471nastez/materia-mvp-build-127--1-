@@ -250,6 +250,11 @@ export function MarketsPanel() {
     )
   }
 
+  /* The default language translated from the language the website is written in (lib/markets/detect-language.ts), with its own progress like any other. */
+  const translateDefault = !!writtenIn && baseLanguage(writtenIn) !== baseLanguage(draft.defaultLanguage)
+  const defaultProgress = progress?.[draft.defaultLanguage] ?? null
+  const defaultJob = jobs[draft.defaultLanguage]
+  const defaultRun = drafting[draft.defaultLanguage] ?? (defaultJob?.status === "running" ? { state: "running" as const, done: defaultJob.total ? defaultJob.done : (defaultProgress ? defaultProgress.done + defaultProgress.draft : 0), total: defaultJob.total || defaultProgress?.total || 0 } : defaultJob?.status === "failed" && defaultJob.error ? { state: "error" as const, message: defaultJob.error } : null)
   const used = new Set([draft.defaultLanguage, ...draft.languages.map((l) => l.code)])
   const offer = SITE_LANGUAGE_CODES.filter((c) => !used.has(c))
   const home = draft.markets.find((m) => m.primary)
@@ -270,32 +275,6 @@ export function MarketsPanel() {
         description={tt("Your website in more languages, each at its own address like /fr.")}
         action={status ? <span className="text-[12.5px] text-[#6b7280]" aria-live="polite" data-markets-status="">{status}</span> : null}
       >
-        {/*
-          WRITTEN IN ONE LANGUAGE, SET TO ANOTHER. A default of French on a
-          website written in English: "translating into French" reached only
-          the shop's own words, and adding the real languages was refused.
-          Said once, with the one press that puts it right; the old default
-          is kept as a language to translate into.
-        */}
-        {writtenIn && baseLanguage(writtenIn) !== baseLanguage(draft.defaultLanguage) ? (
-          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-[#fffbeb] px-3.5 py-3 text-[13px] leading-[19px] text-[#92400e]" data-language-mismatch={writtenIn}>
-            <span className="min-w-0 flex-1 basis-[240px]">
-              {tt("Your website's text is in {written}, but its default language is {current}.", { written: languageName(writtenIn, activeLocale()), current: languageName(draft.defaultLanguage, activeLocale()) })}
-            </span>
-            <button
-              type="button"
-              className={cn(BTN_SECONDARY, "h-9 shrink-0 px-3")}
-              data-fix-default-language=""
-              onClick={() => {
-                const old = draft.defaultLanguage
-                const others = draft.languages.filter((l) => baseLanguage(l.code) !== baseLanguage(writtenIn))
-                commit({ ...draft, defaultLanguage: writtenIn, languages: others.some((l) => l.code === old) ? others : [...others, { code: old, published: false }] })
-              }}
-            >
-              {tt("Make {written} the default", { written: languageName(writtenIn, activeLocale()) })}
-            </button>
-          </div>
-        ) : null}
         <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-languages="">
           <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3" data-language-default={draft.defaultLanguage}>
             <LanguageBadge code={draft.defaultLanguage} />
@@ -304,14 +283,32 @@ export function MarketsPanel() {
                 <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{languageLabel(draft.defaultLanguage)}</span>
                 <Pill tone="gray">{tt("Default")}</Pill>
               </span>
-              <span className="block text-[12.5px] text-[#6b7280]">{tt("Your website as it is written")}</span>
+              <span className="block text-[12.5px] text-[#6b7280]" data-language-progress="">
+                {defaultRun?.state === "running" ? (
+                  <RollingCount done={defaultRun.done} total={defaultRun.total} />
+                ) : translateDefault && writtenIn ? (
+                  [tt("Translated from {written}", { written: languageName(writtenIn, activeLocale()) }), defaultProgress ? tt("{done} of {total} translated", { done: defaultProgress.done + defaultProgress.draft, total: defaultProgress.total }) : null].filter(Boolean).join(" · ")
+                ) : (
+                  tt("Your website as it is written")
+                )}
+              </span>
             </span>
-            {/* Written in another language than English: the cart's and the checkout's words, which Storelib writes in English, are translated here (lib/markets/translate BUILT_IN_GROUPS). */}
-            {isEnglish(draft.defaultLanguage) ? null : (
-              <button type="button" className={cn(BTN_SECONDARY, "ml-12 h-9 px-3 sm:ml-0")} onClick={() => setTranslating(draft.defaultLanguage)} data-translate-language={draft.defaultLanguage} title={tt("The words of your cart and checkout")}>
+            {/*
+              THE DEFAULT LANGUAGE, TRANSLATED. Written in another language
+              (an English theme on a Spanish store): every text is translated
+              into it, in the background, and the website shows it. Written in
+              it, and not English: only the cart's and checkout's built-in
+              words, which Storelib writes in English.
+            */}
+            {defaultRun?.state === "running" ? null : translateDefault && defaultProgress && defaultProgress.todo > 0 ? (
+              <button type="button" className={cn(BTN_PRIMARY, "ml-12 h-9 px-3 sm:ml-0")} onClick={() => void translateWithAi(draft.defaultLanguage)} data-start-translation={draft.defaultLanguage}>
                 {tt("Translate")}
               </button>
-            )}
+            ) : translateDefault || !isEnglish(draft.defaultLanguage) ? (
+              <button type="button" className={cn(BTN_SECONDARY, "ml-12 h-9 px-3 sm:ml-0")} onClick={() => setTranslating(draft.defaultLanguage)} data-translate-language={draft.defaultLanguage}>
+                {translateDefault ? tt("Review") : tt("Translate")}
+              </button>
+            ) : null}
             <label className="relative ml-12 inline-flex sm:ml-0">
               <span className="sr-only">{tt("Default language")}</span>
               <select
@@ -330,6 +327,13 @@ export function MarketsPanel() {
               </select>
               <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b7280]" />
             </label>
+            {defaultRun?.state === "running" ? (
+              <div className="basis-full pl-12">
+                <TranslateBar done={defaultRun.done} total={defaultRun.total} running label={tt("Translating {name}", { name: languageName(draft.defaultLanguage, activeLocale()) })} className="h-1" />
+              </div>
+            ) : defaultRun?.state === "error" ? (
+              <p className="basis-full pl-12 text-[12.5px] leading-[18px] text-[#b45309]" data-language-error="">{defaultRun.message}</p>
+            ) : null}
           </li>
           {draft.languages.map((l) => {
             const p = progress?.[l.code] ?? null
