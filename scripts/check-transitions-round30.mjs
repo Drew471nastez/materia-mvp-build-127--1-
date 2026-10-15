@@ -283,7 +283,8 @@ export const isNativePlatform = () => false
                   /* What is written on the root as it arrives: each animation's length and the properties it moves. */
                   if (!window.__anims) window.__anims = el.getAnimations().map((a) => ({ name: a.animationName || "script", ms: Number(a.effect?.getTiming().duration) || 0, props: [...new Set(a.effect?.getKeyframes().flatMap((k) => Object.keys(k).filter((x) => !["offset", "easing", "composite", "computedOffset"].includes(x))))] }))
                   const cs = getComputedStyle(el)
-                  log.push({ t: Math.round(performance.now() - t0), transform: cs.transform, translate: cs.translate, top: cs.top, opacity: Number(cs.opacity), stills: document.querySelectorAll("[data-leaving-still],[data-page-motion]").length })
+                  const st = document.querySelector("[data-arrival-still]")
+                  log.push({ t: Math.round(performance.now() - t0), transform: cs.transform, translate: cs.translate, top: cs.top, opacity: Number(cs.opacity), stills: document.querySelectorAll("[data-leaving-still],[data-page-motion]").length, still: st ? Number(getComputedStyle(st).opacity) : null, bar: Math.round(el.querySelector("header")?.getBoundingClientRect().top ?? -1) })
                 }
                 if (performance.now() - t0 < 900) requestAnimationFrame(tick)
               }
@@ -307,10 +308,15 @@ export const isNativePlatform = () => false
           console.log(`    root by frame: ${motion.slice(0, 14).map((m) => `${m.t}ms o${m.opacity.toFixed(2)} ${m.translate}${m.transform === "none" ? "" : ` ${m.transform}`}`).join(" | ")}`)
           expect(moved.length === 0, `${label}: the community never moves sideways (no transform or translate on its root, any frame)`, moved.slice(0, 3))
           const fades = motion.filter((m) => m.opacity < 0.999)
-          expect(fades.length > 0, `${label}: arrives on a fade (${fades.length} frames below full opacity)`)
+          /* Changed on purpose (round 31): from Explore the frame is whole at once and Explore goes out over it, under its bar (lib/navigation/arrival-still.ts). */
+          const going = motion.filter((m) => m.still !== null && m.still < 0.999)
+          expect(fades.length > 0 || going.length > 0, `${label}: arrives on a fade (${fades.length} frames of the frame below full opacity, ${going.length} of Explore going out over it)`)
           /* What the root is given to play (the clock of a headless film is too uneven to time a 180ms fade by its frames). */
           const anims = await p.evaluate(() => window.__anims || [])
-          expect(anims.length > 0 && anims.every((a) => a.ms <= 200 && a.props.every((x) => x === "opacity" || x === "top")), `${label}: one short fade on arrival, opacity only (a visitor's 2px settle is \`top\`, never sideways), 200ms at most`, anims)
+          /* Round 31: with Explore going out over it the frame plays nothing of its own; its bar stands where it lands. */
+          const bars = [...new Set(motion.map((m) => m.bar))]
+          expect(bars.length === 1, `${label}: the community's bar stands still from its first frame`, bars)
+          expect(going.length > 0 || (anims.length > 0 && anims.every((a) => a.ms <= 200 && a.props.every((x) => x === "opacity" || x === "top"))), `${label}: one short fade on arrival, opacity only (a visitor's 2px settle is \`top\`, never sideways), 200ms at most`, anims)
           /* The document under the fade: the frame's own ground while it lands, the page's own again after. */
           const ground = await p.evaluate(() => ({ html: document.documentElement.style.backgroundColor, body: document.body.style.backgroundColor }))
           /* <html> carries the bar's own colour inline (lib/ui/light-chrome, for the strip under the clock), so only <body> is read here. */

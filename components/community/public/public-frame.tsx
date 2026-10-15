@@ -32,6 +32,7 @@ import { useCommunityTheme } from "@/components/community/use-community-theme"
 import { useCommunityAppearance } from "@/lib/communities/client/appearance-choice"
 import "../community-theme.css"
 import { holdLandingGround, useCommunityLanding } from "@/components/community/member/landing"
+import { playArrivalStill } from "@/lib/navigation/arrival-still"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { createClient } from "@/lib/supabase/client"
@@ -61,7 +62,14 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
   /* While it lands (.community-land, from nothing), the document under it is the frame's own ground (landing.ts holdLandingGround). */
   useLayoutEffect(() => {
     if (!landing || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    return holdLandingGround(rootRef.current)
+    const el = rootRef.current
+    /* Round 31: opened from Explore, Explore goes out under the bar and the frame is simply there, its bar steady (lib/navigation/arrival-still.ts). */
+    const bar = el?.querySelector("header")
+    if (el && playArrivalStill(bar ? bar.getBoundingClientRect().bottom : 0)) {
+      el.classList.remove("community-land")
+      return
+    }
+    return holdLandingGround(el)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const me = topBar.me

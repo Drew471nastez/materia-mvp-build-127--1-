@@ -4795,9 +4795,19 @@ html.capacitor .native-header-spacer {
    When Next.js swaps routes the bare <body> is briefly visible; #f5f5f5
    matches the explore/marketing skeleton background so the transition is
    invisible instead of flashing a different shade.
-   Pages that need white use their own wrapper elements on top of this. */
+   Pages that need white use their own wrapper elements on top of this.
+
+   IN THE DARK LOOK IT IS THE DARK GROUND (round 31, the owner: "a white
+   blink on the way to Explore, worst in dark mode", and the spinner of a slow
+   page on a white screen). This rule and the dark sheet's
+   `html[data-sl-dark] body` have the same weight, and this file is loaded
+   after app/theme-dark.css, so in the app the body stayed #f5f5f5 in the
+   dark look: every frame a page landed on (Explore's fade from nothing, the
+   swap between two layouts) showed it, and the slow page's surface read its
+   colour off it. --sl-page is the dark ground under html[data-sl-dark] and
+   unset otherwise. */
 html.capacitor body {
-  background-color: #f5f5f5;
+  background-color: var(--sl-page, #f5f5f5);
   /* Prevent pull-to-refresh and overscroll bounce in Capacitor WebView.
      The native app handles refresh natively; browser overscroll is unwanted.
      overscroll-behavior: none works on iOS 16+; JS guard covers older iOS. */
@@ -4926,6 +4936,15 @@ html.capacitor.library-layout {
 }
 html.capacitor.library-layout::before {
   background-color: var(--native-band, #ffffff);
+}
+/*
+  AND IN THE DARK LOOK, OVER LIBRARYBGFIX'S OWN INLINE #fafafa (round 31). It writes the canvas colour on <html> inline,
+  whatever the look, which beats every rule above: on the account and the library in the dark look the canvas was
+  #fafafa, a white band wherever the page did not cover it (the overscroll, the frames a layout is swapped, the strip
+  under a short page). The look's ground instead, in the app and in a browser.
+*/
+html[data-sl-dark].library-layout {
+  background-color: var(--sl-page, #111113) !important;
 }
 
 /* The floating creator quick-nav is gone. It floated over the product
@@ -8194,6 +8213,14 @@ html.nav-landing:not(.app-layout) [data-member-profile],
 html.nav-landing:not(.app-layout) [data-storefront-root],
 html.nav-landing:not(.explore-scroll-restoring):not(.explore-scroll-settling) .explore-ground {
   animation: app-page-enter 180ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+/*
+  ONE LANDING PER ARRIVAL (round 31, components/ui/nav-landing.tsx). The surfaces on screen at the commit carry
+  data-nav-land; one that replaces them inside the hold (Explore's page after its loading.tsx) is simply there, rather
+  than fading from nothing a second time, which was a blink between the skeleton and the page.
+*/
+html.nav-landing.nav-landing-marked:not(.app-layout) :is([data-member-profile], [data-storefront-root], .explore-ground):not([data-nav-land]) {
+  animation: none;
 }
 /*
   THE SAME SELECTORS, to the letter. A shorter one loses the cascade to the

@@ -7,6 +7,7 @@
  */
 import { useCallback, useSyncExternalStore } from "react"
 import { flushSync } from "react-dom"
+import { intoAppStillUp } from "@/lib/navigation/into-app-still"
 import { APPEARANCE_KEY, APP_FROM_DARK_CLASS, APP_FROM_DARK_MS, APP_FROM_DARK_OUT_CLASS, DARK_ATTR, LEGACY_APPEARANCE_KEY, LOOK_NOW_KEY, isAppearance, themedPath, type Appearance } from "./site-appearance"
 
 const listeners = new Set<() => void>()
@@ -136,8 +137,9 @@ export function paintAppearance(pathname: string, appearance: Appearance | null,
     html.setAttribute(DARK_ATTR, "")
     html.style.colorScheme = "dark"
   } else {
-    /* A client move from a dark page into the dashboard: the same veil a document gets, then its fade. */
-    if (APP_PATH.test(pathname)) veilIntoApp()
+    /* A client move from a dark page into the dashboard: the same veil a document gets, then its fade. Not under the copy of
+       the page left, which is already fading off the dashboard (lib/navigation/into-app-still.ts, round 31). */
+    if (APP_PATH.test(pathname) && !intoAppStillUp()) veilIntoApp()
     html.removeAttribute(DARK_ATTR)
     html.style.colorScheme = "light"
   }

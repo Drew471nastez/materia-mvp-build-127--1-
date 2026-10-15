@@ -9,6 +9,7 @@ import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
 import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 import AppColdStart from "@/app/app/cold-start"
 import { revealAppFromDark } from "@/lib/appearance/client"
+import { revealIntoApp } from "@/lib/navigation/into-app-still"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
 
@@ -23,10 +24,12 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.add("app-layout")
     /* The shell is on the screen now: the canvas the head script painted for the document's first frames goes (app/globals.css html.app-arriving),
-       and the veil a dashboard opened after a dark page starts under fades off it (lib/appearance/site-appearance APP_FROM_DARK_BOOT, round 30). */
+       and the veil a dashboard opened after a dark page starts under fades off it (lib/appearance/site-appearance APP_FROM_DARK_BOOT, round 30),
+       and so does the copy of the buyer page a client move came from (lib/navigation/into-app-still.ts, round 31). */
     const frame = requestAnimationFrame(() => {
       document.documentElement.classList.remove("app-arriving")
       revealAppFromDark()
+      revealIntoApp()
     })
     return () => {
       cancelAnimationFrame(frame)

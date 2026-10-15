@@ -30,6 +30,7 @@ import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-dis
 import { exploreCategoryFrom } from "@/lib/explore/explore-address"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
+import { LeaveCopy } from "@/components/navigation/leave-copy"
 
 /** How long Explore waits for a signed in person's own ordering before showing the ordinary one. */
 const INTERESTS_WAIT_MS = 1_500
@@ -336,6 +337,8 @@ export default async function ExplorePage({
   */
   return (
     <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* A community opened from here: this page goes out under the community's bar as it comes in (round 31). */}
+      <LeaveCopy surface=".explore-ground" />
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
