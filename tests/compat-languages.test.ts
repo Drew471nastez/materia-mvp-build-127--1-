@@ -98,6 +98,34 @@ async function main() {
     check("localization, routes and roots read the same", localeRoot(i18n) === "/fr" && localeRoot(i18n, "en") === "" && String(routesFor(i18n).search_url) === "/fr/search" && (localizationObject("RON", i18n).available_languages as unknown[]).length === 3)
   }
 
+  console.log("\nA language change is not a country chosen (the owner: Åland Islands (BRL) kept for a year)\n")
+  {
+    /* Dawn's selector: the country it shows as a hidden country_code, the languages as buttons, in one form. */
+    const dawn = new CompatTheme(
+      { ...files, "layout/theme.storelib": wrapCompatTemplate(`<html><body><main>{{ content_for_layout }}</main>{% form 'localization', id: 'FooterLanguageForm' %}<input type="hidden" name="country_code" value="{{ localization.country.iso_code }}"><span class="shown">{{ localization.country.name }} ({{ localization.country.currency.iso_code }})</span>{% for l in localization.available_languages %}<button name="language_code" value="{{ l.iso_code }}">{{ l.endonym_name }}</button>{% endfor %}{% endform %}</body></html>`) },
+      {},
+      { assetUrl: (n) => `/a/${n}` },
+    )
+    const countries = [
+      { code: "AX", name: "Åland Islands", currency: "BRL" },
+      { code: "BR", name: "Brazil", currency: "BRL" },
+      { code: "RO", name: "Romania", currency: "RON" },
+    ]
+    const at = (country: (typeof countries)[number]): SiteData => ({ ...base, theme: dawn, i18n: { locale: "en", defaultLanguage: "en", languages: ["en", "ro"], countries, country } })
+    const home = at(countries[2])
+    const html = String((await get(home, "/")).body)
+    check("the form says which country the page showed (storelib_country), beside the theme's own country_code", /name="storelib_country" value="RO"/.test(html) && /name="country_code" value="RO"/.test(html) && /class="shown">Romania \(RON\)/.test(html), html.match(/<form[\s\S]*?<\/form>/)?.[0]?.slice(0, 400))
+    const post = (site: SiteData, body: Record<string, unknown>) => answer(site, { method: "POST", path: "/localization", query: new URLSearchParams(), body: { return_to: "/", ...body }, cart: [] })
+    const cookieOf = (r: Awaited<ReturnType<typeof answer>>) => (r.cookies ?? []).find((c) => c.startsWith("sl_country=")) ?? null
+    check("changing the language posts the country shown back: nothing is remembered about the country", cookieOf(await post(home, { language_code: "ro", country_code: "RO", storelib_country: "RO" })) === null)
+    const picked = cookieOf(await post(home, { country_code: "BR", storelib_country: "RO" }))
+    check("  choosing Brazil remembers it, marked as chosen (2.BR)", !!picked && /^sl_country=2\.BR;/.test(picked), picked)
+    check("  a country the website does not list changes nothing", cookieOf(await post(home, { country_code: "ZZ", storelib_country: "RO" })) === null)
+    /* A page drawn before this, still open: the selector showed Åland Islands, and its form has no storelib_country. */
+    check("a page from before, its language changed: its Åland Islands is not taken as chosen", cookieOf(await post(home, { language_code: "ro", country_code: "AX" })) === null)
+    check("  the same page's country list, used: the country is taken", /^sl_country=2\.BR;/.test(cookieOf(await post(home, { country_code: "BR" })) ?? ""))
+  }
+
   console.log("\nThe theme's own words in a language it does not ship\n")
   {
     const words = theme.defaultWords()
@@ -147,13 +175,16 @@ async function main() {
     check("the market rides in the page's address, beside the language", siteNameIn("andrew", "fr", "eu") === "andrew~fr~m-eu" && JSON.stringify(splitSiteName("andrew~fr~m-eu")) === JSON.stringify({ name: "andrew", locale: "fr", market: "eu" }) && splitSiteName("andrew~m-eu").locale === null)
     check("  a visitor in a market sees the same page in its currency, in any language", (siteRouteInLanguage("andrew", "/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~m-eu/about" && (siteRouteInLanguage("andrew", "/fr/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~fr~m-eu/about" && /* Changed on purpose (round AE): the cart in the market's currency too. */ (siteRouteInLanguage("andrew", "/cart", ["fr"], "eu") as { path: string }).path === "/w/andrew~m-eu/cart" && siteRouteInLanguage("andrew", "/checkout", ["fr"], "eu") === null)
     const proxy = read("proxy.ts")
-    check("the proxy picks the market from the visitor's choice, then their country", /request\.cookies\.get\("sl_country"\)/.test(proxy) && /x-vercel-ip-country/.test(proxy) && /if \(chosen === "home"\) return null/.test(proxy))
+    /* Changed on purpose (the owner: "Åland Islands (BRL)" kept by a cookie from before): the choice and the country are read in lib/markets/visitor-country.ts, a cookie without its mark is no choice. */
+    check("the proxy picks the market from the visitor's choice, then their country", /visitorCountryFrom\(request\.cookies\.get\(COUNTRY_COOKIE\)\?\.value, seenCountry\(request\.headers\)\)/.test(proxy) && /x-vercel-ip-country/.test(read("lib/markets/visitor-country.ts")) && /if \(choice === "home"\) return null/.test(read("lib/markets/visitor-country.ts")))
+    check("  and every answer clears a country cookie from before choices were marked", /return forgetStaleCountry\(request, await routeRequest\(request\)\)/.test(proxy) && /readCountryCookie\(request\.cookies\.get\(COUNTRY_COOKIE\)\?\.value\)\.stale/.test(proxy))
+    check("  the builder theme's selector writes its choice marked", /countryCookieValue\(option\.country\)/.test(read("components/website-builder/theme/language-switch.tsx")) && !/sl_country=\$\{encodeURIComponent\(option\.country\)\}/.test(read("components/website-builder/theme/language-switch.tsx")))
     check("  and a page in a market's currency is never kept by a shared cache", /private, no-cache/.test(proxy) && /!\(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\)/.test(proxy))
     const compat = read("lib/markets/compat.ts")
     /* Changed on purpose (the owner: currency in the builder like the live site): the conversion moved to lib/markets/compat-prices.ts, which the builder's canvas uses too. */
     const prices = read("lib/markets/compat-prices.ts")
     check("an imported theme's prices, shop currency and money format follow the market; the store's otherwise", /moneyFormat: moneyFormatFor\(pricing\.currency/.test(prices) && /price: shownPrice\(settings\.price, pricing\)/.test(prices) && /: shop$/m.test(prices) && /shop: compatShop\(site\.shop, pricing/.test(compat) && /if \(pricing\) settings = compatPrices\(settings, pricing\)/.test(compat))
-    check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /const countries = countryList\(input\.markets, input\.base\)/.test(prices) && /* Changed on purpose (merge): the markets that convert today, a store's own rate included. */ /themeCountries\(\{ markets: converting, base,/.test(compat) && /sl_country=\$\{country\}/.test(read("lib/storelib-theme/compat/site.ts")))
+    check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /const countries = countryList\(input\.markets, input\.base\)/.test(prices) && /* Changed on purpose (merge): the markets that convert today, a store's own rate included. */ /themeCountries\(\{ markets: converting, base,/.test(compat) && /* Changed on purpose: written marked as chosen, and only for a country changed to */ /countryCookieHeader\(country\)/.test(read("lib/storelib-theme/compat/site.ts")))
     /* Changed on purpose (the owner): the charge currency is said at checkout and in the currency picker, never in a cart. */
     check("what the card is charged in is said at checkout and in the currency picker, not put into a theme's cart", !/chargeNoteScript/.test(compat) && /currencyNote=\{currencyNote\}/.test(read("app/checkout/site/page.tsx")) && /data-currency-note/.test(read("app/checkout/site/site-checkout.tsx")) && /data-currency-note/.test(read("components/website-builder/theme/language-switch.tsx")))
     check("a builder theme's product block converts the same way, never a pay what you want amount", /pricingFor\(product\.display\.market/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /!product\.pay_what_you_want/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))

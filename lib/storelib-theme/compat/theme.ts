@@ -1383,6 +1383,11 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
     const variant = (obj as O).selected_or_first_available_variant as O | undefined
     if (variant?.id) hidden.push(`<input type="hidden" name="product-id" value="${escapeHtml(toOutput((obj as O).id))}">`)
   }
+  /* The country the selector shows, so the answer can tell a country chosen from one only posted back with a language (site.ts /localization). */
+  if (type === "localization") {
+    const shown = ((ctx.globals.localization as O | undefined)?.country as O | undefined)?.iso_code
+    if (typeof shown === "string" && /^[A-Z]{2}$/.test(shown)) hidden.push(`<input type="hidden" name="storelib_country" value="${shown}">`)
+  }
   if (typeof args.return_to === "string") hidden.push(`<input type="hidden" name="return_to" value="${escapeHtml(args.return_to)}">`)
   const page = ctx.registers.page as CompatPage | undefined
   /* The page the visitor asked for, to go back to once the password is right (checked again on the server, lib/site-password/gate passReturnPath). */

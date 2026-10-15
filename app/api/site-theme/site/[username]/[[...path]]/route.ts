@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { localizeCompatSite } from "@/lib/markets/compat"
 import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteVisitorCountry } from "@/lib/markets/site-name"
+import { countryCookieIn, seenCountry } from "@/lib/markets/visitor-country"
 import { localeRoot } from "@/lib/storelib-theme/compat/objects"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
@@ -137,9 +138,9 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     no country: the selector shows the store's own (themeCountries).
   */
   const visitorCountry = siteVisitorCountry({
-    chosen: req.headers.get("cookie")?.match(/(?:^|;\s*)sl_country=([^;]*)/)?.[1] ?? null,
+    chosen: countryCookieIn(req.headers.get("cookie")),
     told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
-    seen: req.headers.get("x-vercel-ip-country"),
+    seen: seenCountry(req.headers),
   })
   found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry) }
 

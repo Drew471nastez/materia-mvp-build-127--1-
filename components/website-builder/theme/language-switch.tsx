@@ -20,6 +20,7 @@
  */
 import { useEffect, useId } from "react"
 import { localeFromPath, localizedPath } from "@/lib/markets/locales"
+import { COUNTRY_COOKIE, countryCookieValue } from "@/lib/markets/visitor-country"
 import { LanguageSuggest } from "./language-suggest"
 
 export interface SiteLanguageChoice {
@@ -128,8 +129,11 @@ export function LanguageSwitch({ choice, preview }: { choice: SiteLanguageChoice
     const option = currency?.options.find((o) => o.id === id)
     if (!option || id === currency?.current) return
     if (preview) return preview.currency(id)
+    /* Marked as chosen (lib/markets/visitor-country.ts): a cookie without the mark is from before and is not read. */
+    const value = countryCookieValue(option.country)
+    if (!value) return
     try {
-      document.cookie = `sl_country=${encodeURIComponent(option.country)}; Path=/; Max-Age=31536000; SameSite=Lax`
+      document.cookie = `${COUNTRY_COOKIE}=${value}; Path=/; Max-Age=31536000; SameSite=Lax`
     } catch {
       return
     }
