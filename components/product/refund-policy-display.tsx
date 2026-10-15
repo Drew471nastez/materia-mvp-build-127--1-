@@ -31,6 +31,8 @@
  * buy card; a dark scheme gets a dark popover.
  */
 
+import { tint } from "@/lib/appearance/site-paint"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { useEffect, useState } from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { ChevronDown } from "lucide-react"
@@ -113,6 +115,8 @@ export function RefundPolicyDisplay({
 }: RefundPolicyDisplayProps) {
   const [open, setOpen] = useState(false)
   const phone = usePhone()
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
 
   if (!enabled || !policyType) return null
 
@@ -126,7 +130,7 @@ export function RefundPolicyDisplay({
      names here, so a new dark scheme is dark on this line too. */
   const dark = isDarkTheme || isDarkColor(backgroundColor)
 
-  const lineStyle = textColor ? { color: `${textColor}a6` } : undefined
+  const lineStyle = textColor ? { color: tint(paint(textColor, "ink"), "a6") } : undefined
 
   /* A guarantee with nothing more to say is a line, not a control. */
   if (!body) {

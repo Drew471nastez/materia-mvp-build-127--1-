@@ -97,9 +97,11 @@ async function main() {
   const css = readFileSync(join(process.cwd(), "app/theme-dark.css"), "utf8")
   check("charcoal steps, never pure black", /--sl-page: #111113/.test(css) && !/background-color: #000(000)?;/.test(css))
   check("every rule is scoped to the dark look (html[data-sl-dark] or a dark community frame)", css.split("\n").filter((l) => /^\s*[.:[a-z].*\{/.test(l) && !/^\s*(@media|to \{)/.test(l)).every((l) => /data-sl-dark|data-community-theme="dark"|data-theme-swap/.test(l)))
-  check("a hover in the account menu becomes a dark step, not white", /\.hover\\:bg-\\\[\\#f4f5f7\\\]:hover \{ background-color: #25252a; \}/.test(css))
-  check("a chosen near black pill becomes graphite, its words stay light", /\.bg-\\\[\\#1a1a2e\\\] \{ background-color: #2d2d33; \}/.test(css) && !/\.text-white \{/.test(css))
-  check("hairlines become faint light lines, not white borders", /\.border-\\\[\\#e5e7eb\\\]\\\/60 \{ border-color: rgba\(255,255,255,0\.0\d+\); \}/.test(css))
+  /* Changed on purpose (round 31): every rule leaves a creator's own look out, :not([data-own-look], [data-own-look] *) on the element it colours (scripts/gen-theme-dark.mjs OWN). */
+  const own = ":not\\(\\[data-own-look\\], \\[data-own-look\\] \\*\\)"
+  check("a hover in the account menu becomes a dark step, not white", new RegExp(`\\.hover\\\\:bg-\\\\\\[\\\\#f4f5f7\\\\\\]${own}:hover \\{ background-color: #25252a; \\}`).test(css))
+  check("a chosen near black pill becomes graphite, its words stay light", new RegExp(`\\.bg-\\\\\\[\\\\#1a1a2e\\\\\\]${own} \\{ background-color: #2d2d33; \\}`).test(css) && !/\.text-white(:not\([^)]*\))? \{/.test(css))
+  check("hairlines become faint light lines, not white borders", new RegExp(`\\.border-\\\\\\[\\\\#e5e7eb\\\\\\]\\\\\\/60${own} \\{ border-color: rgba\\(255,255,255,0\\.0\\d+\\); \\}`).test(css))
   check("hovers only for a mouse, as the app's own hover variant", /@media \(hover: hover\) and \(pointer: fine\) \{/.test(css))
   /* Changed on purpose (round 28): the owner found the switch laggy. It no longer starts a transition on every
      element (html.sl-theme-switching *); one still of the old page fades over the new one. */
@@ -117,10 +119,39 @@ async function main() {
     ["components/community/member/arrive.ts", /var\(--sl-arrive, #fdf8ec\)/],
   ] as const) check(`${f}: an inline colour keeps its light value and has a dark one`, re.test(read(f)))
   const product = read("app/(marketing)/p/[slug]/page.tsx")
-  check("round 30: a product page with the creator's own look keeps it, the platform's default page follows the person's", /data-own-look=\{ownLook \? "" : undefined\}/.test(product) && /data-product-look=\{ownLook \? undefined : "site"\}/.test(product) && /productPageTone\(productPageConfig, \{ site: !ownLook \}\)/.test(product) && (product.match(/__html: OWN_LOOK_BOOT/g) || []).length === 2)
+  /* Changed on purpose (round 31): both roots say whose look it is (the arranged one said data-own-look always), and no boot takes the dark look off the document any more: the dark sheet leaves the creator's look out instead. */
+  check("round 30: a product page with the creator's own look keeps it, the platform's default page follows the person's", (product.match(/data-own-look=\{ownLook \? "" : undefined\}/g) || []).length === 2 && (product.match(/data-product-look=\{ownLook \? undefined : "site"\}/g) || []).length === 2 && /productPageTone\(productPageConfig, \{ site: !ownLook \}\)/.test(product) && !/OWN_LOOK_BOOT/.test(product))
   const tone = await import("../lib/store-builder/product-page-tone")
   check("round 30: no config, or the default scheme with nothing of the creator's, is Storelib's look", !tone.productHasOwnLook(null) && !tone.productHasOwnLook({ globalSettings: { themePreset: "default" }, globalColors: { backgroundColor: "#ffffff" }, headerSettings: {} }))
   check("round 30: a scheme, a page colour, colours of their own or an arranged page are the creator's look", tone.productHasOwnLook({ globalSettings: { themePreset: "sage" } }) && tone.productHasOwnLook({ globalColors: { backgroundColor: "#f4efe6" } }) && tone.productHasOwnLook({ headerSettings: { buyButtonColor: "#111111" } }) && tone.productHasOwnLook({}, true))
+  {
+    /*
+      ROUND 31, the owner: "in dark mode, opening a product from Explore lands on a white product page and a white header".
+      The template Storelib stores the first time the builder opens, and the default scheme's colours publishing writes
+      into it, were read as a look of the creator's own, so nearly every product page kept the light look and its boot
+      took the dark look off the whole document. scripts/check-product-dark-round31.mjs measures the page.
+    */
+    const defaults = await import("../lib/store-builder/defaults")
+    const d = defaults.themePresets.default
+    const published = {
+      ...defaults.defaultProductPageConfig,
+      globalSettings: { themePreset: "default" },
+      globalColors: { backgroundColor: "#ffffff" },
+      headerSettings: { ...defaults.defaultProductPageConfig.headerSettings, colors: { backgroundColor: d.sections.pageBackgroundColor, textColor: d.colors.foreground }, buyButtonColor: d.productHeader.buyButtonColor, buyButtonTextColor: d.productHeader.buyButtonTextColor, faqColors: { ...d.faqSection }, reviewsColors: { textColor: d.reviewsSection.textColor, starColor: d.reviewsSection.starColor, cardBackgroundColor: d.reviewsSection.cardBackgroundColor, cardBorderColor: d.reviewsSection.cardBorderColor }, productCardColors: { ...d.productCard }, priceContainerColors: { ...d.priceContainer }, wishlistButtonColors: { ...d.wishlistButton }, viewInLibraryButtonColors: { ...d.viewInLibraryButton } },
+    }
+    check("round 31: the template the builder stores (Reviews, More from, colours of transparent) is Storelib's look", !tone.productHasOwnLook(defaults.defaultProductPageConfig as never))
+    check("round 31: the default scheme's own colours, written in by publishing the creator page, are Storelib's look", !tone.productHasOwnLook(published as never))
+    check("round 31: a section of the creator's own, or one colour of their own in it, is still the creator's look", tone.productHasOwnLook({ ...published, sections: [...published.sections, { id: "t", type: "text-block", order: 2, settings: { visible: true } }] } as never) && tone.productHasOwnLook({ ...published, headerSettings: { ...published.headerSettings, faqColors: { ...d.faqSection, textColor: "#3b2f2f" } } } as never) && !tone.productHasOwnLook({ ...published, sections: [...published.sections, { id: "t", type: "text-block", order: 2, settings: { visible: false } }] } as never))
+    check("round 31: the page asks productHasOwnLook of the whole config, not whether it has any section", /const ownLook = productHasOwnLook\(productPageConfig\)/.test(product))
+    const paint = await import("../lib/appearance/site-paint")
+    check("round 31: a painted colour is the colour as written in the light look, its dark step in the dark", paint.sitePaint("#ffffff", "bg") === "var(--sl-pp-surface, #ffffff)" && paint.sitePaint("#ffffff", "page") === "var(--sl-pp-page, #ffffff)" && paint.sitePaint("#000000", "ink") === "var(--sl-pp-ink, #000000)" && paint.sitePaint("#e5e7eb", "line") === "var(--sl-pp-line, #e5e7eb)" && paint.sitePaint("rgba(0,0,0,0.14)", "line") === "var(--sl-pp-line, rgba(0,0,0,0.14))")
+    check("round 31: a coloured accent, a variable, transparent or inherit come back as written", paint.sitePaint("#2563eb", "bg") === "#2563eb" && paint.sitePaint("var(--card)", "bg") === "var(--card)" && paint.sitePaint("transparent", "bg") === "transparent" && paint.sitePaint("inherit", "ink") === "inherit" && paint.noPaint("#ffffff", "bg") === "#ffffff")
+    check("round 31: a two digit alpha after a painted colour is the same alpha, mixed", paint.tint("#000000", "cc") === "#000000cc" && paint.tint("var(--sl-pp-ink, #000000)", "80") === "color-mix(in srgb, var(--sl-pp-ink, #000000) 50.1961%, transparent)")
+    check("round 31: every step site-paint can name is defined in the dark look", paint.PAINT_VARS.every((n) => new RegExp(`--sl-pp-${n}: [^;]+;`).test(css)))
+    check("round 31: a creator's own look has the light tokens back inside it, and no boot takes the dark look off", /html\[data-sl-dark\] \[data-own-look\] \{\s*color-scheme: light;\s*color: var\(--foreground\);[\s\S]*?--background: oklch\(1 0 0\);[\s\S]*?--sl-pp-ink: initial;/.test(css) && !/OWN_LOOK_BOOT\s*=/.test(read("lib/appearance/site-appearance.ts")) && !/data-own-look/.test(read("lib/appearance/client.ts").replace(/\/\*[\s\S]*?\*\//g, "")))
+    check("round 31: the product page's sticky bar and top bar are read for the dark sheet, the rest of the builder is not", /"components\/store-builder\/sticky-add-to-cart\.tsx"/.test(read("scripts/gen-theme-dark.mjs")) && /"components\/store-builder\/product-creator-bar\.tsx"/.test(read("scripts/gen-theme-dark.mjs")) && /"components\/store-builder", /.test(read("scripts/gen-theme-dark.mjs")))
+    check("round 31: the page's parts paint under one provider, on only when the look is Storelib's", (product.match(/<SitePaintProvider on=\{!ownLook\}>/g) || []).length === 2 && /const paint = paintFor\(!ownLook\)/.test(product))
+  }
   check("round 30: Storelib's look on a product page has no scheme colours of its own, so the design system's tokens draw it", tone.productPageTone(null, { site: true }).themeConfig === undefined && tone.productPageTone(null).themeConfig !== undefined)
 
   section("Into the dashboard from the dark look (round 30)")

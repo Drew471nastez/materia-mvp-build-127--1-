@@ -43,11 +43,35 @@ const SKIP = new Set([
   "app/app", "app/admin", "app/website-builder", "app/store-builder", "app/onepage-preview", "app/api", "app/(sites)",
   "lib/website-builder", "lib/store-builder", "lib/sites", "lib/onepage",
 ])
-const SOURCES = ["components", "app", "lib"].flatMap((top) =>
-  readdirSync(join(root, top))
-    .map((n) => `${top}/${n}`)
-    .filter((d) => !SKIP.has(d)),
-)
+/*
+  STORELIB'S OWN PRODUCT PAGE IS DRAWN BY THE STORE BUILDER'S PARTS (round 31, the owner: "the sticky add to cart bar is
+  not adapted"). The bar across the top, the sticky buy bar, the sections under the page (Reviews, More from) and the
+  wrapper that keeps the bar below the header live in components/store-builder, which the list above skips as a builder.
+  On a product page with Storelib's own look (data-product-look="site") they are buyer chrome, so these files, and only
+  these, are read too. On a creator's own look the dark attribute is never on <html> (OWN_LOOK_BOOT), so a rule written
+  for them changes nothing there.
+*/
+const PRODUCT_PAGE_PARTS = [
+  "components/store-builder/product-creator-bar.tsx",
+  "components/store-builder/sticky-add-to-cart.tsx",
+  "components/store-builder/discover-sticky-wrapper.tsx",
+  "components/store-builder/description-rich-editor.tsx",
+]
+/*
+  The sections under the page (unified-section-renderer: Reviews, More from, the payment methods) are not read: they
+  write their colours inline, painted through lib/appearance/site-paint, and the rest of that file is the creator page's.
+  A white with an alpha in these parts (border-white/40 on the email field) is drawn for the dark bar it sits on, which
+  is dark in both looks: it is left as it is rather than turned into the dark look's faint line.
+*/
+const PART_ONLY = new Set()
+const SOURCES = [
+  ...["components", "app", "lib"].flatMap((top) =>
+    readdirSync(join(root, top))
+      .map((n) => `${top}/${n}`)
+      .filter((d) => !SKIP.has(d)),
+  ),
+  ...PRODUCT_PAGE_PARTS,
+]
 
 /* ── The palette: charcoal steps, never pure black ──────────────────────── */
 const P = {
@@ -116,6 +140,12 @@ const neutral = (c) => {
 }
 const rgba = (c, a = 1) => (Array.isArray(c) ? `rgba(${c[0]},${c[1]},${c[2]},${+(c[3] * a).toFixed(3)})` : a >= 1 ? c : `rgba(${hex(c).slice(0, 3).join(",")},${+a.toFixed(3)})`)
 const hsla = (h, s, l, a = 1) => `hsla(${Math.round(h)},${Math.round(s * 100)}%,${Math.round(l * 100)}%,${+a.toFixed(3)})`
+/* The steps lib/appearance/site-paint paints an inline colour with, in its PAINT_VARS order (round 31). */
+const PAINT_VARS = [
+  ["page", P.page], ["surface", P.surface], ["raised", P.raised], ["raised2", P.raised2], ["thumb", P.thumb], ["selected", P.selected],
+  ["ink", P.ink], ["text", P.text], ["muted", P.muted], ["faint", P.faint],
+  ["line", rgba(P.line)], ["line2", rgba(P.line2)], ["line-strong", rgba(P.lineStrong)], ["danger-line", "rgba(248,113,113,0.45)"],
+]
 
 /** The dark answer for one colour in one role, or null to leave it as it is. */
 function mapColour(prop, c, alpha, interactive) {
@@ -203,13 +233,19 @@ const SHADOW = /(?<![\w\-:/\[])((?:\[@media[^\]\s]+\]:|\[&::?[\w-]+\]:|[a-z0-9-]
 
 const tokens = new Map()
 const shadows = new Map()
+const fromBuyerPages = new Set()
 for (const dir of SOURCES) {
+  const part = PRODUCT_PAGE_PARTS.includes(dir)
   for (const f of files(join(root, dir))) {
     const src = readFileSync(f, "utf8")
-    for (const m of src.matchAll(TOKEN)) tokens.set(m[0], m)
+    for (const m of src.matchAll(TOKEN)) {
+      tokens.set(m[0], m)
+      if (!part) fromBuyerPages.add(m[0])
+    }
     for (const m of src.matchAll(SHADOW)) if (/#[0-9a-fA-F]{3,8}|rgba\(255,255,255/.test(m[2])) shadows.set(m[0], m)
   }
 }
+for (const [cls, m] of tokens) if (!fromBuyerPages.has(cls) && m[3] === "white" && m[4]) PART_ONLY.add(cls)
 
 /* ── Variants, as Tailwind compiles them in this app ─────────────────────── */
 const HOVER_MEDIA = "(hover: hover) and (pointer: fine)"
@@ -269,6 +305,15 @@ function variantsOf(chain) {
 }
 const esc = (cls) => cls.replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`)
 const SCOPE = `:is(html[data-sl-dark], [data-community-theme="dark"])`
+/*
+  A CREATOR'S OWN LOOK IS LEFT OUT, STORELIB'S CHROME AROUND IT IS NOT (round 31). A page with a look of its creator's own
+  (a creator page under /u/, a product page the creator designed: [data-own-look]) used to take the dark look off the
+  whole document (OWN_LOOK_BOOT), so the Storelib header above it, the tab bar under it and every sheet and menu it
+  opened turned white in the person's dark look. Now the dark attribute stays on <html> and every rule here leaves the
+  creator's page out: OWN is on the element each rule colours, so nothing inside [data-own-look] is touched, and the
+  tokens the dark look redefines are put back to the light ones there (OWN_LOOK_RESET below).
+*/
+const OWN = `:not([data-own-look], [data-own-look] *)`
 
 function alphaOf(mod) {
   if (!mod) return 1
@@ -305,6 +350,7 @@ const PROP_CSS = {
   accent: (c) => `accent-color: ${c}`,
 }
 for (const [cls, m] of [...tokens].sort(([a], [b]) => a.localeCompare(b))) {
+  if (PART_ONLY.has(cls)) continue
   const [, chain, prop, colourName, mod] = m
   const v = variantsOf(chain.replace(/:$/, ""))
   if (!v) continue
@@ -313,8 +359,8 @@ for (const [cls, m] of [...tokens].sort(([a], [b]) => a.localeCompare(b))) {
   const role = prop.startsWith("border") ? "border" : v.pseudo.includes("::placeholder") ? "placeholder" : prop
   const mapped = mapColour(role, colour, alphaOf(mod), v.interactive)
   if (!mapped || !PROP_CSS[prop]) continue
-  let sel = `${SCOPE} .${esc(cls)}${v.pseudo}`
-  if (prop === "divide") sel = `${SCOPE} .${esc(cls)}${v.pseudo} > :not(:last-child)`
+  let sel = `${SCOPE} .${esc(cls)}${OWN}${v.pseudo}`
+  if (prop === "divide") sel = `${SCOPE} .${esc(cls)}${v.pseudo} > :not(:last-child)${OWN}`
   rules.push({ media: v.media, css: `${sel} { ${PROP_CSS[prop](mapped)}; }` })
 }
 for (const [cls, m] of [...shadows].sort(([a], [b]) => a.localeCompare(b))) {
@@ -331,7 +377,7 @@ for (const [cls, m] of [...shadows].sort(([a], [b]) => a.localeCompare(b))) {
     return h
   })
   value = value.replace(/rgba\(255,\s*255,\s*255,\s*([\d.]+)\)/g, (_, a) => `rgba(255,255,255,${+(Number(a) * 0.08).toFixed(3)})`)
-  rules.push({ media: v.media, css: `${SCOPE} .${esc(cls)}${v.pseudo} { box-shadow: ${value}; }` })
+  rules.push({ media: v.media, css: `${SCOPE} .${esc(cls)}${OWN}${v.pseudo} { box-shadow: ${value}; }` })
 }
 
 /* Grouped by media query, in a stable order, so the file diffs cleanly. */
@@ -392,6 +438,12 @@ html[data-sl-dark] {
   --sl-tab-lens-drag: 0.75;
   --sl-ink-strong: ${P.ink};
   --sl-arrive: rgba(253,248,236,0.07);
+  /*
+    A colour written inline on Storelib's own product page (round 31, lib/appearance/site-paint PAINT_VARS): the light
+    look leaves these undefined and draws each colour as written; here each is the step the same colour takes as a
+    class (mapColour above, the same thresholds).
+  */
+${PAINT_VARS.map(([name, value]) => `  --sl-pp-${name}: ${value};`).join("\n")}
 }
 html[data-sl-dark] body {
   background-color: ${P.page};
@@ -420,20 +472,20 @@ ${SCOPE} {
   background-color: ${P.page};
   color: ${P.ink};
 }
-${SCOPE} input,
-${SCOPE} textarea,
-${SCOPE} select {
+${SCOPE} input${OWN},
+${SCOPE} textarea${OWN},
+${SCOPE} select${OWN} {
   color: ${P.ink};
 }
-${SCOPE} input::placeholder,
-${SCOPE} textarea::placeholder {
+${SCOPE} input${OWN}::placeholder,
+${SCOPE} textarea${OWN}::placeholder {
   color: ${P.faint};
 }
 /* A field whose hint is painted over it (Explore's search crossfades two) hides its own: the line above must not bring it back, or the two overlap. */
-${SCOPE} .placeholder\\:text-transparent::placeholder {
+${SCOPE} .placeholder\\:text-transparent${OWN}::placeholder {
   color: transparent;
 }
-${SCOPE} ::selection {
+${SCOPE} ${OWN}::selection {
   background-color: rgba(255,255,255,0.16);
 }
 
@@ -473,24 +525,24 @@ html[data-sl-dark] [data-member-profile] {
   says (role="switch" or a checkbox row with aria-checked, or a Radix switch's data-state), so each drawing of one is
   covered without knowing its classes.
 */
-${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]),
-${SCOPE} [data-slot="switch"][data-state="checked"] {
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\])${OWN},
+${SCOPE} [data-slot="switch"][data-state="checked"]${OWN} {
   background-color: ${P.ink} !important;
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.25) !important;
 }
-${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]) :is(.bg-white, .bg-\\[\\#ececee\\]),
-${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]) ~ .bg-white,
-${SCOPE} [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]) :is(.bg-white, .bg-\\[\\#ececee\\])${OWN},
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]) ~ .bg-white${OWN},
+${SCOPE} [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"]${OWN} {
   background-color: ${P.page} !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
 }
-${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="false"] :is(.bg-\\[\\#d9dce1\\], .bg-\\[\\#e4e5e9\\], .bg-\\[\\#e3e5e9\\], .bg-\\[\\#e5e7eb\\], .bg-\\[\\#d1d5db\\]),
-${SCOPE} [data-slot="switch"][data-state="unchecked"] {
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="false"] :is(.bg-\\[\\#d9dce1\\], .bg-\\[\\#e4e5e9\\], .bg-\\[\\#e3e5e9\\], .bg-\\[\\#e5e7eb\\], .bg-\\[\\#d1d5db\\])${OWN},
+${SCOPE} [data-slot="switch"][data-state="unchecked"]${OWN} {
   background-color: rgba(255,255,255,0.14) !important;
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.45), inset 0 0 0 0.5px rgba(255,255,255,0.06) !important;
 }
-${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="false"] :is(.bg-\\[\\#d9dce1\\], .bg-\\[\\#e4e5e9\\], .bg-\\[\\#e3e5e9\\], .bg-\\[\\#e5e7eb\\], .bg-\\[\\#d1d5db\\]) :is(.bg-white),
-${SCOPE} [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"] {
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="false"] :is(.bg-\\[\\#d9dce1\\], .bg-\\[\\#e4e5e9\\], .bg-\\[\\#e3e5e9\\], .bg-\\[\\#e5e7eb\\], .bg-\\[\\#d1d5db\\]) :is(.bg-white)${OWN},
+${SCOPE} [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"]${OWN} {
   background-color: ${P.text} !important;
 }
 
@@ -500,7 +552,7 @@ ${SCOPE} [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"]
   lighter band between two dark cards. In the dark it is the ground the cards sit on.
 */
 @media (width < 40rem) {
-  ${SCOPE} .max-sm\\:border-b-8.max-sm\\:border-b-8 {
+  ${SCOPE} .max-sm\\:border-b-8.max-sm\\:border-b-8${OWN} {
     border-bottom-color: ${P.page};
   }
 }
@@ -510,7 +562,7 @@ ${SCOPE} [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"]
   near black fill becomes graphite for a pill or a button, where the words on it carry the meaning; an underline two
   pixels high or a dot six across is nothing but its colour, so in the dark it is the light ink.
 */
-${SCOPE} .bg-\\[\\#1a1a2e\\]:is(.h-\\[2px\\], .h-\\[3px\\], .h-0\\.5, .h-1, .h-1\\.5, .h-2, .w-1\\.5, .w-2) {
+${SCOPE} .bg-\\[\\#1a1a2e\\]:is(.h-\\[2px\\], .h-\\[3px\\], .h-0\\.5, .h-1, .h-1\\.5, .h-2, .w-1\\.5, .w-2)${OWN} {
   background-color: ${P.ink};
 }
 
@@ -542,7 +594,7 @@ html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
   a faint lit top edge, a hairline that barely reads, and a soft shadow under
   it, so cards separate by light rather than by white borders.
 */
-${SCOPE} .bg-white:is(.rounded-2xl, .rounded-xl, .rounded-\\[20px\\], .rounded-\\[18px\\], .rounded-\\[16px\\]) {
+${SCOPE} .bg-white:is(.rounded-2xl, .rounded-xl, .rounded-\\[20px\\], .rounded-\\[18px\\], .rounded-\\[16px\\])${OWN} {
   /*
     Round 30, the owner: "very fine subtle lines in the gradual gradient". A 2.5% white wash over 140px is six steps
     of an 8 bit screen, each a visible band, and a 32px shadow at 70% black on a near black ground the same. The card
@@ -552,11 +604,11 @@ ${SCOPE} .bg-white:is(.rounded-2xl, .rounded-xl, .rounded-\\[20px\\], .rounded-\
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.35);
 }
 /* A menu or a sheet floats: a little more lift, the same matte surface. */
-${SCOPE} :is([role="menu"], [role="listbox"], [role="dialog"], [data-account-menu]) {
+${SCOPE} :is([role="menu"], [role="listbox"], [role="dialog"], [data-account-menu])${OWN} {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 48px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06);
 }
 /* Pictures sit a touch below full brightness on the dark ground, never washed. */
-${SCOPE} img:not([data-keep-bright]) {
+${SCOPE} img:not([data-keep-bright])${OWN} {
   filter: brightness(0.96);
 }
 
@@ -589,7 +641,31 @@ for (const [media, list] of [...byMedia].sort(([a], [b]) => a.localeCompare(b)))
   if (!media) body += list.join("\n") + "\n"
   else body += `@media ${media} {\n${list.map((l) => `  ${l}`).join("\n")}\n}\n`
 }
-const css = head + body
+/*
+  OWN_LOOK_RESET (round 31): inside a creator's own look every token the dark look redefines is the light look's again,
+  read from app/globals.css (its top level :root blocks), and one the light look never defines is unset (initial, so a
+  var() falls back to the colour written beside it). With OWN on every rule above, the creator's page draws exactly as
+  it does in the light look, while the header, the tab bar and the sheets around it are dark.
+*/
+const globalsCss = readFileSync(join(root, "app/globals.css"), "utf8")
+const lightVars = new Map()
+for (const m of globalsCss.matchAll(/^:root \{([\s\S]*?)^\}/gm)) {
+  for (const d of m[1].matchAll(/^\s*(--[\w-]+):\s*([^;]+);/gm)) if (!lightVars.has(d[1])) lightVars.set(d[1], d[2].trim())
+}
+const PAGE_CHROME_VARS = new Set(["--native-band", "--bounce-ground"])
+const darkVars = [...new Set([...head.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1]))].filter((n) => !PAGE_CHROME_VARS.has(n)).sort()
+const ownLookReset = `
+/*
+  A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
+  OWN_LOOK_RESET). The rules above all leave it out.
+*/
+html[data-sl-dark] [data-own-look] {
+  color-scheme: light;
+  color: var(--foreground);
+${darkVars.map((n) => `  ${n}: ${lightVars.get(n) ?? "initial"};`).join("\n")}
+}
+`
+const css = head + ownLookReset + body
 
 if (process.argv.includes("--check")) {
   const now = (() => {

@@ -1,5 +1,6 @@
 import { Star } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { tint } from "@/lib/appearance/site-paint"
 
 /** Storelib's star: one amber, filled or a quiet grey. The product page passes its theme's colour instead. */
 export const STAR_AMBER = "#f5a524"
@@ -15,7 +16,7 @@ export function Stars({ rating, size = 16, color, className }: { rating: number;
           key={n}
           aria-hidden
           strokeWidth={1.5}
-          style={{ width: size, height: size, color: n <= on ? fill : color ? `${color}33` : "#dcdfe4", fill: "currentColor" }}
+          style={{ width: size, height: size, color: n <= on ? fill : color ? tint(color, "33") : "#dcdfe4", fill: "currentColor" }}
         />
       ))}
     </span>

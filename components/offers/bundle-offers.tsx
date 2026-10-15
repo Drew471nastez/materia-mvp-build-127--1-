@@ -9,6 +9,7 @@
  * own. The prices are for the page: the checkout works the discount out
  * again on the server, from the cart.
  */
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import * as React from "react"
 import { shopMoney } from "@/lib/store/shop-money"
 import { Package, Plus } from "lucide-react"
@@ -58,6 +59,12 @@ export function BundleOffers({
   disabled?: boolean
 }) {
   const [bundles, setBundles] = React.useState<Bundle[]>([])
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
+  ink = paint(ink, "ink")
+  muted = paint(muted, "ink")
+  const accentEdge = paint(accent, "line")
+  accent = paint(accent, "ink")
   const [picks, setPicks] = React.useState<Record<string, string>>({})
   const [added, setAdded] = React.useState<string | null>(null)
 
@@ -98,7 +105,7 @@ export function BundleOffers({
         /* The set as chosen right now: an option with its own price changes it. */
         const { fullCents, priceCents } = bundlePrice(b, b.items.map((i, k) => lines[k]?.priceCents ?? i.priceCents))
         return (
-          <section key={b.offerId} className="rounded-xl border p-4" style={{ borderColor: "rgba(0,0,0,0.1)", borderRadius: radius + 4 }} data-bundle={b.offerId} aria-label={b.title}>
+          <section key={b.offerId} className="rounded-xl border p-4" style={{ borderColor: paint("rgba(0,0,0,0.1)", "line"), borderRadius: radius + 4 }} data-bundle={b.offerId} aria-label={b.title}>
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h3 className="text-[15px] font-semibold" style={{ color: ink }}>
                 {b.title}
@@ -115,9 +122,9 @@ export function BundleOffers({
                   {k > 0 ? <Plus className="h-3.5 w-3.5 shrink-0" style={{ color: muted }} /> : null}
                   {i.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={i.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg border object-cover" style={{ borderColor: "rgba(0,0,0,0.08)" }} />
+                    <img src={i.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg border object-cover" style={{ borderColor: paint("rgba(0,0,0,0.08)", "line") }} />
                   ) : (
-                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border bg-black/[0.03]" style={{ borderColor: "rgba(0,0,0,0.08)", color: muted }}>
+                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border bg-black/[0.03]" style={{ borderColor: paint("rgba(0,0,0,0.08)", "line"), color: muted }}>
                       <Package className="h-4 w-4" />
                     </span>
                   )}
@@ -137,7 +144,7 @@ export function BundleOffers({
                         value={picks[i.id] ?? ""}
                         onChange={(e) => setPicks((p) => ({ ...p, [i.id]: e.target.value }))}
                         className="mt-1 h-9 max-w-full rounded-md border bg-transparent px-2 text-[13px]"
-                        style={{ borderColor: "rgba(0,0,0,0.14)", color: ink }}
+                        style={{ borderColor: paint("rgba(0,0,0,0.14)", "line"), color: ink }}
                         aria-label={`${i.title} option`}
                       >
                         {i.variants.map((v) => (
@@ -154,7 +161,7 @@ export function BundleOffers({
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex items-baseline justify-between gap-3 border-t pt-3" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+            <div className="mt-3 flex items-baseline justify-between gap-3 border-t pt-3" style={{ borderColor: paint("rgba(0,0,0,0.08)", "line") }}>
               <span className="text-[14px] font-medium" style={{ color: ink }}>
                 Together
               </span>
@@ -178,7 +185,7 @@ export function BundleOffers({
                 window.setTimeout(() => setAdded(null), 2400)
               }}
               className="mt-3 w-full border-2 py-3 text-[14.5px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ borderColor: accent, color: accent, borderRadius: radius }}
+              style={{ borderColor: accentEdge, color: accent, borderRadius: radius }}
               data-bundle-add=""
             >
               {added === b.offerId ? "Added to cart" : chosen ? "Add all to cart" : "Choose your options above"}

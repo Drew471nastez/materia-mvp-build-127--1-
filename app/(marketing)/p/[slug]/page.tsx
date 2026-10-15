@@ -78,7 +78,8 @@ import { RichDescriptionContent } from "@/components/store-builder/description-r
 import { shownCustomFields } from "@/lib/products/custom-fields"
 
 import { productHasOwnLook, productPageTone } from "@/lib/store-builder/product-page-tone"
-import { OWN_LOOK_BOOT } from "@/lib/appearance/site-appearance"
+import { paintFor, tint } from "@/lib/appearance/site-paint"
+import { SitePaintProvider } from "@/lib/appearance/site-paint-context"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import { imagesOnly } from "@/lib/media/video"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
@@ -499,7 +500,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
      lib/store-builder/product-page-tone, which scripts/check-creator-chrome.mjs
      measures per scheme on the real components. */
   /* Round 30: a look of the creator's own keeps it in the person's dark look; the platform's default page follows that look (productHasOwnLook). */
-  const ownLook = productHasOwnLook(productPageConfig, !!productPageConfig?.sections?.length)
+  /* Round 31: Storelib's own template and the default scheme's colours it writes are not a look of the creator's (productHasOwnLook). */
+  const ownLook = productHasOwnLook(productPageConfig)
+  /*
+    STORELIB'S PAGE PAINTS ITS INLINE COLOURS TO FOLLOW THE LOOK (round 31, lib/appearance/site-paint). Every colour
+    this page writes inline goes through paint(): exactly the colour it was in the light look, its charcoal step in the
+    dark. The client parts (the buy card, the option selector, the wishlist button, the bars, the sections) do the same
+    under SitePaintProvider. A creator's own look is never painted.
+  */
+  const paint = paintFor(!ownLook)
   const { themePreset, themeConfig, isDarkTheme, themeColors, categoryBadgeStyle, ratingStarColor, pageBackgroundColor: tonePageBackground } =
     productPageTone(productPageConfig, { site: !ownLook })
   const isColorfulTheme = false // No more colorful themes
@@ -1055,7 +1064,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             */}
             <h1
               className="text-2xl sm:text-3xl font-semibold break-words flex-1 min-w-0 lg:hidden"
-              style={{ color: themeColors.textColor || "var(--foreground)" }}
+              style={{ color: paint(themeColors.textColor, "ink") || "var(--foreground)" }}
             >
               {product.title}
             </h1>
@@ -1091,11 +1100,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     alt=""
                     size={40}
                     markWhileLoading
-                    style={themeColors.textColor ? { backgroundColor: `${themeColors.textColor}1f`, color: themeColors.textColor } : undefined}
+                    style={themeColors.textColor ? { backgroundColor: tint(paint(themeColors.textColor, "ink"), "1f"), color: paint(themeColors.textColor, "ink") } : undefined}
                   />
                   <p
                     className="font-medium truncate"
-                    style={{ color: themeColors.textColor || "var(--foreground)" }}
+                    style={{ color: paint(themeColors.textColor, "ink") || "var(--foreground)" }}
                   >
                     {personName({ name: creatorProfile?.display_name, username: creatorProfile?.username, slug: creator?.slug })}
                   </p>
@@ -1105,7 +1114,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   <ChevronRight
                     aria-hidden
                     className="creator-link-arrow -ml-1 h-4 w-4 shrink-0"
-                    style={{ color: themeColors.textColor || "var(--foreground)" }}
+                    style={{ color: paint(themeColors.textColor, "ink") || "var(--foreground)" }}
                   />
                 </SmartLink>
                 {showRatingNextToSeller && reviewsCount > 0 && (
@@ -1114,11 +1123,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     <div className="flex items-center gap-1 shrink-0">
                       <Star
                         className="h-4 w-4 fill-current"
-                        style={{ color: ratingStarColor }}
+                        style={{ color: paint(ratingStarColor, "ink") }}
                       />
                       <span
                         className="text-sm"
-                        style={{ color: themeColors.cardPriceColor || "rgb(156, 163, 175)" }}
+                        style={{ color: paint(themeColors.cardPriceColor, "ink") || "rgb(156, 163, 175)" }}
                       >
                         {reviewsAverage.toFixed(1)}
                       </span>
@@ -1135,8 +1144,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             <div
               className="rounded-xl border p-4 sm:p-6 shadow-sm relative z-20"
               style={{
-                backgroundColor: themeColors.cardBackground || "var(--card)",
-                borderColor: themeColors.cardBorderColor || "var(--border)",
+                backgroundColor: paint(themeColors.cardBackground, "bg") || "var(--card)",
+                borderColor: paint(themeColors.cardBorderColor, "line") || "var(--border)",
               }}
             >
               {/* Price display - only show static if no variants */}
@@ -1145,7 +1154,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <div
                     className="text-2xl font-bold"
-                    style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                    style={{ color: paint(themeColors.cardTextColor, "ink") || "var(--foreground)" }}
                   >
                     {headerPrice.main}
                   </div>
@@ -1153,7 +1162,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     <div className="flex items-center gap-2">
                       <span
                         className="text-base line-through"
-                        style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                        style={{ color: paint(themeColors.cardPriceColor, "ink") || "var(--muted-foreground)" }}
                       >
                         {headerPrice.was}
                       </span>
@@ -1239,11 +1248,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               {includedItems.length > 0 ? (
               <div
                 className="mt-4 border-t pt-4"
-                style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+                style={{ borderColor: paint(themeColors.cardBorderColor, "line") || "var(--border)" }}
               >
                 <h3
                   className="font-semibold"
-                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                  style={{ color: paint(themeColors.cardTextColor, "ink") || "var(--foreground)" }}
                 >
                   What&apos;s included
                 </h3>
@@ -1252,9 +1261,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     <li
                       key={idx}
                       className="flex items-start gap-2 text-sm"
-                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                      style={{ color: paint(themeColors.cardPriceColor, "ink") || "var(--muted-foreground)" }}
                     >
-                      {getIncludedItemIcon(item, themeColors.cardIconColor)}
+                      {getIncludedItemIcon(item, paint(themeColors.cardIconColor, "ink"))}
                       <span>{item}</span>
                     </li>
                   ))}
@@ -1280,8 +1289,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <div
                 className="mt-4 flex items-center justify-between p-3 rounded-lg border"
                 style={{
-                  backgroundColor: themeColors.cardBackground || "var(--card)",
-                  borderColor: themeColors.cardBorderColor || "var(--border)",
+                  backgroundColor: paint(themeColors.cardBackground, "bg") || "var(--card)",
+                  borderColor: paint(themeColors.cardBorderColor, "line") || "var(--border)",
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1293,11 +1302,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       alt=""
                       size={32}
                       markWhileLoading
-                      style={themeColors.cardTextColor ? { backgroundColor: `${themeColors.cardTextColor}1f`, color: themeColors.cardTextColor } : undefined}
+                      style={themeColors.cardTextColor ? { backgroundColor: tint(paint(themeColors.cardTextColor, "ink"), "1f"), color: paint(themeColors.cardTextColor, "ink") } : undefined}
                     />
                     <p
                       className="font-medium truncate text-sm"
-                      style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                      style={{ color: paint(themeColors.cardTextColor, "ink") || "var(--foreground)" }}
                     >
                       {personName({ name: creatorProfile?.display_name, username: creatorProfile?.username, slug: creator?.slug })}
                     </p>
@@ -1305,7 +1314,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     <ChevronRight
                       aria-hidden
                       className="creator-link-arrow -ml-1 h-3.5 w-3.5 shrink-0"
-                      style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                      style={{ color: paint(themeColors.cardTextColor, "ink") || "var(--foreground)" }}
                     />
                   </SmartLink>
                   {showRatingNextToSeller && reviewsCount > 0 && (
@@ -1314,11 +1323,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       <div className="flex items-center gap-1 shrink-0">
                         <Star
                           className="h-3.5 w-3.5 fill-current"
-                          style={{ color: ratingStarColor }}
+                          style={{ color: paint(ratingStarColor, "ink") }}
                         />
                         <span
                           className="text-xs"
-                          style={{ color: themeColors.cardPriceColor || "rgb(156, 163, 175)" }}
+                          style={{ color: paint(themeColors.cardPriceColor, "ink") || "rgb(156, 163, 175)" }}
                         >
                           {reviewsAverage.toFixed(1)}
                         </span>
@@ -1342,13 +1351,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             <div className="mt-6" data-description-section>
               <h2
                 className="mb-3 text-lg font-semibold"
-                style={{ color: themeColors.textColor || "var(--foreground)" }}
+                style={{ color: paint(themeColors.textColor, "ink") || "var(--foreground)" }}
               >
                 Description
               </h2>
               <RichDescriptionContent
                 html={product.description}
-                textColor={themeColors.textColor ? `${themeColors.textColor}cc` : "var(--muted-foreground)"}
+                textColor={themeColors.textColor ? tint(paint(themeColors.textColor, "ink"), "cc") : "var(--muted-foreground)"}
               />
             </div>
           )}
@@ -1360,11 +1369,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             <CourseOutline
               modules={courseModules}
               colors={{
-                heading: themeColors.textColor,
-                card: themeColors.cardBackground,
-                cardBorder: themeColors.cardBorderColor,
-                cardText: themeColors.cardTextColor,
-                muted: themeColors.cardPriceColor,
+                heading: paint(themeColors.textColor, "ink"),
+                card: paint(themeColors.cardBackground, "bg"),
+                cardBorder: paint(themeColors.cardBorderColor, "line"),
+                cardText: paint(themeColors.cardTextColor, "ink"),
+                muted: paint(themeColors.cardPriceColor, "ink"),
               }}
             />
           </div>
@@ -1374,15 +1383,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           <div className="mt-8 sm:mt-10" data-details-section>
             <h2
               className="mb-3 text-lg font-semibold"
-              style={{ color: themeColors.textColor || "var(--foreground)" }}
+              style={{ color: paint(themeColors.textColor, "ink") || "var(--foreground)" }}
             >
               Details
             </h2>
-            <dl className="divide-y" style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}>
+            <dl className="divide-y" style={{ borderColor: paint(themeColors.faqBorderColor, "line") || "var(--border)" }}>
               {detailFields.map((f) => (
-                <div key={f.key} className="grid gap-1 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:gap-4" style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}>
-                  <dt className="text-sm font-medium" style={{ color: themeColors.textColor || "var(--foreground)" }}>{f.label}</dt>
-                  <dd className="whitespace-pre-line text-sm" style={{ color: themeColors.textColor ? `${themeColors.textColor}cc` : "var(--muted-foreground)" }}>
+                <div key={f.key} className="grid gap-1 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:gap-4" style={{ borderColor: paint(themeColors.faqBorderColor, "line") || "var(--border)" }}>
+                  <dt className="text-sm font-medium" style={{ color: paint(themeColors.textColor, "ink") || "var(--foreground)" }}>{f.label}</dt>
+                  <dd className="whitespace-pre-line text-sm" style={{ color: themeColors.textColor ? tint(paint(themeColors.textColor, "ink"), "cc") : "var(--muted-foreground)" }}>
                     {f.type === "url" ? (
                       <a href={f.value} target="_blank" rel="nofollow noopener noreferrer" className="break-all underline underline-offset-2">{f.value.replace(/^https?:\/\//, "")}</a>
                     ) : (
@@ -1399,7 +1408,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         <div className="mt-8 sm:mt-10" data-faq-section>
           <h2
             className="mb-4 text-lg font-semibold"
-            style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+            style={{ color: paint(themeColors.faqTextColor, "ink") || "var(--foreground)" }}
           >
             Frequently Asked Questions
           </h2>
@@ -1411,15 +1420,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <AccordionItem
                   key={`faq-${idx}`}
                   value={`item-${idx}`}
-                  style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
+                  style={{ borderColor: paint(themeColors.faqBorderColor, "line") || "var(--border)" }}
                 >
                   <AccordionTrigger
                     className="min-h-[44px] text-left"
-                    style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                    style={{ color: paint(themeColors.faqTextColor, "ink") || "var(--foreground)" }}
                   >
                     {faq.question}
                   </AccordionTrigger>
-                  <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
+                  <AccordionContent style={{ color: themeColors.faqTextColor ? tint(paint(themeColors.faqTextColor, "ink"), "cc") : "var(--muted-foreground)" }}>
                     {faq.answer}
                   </AccordionContent>
                 </AccordionItem>
@@ -1447,8 +1456,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         <div
           className="rounded-xl border p-6 shadow-sm relative z-20"
           style={{
-            backgroundColor: themeColors.cardBackground || "var(--card)",
-            borderColor: themeColors.cardBorderColor || "var(--border)",
+            backgroundColor: paint(themeColors.cardBackground, "bg") || "var(--card)",
+            borderColor: paint(themeColors.cardBorderColor, "line") || "var(--border)",
           }}
         >
           {/*
@@ -1474,7 +1483,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           */}
           <h1
             className="mb-2 text-[35px] font-semibold leading-snug break-words"
-            style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+            style={{ color: paint(themeColors.cardTextColor, "ink") || "var(--foreground)" }}
           >
             {product.title}
           </h1>
@@ -1504,7 +1513,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <div
                   className="text-2xl font-bold tracking-tight"
-                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                  style={{ color: paint(themeColors.cardTextColor, "ink") || "var(--foreground)" }}
                 >
                   {headerPrice.main}
                 </div>
@@ -1512,7 +1521,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   <div className="flex items-center gap-2">
                     <span
                       className="text-base line-through"
-                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                      style={{ color: paint(themeColors.cardPriceColor, "ink") || "var(--muted-foreground)" }}
                     >
                       {headerPrice.was}
                     </span>
@@ -1599,11 +1608,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {includedItems.length > 0 ? (
           <div
             className="mt-4 border-t pt-4"
-            style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+            style={{ borderColor: paint(themeColors.cardBorderColor, "line") || "var(--border)" }}
           >
             <h3
               className="font-semibold"
-              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+              style={{ color: paint(themeColors.cardTextColor, "ink") || "var(--foreground)" }}
             >
               What&apos;s included
             </h3>
@@ -1612,9 +1621,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <li
                   key={idx}
                   className="flex items-start gap-2 text-sm"
-                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                  style={{ color: paint(themeColors.cardPriceColor, "ink") || "var(--muted-foreground)" }}
                 >
-                  {getIncludedItemIcon(item, themeColors.cardIconColor)}
+                  {getIncludedItemIcon(item, paint(themeColors.cardIconColor, "ink"))}
                   <span>{item}</span>
                 </li>
               ))}
@@ -1806,13 +1815,18 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         */
         className="min-h-screen w-full"
         style={{
-          background: pageBackgroundColor || "var(--background)",
-          color: pageTextColor || "var(--foreground)",
+          background: paint(pageBackgroundColor, "page") || "var(--background)",
+          color: paint(pageTextColor, "ink") || "var(--foreground)",
         }}
-        /* An arranged page is the creator's design: it keeps its colours in the person's dark look (lib/appearance, round 30). */
-        data-own-look=""
+        /*
+          An arranged page is the creator's design: it keeps its colours in the person's dark look (lib/appearance, round
+          30). Round 31: a template that holds only Storelib's own sections (Reviews, More from) is not arranged
+          (productHasOwnLook), and is drawn in the person's look like the page with no template at all.
+        */
+        data-own-look={ownLook ? "" : undefined}
+        data-product-look={ownLook ? undefined : "site"}
       >
-        <script dangerouslySetInnerHTML={{ __html: OWN_LOOK_BOOT }} />
+        <SitePaintProvider on={!ownLook}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd) }}
@@ -1958,6 +1972,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         that knows whether it is on screen.
       */}
       <SellerFooter />
+        </SitePaintProvider>
       </div>
     )
   }
@@ -1974,18 +1989,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       /* No arrival fade; see the note on the other root above. */
       className="min-h-screen w-full"
       style={{
-        background: defaultPageBackgroundColor || "var(--background)",
-        color: defaultPageTextColor || "var(--foreground)",
+        background: paint(defaultPageBackgroundColor, "page") || "var(--background)",
+        color: paint(defaultPageTextColor, "ink") || "var(--foreground)",
       }}
       /*
         ROUND 30: whose look this is. A scheme or colours of the creator's own keep them in the person's dark look
-        (data-own-look, and the boot that takes the dark look off before anything here is drawn); the platform's default
-        page is Storelib's, drawn in the person's look (data-product-look="site", app/theme-dark.css).
+        (data-own-look: app/theme-dark.css leaves it out, round 31, while the Storelib header above it and the sheets it
+        opens follow the person); the platform's default page is Storelib's, drawn in the person's look
+        (data-product-look="site", app/theme-dark.css, and its inline colours painted: lib/appearance/site-paint).
       */
       data-own-look={ownLook ? "" : undefined}
       data-product-look={ownLook ? undefined : "site"}
     >
-      {ownLook ? <script dangerouslySetInnerHTML={{ __html: OWN_LOOK_BOOT }} /> : null}
+      <SitePaintProvider on={!ownLook}>
       {/*
         INSIDE THE WORKSPACE'S CANVAS, this page is reached by clicking a card
         on the creator page above it. Two things it needs there and nowhere
@@ -2137,7 +2153,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         that knows whether it is on screen.
       */}
       <SellerFooter />
-
+      </SitePaintProvider>
     </div>
   )
 }

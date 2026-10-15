@@ -118,8 +118,13 @@ export function useAppearance(fallback: Appearance = "light"): { appearance: App
 /** Puts the look on <html> for this address: dark only on a themed page, and only when it is dark. */
 export function paintAppearance(pathname: string, appearance: Appearance | null, pageDefault: Appearance | null = null) {
   const html = document.documentElement
-  /* A page with a look of its own (a creator's page under /u/, [data-own-look]) is never darkened. */
-  const dark = themedPath(pathname) && (appearance ?? pageDefault) === "dark" && !document.querySelector("[data-own-look]")
+  /*
+    Round 31: a page with a look of its own (a creator's page under /u/, a product page its creator designed,
+    [data-own-look]) keeps the dark attribute too. The creator's page is left out by app/theme-dark.css and keeps its
+    colours; the header, the tab bar and the sheets around it follow the person (lib/appearance/site-appearance, WHOSE
+    LOOK, PART BY PART).
+  */
+  const dark = themedPath(pathname) && (appearance ?? pageDefault) === "dark"
   /* The look this tab shows now, for an /app document that opens next (APP_FROM_DARK_BOOT). */
   try {
     window.sessionStorage.setItem(LOOK_NOW_KEY, dark ? "dark" : "light")

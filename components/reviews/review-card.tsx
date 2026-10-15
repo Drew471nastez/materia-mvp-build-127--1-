@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { reviewerOf } from "@/lib/reviews/rules"
 import { Stars } from "./stars"
+import { tint as tintColour, type PaintRole } from "@/lib/appearance/site-paint"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 /**
  * ===========================================================================
@@ -58,13 +60,19 @@ export function reviewDate(iso?: string | null): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
 }
 
-const tint = (color: string | undefined, alpha: string, fallback: string) => (color ? `${color}${alpha}` : fallback)
 
 export function ReviewCard({ review, isMobile = false, textColor, starColor, cardBorderColor }: ReviewCardProps) {
   const { name, avatarUrl, avatarName } = reviewerOf(review)
   const body = useRef<HTMLParagraphElement>(null)
   const [long, setLong] = useState(false)
   const [open, setOpen] = useState(false)
+  /*
+    Round 31: on Storelib's own product page every colour here follows the person's look (lib/appearance/site-paint);
+    anywhere else paint() hands it back as written.
+  */
+  const paint = useSitePaint()
+  const tint = (color: string | undefined, alpha: string, fallback: string, role: PaintRole = "ink") => (color ? tintColour(paint(color, "ink"), alpha) : paint(fallback, role))
+  const ink = paint(textColor, "ink")
 
   /* Whether the words run past six lines, measured once they are drawn. */
   useLayoutEffect(() => {
@@ -76,7 +84,7 @@ export function ReviewCard({ review, isMobile = false, textColor, starColor, car
     <article
       data-review=""
       className={cn("border-b last:border-0", isMobile ? "py-4 first:pt-0" : "py-5 first:pt-0")}
-      style={{ borderColor: cardBorderColor || "#eef0f3" }}
+      style={{ borderColor: paint(cardBorderColor || "#eef0f3", "line") }}
     >
       <div className="flex items-center gap-3">
         {/*
@@ -93,10 +101,10 @@ export function ReviewCard({ review, isMobile = false, textColor, starColor, car
           alt=""
           size={isMobile ? 36 : 40}
           markWhileLoading
-          style={textColor ? { backgroundColor: `${textColor}1f`, color: textColor } : undefined}
+          style={ink ? { backgroundColor: tintColour(ink, "1f"), color: ink } : undefined}
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold leading-5" style={{ color: textColor || "#1a1a2e" }}>
+          <p className="truncate text-[14px] font-semibold leading-5" style={{ color: paint(textColor || "#1a1a2e", "ink") }}>
             {name}
           </p>
           {review.verified !== false ? (
@@ -113,7 +121,7 @@ export function ReviewCard({ review, isMobile = false, textColor, starColor, car
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Stars rating={review.rating} size={isMobile ? 14 : 15} color={starColor} />
+        <Stars rating={review.rating} size={isMobile ? 14 : 15} color={paint(starColor, "ink")} />
         <span className="text-[12px]" style={{ color: tint(textColor, "99", "#6b7280") }}>
           {reviewDate(review.created_at)}
           {review.edited_at ? " · Edited" : ""}
@@ -132,7 +140,7 @@ export function ReviewCard({ review, isMobile = false, textColor, starColor, car
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="mt-1 text-[13px] font-medium underline underline-offset-2"
-          style={{ color: textColor || "#1a1a2e" }}
+          style={{ color: paint(textColor || "#1a1a2e", "ink") }}
         >
           {open ? "Show less" : "Show more"}
         </button>
@@ -142,9 +150,9 @@ export function ReviewCard({ review, isMobile = false, textColor, starColor, car
         <div
           data-seller-reply=""
           className="mt-3 rounded-xl px-3.5 py-3"
-          style={{ backgroundColor: tint(textColor, "0a", "#f6f7f9") }}
+          style={{ backgroundColor: tint(textColor, "0a", "#f6f7f9", "bg") }}
         >
-          <p className="text-[12px] font-semibold" style={{ color: textColor || "#1a1a2e" }}>
+          <p className="text-[12px] font-semibold" style={{ color: paint(textColor || "#1a1a2e", "ink") }}>
             Seller&apos;s reply
             {review.seller_reply_at ? (
               <span className="font-normal" style={{ color: tint(textColor, "99", "#6b7280") }}>

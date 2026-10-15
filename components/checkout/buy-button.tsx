@@ -1,5 +1,6 @@
 "use client"
 
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { useEffect } from "react"
 import { usePageMoney } from "@/components/platform/price-currency"
 
@@ -38,6 +39,8 @@ export function BuyButton({
   /* In the page's store currency (components/platform/price-currency). */
   const pageMoney = usePageMoney()
   const router = useRouter()
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
   /* Pressed until the page is shown again: a product page restored from history never keeps a spent Buy button (lib/navigation/press-pending). */
   const [loading, startLoading] = usePressPending()
   /**
@@ -96,7 +99,7 @@ export function BuyButton({
       size="lg"
       className="w-full font-medium min-h-[48px] cursor-pointer relative z-10"
       style={{
-        backgroundColor: backgroundColor || "#2563eb",
+        backgroundColor: paint(backgroundColor || "#2563eb", "bg"),
         color: textColor || "#ffffff",
       }}
       disabled={disabled || inEditorFrame}
