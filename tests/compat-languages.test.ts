@@ -137,7 +137,8 @@ async function main() {
     const frOwn = String((await get({ ...base, i18n: { locale: "fr", defaultLanguage: "en", languages: ["en", "fr"], words: { "header.welcome": "Salut" } } }, "/")).body)
     check("the store's translation over the theme's own file, so it can correct it", /class="hdr">Salut/.test(frOwn))
     const compat = read("lib/markets/compat.ts")
-    check("the live site lays them over, each only while written for the theme's word as it is", /valueFor\(map, themeWordKey\(w\.key\), \{ approvedOnly: true, fresh: true \}, w\.value\)/.test(compat) && /i18n\.words = themeWords/.test(compat))
+    /* Changed on purpose (translation coverage): the loop is compat-fields.ts compatThemeWords, which the builder's canvas calls too, with the same live options. */
+    check("the live site lays them over, each only while written for the theme's word as it is", /valueFor\(map, themeWordKey\(w\.key\), opts, w\.value\)/.test(read("lib/markets/compat-fields.ts")) && /compatThemeWords\(site\.theme\.defaultWords\(\), map\)/.test(compat) && /i18n\.words = themeWords/.test(compat))
     check("listed in Translate from the theme's default locale file", /compatTheme\.defaultWords\(\)\.map/.test(read("lib/markets/server.ts")) && /id: "theme-words", title: "Theme words"/.test(read("lib/markets/server.ts")))
   }
 
@@ -183,7 +184,7 @@ async function main() {
     const compat = read("lib/markets/compat.ts")
     /* Changed on purpose (the owner: currency in the builder like the live site): the conversion moved to lib/markets/compat-prices.ts, which the builder's canvas uses too. */
     const prices = read("lib/markets/compat-prices.ts")
-    check("an imported theme's prices, shop currency and money format follow the market; the store's otherwise", /moneyFormat: moneyFormatFor\(pricing\.currency/.test(prices) && /price: shownPrice\(settings\.price, pricing\)/.test(prices) && /: shop$/m.test(prices) && /shop: compatShop\(site\.shop, pricing/.test(compat) && /if \(pricing\) settings = compatPrices\(settings, pricing\)/.test(compat))
+    check("an imported theme's prices, shop currency and money format follow the market; the store's otherwise", /moneyFormat: moneyFormatFor\(pricing\.currency/.test(prices) && /price: shownPrice\(settings\.price, pricing\)/.test(prices) && /: shop$/m.test(prices) && /shop: compatShop\(site\.shop, pricing/.test(compat) && /* Changed on purpose (translation coverage): the card's words come from compatCardIn, then its prices. */ /return pricing \? \{ \.\.\.worded, settings: compatPrices\(worded\.settings, pricing\) \} : worded/.test(compat))
     check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /const countries = countryList\(input\.markets, input\.base\)/.test(prices) && /* Changed on purpose (merge): the markets that convert today, a store's own rate included. */ /themeCountries\(\{ markets: converting, base,/.test(compat) && /* Changed on purpose: written marked as chosen, and only for a country changed to */ /countryCookieHeader\(country\)/.test(read("lib/storelib-theme/compat/site.ts")))
     /* Changed on purpose (the owner): the charge currency is said at checkout and in the currency picker, never in a cart. */
     check("what the card is charged in is said at checkout and in the currency picker, not put into a theme's cart", !/chargeNoteScript/.test(compat) && /currencyNote=\{currencyNote\}/.test(read("app/checkout/site/page.tsx")) && /data-currency-note/.test(read("app/checkout/site/site-checkout.tsx")) && /data-currency-note/.test(read("components/website-builder/theme/language-switch.tsx")))

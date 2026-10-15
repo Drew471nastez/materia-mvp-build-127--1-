@@ -33,7 +33,8 @@ async function main() {
   check("a section whose heading was edited shows the edit, not the old translation", (laid[0].settings as { heading: string }).heading === "Hello there")
   check("a record whose title is unchanged is translated", localizeRecord({ title: "Mug" }, `product:${P1}`, ["title"], map, { approvedOnly: true, fresh: true }).title === "Tasse")
   check("the live site and imported themes lay them over this way", /const opts = \{ approvedOnly: true, fresh: true \}/.test(read("lib/markets/live.ts")) && /const opts = \{ approvedOnly: true, fresh: true \}/.test(read("lib/markets/compat.ts")))
-  check("and so does the editor's preview, so both agree", (read("app/website-builder/editor/[installId]/page.tsx").match(/approvedOnly: true, fresh: true/g) ?? []).length >= 3 && /const opts = \{ approvedOnly: true, fresh: true \}/.test(read("components/website-builder/compat/compat-canvas.tsx")))
+  /* Changed on purpose (translation coverage): an imported theme's canvas lays its products over with compat-fields.ts compatCardIn, the live site's own function, whose default options are these. */
+  check("and so does the editor's preview, so both agree", (read("app/website-builder/editor/[installId]/page.tsx").match(/approvedOnly: true, fresh: true/g) ?? []).length >= 3 && /const LIVE = \{ approvedOnly: true, fresh: true \}/.test(read("lib/markets/compat-fields.ts")) && /compatCardIn\(/.test(read("components/website-builder/compat/compat-canvas.tsx")))
 
   console.log("\nA card's description")
   const html = "<p>Hand <strong>thrown</strong> stoneware.</p><p>Dishwasher safe.</p>"
@@ -43,7 +44,8 @@ async function main() {
   check("the title, translated", s.title === "Tasse")
   check("the description, translated and plain like the card's own (never HTML in a card)", s.description === "Grès tourné à la main.\nVa au lave-vaisselle.", s.description)
   check("the price untouched", s.price === "$40.00")
-  check("the live site's cards use the same function as the editor's", /const worded = localizeCards\(\[c\], map, opts\)\[0\]/.test(read("lib/markets/live.ts")) && /localizeCards\(\[\{ id: c\.id, settings: c\.settings \}\], map, opts\)/.test(read("lib/markets/compat.ts")))
+  /* Changed on purpose (translation coverage): an imported theme's card is laid over in compat-fields.ts compatCardIn, which the live site and the canvas both call. */
+  check("the live site's cards use the same function as the editor's", /const worded = localizeCards\(\[c\], map, opts\)\[0\]/.test(read("lib/markets/live.ts")) && /localizeCards\(\[\{ id: c\.id, settings: c\.settings \}\], map, opts\)/.test(read("lib/markets/compat-fields.ts")) && /const worded = compatCardIn\(c, map, opts\)/.test(read("lib/markets/compat.ts")))
 
   console.log("\nCollections in the page's language")
   const live = read("lib/markets/live.ts")
@@ -51,7 +53,8 @@ async function main() {
   check("its own page uses them", /const collection = localizer \? localizer\.collection\(inIt\.collection\) : inIt\.collection/.test(read("app/(site)/w/[username]/collections/[handle]/page.tsx")))
   check("every live page hands its language to the collections it lists", ["search/page.tsx", "products/page.tsx", "collections/page.tsx", "render-account.tsx", "collections/[handle]/page.tsx"].every((f) => /\{ cached: true, localizer \}/.test(read(`app/(site)/w/[username]/${f}`))))
   check("  where the page's data lays them over", /collections: collections && opts\.localizer \?/.test(read("lib/website-builder/published-site.ts")))
-  check("imported themes too", /`collection:\$\{c\.id\}`/.test(read("lib/markets/compat.ts")))
+  /* Changed on purpose (translation coverage): the overlay moved to compat-fields.ts compatCollectionIn, which the builder's canvas calls too. */
+  check("imported themes too", /`collection:\$\{c\.id\}`/.test(read("lib/markets/compat-fields.ts")) && /compatCollectionIn\(c, map, opts\)/.test(read("lib/markets/compat.ts")))
 
   console.log("\nThe theme's own words")
   const fields = [{ id: "brand_name", type: "text", label: "Store name" }, { id: "tagline", type: "text", label: "Tagline" }, { id: "cookie_banner_text", type: "textarea", label: "Banner text" }, { id: "badge_sale_bg", type: "color", label: "Sale badge colour" }] as never

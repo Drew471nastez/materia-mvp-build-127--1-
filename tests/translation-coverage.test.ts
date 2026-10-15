@@ -47,7 +47,8 @@ for (const f of ["app/(site)/w/[username]/search/page.tsx", "app/(site)/w/[usern
 }
 check("the collection page's heading and title in the language", /* Changed on purpose (merge): collection() keeps its type, no casts. */ /const collection = localizer \? localizer\.collection\(inIt\.collection\)/.test(readCode("app/(site)/w/[username]/collections/[handle]/page.tsx")))
 const compat = readCode("lib/markets/compat.ts")
-check("imported themes: collection:<id> laid over, and its products translated without a currency change too", /localizeRecord\(c as unknown as O, `collection:\$\{c\.id\}`/.test(compat) && !/collections: pricing \? site\.collections\.map/.test(compat))
+/* Changed on purpose (translation coverage): the overlay is compat-fields.ts compatCollectionIn, shared with the builder's canvas. */
+check("imported themes: collection:<id> laid over, and its products translated without a currency change too", /const words = compatCollectionIn\(c, map, opts\)/.test(compat) && /`collection:\$\{c\.id\}`/.test(readCode("lib/markets/compat-fields.ts")) && !/collections: pricing \? site\.collections\.map/.test(compat))
 
 console.log("\n2. A person's translation is kept")
 const draft = readCode("app/api/store/translations/draft/route.ts")

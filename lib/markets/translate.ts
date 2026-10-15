@@ -78,6 +78,22 @@ export function isTranslationKey(key: unknown): key is string {
 export type Translatable = { key: string; source: string; label: string; where: string; multiline: boolean }
 
 type FieldsOf = (type: string) => SchemaField[] | undefined
+
+/**
+ * THE WORDS A SETTING SHOWS, WRITTEN OR NOT. A section stores only what a
+ * person changed (lib/storelib-theme/resolve.ts): a heading never touched
+ * is drawn from its schema's default, and was neither listed to translate
+ * nor laid over, so it stayed in the theme's language on every page. Its
+ * default is its words until someone writes others. A default that is an
+ * imported theme's locale key ("t:sections.x") is the theme's own word,
+ * translated with its words (tw:), never here.
+ */
+export function shownText(field: Pick<SchemaField, "default">, value: unknown): string | null {
+  if (typeof value === "string") return value
+  if (value !== undefined && value !== null) return null
+  const d = field.default
+  return typeof d === "string" && !/^t:/.test(d) ? d : null
+}
 type BlockFieldsOf = (sectionType: string, blockType: string) => SchemaField[] | undefined
 
 /**
@@ -90,8 +106,8 @@ export function translatablesOf(sections: SectionInstance[], fieldsOf: FieldsOf,
   const take = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string, where: string) => {
     for (const f of fields ?? []) {
       if (!TRANSLATABLE_TYPES.has(f.type)) continue
-      const v = settings?.[f.id]
-      if (typeof v !== "string" || !v.trim()) continue
+      const v = shownText(f, settings?.[f.id])
+      if (v === null || !v.trim()) continue
       out.push({ key: key(f.id), source: v, label: f.label || f.id, where, multiline: f.type !== "text" })
     }
   }
@@ -186,8 +202,10 @@ export function localizeSections(sections: SectionInstance[], map: TranslationMa
   const over = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string) => {
     let next: Record<string, unknown> | null = null
     for (const f of fields ?? []) {
-      if (!TRANSLATABLE_TYPES.has(f.type) || typeof settings?.[f.id] !== "string") continue
-      const v = valueFor(map, key(f.id), opts, settings[f.id] as string)
+      if (!TRANSLATABLE_TYPES.has(f.type)) continue
+      const shown = shownText(f, settings?.[f.id])
+      if (shown === null) continue
+      const v = valueFor(map, key(f.id), opts, shown)
       if (v === null) continue
       next = next ?? { ...settings }
       next[f.id] = v
@@ -391,22 +409,32 @@ export function themeTextTranslatables(theme: Record<string, unknown> | null | u
   const out: Translatable[] = []
   for (const f of fields) {
     if (!TRANSLATABLE_TYPES.has(f.type) || THEME_NOT_WORDS.has(f.id)) continue
-    const v = theme?.[f.id]
+    /* Its default when never set: the cookie banner's sentence and buttons, the sale badge's word. */
+    const v = shownText(f, theme?.[f.id])
     if (typeof v === "string" && v.trim()) out.push({ key: `theme:${f.id}`, source: v, label: f.label, where: "Theme settings", multiline: f.type !== "text" })
   }
   return out
 }
 
-/** The theme's settings in a language: its menus, its own words (theme:<id>), and its and its pages' search engine text. */
-export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: TranslationMap | null | undefined, opts: TranslateOpts = {}): T {
+/**
+ * The theme's settings in a language: its menus, its own words (theme:<id>),
+ * and its and its pages' search engine text. `fields`, the theme settings
+ * schema (as themeTextTranslatables takes it), lays a translation over a
+ * setting never set, whose default is what the page shows. Passed in rather
+ * than imported, so the checkout's bundle, which reads this file, does not
+ * carry the whole schema.
+ */
+export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: TranslationMap | null | undefined, opts: TranslateOpts = {}, fields: readonly SchemaField[] = []): T {
   if (!map || map.size === 0) return theme
   const next: Record<string, unknown> = { ...theme }
   if (theme.menus && typeof theme.menus === "object") next.menus = localizeMenus(theme.menus as Record<string, MenuLike>, map, opts)
   for (const key of map.keys()) {
     if (!key.startsWith("theme:")) continue
     const id = key.slice(6)
-    if (THEME_NOT_WORDS.has(id) || typeof theme[id] !== "string") continue
-    const v = valueFor(map, key, opts, theme[id] as string)
+    const field = fields.find((f) => f.id === id && TRANSLATABLE_TYPES.has(f.type))
+    const shown = field ? shownText(field, theme[id]) : typeof theme[id] === "string" ? (theme[id] as string) : null
+    if (THEME_NOT_WORDS.has(id) || shown === null) continue
+    const v = valueFor(map, key, opts, shown)
     if (v !== null) next[id] = v
   }
   const t = valueFor(map, "page:home:seo_title", opts)

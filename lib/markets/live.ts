@@ -37,6 +37,10 @@ import { chargeCurrencyFor } from "./checkout-charge"
 import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import { cachedRates } from "./fx-server"
 import { pricesInMarket, pricingFor, storefrontDisplay, type MarketPrice, type Pricing, type StorefrontDisplay } from "./pricing"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+
+/** The theme settings schema's fields, for the words a setting never set shows (translate.ts localizeTheme). */
+const THEME_TEXT_FIELDS = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? [])
 
 /** A market as the live website reads it: active ones only. */
 export interface LiveMarket extends MarketPrice {
@@ -228,7 +232,8 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
       return localizeRecord(record, `collection:${c.id}`, (["title", "description"] as const).filter((f) => typeof record[f] === "string"), map, opts) as unknown as typeof c
     },
     theme(settings) {
-      const out = localizeTheme(settings, map, opts)
+      /* With the schema, so a setting never set (the cookie banner's sentence) is laid over too, as it is listed (server.ts siteTexts). */
+      const out = localizeTheme(settings, map, opts, THEME_TEXT_FIELDS)
       /* The currency the page's prices are in, for a section that reads theme.currency.code (lib/storelib-theme/resolve.ts DISPLAY_CURRENCY_KEY). Never saved. */
       return pricing ? { ...out, [DISPLAY_CURRENCY_KEY]: pricing.currency } : out
     },

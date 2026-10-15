@@ -387,7 +387,8 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
     anything is drawn. A language that is not published, or has nothing
     approved yet, draws the page as it is.
   */
-  const localizer = locale || market ? await siteLocalizer(site.creatorId, locale, market) : null
+  /* The website's default language too (no language in the address): a store whose default is Spanish and whose theme is written in English reads Spanish here (siteLocalizer answers null when there is nothing to lay over). */
+  const localizer = await siteLocalizer(site.creatorId, locale, market)
   const products = localizer ? localizer.cards(found.products) : found.products
   const productCount = found.productCount
 

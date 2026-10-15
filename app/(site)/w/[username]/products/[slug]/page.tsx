@@ -54,7 +54,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   /* The store's name as every page of the site says it (lib/website-builder/tab-title.ts). */
   const brand = siteStoreName({ brandName: settings.brand_name, storeName: found.kind === "site" ? found.site.profile?.storeName : null, displayName: creator.displayName, handle: creator.slug || username })
   /* The site's own rule: its switch, and not under a handle the spam rules hold back. */
-  const localizer = pageLocale ? await siteLocalizer(creator.creatorId, pageLocale) : null
+  /* In the page's language, the default's included (a store whose default is not the language its products are written in). */
+  const localizer = await siteLocalizer(creator.creatorId, pageLocale)
   const meta = await productMetadata(slug, { inLanguage: localizer ? (p) => localizer.product(p) : undefined, url: pageLocale ? `${origin}${localizedPath(path, pageLocale, langs.defaultLanguage)}` : productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
   /* The site's own icon in the tab, as on its other pages: the favicon, or its logo (site-icon.ts). */
   const icons = found.kind === "site" ? siteIcons(settings, found.site.pages.home ?? found.site.sections) : undefined
@@ -83,10 +84,10 @@ export default async function SiteProductPage({ params }: PageProps) {
   const { name: username, locale, market } = splitSiteName(segment)
   const creator = await creatorByName(username)
   if (!creator) notFound()
-  const origin = await siteOrigin(creator.creatorId, username)
+  const [origin, localizer] = await Promise.all([siteOrigin(creator.creatorId, username), siteLocalizer(creator.creatorId, locale).catch(() => null)])
   const [page, structured] = await Promise.all([
     renderProduct(slug, { creatorId: creator.creatorId, locale, market }),
-    productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId }),
+    productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId, inLanguage: localizer ? (p) => localizer.product(p) : undefined }),
   ])
   return (
     <>
