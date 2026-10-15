@@ -29,7 +29,8 @@ import { PersonAbout } from "@/components/profile/person-about"
 import { profileSocialLinks } from "@/lib/profile/social-links"
 
 /** The account's own ink, not a storefront scheme's: the profile centre is a Storelib page. */
-const ACCOUNT_INK = "#1a1a2e"
+/* The account's ink, light in the dark look (round 29: it stayed #1a1a2e on the dark page). */
+const ACCOUNT_INK = "var(--sl-ink-strong, #1a1a2e)"
 
 /** Their own line about themselves. Nothing where the column has not been added yet. */
 async function readBio(userId: string): Promise<string | null> {

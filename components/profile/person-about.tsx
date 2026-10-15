@@ -36,10 +36,13 @@ import { personFacts } from "@/lib/profile/person-facts"
 import { JoinSocialBrandIcon } from "@/components/onboarding/join-social-brands"
 import type { ProfileSocialLink } from "@/lib/profile/social-links"
 
+/** The ink at a strength: works for a hex and for a var(--x, #hex) alike (a hex suffix on a var() is not a colour). */
+const tint = (ink: string, pct: number) => `color-mix(in srgb, ${ink} ${pct}%, transparent)`
+
 function Fact({ label, value, ink }: { label: string; value: string; ink: string }) {
   return (
     <div data-person-about-fact={label.toLowerCase()}>
-      <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: `${ink}80` }}>
+      <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: tint(ink, 50) }}>
         {label}
       </p>
       <p className="text-[17px] font-semibold md:text-[19px]" style={{ color: ink }}>
@@ -86,7 +89,7 @@ export function PersonAbout({
     <section style={{ paddingTop: 48, paddingBottom: 48 }} aria-labelledby="person-about-heading" data-person-about="">
       <div className={inset ? "mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6" : "w-full"}>
         <div className="w-full pt-2 sm:pt-4">
-          <div className="mb-8 h-px w-full" style={{ backgroundColor: `${ink}20` }} />
+          <div className="mb-8 h-px w-full" style={{ backgroundColor: tint(ink, 12.5) }} />
           <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 md:flex-row md:gap-12">
             <div className="w-full flex-shrink-0 md:w-64">
               <h3 id="person-about-heading" className={`text-lg font-semibold md:text-xl${facts.length ? " mb-6" : ""}`} style={{ color: ink }}>
@@ -120,13 +123,13 @@ export function PersonAbout({
             {story ? (
               /* Their own words, where a creator's story sits: one column, never clamped. */
               <div className="min-w-0 flex-1">
-                <p className="max-w-[640px] whitespace-pre-line text-[15px] leading-[1.6] [overflow-wrap:anywhere]" style={{ color: `${ink}cc` }} data-person-about-bio="">
+                <p className="max-w-[640px] whitespace-pre-line text-[15px] leading-[1.6] [overflow-wrap:anywhere]" style={{ color: tint(ink, 80) }} data-person-about-bio="">
                   {story}
                 </p>
               </div>
             ) : null}
           </div>
-          <div className="mt-8 h-px w-full" style={{ backgroundColor: `${ink}20` }} />
+          <div className="mt-8 h-px w-full" style={{ backgroundColor: tint(ink, 12.5) }} />
         </div>
       </div>
     </section>

@@ -342,7 +342,8 @@ html[data-sl-dark] {
   color-scheme: dark;
   background-color: ${P.page};
   /* The strip under the clock, the browser's bar and the status bar's text all follow this one number (components/platform/native-chrome.tsx). */
-  --native-band: ${P.page};
+  /* The header's own surface (bg-white becomes it), so the strip under the clock and the bar are one colour (round 29). */
+  --native-band: ${P.surface};
   --bounce-ground: ${P.page};
   --sl-page: ${P.page};
   --sl-surface: ${P.surface};
@@ -391,6 +392,10 @@ ${SCOPE} input::placeholder,
 ${SCOPE} textarea::placeholder {
   color: ${P.faint};
 }
+/* A field whose hint is painted over it (Explore's search crossfades two) hides its own: the line above must not bring it back, or the two overlap. */
+${SCOPE} .placeholder\\:text-transparent::placeholder {
+  color: transparent;
+}
 ${SCOPE} ::selection {
   background-color: rgba(255,255,255,0.16);
 }
@@ -423,6 +428,72 @@ html[data-sl-dark] [data-member-profile] {
   --sl-profile-page: ${P.page};
   --sl-profile-badge: ${P.raised};
 }
+/*
+  A SWITCH THAT IS ON LOOKS ON (round 29, the owner: "in dark the toggles feel like they are not clicked"). Mapped
+  colour by colour, an on track (near black) became graphite and its white knob the card's charcoal: on and off were
+  two dark greys. In the dark look a switch is the light one turned over, as Website Settings already draws it: on is
+  a near white track with a near black knob, off a faint track with a grey knob. Read from what every switch already
+  says (role="switch" or a checkbox row with aria-checked, or a Radix switch's data-state), so each drawing of one is
+  covered without knowing its classes.
+*/
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]),
+${SCOPE} [data-slot="switch"][data-state="checked"] {
+  background-color: ${P.ink} !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.25) !important;
+}
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]) :is(.bg-white, .bg-\\[\\#ececee\\]),
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="true"] :is(.bg-\\[\\#1a1a2e\\], .bg-\\[\\#111113\\], .bg-\\[\\#3a3a42\\], .bg-\\[\\#111827\\]) ~ .bg-white,
+${SCOPE} [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+  background-color: ${P.page} !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
+}
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="false"] :is(.bg-\\[\\#d9dce1\\], .bg-\\[\\#e4e5e9\\], .bg-\\[\\#e3e5e9\\], .bg-\\[\\#e5e7eb\\], .bg-\\[\\#d1d5db\\]),
+${SCOPE} [data-slot="switch"][data-state="unchecked"] {
+  background-color: rgba(255,255,255,0.14) !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.45), inset 0 0 0 0.5px rgba(255,255,255,0.06) !important;
+}
+${SCOPE} :is([role="switch"], [data-account-item="appearance"])[aria-checked="false"] :is(.bg-\\[\\#d9dce1\\], .bg-\\[\\#e4e5e9\\], .bg-\\[\\#e3e5e9\\], .bg-\\[\\#e5e7eb\\], .bg-\\[\\#d1d5db\\]) :is(.bg-white),
+${SCOPE} [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"] {
+  background-color: ${P.text} !important;
+}
+
+/*
+  THE GAP BETWEEN POSTS ON A PHONE IS THE PAGE (round 29, the owner: the strips in the dark feed). A post there is
+  edge to edge with an 8px foot in the light page's grey, which the hairline mapping made a lit line 8px thick: a
+  lighter band between two dark cards. In the dark it is the ground the cards sit on.
+*/
+@media (width < 40rem) {
+  ${SCOPE} .max-sm\\:border-b-8.max-sm\\:border-b-8 {
+    border-bottom-color: ${P.page};
+  }
+}
+
+/*
+  A MARK THAT SAYS "THIS ONE" STAYS INK (round 29: the selected tab's underline and an unread dot read as off). The
+  near black fill becomes graphite for a pill or a button, where the words on it carry the meaning; an underline two
+  pixels high or a dot six across is nothing but its colour, so in the dark it is the light ink.
+*/
+${SCOPE} .bg-\\[\\#1a1a2e\\]:is(.h-\\[2px\\], .h-\\[3px\\], .h-0\\.5, .h-1, .h-1\\.5, .h-2, .w-1\\.5, .w-2) {
+  background-color: ${P.ink};
+}
+
+/* The header's Dashboard button: a raised graphite step on the dark bar, not the bar's own colour with a line round it. */
+html[data-sl-dark] [data-header-dashboard] {
+  background-color: ${P.raised2};
+  border-color: rgba(255,255,255,0.08);
+  color: ${P.ink};
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.4);
+}
+@media ${"(hover: hover) and (pointer: fine)"} {
+  html[data-sl-dark] [data-header-dashboard]:hover {
+    background-color: ${P.press};
+    border-color: rgba(255,255,255,0.12);
+  }
+}
+html[data-sl-dark] [data-header-dashboard]:active {
+  background-color: ${P.selected};
+}
+
 html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
   background-color: ${P.surface} !important;
   color: ${P.ink} !important;
