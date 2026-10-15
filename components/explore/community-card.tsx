@@ -54,7 +54,8 @@ import type { ReactNode } from "react"
 import Link from "next/link"
 import { ChevronRight, Eye, Star, Users } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { SoftImg } from "@/components/ui/soft-img"
 import type { CommunityCard } from "@/lib/communities/types"
 import { ratingLabel, statCount } from "@/lib/explore/communities-mode"
 import { cn } from "@/lib/utils"
@@ -319,15 +320,19 @@ export function ExploreCommunityCard({
     >
       <div className="relative aspect-video overflow-hidden bg-muted">
         {card.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={optimizedImageUrl(card.coverUrl, 420)}
-            srcSet={optimizedSrcSet(card.coverUrl, COVER_WIDTHS) || undefined}
+          /*
+            ROUND 29: the cover through SoftImg (components/ui/soft-img.tsx), the same files at the same sizes: on its grey box
+            until it is loaded and decoded, then up over a short fade if it arrived after the box was painted. One in the
+            page's HTML, or one this tab has shown (back to Explore), is simply there. It used to be painted in whenever it
+            landed, in strips on a slow phone.
+          */
+          <SoftImg
+            src={card.coverUrl}
+            width={420}
+            widths={COVER_WIDTHS}
             sizes={phone ? "390px" : GRID_SIZES}
-            alt=""
-            loading={priority ? "eager" : "lazy"}
+            eager={priority}
             fetchPriority={priority ? "high" : undefined}
-            decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none [@media(hover:hover)]:group-hover/community:scale-[1.02]"
           />
         ) : (

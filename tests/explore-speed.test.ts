@@ -159,7 +159,8 @@ async function main() {
     check("the cards are not drawn again by the tap's own render", /const grid = React\.useMemo\(/.test(results))
 
     const card = code("components/explore/community-card.tsx")
-    check("covers from real widths by the grid's columns, not one 1920px file", /srcSet=\{optimizedSrcSet\(card\.coverUrl, COVER_WIDTHS\) \|\| undefined\}/.test(card) && /GRID_SIZES = "\(max-width: 639px\) 100vw, \(max-width: 1023px\) 50vw, 440px"/.test(card) && !/optimizedImageUrl\(card\.coverUrl, 640\)/.test(card))
+    /* Changed on purpose (round 29): the cover is drawn by SoftImg, which offers the same COVER_WIDTHS files. */
+    check("covers from real widths by the grid's columns, not one 1920px file", /<SoftImg\s+src=\{card\.coverUrl\}\s+width=\{420\}\s+widths=\{COVER_WIDTHS\}/.test(card) && /GRID_SIZES = "\(max-width: 639px\) 100vw, \(max-width: 1023px\) 50vw, 440px"/.test(card) && !/optimizedImageUrl\(card\.coverUrl, 640\)/.test(card))
 
     const progressive = code("lib/explore/use-progressive-count.ts")
     check("arriving draws everything (scroll restore, the HTML); only a change starts from the first rows", /useState<\{ token: string; full: boolean \}>\(\{ token, full: true \}\)/.test(progressive) && /startTransition\(/.test(progressive))

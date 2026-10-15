@@ -1018,7 +1018,8 @@ async function main() {
       && /speedRef\.current \+= \(\(next - posRef\.current\) \/ dt - speedRef\.current\) \* blend/.test(nav))
   /* "Make the glassy bubble a bit more fluid, like a drop of water stretching slightly in the drag direction and settling." The stretch has a small underdamped spring of its own, leans the way it goes, and runs on into a slight squash when the finger stops; the probe reads 0.994x narrowest after a slow slide, and 1x at rest. */
   check("the stretch is a drop with a body: its own soft spring, leaning the way it goes, a slight squash as it stops, settling round",
-    /const DROP_SPRING = \{ stiffness: 360, damping: 8 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.26/.test(nav)
+    /* Changed on purpose (round 29): damping 8 to 13, the same lean, one wobble after a stop instead of three. */
+    /const DROP_SPRING = \{ stiffness: 360, damping: 13 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.26/.test(nav)
       && /stepDrop\(dropRef\.current, speedRef\.current, dt\)/.test(nav) && /translateX\(\$\{lead\}px\) scale\(/.test(nav))
   check("and rounds off again on the spring as it lets go, the drop's own spring riding along", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: dropStyle\(drop, dot\)/.test(nav) && /stepDrop\(drop, v \/ 1000, dt \* 1000\)/.test(nav))
   /* "Make tapping an icon feel a touch more satisfying (subtle press scale/spring, nothing big)." One fixed animation from the touch, the same every tap, on the glyph's own `scale`, never the lens. */

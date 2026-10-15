@@ -115,6 +115,15 @@ export { CommunityMark }
  * card, a chat), and on <html> for what is portalled to the body (the
  * messages panel). Never guessed twice.
  */
+/**
+ * THE BAR'S OWN GROUND, light and dark: `bg-white` below, which app/theme-dark.css draws #18181b in the dark look
+ * (scripts/gen-theme-dark.mjs P.surface). ROUND 29: the band under the clock, the canvas behind the page and the browser's
+ * bar take this, not the page's grey (shell-frame.tsx, public-frame.tsx useLightChrome), so whatever shows above or behind
+ * the bar for a frame, while a place is swapped under it, is the bar's own colour and cannot read as a flash.
+ * scripts/check-mobile-round29.mjs compares the two on every frame of a tab switch.
+ */
+export const TOP_BAR_GROUND = { light: "#ffffff", dark: "#18181b" } as const
+
 /** Each kind of bar's height as last measured (THE HEIGHT THIS BAR HAD LAST TIME, below). */
 const lastTop = new Map<string, string>()
 function useCommunityTop(ref: React.RefObject<HTMLElement | null>) {

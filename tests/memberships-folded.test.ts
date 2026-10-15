@@ -127,7 +127,8 @@ async function main() {
     const page = code("app/account/library/page.tsx")
     check("the library reads them beside the products, in the same Promise.all", /const \[downloads, extras, \{ count: wishlistCount \}, memberships\] = await Promise\.all\(\[/.test(page) && /libraryMemberships\(createAdminClient\(\), user, \{ communities \}\)/.test(page) && /memberships=\{memberships\}/.test(page))
     const home = code("components/library/library-home.tsx")
-    check("they are rows at the top of the products list, found by its search", /shownMemberships\.map\(\(card\) => \(\s*<LibraryMembershipRow/.test(home) && home.indexOf("<LibraryMembershipRow") < home.indexOf("<ProductRow") && /membershipMatches\(m, query\)/.test(home))
+    /* Changed on purpose (round 29): the map takes the row's index too, so the first screen's pictures load eagerly. */
+    check("they are rows at the top of the products list, found by its search", /shownMemberships\.map\(\(card, i\) => \(\s*<LibraryMembershipRow/.test(home) && home.indexOf("<LibraryMembershipRow") < home.indexOf("<ProductRow") && /membershipMatches\(m, query\)/.test(home))
     check("a buyer with only memberships does not see Nothing bought yet", /if \(total === 0\) return <NothingYet/.test(home) && /const total = items\.length \+ memberships\.length/.test(home))
     const row = code("components/library/library-memberships.tsx")
     check("each row is labelled Membership and opens its page", />\s*Membership\s*</.test(row) && /libraryMembershipPath\(card\.id\)/.test(row) && /<StatusLabel view=\{card\.view\}/.test(row))

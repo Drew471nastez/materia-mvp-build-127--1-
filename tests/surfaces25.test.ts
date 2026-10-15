@@ -184,11 +184,16 @@ async function main() {
     const html = renderToStaticMarkup(createElement(SoftImg, { src: "https://abc.supabase.co/storage/v1/object/public/thumbs/a.jpg", width: 64, className: "h-full w-full" }))
     check("through the image route at the slot's width, with 1x 2x 3x files", /src="\/_next\/image\?url=[^"]*&amp;w=128&amp;q=88"/.test(html) && /w=64&amp;q=88 64w/.test(html) && /w=128&amp;q=88 128w/.test(html) && /w=256&amp;q=88 256w/.test(html) && /sizes="64px"/.test(html), html)
     check("lazy and decoded off the main thread", /loading="lazy"/.test(html) && /decoding="async"/.test(html))
-    check("hidden until it is decoded, the first time", /opacity:0/.test(html) && /data-soft-img="wait"/.test(html))
+    /*
+      Changed on purpose (round 29): in the server's HTML the picture is shown as the browser has it (lib/ui/drawn-by-server),
+      never held at nothing until the scripts run; a picture mounted in the browser still waits for its decode, below.
+    */
+    check("in the server's HTML it is shown as it loads, never held hidden until hydration", !/opacity:0/.test(html) && /data-soft-img="seen"/.test(html))
     const eager = renderToStaticMarkup(createElement(SoftImg, { src: "https://elsewhere.example/a.jpg", width: 40, eager: true }))
     check("a host the route will not fetch: the file as it is; eager when asked", /src="https:\/\/elsewhere\.example\/a\.jpg"/.test(eager) && !/srcSet|srcset/.test(eager) && /loading="eager"/.test(eager))
     const soft = code("components/ui/soft-img.tsx")
-    check("shown after decode(), with a short fade, and never faded twice in one tab", /img\.decode\(\)\.then\(show, show\)/.test(soft) && /SEEN\.has\(file\) \? "seen" : "wait"/.test(soft) && /img\.complete && img\.naturalWidth > 0/.test(soft) && SOFT_IN_MS >= 120 && SOFT_IN_MS <= 220)
+    /* Changed on purpose (round 29): the server's own picture starts seen too (fromServer), and is not hidden on hydration. */
+    check("shown after decode(), with a short fade, and never faded twice in one tab", /img\.decode\(\)\.then\(show, show\)/.test(soft) && /SEEN\.has\(file\) \|\| fromServer \? "seen" : "wait"/.test(soft) && /if \(serverFile\.current === file\)/.test(soft) && /img\.complete && img\.naturalWidth > 0/.test(soft) && SOFT_IN_MS >= 120 && SOFT_IN_MS <= 220)
   }
 
   console.log("\nThe tab bar's third icon")

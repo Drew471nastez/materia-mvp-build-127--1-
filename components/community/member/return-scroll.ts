@@ -248,24 +248,39 @@ export function useSectionTop(pathname: string, slug: string) {
       it sets is still the one painted.
     */
     const stopSnap = afterLayout(snapPageTop)
+    /*
+      ROUND 29: HELD AT THE TOP WITHOUT ASKING FOR A LAYOUT ON EVERY FRAME. The hold read the scroll in a frame callback,
+      twelve frames running, while the community was still arriving: each read laid the page out on the spot, in the middle
+      of the frame, eleven forced style passes and nine forced layouts on the feed's arrival at 4x CPU, about 350ms of the
+      phone's main thread (scripts/check-mobile-round29.mjs TRACE=1). The same hold now listens instead: the page growing
+      is seen after the browser's own layout (a ResizeObserver on <html>, where the read is free), and anything that scrolls
+      it is seen by its scroll event. For the same twelve frames, and a finger or a key still ends it at once.
+    */
     let frames = 0
     let id = 0
     let over = false
+    const grown = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => snapPageTop())
+    const moved = () => snapPageTop()
     const end = () => {
       if (over) return
       over = true
       cancelAnimationFrame(id)
+      grown?.disconnect()
+      window.removeEventListener("scroll", moved)
       for (const t of inputs) window.removeEventListener(t, end, true)
     }
     const inputs = ["touchstart", "wheel", "keydown"] as const
     for (const t of inputs) window.addEventListener(t, end, { capture: true, passive: true })
-    const watch = () => {
+    grown?.observe(document.documentElement)
+    window.addEventListener("scroll", moved, { passive: true })
+    const count = () => {
       if (over) return
-      snapPageTop()
+      /* A browser with no ResizeObserver keeps the old way: a look on every frame. */
+      if (!grown) snapPageTop()
       if (++frames >= 12) return end()
-      id = requestAnimationFrame(watch)
+      id = requestAnimationFrame(count)
     }
-    id = requestAnimationFrame(watch)
+    id = requestAnimationFrame(count)
     return () => {
       stopSnap()
       end()

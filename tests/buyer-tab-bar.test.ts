@@ -106,12 +106,23 @@ const lens = code("components/nav/tab-lens.tsx")
 const pill = code("components/app/sidebar-mobile-nav.tsx")
 check("the slide, the lens and the pick are the shared hook's, in both bars", /useTabLens\(\{/.test(bar) && /useTabLens\(\{/.test(pill) && /export function useTabLens\(/.test(lens) && /export function useSlide\(/.test(lens))
 /* "I don't really like the bump when I click an icon." The buyer's bar asks the shared lens for no give, and its glass never grows in. */
-check("no bump on a tap: no squeeze on the icon, no growing glass, only colour", /give: false,/.test(bar) && /if \(give\) pulse\(index\)/.test(lens) && /scale: String\(slide\.following \? LIFT : 1\)/.test(bar) && !/0\.55/.test(bar))
+/*
+  Changed on purpose (round 29): "smoother in and out, a spring-like transform with a good curve". The icon still never
+  squeezes (give: false), and the glass no longer switches on in a frame: it swells from 0.9 to whole on a spring and sinks
+  back as it fades, on scale and opacity alone. Still never the 55% grow that was the bump.
+*/
+check("no squeeze on a tap; the glass swells in from 0.9 on a spring and sinks back, never from 55%", /give: false,/.test(bar) && /if \(give\) pulse\(index\)/.test(lens) && /scale: String\(slide\.following \? LIFT : shows && !arriving \? 1 : LENS_REST\)/.test(bar) && /const LENS_REST = 0\.9/.test(bar) && /scale 420ms \$\{LENS_SPRING\}/.test(bar) && !/0\.55/.test(bar))
 check("the other tabs' pages are fetched while the phone is idle, on a phone only, as the device and network allow", /requestIdleCallback/.test(read("lib/nav/prefetch-policy.ts")) && /return prefetchOnIdle\(router, hrefs\)/.test(bar) && /matchMedia\?\.\("\(max-width: 767px\)"\)\.matches\) return/.test(bar))
 check("and nothing of the slide is written twice", !/function useSlide\(/.test(bar + pill) && !/function settleSpring\(/.test(bar + pill) && !/const TAP_PULSE\b/.test(bar + pill))
 check("the icons cross fade through the shared NavIcon, drawn on their own layers", /<NavIcon icon=\{[^}]+\} active=\{on\} color="currentColor" box=\{GLYPH\} layer \/>/.test(bar))
 check("the finger's gesture decides, and a keyboard's Enter still picks", /\{\.\.\.slide\.handlers\}/.test(bar) && /if \(e\.detail === 0\) pick\(i\)/.test(bar) && /touchAction: "none"/.test(bar))
-check("the glass is there only while a finger is", /const lit = slide\.pressed \|\| slide\.following/.test(bar) && /backgroundColor: arriving \? ARRIVING_FILL : lit \? LENS_FILL : ARRIVING_FILL/.test(bar))
+/*
+  Changed on purpose (round 29): the glass's look is fixed (fill, sheen and edge from --sl-tab-lens*, dark values in
+  scripts/gen-theme-dark.mjs) and only its opacity comes and goes, so a fade is the compositor's and not a repaint. It
+  is there while a finger is, and for LENS_HOLD_MS after a tap, so a short tap still shows it whole.
+*/
+check("the glass is there while a finger is, and a tap's moment after, by opacity alone", /const lit = slide\.pressed \|\| slide\.following/.test(bar) && /const shows = lit \|\| holding/.test(bar) && /opacity: shows && !arriving \? 1 : 0,/.test(bar) && /backgroundColor: LENS_FILL,/.test(bar) && !/backdropFilter/.test(bar))
+check("the glass is a translucent tint with a thin highlight, its dark look from variables", /const LENS_FILL = "var\(--sl-tab-lens, rgba\(120,128,150,0\.1\)\)"/.test(bar) && /--sl-tab-lens-sheen/.test(bar) && /--sl-tab-lens-edge/.test(bar) && /--sl-tab-lens: rgba\(255,255,255,0\.06\);/.test(read("scripts/gen-theme-dark.mjs")))
 check("a plain white bar across the foot, not a pill: full width, phones only", /className="fixed inset-x-0 bottom-0 z-50 bg-white md:hidden"/.test(bar) && !/rounded-full"[^>]*data-buyer-tab-bar/.test(bar))
 check("with a hairline and a little depth along its top", /const BAR_SHADOW = "0 -0\.5px 0 rgba\(16,18,27,0\.09\)/.test(bar))
 check("the home indicator's inset under it", /paddingBottom: "env\(safe-area-inset-bottom, 0px\)"/.test(bar))

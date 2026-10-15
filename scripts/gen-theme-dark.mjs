@@ -368,7 +368,10 @@ html[data-sl-dark] {
   /* Colours some components set inline, as var(--name, today's colour) (round 28). */
   --sl-tab-on: ${P.ink};
   --sl-tab-rest: ${P.muted};
-  --sl-tab-lens: rgba(255,255,255,0.09);
+  /* The tab bar's glass (round 29, components/nav/buyer-tab-bar.tsx): a few per cent of white, light on its upper half, a hairline along the top, never a white highlight on the dark bar. */
+  --sl-tab-lens: rgba(255,255,255,0.06);
+  --sl-tab-lens-sheen: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 50%, rgba(255,255,255,0) 72%);
+  --sl-tab-lens-edge: inset 0 0.5px 0 rgba(255,255,255,0.14), inset 0 0 0 0.5px rgba(255,255,255,0.045), 0 1px 6px -1px rgba(0,0,0,0.45);
   --sl-ink-strong: ${P.ink};
   --sl-arrive: rgba(253,248,236,0.07);
 }

@@ -305,7 +305,14 @@ const stretchFor = (speed: number) => Math.min(STRETCH_MAX, (Math.abs(speed) / S
   redrawn. The clamp (SQUASH_MAX, STRETCH_MAX) is unchanged, so the widest
   and narrowest it ever gets are the same as before.
 */
-const DROP_SPRING = { stiffness: 360, damping: 8 }
+/*
+  ONE WOBBLE, AS THE NOTE ABOVE SAYS, NOT THREE (round 29: "smoother in and out, not glitchy"). At damping 8 the spring is
+  damped to a fifth of critical, and each swing came back at half the one before: stopped from a full stretch on the 70px
+  glass, it squashed by 2.1px, then swung 1.1px, 0.5px and 0.3px either side of round, a shiver rather than a drop
+  settling. 13 is about a third of critical: the same 2.1px squash, then 0.7px back and 0.2px, and it rests (stepDrop,
+  sampled at 240Hz). The stiffness, and so the lean, is unchanged.
+*/
+const DROP_SPRING = { stiffness: 360, damping: 13 }
 const SQUASH_MAX = 0.03
 /** How far ahead of the finger the stretch reaches: a drop pulled across glass is fuller at its front. */
 const DROP_LEAD = 0.26

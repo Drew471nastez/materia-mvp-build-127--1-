@@ -40,6 +40,8 @@ import { cn } from "@/lib/utils"
  * is the first size where something is always out of sight.
  */
 const CONTROLS_FROM = 8
+/** The rows a phone shows at once (the "about six" above): round 29 asks for their pictures eagerly, the rest lazily. */
+const FIRST_SCREEN_ROWS = 6
 
 const SORTS: Array<{ value: LibrarySort; label: string }> = [
   { value: "recent", label: "Newest" },
@@ -235,12 +237,14 @@ export function LibraryHome({
 
         {showing > 0 ? (
           <ul ref={listRef} data-library-list="" className={`${CARD} divide-y divide-[#eef0f3] overflow-hidden`}>
-            {shownMemberships.map((card) => (
-              <LibraryMembershipRow key={`m-${card.id}`} card={card} />
+            {/* The first screen's rows (FIRST_SCREEN_ROWS) ask for their pictures at once; the rest when the browser reaches them. */}
+            {shownMemberships.map((card, i) => (
+              <LibraryMembershipRow key={`m-${card.id}`} card={card} eager={i < FIRST_SCREEN_ROWS} />
             ))}
-            {shown.map((item) => (
+            {shown.map((item, i) => (
               <ProductRow
                 key={item.productId}
+                eager={shownMemberships.length + i < FIRST_SCREEN_ROWS}
                 item={item}
                 highlight={highlight === item.productId}
                 creator={creators.find((c) => creatorKey(c) === creatorKey(item.creator))}

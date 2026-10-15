@@ -95,7 +95,7 @@ import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
 import { FULL_ON_HOVER, navEntries, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
-import { CommunityTopBar } from "./top-bar"
+import { CommunityTopBar, TOP_BAR_GROUND } from "./top-bar"
 import { whenIdle } from "./feed-cache"
 import { enterCommunityContext } from "@/lib/nav/community-context"
 import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
@@ -321,11 +321,11 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   useSectionTop(firstPath, community.slug)
   const searchNow = useSearchParams()
   useReturnScroll(scrollKeyFor(pathname || "", searchNow?.toString() ?? ""), { onlyOnArrival: true })
-  /* The browser's bar, the phone's status bar and the canvas a bounce shows take the page's colour (the bar pads itself under the clock in white). */
+  /* The browser's bar, the phone's status bar and the canvas a bounce shows take the bar's own ground (round 29, top-bar.tsx TOP_BAR_GROUND): the bar pads itself under the clock, and the two are one surface. */
   /* The creator's look, or the reader's own choice from the "..." menu (lib/communities/client/appearance-choice.ts). */
   const { appearance } = useCommunityAppearance(community.appearance === "dark" ? "dark" : "light")
   useCommunityTheme(appearance)
-  useLightChrome(true, appearance === "dark" ? "#111113" : "#f8f9fa")
+  useLightChrome(true, TOP_BAR_GROUND[appearance === "dark" ? "dark" : "light"])
   /*
     Opened from Discover or anywhere outside (landing.ts): the middle
     column's spinner waits as the app's slow page does. The frame itself

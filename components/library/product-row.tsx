@@ -42,11 +42,11 @@ const STATE_LINE: Record<Exclude<LibraryItem["state"], "open">, { text: string; 
   held: { text: "On hold while the payment is reviewed", tone: "text-[#b45309]" },
 }
 
-function Thumb({ item, className }: { item: LibraryItem; className: string }) {
+function Thumb({ item, className, eager = false }: { item: LibraryItem; className: string; eager?: boolean }) {
   return (
     <div className={`relative shrink-0 overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04] ${className}`}>
       {item.thumbnailUrl ? (
-        <SoftImg src={item.thumbnailUrl} width={72} sizes="(min-width: 640px) 72px, 64px" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
+        <SoftImg src={item.thumbnailUrl} width={72} sizes="(min-width: 640px) 72px, 64px" eager={eager} className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center text-[#9ca3af]">
           <Package className="h-5 w-5" aria-hidden />
@@ -88,11 +88,14 @@ export function ProductRow({
   item,
   creator,
   highlight = false,
+  eager = false,
 }: {
   item: LibraryItem
   /** The seller as the library knows them, for Contact. */
   creator: LibraryCreator | undefined
   highlight?: boolean
+  /** A row on the first screen (round 29): its picture is asked for at once, not when the browser gets to it. */
+  eager?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const storeLink = useStoreLinkProps()
@@ -162,7 +165,7 @@ export function ProductRow({
       {/* One set of actions: under the text on a phone, at the right from 640px. */}
       <div className="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-3.5 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-x-4">
         <Link href={href} tabIndex={-1} aria-hidden className="shrink-0">
-          <Thumb item={item} className="h-16 w-16 sm:h-[72px] sm:w-[72px]" />
+          <Thumb item={item} eager={eager} className="h-16 w-16 sm:h-[72px] sm:w-[72px]" />
         </Link>
         <div className="min-w-0">
           <Link href={href} className="line-clamp-2 text-[15px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere] hover:underline hover:decoration-[#1a1a2e]/30 hover:underline-offset-2">

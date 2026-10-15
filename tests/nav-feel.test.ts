@@ -195,7 +195,8 @@ console.log("\nGLASS: nothing between the finger and the frame")
   check("and the three readers take it from there", (lens.match(/boxRef\.current \?\? readBox\(\)/g) ?? []).length === 3)
   check("a slot crossed under a drag renders nothing; the press still does", /if \(!movedRef\.current\) setAt\(next\)/.test(lens) && !/^\s*setAt\(next\)\s*$/m.test(lens))
   check("the position is still written once a frame, by the frame loop, straight to the element", /frameRef\.current = requestAnimationFrame\(step\)/.test(lens) && /dot\.style\.translate = `\$\{Math\.round\(posRef\.current \* 100\) \/ 100\}px 0`/.test(lens))
-  check("the glass still has its own compositor layer", /willChange: "translate, scale, transform"/.test(bar))
+  /* Changed on purpose (round 29): the glass now comes and goes by opacity, so opacity joins what its layer is promoted for. */
+  check("the glass still has its own compositor layer", /willChange: "opacity, translate, scale, transform"/.test(bar))
   check("reduced motion is still respected: no spring, no pulse", (lens.match(/prefers-reduced-motion: reduce/g) ?? []).length >= 2)
 }
 
@@ -216,7 +217,8 @@ console.log("\nGLASS: a finger above or below the bar's row")
 console.log("\nGLASS: a fuller drop, and a landing sampled for a faster screen")
 {
   check("the stretch reaches 0.11 and an ordinary slide gets there", /const STRETCH_MAX = 0\.11/.test(lens) && /const STRETCH_AT = 0\.5/.test(lens))
-  check("the drop's own spring is softer and leans later", /const DROP_SPRING = \{ stiffness: 360, damping: 8 \}/.test(lens) && /const DROP_LEAD = 0\.26/.test(lens))
+  /* Changed on purpose (round 29): damping 8 to 13, one wobble after a stop instead of three; the stiffness, so the late lean, is kept. */
+  check("the drop's own spring leans late and settles in one wobble", /const DROP_SPRING = \{ stiffness: 360, damping: 13 \}/.test(lens) && /const DROP_LEAD = 0\.26/.test(lens))
   check("it still never goes narrower than the squash it always had", /const SQUASH_MAX = 0\.03/.test(lens) && /drop\.d = Math\.max\(-SQUASH_MAX, Math\.min\(STRETCH_MAX, drop\.d \+ drop\.dv \* dt\)\)/.test(lens))
   check("the landing spring is sampled at 240Hz, with room for the longer list", /const dt = 1 \/ 240/.test(lens) && /for \(let i = 0; i < 480; i\+\+\)/.test(lens))
   check("and it still ends on the slot's exact centre", /const rest = `\$\{to\}px 0`/.test(lens) && /frames\.push\(\{ translate: rest, transform: "scale\(1, 1\)" \}\)/.test(lens))
