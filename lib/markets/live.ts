@@ -135,9 +135,16 @@ export async function marketPricing(creatorId: string, marketId: string | null |
   return pricingFor(market, base, await cachedRates().catch(() => null))
 }
 
-/** The website's languages, held until the store saves Markets and languages again. */
+/**
+ * The website's languages, held until the store saves Markets and languages
+ * again. The key names the shape read: a copy held by a deploy that still
+ * put the store's own country in a market (or had no homeCountry) is never
+ * served by this one. The data cache outlives a deploy, and a stale copy
+ * is served once more while it is read again.
+ */
+const LANGUAGES_SHAPE = "v2-home-country"
 export function siteLanguages(creatorId: string): Promise<SiteLanguages> {
-  return unstable_cache(() => readLanguages(creatorId), ["site-languages", creatorId], { tags: [localizationTag(creatorId)], revalidate: 300 })().catch(() => NONE)
+  return unstable_cache(() => readLanguages(creatorId), ["site-languages", LANGUAGES_SHAPE, creatorId], { tags: [localizationTag(creatorId)], revalidate: 300 })().catch(() => NONE)
 }
 
 const PRODUCT_FIELDS = ["title", "description", "seo_title", "seo_description"] as const

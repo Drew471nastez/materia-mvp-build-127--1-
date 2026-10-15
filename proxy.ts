@@ -20,6 +20,7 @@ import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/com
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
 import { resolveMarketCountries } from "@/lib/markets/market-countries"
+import { COUNTRY_COOKIE, FORGET_COUNTRY_COOKIE, readCountryCookie, seenCountry, visitorCountryFrom } from "@/lib/markets/visitor-country"
 import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
@@ -514,16 +515,26 @@ async function siteLanguagesFor(username: string): Promise<string[]> {
 /*
   THE VISITOR'S MARKET: the country they chose on the website (sl_country,
   set by its currency picker; "home" for the store's own prices), else the
-  country Vercel sees them in. A market with its own currency is drawn with
-  its prices converted (lib/markets/pricing); any other country sees the
-  store's own.
+  country Vercel sees them in (lib/markets/visitor-country.ts). A market
+  with its own currency is drawn with its prices converted
+  (lib/markets/pricing); any other country sees the store's own. A cookie
+  written before choices were marked is no choice, and is cleared on the
+  way out (forgetStaleCountry): it was the "Åland Islands (BRL)" an
+  imported theme had shown a visitor in Romania, posted back with a
+  language change and kept for a year (the owner).
 */
 function visitorCountry(request: NextRequest): string | null {
-  const chosen = request.cookies.get("sl_country")?.value
-  if (chosen === "home") return null
-  if (chosen && /^[A-Za-z]{2}$/.test(chosen)) return chosen.toUpperCase()
-  const seen = request.headers.get("x-vercel-ip-country")
-  return seen && /^[A-Za-z]{2}$/.test(seen) ? seen.toUpperCase() : null
+  return visitorCountryFrom(request.cookies.get(COUNTRY_COOKIE)?.value, seenCountry(request.headers))
+}
+/** Clears a country cookie that is not a visitor's choice (readCountryCookie `stale`) from whatever the proxy answers. */
+function forgetStaleCountry<R extends Response | null | undefined>(request: NextRequest, r: R): R {
+  if (!r || !readCountryCookie(request.cookies.get(COUNTRY_COOKIE)?.value).stale) return r
+  try {
+    r.headers.append("Set-Cookie", FORGET_COUNTRY_COOKIE)
+  } catch {
+    /* An answer whose headers cannot change: the cookie is still never read, and goes on the next one. */
+  }
+  return r
 }
 async function visitorMarket(request: NextRequest, username: string): Promise<string | null> {
   const { markets } = await siteLocalizationFor(username)
@@ -1232,6 +1243,10 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
 ])
 
 export async function proxy(request: NextRequest) {
+  return forgetStaleCountry(request, await routeRequest(request))
+}
+
+async function routeRequest(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
