@@ -7,7 +7,7 @@ import { normalizeLocale } from "@/lib/markets/locales"
 import { defaultLanguageScope, writtenLanguage } from "@/lib/markets/detect-language"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
-import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, statusOf, translationMap } from "@/lib/markets/translate"
+import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, needsReview, statusOf, translationMap } from "@/lib/markets/translate"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -64,32 +64,38 @@ export async function GET(request: Request) {
     if (!shown) return physicalJson({ locale: null, defaultLanguage: loc.defaultLanguage, languages, published, values: {} })
     const saved = await translationsOf(c.db, c.creatorId, shown)
     /* With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus). */
-    const values: Record<string, { v: string; h: string }> = {}
-    for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash }
+    const values: Record<string, { v: string; h: string; s?: "ai" }> = {}
+    for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash, ...(r.source === "ai" ? { s: "ai" as const } : {}) }
     return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values })
   }
   /*
     ?summary=1, SETTINGS › LANGUAGES: for each added language, how many of
     the website's texts are translated and live, drafted by AI to review,
-    and still to translate (missing, or changed since). One read of the
-    texts for all of them.
+    and still to translate (missing, or Storelib AI's with a changed
+    original). `review`: the merchant's own translations whose original
+    changed since (translate.ts needsReview). They are still live, so they
+    count as translated, and they are never Storelib AI's to redo, so they
+    are not "to translate" either. One read of the texts for all of them.
   */
   if (url.searchParams.get("summary") === "1") {
     const groups = await siteTexts(c.db, c.creatorId)
     const items = groups.flatMap((g) => g.items)
     /* The language the website's own text is in (not the shop's built-in words, which are English): Settings says so when it is not the default. */
     const writtenIn = writtenLanguage(groups)
-    const progress: Record<string, { done: number; draft: number; todo: number; total: number }> = {}
+    const progress: Record<string, { done: number; draft: number; todo: number; review: number; total: number }> = {}
     /* The default language too, when every text is translated into it. */
     const counted = defaultLanguageScope(loc.defaultLanguage, writtenIn) === "all" ? [loc.defaultLanguage, ...loc.languages.map((l) => l.code)] : loc.languages.map((l) => l.code)
     await Promise.all(
       counted.map(async (code) => {
         const l = { code }
         const map = translationMap((await translationsOf(c.db, c.creatorId, l.code)).rows)
-        const row = { done: 0, draft: 0, todo: 0, total: items.length }
+        const row = { done: 0, draft: 0, todo: 0, review: 0, total: items.length }
         for (const t of items) {
           const s = statusOf(map.get(t.key), t.source)
-          if (s === "done") row.done++
+          if (needsReview(map.get(t.key), t.source)) {
+            row.done++
+            row.review++
+          } else if (s === "done") row.done++
           else if (s === "draft") row.draft++
           else row.todo++
         }
@@ -111,7 +117,8 @@ export async function GET(request: Request) {
       const status = statusOf(row, t.source)
       total++
       if (status === "done") done++
-      return { ...t, rich: /<[a-z][\s\S]*>/i.test(t.source), value: row?.value ?? "", status, ai: row?.source === "ai" }
+      /* `review`: the merchant's own, its original changed since: still live, listed under Needs review. */
+      return { ...t, rich: /<[a-z][\s\S]*>/i.test(t.source), value: row?.value ?? "", status, ai: row?.source === "ai", review: needsReview(row, t.source) }
     }),
   }))
   return physicalJson({ ready: ready && saved.ready, locale, defaultLanguage: loc.defaultLanguage, languages, groups: out, progress: { done, total } })

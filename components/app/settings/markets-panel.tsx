@@ -63,8 +63,8 @@ const PATH = "/api/store/markets"
 interface Loaded {
   ready: boolean
   localization: Localization
-  /** Translate changes automatically: its last run (lib/markets/auto-translate.ts), and whether Storelib AI is on for this deployment. */
-  autoTranslate?: { run: { at: string; translated: number; left: number; error?: string } | null; available: boolean }
+  /** Translate changes automatically: its last run (lib/markets/auto-translate.ts), whether changes are waiting for the next, and whether Storelib AI is on for this deployment. */
+  autoTranslate?: { run: AutoRun | null; available: boolean }
   baseCurrency: string
   /** The store's own country (Store currency): it always sees the store currency, so no extra currency holds it. */
   homeCountry?: string | null
@@ -88,21 +88,43 @@ function languageLabel(code: string): string {
 /** The market every store starts with is named "Home" in its data; it reads in the dashboard's language until the creator renames it. */
 const marketName = (m: { name: string; primary?: boolean }) => (m.primary && m.name.trim().toLowerCase() === "home" ? ttx("market", "Home") : m.name)
 
-/** What the last automatic run did, under its switch: when, how many, and what is left or went wrong. */
-function AutoTranslateRunLine({ run }: { run: { at: string; translated: number; left: number; error?: string } }) {
-  const when = new Date(run.at)
-  const at = Number.isNaN(when.getTime()) ? "" : when.toLocaleString(activeLocale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
-  const text = run.error
-    ? tt("Last run {at}: the translator couldn't be reached. It tries again next hour.", { at })
-    : run.left > 0
-      ? tt("Last run {at}: {translated} translated, {left} for the next run", { at, translated: run.translated, left: run.left })
-      : run.translated > 0
-        ? tt("Last run {at}: {translated} translated, everything is up to date", { at, translated: run.translated })
-        : tt("Last run {at}: everything is up to date", { at })
+type AutoRun = { at: string; translated: number; left: number; error?: string; pending?: boolean }
+
+/** Where automatic translation stands, in one line under its switch: up to date, working, or the translator out of reach. */
+function autoTranslateLine(run: AutoRun | null): { text: string; state: "error" | "working" | "left" | "done" } | null {
+  if (!run) return null
+  const when = run.at ? new Date(run.at) : null
+  const at = when && !Number.isNaN(when.getTime()) ? when.toLocaleString(activeLocale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : ""
+  if (run.error) return { text: tt("The translator couldn't be reached. It tries again in a few minutes."), state: "error" }
+  if (run.pending) return { text: run.left > 0 ? tt("{left} waiting, translating now", { left: run.left }) : tt("Translating your latest changes"), state: "working" }
+  if (run.left > 0) return { text: tt("{left} left for the next run", { left: run.left }), state: "left" }
+  return { text: at ? tt("Up to date, checked {at}", { at }) : tt("Up to date"), state: "done" }
+}
+
+/**
+ * Under the switch: where it stands, and the merchant's own translations
+ * whose original changed since (lib/markets/translate.ts needsReview). Those
+ * stay live and are never replaced, so they are the merchant's to look at.
+ */
+function AutoTranslateStatus({ run, review, onReview }: { run: AutoRun | null; review: number; onReview: () => void }) {
+  const line = autoTranslateLine(run)
+  if (!line && review === 0) return null
   return (
-    <p className={cn("mt-2 text-[12.5px] leading-[18px]", run.error ? "text-[#b45309]" : "text-[#6b7280]")} data-auto-translate-run={run.error ? "error" : run.left > 0 ? "left" : "done"}>
-      {text}
-    </p>
+    <div className="mt-2 space-y-1.5 text-[12.5px] leading-[18px]">
+      {line ? (
+        <p className={line.state === "error" ? "text-[#b45309]" : "text-[#6b7280]"} data-auto-translate-run={line.state}>
+          {line.text}
+        </p>
+      ) : null}
+      {review > 0 ? (
+        <p className="flex flex-wrap items-center gap-x-2 text-[#b45309]" data-auto-translate-review={review}>
+          <span>{review === 1 ? tt("1 of your translations needs a look because the original changed.") : tt("{count} of your translations need a look because the original changed.", { count: review })}</span>
+          <button type="button" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline" onClick={onReview} data-review-translations="">
+            {tt("Review")}
+          </button>
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -114,19 +136,25 @@ export function MarketsPanel() {
   const [picking, setPicking] = React.useState(false)
   const [editing, setEditing] = React.useState<Market | "new" | null>(null)
   const [translating, setTranslating] = React.useState<string | null>(null)
+  /* Opened from a Needs review count: the sheet starts on those. */
+  const [sheetFocus, setSheetFocus] = React.useState<"review" | null>(null)
+  const reviewLanguage = (code: string) => {
+    setSheetFocus("review")
+    setTranslating(code)
+  }
   /* A language just picked, while its save is on its way: Translate waits for it. */
   const [adding, setAdding] = React.useState<string | null>(null)
   const savedRef = React.useRef<Localization | null>(draft)
   const queue = React.useRef<Promise<void>>(Promise.resolve())
   /* Each added language's texts: translated and live, drafted to review, still to do (/api/store/translations?summary=1). */
-  const [progress, setProgress] = React.useState<Record<string, { done: number; draft: number; todo: number; total: number }> | null>(null)
+  const [progress, setProgress] = React.useState<Record<string, { done: number; draft: number; todo: number; review?: number; total: number }> | null>(null)
   /* A translation running now, by language: how far it is, or why it stopped. */
   const [drafting, setDrafting] = React.useState<Record<string, { state: "running"; done: number; total: number } | { state: "error"; message: string }>>({})
 
   /* The language the website's text is actually written in (lib/markets/detect-language.ts), when it can be told. */
   const [writtenIn, setWrittenIn] = React.useState<string | null>(null)
   const loadProgress = React.useCallback(async () => {
-    const r = await api<{ progress: Record<string, { done: number; draft: number; todo: number; total: number }>; writtenIn?: string | null }>("/api/store/translations?summary=1")
+    const r = await api<{ progress: Record<string, { done: number; draft: number; todo: number; review?: number; total: number }>; writtenIn?: string | null }>("/api/store/translations?summary=1")
     if (r.ok) {
       setProgress(r.data.progress)
       setWrittenIn(r.data.writtenIn ?? null)
@@ -374,6 +402,8 @@ export function MarketsPanel() {
                               `/${l.code.toLowerCase()}`,
                               tt("{done} of {total} translated", { done: p.done, total: p.total }),
                               p.draft > 0 ? tt("{count} to review", { count: p.draft }) : null,
+                              /* The merchant's own, its original changed since: still live, theirs to look at (translate.ts needsReview). */
+                              p.review ? tt("{count} need a look", { count: p.review }) : null,
                             ]
                               .filter(Boolean)
                               .join(" · ")
@@ -381,8 +411,8 @@ export function MarketsPanel() {
                     </span>
                   </span>
                   {/* The next step, by where it is: drafts waiting to be read, or a language ready to go live. Everything else is in the menu. */}
-                  {run?.state === "running" ? null : p && p.draft > 0 ? (
-                    <button type="button" className={cn(BTN_SECONDARY, "h-9 shrink-0 px-3")} onClick={() => setTranslating(l.code)} data-translate-language={l.code}>
+                  {run?.state === "running" ? null : p && (p.draft > 0 || (p.review ?? 0) > 0) ? (
+                    <button type="button" className={cn(BTN_SECONDARY, "h-9 shrink-0 px-3")} onClick={() => (p.draft > 0 ? setTranslating(l.code) : reviewLanguage(l.code))} data-translate-language={l.code}>
                       {tt("Review")}
                     </button>
                   ) : !l.published && p && p.done > 0 ? (
@@ -461,14 +491,23 @@ export function MarketsPanel() {
                 data.autoTranslate?.available === false
                   ? tt("Automatic translation isn't set up on Storelib yet. You can still write each translation yourself.")
                   : draft.languages.length === 0
-                    ? tt("Works once you add a language: each hour, text you add or change is translated and goes live.")
-                    : tt("Each hour, text you add or change is translated into your other languages and goes live. Translations you wrote are never replaced.")
+                    ? tt("Works once you add a language. When you publish changes, new and edited text is translated within a few minutes.")
+                    : tt("When you publish changes, new and edited text is translated into your other languages within a few minutes. Translations you edit yourself are never replaced.")
               }
               checked={draft.autoTranslate === true}
               disabled={!data.ready || (data.autoTranslate?.available === false && draft.autoTranslate !== true)}
               onChange={(v) => commit({ ...draft, autoTranslate: v })}
             />
-            {draft.autoTranslate && data.autoTranslate?.run ? <AutoTranslateRunLine run={data.autoTranslate.run} /> : null}
+            {draft.autoTranslate ? (
+              <AutoTranslateStatus
+                run={data.autoTranslate?.run ?? null}
+                review={Object.values(progress ?? {}).reduce((n, p) => n + (p.review ?? 0), 0)}
+                onReview={() => {
+                  const first = Object.entries(progress ?? {}).find(([, p]) => (p.review ?? 0) > 0)?.[0]
+                  if (first) reviewLanguage(first)
+                }}
+              />
+            ) : null}
           </div>
         </details>
       </Card>
@@ -565,6 +604,7 @@ export function MarketsPanel() {
       />
       <TranslateSheet
         locale={translating}
+        focus={sheetFocus}
         waiting={!!translating && adding === translating}
         defaultLanguage={draft.defaultLanguage}
         published={!!draft.languages.find((l) => l.code === translating)?.published}
@@ -572,6 +612,7 @@ export function MarketsPanel() {
         onPublish={translating && translating !== draft.defaultLanguage ? (v) => setPublished(translating, v) : undefined}
         onClose={() => {
           setTranslating(null)
+          setSheetFocus(null)
           /* What was approved or drafted there shows on its row. */
           void loadProgress()
         }}

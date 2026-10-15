@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { shopCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { collectionsArea, listCollections, saveCollection } from "@/lib/physical/collections-server"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,5 +19,6 @@ export async function POST(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const saved = await saveCollection(c.db, c.creatorId, null, body)
   if (saved.ok === false) return physicalJson({ error: saved.error }, 400)
+  translationsChanged(c.creatorId)
   return physicalJson({ id: saved.id, collections: await listCollections(c.db, c.creatorId) })
 }

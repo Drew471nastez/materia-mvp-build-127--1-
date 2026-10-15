@@ -16,7 +16,7 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { editorLanguages } from "./model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "./server"
-import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, statusOf, translationMap } from "./translate"
+import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, needsReview, statusOf, translationMap } from "./translate"
 import { draftReusing } from "./translate-ai"
 import { defaultLanguageScope, writtenLanguage } from "./detect-language"
 
@@ -73,7 +73,8 @@ export async function draftRound(db: Db, creatorId: string, locale: string, user
     if (live.ok) for (const w of waiting.slice(0, 500)) map.set(w.key, { ...map.get(w.key)!, status: "approved" })
   }
   const todo = all.filter((t) => aiMayWrite(map.get(t.key), t.source)).slice(0, PER_PRESS)
-  const counted = (drafted: Set<string>) => all.filter((t) => drafted.has(t.key) || statusOf(map.get(t.key), t.source) === "done" || statusOf(map.get(t.key), t.source) === "draft").length
+  /* The merchant's own with a changed original is still live: translated, and theirs to review, never Storelib AI's to redo. */
+  const counted = (drafted: Set<string>) => all.filter((t) => drafted.has(t.key) || statusOf(map.get(t.key), t.source) === "done" || statusOf(map.get(t.key), t.source) === "draft" || needsReview(map.get(t.key), t.source)).length
   if (todo.length === 0) return { ok: true, drafted: 0, left: 0, done: counted(new Set()), total: all.length }
   /* One already translated under another key is reused (translate-ai.ts draftReusing); the rest go to Storelib AI. */
   const { drafts, unavailable, reason, busy } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, from, locale, store?.name || "the store", { deadlineAt })

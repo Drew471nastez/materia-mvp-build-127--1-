@@ -2,6 +2,7 @@ import { sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
@@ -150,7 +151,11 @@ export async function PUT(req: Request, { params }: Params) {
    * write it. Keyed on `update.settings` rather than on `mode`, because one
    * of those branches writes it without being asked to publish.
    */
-  if (update.settings !== undefined && creatorId) await revalidatePublishedSite(creatorId)
+  if (update.settings !== undefined && creatorId) {
+    await revalidatePublishedSite(creatorId)
+    /* The theme's own words and search engine text, translated in a few minutes (lib/markets/translate-queue.ts). */
+    translationsChanged(creatorId)
+  }
 
   return NextResponse.json({ settings: result })
 }

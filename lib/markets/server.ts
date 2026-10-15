@@ -36,6 +36,7 @@ import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { compatThemeFor, installFiles } from "@/lib/website-builder/compat-site"
 import { compatFields } from "./compat"
+import { markTranslationsChanged, queueMissing } from "./translate-queue"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -111,18 +112,25 @@ export interface AutoTranslateRun {
   left: number
   /** Set when Storelib AI could not be reached (no key, no credit, every call failed): the switch says it tries again. */
   error?: "unavailable"
+  /** Changes saved since, waiting for the next run (store_localization.translate_dirty_at, part 179). Read, never stored in the run. */
+  pending?: boolean
 }
 
 /** Translate changes automatically, and its last run. Off, with no run, before part 175 or on any failed read. */
 export async function readAutoTranslate(db: Db, creatorId: string): Promise<{ on: boolean; run: AutoTranslateRun | null; ready: boolean }> {
-  const { data, error } = await db.from("store_localization").select("auto_translate, auto_translate_run").eq("creator_id", creatorId).maybeSingle().then(
-    (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
-    (e: unknown) => ({ data: null, error: { message: String(e) } }),
-  )
+  const read = (columns: string) =>
+    db.from("store_localization").select(columns).eq("creator_id", creatorId).maybeSingle().then(
+      (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
+      (e: unknown) => ({ data: null, error: { message: String(e) } }),
+    )
+  let { data, error } = await read("auto_translate, auto_translate_run, translate_dirty_at")
+  /* Part 179 not run: read as before, with nothing waiting. */
+  if (error && queueMissing(error)) ({ data, error } = await read("auto_translate, auto_translate_run"))
   if (error) return { on: false, run: null, ready: !autoTranslateMissing(error) && !marketsMissing(error) }
-  const row = data as { auto_translate?: boolean | null; auto_translate_run?: Partial<AutoTranslateRun> | null } | null
+  const row = data as { auto_translate?: boolean | null; auto_translate_run?: Partial<AutoTranslateRun> | null; translate_dirty_at?: string | null } | null
   const r = row?.auto_translate_run
-  const run = r && typeof r.at === "string" ? { at: r.at, translated: Number(r.translated) || 0, left: Number(r.left) || 0, ...(r.error === "unavailable" ? { error: "unavailable" as const } : {}) } : null
+  const pending = typeof row?.translate_dirty_at === "string"
+  const run = r && typeof r.at === "string" ? { at: r.at, translated: Number(r.translated) || 0, left: Number(r.left) || 0, ...(r.error === "unavailable" ? { error: "unavailable" as const } : {}), ...(pending ? { pending: true } : {}) } : pending ? { at: "", translated: 0, left: 0, pending: true } : null
   return { on: row?.auto_translate === true, run, ready: true }
 }
 
@@ -173,6 +181,8 @@ export async function saveLocalization(db: Db, creatorId: string, input: unknown
     if (v.autoTranslate) return { ok: false, status: 409, error: AUTO_TRANSLATE_NEEDS_PART }
     v.autoTranslate = false
   }
+  /* Turned on, or a language added with it on: the next three-minute run translates what is missing (./translate-queue.ts). */
+  if (!auto.error && v.autoTranslate) await markTranslationsChanged(db, creatorId)
   revalidateTag(localizationTag(creatorId), { expire: 0 })
   return { ok: true, value: v }
 }
