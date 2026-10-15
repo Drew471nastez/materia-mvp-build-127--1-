@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { isUuid, shopCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { deleteCollection, listCollections, saveCollection } from "@/lib/physical/collections-server"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -14,6 +15,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const saved = await saveCollection(c.db, c.creatorId, id, body)
   if (saved.ok === false) return physicalJson({ error: saved.error }, 400)
+  /* Its title and description, translated in a few minutes (lib/markets/translate-queue.ts). */
+  translationsChanged(c.creatorId)
   return physicalJson({ collections: await listCollections(c.db, c.creatorId) })
 }
 

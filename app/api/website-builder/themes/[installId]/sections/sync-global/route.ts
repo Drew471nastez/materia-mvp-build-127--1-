@@ -2,6 +2,7 @@ import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/blo
 import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
@@ -177,7 +178,10 @@ export async function PUT(req: Request, { params }: Params) {
 
   // A shared header pushed to every page in publish mode is a change to the
   // live site on every one of them, and so is part of one when some failed.
-  if (mode === "publish" && synced > 0) await revalidatePublishedSite((creator as { id: string }).id)
+  if (mode === "publish" && synced > 0) {
+    await revalidatePublishedSite((creator as { id: string }).id)
+    translationsChanged((creator as { id: string }).id)
+  }
 
   /* A write that failed is not a sync. The next save sends the header and footer again. */
   if (failed > 0) {

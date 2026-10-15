@@ -5,12 +5,24 @@ query tab in the Supabase SQL editor and run on its own.
 
 | File | What it does |
 | --- | --- |
-| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically), 176 (a store's own selling currency), 177 (translating in the background) and 178 (translation memory), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
+| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically), 176 (a store's own selling currency), 177 (translating in the background), 178 (translation memory) and 179 (changes translated within minutes of a publish), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
 | `2_check.sql` | Read only. One row per thing the code needs, each `true`; then what stores sell in, the background translations, the translation memory and the latest currency changes. |
 | `3_rollback.sql` | How to undo parts 176 and 177: put converted prices back first, then the code, then drop the schema. |
 
 The same parts are in `run-now/`, `run-four/` and `all-in-two/`. Run one route
 or the other; running both is harmless.
+
+## What part 179 adds
+
+- `store_localization.translate_dirty_at`: written when a store with Translate
+  changes automatically on publishes its website or saves a menu, a product or
+  a collection. `/api/cron/translation-jobs` (every three minutes) translates
+  the stores whose last change is a couple of minutes old and clears it once
+  they are up to date, so a change is live in its other languages within
+  minutes, not hours. The hourly `/api/cron/translations` only queues a store
+  nothing has queued for a day.
+- `store_localization.translate_lease_until`: one run translates a store at a
+  time. Without part 179 the hourly run works through the stores as before.
 
 ## What part 178 adds
 

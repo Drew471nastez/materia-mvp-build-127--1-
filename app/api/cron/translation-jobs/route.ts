@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { recordCronRun } from "@/lib/observability/report"
 import { askNextRun, continueJobs } from "@/lib/markets/translation-jobs"
+import { runChangedStores } from "@/lib/markets/auto-translate"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -11,10 +12,18 @@ export const maxDuration = 300
 const RUN_WINDOW_MS = 270_000
 
 /**
- * CRON: Translate with AI in the background (lib/markets/translation-jobs.ts).
- * Carries on every job a run let go of or was cut off from. A run that ran
- * out of time asks for the next one here at once (POST with the job); the
- * schedule is the net under that. Behind the cron secret, like every cron.
+ * CRON, every three minutes, two things side by side:
+ *
+ *   Translate with AI in the background (lib/markets/translation-jobs.ts):
+ *   carries on every job a run let go of or was cut off from. A run that ran
+ *   out of time asks for the next one here at once (POST with the job); the
+ *   schedule is the net under that.
+ *
+ *   Translate changes automatically (lib/markets/auto-translate.ts
+ *   runChangedStores): the stores whose website changed a couple of minutes
+ *   ago, translated and live, so a publish is in every language in minutes.
+ *
+ * Behind the cron secret, like every cron.
  */
 async function run(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
@@ -35,7 +44,8 @@ async function run(request: Request) {
     })
     return NextResponse.json({ ok: true })
   }
-  return NextResponse.json(await continueJobs(started + RUN_WINDOW_MS))
+  const [jobs, changes] = await Promise.all([continueJobs(started + RUN_WINDOW_MS), runChangedStores(started + RUN_WINDOW_MS)])
+  return NextResponse.json({ ...jobs, changes })
 }
 
 export async function GET(request: Request) {
