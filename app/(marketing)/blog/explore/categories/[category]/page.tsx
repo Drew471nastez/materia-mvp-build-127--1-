@@ -10,7 +10,15 @@ import {
 import BlogListing, { type BlogPost } from "../../../_blog-listing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 
-export const dynamic = "force-dynamic"
+/*
+  HELD AT THE EDGE FOR A MINUTE, NOT RENDERED FOR EVERY READER (the owner:
+  marketing pages served from the CDN). Nothing here depends on who is
+  reading: the posts come from the admin client, which reads no cookie. It
+  was force-dynamic, so every visit ran a function and the same database
+  reads for the same page. Rebuilt in the background at most once a minute,
+  the same minute next.config's `/blog/:path*` rule already gives the CDN.
+*/
+export const revalidate = 60
 
 const STATIC_POSTS: BlogPost[] = [
   { id: "s1", slug: "how-to-start-selling-digital-products-2026", title: "How to Start Selling Digital Products in 2026", excerpt: "Turn your skills into income. A no-fluff guide to launching your first digital product store.", category: "Getting Started", published_at: "2026-01-15T00:00:00Z", read_time: "5 min read", cover_image_url: "/images/blog/digital-products-2026.svg", gradient: "from-neutral-800 to-neutral-900" },

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { FeaturesBadgesSection } from "@/components/marketing/features-badges-section"
 import { ProductMarquee } from "@/components/marketing/product-marquee"
@@ -9,19 +9,41 @@ import { ToolStackSection } from "@/components/marketing/tool-stack-section"
 import { FaqSection } from "@/components/marketing/faq-section"
 import { CtaSection } from "@/components/marketing/cta-section"
 import { PRO_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
+import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 
 /** Pro checkout sends the internal plan id "growth": the $29 Stripe price. */
 type CheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID
 
-export function PricingPageClient({
-  source,
-  returnTo,
-  isLoggedIn,
-}: {
-  source?: string
-  returnTo?: string
-  isLoggedIn?: boolean
-}) {
+/** Signed in, as the header last knew it (the footer and the tab bar read the same record). */
+const readSignedIn = () => !!readAuthSnapshot()?.signedIn
+
+/** ?source=upgrade&returnTo=…, read from the address because the page is static. */
+function readUpgradeQuery(): { source?: string; returnTo?: string } {
+  const q = new URLSearchParams(window.location.search)
+  const raw = q.get("returnTo")
+  let returnTo: string | undefined
+  if (raw) {
+    /* Decoded once more, as the server did with the value Next had already decoded. */
+    try { returnTo = decodeURIComponent(raw) } catch { returnTo = raw }
+  }
+  return { source: q.get("source") ?? undefined, returnTo }
+}
+
+export function PricingPageClient() {
+  /*
+    WHO IS SIGNED IN, AFTER HYDRATION. The server render is the signed out
+    page; the header checks the session on mount and keeps this record in
+    step, so a signed in visitor's Pro button turns into checkout as soon as
+    it knows. Its label is the same either way, so nothing moves.
+  */
+  const isLoggedIn = useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
+  /*
+    THE UPGRADE MODE, read before the browser paints again. Its heading sits
+    inside a scroll-in that is still at opacity 0 at that moment, so the
+    renamed heading is the first one anybody sees.
+  */
+  const [{ source, returnTo }, setQuery] = useState<{ source?: string; returnTo?: string }>({})
+  useLayoutEffect(() => setQuery(readUpgradeQuery()), [])
   const isUpgradeMode = source === "upgrade"
   const [loadingPlan, setLoadingPlan] = useState<CheckoutPlanId | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)

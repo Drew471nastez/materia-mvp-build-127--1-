@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { cache } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -10,7 +11,15 @@ import CtaBanner from "./_cta-banner"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { storelibLogoUrl } from "@/lib/brand/logo"
 
-export const dynamic = "force-dynamic"
+/*
+  HELD AT THE EDGE FOR A MINUTE, NOT RENDERED FOR EVERY READER (the owner:
+  marketing pages served from the CDN). Nothing here depends on who is
+  reading: the posts come from the admin client, which reads no cookie. It
+  was force-dynamic, so every visit ran a function and the same database
+  reads for the same page. Rebuilt in the background at most once a minute,
+  the same minute next.config's `/blog/:path*` rule already gives the CDN.
+*/
+export const revalidate = 60
 
 // ─── Hardcoded fallback posts ──────────────────────────────────────────────
 const BLOG_POSTS: Record<string, {
@@ -152,7 +161,8 @@ function renderLegacyContent(content: string[]): React.ReactNode {
 }
 
 // ─── Data fetching ─────────────────────────────────────────────────────────
-async function fetchPost(slug: string) {
+/* One read per render: generateMetadata and the page both ask for the post, and cache() hands the second the first one's answer. */
+const fetchPost = cache(async (slug: string) => {
   try {
     const supabase = createAdminClient()
     const { data } = await supabase
@@ -165,7 +175,7 @@ async function fetchPost(slug: string) {
   } catch {
     return null
   }
-}
+})
 
 async function fetchSiblingPosts(slug: string, category: string) {
   try {

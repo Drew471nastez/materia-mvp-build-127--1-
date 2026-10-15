@@ -411,6 +411,8 @@ const SUITES = [
   "tests/admin-auth.test.ts",
   "tests/stuck-layer.test.ts",
   "tests/site-cache-and-buttons.test.ts",
+  /* Marketing pages served from the CDN: their layout reads nothing about the request */
+  "tests/marketing-cache.test.ts",
   "tests/keyboard-watch.test.ts",
   "tests/agent-attachments.test.ts",
   "tests/work-panel.test.ts",
