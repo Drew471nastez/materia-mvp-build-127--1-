@@ -66,6 +66,8 @@ html[data-sl-dark] body {
   --sl-surface: #18181b;
   --sl-raised: #1f1f23;
   --sl-line: rgba(255,255,255,0.07);
+  /* Round 30: a slim scrollbar's thumb (post-overlay.tsx SLIM_SCROLL), a graphite step, not the light grey. */
+  --sl-scroll-thumb: #3a3a41;
 }
 [data-community-theme="dark"] {
   background-color: #111113;
@@ -228,7 +230,10 @@ html[data-theme-swap]::view-transition-new(root) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 744 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 771 of them ─────────────── */
+:is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d3d6db\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d4d7dd\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:border-white::-webkit-scrollbar-thumb { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#000000\]:active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#0f0f1c\]:active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#10101d\]:active { background-color: #35353c; }
@@ -665,6 +670,15 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-\[\#fafafa\] { --tw-gradient-from: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-neutral-100 { --tw-gradient-from: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-white { --tw-gradient-from: #18181b; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/back\:bg-\[\#eef0f3\]:is(:where(.group\/back):active *) { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/back\:bg-\[\#f1f2f4\]:is(:where(.group\/back):active *) { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/close\:bg-\[\#f6f7f9\]:is(:where(.group\/close):active *) { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/shop\:bg-\[\#f3f4f6\]:is(:where(.group\/shop):active *) { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/back\:outline-\[\#1a1a2e\]:is(:where(.group\/back):focus-visible *) { outline-color: rgba(255,255,255,0.24); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/play\:ring-white\/50:is(:where(.group\/play):focus-visible *) { --tw-ring-color: rgba(255,255,255,0.035); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/play\:ring-white\/70:is(:where(.group\/play):focus-visible *) { --tw-ring-color: rgba(255,255,255,0.049); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/rm\:ring-\[\#1a1a2e\]\/30:is(:where(.group\/rm):focus-visible *) { --tw-ring-color: rgba(255,255,255,0.072); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/shop\:outline-\[\#1a1a2e\]:is(:where(.group\/shop):focus-visible *) { outline-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .placeholder\:text-\[\#6b7280\]::placeholder { color: hsla(220,9%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .placeholder\:text-neutral-400::placeholder { color: #6f7077; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .placeholder\:text-neutral-500::placeholder { color: #c9cacf; }
@@ -814,6 +828,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_2px_rgba\(0\,0\,0\,0\.5\)\,0_0_0_0\.5px_rgba\(0\,0\,0\,0\.5\)\,0_1px_0_rgba\(255\,255\,255\,0\.6\)\] { box-shadow: inset 0 1px 2px rgba(0,0,0,0.5),0 0 0 0.5px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.048); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_2px_rgba\(16\,24\,40\,0\.16\)\,inset_0_0_0_0\.5px_rgba\(16\,24\,40\,0\.1\)\,0_1px_0_rgba\(255\,255\,255\,0\.7\)\] { box-shadow: inset 0 1px 2px rgba(16,24,40,0.16),inset 0 0 0 0.5px rgba(16,24,40,0.1),0 1px 0 rgba(255,255,255,0.056); }
 @media (hover: hover) and (pointer: fine) {
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .enabled\:hover\:border-\[\#c9ccd3\]:enabled:hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:hover\:bg-white:focus-within:hover { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\:bg-violet-50:is(:where(.group):hover *) { background-color: hsla(250,60%,50%,0.16); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\:border-violet-200:is(:where(.group):hover *) { border-color: hsla(251,50%,40%,0.45); }
@@ -958,6 +973,23 @@ html[data-theme-swap]::view-transition-new(root) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .pointer-fine\:hover\:border-\[\#e5e7eb\]:hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .pointer-fine\:hover\:text-\[\#1a1a2e\]:hover { color: #ececee; }
 }
+@media (hover:hover) and (hover: hover) and (pointer: fine) {
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:group-hover\/chip\:text-\[\#1a1a2e\]:is(:where(.group\/chip):hover *) { color: #ececee; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:group-hover\/pill\:text-\[\#1a1a2e\]:is(:where(.group\/pill):hover *) { color: #ececee; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#f5f6f7\]:hover { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#f8f9fa\]:hover { background-color: #25252a; }
+}
+@media (hover:hover) and (pointer:fine) and (hover: hover) and (pointer: fine) {
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)_and_\(pointer\:fine\)\]\:hover\:bg-\[\#1a1a2e\]\/\[0\.04\]:hover { background-color: rgba(53,53,60,0.04); }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)_and_\(pointer\:fine\)\]\:hover\:bg-\[\#2a2a40\]:hover { background-color: #35353c; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)_and_\(pointer\:fine\)\]\:hover\:bg-\[\#eef0f2\]:hover { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)_and_\(pointer\:fine\)\]\:hover\:bg-\[\#f7f8fa\]:hover { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)_and_\(pointer\:fine\)\]\:hover\:text-\[\#1a1a2e\]:hover { color: #ececee; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)_and_\(pointer\:fine\)\]\:group-hover\/block\:shadow-\[0_0_0_1px_\#e3e4e8\]:is(:where(.group\/block):hover *) { box-shadow: 0 0 0 1px rgba(255,255,255,0.009); }
+}
+@media (hover:none) {
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:none\)\]\:bg-black\/25 { background-color: rgba(45,45,51,0.25); }
+}
 @media (width < 40rem) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .max-sm\:before\:text-\[\#6b7280\]::before { color: hsla(220,9%,72%,1); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .max-sm\:bg-white { background-color: #18181b; }
@@ -977,6 +1009,13 @@ html[data-theme-swap]::view-transition-new(root) {
 }
 @media (width >= 40rem) and (hover: hover) and (pointer: fine) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:hover\:border-\[\#dfe2e6\]:hover { border-color: rgba(255,255,255,0.07); }
+}
+@media (width >= 40rem) and (hover:hover) and (hover: hover) and (pointer: fine) {
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:\[\@media\(hover\:hover\)\]\:hover\:border-\[\#d7dadf\]:hover { border-color: rgba(255,255,255,0.07); }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:\[\@media\(hover\:hover\)\]\:hover\:decoration-\[\#1a1a2e\]\/30:hover { text-decoration-color: rgba(255,255,255,0.072); }
+}
+@media (width >= 48rem) {
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .md\:data-open\:bg-\[\#ececef\][data-open] { background-color: #25252a; }
 }
 @media (width >= 48rem) and (hover: hover) and (pointer: fine) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .md\:hover\:bg-\[\#f4f4f6\]:hover { background-color: #25252a; }

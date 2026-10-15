@@ -198,8 +198,8 @@ function* files(dir) {
   }
 }
 const COLOUR = String.raw`(?:\[#[0-9a-fA-F]{3,8}\]|white|black|(?:gray|neutral|slate|zinc|stone|red|violet|emerald|green|amber|blue|sky|orange|rose)-\d{2,3})`
-const TOKEN = new RegExp(String.raw`(?<![\w\-:/\[])((?:[a-z0-9-]+(?:-\[[^\]\s]+\])?(?:\/[\w-]+)?:)*)(bg|text|border(?:-[trblxyse])?|divide|ring|outline|from|via|to|fill|stroke|decoration|caret|accent)-(${COLOUR})(\/(?:\d{1,3}|\[[\d.]+\]))?(?![\w\-\[])`, "g")
-const SHADOW = /(?<![\w\-:/\[])((?:[a-z0-9-]+(?:-\[[^\]\s]+\])?(?:\/[\w-]+)?:)*)shadow-\[([^\]\s]+)\](?![\w\-\[])/g
+const TOKEN = new RegExp(String.raw`(?<![\w\-:/\[])((?:\[@media[^\]\s]+\]:|\[&::?[\w-]+\]:|[a-z0-9-]+(?:-\[[^\]\s]+\])?(?:\/[\w-]+)?:)*)(bg|text|border(?:-[trblxyse])?|divide|ring|outline|from|via|to|fill|stroke|decoration|caret|accent)-(${COLOUR})(\/(?:\d{1,3}|\[[\d.]+\]))?(?![\w\-\[])`, "g")
+const SHADOW = /(?<![\w\-:/\[])((?:\[@media[^\]\s]+\]:|\[&::?[\w-]+\]:|[a-z0-9-]+(?:-\[[^\]\s]+\])?(?:\/[\w-]+)?:)*)shadow-\[([^\]\s]+)\](?![\w\-\[])/g
 
 const tokens = new Map()
 const shadows = new Map()
@@ -216,15 +216,26 @@ const HOVER_MEDIA = "(hover: hover) and (pointer: fine)"
 const WIDTH = { sm: "40rem", md: "48rem", lg: "64rem", xl: "80rem", "2xl": "96rem" }
 /** { pseudo, media[], interactive } for a chain of variants, or null when one is not understood. */
 function variantsOf(chain) {
-  const parts = chain ? chain.split(":").filter(Boolean) : []
+  /* Split on the colons between variants, not the ones inside an arbitrary one ([@media(hover:hover)]). */
+  const parts = chain ? (chain.match(/(?:[^:\[]|\[[^\]]*\])+/g) ?? []).filter(Boolean) : []
   let pseudo = ""
   const media = []
   let interactive = false
   for (const v of parts) {
     if (v === "dark") return null
+    /*
+      Round 30: an arbitrary media variant ([@media(hover:hover)]:hover:bg-[#f8f9fa], the Members row) was not read at
+      all, so its light hover stayed light in the dark look: a white row under the person card. Its query is kept as
+      written (underscores are spaces), so the dark rule applies exactly where the light one does.
+    */
+    let am
+    if ((am = /^\[@media(\(.+\))\]$/.exec(v))) { media.push(am[1].replace(/_/g, " ")); continue }
     if (v === "hover") { pseudo += ":hover"; media.push(HOVER_MEDIA); interactive = true; continue }
     if (v === "pointer-fine") { media.push(HOVER_MEDIA); continue }
     if (/^group-hover(\/[\w-]+)?$/.test(v)) { const n = v.split("/")[1]; pseudo += `:is(:where(.group${n ? `\\/${n}` : ""}):hover *)`; media.push(HOVER_MEDIA); interactive = true; continue }
+    /* Round 30: a pressed or keyboard focused group (the post page's back button, the full screen post's close) and an enabled control. */
+    if (/^group-(active|focus-visible)(\/[\w-]+)?$/.test(v)) { const [st, n] = v.slice(6).split("/"); pseudo += `:is(:where(.group${n ? `\\/${n}` : ""}):${st} *)`; interactive = true; continue }
+    if (v === "enabled") { pseudo += ":enabled"; continue }
     if (/^group-data-\[/.test(v) || /^peer-/.test(v)) return null
     if (v === "focus") { pseudo += ":focus"; interactive = true; continue }
     if (v === "focus-visible") { pseudo += ":focus-visible"; interactive = true; continue }
@@ -240,6 +251,10 @@ function variantsOf(chain) {
     if (v === "before") { pseudo += "::before"; continue }
     if (v === "after") { pseudo += "::after"; continue }
     let m
+    /* Tailwind's bare data variant (md:data-open:bg-[#ececef], a menu trigger while its menu is open) is the attribute's presence. */
+    if ((m = /^data-([a-z][\w-]*)$/.exec(v))) { pseudo += `[data-${m[1]}]`; interactive = true; continue }
+    /* A scrollbar's own parts ([&::-webkit-scrollbar-thumb]:bg-[#d3d6db], the post overlay). */
+    if ((m = /^\[&(::?[\w-]+)\]$/.exec(v))) { pseudo += m[1]; continue }
     if ((m = /^data-\[([\w-]+)(?:=([^\]]+))?\]$/.exec(v))) { pseudo += m[2] !== undefined ? `[data-${m[1]}="${m[2]}"]` : `[data-${m[1]}]`; interactive = true; continue }
     if ((m = /^aria-\[([\w-]+)=([^\]]+)\]$/.exec(v))) { pseudo += `[aria-${m[1]}="${m[2]}"]`; interactive = true; continue }
     if ((m = /^aria-(selected|checked|pressed|expanded|current|disabled)$/.exec(v))) { pseudo += `[aria-${m[1]}="true"]`; interactive = true; continue }
@@ -395,6 +410,8 @@ ${SCOPE} {
   --sl-surface: ${P.surface};
   --sl-raised: ${P.raised};
   --sl-line: ${L(P.line)};
+  /* Round 30: a slim scrollbar's thumb (post-overlay.tsx SLIM_SCROLL), a graphite step, not the light grey. */
+  --sl-scroll-thumb: ${P.thumb};
 }
 [data-community-theme="dark"] {
   background-color: ${P.page};

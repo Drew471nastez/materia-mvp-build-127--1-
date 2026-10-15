@@ -16,6 +16,12 @@
  *
  * One space takes posts (General), so the composer picks it by itself.
  * Rendered by scripts/check-composer-round29.mjs.
+ *
+ * Round 30 (scripts/check-composer-round30.mjs) adds, by address:
+ *   ?spaces=2       Critique takes posts too, so the composer has no space
+ *                   until one is chosen (the no space cue)
+ *   /members        the Members list in the real shell, with the person card
+ *                   answered here (the hover colour in the dark look)
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -28,10 +34,11 @@ import { placeFromKey } from "@/lib/communities/client/places"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { CommentView, FeedPostView, Role, ViewerView } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
-import { POST_CHIME, postChime } from "@/components/community/member/heart"
+import { POST_POP, postPop } from "@/components/community/member/heart"
+import type { MemberView } from "@/lib/communities/types"
 
-/* The post's chime, for the probe to render offline and measure. */
-;(window as unknown as { __chime?: unknown }).__chime = { postChime, POST_CHIME }
+/* The post's sound (round 30: one soft pop), for the probe to render offline and measure. */
+;(window as unknown as { __sound?: unknown }).__sound = { postPop, POST_POP }
 
 const params = new URLSearchParams(location.search)
 if (params.get("dark") === "1") document.documentElement.setAttribute("data-sl-dark", "")
@@ -101,7 +108,7 @@ const topBar: TopBarData = {
 
 const spaces: SpaceView[] = [
   { id: "s-general", slug: "general", name: "General", description: "Anything about the work.", icon: "messages-square", kind: "feed", canPost: true, commentsEnabled: true, unread: 0 },
-  { id: "s-crit", slug: "critique", name: "Critique", description: "Honest notes on form.", icon: null, kind: "feed", canPost: false, commentsEnabled: true, unread: 0 },
+  { id: "s-crit", slug: "critique", name: "Critique", description: "Honest notes on form.", icon: null, kind: "feed", canPost: params.get("spaces") === "2", commentsEnabled: true, unread: 0 },
 ]
 
 const post = (over: Partial<FeedPostView> & { id: string }): FeedPostView => ({
@@ -171,6 +178,7 @@ const feedData: PlaceData = {
 function placeData(key: string): PlaceData | null {
   const p = placeFromKey(key)
   if (!p) return null
+  if (p.kind === "members") return membersData()
   return p.kind === "feed" || p.kind === "space" || p.kind === "saved" ? feedData : null
 }
 
@@ -212,8 +220,26 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const p = byId.get(one[1])
     return p ? json({ post: p }) : json({ error: "not_found" }, 404)
   }
+  const card = /\/people\/([^/]+)\/card$/.exec(path)
+  if (card) {
+    await later(40)
+    const m = MEMBERS.find((x) => x.userId === decodeURIComponent(card[1]))
+    if (!m) return json({ error: "not_found" }, 404)
+    return json({ person: { id: m.userId, name: m.name, username: m.username, avatarUrl: m.avatarUrl, href: `/@${m.username}`, bio: m.bio, location: m.location ?? null, role: m.role, level: m.level, levelName: m.levelName, activeAt: iso(NOW - HOUR), communities: { count: 3, inCommon: 1 }, owns: 0, following: false, isSelf: false, canMessage: false } })
+  }
+  if (/\/members/.test(path)) return json({ members: MEMBERS, nextCursor: null })
   if (/\/api\/notifications\/inbox/.test(path)) return json({ items: [], unread: 0, hasMore: false, nextCursor: null })
   return json({ error: "not_here" }, 404)
+}
+
+const member = (p: (typeof people)[keyof typeof people], bio: string, location: string | null): MemberView => ({ userId: p.id, name: p.name, username: p.username, avatarUrl: p.avatarUrl, role: p.role, status: "active", tierId: null, tierName: null, level: p.level, levelName: null, points: 10 * p.level, bio, joinedAt: iso(NOW - 40 * DAY), lastActiveAt: iso(NOW - HOUR), hasStorefront: p.hasStorefront, location })
+const MEMBERS: MemberView[] = [
+  member(people.mara, "Runs the studio. Wood fired stoneware.", "Uppsala, Sweden"),
+  member(people.jonas, "Learning to trim without a chuck.", "Lisbon, Portugal"),
+  member(people.me, "Weekend potter.", null),
+]
+function membersData(): PlaceData {
+  return { kind: "members", communityId: CID, slug: community.slug, memberCount: MEMBERS.length, initial: { members: MEMBERS, nextCursor: null }, meId: "u-me" }
 }
 
 try {
@@ -226,7 +252,11 @@ createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
     <ViewportVars />
     <ShellFrame community={community} viewer={viewer} topBar={topBar} unreadMessages={null} wall={null} chatSpaces={[]}>
-      <PlaceSeed communityId={CID} slug={community.slug} place={{ kind: "feed" }} data={feedData} />
+      {location.pathname.endsWith("/members") ? (
+        <PlaceSeed communityId={CID} slug={community.slug} place={{ kind: "members" }} data={membersData()} />
+      ) : (
+        <PlaceSeed communityId={CID} slug={community.slug} place={{ kind: "feed" }} data={feedData} />
+      )}
     </ShellFrame>
   </LocaleProvider>,
 )
