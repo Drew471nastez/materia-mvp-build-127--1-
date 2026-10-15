@@ -1,5 +1,6 @@
 import { communityHead, sectionPage } from "@/lib/communities/server/creator"
 import { AnalyticsSection } from "@/components/community/creator/analytics-section"
+import { SectionSeed } from "@/components/community/creator/community-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -15,5 +16,9 @@ export default async function CommunityAnalyticsPage({ params }: { params: Promi
   const ctx = await sectionPage(id, "view_analytics")
   if (!ctx) return null
   const head = await communityHead(ctx)
-  return <AnalyticsSection head={head} />
+  return (
+    <SectionSeed id="analytics">
+      <AnalyticsSection head={head} />
+    </SectionSeed>
+  )
 }

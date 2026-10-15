@@ -261,7 +261,7 @@ html[data-theme-swap]::view-transition-new(root) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 773 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 781 of them ─────────────── */
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d3d6db\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d4d7dd\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:border-white::-webkit-scrollbar-thumb { border-color: rgba(255,255,255,0.07); }
@@ -277,6 +277,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e4e6ea\]:active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e5e7eb\]:active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e6e8eb\]:active { background-color: #2b2b31; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e6e8ec\]:active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e7e9ed\]:active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e8e9ec\]:active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e9eaed\]:active { background-color: #2b2b31; }
@@ -420,6 +421,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-black\/\[0\.03\] { background-color: rgba(45,45,51,0.03); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-black\/0 { background-color: rgba(45,45,51,0); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-black\/10 { background-color: rgba(45,45,51,0.1); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-black\/15 { background-color: rgba(45,45,51,0.15); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-black\/25 { background-color: rgba(45,45,51,0.25); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-black\/30 { background-color: rgba(45,45,51,0.3); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-black\/35 { background-color: rgba(45,45,51,0.35); }
@@ -499,6 +501,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d1d5db\] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d1fadf\] { border-color: hsla(140,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d1fae5\] { border-color: hsla(149,50%,40%,0.45); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d3d6dc\] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d4d7dc\] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d5d7dd\] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d5d8de\] { border-color: rgba(255,255,255,0.07); }
@@ -601,6 +604,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:border-\[\#eceef1\][data-state="open"] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:text-\[\#1a1a2e\][data-state="open"] { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=unchecked\]\:bg-\[\#e4e5e9\][data-state="unchecked"] { background-color: #2b2b31; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .data-open\:border-\[\#1a1a2e\]\/50[data-open] { border-color: rgba(255,255,255,0.12); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-\[\#1a1a2e\]\/25 { text-decoration-color: rgba(255,255,255,0.06); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-\[\#1a1a2e\]\/30 { text-decoration-color: rgba(255,255,255,0.072); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-\[\#c4b5fd\] { text-decoration-color: hsla(252,50%,40%,0.45); }
@@ -825,6 +829,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_1px_\#e5e7eb\,0_1px_2px_rgba\(15\,23\,42\,0\.05\)\] { box-shadow: 0 0 0 1px rgba(255,255,255,0.009),0 1px 2px rgba(15,23,42,0.05); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_1px_rgba\(255\,255\,255\,0\.08\)\,0_1px_2px_rgba\(0\,0\,0\,0\.16\)\,0_8px_20px_-8px_rgba\(0\,0\,0\,0\.4\)\] { box-shadow: 0 0 0 1px rgba(255,255,255,0.006),0 1px 2px rgba(0,0,0,0.16),0 8px 20px -8px rgba(0,0,0,0.4); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_1px_rgba\(255\,255\,255\,0\.16\)\,0_1px_2px_rgba\(0\,0\,0\,0\.5\)\] { box-shadow: 0 0 0 1px rgba(255,255,255,0.013),0 1px 2px rgba(0,0,0,0.5); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_2px_\#1a1a2e\,0_0_0_6px_rgba\(26\,26\,46\,0\.08\)\] { box-shadow: 0 0 0 2px rgba(255,255,255,0.019),0 0 0 6px rgba(26,26,46,0.08); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_2px_\#1a1a2e\] { box-shadow: 0 0 0 2px rgba(255,255,255,0.019); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_2px_\#d72c0d\] { box-shadow: 0 0 0 2px #d72c0d; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_2px_\#fff\] { box-shadow: 0 0 0 2px rgba(255,255,255,0.009); }
@@ -832,6 +837,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_1px_1\.5px_rgba\(16\,24\,40\,0\.18\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.08\)\] { box-shadow: 0 1px 1.5px rgba(16,24,40,0.18),inset 0 1px 0 rgba(255,255,255,0.006); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_1px_1\.5px_rgba\(16\,24\,40\,0\.18\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.10\)\] { box-shadow: 0 1px 1.5px rgba(16,24,40,0.18),inset 0 1px 0 rgba(255,255,255,0.008); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_1px_2px_rgba\(0\,0\,0\,0\.18\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.08\)\] { box-shadow: 0 1px 2px rgba(0,0,0,0.18),inset 0 1px 0 rgba(255,255,255,0.006); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_1px_2px_rgba\(16\,18\,27\,0\.08\)\,inset_0_0_0_1px_rgba\(16\,18\,27\,0\.05\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.7\)\] { box-shadow: 0 1px 2px rgba(16,18,27,0.08),inset 0 0 0 1px rgba(16,18,27,0.05),inset 0 1px 0 rgba(255,255,255,0.056); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_1px_2px_rgba\(16\,24\,40\,0\.2\)\,0_2px_5px_-2px_rgba\(16\,24\,40\,0\.22\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.09\)\] { box-shadow: 0 1px 2px rgba(16,24,40,0.2),0 2px 5px -2px rgba(16,24,40,0.22),inset 0 1px 0 rgba(255,255,255,0.007); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_8px_28px_-10px_rgba\(17\,24\,39\,0\.45\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.08\)\] { box-shadow: 0 8px 28px -10px rgba(17,24,39,0.45),inset 0 1px 0 rgba(255,255,255,0.006); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_0_0_0_\#1a1a2e\] { box-shadow: inset 0 0 0 0 rgba(255,255,255,0.019); }
@@ -847,6 +853,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,0_1px_2px_rgba\(16\,24\,40\,0\.24\)\] { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),0 1px 2px rgba(16,24,40,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.3\)\,0_1px_2px_rgba\(16\,24\,40\,0\.2\)\] { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),inset 0 -1px 0 rgba(0,0,0,0.3),0 1px 2px rgba(16,24,40,0.2); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.35\)\,0_1px_2px_rgba\(16\,24\,40\,0\.25\)\] { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),inset 0 -1px 0 rgba(0,0,0,0.35),0 1px 2px rgba(16,24,40,0.25); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\] { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.16\)\,0_1px_2px_rgba\(76\,29\,149\,0\.3\)\] { box-shadow: inset 0 1px 0 rgba(255,255,255,0.013),0 1px 2px rgba(76,29,149,0.3); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.16\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.3\)\,0_1px_2px_rgba\(16\,24\,40\,0\.22\)\] { box-shadow: inset 0 1px 0 rgba(255,255,255,0.013),inset 0 -1px 0 rgba(0,0,0,0.3),0 1px 2px rgba(16,24,40,0.22); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.2\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.2\)\,0_1px_1px_rgba\(0\,0\,0\,0\.12\)\] { box-shadow: inset 0 1px 0 rgba(255,255,255,0.016),inset 0 -1px 0 rgba(0,0,0,0.2),0 1px 1px rgba(0,0,0,0.12); }
@@ -884,6 +891,7 @@ html[data-theme-swap]::view-transition-new(root) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:bg-\[\#fafafb\]:is(:where(.group\/shop):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:border-\[\#d2d5da\]:is(:where(.group\/shop):hover *) { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/step\:text-\[\#1a1a2e\]:is(:where(.group\/step):hover *) { color: #ececee; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/tile\:bg-black\/10:is(:where(.group\/tile):hover *) { background-color: rgba(53,53,60,0.1); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#1a1a2e\]:hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#26262b\]:hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#2a2a40\]:hover { background-color: #35353c; }

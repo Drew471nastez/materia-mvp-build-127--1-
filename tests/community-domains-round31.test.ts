@@ -196,7 +196,8 @@ console.log("\nThe community's own Domain panel in /app")
   check("it links to Settings › Domains", /\/app\/settings\?tab=domains/.test(panel))
   check("somebody who is not the owner is told who connects it", /The community's owner connects its domain\./.test(raw(file)))
   check("disconnecting asks first", /<Confirm/.test(panel) && /danger/.test(panel))
-  check("the shell and the settings section are not edited here (the merge mounts it)", !/CommunityDomainPanel/.test(raw("components/community/creator/community-shell.tsx")) && !/CommunityDomainPanel/.test(raw("components/community/creator/settings-section.tsx")))
+  /* Changed on purpose (round 31 merge): the merge mounted it, once, in the settings section's Page panel. */
+  check("the panel is mounted once, in the settings section, never in the shell", !/CommunityDomainPanel/.test(raw("components/community/creator/community-shell.tsx")) && (raw("components/community/creator/settings-section.tsx").match(/<CommunityDomainPanel communityId=\{head\.id\} \/>/g) || []).length === 1)
 }
 
 console.log("\nThe words")

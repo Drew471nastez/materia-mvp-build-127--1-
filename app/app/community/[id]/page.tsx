@@ -4,6 +4,7 @@ import { MessagesSetupNote } from "@/components/community/member/messages-setup-
 import { LeaveReasonsCard } from "@/components/community/creator/leave-reasons-card"
 import { leaveReasonsSummary } from "@/lib/communities/server/leave-reasons"
 import { meetsRole } from "@/lib/communities/permissions"
+import { SectionSeed } from "@/components/community/creator/community-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -14,8 +15,9 @@ export default async function CommunityOverviewPage({ params, searchParams }: { 
   if (!ctx) return null
   /* Why people left (round 12): the owner and admins only, and only once part 98 has made the table. */
   const [head, data, left] = await Promise.all([communityHead(ctx), loadOverview(ctx), meetsRole(ctx.role, "admin") ? leaveReasonsSummary(ctx.db, ctx.community.id) : Promise.resolve(null)])
+  /* Kept by the shell for the way back (round 31); ?created=1 is a one time ask, so it starts the overview again. */
   return (
-    <>
+    <SectionSeed id="overview" stamp={query.created === "1" ? "created" : ""}>
       {/* Staff see why members have no Messages button, when the only reason is the missing database part. */}
       <MessagesSetupNote chatEnabled={!!ctx.community.chat_enabled} />
       <Overview head={head} data={data} created={query.created === "1"} />
@@ -24,6 +26,6 @@ export default async function CommunityOverviewPage({ params, searchParams }: { 
           <LeaveReasonsCard summary={left} />
         </div>
       ) : null}
-    </>
+    </SectionSeed>
   )
 }

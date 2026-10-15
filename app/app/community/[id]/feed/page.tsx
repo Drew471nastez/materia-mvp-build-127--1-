@@ -1,6 +1,7 @@
 import { can, meetsRole } from "@/lib/communities/permissions"
 import { communityHead, loadFeedRows, loadSpaces, sectionPage } from "@/lib/communities/server/creator"
 import { FeedSection } from "@/components/community/creator/feed-section"
+import { SectionSeed } from "@/components/community/creator/community-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -13,5 +14,9 @@ export default async function CommunityFeedAdminPage({ params, searchParams }: {
   const postable = spaces
     .filter((s) => !s.archived && s.kind !== "chat" && meetsRole(ctx.role, s.postRole) && (s.kind !== "announcements" || can(ctx.role, "announce", ctx.viewer.perms)))
     .map((s) => ({ id: s.id, name: s.name, announcements: s.kind === "announcements" }))
-  return <FeedSection head={head} initial={rows} spaces={postable} compose={query.compose ?? null} />
+  return (
+    <SectionSeed id="feed" stamp={query.compose ? `compose:${query.compose}` : ""}>
+      <FeedSection head={head} initial={rows} spaces={postable} compose={query.compose ?? null} />
+    </SectionSeed>
+  )
 }

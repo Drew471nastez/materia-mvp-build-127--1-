@@ -28,7 +28,7 @@
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowDown, ArrowUp, Plus, ShieldCheck, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Plus, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
@@ -42,7 +42,7 @@ import { checkRules, moveItem, systemReportKind, takenAwayLine, type MemberChoic
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { BlockedWords } from "@/components/community/creator/blocked-words"
 import type { WordSettings } from "@/lib/communities/word-filter"
-import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, ListLoading, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
+import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, ListLoading, Notice, RemoveButton, RowMenu, SelectField, buttonPrimary, buttonSecondary, card, errorText, field, send, shortDate, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 
 const REASON: Record<ReportReason, string> = { get spam() { return tt("Spam") }, get abuse() { return tt("Abuse") }, get harassment() { return tt("Harassment") }, get off_topic() { return tt("Off topic") }, get illegal() { return tt("Illegal") }, get other() { return tt("Other") } }
@@ -560,13 +560,15 @@ function SlowMode({ head, initial }: { head: CommunityHead; initial: number }) {
         <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{tt("How often a member can post, comment or send a chat message. The team is never slowed.")}</p>
       </div>
       {canEdit ? (
-        <select value={value} disabled={busy} onChange={(e) => void pick(Number(e.target.value))} aria-label={tt("Slow mode")} className={cn(selectField, "w-full shrink-0 sm:w-[200px]")}>
-          {SLOW_MODE_OPTIONS.map((o) => (
-            <option key={o.seconds} value={o.seconds}>
-              {o.seconds ? tt("One every {value}", { value: o.label.replace(/^1 /, "") }) : tt("Off")}
-            </option>
-          ))}
-        </select>
+        <SelectField
+          name="slow-mode"
+          title={tt("Slow mode")}
+          value={String(value)}
+          disabled={busy}
+          onChange={(v) => void pick(Number(v))}
+          className="w-full shrink-0 sm:w-[200px]"
+          options={SLOW_MODE_OPTIONS.map((o) => ({ value: String(o.seconds), label: o.seconds ? tt("One every {value}", { value: o.label.replace(/^1 /, "") }) : tt("Off") }))}
+        />
       ) : (
         <span className="text-[13.5px] text-[#4b5563]">{value ? tt("One every {value}", { value: label.replace(/^1 /, "") }) : tt("Off")}</span>
       )}
@@ -642,9 +644,7 @@ export function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; i
                 <button type="button" aria-label={tt("Move rule {value} down", { value: i + 1 })} disabled={i === rules.length - 1} onClick={() => setRules((x) => moveItem(x, i, i + 1))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30 sm:h-8 sm:w-8">
                   <ArrowDown aria-hidden className="h-4 w-4" />
                 </button>
-                <button type="button" aria-label={tt("Remove rule {value}", { value: i + 1 })} onClick={() => setRules((x) => x.filter((_, j) => j !== i))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] sm:h-8 sm:w-8">
-                  <Trash2 aria-hidden className="h-4 w-4" />
-                </button>
+                <RemoveButton label={tt("Remove rule {value}", { value: i + 1 })} onClick={() => setRules((x) => x.filter((_, j) => j !== i))} />
               </div>
             </li>
           ))}

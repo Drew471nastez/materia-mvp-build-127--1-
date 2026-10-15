@@ -1066,3 +1066,77 @@ export function systemReportKind(note: string | null | undefined): "join_alarm" 
   if (n.startsWith("Invite link turned off:")) return "invite_paused"
   return null
 }
+
+/* ── Moving between a community's sections (round 31) ───────────────────── */
+
+/*
+  "Too much loading between them." Each section of /app/community/<slug> is a
+  page of its own on the server, and every press waited for it. The shell
+  (./community-shell.tsx) now keeps every section it has drawn, as it was
+  drawn, and shows one again on the frame of the press. The rules it follows
+  are here, pure, for tests/communities-admin31.test.ts.
+*/
+
+/** The sections, by the place in the address after the community's slug. */
+export type AdminSection = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "settings"
+
+/** The section an address is on: /app/community/<slug or id>/<section>. Old addresses land on the section that holds them now. */
+export function adminSectionOf(pathname: string): AdminSection {
+  const seg = (pathname.split(/[?#]/)[0].split("/").filter(Boolean)[3] ?? "").toLowerCase()
+  switch (seg) {
+    case "gamification":
+      return "settings"
+    case "learn":
+    case "classroom":
+      return "classroom"
+    case "feed":
+    case "spaces":
+    case "events":
+    case "members":
+    case "moderation":
+    case "analytics":
+    case "settings":
+      return seg
+    default:
+      return "overview"
+  }
+}
+
+/** A section shown again from what the shell holds is read again quietly once it is older than this. */
+export const SECTION_FRESH_MS = 60_000
+/** A section on its way from the server keeps the one being left on screen this long before its waiting screen shows. */
+export const SECTION_WAIT_MS = 250
+/** Reading the unopened sections ahead is not repeated within this long. */
+export const SECTION_AHEAD_MS = 4 * 60_000
+
+/**
+ * What a press on a section's tab does: nothing (it is the one showing), show
+ * it at once (the shell holds it, or the router's page is it), or ask the
+ * router for it (never opened yet; read ahead, it usually arrives at once).
+ */
+export function sectionMove(target: AdminSection, facts: { active: AdminSection; routed: AdminSection | null; held: boolean }): "stay" | "show" | "fetch" {
+  if (target === facts.active) return "stay"
+  if (facts.held || facts.routed === target) return "show"
+  return "fetch"
+}
+
+/** Whether a section shown from what the shell holds is read again behind it: marked stale by a change elsewhere, or simply old. */
+export function sectionStale(held: { at: number; stale: boolean } | null | undefined, now: number, fresh: number = SECTION_FRESH_MS): boolean {
+  if (!held) return false
+  return held.stale || now - held.at > fresh
+}
+
+/**
+ * A section drawn again by the server with a one time ask in its address
+ * (?new=1, ?compose=, ?invite=1, ?created=1) starts again from that ask; the
+ * same section drawn again without one (a refresh after a save) keeps its
+ * place, its open tab and what was typed.
+ */
+export function sectionRestarts(before: string | null | undefined, after: string | null | undefined): boolean {
+  return !!after && after !== (before ?? "")
+}
+
+/** Whether the settings address names a panel (?tab=). A phone opens on the list of panels when it does not. */
+export function settingsTabAsked(raw: string | undefined | null): boolean {
+  return typeof raw === "string" && raw.trim() !== ""
+}

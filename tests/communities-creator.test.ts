@@ -353,7 +353,9 @@ async function main() {
   check("a failed gallery save answers its own status and words", /if \(!g\.ok\) return no\(g\.status, g\.error, "gallery"\)/.test(settingsBody))
   const galleryEditor = code("components/community/creator/gallery-editor.tsx")
   check("pictures upload like the logo and cover, videos through the community's video upload", /compressPostPicture\(j\.file, \{ maxEdge: 2000/.test(galleryEditor) && /new DirectUploader\(\{ file, folder: "product-images"/.test(galleryEditor) /* Changed on purpose (round 27): sized on the device before it goes up. */ && /uploadCommunityVideo\(\{ endpoint: `\/api\/app\/community\/\$\{communityId\}\/videos`/.test(galleryEditor))
-  check("tiles reorder by dragging, by arrows and from a phone's menu", /draggable/.test(galleryEditor) && /onDrop=/.test(galleryEditor) && /Move \$\{i \+ 1\} later/.test(galleryEditor) && /label: "Move later"/.test(galleryEditor))
+  /* Changed on purpose (round 31): "dragging doesn't work at all". The browser's drag and drop (no finger ever starts it) is the product editor's hold to drag (dnd-kit: a mouse, a held finger, the keyboard), and each tile keeps its menu. scripts/check-community-admin-round31.mjs DRAG moves them for real. */
+  const galleryTiles = code("components/community/creator/gallery-tiles.tsx")
+  check("tiles reorder by dragging (mouse, held finger, keyboard) and from each tile's menu", /useHoldToDragSensors\(\)/.test(galleryEditor) && /<SortableContext items=\{ids\} strategy=\{rectSortingStrategy\}>/.test(galleryEditor) && /useSortable\(\{ id \}\)/.test(galleryTiles) && /\{\.\.\.listeners\}/.test(galleryTiles) && /label: "Move later"/.test(galleryTiles) && /label: "Show first"/.test(galleryTiles) && !/\sdraggable(\s|>)/.test(galleryEditor))
   check("Save waits while a file is still uploading", /onBusy=\{setUploading\}/.test(code("components/community/creator/settings-section.tsx")) && /busy=\{busy \|\| uploading\}/.test(code("components/community/creator/settings-section.tsx")))
   check("the editor says so while the database has no gallery yet", /galleryReady: gallery\.ready/.test(creatorSrc) && /if \(!ready\)/.test(galleryEditor))
 

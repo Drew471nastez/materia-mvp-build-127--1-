@@ -12,9 +12,10 @@
  */
 import * as React from "react"
 import Link from "next/link"
-import { ChevronsUpDown, ImagePlus, Loader2, Search, X } from "lucide-react"
+import { Check, ChevronDown, ChevronsUpDown, ImagePlus, Loader2, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { buttonPrimary as appPrimary, buttonSecondary as appSecondary, card, RowMenuButton } from "@/app/app/orders/order-parts"
+import { card, RowMenuButton } from "@/app/app/orders/order-parts"
+import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -25,9 +26,13 @@ import { SAVED_CHECK_MS, SaveButton, barButton, type SavePhase } from "@/app/app
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
-/* The app's buttons, 40px tall on a phone so a thumb finds them; 32px on a computer as everywhere in /app. */
-export const buttonPrimary = cn(appPrimary, "max-sm:h-10 max-sm:px-3.5")
-export const buttonSecondary = cn(appSecondary, "max-sm:h-10 max-sm:px-3.5")
+/*
+  The app's buttons, 40px tall on a phone so a thumb finds them; 32px on a computer as everywhere in /app. Round 31 ("nothing
+  has depth"): the depth the product editor and the Website page press with (components/ui/depth-button), a line of light on
+  top and a shade along the foot, flat while pressed.
+*/
+export const buttonPrimary = cn(primaryDepth, "h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-50", "max-sm:h-10 max-sm:px-3.5")
+export const buttonSecondary = cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]", "max-sm:h-10 max-sm:px-3.5")
 export { card }
 
 /** The width every section's content keeps, the same as the bar above it. */
@@ -35,7 +40,7 @@ export const SECTION_WIDTH = "max-w-[1080px]"
 
 /** A text field, as the memberships settings draw one: 16px on a phone so iOS does not zoom. */
 export const field =
-  "block w-full min-w-0 rounded-lg border border-[#e1e3e7] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#a2a7b0] hover:border-[#d2d5da] focus:border-[#1a1a2e]/50 focus:shadow-[0_0_0_3px_rgba(26,26,46,0.07)] disabled:bg-[#f7f7f8] disabled:text-[#6b7280] sm:text-[14px]"
+  "block w-full min-w-0 rounded-lg border border-[#e1e3e7] bg-white px-3 text-[16px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.04)] outline-none transition-[border-color,box-shadow] placeholder:text-[#a2a7b0] hover:border-[#d2d5da] focus:border-[#1a1a2e]/50 focus:shadow-[0_0_0_3px_rgba(26,26,46,0.07)] disabled:bg-[#f7f7f8] disabled:text-[#6b7280] disabled:shadow-none sm:text-[14px]"
 
 export const selectField = cn(
   field,
@@ -346,6 +351,107 @@ export function Toggle({ checked, onChange, title, hint, disabled, id }: { check
   )
 }
 
+/**
+ * A PICK-ONE FIELD, THE APP'S OWN (round 31: no browser select left in these
+ * screens). It looks like the fields round it, the choice and a chevron, and
+ * opens the Products page's pick list (app/app/products/pick-sheet): the
+ * app's dropdown under it from 768px, the shared bottom sheet on a phone, a
+ * check on the one chosen, the keyboard's arrows and Enter.
+ */
+export function SelectField<T extends string>({
+  id,
+  value,
+  options,
+  onChange,
+  title,
+  name,
+  disabled,
+  className,
+}: {
+  id?: string
+  value: T
+  options: readonly { value: T; label: string }[]
+  onChange: (v: T) => void
+  /** Heads the sheet and names the list. */
+  title: string
+  /** data-select, for the probes. */
+  name: string
+  disabled?: boolean
+  className?: string
+}) {
+  const current = options.find((o) => o.value === value)?.label ?? ""
+  return (
+    <PickSheet
+      name={name}
+      title={title}
+      options={options}
+      value={value}
+      onPick={(v) => onChange(v as T)}
+      trigger={
+        <button
+          type="button"
+          id={id}
+          disabled={disabled}
+          data-select={name}
+          aria-label={tt("{title}: {current}. Change", { title, current })}
+          className={cn(
+            "flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-[#e1e3e7] bg-white pl-3 pr-2.5 text-left text-[16px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.04)] outline-none transition-[border-color,box-shadow,background-color] duration-100 hover:border-[#d2d5da] focus-visible:border-[#1a1a2e]/50 focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.07)] disabled:cursor-not-allowed disabled:bg-[#f7f7f8] disabled:text-[#6b7280] data-open:border-[#1a1a2e]/50 data-open:shadow-[0_0_0_3px_rgba(26,26,46,0.07)] sm:h-10 sm:text-[14px] [-webkit-tap-highlight-color:transparent]",
+            className,
+          )}
+        >
+          <span className="min-w-0 flex-1 truncate">{current}</span>
+          <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
+        </button>
+      }
+    />
+  )
+}
+
+/** A box to tick, drawn here: a soft square, near black with a white check when on, the row its press area. */
+export function CheckRow({ checked, onChange, title, hint, disabled }: { checked: boolean; onChange: (next: boolean) => void; title: string; hint?: string; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      data-check-row=""
+      className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-1.5 text-left outline-none transition-colors duration-100 hover:bg-[#f7f7f8] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.25)] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10 [-webkit-tap-highlight-color:transparent]"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border transition-[background-color,border-color,box-shadow] duration-100",
+          checked ? "border-[#1a1a2e] bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]" : "border-[#c9ccd2] bg-white shadow-[inset_0_1px_1px_rgba(16,24,40,0.06)]",
+        )}
+      >
+        {checked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[14px] text-[#1a1a2e]">{title}</span>
+        {hint ? <span className="mt-0.5 block text-[12.5px] leading-snug text-[#6b7280]">{hint}</span> : null}
+      </span>
+    </button>
+  )
+}
+
+/** Take a row out: a quiet cross in a square that greys under the pointer, as the media tiles and the product chips do. */
+export function RemoveButton({ label: name, onClick, className }: { label: string; onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={name}
+      title={name}
+      onClick={onClick}
+      data-remove=""
+      className={cn("grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] outline-none transition-colors duration-100 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:bg-[#e8e9ec] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.25)] sm:h-8 sm:w-8", className)}
+    >
+      <X aria-hidden className="h-4 w-4" />
+    </button>
+  )
+}
+
 /** A few choices side by side, one picked: the segmented control the coupons screen uses. */
 export function Segmented<T extends string>({ value, onChange, options, label: name, className }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; label: string; className?: string }) {
   return (
@@ -451,51 +557,76 @@ const PICTURE_TYPES = /^image\/(jpeg|png|webp|heic|heif)$/i
     location in the file, the long edge capped), so a phone's large photo goes up in a moment;
     says what went wrong under itself, in words, when nobody else is listening for it.
 */
-export function PicturePick({ value, onChange, shape, name, onError }: { value: string | null; onChange: (url: string | null) => void; shape: "square" | "wide"; name: string; onError?: (message: string) => void }) {
-  const input = React.useRef<HTMLInputElement>(null)
+/**
+ * ONE PICTURE ON ITS WAY UP, for the logo, the cover and anything else that
+ * takes one picture: checked, drawn at once from the file, made the size it
+ * is shown at, sent, with how far it is. PicturePick and the cover
+ * (./gallery-editor.tsx CoverField) both use it.
+ */
+export function usePictureUpload({ maxEdge, onDone, onError }: { maxEdge: number; onDone: (url: string) => void; onError: (message: string) => void }) {
   const [busy, setBusy] = React.useState(false)
   const [percent, setPercent] = React.useState(0)
   const [local, setLocal] = React.useState<string | null>(null)
-  const [over, setOver] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
   React.useEffect(() => () => {
     if (local) URL.revokeObjectURL(local)
   }, [local])
-  const fail = (message: string) => {
-    if (onError) onError(message)
-    else setError(message)
-  }
   const upload = async (picked: File | undefined) => {
     if (!picked || busy) return
-    setError(null)
-    if (!PICTURE_TYPES.test(picked.type)) return fail(tt("That file is not a picture. Use a JPG, PNG or WebP."))
-    if (picked.size > PICTURE_MAX_BYTES) return fail(tt("That picture is over 25MB. Pick a smaller one."))
+    if (!PICTURE_TYPES.test(picked.type)) return onError(tt("That file is not a picture. Use a JPG, PNG or WebP."))
+    if (picked.size > PICTURE_MAX_BYTES) return onError(tt("That picture is over 25MB. Pick a smaller one."))
     setBusy(true)
     setPercent(0)
-    const preview = URL.createObjectURL(picked)
-    setLocal(preview)
+    setLocal(URL.createObjectURL(picked))
     let file = picked
     try {
       const { compressPostPicture } = await import("@/components/community/member/media-compress")
-      file = await compressPostPicture(picked, { maxEdge: shape === "square" ? 800 : 2000, quality: 0.86 })
+      file = await compressPostPicture(picked, { maxEdge, quality: 0.86 })
     } catch {
       /* A picture the browser cannot redraw goes up as it is. */
     }
     const uploader = new DirectUploader({ file, folder: "product-images", onProgress: (p) => setPercent(Math.round(p)) })
     try {
       const result = await uploader.start()
-      if (result.publicUrl) onChange(result.publicUrl)
+      if (result.publicUrl) onDone(result.publicUrl)
     } catch (e) {
-      fail((e as { message?: string })?.message || tt("The picture did not upload."))
+      onError((e as { message?: string })?.message || tt("The picture did not upload."))
       setLocal(null)
     } finally {
       uploader.destroy()
       setBusy(false)
     }
   }
+  return { busy, percent, local, upload }
+}
+
+/** How far an upload is, as a ring over the picture. */
+export function UploadRing({ percent }: { percent: number }) {
+  const ring = 2 * Math.PI * 10
+  return (
+    <span className="absolute inset-0 grid place-items-center bg-black/35" data-picture-progress={percent}>
+      <svg viewBox="0 0 24 24" className="h-7 w-7 -rotate-90" aria-hidden>
+        <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" />
+        <circle cx="12" cy="12" r="10" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={ring} strokeDashoffset={ring * (1 - Math.max(0.06, percent / 100))} className="transition-[stroke-dashoffset] duration-200" />
+      </svg>
+    </span>
+  )
+}
+
+export function PicturePick({ value, onChange, shape, name, onError }: { value: string | null; onChange: (url: string | null) => void; shape: "square" | "wide"; name: string; onError?: (message: string) => void }) {
+  const input = React.useRef<HTMLInputElement>(null)
+  const [over, setOver] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const fail = (message: string) => {
+    if (onError) onError(message)
+    else setError(message)
+  }
+  const { busy, percent, local, upload: start } = usePictureUpload({ maxEdge: shape === "square" ? 800 : 2000, onDone: (url) => onChange(url), onError: fail })
+  const upload = (picked: File | undefined) => {
+    setError(null)
+    void start(picked)
+  }
   const box = shape === "square" ? "h-16 w-16 rounded-2xl" : "h-16 w-full max-w-[208px] rounded-xl sm:w-[208px]"
   const shown = busy ? local : value
-  const ring = 2 * Math.PI * 10
   return (
     <div className="min-w-0" data-picture={shape}>
       <div className="flex min-w-0 items-center gap-3">
@@ -510,7 +641,7 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
           onDrop={(e) => {
             e.preventDefault()
             setOver(false)
-            void upload(e.dataTransfer.files?.[0])
+            upload(e.dataTransfer.files?.[0])
           }}
           disabled={busy}
           aria-label={value ? tt("Change the {name}", { name }) : tt("Add a {name}", { name })}
@@ -518,7 +649,7 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
           className={cn(
             "relative grid shrink-0 cursor-pointer place-items-center overflow-hidden border text-[#9ca3af] transition-[border-color,background-color,box-shadow] duration-150",
             box,
-            over ? "border-[#1a1a2e] bg-[#f1f2f4] shadow-[0_0_0_3px_rgba(26,26,46,0.08)]" : shown ? "border-transparent" : "border-dashed border-[#d9dce1] bg-[#fafafb] hover:border-[#b9bdc4] hover:text-[#6b7280]",
+            over ? "border-[#1a1a2e] bg-[#f1f2f4] shadow-[0_0_0_3px_rgba(26,26,46,0.08)]" : shown ? "border-transparent shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_1px_2px_rgba(16,24,40,0.06)]" : "border-dashed border-[#d9dce1] bg-[#fafafb] hover:border-[#b9bdc4] hover:text-[#6b7280]",
           )}
         >
           {shown ? (
@@ -527,28 +658,17 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
           ) : (
             <ImagePlus aria-hidden className="h-5 w-5" />
           )}
-          {busy ? (
-            <span className="absolute inset-0 grid place-items-center bg-black/35" data-picture-progress={percent}>
-              <svg viewBox="0 0 24 24" className="h-7 w-7 -rotate-90" aria-hidden>
-                <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" />
-                <circle cx="12" cy="12" r="10" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={ring} strokeDashoffset={ring * (1 - Math.max(0.06, percent / 100))} className="transition-[stroke-dashoffset] duration-200" />
-              </svg>
-            </span>
-          ) : null}
+          {busy ? <UploadRing percent={percent} /> : null}
         </button>
-        <input ref={input} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = "" }} />
+        <input ref={input} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onChange={(e) => { upload(e.target.files?.[0]); e.target.value = "" }} />
         <div className="flex min-w-0 flex-col items-start gap-1">
-          <button type="button" onClick={() => input.current?.click()} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-            {busy ? tt("Uploading {percent}%", { percent }) : value ? tt("Change") : shape === "square" ? tt("Upload logo") : tt("Upload cover")}
-          </button>
-          {value && !busy ? (
-            <button type="button" onClick={() => onChange(null)} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] sm:min-h-8 font-medium text-[#6b7280] hover:text-[#1a1a2e]">
-              <X aria-hidden className="h-3.5 w-3.5" />
-              {tt("Remove")}
+          <span className="flex items-center gap-1">
+            <button type="button" onClick={() => input.current?.click()} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-8")} data-picture-change="">
+              {busy ? tt("Uploading {percent}%", { percent }) : value ? tt("Change") : shape === "square" ? tt("Upload logo") : tt("Upload cover")}
             </button>
-          ) : (
-            <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? tt("Square, 400px or more. Or drop it here.") : tt("Wide, about 3 to 1. Or drop it here.")}</span>
-          )}
+            {value && !busy ? <RemoveButton label={tt("Remove the {name}", { name })} onClick={() => onChange(null)} /> : null}
+          </span>
+          {!value || busy ? <span className="px-0.5 text-[12px] text-[#9ca3af]">{shape === "square" ? tt("Square, 400px or more. Or drop it here.") : tt("Wide, about 3 to 1. Or drop it here.")}</span> : null}
         </div>
       </div>
       {error ? (
@@ -674,15 +794,39 @@ export function shortDate(iso: string | null | undefined): string {
 export const EDITOR_CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:py-6"
 export const EDITOR_CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 
+/*
+  THE SAVE BARS UP AT ONCE, one above the other: a settings panel can hold two forms (the rules and the refund policy), and
+  two bars in one place would be one bar over another. Only a bar that is up and on screen (not in a hidden panel or a
+  hidden section) takes a place.
+*/
+let footOrder: string[] = []
+const footListeners = new Set<() => void>()
+function setFootUp(id: string, up: boolean) {
+  const has = footOrder.includes(id)
+  if (up === has) return
+  footOrder = up ? [...footOrder, id] : footOrder.filter((x) => x !== id)
+  footListeners.forEach((f) => f())
+}
+const subscribeFoot = (f: () => void) => {
+  footListeners.add(f)
+  return () => {
+    footListeners.delete(f)
+  }
+}
+/** How far a bar stands above the one under it. */
+export const FOOT_STEP_PX = 64
+
 /**
- * THE SAVE FOOT OF A FORM: the product editor's foot bar (its state dot and
- * word on the left, Cancel and Save on the right, the editor's own
- * SaveButton with its spinner and check), as a card that stays at the
- * bottom of the screen while the form scrolls: above the navigation pill on
- * a phone, 12px off the bottom on a computer. It is always there, so the
- * way to save never appears and disappears under a finger; with nothing
- * changed it says so, Cancel and Save rest grey. Cancel throws the changes
- * away (nothing is saved yet, so nothing needs asking).
+ * THE SAVE BAR OF A FORM (round 31). "The floating No changes / Cancel / Save
+ * bar is not placed well": it sat in the page's flow, so on a phone it rode
+ * over the middle of the form. It is now the /app Settings save bar
+ * (components/app/settings-form-new.tsx): a white card fixed to the screen,
+ * the change on the left and Cancel and Save on the right, just above the
+ * navigation pill on a phone (clear of the home indicator through
+ * --app-nav-top) and 16px off the bottom of the content area on a computer.
+ * It rises in only while there is something to save, says Saved with the
+ * editor's check for a moment after a save, and goes. Cancel throws the
+ * changes away (nothing is saved yet, so nothing needs asking).
  */
 export function EditorFoot({
   dirty,
@@ -691,19 +835,18 @@ export function EditorFoot({
   onSave,
   onCancel,
   busyText,
-  idleText = tt("No changes"),
 }: {
   dirty: boolean
   busy: boolean
   error: string | null
   onSave: () => void
   onCancel: () => void
-  /** What the foot says while something other than the save is working (an upload). */
+  /** What the bar says while something other than the save is working (an upload). */
   busyText?: string
+  /** Kept for callers from before round 31: a bar with nothing to save is not shown, so it says nothing. */
   idleText?: string
 }) {
   const [phase, setPhase] = React.useState<SavePhase>("idle")
-  const [savedOnce, setSavedOnce] = React.useState(false)
   const was = React.useRef(false)
   /* Saving while the request is out; Saved with the check for a moment when it came back clean. */
   React.useEffect(() => {
@@ -716,29 +859,52 @@ export function EditorFoot({
     was.current = false
     if (error || dirty) return setPhase("idle")
     setPhase("saved")
-    setSavedOnce(true)
   }, [busy, error, dirty])
   React.useEffect(() => {
     if (phase !== "saved") return
     const t = window.setTimeout(() => setPhase("idle"), SAVED_CHECK_MS)
     return () => window.clearTimeout(t)
   }, [phase])
-  React.useEffect(() => {
-    if (dirty) setSavedOnce(false)
-  }, [dirty])
-  const state = error ? "error" : busyText ? "busy" : dirty ? "dirty" : savedOnce ? "saved" : "idle"
-  const words = error ?? (busyText || (dirty ? tt("Unsaved changes") : savedOnce ? tt("Saved") : idleText))
+  const up = dirty || busy || !!busyText || !!error || phase !== "idle"
+  const state = error ? "error" : busyText ? "busy" : dirty ? "dirty" : phase === "saved" ? "saved" : "idle"
+  const words = error ?? (busyText || (dirty ? tt("Unsaved changes") : tt("Saved")))
+
+  const id = React.useId()
+  const ref = React.useRef<HTMLDivElement>(null)
+  /* On screen is read after every render: a panel hidden or shown again re-renders the form inside it. */
+  React.useLayoutEffect(() => {
+    setFootUp(id, up && !!ref.current && ref.current.getClientRects().length > 0)
+  })
+  React.useEffect(() => () => setFootUp(id, false), [id])
+  const order = React.useSyncExternalStore(subscribeFoot, () => footOrder, () => footOrder)
+  const slot = Math.max(0, order.indexOf(id))
+
   return (
-    <div className="sticky bottom-[calc(var(--app-nav-room,0px)+0.75rem)] z-20 mt-4 md:bottom-3" data-editor-foot="" data-state={state}>
-      <div className={cn(card, "flex min-h-14 items-center gap-2 py-2 pl-4 pr-2.5 shadow-[0_10px_28px_-12px_rgba(17,24,39,0.24),0_1px_3px_rgba(0,0,0,0.05)] sm:pr-3")}>
-        <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-[13.5px] leading-5">
-          <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", error ? "bg-[#d92d20]" : dirty ? "bg-[#8b5cf6]" : savedOnce ? "bg-[#22a06b]" : "bg-[#b6bac1]")} />
-          <span className={cn("truncate", error ? "text-[#b42318]" : dirty ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{words}</span>
+    <div
+      ref={ref}
+      data-editor-foot=""
+      data-state={state}
+      data-foot={up ? "up" : "down"}
+      aria-hidden={!up || undefined}
+      style={slot ? { translate: `0 -${slot * FOOT_STEP_PX}px` } : undefined}
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--app-nav-top,0px)+10px)] z-40 flex justify-center px-3 md:bottom-[max(16px,env(safe-area-inset-bottom))] md:left-[var(--app-rail-w,240px)] md:px-6"
+    >
+      <div
+        role="region"
+        aria-label={tt("Unsaved changes")}
+        className={cn(
+          "flex min-h-[52px] w-full max-w-[560px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[translate,opacity] motion-reduce:transition-none",
+          up ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]",
+        )}
+      >
+        <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-[14px] leading-5">
+          <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", error ? "bg-[#d92d20]" : dirty || busyText ? "bg-[#e8a400]" : "bg-[#22a06b]")} />
+          <span className={cn("truncate", error ? "text-[#b42318]" : "text-[#4b5563]")}>{words}</span>
         </p>
-        <button type="button" onClick={onCancel} disabled={!dirty || busy} className={cn(barButton, "disabled:cursor-default disabled:opacity-50")} data-foot-cancel="">
+        <button type="button" onClick={onCancel} disabled={!dirty || busy} tabIndex={up ? 0 : -1} className={cn(barButton, "disabled:cursor-default disabled:opacity-50")} data-foot-cancel="">
           {tt("Cancel")}
         </button>
-        <SaveButton phase={phase} disabled={!dirty || !!busyText} saved={savedOnce} onSave={onSave} />
+        <SaveButton phase={phase} disabled={!dirty || !!busyText} saved={phase === "saved"} onSave={onSave} />
       </div>
     </div>
   )
