@@ -28,11 +28,30 @@
  *
  * KEYS (not while typing in a field): Space or K play and pause, J and L or
  * the arrows skip ten seconds, up and down the volume, M mute, F fullscreen,
- * C captions, < and > the speed, 0 to 9 a tenth of the way in each.
+ * C captions, < and > the speed, 0 to 9 a tenth of the way in each. On the
+ * volume slider the arrows, Home and End move the volume instead.
+ *
+ * ROUND 29, SMOOTH (the owner: media that "loads smoothly, no glitches, no
+ * flashes", controls "smoother, modern"):
+ *   - the 16:9 box is there before anything loads, black, so nothing moves;
+ *     the video reads only its length and first frame until it is played
+ *     (preload="metadata", and #t=0.001 so iOS draws that frame), and it
+ *     fades in once it has a frame at the second it opens on (loadeddata and
+ *     any resume seek done), so a resume never shows second 0 first;
+ *   - the controls fade in with the length known, never "0:00 / 0:00";
+ *   - the played bar, the buffered bar and the knob are scaled and moved
+ *     with a transform each, painted from the video's own clock on every frame
+ *     while they show, so the bar glides instead of stepping four times a
+ *     second; the bar thickens on hover by a scale, not a height;
+ *   - the volume is a slider of our own on pointer events, the speed list
+ *     fades and scales in from its button and closes on a press outside;
+ *   - the player looks the same in the light and the dark look: its blacks
+ *     and whites are rgb values, which app/theme-dark.css does not remap
+ *     (it maps bg-white and bg-black, and drew the played bar charcoal).
  */
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
-import { Captions, Loader2, Maximize, Minimize, Pause, PictureInPicture2, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "lucide-react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
+import { Captions, Check, Loader2, Maximize, Minimize, Pause, PictureInPicture2, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "lucide-react"
 import { AUTO_COMPLETE_RATIO } from "@/lib/courses/progress"
 import {
   NEXT_COUNTDOWN_SECONDS,
@@ -136,10 +155,16 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
   const [resumed, setResumed] = useState<number | null>(startAt > 0 ? startAt : null)
   const [scrub, setScrub] = useState<number | null>(null)
   const [hover, setHover] = useState<{ x: number; t: number } | null>(null)
+  /* The video has a frame at the second it opens on: until then it is hidden over the black box. */
+  const [framed, setFramed] = useState(false)
   const nearEndSent = useRef(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const v = () => videoRef.current
+  const noteFrame = () => {
+    const el = videoRef.current
+    if (el && el.readyState >= 2 && !el.seeking) setFramed(true)
+  }
 
   /* The viewer's own speed, volume and captions, from the last lesson. */
   useEffect(() => {
@@ -231,8 +256,11 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
     const r = restore.current
     restore.current = null
     if (r && r.time > 0 && Number.isFinite(el.duration)) el.currentTime = Math.min(r.time, Math.max(0, el.duration - 1))
+    /* Waiting for a press is not waiting for data: the play button shows as soon as the length is known. */
     if (r ? r.play : autoPlay) void el.play().catch(() => setPlaying(false))
+    else setWaiting(false)
     applyCaptions(prefs.captions)
+    noteFrame()
   }
 
   const onTimeUpdate = () => {
@@ -266,6 +294,11 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
     }, SAVE_EVERY_MS)
     return () => clearInterval(id)
   }, [playing, onPlace])
+
+  /* Already in hand on the first render (read ahead, or the browser's cache): shown with no wait. */
+  useEffect(() => {
+    noteFrame()
+  }, [])
 
   /* Picture in picture and fullscreen, however the browser says so. */
   useEffect(() => {
@@ -466,6 +499,27 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
     return () => track.removeEventListener("load", liftCues)
   }, [liftCues])
 
+  /* ─── The speed list closes on a press anywhere else, and on Escape ─── */
+
+  const speedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!speedOpen) return
+    const away = (e: PointerEvent) => {
+      if (!speedRef.current?.contains(e.target as Node)) setSpeedOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      e.stopPropagation()
+      setSpeedOpen(false)
+    }
+    document.addEventListener("pointerdown", away, true)
+    document.addEventListener("keydown", esc, true)
+    return () => {
+      document.removeEventListener("pointerdown", away, true)
+      document.removeEventListener("keydown", esc, true)
+    }
+  }, [speedOpen])
+
   /* ─── Keys ─── */
 
   useEffect(() => {
@@ -541,54 +595,145 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
   /* ─── The bar ─── */
 
   const barRef = useRef<HTMLDivElement>(null)
+  const playedRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const scrubRef = useRef<number | null>(null)
+  /** The played bar and its knob at a time: a scale and a move, written straight to the two layers, no render. */
+  const paint = useCallback((t: number, d: number) => {
+    const f = d > 0 ? Math.min(1, Math.max(0, t / d)) : 0
+    if (playedRef.current) playedRef.current.style.transform = `scaleX(${f})`
+    if (knobRef.current) knobRef.current.style.transform = `translateX(${f * 100}%)`
+  }, [])
+  /* On every frame while it plays and the bar shows, from the video's own clock (timeupdate comes four times a second). */
+  const barShown = controls && !ended
+  useEffect(() => {
+    if (!playing || !barShown) return
+    let id = 0
+    const tick = () => {
+      const el = videoRef.current
+      if (el && scrubRef.current === null) paint(el.currentTime, el.duration || 0)
+      id = requestAnimationFrame(tick)
+    }
+    id = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(id)
+  }, [playing, barShown, paint])
+  /* And whenever the time, the length or a drag changes it: from the video's clock too, so it never steps back a frame. */
+  useLayoutEffect(() => {
+    const el = videoRef.current
+    paint(scrub ?? (el && el.readyState >= 1 ? el.currentTime : time), duration)
+  }, [scrub, time, duration, barShown, paint])
+
   const timeAt = (clientX: number) => {
     const rect = barRef.current?.getBoundingClientRect()
     if (!rect || !duration) return 0
     return clampTime(((clientX - rect.left) / rect.width) * duration, duration)
   }
   const onBarDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
-    setScrub(timeAt(e.clientX))
+    const t = timeAt(e.clientX)
+    scrubRef.current = t
+    setScrub(t)
     reveal()
   }
   const onBarMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const rect = barRef.current?.getBoundingClientRect()
     if (rect && e.pointerType === "mouse") setHover({ x: Math.min(Math.max(0, e.clientX - rect.left), rect.width), t: timeAt(e.clientX) })
-    if (scrub !== null) setScrub(timeAt(e.clientX))
+    if (scrubRef.current !== null) {
+      const t = timeAt(e.clientX)
+      scrubRef.current = t
+      setScrub(t)
+    }
   }
   const onBarUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (scrub === null) return
+    if (scrubRef.current === null) return
     seekTo(timeAt(e.clientX))
+    scrubRef.current = null
     setScrub(null)
+  }
+  const onBarCancel = () => {
+    scrubRef.current = null
+    setScrub(null)
+  }
+  const onBarKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Home") seekTo(0)
+    else if (e.key === "End" && duration > 0) seekTo(duration - 0.5)
+    else return
+    e.preventDefault()
+  }
+
+  /* ─── The volume: a slider of our own ─── */
+
+  const volRef = useRef<HTMLDivElement>(null)
+  const volDrag = useRef(false)
+  const volAt = (clientX: number) => {
+    const rect = volRef.current?.getBoundingClientRect()
+    if (!rect || rect.width === 0) return prefs.volume
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+  }
+  const onVolDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    volDrag.current = true
+    setVolume(volAt(e.clientX))
+  }
+  const onVolMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (volDrag.current) setVolume(volAt(e.clientX))
+  }
+  const onVolUp = () => {
+    volDrag.current = false
+  }
+  const onVolKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const now = prefs.muted ? 0 : prefs.volume
+    let to: number | null = null
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") to = now + 0.05
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") to = now - 0.05
+    else if (e.key === "Home") to = 0
+    else if (e.key === "End") to = 1
+    if (to === null) return
+    /* The arrows move the volume here, not the video. */
+    e.preventDefault()
+    e.stopPropagation()
+    setVolume(Math.round(to * 100) / 100)
+    reveal()
   }
 
   const shown = scrub ?? time
-  const played = duration > 0 ? (shown / duration) * 100 : 0
-  const loaded = duration > 0 ? Math.min(100, (buffered / duration) * 100) : 0
+  const loaded = duration > 0 ? Math.min(1, buffered / duration) : 0
+  const vol = prefs.muted ? 0 : prefs.volume
+  /* The controls arrive with the length, never as "0:00 / 0:00" over an empty box. */
+  const known = duration > 0
+  const centrePlay = !playing && !waiting && !failed && !ended && known
   const iconBtn =
-    "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white/95 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+    "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/95 transition-[background-color,scale] duration-150 ease-out hover:bg-[rgba(255,255,255,0.14)] active:scale-90 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,255,255,0.7)] [-webkit-tap-highlight-color:transparent]"
+  /* A tap-friendly media fragment: iOS draws the first frame only when the address asks for a start time. */
+  const src = url.includes("#") ? url : `${url}#t=0.001`
 
   return (
     <div
       ref={wrapRef}
       data-lesson-video
       data-controls={controls ? "shown" : "hidden"}
-      className={`group/player relative aspect-video w-full select-none overflow-hidden bg-black ${fullscreen ? "" : className ?? "sm:rounded-2xl"} ${controls ? "" : "cursor-none"}`}
+      className={`group/player relative isolate aspect-video w-full select-none overflow-hidden bg-[rgb(0,0,0)] ${fullscreen ? "" : className ?? "sm:rounded-2xl"} ${controls ? "" : "cursor-none"}`}
       onPointerMove={(e) => e.pointerType === "mouse" && reveal()}
       onMouseLeave={() => playing && setControls(false)}
     >
-      <style>{`@keyframes lesson-flash{0%{opacity:1}70%{opacity:1}100%{opacity:0}}[data-lesson-video] video::cue{font-family:Inter,system-ui,sans-serif;font-size:clamp(14px,2.4vw,22px);line-height:1.35;color:#fff;background:rgba(10,10,20,.72)}`}</style>
+      <style>{`@keyframes lesson-flash{0%{opacity:0}12%{opacity:1}70%{opacity:1}100%{opacity:0}}[data-lesson-video] video::cue{font-family:Inter,system-ui,sans-serif;font-size:clamp(14px,2.4vw,22px);line-height:1.35;color:#fff;background:rgba(10,10,20,.72)}`}</style>
       <video
         ref={videoRef}
-        src={url}
+        src={src}
         poster={poster ?? undefined}
-        className="absolute inset-0 h-full w-full"
+        className={`absolute inset-0 h-full w-full transition-opacity duration-300 ease-out motion-reduce:transition-none ${framed ? "opacity-100" : "opacity-0"}`}
         playsInline
         webkit-playsinline="true"
         x-webkit-airplay="allow"
-        /* Round 27, the owner: "loads faster, doesn't take so much". A lesson that will play at once fills its buffer; one waiting for a press reads only its length and first frame until it is pressed. */
-        preload={autoPlay ? "auto" : "metadata"}
+        /* Round 29: only the length and the first frame until it plays; play() reads the rest as it goes. */
+        preload="metadata"
         onLoadedMetadata={onLoaded}
+        onLoadedData={noteFrame}
+        onSeeked={() => {
+          onProgress()
+          noteFrame()
+        }}
         onDurationChange={() => setDuration(v()?.duration || 0)}
         onTimeUpdate={onTimeUpdate}
         onProgress={onProgress}
@@ -604,9 +749,14 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
           swap("paused")
         }}
         onWaiting={() => setWaiting(true)}
-        onPlaying={() => setWaiting(false)}
-        onCanPlay={() => setWaiting(false)}
-        onSeeked={onProgress}
+        onPlaying={() => {
+          setWaiting(false)
+          noteFrame()
+        }}
+        onCanPlay={() => {
+          setWaiting(false)
+          noteFrame()
+        }}
         onEnded={() => {
           setPlaying(false)
           setEnded(true)
@@ -632,7 +782,7 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
       {flash ? (
         <div
           key={flash.key}
-          className={`pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full bg-black/55 px-3 py-2 text-[13px] font-semibold text-white motion-safe:animate-[lesson-flash_700ms_ease-out_forwards] ${flash.dir < 0 ? "left-[12%]" : "right-[12%]"}`}
+          className={`pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center gap-1.5 rounded-full bg-[rgba(0,0,0,0.55)] px-3.5 py-2 text-[13px] font-semibold tabular-nums text-white motion-safe:animate-[lesson-flash_700ms_ease-out_forwards] ${flash.dir < 0 ? "left-[12%]" : "right-[12%]"}`}
         >
           {flash.dir < 0 ? <RotateCcw className="h-4 w-4" /> : <RotateCw className="h-4 w-4" />}
           {SKIP_SECONDS}s
@@ -646,30 +796,36 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
         </div>
       ) : null}
 
-      {!playing && !waiting && !failed && !ended ? (
-        <button
-          type="button"
-          onClick={togglePlay}
-          aria-label="Play"
-          className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_6px_24px_rgba(0,0,0,0.35)] transition-[scale] hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
-        >
-          <Play className="ml-1 h-7 w-7" fill="currentColor" />
-        </button>
-      ) : null}
+      {/* The big play button fades and settles in and out; while hidden it takes no presses and no focus. */}
+      <button
+        type="button"
+        onClick={togglePlay}
+        aria-label="Play"
+        aria-hidden={!centrePlay}
+        tabIndex={centrePlay ? 0 : -1}
+        data-centre-play=""
+        className={`absolute left-1/2 top-1/2 -ml-8 -mt-8 flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(255,255,255,0.95)] text-[rgb(17,17,19)] shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition-[opacity,scale,background-color] duration-200 ease-out hover:bg-[rgb(255,255,255)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,255,255,0.5)] active:scale-95 motion-reduce:transition-none ${
+          centrePlay ? "scale-100 opacity-100" : "pointer-events-none scale-90 opacity-0"
+        }`}
+      >
+        <Play className="ml-1 h-7 w-7" fill="currentColor" />
+      </button>
 
-      {resumed !== null && !playing && !failed ? (
-        <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-black/60 px-2.5 py-1.5 text-[12px] font-medium text-white sm:left-4 sm:top-4">
+      {resumed !== null && !failed ? (
+        <div
+          className={`pointer-events-none absolute left-3 top-3 rounded-full bg-[rgba(0,0,0,0.6)] px-3 py-1.5 text-[12px] font-medium tabular-nums text-white transition-opacity duration-300 sm:left-4 sm:top-4 ${!playing && known ? "opacity-100" : "opacity-0"}`}
+        >
           Resuming at {formatTime(resumed)}
         </div>
       ) : null}
 
       {failed ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 px-6 text-center text-white">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[rgba(0,0,0,0.8)] px-6 text-center text-white">
           <p className="text-[15px] font-semibold">This video did not load.</p>
           <p className="max-w-[320px] text-[13px] text-white/70">Check your connection, then try again.</p>
           <button
             type="button"
-            className="mt-1 h-10 rounded-lg bg-white px-4 text-[14px] font-semibold text-[#1a1a2e]"
+            className="mt-1 h-10 rounded-xl bg-[rgba(255,255,255,0.95)] px-4 text-[14px] font-semibold text-[rgb(17,17,19)] transition-[background-color,scale] duration-150 hover:bg-[rgb(255,255,255)] active:scale-[0.97]"
             onClick={() => {
               recoveries.current = []
               setFailed(false)
@@ -691,19 +847,19 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
       ) : null}
 
       {ended ? (
-        <div data-next-card className="absolute inset-0 flex items-center justify-center bg-black/75 px-5 text-white">
+        <div data-next-card className="absolute inset-0 flex items-center justify-center bg-[rgba(0,0,0,0.75)] px-5 text-white opacity-100 transition-opacity duration-300 starting:opacity-0 motion-reduce:transition-none">
           {next && countdown !== null ? (
             <div className="flex w-full max-w-[360px] flex-col items-center text-center">
               <Countdown seconds={countdown} />
-              <p className="mt-3 text-[12px] font-medium uppercase tracking-[0.08em] text-white/60">Up next</p>
+              <p className="mt-3 text-[12px] font-medium text-white/60">Up next</p>
               <p className="mt-1 line-clamp-2 text-[16px] font-semibold leading-snug sm:text-[18px]">
                 Lesson {next.number}: {next.title}
               </p>
               <div className="mt-4 flex items-center gap-2">
-                <button type="button" onClick={onNext} className="h-10 rounded-lg bg-white px-4 text-[14px] font-semibold text-[#1a1a2e]">
+                <button type="button" onClick={onNext} className="h-10 rounded-xl bg-[rgba(255,255,255,0.95)] px-4 text-[14px] font-semibold text-[rgb(17,17,19)] transition-[background-color,scale] duration-150 hover:bg-[rgb(255,255,255)] active:scale-[0.97]">
                   Play now
                 </button>
-                <button type="button" onClick={() => setCountdown(null)} className="h-10 rounded-lg px-4 text-[14px] font-medium text-white/85 hover:bg-white/10">
+                <button type="button" onClick={() => setCountdown(null)} className="h-10 rounded-xl px-4 text-[14px] font-medium text-white/85 transition-[background-color,scale] duration-150 hover:bg-[rgba(255,255,255,0.1)] active:scale-[0.97]">
                   Cancel
                 </button>
               </div>
@@ -712,11 +868,11 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
             <div className="flex flex-col items-center gap-3 text-center">
               <p className="text-[16px] font-semibold">{next ? "Paused before the next lesson" : "That was the last lesson"}</p>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={togglePlay} className="h-10 rounded-lg bg-white/15 px-4 text-[14px] font-semibold hover:bg-white/25">
+                <button type="button" onClick={togglePlay} className="h-10 rounded-xl bg-[rgba(255,255,255,0.15)] px-4 text-[14px] font-semibold transition-[background-color,scale] duration-150 hover:bg-[rgba(255,255,255,0.25)] active:scale-[0.97]">
                   Watch again
                 </button>
                 {next ? (
-                  <button type="button" onClick={onNext} className="h-10 rounded-lg bg-white px-4 text-[14px] font-semibold text-[#1a1a2e]">
+                  <button type="button" onClick={onNext} className="h-10 rounded-xl bg-[rgba(255,255,255,0.95)] px-4 text-[14px] font-semibold text-[rgb(17,17,19)] transition-[background-color,scale] duration-150 hover:bg-[rgb(255,255,255)] active:scale-[0.97]">
                     Next lesson
                   </button>
                 ) : null}
@@ -726,10 +882,13 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
         </div>
       ) : null}
 
-      {/* The controls */}
+      {/*
+        The controls. The shade behind them takes no presses, only the bar and the buttons do: on a phone the shade
+        reaches the big Play in the middle, and a tap there has to reach Play, not the shade.
+      */}
       <div
         data-player-controls
-        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-2 pb-1.5 pt-10 transition-opacity duration-200 sm:px-3 sm:pb-2 ${controls && !ended ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-2 pb-1.5 pt-12 transition-opacity duration-300 ease-out motion-reduce:transition-none sm:px-3 sm:pb-2 ${barShown && known ? "opacity-100 [&>*]:pointer-events-auto" : "opacity-0"}`}
       >
         <div
           ref={barRef}
@@ -741,31 +900,38 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
           aria-valuetext={`${formatTime(shown)} of ${formatTime(duration)}`}
           tabIndex={0}
           data-seek-bar
-          className="group/bar relative mx-1.5 flex h-5 cursor-pointer touch-none items-center"
+          className="group/bar relative mx-1.5 flex h-6 cursor-pointer touch-none items-center outline-none focus-visible:[&>[data-track]]:ring-2 focus-visible:[&>[data-track]]:ring-[rgba(255,255,255,0.6)]"
           onPointerDown={onBarDown}
           onPointerMove={onBarMove}
           onPointerUp={onBarUp}
-          onPointerCancel={() => setScrub(null)}
+          onPointerCancel={onBarCancel}
           onPointerLeave={() => setHover(null)}
+          onKeyDown={onBarKey}
         >
-          <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/25 transition-[height] group-hover/bar:h-1.5">
-            <div data-buffered className="absolute inset-y-0 left-0 bg-white/45" style={{ width: `${loaded}%` }} />
-            <div data-played className="absolute inset-y-0 left-0 bg-[var(--course-accent,#8b5cf6)]" style={{ width: `${played}%` }} />
-          </div>
           <div
-            className={`absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow ${touch || scrub !== null ? "scale-100" : "scale-0 group-hover/bar:scale-100"} transition-[scale]`}
-            style={{ left: `${played}%` }}
-          />
+            data-track=""
+            className={`relative h-[5px] w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.25)] transition-transform duration-150 ease-out motion-reduce:transition-none ${touch || scrub !== null ? "scale-y-100" : "scale-y-[0.6] group-hover/bar:scale-y-100"}`}
+          >
+            <div data-buffered className="absolute inset-0 origin-left bg-[rgba(255,255,255,0.35)] transition-transform duration-300 ease-out" style={{ transform: `scaleX(${loaded})` }} />
+            <div ref={playedRef} data-played className="absolute inset-0 origin-left bg-[rgb(255,255,255)]" style={{ transform: "scaleX(0)" }} />
+          </div>
+          <div ref={knobRef} className="pointer-events-none absolute inset-y-0 left-0 w-full" style={{ transform: "translateX(0%)" }} aria-hidden>
+            <div
+              className={`absolute left-0 top-1/2 -ml-[7px] -mt-[7px] h-[14px] w-[14px] rounded-full bg-[rgb(255,255,255)] shadow-[0_1px_4px_rgba(0,0,0,0.4)] transition-[scale] duration-150 ease-out motion-reduce:transition-none ${
+                scrub !== null ? "scale-110" : touch ? "scale-100" : "scale-0 group-hover/bar:scale-100"
+              }`}
+            />
+          </div>
           {hover && scrub === null ? (
-            <div className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white" style={{ left: hover.x }}>
-              {formatTime(hover.t)}
+            <div className="pointer-events-none absolute -top-7 left-0" style={{ transform: `translateX(${hover.x}px)` }} aria-hidden>
+              <div className="-translate-x-1/2 rounded-md bg-[rgba(0,0,0,0.8)] px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">{formatTime(hover.t)}</div>
             </div>
           ) : null}
         </div>
 
         <div className="mt-0.5 flex items-center gap-0.5">
           <button type="button" className={iconBtn} onClick={togglePlay} aria-label={playing ? "Pause" : "Play"}>
-            {playing ? <Pause className="h-5 w-5" fill="currentColor" /> : <Play className="h-5 w-5" fill="currentColor" />}
+            {playing ? <Pause className="h-5 w-5" fill="currentColor" strokeWidth={0} /> : <Play className="h-5 w-5" fill="currentColor" strokeWidth={0} />}
           </button>
           <button type="button" className={iconBtn} onClick={() => skip(-1)} aria-label={`Back ${SKIP_SECONDS} seconds`}>
             <RotateCcw className="h-[18px] w-[18px]" />
@@ -775,20 +941,34 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
           </button>
 
           {!touch ? (
-            <div className="group/vol hidden items-center sm:flex">
+            <div className="hidden items-center sm:flex">
               <button type="button" className={iconBtn} onClick={() => setVolume(prefs.volume || 1, !prefs.muted)} aria-label={prefs.muted ? "Unmute" : "Mute"}>
                 {prefs.muted || prefs.volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </button>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={prefs.muted ? 0 : prefs.volume}
-                onChange={(e) => setVolume(Number(e.target.value))}
+              <div
+                ref={volRef}
+                role="slider"
                 aria-label="Volume"
-                className="h-1 w-0 cursor-pointer accent-white opacity-0 transition-[width,opacity] duration-150 group-hover/vol:w-20 group-hover/vol:opacity-100 focus:w-20 focus:opacity-100"
-              />
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(vol * 100)}
+                aria-valuetext={`${Math.round(vol * 100)}%`}
+                tabIndex={0}
+                data-volume=""
+                className="group/vol relative mr-1 flex h-8 w-[68px] cursor-pointer touch-none items-center outline-none focus-visible:[&>[data-track]]:ring-2 focus-visible:[&>[data-track]]:ring-[rgba(255,255,255,0.6)]"
+                onPointerDown={onVolDown}
+                onPointerMove={onVolMove}
+                onPointerUp={onVolUp}
+                onPointerCancel={onVolUp}
+                onKeyDown={onVolKey}
+              >
+                <div data-track="" className="relative h-1 w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.25)]">
+                  <div className="absolute inset-0 origin-left bg-[rgb(255,255,255)]" style={{ transform: `scaleX(${vol})` }} />
+                </div>
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-full" style={{ transform: `translateX(${vol * 100}%)` }} aria-hidden>
+                  <div className="absolute left-0 top-1/2 -ml-[6px] -mt-[6px] h-3 w-3 rounded-full bg-[rgb(255,255,255)] shadow-[0_1px_3px_rgba(0,0,0,0.4)] transition-[scale] duration-150 ease-out scale-0 group-hover/vol:scale-100 group-focus-visible/vol:scale-100 motion-reduce:transition-none" />
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -797,10 +977,10 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
           </span>
 
           <div className="ml-auto flex items-center gap-0.5">
-            <div className="relative">
+            <div className="relative" ref={speedRef}>
               <button
                 type="button"
-                className={`${iconBtn} w-auto px-2 text-[13px] font-semibold tabular-nums`}
+                className={`${iconBtn} w-auto min-w-10 px-2.5 text-[13px] font-semibold tabular-nums ${speedOpen ? "bg-[rgba(255,255,255,0.14)]" : ""}`}
                 onClick={() => setSpeedOpen((o) => !o)}
                 aria-haspopup="menu"
                 aria-expanded={speedOpen}
@@ -808,26 +988,33 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
               >
                 {speedLabel(prefs.rate)}
               </button>
-              {speedOpen ? (
-                <div role="menu" className="absolute bottom-full right-0 mb-2 w-[112px] overflow-hidden rounded-lg bg-[#1a1a2e]/95 py-1 shadow-xl ring-1 ring-white/10">
-                  {SPEEDS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={s === prefs.rate}
-                      onClick={() => setRate(s)}
-                      className={`flex h-9 w-full items-center justify-between px-3 text-left text-[13px] tabular-nums hover:bg-white/10 ${s === prefs.rate ? "font-semibold text-white" : "text-white/80"}`}
-                    >
-                      {speedLabel(s)}
-                      {s === prefs.rate ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--course-accent,#8b5cf6)]" /> : null}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              <div
+                role="menu"
+                aria-label="Speed"
+                aria-hidden={!speedOpen}
+                inert={!speedOpen}
+                data-speed-menu={speedOpen ? "open" : "closed"}
+                className={`absolute bottom-full right-0 mb-2 w-[132px] origin-bottom-right rounded-xl bg-[rgba(0,0,0,0.85)] p-1 shadow-[0_12px_32px_rgba(0,0,0,0.45)] ring-1 ring-[rgba(255,255,255,0.1)] transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none ${
+                  speedOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
+                }`}
+              >
+                {SPEEDS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={s === prefs.rate}
+                    onClick={() => setRate(s)}
+                    className={`flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-[13px] tabular-nums transition-colors duration-100 hover:bg-[rgba(255,255,255,0.1)] ${s === prefs.rate ? "font-semibold text-white" : "text-white/75"}`}
+                  >
+                    {speedLabel(s)}
+                    {s === prefs.rate ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
+                  </button>
+                ))}
+              </div>
             </div>
             {source.captions ? (
-              <button type="button" className={`${iconBtn} ${prefs.captions ? "bg-white/15" : ""}`} onClick={toggleCaptions} aria-pressed={prefs.captions} aria-label="Captions">
+              <button type="button" className={`${iconBtn} ${prefs.captions ? "bg-[rgba(255,255,255,0.14)]" : ""}`} onClick={toggleCaptions} aria-pressed={prefs.captions} aria-label="Captions">
                 <Captions className="h-5 w-5" />
               </button>
             ) : null}
