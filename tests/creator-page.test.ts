@@ -1026,8 +1026,10 @@ function main() {
     for (const f of decided) {
       check(`${f} asks the scheme's colours, not its name, whether it is dark`, !/["']astrid["']/.test(read(f)) && !/DARK_PRESETS/.test(read(f)))
     }
+    /* Changed on purpose (round 30): the call also says whether the page is the creator's look or Storelib's
+       ({ site: !ownLook }, lib/store-builder/product-page-tone productHasOwnLook); a scheme's dark is still decided there. */
     check("the product page's dark is the scheme's, from the one function the chrome probe measures",
-      /productPageTone\(productPageConfig\)/.test(read("app/(marketing)/p/[slug]/page.tsx"))
+      /productPageTone\(productPageConfig, \{ site: !ownLook \}\)/.test(read("app/(marketing)/p/[slug]/page.tsx"))
         && /const isDarkTheme = isDarkScheme\(themePreset\)/.test(read("lib/store-builder/product-page-tone.ts")))
     check("and on a dark scheme its own colour is the scheme's unless one was chosen, not the builder's inherited white",
       /const pageBackgroundColor = tonePageBackground/.test(read("app/(marketing)/p/[slug]/page.tsx"))

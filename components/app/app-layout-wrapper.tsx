@@ -8,6 +8,7 @@ import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provid
 import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
 import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
 import AppColdStart from "@/app/app/cold-start"
+import { revealAppFromDark } from "@/lib/appearance/client"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
 
@@ -21,8 +22,12 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   // Hide html-level scrollbar on /app pages
   useEffect(() => {
     document.documentElement.classList.add("app-layout")
-    /* The shell is on the screen now: the canvas the head script painted for the document's first frames goes (app/globals.css html.app-arriving). */
-    const frame = requestAnimationFrame(() => document.documentElement.classList.remove("app-arriving"))
+    /* The shell is on the screen now: the canvas the head script painted for the document's first frames goes (app/globals.css html.app-arriving),
+       and the veil a dashboard opened after a dark page starts under fades off it (lib/appearance/site-appearance APP_FROM_DARK_BOOT, round 30). */
+    const frame = requestAnimationFrame(() => {
+      document.documentElement.classList.remove("app-arriving")
+      revealAppFromDark()
+    })
     return () => {
       cancelAnimationFrame(frame)
       document.documentElement.classList.remove("app-layout")

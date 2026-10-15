@@ -63,6 +63,7 @@ import { placeFromUrl, slotKeyOf } from "@/lib/communities/client/places"
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { LocaleProvider } from "@/components/locale-provider"
+import { SiteAppearance } from "@/components/platform/site-appearance"
 import { ShellFrame } from "@/components/community/member/shell-frame"
 import { PlaceSpinner } from "@/components/community/member/place-spinner"
 import { sectionFromPath } from "@/components/community/member/nav"
@@ -616,8 +617,43 @@ try {
 const root = createRoot(document.getElementById("app")!)
 /* Round 13 (WARM): the probe takes the whole frame away, as leaving the community does. */
 ;(window as unknown as { __unmount?: () => void }).__unmount = () => root.unmount()
+/*
+  Round 30 (scripts/check-transitions-round30.mjs): &from=explore draws a stand in for Explore first, as the page somebody
+  opens the community from, and window.__go() moves the address and swaps it for the community in one commit, the way the
+  app router's navigation does. The stand in is Explore's own ground (explore-ground, the page's grey, white cards), so
+  the light and the dark look both have a page to leave.
+*/
+function ExploreStandIn() {
+  return (
+    <div className="explore-ground min-h-svh bg-[#f8f9fa]" data-probe-explore="">
+      <div className="mx-auto max-w-[1200px] px-4 py-6">
+        <h1 className="text-[24px] font-bold text-[#1a1a2e]">Explore</h1>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-[160px] rounded-2xl border border-[#e5e7eb]/60 bg-white" />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+function Arrival() {
+  const [there, setThere] = React.useState(false)
+  React.useEffect(() => {
+    ;(window as unknown as { __go?: () => void }).__go = () => {
+      history.pushState(null, "", `/community/${community.slug}${which === "about-visitor" || which === "about" ? "/about" : ""}`)
+      React.startTransition(() => setThere(true))
+    }
+  }, [])
+  return (
+    <>
+      <SiteAppearance />
+      {there ? <Screen /> : <ExploreStandIn />}
+    </>
+  )
+}
 root.render(
   <LocaleProvider>
-    <Screen />
+    {params.get("from") === "explore" ? <Arrival /> : <Screen />}
   </LocaleProvider>,
 )

@@ -31,11 +31,11 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
 import { useCommunityAppearance } from "@/lib/communities/client/appearance-choice"
 import "../community-theme.css"
-import { useCommunityLanding } from "@/components/community/member/landing"
+import { holdLandingGround, useCommunityLanding } from "@/components/community/member/landing"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { createClient } from "@/lib/supabase/client"
-import { useEffect } from "react"
+import { useEffect, useLayoutEffect, useRef } from "react"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
 /** What arrives under the bar fades in (opacity only: a visitor never moves between places, so nothing rises). */
@@ -57,6 +57,13 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
   const slug = card?.community.slug ?? topBar.community.slug
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
   const landing = useCommunityLanding()
+  const rootRef = useRef<HTMLDivElement>(null)
+  /* While it lands (.community-land, from nothing), the document under it is the frame's own ground (landing.ts holdLandingGround). */
+  useLayoutEffect(() => {
+    if (!landing || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    return holdLandingGround(rootRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const me = topBar.me
   useEffect(() => {
     if (!me) return
@@ -81,6 +88,7 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
   }, [me])
   return (
     <div
+      ref={rootRef}
       data-community-public=""
       data-community-theme={appearance}
       data-community-landing={landing ? "" : undefined}

@@ -1234,7 +1234,8 @@ function UnifiedAboutSection({
               </h4>
             </div>
             <div className="flex-1 w-full">
-              <div className="flex flex-wrap items-center -space-x-1">
+              {/* The card brands are drawn in their own colours, on their own white chips, in either look (data-keep-bright, round 30). */}
+              <div className="flex flex-wrap items-center -space-x-1" data-keep-bright="">
                 {paymentMethods.map((method) => {
                   const IconComponent = paymentMethodIcons[method]
                   if (!IconComponent) return null
@@ -1344,7 +1345,7 @@ export function ProductAboutSection({
             </h4>
           </div>
           <div className="flex-1 w-full">
-            <div className="flex flex-wrap items-center -space-x-1">
+            <div className="flex flex-wrap items-center -space-x-1" data-keep-bright="">
               {paymentMethods.map((method) => {
                 const IconComponent = paymentMethodIcons[method]
                 if (!IconComponent) return null
