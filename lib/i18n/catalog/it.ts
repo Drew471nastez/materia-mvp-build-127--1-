@@ -2097,13 +2097,7 @@ const words: Record<string, string> = {
  "Each sale becomes available after a short settlement wait set by our payment partner for your country.": "Ogni vendita diventa disponibile dopo una breve attesa stabilita dal nostro partner di pagamento per il tuo paese.",
  "Each variant has its own quantity, in Variants below.": "Ogni variante ha la sua quantità, in Varianti qui sotto.",
  "Earlier": "Prima",
-<<<<<<< HEAD
- "Collapse sidebar": "Comprimi la barra laterale",
- "Ctrl": "Ctrl",
- "Expand sidebar": "Espandi la barra laterale",
  "Choose a space first": "Scegli prima uno spazio",
-=======
->>>>>>> origin/main
  "Earlier visits": "Visite precedenti",
  "Earnings summary (CSV)": "Riepilogo guadagni (CSV)",
  "EasyPost": "EasyPost",
