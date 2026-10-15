@@ -21,7 +21,7 @@
  * up to 48 hours to go. Nothing of this is ever on the live website.
  */
 import * as React from "react"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Notice, TextInput, api } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { readGaInput } from "@/lib/store/ga"
 import type { Tracking } from "@/lib/store/tracking"
 import { cn } from "@/lib/utils"
@@ -92,7 +92,8 @@ export function GaConnect({ value, ready, onSaved }: { value: string | null; rea
   const [typed, setTyped] = React.useState(value ?? "")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [ga, setGa] = React.useState<GaStatusView | null>(null)
+  /* What the Integrations page already read, so the status line is right on the first frame (round 30). */
+  const [ga, setGa] = React.useState<GaStatusView | null>(() => peekGet<{ ga: GaStatusView | null }>("/api/store/integrations")?.ga ?? null)
   const [check, setCheck] = React.useState<Check>({ state: "idle" })
   const [, tick] = React.useState(0)
   React.useEffect(() => setTyped(value ?? ""), [value])

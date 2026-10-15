@@ -12,7 +12,7 @@
  */
 import * as React from "react"
 import { Copy } from "lucide-react"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, api, dateTime } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, api, dateTime, peekGet } from "@/components/physical/ui"
 import { copyText } from "@/lib/platform/copy-text"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -28,7 +28,8 @@ interface View {
 const SECTION = "border-t border-[#f1f2f4] pt-5"
 
 export function TrackingAppPanel({ preferred = "aftership", onChanged }: { preferred?: "aftership" | "17track"; onChanged?: (ownAccount: boolean) => void }) {
-  const [view, setView] = React.useState<View | null>(null)
+  /* Drawn at once from what the Integrations page already read (peekGet), never a grey box first when it is there (round 30). */
+  const [view, setView] = React.useState<View | null>(() => peekGet<{ tracking: View }>("/api/store/tracking-app")?.tracking ?? null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [open, setOpen] = React.useState(false)

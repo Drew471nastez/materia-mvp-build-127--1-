@@ -83,7 +83,8 @@ function wiring() {
   console.log("\nIntegrations\n")
   const dir = read("components/app/settings/integrations-directory.tsx")
   /* Changed on purpose (round 23, the owner: "no slide delay, no flash, back returns to where you were"): no sideways push or pop, a 120ms fade from 0.55, and Back lands on the list exactly where it was (tests/integrations23.test.ts, scripts/check-integrations23.mjs). */
-  check("a card opens its page and Back the list in place, opacity only, never from blank", /const SWAP_FROM = 0\.55/.test(dir) && /el\.animate\(\[\{ opacity: SWAP_FROM \}, \{ opacity: 1 \}\]/.test(dir) && !/PAGE_SHIFT/.test(dir))
+  /* Changed on purpose (round 30, the owner: "no white flash"): the fade from 0.55 was the pale frame; the page and the list are now whole on their first frame (scripts/check-integrations-round30.mjs). */
+  check("a card opens its page and Back the list in place, whole on the first frame, never from blank", !/SWAP_FROM/.test(dir) && !/el\.animate\(\[\{ opacity: SWAP_FROM/.test(dir) && /A CUT, NOT A FADE/.test(dir) && !/PAGE_SHIFT/.test(dir))
   check("Back returns to where the list was, set before the frame is painted", /box\.scrollTop = at\.scroll/.test(dir) && /React\.useLayoutEffect/.test(dir))
   /* Changed on purpose (the owner: the pills were "buggy and glitchy"): the cards no longer fade up from 0.4 on every press, they are simply there. */
   check("a category keeps the pills where they are, and the cards are there at once", /box\.scrollTop \+= now - want/.test(dir) && !/translate3d\(0, 6px, 0\)/.test(dir))

@@ -449,7 +449,9 @@ export const isNativePlatform = () => false
     const pills = await p.evaluate(() => [...document.querySelectorAll("[data-integration-pill]")].map((b) => ({ id: b.getAttribute("data-integration-pill"), label: b.textContent, count: Number(b.lastElementChild.textContent) })))
     report.pills = {}
     const seenPills = pills.map((x) => x.id)
-    const shouldHave = ["all", "installed", "storelib", ...catalog.CATEGORY_ORDER.filter((c) => expected[c].length > 0)]
+    /* Changed on purpose (round 30): the owner's order, All, Reviews, Analytics, Installed, Storelib apps, Advertising, Email marketing, Automation, then the rest (scripts/check-integrations-round30.mjs measures it in full). */
+    const head = ["all", "reviews", "analytics", "installed", "storelib", "advertising", "email", "automation"]
+    const shouldHave = [...head, ...catalog.CATEGORY_ORDER.filter((c) => !head.includes(c))].filter((x) => ["all", "installed", "storelib"].includes(x) || expected[x].length > 0)
     expect(seenPills.join() === shouldHave.join(), "a pill for All, Installed, Storelib apps and every category with something in it", seenPills)
     for (const pill of pills) {
       await p.evaluate((id) => document.querySelector(`[data-integration-pill="${id}"]`).click(), pill.id)
@@ -475,13 +477,15 @@ export const isNativePlatform = () => false
         `${pill.label.replace(/\d+$/, "").padEnd(16)} ${String(pill.count).padStart(2)} on the pill, ${String(shown.ids.length).padStart(2)} cards, exactly its own`,
         missing.length || extra.length || dupes.length ? { missing, extra, dupes } : undefined,
       )
-      expect(workingAfterSoon.length === 0 && ownAfter.length === 0, `${" ".repeat(19)}Storelib's own first, working services before Coming soon`, workingAfterSoon.length || ownAfter.length ? { workingAfterSoon, ownAfter } : undefined)
+      /* Changed on purpose (round 30): All, Installed and Storelib apps are mixed across the categories, so Storelib's own come first only inside a category. */
+      const mixed = pill.id === "all" || pill.id === "storelib" || pill.id === "installed"
+      expect(workingAfterSoon.length === 0 && (mixed || ownAfter.length === 0), `${" ".repeat(19)}${mixed ? "" : "Storelib's own first, "}working services before Coming soon`, workingAfterSoon.length || ownAfter.length ? { workingAfterSoon, ownAfter } : undefined)
     }
-    /* All in category order among the working services. */
+    /* Changed on purpose (round 30, the owner: All must be mixed): no longer category by category. Its first four cards come from four lanes, and Storelib's own are not one block at the top. */
     await p.evaluate(() => document.querySelector('[data-integration-pill="all"]').click())
     await sleep(450)
-    const allOrder = report.pills.all.order.filter((id) => !own(id) && !apps.some((a) => a.id === id) && !soon.has(id)).map((id) => catalog.CATEGORY_ORDER.indexOf(all.find((i) => i.id === id).category))
-    expect(allOrder.every((c, i) => i === 0 || c >= allOrder[i - 1]), "All: the working services run category by category", allOrder.join(""))
+    const allLanes = report.pills.all.order.filter((id) => !soon.has(id)).map((id) => all.find((i) => i.id === id)?.category ?? APP_IN[id] ?? "storelib")
+    expect(new Set(allLanes.slice(0, 4)).size === 4 && !report.pills.all.order.slice(0, 7).every((id) => own(id) || apps.some((a) => a.id === id)), "All: mixed, its first four cards from four lanes, Storelib's own not a block at the top", allLanes.slice(0, 6).join())
 
     /* A switch, frame by frame: scrolled to the bottom of All, then Reviews (much shorter). */
     await p.evaluate(() => {
