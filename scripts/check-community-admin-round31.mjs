@@ -72,6 +72,7 @@ const router = {
   back: () => history.back(),
   forward: () => history.forward(),
 }
+window.__probeRouterApi = router
 export const usePathname = () => useSyncExternalStore(window.__probeRouter.subscribe, () => state.pathname, () => state.pathname)
 export const useSearchParams = () => { const s = useSyncExternalStore(window.__probeRouter.subscribe, () => state.search, () => state.search); return useMemo(() => new URLSearchParams(s), [s]) }
 export const useRouter = () => router
@@ -243,6 +244,26 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     }
   }
 
+  if (want("REFRESH")) {
+    console.log("\nREFRESH: a section drawn again by the router keeps its state")
+    const { p, errors } = await open(`${BASE}/settings?tab=page`, DESK)
+    await press(p, "overview")
+    await press(p, "settings")
+    await p.evaluate(() => document.querySelector("[data-settings]").setAttribute("data-probe-mark", "1"))
+    await p.click("#g-tagline")
+    await p.$eval("#g-tagline", (el) => el.select())
+    await p.type("#g-tagline", "Typed before the refresh")
+    const n = await p.evaluate(() => (window.__router || []).length)
+    await p.evaluate(() => window.__probeRouterApi.refresh())
+    await sleep(DELAY + 300)
+    const after = await p.evaluate(() => ({ mark: !!document.querySelector("[data-settings][data-probe-mark]"), tagline: document.querySelector("#g-tagline").value, foot: document.querySelector('[data-settings-panel="page"] [data-editor-foot]').getAttribute("data-state"), on: [...document.querySelectorAll("[data-section-screen]")].filter((el) => el.offsetHeight > 0).map((el) => el.getAttribute("data-section-screen")) }))
+    const calls = await p.evaluate((n) => (window.__router || []).slice(n).map((c) => c[0]), n)
+    expect(calls.includes("refresh"), "the router drew Settings again", calls)
+    expect(after.mark && after.tagline === "Typed before the refresh" && after.foot === "dirty", "Settings was not mounted again: what was typed is still there, still to save", after)
+    expect(errors.length === 0, "no page errors", errors)
+    await p.close()
+  }
+
   if (want("HEADER")) {
     console.log("\nHEADER at 390: the name has the row")
     for (const name of ["SalajanyWood Woodworking Club", "Clay"]) {
@@ -373,11 +394,11 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
 
   if (want("DRAG")) {
     console.log("\nDRAG: the gallery reorders")
-    const order = (p) => p.evaluate(() => [...document.querySelectorAll("[data-gallery-item]")].map((el) => el.getAttribute("data-gallery-key").slice(-12)))
+    const order = (p) => p.evaluate(() => [...document.querySelectorAll("[data-gallery-item]")].map((el) => { const k = el.getAttribute("data-gallery-key"); let h = 0; for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0; return (h >>> 0).toString(36).slice(0, 5) }))
     const centre = (p, i) => p.evaluate((i) => { const b = document.querySelectorAll("[data-gallery-item]")[i].getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } }, i)
     {
       const { p, errors } = await open(`${BASE}/settings?tab=page`, DESK)
-      await p.evaluate(() => document.querySelector("[data-gallery]").scrollIntoView({ block: "center" }))
+      await p.evaluate(() => { const pane = document.querySelector("[data-community-shell]"); const g = document.querySelector("[data-gallery]"); pane.scrollTop += g.getBoundingClientRect().top - pane.getBoundingClientRect().top - 220 })
       await sleep(200)
       const before = await order(p)
       const a = await centre(p, 0)
@@ -408,7 +429,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(k1[0] === k0[1] && k1[1] === k0[0], "keyboard: Space, Left, Space moves the second tile first", { k0, k1 })
       /* The tile's menu: Show first. */
       const m0 = await order(p)
-      await p.evaluate(() => document.querySelector("[data-gallery-item]:nth-child(4) [data-tile-menu]").click())
+      await p.hover("[data-gallery-item]:nth-child(4)")
+      await sleep(150)
+      await p.click("[data-gallery-item]:nth-child(4) [data-tile-menu]")
       await sleep(300)
       const item = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"]')].find((el) => /Show first/.test(el.textContent)))
       if (item) await item.asElement()?.click()
@@ -421,7 +444,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     }
     {
       const { p, errors } = await open(`${BASE}/settings?tab=page`, PHONE)
-      await p.evaluate(() => document.querySelector("[data-gallery]").scrollIntoView({ block: "center" }))
+      await p.evaluate(() => { const pane = document.querySelector("[data-community-shell]"); const g = document.querySelector("[data-gallery]"); pane.scrollTop += g.getBoundingClientRect().top - pane.getBoundingClientRect().top - 220 })
       await sleep(250)
       const client = await p.target().createCDPSession()
       const touch = (type, pt) => client.send("Input.dispatchTouchEvent", { type, touchPoints: pt ? [{ x: pt.x, y: pt.y }] : [] })

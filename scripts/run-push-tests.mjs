@@ -603,6 +603,8 @@ const SUITES = [
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",
+  /* Round 31: the community admin shell keeps its sections, the settings list, the save bar, the gallery drag (scripts/check-community-admin-round31.mjs measures them). */
+  "tests/communities-admin31.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",

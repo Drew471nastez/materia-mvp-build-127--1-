@@ -198,7 +198,7 @@ function pageFor(path: string, v: number): React.ReactNode {
     case "events":
       return (
         <SectionSeed id="events" stamp={q.get("new") === "1" ? "new" : ""}>
-          <EventsSection head={head} options={{ tiers: [{ id: "t1", name: "Members" }], levels: settings.levels }} openNew={q.get("new") === "1"} initial={{ upcoming: [{ id: "e1", title: "Saturday build", description: "", coverUrl: null, kind: "live", startsAt: ahead(2), endsAt: new Date(Date.parse(ahead(2)) + 3_600_000).toISOString(), timezone: "Europe/Bucharest", location: null, meetingUrl: "https://zoom.us/j/1", livestreamUrl: null, capacity: 100, goingCount: 64, access: {}, replayVideoId: null, status: "scheduled" }], past: [] }} />
+          <EventsSection head={head} options={{ tiers: [{ id: "t1", name: "Members" }], levels: settings.levels }} openNew={q.get("new") === "1"} initial={{ upcoming: [{ id: "e1", title: "Saturday build", description: "", coverUrl: null, kind: "live", startsAt: ahead(2), endsAt: new Date(Date.parse(ahead(2)) + 3_600_000).toISOString(), timezone: "Europe/Bucharest", location: null, meetingUrl: "https://zoom.us/j/1", livestreamUrl: null, capacity: 100, goingCount: 64, access: {}, replayVideoId: null, status: "scheduled" } as never], past: [] } as never} />
         </SectionSeed>
       )
     case "moderation":

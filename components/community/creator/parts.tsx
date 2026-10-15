@@ -886,14 +886,14 @@ export function EditorFoot({
       data-state={state}
       data-foot={up ? "up" : "down"}
       aria-hidden={!up || undefined}
-      style={slot ? { transform: `translateY(-${slot * FOOT_STEP_PX}px)` } : undefined}
+      style={slot ? { translate: `0 -${slot * FOOT_STEP_PX}px` } : undefined}
       className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--app-nav-top,0px)+10px)] z-40 flex justify-center px-3 md:bottom-[max(16px,env(safe-area-inset-bottom))] md:left-[var(--app-rail-w,240px)] md:px-6"
     >
       <div
         role="region"
         aria-label={tt("Unsaved changes")}
         className={cn(
-          "flex min-h-[52px] w-full max-w-[560px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transition-none",
+          "flex min-h-[52px] w-full max-w-[560px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[translate,opacity] motion-reduce:transition-none",
           up ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]",
         )}
       >

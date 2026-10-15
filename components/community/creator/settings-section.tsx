@@ -4,7 +4,7 @@
  * ===========================================================================
  *  SETTINGS
  * ===========================================================================
- * Under one tab row (?tab=), the way /app/settings groups its panels:
+ * Panels named in the address (?tab=), grouped the way /app/settings groups them:
  *
  *   Page           what people see before they join: name, address,
  *                  tagline, category (the Explore pill it is found under),
@@ -21,14 +21,16 @@
  *                  (worker M's columns, run-now part 101).
  *   Roles          the owner's: what admins and moderators may do, a group
  *                  of actions at a time (run-now part 100).
- *   Gamification   points, levels, badges.
+ *   Points and     points, levels, badges (?tab=gamification).
+ *   levels
  *   Notifications  what you hear about in this community.
- *   Advanced       publish, videos, archive, delete (the name typed back).
+ *   Publish and    publish, videos, archive, delete (the name typed back;
+ *   archive        ?tab=advanced).
  *
  * The rules are written here and in Moderation, beside the reports.
  * Older links (?tab=general, ?tab=discovery) land on the tab that now holds
  * what they pointed at. A switch saves when it is flipped; a form saves
- * with its Save bar.
+ * with its save bar (./parts EditorFoot, the /app Settings bar, round 31).
  */
 import * as React from "react"
 import Link from "next/link"
@@ -161,8 +163,8 @@ export function SettingsSection({ head, data, tab: initialTab, asked = true, vid
           const list = tabs.filter((t) => t.group === g.id)
           if (!list.length) return null
           return (
-            <div key={g.id} className="mb-1 last:mb-0" data-settings-group={g.id}>
-              <p className="px-3 pb-1 pt-4 text-[12px] font-medium text-[#9ca3af] first:pt-0">{g.label}</p>
+            <div key={g.id} className="mb-1 last:mb-0 [&+&]:mt-4" data-settings-group={g.id}>
+              <p className="px-3 pb-1 text-[12px] font-medium text-[#9ca3af]">{g.label}</p>
               {list.map((t) => {
                 const on = tab === t.value
                 return (
