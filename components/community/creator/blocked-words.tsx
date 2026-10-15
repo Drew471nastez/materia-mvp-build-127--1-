@@ -25,7 +25,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { WORD_LIST_MAX, WORD_PREFIX_MIN, cleanWordList, splitWordInput, type WordSettings, type WordsAction } from "@/lib/communities/word-filter"
-import { Notice, Segmented, buttonPrimary, buttonSecondary, errorText, field, send, useToast } from "./parts"
+import { EDITOR_CARD_HINT, EDITOR_CARD_TITLE, Notice, Segmented, buttonPrimary, buttonSecondary, errorText, field, send, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 
 const ACTIONS: { value: WordsAction; label: string }[] = [
@@ -37,7 +37,11 @@ function textOf(words: string[]): string {
   return words.join("\n")
 }
 
-export function BlockedWords({ communityId, canEdit, initial }: { communityId: string; canEdit: boolean; initial?: WordSettings }) {
+/**
+ * `card`: a card of its own (Settings › Rules and policies, round 32), headed as the cards round it are (./parts
+ * EditorCard). Without it, a row of Moderation's Rules list, with a hairline under it.
+ */
+export function BlockedWords({ communityId, canEdit, initial, card = false }: { communityId: string; canEdit: boolean; initial?: WordSettings; card?: boolean }) {
   const toast = useToast()
   const [loaded, setLoaded] = React.useState<WordSettings | null>(initial ?? null)
   const [text, setText] = React.useState(initial ? textOf(initial.words) : "")
@@ -85,11 +89,11 @@ export function BlockedWords({ communityId, canEdit, initial }: { communityId: s
   }
 
   return (
-    <div className="border-b border-[#f1f2f4] px-4 py-3 sm:px-5" data-blocked-words="">
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-        <div className="min-w-0 flex-1 basis-[220px]">
-          <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Blocked words")}</p>
-          <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">
+    <div className={card ? "px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#f1f2f4] px-4 py-3 sm:px-5"} data-blocked-words="">
+      <div className={cn("flex flex-wrap items-start", card ? "gap-x-6 gap-y-3" : "gap-x-4 gap-y-2")}>
+        <div className={cn("min-w-0 flex-1", card ? "basis-[280px]" : "basis-[220px]")}>
+          {card ? <h2 className={EDITOR_CARD_TITLE}>{tt("Blocked words")}</h2> : <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Blocked words")}</p>}
+          <p className={card ? EDITOR_CARD_HINT : "mt-0.5 text-[13px] leading-snug text-[#6b7280]"}>
             {tt("Posts, comments and messages from members with any of these. Whole words only; end one with * to match every word that starts with it. The team can still write them.")}
           </p>
         </div>

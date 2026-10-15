@@ -38,11 +38,19 @@
  * A tile that is still uploading is shown with its own picture coming into
  * focus and a line filling under it, and is not part of the gallery until it
  * is done, so Save never sends half a file.
+ *
+ * ROUND 32, THE OWNER: "the gallery tiles are small, Add pictures is a narrow
+ * box with wrapped text, buttons below; not smooth like Storelib's other
+ * pages". The gallery is now drawn as a product's media is in the product
+ * editor: the same 16:9 tiles at the same sizes (two a row on a phone, three
+ * wider, the full width of the card), and under them the same dashed zone
+ * across the card, which takes pictures and videos in one picker or a drop,
+ * with the YouTube or Vimeo link beside its button.
  */
 import * as React from "react"
 import { DndContext, closestCenter, type Announcements, type DragEndEvent, type DragStartEvent, type UniqueIdentifier } from "@dnd-kit/core"
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable"
-import { ImagePlus, Link2, Loader2, Play, Upload, Video } from "lucide-react"
+import { ImagePlus, Link2, Loader2, Play, Plus, Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
@@ -83,7 +91,6 @@ export function GalleryEditor({
   max?: number
 }) {
   const pictures = React.useRef<HTMLInputElement>(null)
-  const movie = React.useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = React.useState<Uploading[]>([])
   const [videos, setVideos] = React.useState(initialVideos)
   const [linking, setLinking] = React.useState(false)
@@ -202,14 +209,23 @@ export function GalleryEditor({
       </p>
     )
 
+  /* Files from the zone's own picker: pictures together, each video on its own, as a drop. */
+  const openPicker = () => pictures.current?.click()
+
   return (
     <div data-gallery="">
-      <div className="mb-2 flex items-baseline justify-between gap-3">
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
         <p className="text-[13px] font-medium text-[#4b5563]">{tt("Gallery")}</p>
         <p className="text-[12.5px] tabular-nums text-[#6b7280]" data-gallery-count="">
           {tt("{length} of {max}", { length: value.length, max: GALLERY_MAX })}
         </p>
       </div>
+      {value.length > 1 ? (
+        <p className="-mt-1 mb-2.5 text-[12.5px] text-[#6b7280]" data-gallery-hint="">
+          <span className="md:hidden">{tt("Hold a tile to move it. The first is shown first.")}</span>
+          <span className="max-md:hidden">{tt("Drag a tile to move it. The first is shown first.")}</span>
+        </p>
+      ) : null}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -223,103 +239,134 @@ export function GalleryEditor({
         onDragCancel={() => setLifted(null)}
       >
         <SortableContext items={ids} strategy={rectSortingStrategy}>
-          <ul
-            aria-label={tt("Gallery")}
-            data-gallery-grid=""
-            data-dragging={lifted != null ? "" : undefined}
-            data-drop={dropping ? "over" : undefined}
-            onDragOver={(e) => {
-              if (!Array.from(e.dataTransfer.types).includes("Files") || room <= 0) return
-              e.preventDefault()
-              setDropping(true)
-            }}
-            onDragLeave={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
-            }}
-            onDrop={(e) => {
-              if (!e.dataTransfer.files?.length) return
-              e.preventDefault()
-              setDropping(false)
-              takeFiles(Array.from(e.dataTransfer.files))
-            }}
-            className={cn("grid grid-cols-2 gap-2.5 rounded-xl transition-shadow duration-150 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4", dropping && "shadow-[0_0_0_2px_#1a1a2e,0_0_0_6px_rgba(26,26,46,0.08)]")}
-          >
-            {value.map((item, i) => (
-              <GalleryTile
-                key={keyOf(item)}
-                id={keyOf(item)}
-                item={item}
-                index={i}
-                count={value.length}
-                video={item.type === "video" ? videos[item.videoId] : undefined}
-                onMove={move}
-                onRemove={remove}
-              />
-            ))}
-            {uploading.map((u) => (
-              <PendingTile key={u.key} pending={u} />
-            ))}
-            {room > 0 ? (
-              <li className="list-none">
-                <button
-                  type="button"
-                  onClick={() => pictures.current?.click()}
-                  data-gallery-add-tile=""
-                  className="group/add grid aspect-[16/10] w-full cursor-pointer place-content-center justify-items-center gap-1 rounded-xl border border-dashed border-[#d3d6dc] bg-[#fafafb] px-3 text-center text-[#6b7280] outline-none transition-[border-color,background-color,color] duration-100 hover:border-[#a9aeb7] hover:bg-white hover:text-[#1a1a2e] focus-visible:border-[#1a1a2e] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
-                >
-                  <ImagePlus aria-hidden className="h-5 w-5" />
-                  <span className="text-[13px] font-medium">{value.length ? tt("Add pictures") : tt("Add the first pictures")}</span>
-                  <span className="text-[11.5px] text-[#9ca3af] max-md:hidden">{tt("or drop them here")}</span>
-                </button>
-              </li>
-            ) : null}
-          </ul>
+          {/* The product editor's media grid (app/app/products/new/media-grid.tsx): 16:9 tiles, two a row on a phone, three wider. */}
+          {value.length || uploading.length ? (
+            <ul
+              aria-label={tt("Gallery")}
+              data-gallery-grid=""
+              data-dragging={lifted != null ? "" : undefined}
+              onDragOver={(e) => {
+                if (!Array.from(e.dataTransfer.types).includes("Files") || room <= 0) return
+                e.preventDefault()
+                setDropping(true)
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+              }}
+              onDrop={(e) => {
+                if (!e.dataTransfer.files?.length) return
+                e.preventDefault()
+                setDropping(false)
+                takeFiles(Array.from(e.dataTransfer.files))
+              }}
+              className="mb-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3"
+            >
+              {value.map((item, i) => (
+                <GalleryTile
+                  key={keyOf(item)}
+                  id={keyOf(item)}
+                  item={item}
+                  index={i}
+                  count={value.length}
+                  video={item.type === "video" ? videos[item.videoId] : undefined}
+                  onMove={move}
+                  onRemove={remove}
+                />
+              ))}
+              {uploading.map((u) => (
+                <PendingTile key={u.key} pending={u} />
+              ))}
+            </ul>
+          ) : null}
         </SortableContext>
       </DndContext>
       <input
         ref={pictures}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
         multiple
         hidden
         onChange={(e) => {
-          void uploadPictures(Array.from(e.target.files ?? []))
+          const files = Array.from(e.target.files ?? [])
           e.target.value = ""
+          if (files.length) takeFiles(files)
         }}
       />
-      <input
-        ref={movie}
-        type="file"
-        accept="video/mp4,video/quicktime,video/webm"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) void uploadVideo(f)
-          e.target.value = ""
-        }}
-      />
-      <div className="mt-3 flex flex-wrap items-center gap-2" data-gallery-add="">
-        {room > 0 ? (
-          <>
-            <button type="button" onClick={() => movie.current?.click()} className={cn(buttonSecondary, "h-10 sm:h-8")} data-gallery-add-video="">
-              <Video aria-hidden className="h-4 w-4" />
-              {tt("Upload a video")}
-            </button>
-            <button type="button" onClick={() => setLinking(true)} aria-expanded={linking} className={cn(buttonSecondary, "h-10 sm:h-8")} data-gallery-add-link="">
-              <Link2 aria-hidden className="h-4 w-4" />
-              {tt("YouTube or Vimeo link")}
-            </button>
-          </>
-        ) : (
-          <span className="text-[12.5px] text-[#6b7280]">{tt("The gallery is full. Remove one to add another.")}</span>
-        )}
-        {value.length > 1 ? (
-          <span className="text-[12.5px] text-[#6b7280]" data-gallery-hint="">
-            <span className="md:hidden">{tt("Hold a tile to move it.")}</span>
-            <span className="max-md:hidden">{tt("Drag a tile to move it.")}</span>
-          </span>
-        ) : null}
-      </div>
+      {/*
+        THE PRODUCT EDITOR'S UPLOAD ZONE (round 32: "the gallery is not smooth like Storelib uses for this across other
+        pages"): the width of the card, under the tiles, rather than a narrow tile of its own with its words wrapped and
+        two more buttons under it. A press opens the picker for pictures and videos together; files dropped on it (or on
+        the tiles) go up the same way; a YouTube or Vimeo link is pasted from its second button.
+      */}
+      {room > 0 ? (
+        <div
+          role="presentation"
+          onClick={openPicker}
+          onDragOver={(e) => {
+            if (!Array.from(e.dataTransfer.types).includes("Files")) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = "copy"
+            setDropping(true)
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+          }}
+          onDrop={(e) => {
+            if (!e.dataTransfer.files?.length) return
+            e.preventDefault()
+            setDropping(false)
+            takeFiles(Array.from(e.dataTransfer.files))
+          }}
+          data-gallery-drop={dropping ? "over" : ""}
+          className={cn(
+            "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-center transition-[border-color,background-color] duration-150 sm:py-7 [-webkit-tap-highlight-color:transparent]",
+            dropping ? "border-[#1a1a2e] bg-[#f6f7f9]" : "border-[#d1d5db] hover:border-[#9ca3af] hover:bg-[#fafafb]",
+          )}
+        >
+          {dropping ? (
+            <div className="flex flex-col items-center gap-2 py-1.5">
+              <span aria-hidden className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)]">
+                <Plus className="h-5 w-5 text-[#1a1a2e]" />
+              </span>
+              <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Drop to add pictures and videos")}</p>
+            </div>
+          ) : (
+            <>
+              <p className="mb-2.5 text-[13px] text-[#6b7280] max-md:hidden sm:mb-3 sm:text-[14px]">{value.length ? tt("Drag pictures or a video here, or") : tt("Drag the first pictures or a video here, or")}</p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openPicker()
+                  }}
+                  className={cn(buttonSecondary, "h-10 sm:h-9 sm:px-3.5")}
+                  data-gallery-add-tile=""
+                >
+                  <Plus aria-hidden className="h-4 w-4" />
+                  {value.length ? tt("Add pictures or video") : tt("Upload")}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLinking(true)
+                  }}
+                  aria-expanded={linking}
+                  className={cn(buttonSecondary, "h-10 border-transparent bg-transparent shadow-none sm:h-9 sm:px-3")}
+                  data-gallery-add-link=""
+                >
+                  <Link2 aria-hidden className="h-4 w-4" />
+                  {tt("YouTube or Vimeo link")}
+                </button>
+              </div>
+              <p className="mt-2.5 text-[12px] text-[#9ca3af]">{tt("Up to {room} more pictures or videos.", { room })}</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <p className="text-[12.5px] text-[#6b7280]" data-gallery-full="">{tt("The gallery is full. Remove one to add another.")}</p>
+      )}
       {linking && room > 0 ? (
         <VideoLinkField
           className="mt-3"

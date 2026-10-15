@@ -52,7 +52,7 @@ export interface PublicFrameCard {
 }
 
 export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
-  const { appearance } = useCommunityAppearance(card?.community.appearance === "dark" ? "dark" : "light")
+  const { appearance } = useCommunityAppearance()
   useCommunityTheme(appearance)
   useLightChrome(true, TOP_BAR_GROUND[appearance === "dark" ? "dark" : "light"])
   const slug = card?.community.slug ?? topBar.community.slug

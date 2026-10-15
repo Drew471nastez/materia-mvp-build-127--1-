@@ -5,7 +5,7 @@
  * uploads): one picture or video, and one file on its way up.
  */
 import { useSortable } from "@dnd-kit/sortable"
-import { Loader2, MoreHorizontal, Play } from "lucide-react"
+import { GripVertical, Loader2, MoreHorizontal, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
@@ -43,6 +43,11 @@ const kindWord = (item: GalleryItem) => (item.type === "image" ? tt("picture") :
  *
  * `group/tile`, not `group`: app/globals.css strips every motion inside a
  * `.group` on a touch screen, and the lift is motion.
+ *
+ * Round 32: drawn as the product editor draws a photo (app/app/products/new
+ * media-grid.tsx MediaTile): 16:9, 8px corners and a hairline, its place in
+ * the corner, a grip under the pointer, and "First" where a product's says
+ * Thumbnail.
  */
 export function GalleryTile({ id, item, index, count, video, onMove, onRemove }: { id: string; item: GalleryItem; index: number; count: number; video?: GalleryVideoView; onMove: (from: number, to: number) => void; onRemove: (i: number) => void }) {
   const sortable = useSortable({ id })
@@ -65,9 +70,9 @@ export function GalleryTile({ id, item, index, count, video, onMove, onRemove }:
     >
       <div
         className={cn(
-          "group/tile relative aspect-[16/10] overflow-hidden rounded-xl bg-[#eceef1] select-none [-webkit-touch-callout:none]",
-          "transition-[scale,box-shadow] duration-150 ease-out motion-reduce:transition-none",
-          isDragging ? "scale-[1.03] shadow-[0_14px_30px_-10px_rgba(17,24,39,0.35),0_2px_6px_rgba(17,24,39,0.1)]" : "shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_1px_2px_rgba(16,24,40,0.05)]",
+          "group/tile relative aspect-video overflow-hidden rounded-lg border bg-[#f3f4f6] select-none [-webkit-touch-callout:none]",
+          "transition-[scale,box-shadow,border-color] duration-150 ease-out motion-reduce:transition-none",
+          isDragging ? "scale-[1.03] border-[#d9dbe0] shadow-[0_14px_30px_-10px_rgba(17,24,39,0.35),0_2px_6px_rgba(17,24,39,0.1)]" : "border-[#e5e7eb] hover:border-[#d1d5db]",
         )}
       >
         {still ? (
@@ -91,14 +96,16 @@ export function GalleryTile({ id, item, index, count, video, onMove, onRemove }:
           {...attributes}
           {...listeners}
           aria-label={tt("Move {kind} {value}", { kind, value: index + 1 })}
-          className={cn("absolute inset-0 bg-black/0 outline-none transition-colors duration-100 group-hover/tile:bg-black/10 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]", HANDLE_TOUCH)}
-        />
+          className={cn("absolute inset-0 flex items-center justify-center bg-black/0 outline-none transition-colors duration-100 group-hover/tile:bg-black/20 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]", HANDLE_TOUCH)}
+        >
+          <GripVertical aria-hidden className="h-6 w-6 text-white opacity-0 drop-shadow-md transition-opacity duration-100 max-md:hidden md:group-hover/tile:opacity-100" />
+        </div>
 
-        <span className="pointer-events-none absolute left-1.5 top-1.5 flex items-center gap-1">
-          <span aria-hidden className="grid h-5 min-w-5 place-items-center rounded-md bg-black/55 px-1 text-[11px] font-medium tabular-nums text-white">{index + 1}</span>
-          {index === 0 ? <span className="rounded-md bg-white/92 px-1.5 py-0.5 text-[11px] font-medium text-[#1a1a2e]">{tt("First")}</span> : null}
+        <span aria-hidden className="pointer-events-none absolute left-1 top-1 grid h-5 min-w-5 place-items-center rounded-md bg-black/50 px-1 text-[10px] font-medium tabular-nums text-white sm:left-1.5 sm:top-1.5">
+          {index + 1}
         </span>
-        <span className="pointer-events-none absolute bottom-1.5 left-1.5 flex items-center gap-1">
+        <span className="pointer-events-none absolute bottom-1 left-1 flex items-center gap-1 sm:bottom-1.5 sm:left-1.5">
+          {index === 0 ? <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white" data-gallery-first="">{tt("First")}</span> : null}
           {item.type === "video" && video && video.status !== "ready" ? <span className="rounded-md bg-white/92 px-1.5 py-0.5 text-[11px] font-medium text-[#92400e]">{video.status === "failed" ? tt("Failed") : tt("Processing")}</span> : null}
           {item.type === "embed" ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11px] font-medium text-white">{PROVIDER[item.provider]}</span> : null}
           {item.type === "video" && video?.durationSeconds ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">{duration(video.durationSeconds)}</span> : null}
@@ -135,7 +142,7 @@ export function PendingTile({ pending }: { pending: Uploading }) {
   const p = Math.max(0, Math.min(100, pending.percent)) / 100
   return (
     <li data-gallery-uploading={pending.kind} className="relative list-none animate-in fade-in zoom-in-[0.97] duration-300 ease-out motion-reduce:animate-none">
-      <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-[#eceef1] select-none">
+      <div className="relative aspect-video overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] select-none">
         {pending.preview ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
