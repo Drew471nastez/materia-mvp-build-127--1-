@@ -2923,7 +2923,8 @@ html.keyboard-open [data-community-shell]:not([data-post-over]):not([data-sheet-
    the feed. */
 html[data-post-typing],
 html[data-post-typing] body {
-  background-color: #fff !important;
+  /* The sheet's own surface: white, or the dark surface in the dark look (round 30). */
+  background-color: var(--sl-surface, #fff) !important;
 }
 
 /* ── Scroll-margin for inputs: prevent content sliding under the fixed header ──
@@ -4274,10 +4275,10 @@ html.capacitor.has-page-layer::before {
   display: none;
 }
 html.capacitor.has-page-layer.has-page-layer {
-  background-color: #f8f9fa;
+  background-color: var(--sl-page, #f8f9fa);
 }
 html.capacitor.has-page-layer {
-  background-color: #f8f9fa;
+  background-color: var(--sl-page, #f8f9fa);
 }
 @media (max-width: 767px) {
   html:has([data-page-layer-phone]) [data-shell-chrome] {
@@ -4296,7 +4297,7 @@ html.capacitor.has-page-layer {
     display: none;
   }
   html.capacitor.has-phone-page-layer {
-    background-color: #f8f9fa;
+    background-color: var(--sl-page, #f8f9fa);
   }
   /* MENU OVER A PAGE LAYER. The product editor (52) keeps the pill (55) and
      hides the header, so the menu the pill opens (50 elsewhere,
@@ -4828,7 +4829,8 @@ html.capacitor:has([data-page="auth"]) body {
 /* Library uses DashboardSidebar whose mobile header is white (bg-background).
    The ::before shield must also be white so no black bar appears above it. */
 html.capacitor.with-page-library::before {
-  background-color: #ffffff;
+  /* The band: white in the light look, the dark header's surface in the dark one (round 30: it stayed white). */
+  background-color: var(--native-band, #ffffff);
 }
 
 /* /app layout: the mobile header background is #111111. The default ::before
@@ -4879,7 +4881,7 @@ html.capacitor .native-hidden {
    restyled the whole document whenever text anywhere was replaced;
    components/platform/html-class.tsx). */
 html.capacitor.with-page-library {
-  background-color: #fafafa;
+  background-color: var(--sl-page, #fafafa);
 }
 
 /* JS-driven counterpart: LibraryBgFix adds .library-layout to <html> and
@@ -4887,10 +4889,10 @@ html.capacitor.with-page-library {
    .with-page-library versions above so that the fix is active via
    BOTH mechanisms — neither is a single point of failure on rotation. */
 html.capacitor.library-layout {
-  background-color: #fafafa;
+  background-color: var(--sl-page, #fafafa);
 }
 html.capacitor.library-layout::before {
-  background-color: #ffffff;
+  background-color: var(--native-band, #ffffff);
 }
 
 /* The floating creator quick-nav is gone. It floated over the product
@@ -5995,8 +5997,8 @@ html[data-account-community-pending] [data-page="account"]::before {
   top: 0;
   z-index: 40;
   height: calc(56px + env(safe-area-inset-top, 0px));
-  background: #fff;
-  border-bottom: 1px solid #e6e8ec;
+  background: var(--sl-surface, #fff);
+  border-bottom: 1px solid var(--sl-line, #e6e8ec);
 }
 @media (min-width: 1024px) {
   html[data-account-community-pending] [data-page="account"]::before {

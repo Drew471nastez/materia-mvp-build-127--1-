@@ -112,7 +112,8 @@ console.log("\nKEYBOARD: the comment box on the keys, nothing of the feed under 
   check("the same room in the focus as New post, and the same calm tap", /const keyboardRoom = useCallback\(\(\) => sheetKeyboardRoom\(rootRef\.current\), \[\]\)/.test(pf) && /useCalmFocus\(!!root, scope\)/.test(pf))
   check("typed in: the post marks itself and <html>, and the community is clipped away below the sheet's top edge", /root\.toggleAttribute\("data-typing", on\)/.test(pf) && /html\.toggleAttribute\("data-post-typing", on\)/.test(pf) && /shell\.style\.clipPath = `inset\(0px 0px calc\(100% - \$\{keep\}px\) 0px\)`/.test(pf))
   check("and let go of in every way out: focus leaving, the close, the post taken out", (pf.match(/unpaintCommunity\(false\)/g) ?? []).length >= 2 && /removeAttribute\("data-post-typing"\)/.test(pf))
-  check("the page's own ground is white while typed in, over any other rule", /html\[data-post-typing\],\s*html\[data-post-typing\] body \{\s*background-color: #fff !important;/.test(css))
+  /* Changed on purpose (round 30): the sheet's own surface, white in the light look and the dark surface in the dark. */
+  check("the page's own ground is the sheet's while typed in, over any other rule", /html\[data-post-typing\],\s*html\[data-post-typing\] body \{[\s\S]{0,160}?background-color: var\(--sl-surface, #fff\) !important;/.test(css))
   check("the sheet's skirt: a solid copy of it one sheet tall below its foot, in the post's white", /0 \$\{height\}px 0 0 var\(--wb-sheet-skirt, transparent\)/.test(mes) && /\[--wb-sheet-skirt:#fff\]/.test(pf))
   /* The decision table still places the post page's dock (comments.tsx dockComposer): 76.jpg's numbers. */
   const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"

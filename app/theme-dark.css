@@ -40,9 +40,12 @@ html[data-sl-dark] {
   --sl-tab-on: #ececee;
   --sl-tab-rest: #9c9da4;
   /* The tab bar's glass (round 29, components/nav/buyer-tab-bar.tsx): a few per cent of white, light on its upper half, a hairline along the top, never a white highlight on the dark bar. */
-  --sl-tab-lens: rgba(255,255,255,0.06);
-  --sl-tab-lens-sheen: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 50%, rgba(255,255,255,0) 72%);
-  --sl-tab-lens-edge: inset 0 0.5px 0 rgba(255,255,255,0.14), inset 0 0 0 0.5px rgba(255,255,255,0.045), 0 1px 6px -1px rgba(0,0,0,0.45);
+  --sl-tab-lens: rgba(255,255,255,0.045);
+  --sl-tab-lens-sheen: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 50%, rgba(255,255,255,0) 72%);
+  --sl-tab-lens-edge: inset 0 0.5px 0 rgba(255,255,255,0.1), inset 0 0 0 0.5px rgba(255,255,255,0.035), 0 1px 6px -1px rgba(0,0,0,0.4);
+  /* A tap shows no glass in the dark; a drag a faint whole (components/nav/buyer-tab-bar.tsx, round 30). */
+  --sl-tab-lens-tap: 0;
+  --sl-tab-lens-drag: 0.75;
   --sl-ink-strong: #ececee;
   --sl-arrive: rgba(253,248,236,0.07);
 }
@@ -194,8 +197,13 @@ html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
   it, so cards separate by light rather than by white borders.
 */
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white:is(.rounded-2xl, .rounded-xl, .rounded-\[20px\], .rounded-\[18px\], .rounded-\[16px\]) {
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 140px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px -20px rgba(0,0,0,0.7);
+  /*
+    Round 30, the owner: "very fine subtle lines in the gradual gradient". A 2.5% white wash over 140px is six steps
+    of an 8 bit screen, each a visible band, and a 32px shadow at 70% black on a near black ground the same. The card
+    is one flat surface now, its edge a hairline of light and a tight shadow, nothing that has to be drawn in steps.
+  */
+  background-image: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.35);
 }
 /* A menu or a sheet floats: a little more lift, the same matte surface. */
 :is(html[data-sl-dark], [data-community-theme="dark"]) :is([role="menu"], [role="listbox"], [role="dialog"], [data-account-menu]) {

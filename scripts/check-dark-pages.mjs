@@ -332,6 +332,24 @@ export const isNativePlatform = () => false
       await p.evaluate(() => { document.documentElement.setAttribute("data-sl-dark", ""); document.documentElement.style.colorScheme = "dark" })
       await sleep(400)
       const patches = await lightPatches(p)
+      /* Round 30: in the phone app the strip under the clock is the band, on every layout's own class too (it stayed white on the library and the account). */
+      /* A community paints its own band from its own state (useLightChrome), which this stand in page does not switch. */
+      if (vp === PHONE && !["feed", "members", "about", "events", "leaderboard", "saved", "visitor", "learn18", "cheader", "ctabbar"].includes(kind)) {
+        const strips = await p.evaluate(() => {
+          const html = document.documentElement
+          const out = {}
+          for (const extra of ["", "with-page-library", "library-layout", "has-page-layer", "has-phone-page-layer"]) {
+            html.classList.add("capacitor")
+            if (extra) html.classList.add(extra)
+            out[extra || "plain"] = { strip: getComputedStyle(html, "::before").backgroundColor, canvas: getComputedStyle(html).backgroundColor }
+            if (extra) html.classList.remove(extra)
+          }
+          html.classList.remove("capacitor")
+          return out
+        })
+        const light = (c) => { const m = /rgba?\(([\d.]+), ([\d.]+), ([\d.]+)/.exec(c || ""); return !!m && (Number(m[1]) + Number(m[2]) + Number(m[3])) / 3 > 140 }
+        expect(Object.values(strips).every((v) => !light(v.strip) && !light(v.canvas)), `${kind} ${vp.width}: the app's strip under the clock and its canvas are dark on every layout`, strips)
+      }
       if (process.env.STRIP_DEBUG) console.log(JSON.stringify(await p.evaluate(() => [...document.querySelectorAll("*")].map((el) => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return { el: `${el.tagName}.${String(el.className).slice(0, 140)}`, bb: cs.borderBottomWidth, bbc: cs.borderBottomColor, bt: cs.borderTopWidth, btc: cs.borderTopColor, h: Math.round(r.height), bg: cs.backgroundColor, top: Math.round(r.top) } }).filter((o) => parseFloat(o.bb) >= 4 || parseFloat(o.bt) >= 4 || (o.h > 0 && o.h <= 12 && o.bg !== "rgba(0, 0, 0, 0)" && o.top < 1200)))))
       await p.screenshot({ path: join(shots, `${kind}-${vp.width}-dark.png`) })
       expect(patches.length === 0, `${kind} ${vp.width}: nothing left light, and no dark ink or icon on the dark ground`, patches)
