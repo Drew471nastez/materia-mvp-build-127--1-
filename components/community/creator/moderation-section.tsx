@@ -535,8 +535,8 @@ export function ModerationSection({
             </div>
           )
         ) : null}
-        {queue ? <ListFoot shown={reports.rows.length} more={Boolean(reports.next)} loading={loading} onMore={() => void loadReports(view, reports.next)} noun={tt("reports")} /> : null}
-        {tab === "audit" && audit ? <ListFoot shown={audit.rows.length} more={Boolean(audit.next)} loading={loading} onMore={() => void loadAudit(audit.next)} noun={tt("entries")} /> : null}
+        {queue ? <ListFoot shown={reports.rows.length} more={Boolean(reports.next)} loading={loading} onMore={() => void loadReports(view, reports.next)} label={(n) => tt("{n, plural, one {# report} other {# reports}}", { n })} /> : null}
+        {tab === "audit" && audit ? <ListFoot shown={audit.rows.length} more={Boolean(audit.next)} loading={loading} onMore={() => void loadAudit(audit.next)} label={(n) => tt("{n, plural, one {# entry} other {# entries}}", { n })} /> : null}
       </ListCard>
 
       {tab === "reports" && !head.can.moderate_content ? <Notice tone="info">{tt("Your role can review reports but not remove content.")}</Notice> : null}

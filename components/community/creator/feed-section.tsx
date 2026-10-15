@@ -369,7 +369,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
             )}
           </ul>
         )}
-        <ListFoot shown={rows.length} more={Boolean(next)} loading={more} onMore={() => void loadMore()} noun={tt("posts")} />
+        <ListFoot shown={rows.length} more={Boolean(next)} loading={more} onMore={() => void loadMore()} label={(n) => tt("{n, plural, one {# post} other {# posts}}", { n })} />
       </ListCard>
       {spaces.length === 0 && head.can.manage_spaces ? <Notice tone="info">{tt("There is no space to post in. Add one under Spaces.")}</Notice> : null}
       {head.can.post && spaces.length > 0 && !head.archived && !me ? <Notice tone="info">{tt("Refresh the page to write a post.")}</Notice> : null}

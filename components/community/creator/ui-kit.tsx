@@ -136,7 +136,7 @@ export function PickOne({ on, label, onChange }: { on: boolean; label: string; o
  * the foot of the screen while any are picked, the way Settings' save bar
  * does (components/app/settings-form-new.tsx): a white bar with a hairline
  * and a soft shadow, above the navigation pill on a phone, rising in on
- * transform and opacity. So it is in reach wherever the list is scrolled to,
+ * translate and opacity. So it is in reach wherever the list is scrolled to,
  * and nothing in the list moves when it comes or goes. Drawn into the body,
  * so no scrolling pane around the list can hold it.
  */
@@ -158,7 +158,7 @@ export function BulkBar({ size, onClear, children }: { size: number; onClear: ()
         role="region"
         aria-label={tt("Selected rows")}
         className={cn(
-          "flex w-full max-w-[640px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+          "flex w-full max-w-[640px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-[translate,opacity] transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
           up ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]",
         )}
       >
@@ -183,12 +183,12 @@ export const bulkButton = cn(buttonSecondary, "shrink-0 md:h-9 md:rounded-[10px]
  * total is known), and Show more while there are more. Orders' foot: 44px,
  * the faint grey, the words in 12px.
  */
-export function ListFoot({ shown, total, more, loading, onMore, noun }: { shown: number; total?: number | null; more: boolean; loading?: boolean; onMore?: () => void; noun?: string }) {
+export function ListFoot({ shown, total, more, loading, onMore, label }: { shown: number; total?: number | null; more: boolean; loading?: boolean; onMore?: () => void; /** How many are shown, in words that count them the language's way ("50 members"). */ label?: (n: number) => string }) {
   if (shown === 0) return null
   return (
     <div data-list-foot="" className="flex min-h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] py-1.5 pl-4 pr-2 md:pl-5 md:pr-3">
       <span className="truncate text-[12.5px] tabular-nums text-[#6b7280]">
-        {typeof total === "number" && total >= shown ? tt("{shown} of {total}", { shown: count(shown), total: count(total) }) : noun ? `${count(shown)} ${noun}` : count(shown)}
+        {typeof total === "number" && total >= shown ? tt("{shown} of {total}", { shown: count(shown), total: count(total) }) : label ? label(shown) : count(shown)}
       </span>
       {more ? (
         <button type="button" onClick={onMore} disabled={loading} className={cn(buttonSecondary, "shrink-0 md:h-7 md:text-[12.5px]")} data-load-more="">

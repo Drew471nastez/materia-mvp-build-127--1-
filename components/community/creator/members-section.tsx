@@ -471,7 +471,7 @@ export function MembersSection(p: Props) {
             </ul>
           </>
         )}
-        <ListFoot shown={rows.length} total={total} more={Boolean(page.next)} loading={more} onMore={() => void loadMore()} noun={tt("members")} />
+        <ListFoot shown={rows.length} total={total} more={Boolean(page.next)} loading={more} onMore={() => void loadMore()} label={(n) => tt("{n, plural, one {# member} other {# members}}", { n })} />
       </ListCard>
 
       {page.capped ? <p className="px-1 text-[13px] text-[#6b7280]">{tt("Showing the first matches. Type more of the name to narrow it down.")}</p> : null}
