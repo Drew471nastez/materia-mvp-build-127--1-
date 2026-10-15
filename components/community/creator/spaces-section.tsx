@@ -10,6 +10,13 @@
  * comments are on, and who can see it. Reorder by dragging a row (round 27) or with the arrows (each move
  * is saved), archive one to hide it with everything in it kept, delete one
  * only while nothing was ever posted in it.
+ *
+ * Round 31 (the owner): a row opens the space's editor wherever it is
+ * pressed (rows.tsx), its menu keeps the rest. The icon is picked from
+ * Storelib's emoji picker or typed as the admin's own (space-icon-field.tsx),
+ * never a text box with a caret over the emoji. On a phone the form is the
+ * New post sheet (form-sheet.tsx): Cancel and Add space in its top row, the
+ * fields lifted above the keyboard.
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -21,15 +28,20 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, RuleOptions, SpaceView } from "./view-types"
 import { SPACE_KIND_LABEL, checkSpace } from "./logic"
 import { AccessEditor, describeRule } from "./access-editor"
-import { Confirm, Dialog, Empty, ListCard, ListNote, Notice, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { Confirm, Empty, ListCard, ListNote, Notice, RowMenu, Toggle, buttonPrimary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { chosenEmoji } from "@/components/community/member/space-glyph"
+import { FormSheet } from "./form-sheet"
+import { IconGlyph, SpaceIconField } from "./space-icon-field"
+import { checkSpaceIcon } from "./space-icon"
+import { ROW_PRESS, RowControls, RowOpen, rowPress } from "./rows"
 import { tt } from "@/lib/i18n/text"
 
 const KIND_ICON: Record<SpaceKind, string> = { feed: "💬", chat: "⚡", announcements: "📣", resources: "📚" }
 const POST_ROLE_LABEL: Record<PostRole, string> = { get member() { return tt("Members post") }, get moderator() { return tt("Moderators post") }, get admin() { return tt("Admins post") } }
 
-/** A stored icon is an emoji (shown) or an older word name (the kind's emoji is shown instead). */
+/** A stored icon is the admin's (an emoji, or up to two letters, shown) or an older word name (the kind's emoji is shown instead). */
 export function spaceGlyph(s: { icon: string | null; kind: SpaceKind }): string {
-  return s.icon && !/^[a-z-]+$/i.test(s.icon) ? s.icon : KIND_ICON[s.kind]
+  return chosenEmoji(s.icon) ?? KIND_ICON[s.kind]
 }
 
 interface Draft {
@@ -62,11 +74,14 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
 
   const save = async () => {
     if (!draft) return
-    const checked = checkSpace(draft, { creating: !draft.id })
+    const icon = checkSpaceIcon(draft.icon)
+    if (!icon.ok) return setError(icon.error)
+    const checked = checkSpace({ ...draft, icon: icon.value }, { creating: !draft.id })
     if (!checked.ok) return setError(checked.error)
     setBusy(true)
     setError(null)
-    const res = draft.id ? await send(`${base}/${draft.id}`, "PATCH", draft) : await send(base, "POST", draft)
+    const body = { ...draft, icon: icon.value }
+    const res = draft.id ? await send(`${base}/${draft.id}`, "PATCH", body) : await send(base, "POST", body)
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error, tt("The space could not be saved.")))
     setDraft(null)
@@ -133,8 +148,13 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     await reload()
   }
 
+  const edit = (s: SpaceView) => {
+    setError(null)
+    setDraft({ id: s.id, name: s.name, description: s.description ?? "", icon: chosenEmoji(s.icon) ?? "", kind: s.kind, postRole: s.postRole, commentsEnabled: s.commentsEnabled, viewAccess: s.viewAccess })
+  }
+
   const menu = (s: SpaceView, i: number): ActionMenuItem[] => {
-    const items: ActionMenuItem[] = [{ label: tt("Edit"), onClick: () => setDraft({ id: s.id, name: s.name, description: s.description ?? "", icon: s.icon && !/^[a-z-]+$/i.test(s.icon) ? s.icon : "", kind: s.kind, postRole: s.postRole, commentsEnabled: s.commentsEnabled, viewAccess: s.viewAccess }) }]
+    const items: ActionMenuItem[] = [{ label: tt("Edit"), onClick: () => edit(s) }]
     if (i > 0) items.push({ label: tt("Move up"), onClick: () => void move(i, -1) })
     if (i < spaces.length - 1) items.push({ label: tt("Move down"), onClick: () => void move(i, 1) })
     items.push(s.archived ? { label: tt("Restore"), onClick: () => void setArchived(s, false), separatorBefore: true } : { label: tt("Archive"), onClick: () => void setArchived(s, true), separatorBefore: true })
@@ -180,73 +200,71 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                   dragOver(s.id)
                 }}
                 onDragEnd={dragEnd}
-                className={cn("group/space flex min-h-[64px] items-center gap-3 px-4 py-2.5 transition-[background-color,opacity] duration-150 sm:px-5", dragging === s.id && "bg-[#f6f7f8] opacity-70")}
+                onClick={rowPress(() => edit(s))}
+                className={cn("group/space flex min-h-[64px] items-center gap-3 px-4 py-2.5 transition-[background-color,opacity] duration-150 sm:px-5", ROW_PRESS, dragging === s.id && "bg-[#f6f7f8] opacity-70")}
                 data-space-row=""
               >
                 <GripVertical aria-hidden className="-ml-1.5 hidden h-4 w-4 shrink-0 cursor-grab text-[#c4c6cc] opacity-0 transition-opacity duration-150 group-hover/space:opacity-100 sm:block" />
-                <span aria-hidden className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#f3f4f6] text-[17px]", s.archived && "opacity-50")}>
-                  {spaceGlyph(s)}
+                <span aria-hidden className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#f3f4f6]", s.archived && "opacity-50")} data-space-glyph="">
+                  <IconGlyph value={spaceGlyph(s)} size="sm" />
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className="flex min-w-0 items-center gap-2">
+                <RowOpen label={tt("Edit {name}", { name: s.name })} className="flex-1">
+                  <span className="flex min-w-0 items-center gap-2">
                     <span className={cn("truncate text-[14.5px] font-medium", s.archived ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{s.name}</span>
                     {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
-                  </p>
-                  <p className="truncate text-[12.5px] text-[#6b7280]">
+                  </span>
+                  <span className="block truncate text-[12.5px] text-[#6b7280]">
                     {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), (s.kind === "chat" ? tt("{n, plural, one {# message} other {# messages}}", { n: s.posts }) : tt("{n, plural, one {# post} other {# posts}}", { n: s.posts }))].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-                <div className="hidden items-center gap-0.5 sm:flex">
-                  <button type="button" aria-label={tt("Move {name} up", { name: s.name })} disabled={i === 0} onClick={() => void move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
-                    <ArrowUp aria-hidden className="h-4 w-4" />
-                  </button>
-                  <button type="button" aria-label={tt("Move {name} down", { name: s.name })} disabled={i === spaces.length - 1} onClick={() => void move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
-                    <ArrowDown aria-hidden className="h-4 w-4" />
-                  </button>
-                </div>
-                <RowMenu items={menu(s, i)} label={tt("Actions for {name}", { name: s.name })} />
+                  </span>
+                </RowOpen>
+                <RowControls className="gap-0.5">
+                  <div className="hidden items-center gap-0.5 sm:flex">
+                    <button type="button" aria-label={tt("Move {name} up", { name: s.name })} disabled={i === 0} onClick={() => void move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
+                      <ArrowUp aria-hidden className="h-4 w-4" />
+                    </button>
+                    <button type="button" aria-label={tt("Move {name} down", { name: s.name })} disabled={i === spaces.length - 1} onClick={() => void move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
+                      <ArrowDown aria-hidden className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <RowMenu items={menu(s, i)} label={tt("Actions for {name}", { name: s.name })} />
+                </RowControls>
               </li>
             ))}
           </ul>
         )}
       </ListCard>
 
-      <Dialog
+      <FormSheet
         open={draft !== null}
         onClose={() => setDraft(null)}
         title={draft?.id ? tt("Edit space") : tt("New space")}
-        footer={
-          <>
-            <button type="button" onClick={() => setDraft(null)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              {tt("Cancel")}
-            </button>
-            <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-space-save="">
-              {busy ? tt("Saving") : draft?.id ? tt("Save") : tt("Add space")}
-            </button>
-          </>
-        }
+        name="space"
+        focus={draft !== null && !draft.id}
+        action={{ label: draft?.id ? tt("Save") : tt("Add space"), busyLabel: tt("Saving"), busy, onClick: () => void save(), data: { "data-space-save": "" } }}
       >
         {draft ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-[64px_1fr] gap-3">
+            {/* What is wrong first, where it is read without scrolling past the keyboard. */}
+            {error ? <Notice>{error}</Notice> : null}
+            <div className="grid grid-cols-[56px_1fr] gap-3">
               <div>
                 <label htmlFor="sp-icon" className={label}>
                   {tt("Icon")}
                 </label>
-                <input id="sp-icon" value={draft.icon} onChange={(e) => setDraft({ ...draft, icon: [...e.target.value].slice(-2).join("") })} placeholder={KIND_ICON[draft.kind]} className={cn(field, "h-11 text-center text-[18px] sm:h-10")} />
+                <SpaceIconField id="sp-icon" value={draft.icon} kind={draft.kind} onChange={(icon) => setDraft((d) => (d ? { ...d, icon } : d))} />
               </div>
               <div>
                 <label htmlFor="sp-name" className={label}>
                   {tt("Name")}
                 </label>
-                <input id="sp-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value.slice(0, 40) })} placeholder={tt("Wins")} className={cn(field, "h-11 sm:h-10")} />
+                <input id="sp-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value.slice(0, 40) })} placeholder={tt("Wins")} enterKeyHint="next" data-autofocus={draft.id ? undefined : ""} className={cn(field, "h-11 sm:h-10")} />
               </div>
             </div>
             <div>
               <label htmlFor="sp-desc" className={label}>
                 {tt("About it")}
               </label>
-              <input id="sp-desc" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value.slice(0, 200) })} placeholder={tt("Share what went well this week")} className={cn(field, "h-11 sm:h-10")} />
+              <input id="sp-desc" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value.slice(0, 200) })} placeholder={tt("Share what went well this week")} enterKeyHint="done" className={cn(field, "h-11 sm:h-10")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -277,10 +295,9 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
             {draft.kind !== "chat" ? <Toggle checked={draft.commentsEnabled} onChange={(v) => setDraft({ ...draft, commentsEnabled: v })} title={tt("Comments")} hint={tt("Members can comment on posts here.")} /> : null}
             <AccessEditor value={draft.viewAccess} onChange={(v) => setDraft({ ...draft, viewAccess: v })} options={options} idPrefix="sp" />
             {draft.kind === "chat" && !head.can.manage_settings ? null : draft.kind === "chat" ? <p className="text-[12.5px] text-[#6b7280]">{tt("Chat shows only while chat is on in Settings.")}</p> : null}
-            {error ? <Notice>{error}</Notice> : null}
           </div>
         ) : null}
-      </Dialog>
+      </FormSheet>
 
       <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this space") })} detail={tt("Nothing was posted in it, so nothing is lost.")} action="Delete" danger busy={busy} onConfirm={() => void remove()} />
     </div>

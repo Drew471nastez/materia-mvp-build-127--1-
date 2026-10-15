@@ -79,8 +79,8 @@ export const CRON_JOBS = [
   { path: "/api/cron/physical", schedule: "3,13,23,33,43,53 * * * *", what: "Physical commerce: unpaid stock holds released, order emails, supplier emails and webhooks sent or retried" },
   { path: "/api/cron/fx-rates", schedule: "35 15 * * 1-5", what: "Keeps the European Central Bank's exchange rates for the day (Markets and languages)" },
   { path: "/api/cron/community", schedule: "*/5 * * * *", what: "Community jobs: announcement and event fan outs, reminders, recounts, the daily rollup and trending" },
-  { path: "/api/cron/translations", schedule: "47 * * * *", what: "Translate changes automatically, the safety sweep: queues a store nothing has queued for a day (store_localization.translate_dirty_at); before part 179, translates the stores itself" },
-  { path: "/api/cron/translation-jobs", schedule: "*/3 * * * *", what: "Translate with AI in the background: carries on a language's translation that a run let go of or was cut off from (store_translation_jobs), and translates the stores whose website changed a few minutes ago (Translate changes automatically)" },
+  { path: "/api/cron/translations", schedule: "47 * * * *", what: "Translate changes automatically, the safety sweep: queues a store nothing has queued for a day (store_localization.translate_dirty_at); before part 186, translates the stores itself" },
+  { path: "/api/cron/translation-jobs", schedule: "*/5 * * * *", what: "Translate with AI in the background: carries on a language's translation that a run let go of or was cut off from (store_translation_jobs), and translates the stores whose website changed a few minutes ago (Translate changes automatically)" },
 ] as const
 
 /**

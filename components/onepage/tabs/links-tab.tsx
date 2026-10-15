@@ -168,6 +168,9 @@ const SOCIAL_HOSTS: Record<string, RegExp> = {
  * creator's page there is its link. `@name` for either used to become an
  * address that did not exist, so for these two it is refused with a hint.
  */
+/** How many times the background check asks again for a Spotify or Apple Music link's missing picture before leaving it for the person to add. */
+const THUMBNAIL_RETRIES = 5
+
 const LINK_ONLY_PLATFORMS = new Set(["spotify", "applemusic"])
 
 // Validate social URL and transform if needed
@@ -983,10 +986,14 @@ export function LinksTab() {
     })
   }, []) // Run once on mount
 
-  // Background interval: silently re-fetch thumbnails for Spotify/Apple Music blocks missing them
+  // Background interval: silently re-fetch thumbnails for Spotify/Apple Music blocks missing them.
+  // A link whose picture never comes (a private playlist, a removed track) is
+  // asked at most THUMBNAIL_RETRIES times, not every 4 seconds for as long as
+  // the editor is open, and nothing is asked while the tab is hidden.
+  const thumbnailTriesRef = useRef(new Map<string, number>())
   useEffect(() => {
     const interval = setInterval(() => {
-      if (!onepage?.draft_blocks) return
+      if (!onepage?.draft_blocks || document.hidden) return
 
       onepage.draft_blocks.forEach((block) => {
         if (block.type !== 'link_button') return
@@ -997,13 +1004,13 @@ export function LinksTab() {
         const isSpotify = url.includes('spotify.com')
         const isAppleMusic = url.includes('music.apple.com')
 
-        if (isSpotify && !data.thumbnail_url && !data.spotify_thumbnail) {
+        const missing = (isSpotify && !data.thumbnail_url && !data.spotify_thumbnail) || (isAppleMusic && !data.thumbnail_url && !data.apple_music_thumbnail)
+        if (missing) {
+          const fetchKey = `${block.id}:${url}`
+          const tries = thumbnailTriesRef.current.get(fetchKey) ?? 0
+          if (tries >= THUMBNAIL_RETRIES) return
+          thumbnailTriesRef.current.set(fetchKey, tries + 1)
           // Clear the fetch key so autoFetchThumbnail can retry
-          const fetchKey = `${block.id}:${url}`
-          autoFetchedBlocksRef.current.delete(fetchKey)
-          autoFetchThumbnail(block.id, data.url)
-        } else if (isAppleMusic && !data.thumbnail_url && !data.apple_music_thumbnail) {
-          const fetchKey = `${block.id}:${url}`
           autoFetchedBlocksRef.current.delete(fetchKey)
           autoFetchThumbnail(block.id, data.url)
         }

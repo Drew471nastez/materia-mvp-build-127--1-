@@ -10,6 +10,7 @@ import { admin } from "@/lib/communities/server/db"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityMetadata } from "@/components/community/public/seo"
+import { communityDomainOrigin } from "@/lib/custom-domains/community-server"
 import { memberPage } from "@/components/community/member/data"
 import { PlacePage } from "@/components/community/member/place-page"
 
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const community = await communityBySlug(slug)
   /* A draft or a suspended community says nothing about itself to a link preview either. */
   if (!community || !sharePreviewable(community)) return { robots: { index: false, follow: false } }
-  return communityMetadata(seoFacts(community), { about: true })
+  return communityMetadata({ ...seoFacts(community), origin: await communityDomainOrigin(community.id) }, { about: true })
 }
 
 export default async function CommunityAboutPage({ params }: { params: Promise<{ slug: string }> }) {

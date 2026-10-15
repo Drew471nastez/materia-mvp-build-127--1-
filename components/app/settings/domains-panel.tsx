@@ -28,6 +28,13 @@
  * the website, and PATCH { action: "set_purpose" } (app/api/domains) moves
  * it to the creator page and back, keeping one primary per purpose.
  *
+ * Round 31: or to one of the creator's communities. Community is the third
+ * answer once the database has part 185 and the creator owns a community;
+ * picking it shows which community (one owned community is picked at once),
+ * and the domain then shows that community and nothing else
+ * (lib/custom-domains/community.ts). One domain per community: a community
+ * that has one already is shown with it, and cannot be picked again.
+ *
  * Sections come and go by a grid row going 0fr to 1fr with its opacity, 200ms,
  * nothing measured in script, and at once under prefers-reduced-motion
  * (<Reveal>). Phones first: every control is 44px under 640px, a record
@@ -48,6 +55,7 @@ import { copyText } from "@/lib/platform/copy-text"
 import { HOSTNAME_PROBLEM_TEXT, apexOf, cleanHostname, hostnameProblem, isApexHost, recordsFor, servingHost, type DnsRecord, type DomainPurpose } from "@/lib/custom-domains/hostname"
 import { REGISTRARS, hostFor, registrarById, type RecordCheck, type Registrar, type RegistrarId } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
+import { getMainDomain } from "@/lib/url-helpers"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RegistrarMark } from "@/components/app/settings/registrar-mark"
 import { secondaryDepth } from "@/components/ui/depth-button"
@@ -67,6 +75,15 @@ export interface DomainItem {
   host?: string | null
   apex?: boolean | null
   records?: DnsRecord[] | null
+  /** The community a community domain shows (round 31). */
+  community_id?: string | null
+}
+
+/** A community the creator owns, which a domain can show. */
+export interface DomainCommunity {
+  id: string
+  name: string
+  slug: string
 }
 
 export interface DomainsData {
@@ -74,6 +91,8 @@ export interface DomainsData {
   primary?: { website?: string | null; creator_page?: string | null } | null
   schema?: "current" | "legacy"
   purposes?: DomainPurpose[]
+  /** The creator's own communities, when the database can connect a domain to one. */
+  communities?: DomainCommunity[]
   registered?: boolean
 }
 
@@ -97,7 +116,11 @@ const VIOLET_BUTTON = cn(ROW_BUTTON, "text-[#7c3aed] border border-[#ede9fe] bg-
 const QUIET_BUTTON = cn(ROW_BUTTON, "text-[#374151] sm:text-[#6b7280] border border-[#e5e7eb] hover:text-[#1a1a2e] hover:bg-[#f9fafb]")
 const REMOVE_BUTTON = cn(ROW_BUTTON, "text-[#6b7280] border border-[#e5e7eb] hover:text-red-600 hover:border-red-200")
 
-const PURPOSE_NAME: Record<DomainPurpose, string> = { get website() { return tt("Website") }, get creator_page() { return tt("Creator page") } }
+const PURPOSE_NAME: Record<DomainPurpose, string> = {
+  get website() { return tt("Website") },
+  get creator_page() { return tt("Creator page") },
+  get community() { return tt("Community") },
+}
 
 /* ── Reveal: a section coming and going by its own height ───────────────── */
 const REVEAL_MS = 200
@@ -368,6 +391,10 @@ export function DomainsPanel({
   const domains = useMemo(() => data?.domains ?? [], [data])
   const purposes: DomainPurpose[] = data?.purposes?.length ? data.purposes : ["website", "creator_page"]
   const creatorPageOn = purposes.includes("creator_page")
+  const communities = useMemo(() => data?.communities ?? [], [data])
+  /* Community is offered once the database can hold it and there is a community of the creator's own to show. */
+  const communityOn = purposes.includes("community") && communities.length > 0
+  const communityById = (id: string | null | undefined) => (id ? communities.find((c) => c.id === id) ?? null : null)
   const blurred = locked && !planLoading
 
   const purposeOf = (d: DomainItem): DomainPurpose => d.purpose ?? "website"
@@ -502,23 +529,41 @@ export function DomainsPanel({
   const [busy, setBusy] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<string | null>(null)
 
-  const setPurposeOf = async (d: DomainItem, next: DomainPurpose) => {
-    if (locked || busy === d.id || purposeOf(d) === next) return
-    const was = purposeOf(d)
+  /* Community picked on a row, while its community is being chosen (the list shows under the answers). */
+  const [picking, setPicking] = useState<Record<string, boolean>>({})
+
+  const setPurposeOf = async (d: DomainItem, next: DomainPurpose, communityId?: string): Promise<void> => {
+    if (locked || busy === d.id) return
+    if (purposeOf(d) === next && (next !== "community" || !communityId || d.community_id === communityId)) return
+    if (next === "community" && !communityId) {
+      /* One community of their own, free: it is the answer. Several: the list asks which. */
+      const free = communities.filter((c) => !domains.some((x) => x.id !== d.id && x.community_id === c.id))
+      if (communities.length === 1 && free.length === 1) return void setPurposeOf(d, "community", free[0].id)
+      setPicking((all) => ({ ...all, [d.id]: true }))
+      return
+    }
+    const was = { purpose: purposeOf(d), community_id: d.community_id ?? null }
     setBusy(d.id)
-    replaceDomain(d.id, { purpose: next })
+    replaceDomain(d.id, { purpose: next, community_id: next === "community" ? communityId ?? null : null })
     try {
       const res = await fetch("/api/domains", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domainId: d.id, action: "set_purpose", purpose: next }),
+        body: JSON.stringify(next === "community" ? { domainId: d.id, action: "set_purpose", purpose: next, communityId } : { domainId: d.id, action: "set_purpose", purpose: next }),
       })
       const body = (await res.json().catch(() => ({}))) as DomainsData & { error?: string }
       if (!res.ok || !body.domains) throw new Error(body.error || tt("Could not change it."))
       onData(body)
-      toast({ title: tt("{domain} now opens your {value}", { domain: d.domain, value: next === "website" ? "website" : tt("creator page") }) })
+      setPicking((all) => ({ ...all, [d.id]: false }))
+      const shown = communityById(communityId)
+      toast({
+        title:
+          next === "community" && shown
+            ? tt("{domain} now opens {name}", { domain: d.domain, name: shown.name })
+            : tt("{domain} now opens your {value}", { domain: d.domain, value: next === "website" ? "website" : tt("creator page") }),
+      })
     } catch (e) {
-      replaceDomain(d.id, { purpose: was })
+      replaceDomain(d.id, was)
       toast({ title: e instanceof Error ? e.message : tt("Could not change it."), variant: "destructive" })
     } finally {
       setBusy(null)
@@ -581,7 +626,13 @@ export function DomainsPanel({
   const [openRecords, setOpenRecords] = useState<Record<string, boolean>>({})
   const [helpOpen, setHelpOpen] = useState(false)
 
-  const fallbackOf = (p: DomainPurpose) => (p === "website" ? websiteAddress : creatorPageAddress)
+  const fallbackOf = (p: DomainPurpose, d?: DomainItem) => {
+    if (p === "community") {
+      const c = communityById(d?.community_id)
+      return c ? `${getMainDomain()}/community/${c.slug}` : getMainDomain()
+    }
+    return p === "website" ? websiteAddress : creatorPageAddress
+  }
   /* Website domains first, then the creator page's; the primary one first in each. */
   const ordered = useMemo(
     () => [...domains].sort((a, b) => (purposeOf(a) === purposeOf(b) ? Number(!!b.is_primary) - Number(!!a.is_primary) : purposeOf(a) === "website" ? -1 : 1)),
@@ -606,7 +657,7 @@ export function DomainsPanel({
   const confirmOf = (d: DomainItem) => {
     const p = purposeOf(d)
     const primary = primaryOf(p)
-    const goesTo = primary && primary.id !== d.id ? primary.domain : fallbackOf(p)
+    const goesTo = p !== "community" && primary && primary.id !== d.id ? primary.domain : fallbackOf(p, d)
     return (
       <div role="alertdialog" aria-label={tt("Remove {domain}?", { domain: d.domain })} data-domain-confirm={d.domain} className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
@@ -632,9 +683,10 @@ export function DomainsPanel({
     )
   }
 
-  /** Connects to: the website or the creator page, for this domain. */
+  /** Connects to: the website, the creator page, or one community, for this domain. */
   const connectsOf = (d: DomainItem) => {
     const p = purposeOf(d)
+    const options: DomainPurpose[] = communityOn || p === "community" ? ["website", "creator_page", "community"] : ["website", "creator_page"]
     /* Before the database knows creator page domains, every domain is the website's. */
     if (!creatorPageOn) return <p className="text-[12px] text-[#6b7280]">{tt("Connects to your website")}</p>
     // CONNECTS TO, AS A ROW OF ITS OWN: the question on the left, the two
@@ -647,9 +699,14 @@ export function DomainsPanel({
           <span id={`domain-connects-${d.id}`} className="text-[13px] font-medium text-[#1a1a2e]">
             {tt("Connects to")}
           </span>
-          <div role="radiogroup" aria-labelledby={`domain-connects-${d.id}`} className="grid grid-cols-2 rounded-[11px] bg-[#eceef1] p-0.5 sm:inline-grid" data-domain-connects={d.domain}>
-            {(["website", "creator_page"] as DomainPurpose[]).map((option) => {
-              const on = p === option
+          <div
+            role="radiogroup"
+            aria-labelledby={`domain-connects-${d.id}`}
+            className={cn("grid rounded-[11px] bg-[#eceef1] p-0.5 sm:inline-grid", options.length === 3 ? "grid-cols-3 sm:grid-cols-3" : "grid-cols-2")}
+            data-domain-connects={d.domain}
+          >
+            {options.map((option) => {
+              const on = option === "community" ? p === "community" || !!picking[d.id] : p === option && !picking[d.id]
               return (
                 <button
                   key={option}
@@ -657,9 +714,15 @@ export function DomainsPanel({
                   role="radio"
                   aria-checked={on}
                   disabled={locked || (busy === d.id && !on)}
-                  onClick={() => void setPurposeOf(d, option)}
+                  onClick={() => {
+                    if (option !== "community") setPicking((all) => ({ ...all, [d.id]: false }))
+                    void setPurposeOf(d, option)
+                  }}
+                  data-domain-connects-option={option}
                   className={cn(
                     "h-10 cursor-pointer rounded-[9px] px-3.5 text-[14px] font-medium transition-[background-color,color,box-shadow] duration-150 disabled:cursor-not-allowed sm:h-8 sm:px-3 sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
+                    /* Three answers share a phone's row: a little less padding, so "Creator page" fits. */
+                    options.length === 3 && "whitespace-nowrap px-2 text-[13px]",
                     on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.1),0_0_0_0.5px_rgba(15,23,42,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]",
                   )}
                 >
@@ -669,8 +732,71 @@ export function DomainsPanel({
             })}
           </div>
         </div>
-        {p === "creator_page" ? <p className="mt-1.5 text-[12px] text-[#6b7280]">{tt("With your products, and your OnePage at /links.")}</p> : null}
+        {p === "creator_page" && !picking[d.id] ? <p className="mt-1.5 text-[12px] text-[#6b7280]">{tt("With your products, and your OnePage at /links.")}</p> : null}
+        {communityOn && (p === "community" || picking[d.id]) ? communityPickerOf(d) : null}
+        {communityLineOf(d)}
       </div>
+    )
+  }
+
+  /**
+   * WHICH COMMUNITY: a list of the creator's own, with a community that has
+   * another domain shown with it and not pickable. Under it, one line on
+   * what the domain shows and where members sign in.
+   */
+  const communityPickerOf = (d: DomainItem) => {
+    const current = communityById(d.community_id)
+    const takenBy = (c: DomainCommunity) => domains.find((x) => x.id !== d.id && x.community_id === c.id) ?? null
+    return (
+      <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4" data-domain-community={d.domain}>
+        <label htmlFor={`domain-community-${d.id}`} className="text-[13px] text-[#4b5563] sm:shrink-0">
+          {tt("Which community")}
+        </label>
+        <Select
+          value={d.community_id && purposeOf(d) === "community" ? d.community_id : undefined}
+          onValueChange={(id) => void setPurposeOf(d, "community", id)}
+          disabled={locked || busy === d.id}
+        >
+          <SelectTrigger
+            id={`domain-community-${d.id}`}
+            data-domain-community-select=""
+            className="h-11 data-[size=default]:h-11 sm:data-[size=default]:h-9 min-w-0 w-full sm:w-auto sm:min-w-[220px] cursor-pointer gap-2 rounded-xl border-[#e3e5e8] bg-white pl-3 pr-2.5 text-[14px] text-[#1a1a2e] shadow-[inset_0_-1px_0_rgba(0,0,0,0.05),0_1px_0_rgba(0,0,0,0.04)] transition-colors hover:border-[#d1d5db] focus-visible:border-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 data-[state=open]:border-[#d1d5db] sm:h-9 sm:text-[13px] [&>svg:last-child]:text-[#6b7280] [&>svg:last-child]:opacity-100"
+          >
+            <SelectValue placeholder={tt("Choose a community")} />
+          </SelectTrigger>
+          <SelectContent
+            align="end"
+            className="rounded-xl border-[#e5e7eb] bg-white p-1 text-[#1a1a2e] shadow-[0_12px_32px_-8px_rgba(17,24,39,0.18),0_2px_6px_rgba(17,24,39,0.06)]"
+          >
+            {communities.map((c) => {
+              const taken = takenBy(c)
+              return (
+                <SelectItem
+                  key={c.id}
+                  value={c.id}
+                  disabled={!!taken}
+                  data-domain-community-option={c.slug}
+                  className="h-11 cursor-pointer rounded-lg pl-2.5 text-[14px] text-[#1a1a2e] focus:bg-[#f3f4f6] focus:text-[#1a1a2e] data-[state=checked]:font-medium sm:h-9 sm:text-[13px] [&>span:first-child_svg]:text-[#1a1a2e]"
+                >
+                  <span className="truncate">{c.name}</span>
+                  {taken ? <span className="ml-1.5 truncate text-[12px] text-[#9ca3af]">{taken.domain}</span> : null}
+                </SelectItem>
+              )
+            })}
+          </SelectContent>
+        </Select>
+      </div>
+    )
+  }
+
+  /** The line under a community domain's answers: what it shows, and where members sign in. */
+  const communityLineOf = (d: DomainItem) => {
+    const c = purposeOf(d) === "community" && !picking[d.id] ? communityById(d.community_id) : null
+    if (!c) return null
+    return (
+      <p className="mt-1.5 text-[12px] text-[#6b7280]" data-domain-community-line="">
+        {tt("Shows {name} and its pages. Members sign in on {main}.", { name: c.name, main: getMainDomain() })}
+      </p>
     )
   }
 
@@ -878,11 +1004,12 @@ export function DomainsPanel({
             const result = results[d.id]
             const standing = standingOf(d, result)
             const line = lineOf(d)
-            const primaryMark = countOf(p) > 1 && d.is_primary
+            const primaryMark = p !== "community" && countOf(p) > 1 && d.is_primary
             const connected = d.status === "active"
             const dnsDone = connected || d.status === "ssl_provisioning"
             const recordsShown = !dnsDone || !!openRecords[d.id]
-            const canPrimary = connected && countOf(p) > 1 && !d.is_primary && !locked
+            /* A community's domain is that community's only one: nothing to make primary. */
+            const canPrimary = p !== "community" && connected && countOf(p) > 1 && !d.is_primary && !locked
             const checked = !!result || !!d.last_checked_at
             return (
               <Reveal key={d.id} open appear={d.id === justAdded && ordered.length > 1} data-domain-reveal={d.domain}>
@@ -979,6 +1106,7 @@ export function DomainsPanel({
                   {tt("{example} opens at www.{example2}.", { example, example2: example })}
                 </li>
                 <li>{tt("A creator page domain also carries your products and your OnePage at /links.")}</li>
+                {communityOn ? <li>{tt("A community domain shows that community. Members sign in on {main}.", { main: getMainDomain() })}</li> : null}
                 <li>{tt("New records can take a few minutes, and up to 48 hours, to show.")}</li>
                 <li>{tt("Delete other A, AAAA or CNAME records on the same names.")}</li>
               </ul>

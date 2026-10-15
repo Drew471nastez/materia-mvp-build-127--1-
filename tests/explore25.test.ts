@@ -298,7 +298,8 @@ async function main() {
        to the right on the way to Explore are gone; every width lands on the fade, over the frame's own ground. */
     check("round 30: no push in from the right on a phone either", !/translate: "36px 0"/.test(frame) && !/if \(wide\) el\.animate/.test(frame))
     check("round 30: leaving for Explore is a plain swap, no copy sliding off", !/holdLeavingStill/.test(frame) && !/motion: "pop"/.test(frame))
-    check("round 30: the document under the fade is the frame's own ground", /holdLandingGround\(el\)\s*el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(frame) && /holdLandingGround\(rootRef\.current\)/.test(readCode("components/community/public/public-frame.tsx")))
+    /* Changed on purpose (round 31): from Explore, Explore goes out under the frame's bar (lib/navigation/arrival-still.ts); the ground is held for any other arrival. */
+    check("round 30: the document under the fade is the frame's own ground", /holdLandingGround\(el\)\s*el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(frame) && /return holdLandingGround\(el\)/.test(readCode("components/community/public/public-frame.tsx")) && /playArrivalStill\(/.test(frame))
     const push = await import("../lib/navigation/page-push")
     check("a full page pushed from a community on a computer fades without moving", push.PAGE_WIDE_SHIFT_PX === 0 && push.PAGE_PHONE === "(max-width: 767px)")
   }

@@ -6,7 +6,7 @@
  * translation the merchant wrote, and never one that lost a placeholder, a
  * Liquid tag, a link or an HTML tag (lib/markets/draft-check.ts). Only the
  * stores a save marked are looked at (lib/markets/translate-queue.ts, SQL
- * part 179); an hourly sweep marks the quiet ones once a day. Against a
+ * part 186); an hourly sweep marks the quiet ones once a day. Against a
  * real HTTP server standing in for the model and a database that records
  * every write.
  */
@@ -153,9 +153,9 @@ async function main() {
   check("the builder's preview hides Storelib AI's outdated ones as the website does, and keeps the merchant's", /s: "ai" as const/.test(route) && /source: x\.s === "ai" \? \("ai" as const\) : \("manual" as const\)/.test(read("components/website-builder/use-preview-language.ts")))
 
   console.log("\nMarked when the website changes, translated minutes later")
-  const p179 = read("supabase/sql/run-now/179_translation_queue.sql")
-  check("SQL part 179: one statement a line, safe to run again, schema reloaded last", p179.trim().split("\n").length === 3 && /ADD COLUMN IF NOT EXISTS translate_dirty_at timestamptz/.test(p179) && /ADD COLUMN IF NOT EXISTS translate_lease_until timestamptz/.test(p179) && /CREATE INDEX IF NOT EXISTS idx_store_localization_translate_dirty ON public\.store_localization \(translate_dirty_at\) WHERE translate_dirty_at IS NOT NULL/.test(p179) && /notify pgrst, 'reload schema';$/.test(p179.trim()))
-  check("  the same as its migration, checked after, and in the bundles", p179 === read("supabase/migrations/20270119_translation_queue.sql") && /as p179_translation_queue/.test(read("supabase/sql/run-now/99_check_after.sql")) && /179_translation_queue\.sql/.test(read("scripts/build-currency-cod-languages-sql.py")) && read("supabase/sql/store-currency-cod-languages/1_run.sql").includes(p179.split("\n")[1]) && /part: "179", file: "179_translation_queue\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
+  const p186 = read("supabase/sql/run-now/186_translation_queue.sql")
+  check("SQL part 186: one statement a line, safe to run again, schema reloaded last", p179.trim().split("\n").length === 3 && /ADD COLUMN IF NOT EXISTS translate_dirty_at timestamptz/.test(p186) && /ADD COLUMN IF NOT EXISTS translate_lease_until timestamptz/.test(p186) && /CREATE INDEX IF NOT EXISTS idx_store_localization_translate_dirty ON public\.store_localization \(translate_dirty_at\) WHERE translate_dirty_at IS NOT NULL/.test(p186) && /notify pgrst, 'reload schema';$/.test(p179.trim()))
+  check("  the same as its migration, checked after, and in the bundles", p186 === read("supabase/migrations/20270125_translation_queue.sql") && /as p186_translation_queue/.test(read("supabase/sql/run-now/99_check_after.sql")) && /186_translation_queue\.sql/.test(read("scripts/build-currency-cod-languages-sql.py")) && read("supabase/sql/store-currency-cod-languages/1_run.sql").includes(p186.split("\n")[1]) && /part: "186", file: "186_translation_queue\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
   const marks: [string, RegExp][] = [
     ["app/api/website-builder/themes/[installId]/publish/route.ts", /translationsChanged\(creator\.id\)/],
     ["app/api/website-builder/themes/[installId]/sections/route.ts", /if \(mode === "publish" && creatorId\) \{\s*await revalidatePublishedSite\(creatorId\)[\s\S]{0,200}translationsChanged\(creatorId\)/],
@@ -173,7 +173,8 @@ async function main() {
   check("  the mark is one update after the answer, for stores with the switch on, and never fails a save", /after\(work\)/.test(queueSrc) && /\.eq\("auto_translate", true\)/.test(queueSrc) && /catch \{/.test(queueSrc))
   check("  turning it on marks the store too", /if \(!auto\.error && v\.autoTranslate\) await markTranslationsChanged\(db, creatorId\)/.test(read("lib/markets/server.ts")))
   const jobsRoute = read("app/api/cron/translation-jobs/route.ts")
-  check("the three-minute run takes the changed stores beside the background jobs", vercel.crons.some((c) => c.path === "/api/cron/translation-jobs" && c.schedule === "*/3 * * * *") && /Promise\.all\(\[continueJobs\(started \+ RUN_WINDOW_MS\), runChangedStores\(started \+ RUN_WINDOW_MS\)\]\)/.test(jobsRoute))
+  /* Changed on purpose: main moved the run to every five minutes to cut Vercel invocations. */
+  check("the five-minute run takes the changed stores beside the background jobs", vercel.crons.some((c) => c.path === "/api/cron/translation-jobs" && c.schedule === "*/5 * * * *") && /Promise\.all\(\[continueJobs\(started \+ RUN_WINDOW_MS\), runChangedStores\(started \+ RUN_WINDOW_MS\)\]\)/.test(jobsRoute))
 
   console.log("\nAn hour's run, against a model and a database")
   const http = createServer(answer)
@@ -257,7 +258,7 @@ async function main() {
   const heldOut = await runChangedStores(Date.now() + 120_000, held.db as never)
   check("one another run holds is left to it: nothing sent, nothing written", heldOut.stores === 0 && calls === callsBeforeHeld && !held.writes.some((w) => w.table === "site_translations"), heldOut)
   const noQueue = fakeDb(marked(), { missing: "translate_dirty_at" })
-  check("before part 179: nothing here, the hourly run works as before", (await runChangedStores(Date.now() + 120_000, noQueue.db as never)).skipped === "no queue")
+  check("before part 186: nothing here, the hourly run works as before", (await runChangedStores(Date.now() + 120_000, noQueue.db as never)).skipped === "no queue")
 
   console.log("\nThe hourly sweep only queues the quiet stores")
   const sweepTables = (at: string | null) => ({ ...tables(), store_localization: [{ ...tables().store_localization[0], translate_dirty_at: null, auto_translate_run: at ? { at, translated: 0, left: 0 } : {} }] })
@@ -270,9 +271,9 @@ async function main() {
   const recent = fakeDb(sweepTables(new Date(Date.now() - 3_600_000).toISOString()))
   const recentOut = await runAutoTranslate(Date.now() + 120_000, recent.db as never)
   check("  one translated an hour ago is left alone", recentOut.queued === 0 && !recent.writes.some((w) => loc(w) && "translate_dirty_at" in (w.rows as Record<string, unknown>)), recentOut)
-  const before179 = fakeDb(sweepTables(null), { missing: "translate_dirty_at" })
-  const before179Out = await runAutoTranslate(Date.now() + 120_000, before179.db as never)
-  check("  before part 179 it translates the stores itself, as it always did", before179Out.queued === undefined && before179Out.stores === 1, before179Out)
+  const before186 = fakeDb(sweepTables(null), { missing: "translate_dirty_at" })
+  const before186Out = await runAutoTranslate(Date.now() + 120_000, before186.db as never)
+  check("  before part 186 it translates the stores itself, as it always did", before186Out.queued === undefined && before186Out.stores === 1, before186Out)
 
   console.log("\nThe mark")
   const marking = fakeDb(tables())

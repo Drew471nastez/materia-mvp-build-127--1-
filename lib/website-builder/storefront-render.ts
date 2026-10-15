@@ -113,6 +113,21 @@ export async function sectionSources(
 }
 
 /**
+ * The same section files from a whole set of live files (a release's,
+ * lib/website-builder/site-releases.ts), by the same rules as above: a
+ * `.storelib` file with text, and not an imported Shopify theme's.
+ */
+export function sourcesFromFiles(files: Record<string, string>): Record<string, string> {
+  const sources: Record<string, string> = {}
+  for (const [path, content] of Object.entries(files)) {
+    if (!path.endsWith(".storelib") || typeof content !== "string" || content.trim() === "") continue
+    if (isCompatSource(content)) continue
+    sources[path] = content
+  }
+  return sources
+}
+
+/**
  * The render half, on its own, because it touches no database at all. Thirty
  * sections come out in single-digit milliseconds once their files are
  * compiled, and the compiler keeps its own cache, so a page can be rendered

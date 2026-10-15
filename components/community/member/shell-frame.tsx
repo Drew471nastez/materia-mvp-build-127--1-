@@ -107,6 +107,7 @@ import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-
 import { onCommunityUpdated } from "@/lib/communities/updated-signal"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallUpcoming, type PlaceState } from "./wall"
 import { holdLandingGround, useCommunityLanding } from "./landing"
+import { playArrivalStill } from "@/lib/navigation/arrival-still"
 import { scrollKeyFor, useReturnScroll, useSectionTop } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -602,6 +603,14 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
     const popped = landing && arriveWithPageMotion(el)
     /* Not for Home pressed on the tab bar either (round 18, lib/nav/tab-swap.ts arrivedByTab): a tab shows its page whole. */
     if (!popped && landing && el && typeof el.animate === "function" && !tabSwapInProgress() && !arrivedByTab() && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      /*
+        ROUND 31, THE OWNER: "too direct; a calm quick crossfade with the right ground, the header steady". Opened from
+        Explore, Explore goes out under this frame's bar as the frame comes in (lib/navigation/arrival-still.ts): the bar is
+        whole from the first frame and nothing of the frame moves or fades. From anywhere else (a link with no page to go
+        out), round 30's fade from the frame's own ground.
+      */
+      const bar = el.querySelector("header")
+      if (playArrivalStill(bar ? bar.getBoundingClientRect().bottom : 0)) return
       /* The document under the fade is the frame's own ground for its length (landing.ts holdLandingGround). */
       holdLandingGround(el)
       el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })

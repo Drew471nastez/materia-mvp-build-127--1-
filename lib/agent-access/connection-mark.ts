@@ -209,13 +209,30 @@ export function actedRecently(mark: ConnectionMark, now: number): boolean {
  * into view, or the pointer coming back over it, asks at once and starts
  * again from the quick end (site-connections.tsx), so nobody waits to see
  * what an agent or a push did while they were somewhere else.
+ *
+ * After two quiet minutes (no change arrived, nobody came back to the tab or
+ * touched it) it drops to one read every thirty seconds: an editor left open
+ * on a second screen all afternoon was 360 function calls an hour for
+ * nothing. Changed on purpose (the owner: lower Vercel costs). The person at
+ * the screen still sees a push within seconds, because coming back to the
+ * tab, the pointer coming back over it, or a press or key in it all return
+ * to the quick end at once.
  */
 export const POLL_ACTIVE_MS = 3_000
 export const POLL_BASE_MS = 5_000
 export const POLL_MAX_MS = 10_000
+/** Quiet for this long, the editor counts as left alone. */
+export const POLL_IDLE_AFTER_MS = 2 * 60_000
+/** How often an editor left alone asks. */
+export const POLL_IDLE_MS = 30_000
 
-export function nextPollDelay(previous: number, changesArrived: boolean): number {
+/**
+ * `quietMs` is how long since a change last arrived or the person last came
+ * back to the editor or used it. Leave it out for the quick cadence alone.
+ */
+export function nextPollDelay(previous: number, changesArrived: boolean, quietMs = 0): number {
   if (changesArrived) return POLL_ACTIVE_MS
+  if (quietMs >= POLL_IDLE_AFTER_MS) return POLL_IDLE_MS
   return Math.min(POLL_MAX_MS, Math.max(POLL_BASE_MS, Math.round(previous * 1.6)))
 }
 

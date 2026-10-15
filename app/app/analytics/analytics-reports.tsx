@@ -775,3 +775,12 @@ function ReportsView({ state, property }: { state: ReportsState; property: Prope
     </ComparedContext.Provider>
   )
 }
+
+/*
+  THE SAME CARDS ELSEWHERE. A community's Analytics (components/community/
+  creator/analytics-section.tsx) lists its sources, countries, devices, top
+  posts and members with these very cards, rows and tabs, so a list reads the
+  same on every Analytics screen in /app.
+*/
+export { Card as ReportCard, Tabs as ReportTabs, List as ReportList, Empty as ReportEmpty, Body as ReportBody, ComparedContext as ReportComparedContext }
+export type { ListRow as ReportListRow }

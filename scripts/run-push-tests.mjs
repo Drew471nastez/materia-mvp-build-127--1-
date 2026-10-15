@@ -135,6 +135,8 @@ const SUITES = [
   "tests/site-address.test.ts",
   "tests/custom-domains.test.ts",
   "tests/creator-domain-seo.test.ts",
+  /* Round 31: a domain connected to one community: what it serves, who may connect it, the canonical, the panels */
+  "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
@@ -357,6 +359,8 @@ const SUITES = [
   "tests/link-menu.test.ts",
   "tests/anchors-motion.test.ts",
   "tests/connection-mark.test.ts",
+  /* Background reads and crons, cut on purpose (the owner: lower Vercel costs) */
+  "tests/polling-costs.test.ts",
   "tests/editor-fixes.test.ts",
   "tests/builder-round-3.test.ts",
   "tests/contrast.test.ts",
@@ -409,6 +413,8 @@ const SUITES = [
   "tests/admin-auth.test.ts",
   "tests/stuck-layer.test.ts",
   "tests/site-cache-and-buttons.test.ts",
+  /* Marketing pages served from the CDN: their layout reads nothing about the request */
+  "tests/marketing-cache.test.ts",
   "tests/keyboard-watch.test.ts",
   "tests/agent-attachments.test.ts",
   "tests/work-panel.test.ts",
@@ -464,6 +470,8 @@ const SUITES = [
   "tests/payouts-phone.test.ts",
   "tests/checkout-phone.test.ts",
   "tests/translation-coverage.test.ts",
+  "tests/vercel-costs.test.ts",
+  "tests/vercel-runtime-costs.test.ts",
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
@@ -569,6 +577,8 @@ const SUITES = [
   "tests/nav18.test.ts",
   "tests/nav23.test.ts",
   "tests/communities-frame12.test.ts",
+  /* Round 31: the community content sections in /app: the icon picker, rows that open, the form sheet, the member composer as the Feed writer (scripts/check-community-content-round31.mjs measures them). */
+  "tests/communities-content31.test.ts",
   "tests/communities-about11.test.ts",
   "tests/communities-frame13.test.ts",
   "tests/communities-posts.test.ts",
@@ -583,6 +593,8 @@ const SUITES = [
   "tests/communities-feed-rank.test.ts",
   "tests/communities-admin13.test.ts",
   "tests/communities-events-admin.test.ts",
+  /* Round 31: a community analytics for any period, its visits and Google Analytics (scripts/check-community-analytics-round31.mjs measures the screen). */
+  "tests/community-analytics-r31.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
@@ -603,6 +615,8 @@ const SUITES = [
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",
+  /* Round 31: the community admin shell keeps its sections, the settings list, the save bar, the gallery drag (scripts/check-community-admin-round31.mjs measures them). */
+  "tests/communities-admin31.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
@@ -624,6 +638,9 @@ const SUITES = [
   "tests/physical-ships-x1.test.ts",
   /* Round 25 */
   "tests/i18n25.test.ts",
+  "tests/publishing-cache.test.ts",
+  /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
+  "tests/site-releases.test.ts",
 ]
 
 /**

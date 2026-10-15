@@ -149,7 +149,7 @@ export async function actOnContent(db: Db, a: ContentActInput): Promise<Outcome<
   if (!contentActionFits(a.action, a.targetType)) return no(400, "That cannot be done to this.")
   if (!(await actorMay(db, a.community.id, a.actor, contentActionNeeds(a.action))).ok) return no(403, "forbidden")
   const table = TABLE[a.targetType]
-  const cols = a.targetType === "post" ? "id, community_id, author_id, status, pinned, locked, featured, space_id, title, body_text" : a.targetType === "comment" ? "id, community_id, author_id, status, body, post_id" : "id, community_id, author_id, status, body, space_id"
+  const cols = a.targetType === "post" ? "id, community_id, author_id, status, pinned, locked, featured, space_id, title, body_text, kind" : a.targetType === "comment" ? "id, community_id, author_id, status, body, post_id" : "id, community_id, author_id, status, body, space_id"
   const { data: row, error } = await db.from(table).select(cols).eq("id", a.targetId).eq("community_id", a.community.id).maybeSingle()
   if (error) return missing(error) ? no(503, "not_set_up") : no(500, "The content could not be read. Try again.")
   if (!row) return no(404, "not_found")

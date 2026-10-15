@@ -51,7 +51,7 @@ async function readFromDb(): Promise<boolean> {
 export const isExploreDiscoverModeSwitcherEnabled = unstable_cache(
   async () => readFromDb(),
   ["explore-discover-mode-switcher-enabled"],
-  { tags: [EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG], revalidate: 30 },
+  { tags: [EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG], revalidate: 300 },
 )
 
 export async function setExploreDiscoverModeSwitcherEnabled(enabled: boolean, updatedBy = "admin"): Promise<void> {

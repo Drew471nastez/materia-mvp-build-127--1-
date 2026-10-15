@@ -37,7 +37,7 @@ import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
 import { allowedActions, can, meetsRole, type CommunityAction, type RolePermissions } from "../permissions"
 import { slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
-import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, EVENT_COLUMNS_PRICED, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type Role, type SpaceRow } from "../types"
+import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, EVENT_COLUMNS_PRICED, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type MemberStatus, type Role, type SpaceRow } from "../types"
 import { accessColumnsFor, accessWords, privacyOf } from "../access-model"
 import {
   accessChoiceOf,
@@ -205,7 +205,12 @@ export async function creatorPaymentsReady(db: Db, creatorId: string): Promise<b
 /** The header every section shows; cached per request with the context, so the layout and the page share it. */
 export const communityHead = cache(async (ctx: CreatorPageContext): Promise<CommunityHead> => {
   const c = ctx.community
-  const openReports = can(ctx.role, "review_reports", ctx.viewer.perms) ? await openReportCount(ctx.db, c.id) : 0
+  /* Round 31: who is signed in, for the Feed's writer (its picture and name), read beside the report count. */
+  const [openReports, people] = await Promise.all([
+    can(ctx.role, "review_reports", ctx.viewer.perms) ? openReportCount(ctx.db, c.id) : Promise.resolve(0),
+    peopleOf(ctx.db, [ctx.userId]).catch(() => new Map<string, { name: string; avatarUrl: string | null }>()),
+  ])
+  const person = people.get(ctx.userId)
   return {
     id: c.id,
     slug: c.slug,
@@ -226,6 +231,7 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
     role: ctx.role,
     can: allowedActions(ctx.role, ctx.viewer.perms),
     openReports,
+    me: { userId: ctx.userId, name: person?.name ?? ctx.creatorName, avatarUrl: person?.avatarUrl ?? null },
   }
 })
 
@@ -1189,40 +1195,74 @@ export const FEED_PAGE = 20
 
 /** The feed as the creator manages it: newest first, removed posts included so they can be put back. */
 export async function loadFeedRows(db: Db, communityId: string, opts: { cursor: string | null; show: "all" | "removed" }): Promise<{ rows: FeedRowView[]; next: string | null }> {
-  let q = db.from("community_feed_posts").select("id, kind, title, body_text, space_id, author_id, pinned, locked, featured, status, reaction_count, comment_count, created_at").eq("community_id", communityId)
+  /* Round 31: the media too, so the row shows what the post carries (pictures, a video's still, files), as the feed does. */
+  let q = db.from("community_feed_posts").select("id, kind, title, body_text, media, space_id, author_id, pinned, locked, featured, status, reaction_count, comment_count, created_at").eq("community_id", communityId)
   q = opts.show === "removed" ? q.eq("status", "removed") : q.in("status", ["published", "removed"])
   const c = decodeCursor(opts.cursor)
   if (c && typeof c.sort === "string") q = q.or(keysetOr("created_at", c.sort, c.id))
   const { data, error } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(FEED_PAGE + 1)
   if (error) return { rows: [], next: null }
-  type Lite = { id: string; kind: FeedRowView["kind"]; title: string | null; body_text: string; space_id: string | null; author_id: string | null; pinned: boolean; locked: boolean; featured: boolean; status: FeedRowView["status"]; reaction_count: number; comment_count: number; created_at: string }
+  type Lite = { id: string; kind: FeedRowView["kind"]; title: string | null; body_text: string; media: unknown; space_id: string | null; author_id: string | null; pinned: boolean; locked: boolean; featured: boolean; status: FeedRowView["status"]; reaction_count: number; comment_count: number; created_at: string }
   const all = (data as Lite[] | null) ?? []
   const rows = all.slice(0, FEED_PAGE)
   const spaceIds = [...new Set(rows.map((r) => r.space_id).filter((x): x is string => Boolean(x)))]
-  const [people, spaces] = await Promise.all([
+  const [people, spaces, polls] = await Promise.all([
     peopleOf(db, rows.map((r) => r.author_id).filter((x): x is string => Boolean(x))),
-    spaceIds.length ? db.from("community_spaces").select("id, name").in("id", spaceIds) : Promise.resolve({ data: [] }),
+    spaceIds.length ? db.from("community_spaces").select("id, name, icon, kind").in("id", spaceIds) : Promise.resolve({ data: [] }),
+    feedRowPolls(db, rows.filter((r) => r.kind === "poll").map((r) => r.id)),
   ])
-  const spaceName = new Map(((spaces.data as { id: string; name: string }[] | null) ?? []).map((s) => [s.id, s.name]))
+  const spaceById = new Map(((spaces.data as { id: string; name: string; icon: string | null; kind: SpaceRow["kind"] }[] | null) ?? []).map((s) => [s.id, s]))
   const last = rows[rows.length - 1]
   return {
-    rows: rows.map((r) => ({
-      id: r.id,
-      kind: r.kind,
-      title: r.title,
-      excerpt: (r.body_text || "").slice(0, 240),
-      spaceName: r.space_id ? (spaceName.get(r.space_id) ?? null) : null,
-      authorName: r.author_id ? (people.get(r.author_id)?.name ?? "Member") : "Deleted account",
-      pinned: r.pinned,
-      locked: r.locked,
-      featured: r.featured,
-      status: r.status,
-      reactionCount: r.reaction_count,
-      commentCount: r.comment_count,
-      createdAt: r.created_at,
-    })),
+    rows: rows.map((r) => {
+      const space = r.space_id ? spaceById.get(r.space_id) : undefined
+      const author = r.author_id ? people.get(r.author_id) : undefined
+      return {
+        id: r.id,
+        kind: r.kind,
+        title: r.title,
+        excerpt: (r.body_text || "").slice(0, 240),
+        spaceName: space?.name ?? null,
+        authorName: r.author_id ? (author?.name ?? "Member") : "Deleted account",
+        pinned: r.pinned,
+        locked: r.locked,
+        featured: r.featured,
+        status: r.status,
+        reactionCount: r.reaction_count,
+        commentCount: r.comment_count,
+        createdAt: r.created_at,
+        media: Array.isArray(r.media) ? (r.media as NonNullable<FeedRowView["media"]>) : [],
+        poll: polls.get(r.id) ?? null,
+        spaceId: r.space_id,
+        spaceIcon: space?.icon ?? null,
+        spaceKind: space?.kind ?? null,
+        authorId: r.author_id,
+        authorAvatar: author?.avatarUrl ?? null,
+      }
+    }),
     next: all.length > FEED_PAGE && last ? encodeCursor(last.created_at, last.id) : null,
   }
+}
+
+/** A poll in short for the Feed's rows (round 31): its question, how many voted and how many choices, in two reads a page. */
+async function feedRowPolls(db: Db, postIds: string[]): Promise<Map<string, NonNullable<FeedRowView["poll"]>>> {
+  const out = new Map<string, NonNullable<FeedRowView["poll"]>>()
+  if (!postIds.length) return out
+  try {
+    const { data: polls, error } = await db.from("community_polls").select("id, post_id, question, closes_at").in("post_id", postIds)
+    if (error || !polls?.length) return out
+    const list = polls as { id: string; post_id: string; question: string; closes_at: string | null }[]
+    const { data: options } = await db.from("community_poll_options").select("poll_id, vote_count").in("poll_id", list.map((p) => p.id))
+    const opts = (options as { poll_id: string; vote_count: number }[] | null) ?? []
+    const now = Date.now()
+    for (const p of list) {
+      const own = opts.filter((o) => o.poll_id === p.id)
+      out.set(p.post_id, { question: p.question, votes: own.reduce((n, o) => n + (Number(o.vote_count) || 0), 0), options: own.length, closed: !!p.closes_at && Date.parse(p.closes_at) <= now })
+    }
+  } catch {
+    /* The rows show without their poll line. */
+  }
+  return out
 }
 
 /**

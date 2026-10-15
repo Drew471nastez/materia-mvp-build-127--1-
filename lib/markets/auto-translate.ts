@@ -14,7 +14,7 @@ import "server-only"
  * no call at all (draftReusing).
  *
  * WHEN. A save that changes the website's words marks the store
- * (./translate-queue.ts, SQL part 179). Every three minutes
+ * (./translate-queue.ts, SQL part 186). Every five minutes
  * /api/cron/translation-jobs runs runChangedStores: the marked stores whose
  * last change has settled for SETTLE_MS, oldest first, each held by a lease
  * so two runs never translate the same store. A store that changed nothing
@@ -22,7 +22,7 @@ import "server-only"
  * The hourly /api/cron/translations is the safety sweep: it only marks the
  * stores nothing has marked for a day (a change made somewhere no save
  * marks, Storelib's own words updated), a few dozen at a time. Before part
- * 179 it works through the stores itself, as it always did.
+ * 186 it works through the stores itself, as it always did.
  *
  * NEVER THE MERCHANT'S WORDS. A translation they wrote or edited is not
  * sent and not replaced, outdated or not (aiMayWrite), and it is read again
@@ -36,7 +36,7 @@ import "server-only"
  * made progress stays marked and the next run carries on; one the
  * translator could not be reached for is tried again RETRY_MS later; one
  * where nothing could be written is left to the daily sweep rather than
- * tried every three minutes. What each run did is kept on the store
+ * tried every five minutes. What each run did is kept on the store
  * (auto_translate_run) for the switch to say.
  */
 import { defaultLanguageScope, writtenLanguage } from "./detect-language"
@@ -53,7 +53,7 @@ type Db = any
 
 /** Texts one language takes in one run: a new website in a few hours, a day's edits at once. */
 export const PER_LANGUAGE = 150
-/** Stores one run looks at, the longest waiting first (before part 179). */
+/** Stores one run looks at, the longest waiting first (before part 186). */
 export const STORES_PER_RUN = 25
 /** Changed stores one three-minute run takes, the longest waiting first. */
 export const CHANGED_PER_RUN = 20
@@ -133,7 +133,7 @@ async function storesToRun(db: Db): Promise<string[]> {
   return ((data ?? []) as { creator_id: string }[]).map((r) => r.creator_id)
 }
 
-/* ── The changed stores, every three minutes ─────────────────────────── */
+/* ── The changed stores, every five minutes ─────────────────────────── */
 
 type Marked = { creator_id: string; translate_dirty_at: string }
 
@@ -141,7 +141,7 @@ const iso = (ms: number) => new Date(ms).toISOString()
 const settled = (r: { data: unknown; error: { code?: string; message?: string } | null }) => r
 const failedRead = (e: unknown) => ({ data: null, error: { message: String(e) } })
 
-/** The marked stores whose last change has settled and that no run holds, oldest first. Null before part 179. */
+/** The marked stores whose last change has settled and that no run holds, oldest first. Null before part 186. */
 async function changedStores(db: Db, now: number): Promise<Marked[] | null> {
   const { data, error } = await db
     .from("store_localization")
@@ -196,9 +196,9 @@ async function settleStore(db: Db, s: Marked, outcome: "done" | "more" | "retry"
 }
 
 /**
- * Every three minutes: each store whose website changed a few minutes ago,
+ * Every five minutes: each store whose website changed a few minutes ago,
  * translated and put live, until `deadlineAt`. `skipped` says why nothing
- * ran (no AI key, or part 179 not run: the hourly run covers it then).
+ * ran (no AI key, or part 186 not run: the hourly run covers it then).
  */
 export async function runChangedStores(deadlineAt: number, db: Db = createAdminClient()): Promise<{ stores: number; translated: number; left: number; skipped?: string }> {
   const out = { stores: 0, translated: 0, left: 0 }
@@ -229,7 +229,7 @@ export async function runChangedStores(deadlineAt: number, db: Db = createAdminC
 
 /* ── The safety sweep, hourly ─────────────────────────────────────────── */
 
-/** Marks the stores nothing has marked for a day, a few dozen at a time. Null before part 179. */
+/** Marks the stores nothing has marked for a day, a few dozen at a time. Null before part 186. */
 async function queueQuietStores(db: Db, now: number): Promise<number | null> {
   const { data, error } = await db
     .from("store_localization")
@@ -256,7 +256,7 @@ async function queueQuietStores(db: Db, now: number): Promise<number | null> {
 }
 
 /**
- * The hourly run. With part 179: the safety sweep, which only marks quiet
+ * The hourly run. With part 186: the safety sweep, which only marks quiet
  * stores for the three-minute run. Before it: as many stores as fit before
  * `deadlineAt`, each one's result kept on it, as it always was.
  */

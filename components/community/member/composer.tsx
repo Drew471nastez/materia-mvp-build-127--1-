@@ -166,7 +166,8 @@ import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { postSound, primeSounds } from "./heart"
 import { spaceGlyph } from "./space-glyph"
 import { toast } from "./toast"
-import { BTN, BTN_GHOST, BTN_PRIMARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
+import { BTN, BTN_GHOST, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
+import { CALM } from "@/components/library/library-ui"
 import { hapticTap } from "@/lib/native-bridge"
 import { tt } from "@/lib/i18n/text"
 import { MEMBER_VIDEO_MAX_BYTES } from "@/lib/video/types"
@@ -257,6 +258,18 @@ interface Draft {
 export const HELD_POST = "Your post is waiting for a moderator."
 
 export const LEAVE_QUESTION = "You haven't finished your post yet. Leave without posting?"
+
+/*
+  The question's two answers (round 31). The same press as every button here (a pixel down, at once), the size set where
+  they are drawn. Keep writing is the library's calm secondary (components/library/library-ui.ts CALM); Leave is red
+  words on a faint red ground with a red hairline, its colours variables with the dark look's own in
+  scripts/gen-theme-dark.mjs.
+*/
+const LEAVE_BTN =
+  "inline-flex shrink-0 touch-manipulation select-none items-center justify-center whitespace-nowrap font-semibold outline-none transition-[background-color,border-color,box-shadow,translate] duration-150 active:translate-y-px active:duration-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+const LEAVE_STAY = CALM
+const LEAVE_GO =
+  "border border-[color:var(--sl-danger-line,#f6c3bd)] bg-[var(--sl-danger-soft,#fef3f2)] text-[color:var(--sl-danger-ink,#b42318)] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:border-[color:var(--sl-danger-line-hover,#f0a39a)] hover:bg-[var(--sl-danger-soft-hover,#fde7e5)] active:bg-[var(--sl-danger-soft-press,#fbd9d5)] active:shadow-none"
 
 /** One tool in the editor's row: a 40px target, the glyph alone, no box until hovered. */
 const TOOL =
@@ -1164,20 +1177,30 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     asking?.(leave)
     setAsking(null)
   }
-  /* Over the phone's editor screen too (it sits at z 125), so not the member area's Modal (z 80). */
+  /*
+    Over the phone's editor screen too (it sits at z 125), so not the member area's Modal (z 80).
+
+    ROUND 31, THE OWNER: Leave looked "too light, washed", above all in the dark, where the near black button became a
+    graphite step on the sheet's own charcoal. Keep writing is the calm default now (the focused one, the library's calm
+    secondary: a lifted surface on a real hairline, LEAVE_STAY) and Leave says what it does in red without shouting: a
+    faint red ground, a red hairline and red words (LEAVE_GO). Both carry their colours as variables, so the dark look
+    gives them their own (scripts/gen-theme-dark.mjs) instead of a mapped grey.
+  */
+  const leaveSize = phone ? "h-12 w-full rounded-[12px] text-[15px]" : "h-9 rounded-[10px] px-4 text-[14px]"
   const leaveActions = (
     <div className={`flex gap-2 ${phone ? "mt-6 flex-col-reverse" : "mt-5 justify-end"}`} data-leave-dialog="">
-      <button type="button" className={`${BTN_GHOST} ${phone ? "h-12 w-full justify-center text-[15px]" : ""}`} onClick={() => answer(false)} data-leave-stay="" autoFocus>
+      <button type="button" className={`${LEAVE_BTN} ${LEAVE_STAY} ${leaveSize}`} onClick={() => answer(false)} data-leave-stay="" autoFocus>
         Keep writing
       </button>
-      <button type="button" className={`${BTN_PRIMARY} ${phone ? "h-12 w-full justify-center text-[15px]" : ""}`} onClick={() => answer(true)} data-leave-go="">
+      <button type="button" className={`${LEAVE_BTN} ${LEAVE_GO} ${leaveSize}`} onClick={() => answer(true)} data-leave-go="">
         Leave
       </button>
     </div>
   )
+  /* Round 31: the phone's sheet is as tall as the question and its two answers, not a fixed 340px with an empty third under them. */
   const leaveDialog = phone ? (
-    <BottomSheet isOpen={!!asking} onClose={() => answer(false)} label="Leave post" hideFrom={null} zIndex={150} height="min(44vh, 340px)" maxHeight="min(52vh, 400px)">
-      <div className="px-5 pb-2 pt-1" data-leave-sheet="">
+    <BottomSheet isOpen={!!asking} onClose={() => answer(false)} label="Leave post" hideFrom={null} zIndex={150} maxHeight="min(60vh, 420px)">
+      <div className="px-5 pb-4 pt-1" data-leave-sheet="">
         <p className="text-[17px] font-semibold leading-snug text-[#1a1a2e]">{LEAVE_QUESTION}</p>
         {leaveActions}
       </div>
@@ -1185,10 +1208,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   ) : (
     <DialogPrimitive.Root open={!!asking} onOpenChange={(o) => (!o ? answer(false) : undefined)}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[150] bg-[#0f1115]/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        {/*
+          Round 31: it leaves the way it came (Radix keeps it on the page while the out animation runs), and the scrim is
+          an rgba the dark look leaves as it is: as a hex class it was mapped to a graphite haze over the dark page.
+        */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[150] bg-[rgba(15,17,21,0.4)] duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 motion-reduce:animate-none" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed left-1/2 top-1/2 z-[151] w-[min(100vw-2rem,440px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-[0_20px_60px_-12px_rgba(17,24,39,0.35)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0"
+          className="fixed left-1/2 top-1/2 z-[151] w-[min(100vw-2rem,440px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-[0_20px_60px_-12px_rgba(17,24,39,0.35)] outline-none duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.97] data-[state=closed]:duration-150 data-[state=closed]:ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:animate-none"
         >
           <DialogPrimitive.Title className="text-[17px] font-semibold leading-snug text-[#1a1a2e]">{LEAVE_QUESTION}</DialogPrimitive.Title>
           {leaveActions}

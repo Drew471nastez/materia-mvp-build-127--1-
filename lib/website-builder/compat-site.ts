@@ -26,6 +26,7 @@ import { readStoreMenus, storeMenusOrNull } from "@/lib/website-builder/store-me
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { assetAddresses, compatOf } from "@/lib/storelib-theme/compat/install"
+import { assetVersion, themeDigest } from "@/lib/storelib-theme/compat/asset-version"
 import { drawPage, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import { POLICY_HANDLES, type CartStock, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { isBlankHtml, policyBodyOf } from "@/lib/website-builder/policy-editing"
@@ -48,6 +49,8 @@ import { withPageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { moneyFormatFor } from "@/lib/markets/pricing"
+import { liveRelease, releaseFiles } from "./site-releases-server"
+import { pageRowsOf, settingsRowOf } from "./site-releases"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -96,11 +99,33 @@ function shopImage(media: Record<string, string>, v: string): string {
   }
 }
 
-/** The theme an install draws, with its assets where they are served from. */
+/**
+ * The theme an install draws, with its assets where they are served from.
+ *
+ * A live file's address is versioned by what it is drawn from, not by the
+ * publish (lib/storelib-theme/compat/asset-version.ts): a setting saved
+ * without Publish moves the address of a `.css.liquid` file, and a Publish
+ * that left a file alone leaves its address, and the visitor's cached copy,
+ * alone. Worked out once per file per theme; the theme is held per publish
+ * and settings (holdTheme). A draft keeps its own version, which the route
+ * never caches.
+ */
 export function compatThemeFor(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
   const media = assetAddresses(rows)
+  const draft = version === "edit" || version.startsWith("draft")
+  const versions = new Map<string, string>()
+  let digest: string | null = null
+  const versionOf = (name: string): string => {
+    if (draft) return version
+    let v = versions.get(name)
+    if (v === undefined) {
+      v = assetVersion(rows, name, settings, () => (digest ??= themeDigest(rows))) ?? version
+      versions.set(name, v)
+    }
+    return v
+  }
   return themeOfInstall(rows, settings, {
-    assetUrl: (name) => media[name] ?? themeAssetUrl(installId, version, name),
+    assetUrl: (name) => media[name] ?? themeAssetUrl(installId, versionOf(name), name),
     assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
     /* "shopify://shop_images/logo.png" is a file of the store the theme came from: the theme's own picture of that name where it brought one. */
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : shopImage(media, v)),
@@ -132,13 +157,15 @@ function settingsKey(settings: unknown): string {
   return `${text.length}.${h.toString(36)}`
 }
 
-function holdTheme(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
+/* `drawnFrom` names what the files were read from: a release by its id, or the rows ("rows"), so a theme drawn from one is never handed out for the other. */
+function holdTheme(installId: string, version: string, rows: Record<string, string>, settings: unknown, drawnFrom = "rows"): CompatTheme {
   const key = `${installId}:${version}:${settingsKey(settings)}`
-  const hit = held.get(key)
+  const slot = `${drawnFrom}|${key}`
+  const hit = held.get(slot)
   if (hit) return hit.theme
   const theme = compatThemeFor(installId, version, rows, settings)
   if (held.size >= HELD_MAX) held.delete(held.keys().next().value as string)
-  held.set(key, { version, rows, theme })
+  held.set(slot, { version, rows, theme })
   return theme
 }
 
@@ -296,17 +323,31 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   if (!install) return { kind: "missing" }
   const row = install
   const draft = previewToken !== null && mayPreview(row.preview_token, previewToken)
-  const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
+  /*
+    THE LIVE RELEASE, when Publish has written one (lib/website-builder/
+    site-releases-server.ts, SQL part 180): the settings, the pages and the
+    files as they were published, read through caches that never go stale,
+    because a release never changes. Without one (an install published
+    before releases, part 180 not run, a live file edited since) the rows,
+    exactly as before. A preview always reads the rows.
+  */
+  const release = draft ? null : await liveRelease(creator.creatorId, row.id, siteTags)
+  const settingsRow = release ? settingsRowOf(release.manifest) : Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
   const settings = themeSettingsOf(settingsRow as never, draft) ?? {}
   if (!compatOf(settings)) return { kind: "missing" }
 
   const version = draft ? `draft-${Date.now()}` : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
   const rowsKey = `${row.id}:${version}`
-  let rows = draft ? null : rowsHeld.get(rowsKey) ?? null
-  const readPages = () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
+  /* Held on this server by what they were read from: the release's id, or the publish when they come from the rows. */
+  const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey
+  let rows = draft ? null : rowsHeld.get(heldKey) ?? null
+  const readFiles = async (): Promise<Record<string, string>> => (release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey)
+  const readPages = release
+    ? async () => pageRowsOf(release.manifest)
+    : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
   const readCatalog = () => catalogCards(admin as never, creator.creatorId).catch(() => [])
   const [pageRows, products, catalog, collections, menus, , store] = await Promise.all([
-    (draft ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
+    (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
     draft ? readCatalog() : heldUnless(["compat-catalog", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readCatalog, (v) => v.length === 0),
@@ -314,13 +355,13 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     draft
       ? storeMenusOrNull(admin, creator.creatorId)
       : heldUnless(["compat-menus", creator.creatorId], siteTags, SITE_HOLD_S, () => readStoreMenus(admin, creator.creatorId).catch(() => ({ kind: "unavailable" as const })), (v) => v.kind === "unavailable").then((r) => (r.kind === "stored" ? r.menus : null)),
-    rows ? Promise.resolve() : (draft ? installFiles(admin, row.id, true) : liveFiles(admin, row.id, rowsKey)).then((r) => { rows = r }),
+    rows ? Promise.resolve() : (draft ? installFiles(admin, row.id, true) : readFiles()).then((r) => { rows = r }),
     storeOf(creator.creatorId),
   ])
   if (!rows) return { kind: "missing" }
   if (!draft) {
     if (rowsHeld.size >= HELD_MAX) rowsHeld.delete(rowsHeld.keys().next().value as string)
-    rowsHeld.set(rowsKey, rows)
+    rowsHeld.set(heldKey, rows)
   }
   const pages: Record<string, StoredSection[]> = {}
   for (const p of (pageRows.data ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[]) {
@@ -336,7 +377,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     if (isBlankHtml(body)) return []
     return [{ handle, title: POLICY_TITLES[handle] ?? handle, body: handle === "refund-policy" && returnFacts ? `${body}${returnFacts}` : body }]
   })
-  const theme = draft ? compatThemeFor(row.id, version, rows, settings) : holdTheme(row.id, version, rows, settings)
+  const theme = draft ? compatThemeFor(row.id, version, rows, settings) : holdTheme(row.id, version, rows, settings, release ? `release:${release.id}` : "rows")
   /* Website settings › Commerce: the free shipping banner and the cart's returns line, put on the theme's own pages (lib/storelib-theme/compat/site-commerce-markup.ts). Read only when one is on. */
   const onSite = siteCommerce(settings as Record<string, unknown>)
   const readFacts = () => shopFacts(admin, creator.creatorId)

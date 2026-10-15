@@ -1,5 +1,6 @@
 "use client"
 
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
@@ -950,6 +951,13 @@ export function LiveProductCreatorBar({
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
   /*
+    Round 31: on Storelib's own product page a light bar (the default scheme's white) follows the person's look
+    (lib/appearance/site-paint): the card's charcoal and light words in the dark, exactly as it was in the light. A dark
+    bar is dark in both looks and is left as it is.
+  */
+  const paint = useSitePaint()
+  const barPaint = <T extends string | undefined>(c: T, role: "bg" | "ink" | "line"): T => (isDarkBackground ? c : paint(c, role))
+  /*
     ═══════════════════════════════════════════════════════════════════════
      WHITE LETTERS ON A NEAR WHITE DISC
     ═══════════════════════════════════════════════════════════════════════
@@ -1267,8 +1275,8 @@ export function LiveProductCreatorBar({
     <div
       className={cn("relative z-10 w-full overflow-hidden", hideOnMobileDiscover && "hidden")}
       style={{
-        backgroundColor: settings.backgroundColor || "#1a1a1a",
-        color: settings.textColor || "#ffffff",
+        backgroundColor: barPaint(settings.backgroundColor || "#1a1a1a", "bg"),
+        color: barPaint(settings.textColor || "#ffffff", "ink"),
         /*
           A LITTLE DEPTH, so the bar reads as a bar and not as the top strip
           of the page. A hairline alone is a rule; the soft shadow underneath
@@ -1280,7 +1288,7 @@ export function LiveProductCreatorBar({
           bar carried was visible as a shadow, which on something that
           appears above every product is too much.
         */
-        borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
+        borderBottom: `1px solid ${barPaint("rgba(0, 0, 0, 0.06)", "line")}`,
         /* The dark value for a dark bar: a slate shadow is lighter than the
            bar above it and reads as a halo at the seam. This bar defaults to
            #1a1a1a, so that is the usual case rather than the exception. */
@@ -1426,7 +1434,7 @@ export function LiveProductCreatorBar({
                   onClick={() => { if (!loading && email && !isCurrentEmailSubscribed) triggerAnim() }}
                   className={cn("h-9 shrink-0 px-4", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
                   style={{
-                    backgroundColor: settings.buttonColor || "#4b5563",
+                    backgroundColor: barPaint(settings.buttonColor || "#4b5563", "bg"),
                     color: settings.buttonTextColor || "#ffffff",
                     borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
                   }}

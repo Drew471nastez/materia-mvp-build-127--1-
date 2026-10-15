@@ -27,6 +27,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { CREATOR_BADGES, type CreatorBadgeId } from "@/lib/creators/badges"
 import { cn } from "@/lib/utils"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 /** Near-black unless the page's type is light, then the reverse. */
 function inkFor(color?: string): { shield: string; mark: string } {
@@ -40,7 +41,11 @@ function inkFor(color?: string): { shield: string; mark: string } {
 
 function VeteranMark({ ink, size }: { ink?: string; size: number }) {
   const id = React.useId().replace(/[^a-zA-Z0-9_-]/g, "")
-  const { shield, mark } = inkFor(ink)
+  const ink2 = inkFor(ink)
+  /* Round 31: on Storelib's own product page the mark follows the person's look (lib/appearance/site-paint): the shield in the page's ink, the chevrons cut out of it in the page's ground. */
+  const paint = useSitePaint()
+  const shield = paint(ink2.shield, "ink")
+  const mark = ink2.mark === "#ffffff" ? paint("#ffffff", "page") : paint(ink2.mark, "ink")
   return (
     <svg viewBox="0 0 20 20" width={size} height={size} fill="none" aria-hidden="true" focusable="false">
       <defs>
@@ -52,7 +57,7 @@ function VeteranMark({ ink, size }: { ink?: string; size: number }) {
       {/* The shield: flat across the top, drawn in to a soft point. */}
       <path
         d="M4.2 2.2h11.6c.99 0 1.8.8 1.8 1.8v5.35c0 3.5-2.64 6.45-6.9 8.33a1.8 1.8 0 01-1.4 0C5.04 15.8 2.4 12.85 2.4 9.35V4c0-1 .81-1.8 1.8-1.8z"
-        fill={shield}
+        style={{ fill: shield }}
       />
       <path
         d="M4.2 2.2h11.6c.99 0 1.8.8 1.8 1.8v5.35c0 3.5-2.64 6.45-6.9 8.33a1.8 1.8 0 01-1.4 0C5.04 15.8 2.4 12.85 2.4 9.35V4c0-1 .81-1.8 1.8-1.8z"
@@ -62,8 +67,8 @@ function VeteranMark({ ink, size }: { ink?: string; size: number }) {
         strokeWidth="0.6"
       />
       {/* Two chevrons, the upper one a shade quieter. */}
-      <path d="M6.6 8.4L10 6.1l3.4 2.3" stroke={mark} strokeOpacity="0.62" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6.6 11.8L10 9.5l3.4 2.3" stroke={mark} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6.6 8.4L10 6.1l3.4 2.3" style={{ stroke: mark }} strokeOpacity="0.62" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6.6 11.8L10 9.5l3.4 2.3" style={{ stroke: mark }} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

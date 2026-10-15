@@ -111,7 +111,7 @@ export interface AutoTranslateRun {
   left: number
   /** Set when Storelib AI could not be reached (no key, no credit, every call failed): the switch says it tries again. */
   error?: "unavailable"
-  /** Changes saved since, waiting for the next run (store_localization.translate_dirty_at, part 179). Read, never stored in the run. */
+  /** Changes saved since, waiting for the next run (store_localization.translate_dirty_at, part 186). Read, never stored in the run. */
   pending?: boolean
 }
 
@@ -123,7 +123,7 @@ export async function readAutoTranslate(db: Db, creatorId: string): Promise<{ on
       (e: unknown) => ({ data: null, error: { message: String(e) } }),
     )
   let { data, error } = await read("auto_translate, auto_translate_run, translate_dirty_at")
-  /* Part 179 not run: read as before, with nothing waiting. */
+  /* Part 186 not run: read as before, with nothing waiting. */
   if (error && queueMissing(error)) ({ data, error } = await read("auto_translate, auto_translate_run"))
   if (error) return { on: false, run: null, ready: !autoTranslateMissing(error) && !marketsMissing(error) }
   const row = data as { auto_translate?: boolean | null; auto_translate_run?: Partial<AutoTranslateRun> | null; translate_dirty_at?: string | null } | null

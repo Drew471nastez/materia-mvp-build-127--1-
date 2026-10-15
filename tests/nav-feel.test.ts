@@ -216,9 +216,11 @@ console.log("\nGLASS: a finger above or below the bar's row")
 
 console.log("\nGLASS: a fuller drop, and a landing sampled for a faster screen")
 {
-  check("the stretch reaches 0.11 and an ordinary slide gets there", /const STRETCH_MAX = 0\.11/.test(lens) && /const STRETCH_AT = 0\.5/.test(lens))
+  /* Changed on purpose (round 31): it eases towards 0.2 and never pins at a wall; an ordinary slide reaches about 0.11. */
+  check("the stretch eases towards 0.2 and an ordinary slide reaches about what the old cap was", /const STRETCH_MAX = 0\.2/.test(lens) && /const STRETCH_AT = 0\.9/.test(lens))
   /* Changed on purpose (round 29): damping 8 to 13, one wobble after a stop instead of three; the stiffness, so the late lean, is kept. */
-  check("the drop's own spring leans late and settles in one wobble", /const DROP_SPRING = \{ stiffness: 360, damping: 13 \}/.test(lens) && /const DROP_LEAD = 0\.26/.test(lens))
+  /* Changed on purpose (round 31): 600 and 30 (0.61 of critical), following the glass's own spring speed; a stop leaves under 1% of squash. */
+  check("the drop's own spring leans a frame or two late and relaxes back round", /const DROP_SPRING = \{ stiffness: 600, damping: 30 \}/.test(lens) && /const DROP_LEAD = 0\.26/.test(lens))
   check("it still never goes narrower than the squash it always had", /const SQUASH_MAX = 0\.03/.test(lens) && /drop\.d = Math\.max\(-SQUASH_MAX, Math\.min\(STRETCH_MAX, drop\.d \+ drop\.dv \* dt\)\)/.test(lens))
   check("the landing spring is sampled at 240Hz, with room for the longer list", /const dt = 1 \/ 240/.test(lens) && /for \(let i = 0; i < 480; i\+\+\)/.test(lens))
   check("and it still ends on the slot's exact centre", /const rest = `\$\{to\}px 0`/.test(lens) && /frames\.push\(\{ translate: rest, transform: "scale\(1, 1\)" \}\)/.test(lens))

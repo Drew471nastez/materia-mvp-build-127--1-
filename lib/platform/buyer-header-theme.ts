@@ -43,7 +43,7 @@ async function readFromDb(): Promise<boolean> {
 export const isBuyerHeaderLight = unstable_cache(
   async () => readFromDb(),
   ["buyer-header-light-enabled"],
-  { tags: [BUYER_HEADER_LIGHT_CACHE_TAG], revalidate: 30 },
+  { tags: [BUYER_HEADER_LIGHT_CACHE_TAG], revalidate: 300 },
 )
 
 export async function setBuyerHeaderLight(enabled: boolean, updatedBy = "admin"): Promise<void> {

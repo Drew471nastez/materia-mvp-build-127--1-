@@ -171,12 +171,16 @@ function main() {
      * anything.
      */
     check("nothing on the site's layout asks who is looking", !/next\/headers/.test(read("app/(site)/layout.tsx")))
-    /* The marketing layout reads request data through lib/platform/header-props
-       now, which /library shares. It is still dynamic; it just no longer
-       imports next/headers by hand. */
+    /* Changed on purpose (the owner: marketing pages served from the CDN).
+       The marketing layout asks nothing about the request any more, so the
+       pages under it that ask nothing either are static; the ones that need
+       the visitor (/explore, a product, a creator page) read it themselves.
+       lib/platform/header-props keeps the reads for the account and receipt
+       layouts, which are per visitor anyway. */
+    const marketingLayout = read("app/(marketing)/layout.tsx")
     check(
-      "the marketing layout still reads request data, for the pages that need it",
-      /readWishlistCount\(\)/.test(read("app/(marketing)/layout.tsx")) &&
+      "the marketing layout reads no request data, so the pages under it can be static",
+      !/readWishlistCount\(\)|isPlatformDomain\(\)|next\/headers|cookies\(\)|headers\(\)/.test(marketingLayout) &&
         /next\/headers/.test(read("lib/platform/header-props.ts")),
     )
 

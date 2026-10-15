@@ -59,7 +59,7 @@ import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/componen
 import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 import { useFirstTap } from "@/lib/navigation/first-tap"
 import { watchNavigation } from "@/lib/nav/stuck-navigation"
-import { keepFresh } from "@/components/nav/keep-fresh"
+import { KEEP_FRESH_MAX, keepFresh } from "@/components/nav/keep-fresh"
 import { cn } from "@/lib/utils"
 import { PILL_FILL, PILL_PRESS, PILL_WORDS, PILL_WORDS_OFF, PILL_WORDS_ON, pressPill, releasePill } from "@/lib/ui/pill-switch"
 import type { OwnerPill as OwnerPillLink } from "@/lib/profile/owner-pills"
@@ -100,11 +100,20 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
     pressed more than five minutes after the profile was opened found its page stale in the router and waited on the server.
     The same pages are read again as they go stale while the profile is on screen, and when the app comes back
     (components/nav/keep-fresh.ts), on the device's own plan (lib/nav/prefetch-policy.ts).
+    Only the KEEP_FRESH_MAX likeliest, in the order above: Settings, then the first panel. Edit profile's address is the
+    same Settings page, and where Settings is a layer over the profile (settingsStaysHere) its address is never visited,
+    so neither takes a place. The rest are still read on idle and on the press.
   */
   useEffect(() => {
     if (!ahead) return
+    const layered = settingsStaysHere()
+    const kept = ahead
+      .split(" ")
+      .filter((href) => href !== EDIT_PROFILE_HREF && !(layered && href.startsWith("/account/settings")))
+      .slice(0, KEEP_FRESH_MAX)
+    if (!kept.length) return
     return keepFresh(() => {
-      for (const href of ahead.split(" ")) prefetchHref(router, href, "idle")
+      for (const href of kept) prefetchHref(router, href, "idle")
     })
   }, [ahead, router])
 

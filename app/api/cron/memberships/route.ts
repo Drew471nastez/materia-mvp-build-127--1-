@@ -29,7 +29,9 @@ async function runJob(request: Request) {
   try {
     const summary = await runMembershipJobs(createAdminClient(), { budgetMs: RUN_BUDGET_MS })
     const ms = Date.now() - started
-    console.log(
+    /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
+    const didWork = summary.reminders + summary.abandoned + summary.graceEnded + summary.emails.sent + summary.emails.skipped + summary.emails.failed > 0 || summary.emails.left
+    if (didWork) console.log(
       `[cron/memberships] ${summary.available ? "ran" : "not available (part 75 has not run)"}: ${summary.reminders} reminders, ${summary.abandoned} half started closed, ${summary.graceEnded} past grace, emails ${summary.emails.sent} sent ${summary.emails.skipped} skipped ${summary.emails.failed} failed${summary.emails.left ? " (more waiting)" : ""}, ${ms}ms`,
     )
     return NextResponse.json({ ...summary, ms }, { headers: { "Cache-Control": "no-store" } })

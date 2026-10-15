@@ -8,16 +8,16 @@ import "server-only"
  * page saved live, theme settings, menus, a product, a collection) calls
  * translationsChanged. For a store with "Translate changes automatically"
  * on, that writes the time on its row (store_localization.translate_dirty_at,
- * SQL part 179). Nothing else: one small update, after the answer, and a
+ * SQL part 186). Nothing else: one small update, after the answer, and a
  * failure is swallowed, so a save is never slower and never fails for it.
  *
- * The run every three minutes (/api/cron/translation-jobs, lib/markets/
+ * The run every five minutes (/api/cron/translation-jobs, lib/markets/
  * auto-translate.ts runChangedStores) takes the stores whose last change is
  * SETTLE_MS old, so a burst of edits is translated once, and clears the
  * mark when the store is up to date. Stores that changed nothing cost
  * nothing.
  *
- * Before part 179 the column is not there: the update fails quietly and the
+ * Before part 186 the column is not there: the update fails quietly and the
  * hourly run works through the stores as it always did.
  */
 import { after } from "next/server"
@@ -29,7 +29,7 @@ type Db = any
 /** How long after the last change a store waits, so a run of edits is translated once. */
 export const SETTLE_MS = 2 * 60_000
 
-/** Part 179 has not run: the columns are not there. */
+/** Part 186 has not run: the columns are not there. */
 export function queueMissing(error: { code?: string; message?: string } | null | undefined): boolean {
   return !!error && /translate_dirty_at|translate_lease_until/.test(error.message ?? "")
 }
@@ -47,7 +47,7 @@ export async function markTranslationsChanged(db: Db, creatorId: string): Promis
         () => undefined,
       )
   } catch {
-    /* Before part 175 or 179, or the database unreachable: the safety sweep finds the change later. */
+    /* Before part 175 or 186, or the database unreachable: the safety sweep finds the change later. */
   }
 }
 

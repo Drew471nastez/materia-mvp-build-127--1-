@@ -19,6 +19,12 @@ import "server-only"
  *   dns_records  the records last shown for it (read through brandRecord,
  *                so a row saved before domains.storelib.com shows it too)
  *
+ * Since run-now part 185 (round 31) a row can also serve ONE COMMUNITY:
+ * purpose 'community', target_type 'community', target_id its id. One
+ * domain per community; is_primary stays false on those rows, because the
+ * community is what the domain names, not the creator
+ * (lib/custom-domains/community.ts says what it serves).
+ *
  * THE MIGRATION MAY NOT HAVE RUN. Every read here asks for the new columns
  * and, when the database says one does not exist, asks again without them
  * and reports `schema: "legacy"`: one website domain per creator, served
@@ -37,6 +43,7 @@ import {
   type DomainPurpose,
 } from "./hostname"
 import { brandRecord } from "./targets"
+import { communityIdOf } from "./community"
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -54,6 +61,8 @@ export interface DomainRow {
   is_primary?: boolean | null
   dns_records?: unknown
   last_checked_at?: string | null
+  target_type?: string | null
+  target_id?: string | null
 }
 
 export interface DomainView {
@@ -70,6 +79,8 @@ export interface DomainView {
   host: string
   apex: boolean
   records: DnsRecord[]
+  /** The community a 'community' domain serves, by id; null for every other purpose. */
+  community_id: string | null
 }
 
 export type Schema = "current" | "legacy"
@@ -98,6 +109,9 @@ export function isMissingTable(error: { code?: string; message?: string } | null
 export const CURRENT_COLUMNS =
   "id, creator_id, domain, status, ssl_status, verified_at, verification_token, created_at, updated_at, purpose, is_primary, dns_records, last_checked_at"
 export const LEGACY_COLUMNS = "id, creator_id, domain, status, ssl_status, verified_at, verification_token, created_at, updated_at"
+/** CURRENT_COLUMNS and what a domain serves when it is a community's (run-now part 185). */
+export const TARGET_COLUMNS =
+  "id, creator_id, domain, status, ssl_status, verified_at, verification_token, created_at, updated_at, purpose, is_primary, dns_records, last_checked_at, target_type, target_id"
 
 export function purposeOf(row: DomainRow): DomainPurpose {
   return isDomainPurpose(row.purpose) ? row.purpose : "website"
@@ -119,11 +133,20 @@ export function toView(row: DomainRow, schema: Schema): DomainView {
     host: servingHost(row.domain),
     apex: isApexHost(row.domain),
     records: storedRecords(row.dns_records)?.map(brandRecord) ?? recordsFor(row.domain),
+    community_id: communityIdOf(row),
   }
 }
 
-/** A creator's domains, newest first, and which schema answered. */
-export async function listCreatorDomains(admin: Admin, creatorId: string): Promise<{ rows: DomainRow[]; schema: Schema; error?: string }> {
+/**
+ * A creator's domains, newest first, and which schema answered. `targets`
+ * says whether the community columns are there (part 185): until they are,
+ * the rows are read as before and no domain can be a community's.
+ */
+export async function listCreatorDomains(admin: Admin, creatorId: string): Promise<{ rows: DomainRow[]; schema: Schema; error?: string; targets?: boolean }> {
+  const withTargets = await admin.from("custom_domains").select(TARGET_COLUMNS).eq("creator_id", creatorId).order("created_at", { ascending: false })
+  if (!withTargets.error) return { rows: (withTargets.data ?? []) as DomainRow[], schema: "current", targets: true }
+  if (isMissingTable(withTargets.error)) return { rows: [], schema: "legacy", error: "missing_table" }
+  if (!isMissingColumn(withTargets.error)) return { rows: [], schema: "current", error: withTargets.error.message }
   const current = await admin.from("custom_domains").select(CURRENT_COLUMNS).eq("creator_id", creatorId).order("created_at", { ascending: false })
   if (!current.error) return { rows: (current.data ?? []) as DomainRow[], schema: "current" }
   if (isMissingTable(current.error)) return { rows: [], schema: "legacy", error: "missing_table" }
@@ -217,6 +240,8 @@ export async function syncOnepageDomain(admin: Admin, creatorId: string, userId:
  * the oldest. A purpose with domains always has a primary.
  */
 export async function ensurePrimary(admin: Admin, creatorId: string, purpose: DomainPurpose): Promise<void> {
+  /* A community's domain is that community's alone: there is no primary among them to hand on. */
+  if (purpose === "community") return
   const { rows, schema } = await listCreatorDomains(admin, creatorId)
   if (schema === "legacy") return
   const mine = rows.filter((r) => purposeOf(r) === purpose)

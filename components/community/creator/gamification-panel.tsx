@@ -9,11 +9,11 @@
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { BadgeView, CommunityHead, LevelView } from "./view-types"
 import { checkLevels } from "./logic"
-import { Confirm, Notice, Section, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
+import { Confirm, Notice, RemoveButton, Section, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 
 export function GamificationPanel({ head, levels: initialLevels, badges: initialBadges }: { head: CommunityHead; levels: LevelView[]; badges: BadgeView[] }) {
@@ -94,9 +94,7 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
               </div>
               <input aria-label={tt("What level {value} gives", { value: i + 1 })} value={l.reward} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, reward: e.target.value.slice(0, 200) } : x)))} placeholder={tt("What it gives (optional)")} className={cn(field, "hidden h-10 sm:block")} />
               {i > 0 && i === levels.length - 1 ? (
-                <button type="button" aria-label={tt("Remove level {value}", { value: i + 1 })} onClick={() => setLevels(levels.slice(0, -1))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
-                  <Trash2 aria-hidden className="h-4 w-4" />
-                </button>
+                <RemoveButton label={tt("Remove level {value}", { value: i + 1 })} onClick={() => setLevels(levels.slice(0, -1))} />
               ) : (
                 <span />
               )}
@@ -123,9 +121,7 @@ export function GamificationPanel({ head, levels: initialLevels, badges: initial
                   <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{b.name}</p>
                   <p className="truncate text-[12.5px] text-[#6b7280]">{[b.description, `${b.awarded} ${b.awarded === 1 ? tt("member has it") : tt("members have it")}`].filter(Boolean).join(" · ")}</p>
                 </div>
-                <button type="button" aria-label={tt("Delete {name}", { name: b.name })} onClick={() => setDeleting(b)} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
-                  <Trash2 aria-hidden className="h-4 w-4" />
-                </button>
+                <RemoveButton label={tt("Delete {name}", { name: b.name })} onClick={() => setDeleting(b)} />
               </li>
             ))}
           </ul>

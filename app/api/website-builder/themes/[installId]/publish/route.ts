@@ -9,6 +9,7 @@ import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts, recordVersion } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
+import { pruneReleases, recordRelease } from "@/lib/website-builder/site-releases-server"
 import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -267,6 +268,25 @@ export async function POST(req: Request, { params }: Params) {
      * written.
      */
     await revalidatePublishedSite(creator.id)
+
+    /*
+      AND KEPT AS A RELEASE, after the answer (lib/website-builder/
+      site-releases-server.ts, SQL part 180): the live rows as they are now,
+      written once and never changed, and the website pointed at it. Best
+      effort: the publish has already happened, and until the pointer is set
+      (or when this fails, or part 180 has not run) the website is drawn from
+      its rows exactly as before. The pointer is held for a minute
+      (POINTER_HOLD_S), so the website moves onto the release within one,
+      drawing the same thing either way. Then the newest twenty are kept.
+    */
+    after(async () => {
+      const kept = await recordRelease(admin, { installId, creatorId })
+      if (kept.ok === false) {
+        if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
+        return
+      }
+      await pruneReleases(admin, installId)
+    })
 
     /* After the answer: every page of the site, to the search engines that
        take IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */

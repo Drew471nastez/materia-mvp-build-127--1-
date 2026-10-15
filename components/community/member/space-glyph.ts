@@ -21,11 +21,26 @@ import type { SpaceKind } from "@/lib/communities/types"
 /** A kind's own emoji: the dashboard's KIND_ICON (spaces-section.tsx), the same four. */
 export const KIND_GLYPH: Record<SpaceKind, string> = { feed: "💬", chat: "⚡", announcements: "📣", resources: "📚" }
 
-/** An emoji the admin typed (at most two characters), or null for nothing or an old word name. */
+/**
+ * What a person reads as one character, so a family, a flag or a skin tone is one and is never cut in half (round 31).
+ * Intl.Segmenter where the browser has it (every one this app supports), else code points.
+ */
+export function iconGraphemes(value: string): string[] {
+  const Seg = (Intl as unknown as { Segmenter?: new (l?: string, o?: { granularity: "grapheme" }) => { segment: (s: string) => Iterable<{ segment: string }> } }).Segmenter
+  if (Seg) return Array.from(new Seg(undefined, { granularity: "grapheme" }).segment(value), (s) => s.segment)
+  return Array.from(value)
+}
+
+/**
+ * The icon the admin chose (an emoji, or up to two letters of their own since round 31), or null for nothing or an old
+ * word name. A word name is letters, digits and hyphens, longer than an icon may be ("megaphone", "hand").
+ */
 export function chosenEmoji(icon: string | null | undefined): string | null {
   const v = (icon || "").trim()
-  if (!v || /^[a-z0-9-]+$/i.test(v)) return null
-  return Array.from(v).slice(0, 2).join("")
+  if (!v) return null
+  const parts = iconGraphemes(v)
+  if (/^[a-z0-9-]+$/i.test(v) && parts.length > 2) return null
+  return parts.slice(0, 2).join("")
 }
 
 /** What a space shows as its icon: the admin's emoji, else its kind's. */

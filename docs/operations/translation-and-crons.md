@@ -21,7 +21,7 @@ The parts it contains:
 | 176 | The store's own currency |
 | 177 | Translation jobs in the background |
 | 178 | Translation memory, the permanent cache |
-| 179 | Changes translated within minutes of a publish (`translate_dirty_at`, `translate_lease_until`) |
+| 186 | Changes translated within minutes of a publish (`translate_dirty_at`, `translate_lease_until`) |
 
 ## 2. Set up the translator (one key)
 
@@ -71,8 +71,8 @@ listed with its schedule and a "Run" button, and Logs shows each run.
 
 | Path | When | What it does |
 | --- | --- | --- |
-| `/api/cron/translation-jobs` | every 3 minutes | carries on a translation that ran out of time, so it finishes even with the tab closed; and translates the stores with "Translate changes automatically" on whose website changed a couple of minutes ago |
-| `/api/cron/translations` | hourly, at :47 | the safety sweep: queues a store nothing has queued for a day. Before part 179 it translates the stores itself |
+| `/api/cron/translation-jobs` | every 5 minutes | carries on a translation that ran out of time, so it finishes even with the tab closed; and translates the stores with "Translate changes automatically" on whose website changed a couple of minutes ago |
+| `/api/cron/translations` | hourly, at :47 | the safety sweep: queues a store nothing has queued for a day. Before part 186 it translates the stores itself |
 | `/api/cron/fx-rates` | weekdays, 15:35 UTC | the day's exchange rates for extra currencies |
 | `/api/cron/physical` | every 10 minutes | gives back stock held by unpaid checkouts, sends order emails and webhooks, and moves tracked parcels on |
 
@@ -87,7 +87,7 @@ Vercel has: set it, then redeploy.
    marks it as well. The mark is one small update after the save has
    answered (`lib/markets/translate-queue.ts`); it never slows or fails a
    save, and only stores with the switch on are marked.
-2. Every 3 minutes the run takes the marked stores whose last change is at
+2. Every 5 minutes the run takes the marked stores whose last change is at
    least 2 minutes old, oldest first, up to 20 a run. A burst of edits is
    translated once. A store is held by a lease while it runs, so two runs
    never translate the same store.

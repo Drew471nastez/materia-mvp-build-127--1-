@@ -15,7 +15,7 @@ const RUN_WINDOW_MS = 240_000
  * (lib/markets/auto-translate.ts runAutoTranslate). Hourly: queues the
  * stores nothing has queued for a day, for the three-minute run
  * (/api/cron/translation-jobs) that translates changed stores. Before SQL
- * part 179 it translates the stores itself, the one waiting longest first.
+ * part 186 it translates the stores itself, the one waiting longest first.
  * Behind the cron secret, like every cron.
  */
 async function run(request: Request) {

@@ -11,6 +11,11 @@ import "server-only"
  * reads those rows (at most 90) and adds today so far from a few live
  * counts. Nothing is estimated and nothing is sampled.
  *
+ * Round 31 (SQL part 184): the same nightly run adds up the day's visits
+ * (rollupTraffic), and the Analytics screen reads its periods through
+ * ./analytics-report.ts, which counts from the rows by the viewer's own
+ * days and falls back to these daily rows before part 184 has run.
+ *
  * The trending score (jobs/trending.ts) is read from the same rows: what
  * happened in a community over the last seven days, weighted, so Explore
  * can rank communities without counting anything itself.
@@ -77,6 +82,95 @@ export async function rollupDay(db: Db, communityId: string, day: string): Promi
   const figures = await countDay(db, communityId, day)
   const { error } = await db.from("community_daily_stats").upsert({ community_id: communityId, day: day.slice(0, 10), ...figures }, { onConflict: "community_id,day" })
   if (error) throw new Error(`daily stats ${communityId} ${day}: ${reasonOf(error)}`)
+  await rollupTraffic(db, communityId, day)
+}
+
+/** The day's visits as the screen counts them: everyone, those who were not members, and each source, site, device and country. */
+export interface TrafficDay {
+  visitors: number
+  prospects: number
+  counts: Record<TrafficDimension, Record<string, number>>
+}
+
+export type TrafficDimension = "source" | "referrer" | "device" | "country"
+export const TRAFFIC_DIMENSIONS: readonly TrafficDimension[] = ["source", "referrer", "device", "country"]
+
+export interface VisitRow {
+  source: string | null
+  referrer: string | null
+  device: string | null
+  country: string | null
+  member: boolean | null
+}
+
+/** Adds visit rows up. A visit with no source is direct; an unknown device or country is not listed. */
+export function countVisits(rows: VisitRow[]): TrafficDay {
+  const counts: TrafficDay["counts"] = { source: {}, referrer: {}, device: {}, country: {} }
+  let prospects = 0
+  for (const r of rows) {
+    if (r.member !== true) prospects += 1
+    const add = (d: TrafficDimension, k: string | null) => {
+      if (k) counts[d][k] = (counts[d][k] ?? 0) + 1
+    }
+    add("source", r.source || "direct")
+    add("referrer", r.referrer)
+    add("device", r.device)
+    add("country", r.country)
+  }
+  return { visitors: rows.length, prospects, counts }
+}
+
+const TRAFFIC_PAGE = 1000
+const TRAFFIC_PAGES = 50
+
+/**
+ * THE DAY'S VISITS, KEPT AS COUNTS (SQL part 184). The view day rows say how
+ * each visitor arrived for three days (part 87 deletes them after); here,
+ * just after the day ends, they are added up into community_daily_stats
+ * (visitors, prospects) and community_daily_traffic (one row per source,
+ * site, device and country), which is all Analytics reads for any day
+ * before today. Before part 184 the columns are not there and this does
+ * nothing. Never throws: the day's other figures are already written.
+ */
+export async function rollupTraffic(db: Db, communityId: string, day: string): Promise<boolean> {
+  const d = day.slice(0, 10)
+  try {
+    const rows: VisitRow[] = []
+    for (let page = 0; page < TRAFFIC_PAGES; page++) {
+      const { data, error } = await db
+        .from("community_view_days")
+        .select("visitor_key, source, referrer, device, country, member")
+        .eq("community_id", communityId)
+        .eq("day", d)
+        .order("visitor_key", { ascending: true })
+        .range(page * TRAFFIC_PAGE, page * TRAFFIC_PAGE + TRAFFIC_PAGE - 1)
+      if (error) {
+        if (!missing(error)) console.error(`[communities] traffic read ${communityId} ${d}: ${reasonOf(error)}`)
+        return false
+      }
+      const got = (data as VisitRow[] | null) ?? []
+      rows.push(...got)
+      if (got.length < TRAFFIC_PAGE) break
+    }
+    const t = countVisits(rows)
+    const { error: statsError } = await db.from("community_daily_stats").update({ visitors: t.visitors, prospects: t.prospects }).eq("community_id", communityId).eq("day", d)
+    if (statsError) {
+      if (!missing(statsError)) console.error(`[communities] traffic write ${communityId} ${d}: ${reasonOf(statsError)}`)
+      return false
+    }
+    const lines = TRAFFIC_DIMENSIONS.flatMap((dimension) => Object.entries(t.counts[dimension]).map(([key, visitors]) => ({ community_id: communityId, day: d, dimension, key: key.slice(0, 120), visitors })))
+    if (lines.length) {
+      const { error: lineError } = await db.from("community_daily_traffic").upsert(lines, { onConflict: "community_id,day,dimension,key" })
+      if (lineError) {
+        if (!missing(lineError)) console.error(`[communities] traffic lines ${communityId} ${d}: ${reasonOf(lineError)}`)
+        return false
+      }
+    }
+    return true
+  } catch (e) {
+    console.error(`[communities] traffic ${communityId} ${d}: ${reasonOf(e)}`)
+    return false
+  }
 }
 
 /**

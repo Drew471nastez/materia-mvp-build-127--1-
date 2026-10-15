@@ -10,7 +10,8 @@
  *
  *   PICTURES go through the same upload as the logo, the cover and a
  *   product's pictures (lib/storage/chunked-upload: checked, stripped, kept
- *   in the public picture bucket), several at once.
+ *   in the public picture bucket), several at once, picked or dropped on
+ *   the gallery.
  *   VIDEOS go through the community's video upload
  *   (/api/app/community/<id>/videos, lib/video/upload-client.ts), the same
  *   path as an event's replay: Storelib storage by default, or the video
@@ -22,42 +23,43 @@
  *   THE COVER can be one of those videos too (CoverField below): it is then
  *   the gallery's first item, marked as the cover, and its still stands in
  *   for the cover picture wherever one is drawn.
- *   ORDER by dragging a tile onto another on a computer, or with the arrows
- *   that show on a tile under the pointer or the keyboard. On a phone each
- *   tile has one button, its menu (move earlier, later, first, remove), so
- *   the picture is not covered by buttons.
  *
- * A tile that is still uploading is shown with its progress and is not part
- * of the gallery until it is done, so Save never sends half a file.
+ * ORDER (round 31, the owner: "organizing and pull to drag and arrangement
+ * doesn't work at all"). It was the browser's own drag and drop, which a
+ * finger never starts, and arrows that only showed under a mouse. It is now
+ * the product editor's media grid (app/app/products/new/media-grid.tsx) and
+ * its rules (./hold-to-drag.ts there): a mouse drags after 4px, a finger
+ * after a 300ms hold (a swipe before then scrolls the page), the keyboard
+ * lifts with Space, moves with the arrows and drops with Space; Escape or a
+ * touchcancel puts it back. The tile under the finger follows it one to one
+ * and the others slide out of its way (./gallery-tiles.tsx). Each tile also has one menu (show
+ * first, earlier, later, remove), so nothing needs a drag at all.
+ *
+ * A tile that is still uploading is shown with its own picture coming into
+ * focus and a line filling under it, and is not part of the gallery until it
+ * is done, so Save never sends half a file.
  */
 import * as React from "react"
-import { ArrowLeft, ArrowRight, ImagePlus, Link2, Loader2, MoreHorizontal, Play, Video, X } from "lucide-react"
+import { DndContext, closestCenter, type Announcements, type DragEndEvent, type DragStartEvent, type UniqueIdentifier } from "@dnd-kit/core"
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable"
+import { ImagePlus, Link2, Loader2, Play, Upload, Video } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { uploadCommunityVideo, waitUntilPlayable } from "@/lib/video/upload-client"
 import { videoStill } from "@/components/community/member/media-upload"
+import { AUTO_SCROLL, liftTick, useHoldToDragSensors } from "@/app/app/products/new/hold-to-drag"
+import { GalleryTile, PendingTile, type Uploading } from "./gallery-tiles"
 import { GALLERY_MAX, coverItem, coverUpload, coverVideo, galleryEmbed, galleryKey, moveItem, type GalleryEmbed, type GalleryItem } from "./logic"
 import type { GalleryVideoView } from "./view-types"
-import { PicturePick, buttonPrimary, buttonSecondary, field } from "./parts"
+import { RemoveButton, UploadRing, buttonPrimary, buttonSecondary, field, usePictureUpload } from "./parts"
 import { tt } from "@/lib/i18n/text"
-
-interface Uploading {
-  key: string
-  kind: "image" | "video"
-  name: string
-  percent: number
-  preview: string | null
-}
 
 const keyOf = galleryKey
 const PROVIDER = { youtube: "YouTube", vimeo: "Vimeo" } as const
 
-function duration(s: number | null): string {
-  if (!s) return ""
-  const m = Math.floor(s / 60)
-  return `${m}:${String(Math.round(s % 60)).padStart(2, "0")}`
-}
+const kindWord = (item: GalleryItem) => (item.type === "image" ? tt("picture") : tt("video"))
 
 export function GalleryEditor({
   communityId,
@@ -84,9 +86,9 @@ export function GalleryEditor({
   const movie = React.useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = React.useState<Uploading[]>([])
   const [videos, setVideos] = React.useState(initialVideos)
-  const [dragging, setDragging] = React.useState<number | null>(null)
-  const [over, setOver] = React.useState<number | null>(null)
   const [linking, setLinking] = React.useState(false)
+  const [dropping, setDropping] = React.useState(false)
+  const [lifted, setLifted] = React.useState<UniqueIdentifier | null>(null)
   /* The newest list, for an upload that finishes after other changes were made. */
   const latest = React.useRef(value)
   latest.current = value
@@ -96,7 +98,7 @@ export function GalleryEditor({
     onBusy?.(uploading.length > 0)
   }, [uploading.length, onBusy])
 
-  const progress = (key: string, percent: number) => setUploading((u) => u.map((x) => (x.key === key ? { ...x, percent } : x)))
+  const progress = (key: string, percent: number) => setUploading((u) => u.map((x) => (x.key === key ? { ...x, percent: Math.round(percent) } : x)))
   const done = (key: string) =>
     setUploading((u) => {
       const gone = u.find((x) => x.key === key)
@@ -154,9 +156,43 @@ export function GalleryEditor({
     }
   }
 
+  /* Files dropped on the gallery from a computer: pictures together, each video on its own. */
+  const takeFiles = (files: File[]) => {
+    const pics = files.filter((f) => f.type.startsWith("image/"))
+    const vids = files.filter((f) => f.type.startsWith("video/"))
+    if (!pics.length && !vids.length) return onError(tt("Drop pictures or a video here."))
+    if (pics.length) void uploadPictures(pics)
+    for (const v of vids) void uploadVideo(v)
+  }
+
   const move = (from: number, to: number) => {
     if (to < 0 || to >= value.length || from === to) return
     onChange(moveItem(value, from, to))
+  }
+  const remove = (i: number) => onChange(value.filter((_, j) => j !== i))
+
+  /* ── Dragging (./hold-to-drag in the product editor) ── */
+  const sensors = useHoldToDragSensors()
+  const ids = value.map(keyOf)
+  const place = (id: UniqueIdentifier | undefined) => (id == null ? 0 : ids.indexOf(String(id)) + 1)
+  const nameOf = (id: UniqueIdentifier) => {
+    const item = value[ids.indexOf(String(id))]
+    return item ? `${kindWord(item)} ${place(id)}` : ""
+  }
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => tt("Picked up {name}.", { name: nameOf(active.id) }),
+    onDragOver: ({ active, over }) => (over ? tt("{name} is now at position {n} of {count}.", { name: nameOf(active.id), n: place(over.id), count: ids.length }) : undefined),
+    onDragEnd: ({ active, over }) => (over ? tt("{name} dropped at position {n} of {count}.", { name: nameOf(active.id), n: place(over.id), count: ids.length }) : tt("Dropped where it was.")),
+    onDragCancel: ({ active }) => tt("Cancelled. {name} is back where it was.", { name: nameOf(active.id) }),
+  }
+  const onDragStart = (e: DragStartEvent) => {
+    setLifted(e.active.id)
+    liftTick(e.activatorEvent)
+  }
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setLifted(null)
+    if (!over || active.id === over.id) return
+    move(ids.indexOf(String(active.id)), ids.indexOf(String(over.id)))
   }
 
   if (!ready)
@@ -168,133 +204,82 @@ export function GalleryEditor({
 
   return (
     <div data-gallery="">
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-label={tt("Gallery")}>
-        {value.map((item, i) => {
-          const v = item.type === "video" ? videos[item.videoId] : null
-          return (
-            <li
-              key={keyOf(item)}
-              data-gallery-item={item.type}
-              draggable
-              onDragStart={(e) => {
-                setDragging(i)
-                e.dataTransfer.effectAllowed = "move"
-                e.dataTransfer.setData("text/plain", String(i))
-              }}
-              onDragOver={(e) => {
-                if (dragging === null) return
-                e.preventDefault()
-                setOver(i)
-              }}
-              onDragLeave={() => setOver((o) => (o === i ? null : o))}
-              onDrop={(e) => {
-                e.preventDefault()
-                if (dragging !== null) move(dragging, i)
-                setDragging(null)
-                setOver(null)
-              }}
-              onDragEnd={() => {
-                setDragging(null)
-                setOver(null)
-              }}
-              className={cn(
-                "group/tile relative aspect-[16/10] cursor-grab overflow-hidden rounded-xl bg-[#eceef1] transition-[opacity,box-shadow] duration-100 active:cursor-grabbing",
-                dragging === i && "opacity-40",
-                over === i && dragging !== i && "shadow-[0_0_0_2px_#1a1a2e]",
-              )}
-            >
-              {item.type === "image" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.url} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-              ) : item.type === "embed" ? (
-                item.thumb ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.thumb} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-                ) : (
-                  <span aria-hidden className="absolute inset-0 bg-[#1a1a2e]" />
-                )
-              ) : v?.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={v.thumbnailUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-              ) : (
-                <span aria-hidden className="absolute inset-0 bg-[#1a1a2e]" />
-              )}
-              {item.type !== "image" ? (
-                <span aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white">
-                    <Play className="ml-0.5 h-4 w-4 fill-current" />
-                  </span>
-                </span>
-              ) : null}
-              <span className="pointer-events-none absolute left-2 top-2 flex items-center gap-1">
-                {i === 0 ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#1a1a2e]">{tt("First")}</span> : null}
-                {item.type === "video" && v && v.status !== "ready" ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#92400e]">{v.status === "failed" ? tt("Failed") : tt("Processing")}</span> : null}
-                {item.type === "embed" ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium text-white">{PROVIDER[item.provider]}</span> : null}
-                {item.type === "video" && v?.durationSeconds ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium tabular-nums text-white">{duration(v.durationSeconds)}</span> : null}
-              </span>
-              {/* A computer: the arrows and remove, when the pointer or the keyboard is on the tile. */}
-              <span className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-between gap-1 opacity-0 transition-opacity duration-100 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 md:flex">
-                <span className="flex items-center gap-1">
-                  <TileButton label={tt("Move {value} earlier", { value: i + 1 })} disabled={i === 0} onClick={() => move(i, i - 1)}>
-                    <ArrowLeft className="h-4 w-4" />
-                  </TileButton>
-                  <TileButton label={tt("Move {value} later", { value: i + 1 })} disabled={i === value.length - 1} onClick={() => move(i, i + 1)}>
-                    <ArrowRight className="h-4 w-4" />
-                  </TileButton>
-                </span>
-                <TileButton label={tt("Remove {value} {value2}", { value: item.type === "image" ? "picture" : "video", value2: i + 1 })} onClick={() => onChange(value.filter((_, j) => j !== i))}>
-                  <X className="h-4 w-4" />
-                </TileButton>
-              </span>
-              {/* A phone: one button, its menu as a sheet. */}
-              <span className="absolute bottom-0.5 right-0.5 md:hidden">
-                <ResponsiveActionMenu
-                  title={item.type === "image" ? tt("Picture {value}", { value: i + 1 }) : tt("Video {value}", { value: i + 1 })}
-                  align="end"
-                  items={[
-                    ...(i > 0 ? [{ label: tt("Show first"), onClick: () => move(i, 0) }, { label: tt("Move earlier"), onClick: () => move(i, i - 1) }] : []),
-                    ...(i < value.length - 1 ? [{ label: tt("Move later"), onClick: () => move(i, i + 1) }] : []),
-                    { label: tt("Remove"), variant: "destructive" as const, separatorBefore: true, onClick: () => onChange(value.filter((_, j) => j !== i)) },
-                  ]}
-                  trigger={
-                    <button type="button" aria-label={tt("Change {value} {value2}", { value: item.type === "image" ? "picture" : "video", value2: i + 1 })} data-tile-menu="" className="grid h-10 w-10 cursor-pointer place-items-center">
-                      {/* Drawn 30px, pressed 40px: the picture stays the thing you see. */}
-                      <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-white/92 text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </span>
-                    </button>
-                  }
-                />
-              </span>
-            </li>
-          )
-        })}
-        {uploading.map((u) => (
-          <li key={u.key} data-gallery-uploading="" className="relative aspect-[16/10] overflow-hidden rounded-xl bg-[#eceef1]">
-            {u.preview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={u.preview} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <p className="text-[13px] font-medium text-[#4b5563]">{tt("Gallery")}</p>
+        <p className="text-[12.5px] tabular-nums text-[#6b7280]" data-gallery-count="">
+          {tt("{length} of {max}", { length: value.length, max: GALLERY_MAX })}
+        </p>
+      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        autoScroll={AUTO_SCROLL}
+        accessibility={{
+          announcements,
+          screenReaderInstructions: { draggable: tt("To move a picture or video, press Space or Enter on it, then the arrow keys. Press Space or Enter again to drop it, or Escape to put it back. The first is shown first.") },
+        }}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onDragCancel={() => setLifted(null)}
+      >
+        <SortableContext items={ids} strategy={rectSortingStrategy}>
+          <ul
+            aria-label={tt("Gallery")}
+            data-gallery-grid=""
+            data-dragging={lifted != null ? "" : undefined}
+            data-drop={dropping ? "over" : undefined}
+            onDragOver={(e) => {
+              if (!Array.from(e.dataTransfer.types).includes("Files") || room <= 0) return
+              e.preventDefault()
+              setDropping(true)
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+            }}
+            onDrop={(e) => {
+              if (!e.dataTransfer.files?.length) return
+              e.preventDefault()
+              setDropping(false)
+              takeFiles(Array.from(e.dataTransfer.files))
+            }}
+            className={cn("grid grid-cols-2 gap-2.5 rounded-xl transition-shadow duration-150 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4", dropping && "shadow-[0_0_0_2px_#1a1a2e,0_0_0_6px_rgba(26,26,46,0.08)]")}
+          >
+            {value.map((item, i) => (
+              <GalleryTile
+                key={keyOf(item)}
+                id={keyOf(item)}
+                item={item}
+                index={i}
+                count={value.length}
+                video={item.type === "video" ? videos[item.videoId] : undefined}
+                onMove={move}
+                onRemove={remove}
+              />
+            ))}
+            {uploading.map((u) => (
+              <PendingTile key={u.key} pending={u} />
+            ))}
+            {room > 0 ? (
+              <li className="list-none">
+                <button
+                  type="button"
+                  onClick={() => pictures.current?.click()}
+                  data-gallery-add-tile=""
+                  className="group/add grid aspect-[16/10] w-full cursor-pointer place-content-center justify-items-center gap-1 rounded-xl border border-dashed border-[#d3d6dc] bg-[#fafafb] px-3 text-center text-[#6b7280] outline-none transition-[border-color,background-color,color] duration-100 hover:border-[#a9aeb7] hover:bg-white hover:text-[#1a1a2e] focus-visible:border-[#1a1a2e] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
+                >
+                  <ImagePlus aria-hidden className="h-5 w-5" />
+                  <span className="text-[13px] font-medium">{value.length ? tt("Add pictures") : tt("Add the first pictures")}</span>
+                  <span className="text-[11.5px] text-[#9ca3af] max-md:hidden">{tt("or drop them here")}</span>
+                </button>
+              </li>
             ) : null}
-            <span className="absolute inset-0 grid place-content-center justify-items-center gap-1.5 px-3 text-center">
-              <Loader2 aria-hidden className="h-5 w-5 animate-spin text-[#1a1a2e]" />
-              <span className="max-w-full truncate text-[12px] font-medium text-[#1a1a2e]">{u.kind === "video" ? tt("Video {percent}%", { percent: u.percent }) : `${u.percent}%`}</span>
-            </span>
-            <span aria-hidden className="absolute inset-x-0 bottom-0 h-1 bg-black/10">
-              <span className="block h-full bg-[#1a1a2e] transition-[width] duration-200" style={{ width: `${u.percent}%` }} />
-            </span>
-          </li>
-        ))}
-        {value.length === 0 && uploading.length === 0 ? (
-          <li className="col-span-full grid min-h-[132px] place-content-center justify-items-center gap-1 rounded-xl border border-dashed border-[#d9dce1] bg-[#fafafb] px-4 py-6 text-center">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No pictures or videos yet")}</p>
-            <p className="text-[13px] text-[#6b7280]">{tt("Show what being a member looks like.")}</p>
-          </li>
-        ) : null}
-      </ul>
+          </ul>
+        </SortableContext>
+      </DndContext>
       <input
         ref={pictures}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         multiple
         hidden
         onChange={(e) => {
@@ -316,24 +301,24 @@ export function GalleryEditor({
       <div className="mt-3 flex flex-wrap items-center gap-2" data-gallery-add="">
         {room > 0 ? (
           <>
-            <button type="button" onClick={() => pictures.current?.click()} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-              <ImagePlus aria-hidden className="h-4 w-4" />
-              {tt("Add pictures")}
-            </button>
-            <button type="button" onClick={() => movie.current?.click()} className={cn(buttonSecondary, "h-10 sm:h-8")}>
+            <button type="button" onClick={() => movie.current?.click()} className={cn(buttonSecondary, "h-10 sm:h-8")} data-gallery-add-video="">
               <Video aria-hidden className="h-4 w-4" />
-              {tt("Add a video")}
+              {tt("Upload a video")}
             </button>
             <button type="button" onClick={() => setLinking(true)} aria-expanded={linking} className={cn(buttonSecondary, "h-10 sm:h-8")} data-gallery-add-link="">
               <Link2 aria-hidden className="h-4 w-4" />
-              {tt("Add a video link")}
+              {tt("YouTube or Vimeo link")}
             </button>
           </>
+        ) : (
+          <span className="text-[12.5px] text-[#6b7280]">{tt("The gallery is full. Remove one to add another.")}</span>
+        )}
+        {value.length > 1 ? (
+          <span className="text-[12.5px] text-[#6b7280]" data-gallery-hint="">
+            <span className="md:hidden">{tt("Hold a tile to move it.")}</span>
+            <span className="max-md:hidden">{tt("Drag a tile to move it.")}</span>
+          </span>
         ) : null}
-        <span className="text-[12.5px] tabular-nums text-[#6b7280]">
-          {tt("{length} of", { length: value.length })} {GALLERY_MAX}
-          <span className="max-md:hidden">{tt(". Drag to reorder. Wide pictures look best.")}</span>
-        </span>
       </div>
       {linking && room > 0 ? (
         <VideoLinkField
@@ -415,21 +400,24 @@ export function VideoLinkField({ onAdd, onCancel, className, submitLabel = tt("A
 
 /**
  * THE COVER: A PICTURE, AN UPLOADED VIDEO, OR A YOUTUBE OR VIMEO VIDEO
- * (round 11, ask 27; the upload round 13, ask 21). A picture is the logo's
- * upload (PicturePick). A video makes that video the gallery's first item,
- * marked as the cover: the About page leads with it, a short muted loop
- * while it is on screen and the community player on a press.
+ * (round 11, ask 27; the upload round 13, ask 21; round 31 drew it as one
+ * wide frame with one way to change it). The frame shows the cover at the
+ * shape the page shows it; Change (or Add a cover) opens the choice:
  *
- *   UPLOADED   through the community's video upload, waited on until it
- *              plays (a video service processes it first); a still taken
- *              from the file goes up beside it as the cover picture, so
- *              Explore, the cards and a shared link keep a picture.
- *   LINKED     YouTube or Vimeo: on Save the route makes its still the
- *              cover picture (Vimeo's arrives with the save).
+ *   A PICTURE  the logo's upload (usePictureUpload): drawn at once from the
+ *              file, a ring for how far it is. A picture dropped on the
+ *              frame goes up too.
+ *   UPLOADED   a video, through the community's video upload, waited on
+ *              until it plays (a video service processes it first); a still
+ *              taken from the file goes up beside it as the cover picture,
+ *              so Explore, the cards and a shared link keep a picture. The
+ *              video is the gallery's first item, marked as the cover.
+ *   LINKED     YouTube or Vimeo: on Save the route makes its still the cover
+ *              picture (Vimeo's arrives with the save).
  *
- * Save waits while a cover video is on its way (onBusy). Removing a linked
- * video leaves no cover; removing an uploaded one keeps its still as the
- * cover picture, which can then be changed like any picture.
+ * Save waits while a cover is on its way (onBusy). Removing a linked video
+ * leaves no cover; removing an uploaded one keeps its still as the cover
+ * picture, which can then be changed like any picture.
  */
 export function CoverField({
   communityId,
@@ -450,15 +438,27 @@ export function CoverField({
   const upload = coverUpload(gallery)
   const [linking, setLinking] = React.useState(false)
   const [sending, setSending] = React.useState<{ percent: number; processing: boolean; still: string | null } | null>(null)
+  const [over, setOver] = React.useState(false)
   const picker = React.useRef<HTMLInputElement>(null)
+  const photo = React.useRef<HTMLInputElement>(null)
   /* The newest gallery and picture, for an upload that finishes after other changes. */
   const latest = React.useRef({ gallery, coverUrl })
   latest.current = { gallery, coverUrl }
   const after = (list: GalleryItem[]) => (coverItem(list) ? list.slice(1) : list)
+  const fail = (m: string) => onError?.(m)
+  /* A picture as the cover: any cover video gives its place back to the gallery's order. */
+  const pictureUp = usePictureUpload({
+    maxEdge: 2000,
+    onDone: (url) => {
+      const now = latest.current
+      onChange({ coverUrl: url, gallery: after(now.gallery) })
+    },
+    onError: fail,
+  })
 
   React.useEffect(() => {
-    onBusy?.(!!sending)
-  }, [sending, onBusy])
+    onBusy?.(!!sending || pictureUp.busy)
+  }, [sending, pictureUp.busy, onBusy])
 
   const setVideo = (embed: GalleryEmbed): string | null => {
     const rest = after(gallery).filter((x) => keyOf(x) !== keyOf(embed))
@@ -477,7 +477,7 @@ export function CoverField({
     const endpoint = `/api/app/community/${communityId}/videos`
     try {
       const [ready, stillUrl] = await Promise.all([
-        uploadCommunityVideo({ endpoint, file, onProgress: (p) => setSending((x) => (x ? { ...x, percent: Math.min(99, p) } : x)) }).then((v) => {
+        uploadCommunityVideo({ endpoint, file, onProgress: (p) => setSending((x) => (x ? { ...x, percent: Math.min(99, Math.round(p)) } : x)) }).then((v) => {
           if (v.status === "ready") return v
           setSending((x) => (x ? { ...x, percent: 100, processing: true } : x))
           return waitUntilPlayable({ endpoint, video: v })
@@ -510,92 +510,91 @@ export function CoverField({
     }
   }
 
-  const fileInput = (
-    <input ref={picker} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void uploadVideo(e.target.files?.[0]), (e.target.value = ""))} data-cover-video-input="" />
-  )
-  const quietLink = "inline-flex min-h-10 items-center gap-1.5 px-0.5 text-[12.5px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline sm:min-h-8"
+  const removeCover = () => {
+    if (video || upload) onChange({ coverUrl: video ? null : coverUrl, gallery: gallery.slice(1) })
+    else onChange({ coverUrl: null, gallery })
+  }
 
-  if (sending)
-    return (
-      <div className="min-w-0" data-cover-sending={sending.processing ? "processing" : "uploading"}>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="relative grid h-[117px] w-full max-w-[208px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#1a1a2e] sm:w-[208px]">
-            {sending.still ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={sending.still} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
-            ) : null}
-            <span className="relative flex flex-col items-center gap-1 text-white">
-              <Loader2 aria-hidden className="h-5 w-5 animate-spin" />
-              <span className="text-[12px] font-semibold tabular-nums">{sending.processing ? tt("Processing") : `${sending.percent}%`}</span>
-            </span>
-          </span>
-          <p className="text-[12.5px] leading-snug text-[#6b7280]">{sending.processing ? tt("Getting the video ready to play.") : tt("Uploading the video.")}</p>
-        </div>
-      </div>
-    )
+  const busy = !!sending || pictureUp.busy
+  const has = !!(video || upload || coverUrl)
+  const still = sending ? sending.still : pictureUp.busy ? pictureUp.local : video ? video.thumb : coverUrl
+  const menu: ActionMenuItem[] = [
+    { label: tt("Upload a picture"), icon: <ImagePlus className="h-4 w-4" aria-hidden />, onClick: () => photo.current?.click() },
+    ...(communityId ? [{ label: tt("Upload a video"), icon: <Upload className="h-4 w-4" aria-hidden />, onClick: () => picker.current?.click() }] : []),
+    { label: tt("YouTube or Vimeo link"), icon: <Link2 className="h-4 w-4" aria-hidden />, onClick: () => setLinking(true) },
+  ]
 
-  if (video || upload)
-    return (
-      <div className="min-w-0" data-cover-video={video ? video.provider : "upload"}>
-        {fileInput}
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="relative grid h-[117px] w-full max-w-[208px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#1a1a2e] sm:w-[208px]">
-            {(video ? video.thumb : coverUrl) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={(video ? video.thumb : coverUrl) as string} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            ) : null}
-            <span className="relative grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white">
-              <Play aria-hidden className="ml-0.5 h-3.5 w-3.5 fill-current" />
-            </span>
-            <span className="absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1 py-px text-[10.5px] font-medium text-white">{video ? PROVIDER[video.provider] : tt("Video")}</span>
-          </span>
-          <div className="flex min-w-0 flex-col items-start gap-1">
-            <button type="button" onClick={() => (video ? setLinking(true) : picker.current?.click())} className={cn(buttonSecondary, "h-10 sm:h-8")} data-cover-change="">
-              {tt("Change")}
-            </button>
-            <button type="button" onClick={() => onChange({ coverUrl: video ? null : coverUrl, gallery: gallery.slice(1) })} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-8" data-cover-remove="">
-              <X aria-hidden className="h-3.5 w-3.5" />
-              {tt("Remove")}
-            </button>
-          </div>
-        </div>
-        {linking ? <VideoLinkField className="mt-3" submitLabel={tt("Use")} onCancel={() => setLinking(false)} onAdd={setVideo} /> : null}
-      </div>
-    )
   return (
-    <div className="min-w-0" data-cover-picture="">
-      {fileInput}
-      <PicturePick value={coverUrl} onChange={(v) => onChange({ coverUrl: v, gallery })} shape="wide" name="cover" onError={onError} />
+    <div className="min-w-0" data-cover-field="" data-cover-video={video ? video.provider : upload ? "upload" : undefined} data-cover-picture={!video && !upload ? "" : undefined} data-cover-sending={sending ? (sending.processing ? "processing" : "uploading") : undefined}>
+      <input ref={picker} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void uploadVideo(e.target.files?.[0]), (e.target.value = ""))} data-cover-video-input="" />
+      <input ref={photo} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onChange={(e) => (void pictureUp.upload(e.target.files?.[0]), (e.target.value = ""))} data-cover-picture-input="" />
+      <div
+        onDragOver={(e) => {
+          if (busy || !Array.from(e.dataTransfer.types).includes("Files")) return
+          e.preventDefault()
+          setOver(true)
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          const f = e.dataTransfer.files?.[0]
+          if (!f) return
+          e.preventDefault()
+          setOver(false)
+          if (f.type.startsWith("video/")) void uploadVideo(f)
+          else void pictureUp.upload(f)
+        }}
+        data-cover-frame=""
+        className={cn(
+          "relative aspect-[3/1] w-full overflow-hidden rounded-xl transition-[box-shadow,border-color,background-color] duration-150",
+          has || busy ? "bg-[#1a1a2e] shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_1px_2px_rgba(16,24,40,0.06)]" : "border border-dashed border-[#d3d6dc] bg-[#fafafb]",
+          over && "shadow-[0_0_0_2px_#1a1a2e,0_0_0_6px_rgba(26,26,46,0.08)]",
+        )}
+      >
+        {still ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={busy ? still : optimizedImageUrl(still, 1200)} alt="" className={cn("absolute inset-0 h-full w-full object-cover", sending && "opacity-60")} decoding="async" />
+        ) : null}
+        {!has && !busy ? (
+          <button type="button" onClick={() => photo.current?.click()} className="absolute inset-0 grid cursor-pointer place-content-center justify-items-center gap-1 text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-cover-empty="">
+            <ImagePlus aria-hidden className="h-5 w-5" />
+            <span className="text-[13px] font-medium">{tt("Add a cover")}</span>
+            <span className="text-[11.5px] text-[#9ca3af] max-md:hidden">{tt("Wide, about 3 to 1. Or drop it here.")}</span>
+          </button>
+        ) : null}
+        {(video || upload) && !busy ? (
+          <span aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white">
+              <Play className="ml-0.5 h-4 w-4 fill-current" />
+            </span>
+          </span>
+        ) : null}
+        {(video || upload) && !busy ? <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[11px] font-medium text-white">{video ? PROVIDER[video.provider] : tt("Video")}</span> : null}
+        {sending ? (
+          <span className="absolute inset-0 grid place-content-center justify-items-center gap-1 text-white">
+            <Loader2 aria-hidden className="h-5 w-5 animate-spin motion-reduce:animate-none" />
+            <span className="text-[12px] font-semibold tabular-nums">{sending.processing ? tt("Getting the video ready to play") : tt("Uploading the video, {percent}%", { percent: sending.percent })}</span>
+          </span>
+        ) : pictureUp.busy ? (
+          <UploadRing percent={pictureUp.percent} />
+        ) : null}
+      </div>
       {linking ? (
         <VideoLinkField className="mt-3" submitLabel={tt("Use")} onCancel={() => setLinking(false)} onAdd={setVideo} />
       ) : (
-        <div className="mt-1 flex flex-wrap items-center gap-x-4">
-          {communityId ? (
-            <button type="button" onClick={() => picker.current?.click()} className={quietLink} data-cover-upload-video="">
-              <Video aria-hidden className="h-3.5 w-3.5" />
-              {tt("Upload a video")}
-            </button>
-          ) : null}
-          <button type="button" onClick={() => setLinking(true)} className={quietLink} data-cover-use-link="">
-            <Link2 aria-hidden className="h-3.5 w-3.5" />
-            {communityId ? tt("Use a YouTube or Vimeo link") : tt("Use a YouTube or Vimeo video instead")}
-          </button>
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <ResponsiveActionMenu
+            title={tt("Cover")}
+            align="start"
+            items={menu}
+            trigger={
+              <button type="button" disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-8")} data-cover-change="">
+                {has ? tt("Change cover") : tt("Add a cover")}
+              </button>
+            }
+          />
+          {has && !busy ? <RemoveButton label={tt("Remove the cover")} onClick={removeCover} className="max-sm:h-10 max-sm:w-10" /> : null}
         </div>
       )}
     </div>
-  )
-}
-
-function TileButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg bg-white/92 text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-white disabled:cursor-default disabled:opacity-40 md:h-8 md:w-8"
-    >
-      {children}
-    </button>
   )
 }

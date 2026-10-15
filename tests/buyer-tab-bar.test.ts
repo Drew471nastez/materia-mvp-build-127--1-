@@ -124,6 +124,25 @@ check("the finger's gesture decides, and a keyboard's Enter still picks", /\{\.\
 /* Changed on purpose (round 30): a tap shows the glass at a strength of its own, less than a drag. */
 check("the glass is there while a finger is, and a tap's moment after, by opacity alone", /const lit = slide\.pressed \|\| slide\.following/.test(bar) && /const shows = lit \|\| holding/.test(bar) && /opacity: shows && !arriving \? \(slide\.following \? LENS_DRAG_STRENGTH : LENS_TAP_STRENGTH\) : 0,/.test(bar) && /backgroundColor: LENS_FILL,/.test(bar) && !/backdropFilter/.test(bar))
 check("the glass is a translucent tint with a thin highlight, its dark look from variables", /const LENS_FILL = "var\(--sl-tab-lens, rgba\(120,128,150,0\.1\)\)"/.test(bar) && /--sl-tab-lens-sheen/.test(bar) && /--sl-tab-lens-edge/.test(bar) && /--sl-tab-lens: rgba\(255,255,255,0\.045\);/.test(read("scripts/gen-theme-dark.mjs")))
+/*
+  Round 31: "the liquid thing as I'm dragging ... too solid and looks really weird". Under a dragging finger the glass gets
+  a rim and a sheen of its own, by opacity only and only while dragging (a tap is round 30's, unchanged); the sheen is on
+  its own layer and the slide moves it with the glass's place. Measured in scripts/check-lens-round31.mjs.
+*/
+{
+  const glassEl = bar.slice(bar.indexOf("data-buyer-tabs-lens-glass"), bar.indexOf("{tabs.map("))
+  check("round 31: a drag adds a rim and a sheen, faded in by opacity while dragging only",
+    /const LENS_RIM = "var\(--sl-tab-lens-rim, /.test(bar) && /const LENS_SPEC = "var\(--sl-tab-lens-spec, radial-gradient\(/.test(bar)
+      && /boxShadow: LENS_RIM,/.test(glassEl) && /opacity: slide\.following && !arriving \? 1 : 0,/.test(glassEl) && /willChange: "opacity"/.test(glassEl))
+  check("the sheen is its own layer, moved by the slide, never by a render", /data-lens-sheen=""/.test(glassEl) && /backgroundImage: LENS_SPEC, willChange: "translate"/.test(glassEl)
+    && /querySelector<HTMLElement>\("\[data-lens-sheen\]"\)/.test(lens) && /sheen\.style\.translate = /.test(lens))
+  check("still no backdrop blur and nothing on the glass that is not opacity or a transform", !/backdropFilter|filter:/.test(glassEl) && !/background-color \$\{|box-shadow \$\{/.test(glassEl))
+  const gen = read("scripts/gen-theme-dark.mjs")
+  check("its dark look is fainter, from the generated sheet", /--sl-tab-lens-rim: inset 0 1px 1\.5px -0\.5px rgba\(255,255,255,0\.12\)/.test(gen) && /--sl-tab-lens-spec: radial-gradient\(34% 26% at 36% 32%, rgba\(255,255,255,0\.06\)/.test(gen)
+    && /--sl-tab-lens-rim:/.test(read("app/theme-dark.css")) && /--sl-tab-lens-spec:/.test(read("app/theme-dark.css")))
+  check("and the round 30 strengths are kept: a tap at half in the light and none in the dark", /const LENS_TAP_STRENGTH = "var\(--sl-tab-lens-tap, 0\.5\)"/.test(bar) && /--sl-tab-lens-tap: 0;/.test(gen) && /--sl-tab-lens-drag: 0\.75;/.test(gen))
+  check("the drag is measured: follow, stretch, landing, paints and pictures", existsSync(join(process.cwd(), "scripts/check-lens-round31.mjs")) && /Input\.dispatchTouchEvent/.test(read("scripts/check-lens-round31.mjs")) && /setCPUThrottlingRate/.test(read("scripts/check-lens-round31.mjs")))
+}
 check("a plain white bar across the foot, not a pill: full width, phones only", /className="fixed inset-x-0 bottom-0 z-50 bg-white md:hidden"/.test(bar) && !/rounded-full"[^>]*data-buyer-tab-bar/.test(bar))
 check("with a hairline and a little depth along its top", /const BAR_SHADOW = "0 -0\.5px 0 rgba\(16,18,27,0\.09\)/.test(bar))
 check("the home indicator's inset under it", /paddingBottom: "env\(safe-area-inset-bottom, 0px\)"/.test(bar))

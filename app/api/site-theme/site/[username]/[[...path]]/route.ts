@@ -34,6 +34,7 @@ import { gaProductFor } from "@/lib/store/ga-server"
 import { compatPageTags, productIdForPath } from "@/lib/store/compat-page-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
+import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -103,7 +104,21 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
 
   let segments = path
   let token: string | null = null
-  if (segments[0] === "preview" && segments[1]) {
+  /*
+    A STRANGER'S PAGE (lib/storelib-theme/compat/anonymous-cache.ts): the
+    proxy marked it with the host, country, language and market it is drawn
+    for. Drawn from those alone, with no cookie read, so the copy the CDN
+    keeps at this address is the same for everybody sent to it.
+  */
+  const stranger = readStrangerMarker(segments[0])
+  if (stranger) {
+    /* Only as the proxy marks it: this host, and the language, market and country it named in its own headers. A path that merely looks like one is not a page. */
+    const told = (name: string) => req.headers.get(name) || null
+    if (stranger.host !== host || told(SITE_LOCALE_HEADER) !== stranger.locale || told(SITE_MARKET_HEADER) !== stranger.market || told(SITE_COUNTRY_HEADER) !== stranger.country) {
+      return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
+    }
+    segments = segments.slice(1)
+  } else if (segments[0] === "preview" && segments[1]) {
     token = previewTokenFrom(new URLSearchParams([["preview", decodeURIComponent(segments[1])]]))
     segments = segments.slice(2)
   }
@@ -137,14 +152,16 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     (sl_country), else where they are. "home" (the store's own prices) is
     no country: the selector shows the store's own (themeCountries).
   */
-  const visitorCountry = siteVisitorCountry({
-    chosen: countryCookieIn(req.headers.get("cookie")),
-    told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
-    seen: seenCountry(req.headers),
-  })
+  const visitorCountry = stranger
+    ? siteVisitorCountry({ chosen: null, told: stranger.country, seen: null })
+    : siteVisitorCountry({
+        chosen: countryCookieIn(req.headers.get("cookie")),
+        told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
+        seen: seenCountry(req.headers),
+      })
   found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry) }
 
-  const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
+  const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note, attributes } = readCartCookie(cookie)
   const sitePath = `/${segments.map(encodeURIComponent).join("/")}`
   const fields = await bodyOf(req)
@@ -176,7 +193,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const page = (req.method === "GET" || req.method === "HEAD") && !ajax && !/\.(js|json)$/.test(sitePath)
   /* An order's own page (/account/orders/<id>): that order too, with its files, when it is this customer's. */
   const orderId = sitePath.match(/^\/account\/orders\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i)?.[1] ?? null
-  const account = token || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath, order: orderId })
+  const account = token || stranger || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath, order: orderId })
 
   const shopId = found.site.creatorId
   const out = await answer(found.site, {
@@ -216,6 +233,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
     headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
+  }
+  /* A stranger's plain page: a minute in the CDN. Anything else drawn for the marker (a redirect, a 404, a cookie set) keeps its private header. */
+  if (stranger && !ajax && publicAnswer({ method: req.method, status: out.status, type: out.type, cacheControl: headers.get("Cache-Control"), setsCookie: headers.has("Set-Cookie"), changesCart: out.cart !== undefined })) {
+    headers.set("Cache-Control", PUBLIC_PAGE_CACHE)
+    headers.set("Vary", PUBLIC_PAGE_VARY)
   }
   if (req.method === "HEAD") return new NextResponse(null, { status: out.status, headers })
   /*

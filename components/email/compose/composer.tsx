@@ -493,14 +493,20 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     await load(l.id)
   }
 
-  /* While a send runs, ask the server how far it has got. */
+  /* While a send runs, ask the server how far it has got: not while the tab is hidden, and once more the moment it comes back. */
   React.useEffect(() => {
     if (!loaded || (loaded.status !== "queued" && loaded.status !== "sending")) return
-    const t = window.setInterval(async () => {
+    const ask = async () => {
+      if (document.hidden) return
       const r = await api<{ campaign: Record<string, unknown>; counts: RecipientCounts | null }>(`/api/email/campaigns/${loaded.id}`)
       if (r.ok) applyCampaign(r.data.campaign, r.data.counts)
-    }, 2500)
-    return () => window.clearInterval(t)
+    }
+    const t = window.setInterval(ask, 5000)
+    document.addEventListener("visibilitychange", ask)
+    return () => {
+      window.clearInterval(t)
+      document.removeEventListener("visibilitychange", ask)
+    }
   }, [loaded, applyCampaign])
 
   const stop = async () => {

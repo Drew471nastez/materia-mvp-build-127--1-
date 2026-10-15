@@ -21,6 +21,7 @@ import type {
   MemberStatus,
   NotifyLevel,
   PostKind,
+  PostMedia,
   PostRole,
   ReportReason,
   ReportStatus,
@@ -59,6 +60,11 @@ export interface CommunityHead {
   can: Partial<Record<CommunityAction, boolean>>
   /** Open reports, for the Moderation tab's count. */
   openReports: number
+  /**
+   * Round 31: the signed in person, for the Feed's writer (the member side's composer, which shows their picture and
+   * posts as them). Optional so an older caller that never filled it still type checks; the Feed then has no writer.
+   */
+  me?: { userId: string; name: string; avatarUrl: string | null }
 }
 
 export interface CommunityListRow {
@@ -422,6 +428,16 @@ export interface FeedRowView {
   reactionCount: number
   commentCount: number
   createdAt: string
+  /* Round 31: what the post carries, so the row shows it the way the community's feed does. Optional: an older answer has none. */
+  /** Its pictures, videos, GIFs, files and embeds (empty for a removed post's row as well as one with none). */
+  media?: PostMedia[]
+  /** Its poll, in short. */
+  poll?: { question: string; votes: number; options: number; closed: boolean } | null
+  spaceId?: string | null
+  spaceIcon?: string | null
+  spaceKind?: SpaceKind | null
+  authorId?: string | null
+  authorAvatar?: string | null
 }
 
 export interface ReportView {

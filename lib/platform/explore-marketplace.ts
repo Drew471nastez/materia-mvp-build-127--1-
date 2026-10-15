@@ -42,7 +42,7 @@ async function readFromDb(): Promise<boolean> {
 export const isExploreMarketplaceEnabled = unstable_cache(
   async () => readFromDb(),
   ["explore-marketplace-enabled"],
-  { tags: [EXPLORE_MARKETPLACE_CACHE_TAG], revalidate: 30 },
+  { tags: [EXPLORE_MARKETPLACE_CACHE_TAG], revalidate: 300 },
 )
 
 export async function setExploreMarketplaceEnabled(enabled: boolean, updatedBy = "admin"): Promise<void> {

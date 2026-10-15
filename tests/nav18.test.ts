@@ -108,7 +108,8 @@ console.log("\nPILLS AND POSTS: the account's pages and its posts are already re
 {
   const pills = code("components/profile/profile-owner-pills.tsx")
   const posts = code("components/account/account-posts.tsx")
-  check("the pills' pages are kept read while the profile is on screen", /keepFresh\(\(\) => \{\s*for \(const href of ahead\.split\(" "\)\) prefetchHref\(router, href, "idle"\)/.test(pills))
+  // Changed on purpose (the owner: lower Vercel costs): the likeliest KEEP_FRESH_MAX pills' pages, not all six.
+  check("the pills' pages are kept read while the profile is on screen", /\.slice\(0, KEEP_FRESH_MAX\)/.test(pills) && /keepFresh\(\(\) => \{\s*for \(const href of kept\) prefetchHref\(router, href, "idle"\)/.test(pills))
   check("a post row is read whole as it comes into view, the first READ_AHEAD_ROWS only", /index >= READ_AHEAD_ROWS/.test(posts) && /prefetchHref\(router, post\.href, "visible"\)/.test(posts) && /READ_AHEAD_ROWS = 6/.test(posts))
   check("and the moment a finger lands on it; the router's own partial read ahead is not made as well", /prefetch=\{false\}\s*onPointerDown=\{\(\) => prefetchHref\(router, post\.href, "press"\)\}/.test(posts))
 }

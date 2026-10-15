@@ -34,6 +34,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { applyManualOrder, pickFeatured } from "@/lib/store-builder/featured-order"
 import { cn } from "@/lib/utils"
+import { tint } from "@/lib/appearance/site-paint"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
@@ -371,6 +373,9 @@ function UnifiedReviewsSection({
   }
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
+  /* The list paints its own colours (components/reviews): these go to it as written. */
   const textColor = settings.colors?.textColor
 
   if (!isPreviewMode && reviewsCount === 0 && reviews.length === 0) {
@@ -393,7 +398,7 @@ function UnifiedReviewsSection({
       style={{
         paddingTop: spacing?.paddingTop,
         paddingBottom: spacing?.paddingBottom,
-        backgroundColor: settings.colors?.backgroundColor || "transparent",
+        backgroundColor: paint(settings.colors?.backgroundColor, "page") || "transparent",
       }}
     >
       <div className="space-y-6">
@@ -1306,6 +1311,8 @@ export function ProductAboutSection({
   textColor?: string
   backgroundColor?: string
 }) {
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
   // All payment methods enabled by default
   const paymentMethods = ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
 
@@ -1316,12 +1323,12 @@ export function ProductAboutSection({
           "w-full py-6 px-2 md:py-12 md:px-2",
           isMobile && "!py-6 !px-2"
         )}
-        style={{ backgroundColor: backgroundColor || "transparent" }}
+        style={{ backgroundColor: paint(backgroundColor, "page") || "transparent" }}
       >
         {/* Top divider */}
         <div
           className="w-full h-px mb-8"
-          style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+          style={{ backgroundColor: textColor ? tint(paint(textColor, "ink"), "20") : paint("#e5e7eb", "line") }}
         />
 
         {/* Accepted Payment Methods Section - 1575px width (5% wider) */}
@@ -1339,7 +1346,7 @@ export function ProductAboutSection({
                 "font-semibold text-base md:text-lg",
                 isMobile && "!text-base"
               )}
-              style={{ color: textColor || undefined }}
+              style={{ color: paint(textColor, "ink") || undefined }}
             >
               Accepted payment methods
             </h4>
@@ -1367,7 +1374,7 @@ export function ProductAboutSection({
             )}>
               <p
                 className="text-xs"
-                style={{ color: textColor ? `${textColor}99` : "#6b7280" }}
+                style={{ color: textColor ? tint(paint(textColor, "ink"), "99") : paint("#6b7280", "ink") }}
               >
                 <span className="font-medium">Returns & exchanges</span>
                 {" · "}
@@ -1384,17 +1391,17 @@ export function ProductAboutSection({
         )}>
           <div
             className="w-full h-px mb-6"
-            style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+            style={{ backgroundColor: textColor ? tint(paint(textColor, "ink"), "20") : paint("#e5e7eb", "line") }}
           />
           <h4
             className="font-semibold text-base mb-2"
-            style={{ color: textColor || undefined }}
+            style={{ color: paint(textColor, "ink") || undefined }}
           >
             Returns & exchanges
           </h4>
           <p
             className="text-sm"
-            style={{ color: textColor ? `${textColor}cc` : "#374151" }}
+            style={{ color: textColor ? tint(paint(textColor, "ink"), "cc") : paint("#374151", "ink") }}
           >
             See item details for return and exchange eligibility.
           </p>
@@ -1441,6 +1448,7 @@ export function UnifiedSectionRenderer({
   aboutOwnerActions,
   communityBlocks,
 }: UnifiedSectionProps) {
+  const paint = useSitePaint()
   // Defensive check - ensure section and settings exist
   if (!section?.settings?.visible) return null
 
@@ -1491,8 +1499,9 @@ export function UnifiedSectionRenderer({
     paddingBottom: isMoreFromSeller ? undefined : spacing.paddingBottom,
     paddingLeft: ownsItsColumn ? undefined : spacing.paddingLeft,
     paddingRight: ownsItsColumn ? undefined : spacing.paddingRight,
-    backgroundColor: colors.backgroundColor || "transparent",
-    color: colors.textColor || "inherit",
+    /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+    backgroundColor: paint(colors.backgroundColor, "page") || "transparent",
+    color: paint(colors.textColor, "ink") || "inherit",
   }
 
   // isEditorMode is true when onSelect is provided - allows selection even in preview mode
@@ -4780,6 +4789,8 @@ function UnifiedMoreFromSellerSection({
 
   /* In the store's own currency when the page is one store's (components/platform/price-currency). */
   const priceCurrency = usePriceCurrency()
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
   const formatPrice = (cents: number) => {
     return shopMoneyIn(cents, priceCurrency, { grouping: true })
   }
@@ -4827,7 +4838,7 @@ function UnifiedMoreFromSellerSection({
               isMobile ? "text-lg" : "text-xl sm:text-2xl",
               !settings.colors?.textColor && "text-foreground",
             )}
-            style={{ color: settings.colors?.textColor || undefined }}
+            style={{ color: paint(settings.colors?.textColor, "ink") || undefined }}
           >
             {settings.headline} {creatorName}
           </h2>
@@ -4868,7 +4879,7 @@ function UnifiedMoreFromSellerSection({
           isMobile ? "text-lg" : "text-xl sm:text-2xl",
           !settings.colors?.textColor && "text-foreground",
         )}
-        style={{ color: settings.colors?.textColor || undefined }}
+        style={{ color: paint(settings.colors?.textColor, "ink") || undefined }}
       >
         {settings.headline} {creatorName}
       </h2>
@@ -4897,12 +4908,16 @@ function UnifiedMoreFromSellerSection({
           const cardTextColor = settings.productCardColors?.textColor || settings.colors?.textColor || undefined
           const cardPriceColor = settings.productCardColors?.priceColor || (cardTextColor ? `${cardTextColor}99` : undefined)
           const cardBorderColor = settings.productCardColors?.borderColor || (cardTextColor ? `${cardTextColor}20` : undefined)
+          const accents = cardAccents(cardBgColor, cardTextColor)
+          /* Worked out from the literal colours, then painted: the light look is exactly as it was. */
           const surface = {
-            backgroundColor: cardBgColor,
-            borderColor: cardBorderColor,
-            textColor: cardTextColor,
-            priceColor: cardPriceColor,
-            ...cardAccents(cardBgColor, cardTextColor),
+            backgroundColor: paint(cardBgColor, "bg"),
+            borderColor: paint(cardBorderColor, "line"),
+            textColor: paint(cardTextColor, "ink"),
+            priceColor: paint(cardPriceColor, "ink"),
+            ...(accents.mutedColor ? { mutedColor: paint(accents.mutedColor, "ink") } : {}),
+            ...(accents.badgeBackgroundColor ? { badgeBackgroundColor: paint(accents.badgeBackgroundColor, "bg") } : {}),
+            ...(accents.badgeTextColor ? { badgeTextColor: paint(accents.badgeTextColor, "ink") } : {}),
           }
 
           const card = (

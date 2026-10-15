@@ -51,6 +51,32 @@ export const VIOLET = `inline-flex h-10 shrink-0 items-center justify-center gap
  */
 export const SMALL = "h-9 px-3 text-[13px]"
 
+/**
+ * A ROW'S OWN ACTION (round 31): Download, the "7 files" switch, Open and
+ * Receipt on a purchase row, and Download on each of its files. The owner:
+ * the row's Download "looks too light, washed grey, especially in dark".
+ * SECONDARY's grey well on a white card read as a disabled button, and in
+ * the dark look it became a step of charcoal on the card's own charcoal.
+ *
+ * This is a calm secondary: the card's surface lifted by a real hairline
+ * and a one pixel shadow, ink words, a grey step under a pointer and a
+ * deeper one, pressed in by a pixel, under a finger. Its colours are
+ * variables (--sl-btn2-*), so the dark look gives it a raised graphite
+ * surface with a clear edge (scripts/gen-theme-dark.mjs) instead of the
+ * card's colour. While a download runs the button is disabled but never
+ * dimmed: the spinner and the percent are the state, not a faded button.
+ * 36px, so no cn() merge with SMALL is needed.
+ *
+ * CALM is its colours alone, for a calm secondary of another size (the
+ * community composer's Keep writing).
+ */
+export const CALM =
+  "border border-[color:var(--sl-btn2-line,#cfd4dc)] bg-[var(--sl-btn2,#ffffff)] text-[color:var(--sl-btn2-ink,#1a1a2e)] shadow-[var(--sl-btn2-depth,0_1px_2px_rgba(16,24,40,0.07))] hover:border-[color:var(--sl-btn2-line-hover,#bcc3cd)] hover:bg-[var(--sl-btn2-hover,#f5f6f8)] active:bg-[var(--sl-btn2-press,#eceef2)] active:shadow-[var(--sl-btn2-press-depth,inset_0_1px_2px_rgba(16,24,40,0.12))]"
+export const ROW_ACTION = `inline-flex h-9 shrink-0 select-none items-center justify-center gap-1.5 ${RADIUS} ${CALM} px-3 text-[13px] font-semibold transition-[background-color,border-color,box-shadow,translate] duration-150 active:translate-y-px active:duration-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-default disabled:active:translate-y-0 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]`
+
+/** The row's More beside it: the same button, square, so the two read as one pair in both looks. */
+export const ROW_ICON_ACTION = `${ROW_ACTION} w-9 px-0`
+
 /** A square icon button the size of SMALL, for a row's More. */
 export const ICON_BUTTON = `inline-flex h-9 w-9 shrink-0 items-center justify-center ${RADIUS} text-[#4b5563] transition-colors duration-100 hover:bg-[#f3f4f6] hover:text-[#1a1a2e] active:bg-[#eceef1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20`
 

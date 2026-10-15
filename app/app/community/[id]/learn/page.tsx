@@ -1,6 +1,7 @@
 import { sectionPage } from "@/lib/communities/server/creator"
 import { learnBuilderFor } from "@/lib/communities/server/learn-builder"
 import { LearnBuilder } from "@/components/community/learn/learn-builder"
+import { SectionSeed } from "@/components/community/creator/community-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -10,5 +11,9 @@ export default async function CommunityLearnAdminPage({ params }: { params: Prom
   const ctx = await sectionPage(id, "manage_classroom")
   if (!ctx) return null
   const initial = await learnBuilderFor(ctx.db, ctx.community).catch(() => null)
-  return <LearnBuilder communityId={ctx.community.id} initial={initial} />
+  return (
+    <SectionSeed id="classroom">
+      <LearnBuilder communityId={ctx.community.id} initial={initial} />
+    </SectionSeed>
+  )
 }

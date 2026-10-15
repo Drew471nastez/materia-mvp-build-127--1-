@@ -19,8 +19,9 @@
  *
  * The channel is the one the editor already had for putting an agent's new
  * section on the page (app/api/.../agent-activity), made cheaper: one indexed
- * read, quick while changes arrive, backing off to one read every twenty
- * seconds, none while the tab is hidden.
+ * read, quick while changes arrive, backing off to one read every ten
+ * seconds, then every thirty once the editor has been left alone for two
+ * minutes, none while the tab is hidden.
  */
 import { useCallback, useEffect, useRef, useState, type Ref, type RefObject } from "react"
 import { createPortal } from "react-dom"
@@ -31,6 +32,7 @@ import { AnchoredPanel, CHROME_POPOVER_Z } from "@/components/website-builder/an
 import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
 import {
   POLL_BASE_MS,
+  POLL_MAX_MS,
   RECENT_MS,
   actedRecently,
   connectionTip,
@@ -111,6 +113,8 @@ export function useSiteActivity({
     let busy = false
     let timer: ReturnType<typeof setTimeout> | null = null
     let delay = POLL_BASE_MS
+    /** When a change last arrived or the person last came back or used the editor. */
+    let lively = Date.now()
 
     const schedule = (ms: number) => {
       if (timer) clearTimeout(timer)
@@ -155,7 +159,8 @@ export function useSiteActivity({
       } finally {
         busy = false
       }
-      delay = nextPollDelay(delay, arrived)
+      if (arrived) lively = Date.now()
+      delay = nextPollDelay(delay, arrived, Date.now() - lively)
       schedule(delay)
     }
     let woke = 0
@@ -164,13 +169,26 @@ export function useSiteActivity({
       /* At most once every few seconds: the pointer coming back over the editor is a moment to look, not a stream of reads. */
       if (Date.now() - woke < WAKE_GAP_MS) return
       woke = Date.now()
+      lively = Date.now()
       delay = POLL_BASE_MS
       schedule(0)
+    }
+    /* A press or a key in the editor: someone is at the screen. Keeps the quick
+       cadence and, if it had slowed to the idle one, reads within a few seconds.
+       No read of its own while the quick cadence is already running. */
+    const stir = () => {
+      lively = Date.now()
+      if (delay > POLL_MAX_MS && !busy && !stopped) {
+        delay = POLL_BASE_MS
+        schedule(delay)
+      }
     }
     document.addEventListener("visibilitychange", wake)
     window.addEventListener("focus", wake)
     /* Back from the terminal or GitHub in a window beside this one: no focus change, but the pointer comes back. */
     document.documentElement.addEventListener("pointerenter", wake)
+    window.addEventListener("pointerdown", stir, true)
+    window.addEventListener("keydown", stir, true)
     schedule(delay)
     return () => {
       stopped = true
@@ -178,6 +196,8 @@ export function useSiteActivity({
       document.removeEventListener("visibilitychange", wake)
       window.removeEventListener("focus", wake)
       document.documentElement.removeEventListener("pointerenter", wake)
+      window.removeEventListener("pointerdown", stir, true)
+      window.removeEventListener("keydown", stir, true)
     }
   }, [connected, installId])
 

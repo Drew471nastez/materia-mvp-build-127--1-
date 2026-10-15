@@ -283,7 +283,8 @@ export const isNativePlatform = () => false
                   /* What is written on the root as it arrives: each animation's length and the properties it moves. */
                   if (!window.__anims) window.__anims = el.getAnimations().map((a) => ({ name: a.animationName || "script", ms: Number(a.effect?.getTiming().duration) || 0, props: [...new Set(a.effect?.getKeyframes().flatMap((k) => Object.keys(k).filter((x) => !["offset", "easing", "composite", "computedOffset"].includes(x))))] }))
                   const cs = getComputedStyle(el)
-                  log.push({ t: Math.round(performance.now() - t0), transform: cs.transform, translate: cs.translate, top: cs.top, opacity: Number(cs.opacity), stills: document.querySelectorAll("[data-leaving-still],[data-page-motion]").length })
+                  const st = document.querySelector("[data-arrival-still]")
+                  log.push({ t: Math.round(performance.now() - t0), transform: cs.transform, translate: cs.translate, top: cs.top, opacity: Number(cs.opacity), stills: document.querySelectorAll("[data-leaving-still],[data-page-motion]").length, still: st ? Number(getComputedStyle(st).opacity) : null, bar: Math.round(el.querySelector("header")?.getBoundingClientRect().top ?? -1) })
                 }
                 if (performance.now() - t0 < 900) requestAnimationFrame(tick)
               }
@@ -307,10 +308,15 @@ export const isNativePlatform = () => false
           console.log(`    root by frame: ${motion.slice(0, 14).map((m) => `${m.t}ms o${m.opacity.toFixed(2)} ${m.translate}${m.transform === "none" ? "" : ` ${m.transform}`}`).join(" | ")}`)
           expect(moved.length === 0, `${label}: the community never moves sideways (no transform or translate on its root, any frame)`, moved.slice(0, 3))
           const fades = motion.filter((m) => m.opacity < 0.999)
-          expect(fades.length > 0, `${label}: arrives on a fade (${fades.length} frames below full opacity)`)
+          /* Changed on purpose (round 31): from Explore the frame is whole at once and Explore goes out over it, under its bar (lib/navigation/arrival-still.ts). */
+          const going = motion.filter((m) => m.still !== null && m.still < 0.999)
+          expect(fades.length > 0 || going.length > 0, `${label}: arrives on a fade (${fades.length} frames of the frame below full opacity, ${going.length} of Explore going out over it)`)
           /* What the root is given to play (the clock of a headless film is too uneven to time a 180ms fade by its frames). */
           const anims = await p.evaluate(() => window.__anims || [])
-          expect(anims.length > 0 && anims.every((a) => a.ms <= 200 && a.props.every((x) => x === "opacity" || x === "top")), `${label}: one short fade on arrival, opacity only (a visitor's 2px settle is \`top\`, never sideways), 200ms at most`, anims)
+          /* Round 31: with Explore going out over it the frame plays nothing of its own; its bar stands where it lands. */
+          const bars = [...new Set(motion.map((m) => m.bar))]
+          expect(bars.length === 1, `${label}: the community's bar stands still from its first frame`, bars)
+          expect(going.length > 0 || (anims.length > 0 && anims.every((a) => a.ms <= 200 && a.props.every((x) => x === "opacity" || x === "top"))), `${label}: one short fade on arrival, opacity only (a visitor's 2px settle is \`top\`, never sideways), 200ms at most`, anims)
           /* The document under the fade: the frame's own ground while it lands, the page's own again after. */
           const ground = await p.evaluate(() => ({ html: document.documentElement.style.backgroundColor, body: document.body.style.backgroundColor }))
           /* <html> carries the bar's own colour inline (lib/ui/light-chrome, for the strip under the clock), so only <body> is read here. */
@@ -545,7 +551,8 @@ export const useParams = () => ({})
       const followsLook = /data-product-look="site"/.test(markup)
       console.log(`\nPRODUCT: ${which}, ${markup.length} characters of HTML; own look ${ownLook}, follows the person's look ${followsLook}`)
       if (which === "custom") {
-        expect(ownLook && !followsLook && /storelib:appearance|removeAttribute\("data-sl-dark"\)/.test(markup), "custom: a creator's own scheme keeps its look (data-own-look, and the boot that takes the dark look off before it is drawn)")
+        /* Changed on purpose (round 31): no boot takes the dark look off the document; the dark sheet leaves [data-own-look] out, so the Storelib header and the sheets around the creator's page follow the person (lib/appearance/site-appearance, WHOSE LOOK, PART BY PART). */
+        expect(ownLook && !followsLook && !/removeAttribute\("data-sl-dark"\)/.test(markup), "custom: a creator's own scheme keeps its look (data-own-look), and nothing takes the dark look off the document")
       } else {
         expect(followsLook && !ownLook, "default: the platform's default look follows the person's look (data-product-look=\"site\", no data-own-look)")
       }
@@ -564,7 +571,8 @@ export const useParams = () => ({})
           const state = await p.evaluate(() => ({ dark: document.documentElement.hasAttribute("data-sl-dark"), ground: getComputedStyle(document.querySelector("[data-product-look], [data-own-look]") || document.body).backgroundColor }))
           const label = `product ${which} ${look} ${vp.width}`
           if (which === "custom") {
-            expect(!state.dark, `${label}: the dark look is never on a creator's own scheme`, state)
+            /* Changed on purpose (round 31): <html> is in the person's look; the creator's page keeps its own ground in it. */
+            expect(state.dark === (look === "dark") && state.ground === "rgb(238, 241, 234)", `${label}: <html> is in the person's look, the creator's page keeps its own ground`, state)
           } else {
             expect(state.dark === (look === "dark"), `${label}: <html> is in the person's ${look} look`, state)
             if (look === "dark") {

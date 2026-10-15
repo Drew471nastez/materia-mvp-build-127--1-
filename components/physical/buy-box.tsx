@@ -27,6 +27,7 @@ import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { BundleOffers } from "@/components/offers/bundle-offers"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { announceVariantPhoto, galleryFollowsVariants } from "@/lib/physical/variant-photo"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 interface Variant {
   id: string
@@ -121,14 +122,29 @@ export function PhysicalBuyBox({
     }
   }, [enabled, productId])
 
-  const ink = textColor ?? "#1a1a2e"
-  const muted = mutedColor ?? "#6b7280"
+  /*
+    Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). The accent is
+    two things here: the fill of Buy now (a near black fill is a graphite step in the dark, its white words stay) and
+    the ink of the outlined Add to cart (light in the dark). A coloured accent is the same colour in both looks.
+  */
+  const paint = useSitePaint()
+  const ink = paint(textColor ?? "#1a1a2e", "ink")
+  const muted = paint(mutedColor ?? "#6b7280", "ink")
+  const fill = paint(accent, "bg")
+  const outline = paint(accent, "ink")
+  /* Its edge: a near black one is the dark look's strong hairline, as a class border of that colour is (never a white ring). */
+  const outlineEdge = paint(accent, "line")
+  const hairline = paint("rgba(0,0,0,0.14)", "line")
+  /* A chosen option: its ring in the ink in the light look; a graphite chip with a strong hairline in the dark one, not a white ring. */
+  const chosenRing = paint(textColor ?? "#1a1a2e", "line")
+  const chosenFill = paint(textColor ?? "#1a1a2e", "bg") !== (textColor ?? "#1a1a2e") ? "var(--sl-pp-selected, transparent)" : undefined
+  const wash = paint("rgba(0,0,0,0.05)", "bg")
   const btnRadius = { borderRadius: radius }
 
   if (!enabled || failed || (data && data.variants.length === 0)) {
     return (
       <div className="space-y-2">
-        <button type="button" disabled className="w-full cursor-not-allowed py-3.5 text-[15px] font-semibold opacity-50" style={{ background: accent, color: accentText, ...btnRadius }}>
+        <button type="button" disabled className="w-full cursor-not-allowed py-3.5 text-[15px] font-semibold opacity-50" style={{ background: fill, color: accentText, ...btnRadius }}>
           Not available right now
         </button>
       </div>
@@ -137,9 +153,9 @@ export function PhysicalBuyBox({
   if (!data) {
     return (
       <div className="space-y-3" aria-busy="true">
-        <div className="h-7 w-28 animate-pulse rounded-md bg-black/5" />
-        <div className="h-12 w-full animate-pulse rounded-lg bg-black/5" />
-        <div className="h-12 w-full animate-pulse rounded-lg bg-black/5" />
+        <div className="h-7 w-28 animate-pulse rounded-md bg-black/5" style={{ backgroundColor: wash }} />
+        <div className="h-12 w-full animate-pulse rounded-lg bg-black/5" style={{ backgroundColor: wash }} />
+        <div className="h-12 w-full animate-pulse rounded-lg bg-black/5" style={{ backgroundColor: wash }} />
       </div>
     )
   }
@@ -197,7 +213,7 @@ export function PhysicalBuyBox({
       {variant?.imageUrl && data.variants.length > 1 && !galleryFollows ? (
         /* The chosen variant's own photo, so the buyer sees the color they picked. */
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={variant.imageUrl} alt={variant.name} className="h-20 w-20 rounded-xl border object-cover" style={{ borderColor: "rgba(0,0,0,0.1)" }} data-variant-photo="" />
+        <img src={variant.imageUrl} alt={variant.name} className="h-20 w-20 rounded-xl border object-cover" style={{ borderColor: paint("rgba(0,0,0,0.1)", "line") }} data-variant-photo="" />
       ) : null}
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-2xl font-bold tracking-tight" style={{ color: ink }}>
@@ -230,7 +246,7 @@ export function PhysicalBuyBox({
                     setChosen((c) => c.map((x, j) => (j === i ? value : x)))
                   }}
                   className={cn("min-h-10 rounded-lg border px-3.5 text-[14px] font-medium transition-colors", !open && "line-through opacity-50")}
-                  style={on ? { borderColor: ink, color: ink, boxShadow: `inset 0 0 0 1px ${ink}` } : { borderColor: "rgba(0,0,0,0.14)", color: ink }}
+                  style={on ? { borderColor: chosenRing, color: ink, boxShadow: `inset 0 0 0 1px ${chosenRing}`, backgroundColor: chosenFill } : { borderColor: hairline, color: ink }}
                 >
                   {value}
                 </button>
@@ -260,7 +276,7 @@ export function PhysicalBuyBox({
         <span className="text-[14px] font-medium" style={{ color: ink }}>
           Quantity
         </span>
-        <div className="inline-flex h-11 items-center rounded-lg border" style={{ borderColor: "rgba(0,0,0,0.14)" }}>
+        <div className="inline-flex h-11 items-center rounded-lg border" style={{ borderColor: hairline }}>
           <button type="button" aria-label="Fewer" disabled={quantity <= 1} onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-11 w-11 place-items-center disabled:opacity-40" style={{ color: ink }}>
             <Minus className="h-4 w-4" />
           </button>
@@ -274,11 +290,11 @@ export function PhysicalBuyBox({
       </div>
 
       <div className="space-y-2.5">
-        <button type="button" onClick={addToCart} disabled={!canBuy} className="flex w-full items-center justify-center gap-2 border-2 py-3.5 text-[15px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50" style={{ borderColor: accent, color: accent, ...btnRadius }}>
+        <button type="button" onClick={addToCart} disabled={!canBuy} className="flex w-full items-center justify-center gap-2 border-2 py-3.5 text-[15px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50" style={{ borderColor: outlineEdge, color: outline, ...btnRadius }}>
           <ShoppingBag className="h-4 w-4" />
           {added ? "Added to cart" : variant?.soldOut ? "Sold out" : "Add to cart"}
         </button>
-        <button type="button" onClick={buyNow} disabled={!canBuy} className="w-full py-3.5 text-[15px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50" style={{ background: accent, color: accentText, ...btnRadius }}>
+        <button type="button" onClick={buyNow} disabled={!canBuy} className="w-full py-3.5 text-[15px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50" style={{ background: fill, color: accentText, ...btnRadius }}>
           {variant?.soldOut ? "Sold out" : callToAction?.trim() || "Buy now"}
         </button>
         {added && !site.live ? (
