@@ -3,7 +3,15 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import BlogListing, { type BlogPost } from "./_blog-listing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 
-export const dynamic = "force-dynamic"
+/*
+  HELD AT THE EDGE FOR A MINUTE, NOT RENDERED FOR EVERY READER (the owner:
+  marketing pages served from the CDN). Nothing here depends on who is
+  reading: the posts come from the admin client, which reads no cookie. It
+  was force-dynamic, so every visit ran a function and the same database
+  reads for the same page. Rebuilt in the background at most once a minute,
+  the same minute next.config's `/blog/:path*` rule already gives the CDN.
+*/
+export const revalidate = 60
 
 export const metadata: Metadata = {
   title: "Storelib Blog — Creator Tips, Growth Strategies & Platform News",

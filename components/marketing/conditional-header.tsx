@@ -1,6 +1,6 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useSelectedLayoutSegment } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
@@ -112,11 +112,27 @@ function isKnownPlatformPath(p: string): boolean {
 
 export function ConditionalHeader({
   initialWishlistCount = 0,
-  onPlatformDomain = false,
+  onPlatformDomain: hostSaysPlatform = false,
+  platformHomeFromRoute = false,
   buyerHeaderLight = false,
 }: {
   initialWishlistCount?: number
   buyerHeaderLight?: boolean
+  /**
+   * The marketing layout's answer to the same question, without reading the
+   * Host header, so its pages can be static (the owner: marketing pages
+   * served from the CDN).
+   *
+   * A page of that layout is drawn at "/" only when it is the layout's own
+   * homepage, app/(marketing)/page.tsx, and the proxy draws that only on
+   * Storelib's domain: "/" on a connected domain or a site's subdomain is
+   * rewritten to the creator's page (/u, /w, /l, /site), and an unknown
+   * domain is redirected to storelib.com. So "the segment under this layout
+   * is its own page" is "this is storelib.com's homepage", and it is the
+   * same for every visitor, which is what lets the HTML be cached. The
+   * effect below still runs and still has the last word.
+   */
+  platformHomeFromRoute?: boolean
   /**
    * Whether this request arrived on the platform's OWN domain, decided on the
    * server from the Host header.
@@ -136,6 +152,9 @@ export function ConditionalHeader({
   onPlatformDomain?: boolean
 }) {
   const pathname = usePathname()
+  /* null when the page under this layout is its own page.tsx (Next's page segment), "u" for /u/<name>, and so on. */
+  const segmentBelow = useSelectedLayoutSegment()
+  const onPlatformDomain = hostSaysPlatform || (platformHomeFromRoute && segmentBelow === null)
 
   // Initialise synchronously so the header renders on the first paint for
   // known platform paths — avoids the blank-gap / "clipped header" flash.
