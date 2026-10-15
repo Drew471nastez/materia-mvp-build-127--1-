@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { runCommunityJobs } from "@/lib/communities/server/notify"
 import { releaseDeadHolds } from "@/lib/communities/server/event-tickets"
+import { publishDuePosts } from "@/lib/communities/server/scheduled-posts"
 import { PLATFORM_JOB_KINDS } from "@/lib/communities/types"
 
 /**
@@ -25,7 +26,9 @@ import { PLATFORM_JOB_KINDS } from "@/lib/communities/types"
  * supabase/sql/run-now/81_communities.sql it answers { available: false }.
  * It also frees the seats held for ticket checkouts nobody finished
  * (lib/communities/server/event-tickets.ts releaseDeadHolds): one statement
- * per run, and nothing at all before run-now part 105.
+ * per run, and nothing at all before run-now part 105. And it puts up the
+ * scheduled posts that are due (lib/communities/server/scheduled-posts.ts,
+ * run-now part 188), each once, as its author, within a few seconds' budget.
  * Protected by CRON_SECRET.
  */
 export const runtime = "nodejs"
@@ -41,16 +44,18 @@ async function runJob(request: Request) {
   const on = await communitiesEnabled()
   try {
     const db = createAdminClient()
+    /* SCHEDULED POSTS that are due go up first (round 32), so the announcements they queue are sent by this same run. A community post, so only while communities are on; ten seconds at most. */
+    const posts = on ? await publishDuePosts(db, Date.now(), 10_000).catch(() => ({ published: 0, failed: 0, available: false })) : { published: 0, failed: 0, available: false }
     const summary = await runCommunityJobs(db, on ? { budgetMs: RUN_BUDGET_MS } : { budgetMs: RUN_BUDGET_MS, kinds: PLATFORM_JOB_KINDS })
     /* SEATS HELD FOR A CHECKOUT NOBODY FINISHED go back, so a sold out event is really sold out
        (lib/communities/server/event-tickets.ts releaseDeadHolds). One statement, nothing before part 105. */
     const seatsFreed = on ? await releaseDeadHolds(db).catch(() => 0) : 0
     /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
-    const didWork = summary.claimed + summary.scheduled + summary.failed + seatsFreed > 0
+    const didWork = summary.claimed + summary.scheduled + summary.failed + seatsFreed + posts.published + posts.failed > 0
     if (didWork) console.log(
-      `[cron/community] ${summary.available ? "ran" : "not available (part 81 has not run)"}${on ? "" : " platform jobs only (communities off)"}: ${summary.claimed} claimed, ${summary.done} done, ${summary.continued} continued, ${summary.retried} retried, ${summary.failed} failed, ${summary.scheduled} scheduled, ${seatsFreed} held seats back, ${summary.ms}ms`,
+      `[cron/community] ${summary.available ? "ran" : "not available (part 81 has not run)"}${on ? "" : " platform jobs only (communities off)"}: ${summary.claimed} claimed, ${summary.done} done, ${summary.continued} continued, ${summary.retried} retried, ${summary.failed} failed, ${summary.scheduled} scheduled, ${seatsFreed} held seats back, ${posts.published} scheduled posts up, ${posts.failed} failed, ${summary.ms}ms`,
     )
-    return NextResponse.json(on ? { ...summary, seatsFreed } : { ...summary, skipped: "communities_off" }, { headers: NO_STORE })
+    return NextResponse.json(on ? { ...summary, seatsFreed, scheduledPosts: posts } : { ...summary, skipped: "communities_off" }, { headers: NO_STORE })
   } catch (e) {
     console.error("[cron/community] the run failed:", e instanceof Error ? e.message : e)
     return NextResponse.json({ error: "Run failed" }, { status: 500, headers: NO_STORE })

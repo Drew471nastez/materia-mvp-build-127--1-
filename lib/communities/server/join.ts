@@ -48,6 +48,8 @@ import { creatorTakesPayments, optionsFor, readPlans, readProducts, readTiers } 
 import { accountEmail, inviteStanding, reservedInviteUses } from "./invites"
 import { watchJoin } from "./safety"
 import { noteInviteJoin } from "./invite-joins"
+import { checkJoinAnswers } from "../join-questions"
+import { readJoinForm, saveJoinAnswers } from "./join-questions"
 
 /* ── Rate limits ────────────────────────────────────────────────────────── */
 
@@ -68,7 +70,7 @@ export type JoinAnswer =
   | { ok: true; state: "member"; url: string }
   | { ok: true; state: "pending" }
   | { ok: true; state: "checkout"; url: string }
-  | { ok: false; status: number; error: string; message: string; url?: string }
+  | { ok: false; status: number; error: string; message: string; url?: string; field?: string }
 
 type Refusal = Extract<JoinAnswer, { ok: false }>
 const refuse = (status: number, error: string, message: string, url?: string): Refusal => ({ ok: false, status, error, message, ...(url ? { url } : {}) })
@@ -120,7 +122,7 @@ async function tellOwner(db: Db, c: CommunityRow, userId: string): Promise<void>
  * The press of the sales page's button, for a signed in person. `interval`
  * picks the paid tier's checkout when it offers both.
  */
-export async function joinCommunity(db: Db, communityId: string, userId: string, input: { note?: unknown; interval?: unknown } = {}): Promise<JoinAnswer> {
+export async function joinCommunity(db: Db, communityId: string, userId: string, input: { note?: unknown; interval?: unknown; answers?: unknown } = {}): Promise<JoinAnswer> {
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return refuse(404, "not_found", "This community could not be found.")
   const closed = closedAnswer(community)
@@ -160,6 +162,21 @@ export async function joinCommunity(db: Db, communityId: string, userId: string,
 
   const member = viewer.member
   const approved = member?.status === "pending" && Boolean(member.approved_by)
+
+  /*
+    QUESTIONS BEFORE JOINING (round 32, ./join-questions.ts, run-now part 186). Whoever joins from the community's page
+    answers them first: a free join, a request, or the way to checkout. Not asked again of somebody whose request is
+    already waiting or was approved, nor of somebody who came in with an invite (the invite is the approval). An answer
+    that is missing or does not fit is refused with the question's id, so the form can point at it.
+  */
+  if (member?.status !== "pending" && !approved && !invitedIn(member)) {
+    const form = await readJoinForm(db, community.id)
+    if (form.questions.length) {
+      const checked = checkJoinAnswers(form.questions, input.answers)
+      if (!checked.ok) return { ...refuse(400, "answers_needed", checked.error), ...(checked.id ? { field: checked.id } : {}) }
+      if (!(await saveJoinAnswers(db, { communityId: community.id, userId, answers: checked.value }))) return refuse(503, "answers_not_saved", "Your answers could not be saved. Try again.")
+    }
+  }
 
   if (community.approval_required && !approved) {
     if (member?.status === "pending") return { ok: true, state: "pending" }
