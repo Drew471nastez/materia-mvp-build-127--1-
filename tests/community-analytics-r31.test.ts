@@ -246,7 +246,8 @@ async function main() {
   check("both functions for the service role only", /REVOKE ALL ON FUNCTION public\.community_record_visit\(uuid, text, text, text, text, text, boolean\) FROM PUBLIC, anon, authenticated;/.test(part) && /GRANT EXECUTE ON FUNCTION public\.community_analytics\(uuid, timestamptz, timestamptz, text, text, boolean\) TO service_role;/.test(part))
   check("safe to run again", !/CREATE TABLE public|CREATE INDEX public|CREATE FUNCTION /.test(part) && /ADD COLUMN IF NOT EXISTS/.test(part))
   check("the migration copy is the part", existsSync("supabase/migrations/20270124_community_analytics.sql") && raw("supabase/migrations/20270124_community_analytics.sql") === part)
-  check("a README row and a p184 check column", raw("supabase/sql/run-now/README.md").includes("`184_community_analytics.sql`") && /as p184_community_analytics;/.test(raw("supabase/sql/run-now/99_check_after.sql")))
+  /* Changed on purpose (round 31 merge): part 185 (community domains) comes after it in the check now. */
+  check("a README row and a p184 check column", raw("supabase/sql/run-now/README.md").includes("`184_community_analytics.sql`") && /as p184_community_analytics[,;]/.test(raw("supabase/sql/run-now/99_check_after.sql")))
   check("the bundles and the parts record carry it", /-- part 184_community_analytics\.sql/.test(raw("supabase/sql/run-four/3_of_4_latest.sql")) && /part: "184", file: "184_community_analytics\.sql"/.test(raw("lib/admin/sql-parts.generated.ts")))
 
   /* ── Copy and client code ────────────────────────────────────────────── */
