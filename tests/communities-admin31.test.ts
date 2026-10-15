@@ -76,7 +76,9 @@ function main() {
   check("Back and Forward follow the address", /window\.addEventListener\("popstate", onPop\)/.test(shell) && /show\(id, \{ traversal: true \}\)/.test(shell))
   check("the sections not opened are read ahead, never on Save-Data or 2G", /readAheadAllowed\(connectionFacts\(\)\)/.test(shell) && /prefetchAppPage\(router, t\.href\)/.test(shell))
   check("the arrival starts from 55%, never an empty frame", /SECTION_ARRIVE_FROM = 0\.55/.test(shell) && /prefers-reduced-motion: reduce/.test(shell))
-  check("the stage places no scroll and plays no landing between sections of one community", /if \(sameStageFrame\(from, pathname\)\) return\s+\/\*/.test(code("components/app/app-stage.tsx")) || code("components/app/app-stage.tsx").indexOf("if (sameStageFrame(from, pathname)) return") < code("components/app/app-stage.tsx").indexOf("const saved = traversal ? recalledScroll(key) : null"))
+  const stage = code("components/app/app-stage.tsx")
+  const skip = stage.indexOf("if (sameStageFrame(from, pathname)) return")
+  check("the stage places no scroll and plays no landing between sections of one community", skip > 0 && skip < stage.indexOf("const saved = traversal ? recalledScroll(key) : null"))
   const pages: [string, string][] = [
     ["app/app/community/[id]/page.tsx", "overview"],
     ["app/app/community/[id]/feed/page.tsx", "feed"],
