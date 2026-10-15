@@ -215,7 +215,8 @@ async function main() {
   const s = raw("components/community/creator/analytics-section.tsx")
   check("/app Analytics' own pieces: the picker, the figure tabs, the strip, the chart, the legend and the change", ['from "@/components/app/date-range-picker"', 'from "@/components/app/use-period-params"', 'from "@/components/app/metric-tab"', "useTabStrip", 'from "@/components/app/analytics-chart"', "ChartLegend", "PercentChangeIndicator"].every((w) => s.includes(w)))
   check("and its report cards, lists and tabs", /ReportCard, ReportComparedContext, ReportEmpty, ReportList, ReportTabs/.test(s))
-  check("the period opens on the last 30 days, compared with the period before", /usePeriodParams\(timeZone, "last_30_days"\)/.test(s) && /compareBounds\(period, PREVIOUS_PERIOD/.test(s))
+  /* Changed on purpose (round 32): the question, its instants and the period before are worked out in lib/communities/client/report-cache (communityAsk), which keeps answers by period. */
+  check("the period opens on the last 30 days, compared with the period before", /usePeriodParams\(timeZone, "last_30_days"\)/.test(s) && /communityAsk\(head\.id, period, timeZone, reportNow\(\)\)/.test(s) && /compareBounds\(period, PREVIOUS_PERIOD/.test(raw("lib/communities/client/report-cache.ts")))
   check("the props stay { head, initial? }", /export function AnalyticsSection\(\{ head \}: \{ head: CommunityHead; initial\?: AnalyticsView \| null \}\)/.test(s))
   check("Google Analytics: connected with its ID, or a link to set it up", s.includes('"/app/integrations?integration=google-analytics"') && /data-ga=\{ga\.id \? "connected" : "off"\}/.test(s))
   check("the page reads only the head", !/loadAnalytics|loadMoneyAndGrowth/.test(raw("app/app/community/[id]/analytics/page.tsx")) && /<AnalyticsSection head=\{head\} \/>/.test(raw("app/app/community/[id]/analytics/page.tsx")))

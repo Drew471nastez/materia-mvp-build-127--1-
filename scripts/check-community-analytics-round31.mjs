@@ -87,7 +87,9 @@ export const notFound = () => {}
     const phone = label.startsWith("phone")
     for (const c of CASES) {
       console.log(`\n${label} ${c}`)
-      const p = await browser.newPage()
+      /* Changed on purpose (round 32): a browser of its own for each case. Answers are kept per period in this browser's storage now (lib/communities/client/report-cache), and every case is the same community at the same address. */
+      const ctx = await browser.createBrowserContext()
+      const p = await ctx.newPage()
       await p.setViewport(vp)
       const errors = []
       p.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
@@ -137,6 +139,7 @@ export const notFound = () => {}
             notice: document.querySelector("[role=alert], [data-notice]")?.textContent ?? [...document.querySelectorAll("p")].find((x) => /could not be loaded/.test(x.textContent))?.textContent ?? null,
             asks: window.__asks.length,
             lastAsk: window.__asks[window.__asks.length - 1] ?? null,
+            allAsks: window.__asks.slice(),
             smallTaps: [...document.querySelectorAll("[data-analytics] button, [data-analytics] a, [data-analytics] [role=tab]")]
               .filter((el) => el.getClientRects().length && el.closest("[data-analytics]"))
               /* /app Analytics' own picker button and report card tabs and "View all" are 32px there too: listed apart, not this section's to change. */
@@ -189,8 +192,9 @@ export const notFound = () => {}
         await p.click('[data-row="last_7_days"]')
         await sleep(phone ? 1600 : 1100)
         m = await look()
-        const q = new URLSearchParams(m.lastAsk || "")
-        const days = (Date.parse(q.get("end")) - Date.parse(q.get("start"))) / 86_400_000
+        /* Changed on purpose (round 32): opening the picker asks for its usual periods ahead, so the seven days are one of the asks, not always the last. */
+        const spans = m.allAsks.slice(asked).map((a) => { const q = new URLSearchParams(a); return (Date.parse(q.get("end")) - Date.parse(q.get("start"))) / 86_400_000 })
+        const days = spans.find((d) => d > 6 && d <= 7) ?? spans[spans.length - 1] ?? 0
         expect(m.asks > asked && days > 6 && days <= 7, "Last 7 days asks for seven days", { asks: m.asks, days: Math.round(days * 10) / 10 })
         expect(m.growth.loading === "false" && m.growth.dates.length > 0 && m.growth.dates.length !== datesBefore, "and the chart redraws with its dates", { before: datesBefore, after: m.growth.dates.length, dates: m.growth.dates })
         expect(/range=last_7_days/.test(await p.evaluate(() => location.search)), "the period is kept in the address", await p.evaluate(() => location.search))
@@ -217,7 +221,7 @@ export const notFound = () => {}
         expect(/could not be loaded/.test(m.notice ?? ""), "a failed answer says so", m.notice)
         await p.screenshot({ path: join(shots, `${label}-${c}.png`) })
       }
-      await p.close()
+      await ctx.close()
     }
   }
   await browser.close()
