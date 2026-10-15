@@ -326,11 +326,11 @@ function main() {
     const siteNf = read("components/website-builder/site-not-found.tsx")
     const siteNfPage = read("components/website-builder/site-not-found-page.tsx")
     const nfRoute = read("app/(site)/w/[username]/not_found/route.ts")
-    check("the site body asks its own host for the creator's 404 page", /fetch\("\/not_found"/.test(siteNf) && /credentials: "omit"/.test(siteNf))
+    check("the site body asks its own host for the creator's 404 page", /* Changed on purpose (translation coverage): the page's language's own address first (/fr/not_found), then /not_found. */ /ask\("\/not_found"\)/.test(siteNf) && /fetch\(path, /.test(siteNf) && /credentials: "omit"/.test(siteNf))
     check("and falls back to the plain page when it cannot, without swapping later", /setPlain\(true\)/.test(siteNf) && /if \(settled\) return/.test(siteNf))
     check("the theme is loaded only on a creator's site", /import\("@\/components\/website-builder\/site-not-found-page"\)/.test(siteNf) && !/from "@\/components\/website-builder\/theme\/ThemePage"/.test(siteNf))
     check("the page is drawn like every page of the site", /<ThemePage theme=\{page\.theme\} sections=\{page\.sections\}/.test(siteNfPage) && /<SiteDocument \/>/.test(siteNfPage))
-    check("the address it asks is published content, cached, and never indexed", /publishedNotFoundPage\(username\)/.test(nfRoute) && /s-maxage=60/.test(nfRoute) && /"X-Robots-Tag": "noindex"/.test(nfRoute))
+    check("the address it asks is published content, cached, and never indexed", /* Changed on purpose (translation coverage): the name read with its language ("andrew~fr"). */ /publishedNotFoundPage\(name, locale\)/.test(nfRoute) && /s-maxage=60/.test(nfRoute) && /"X-Robots-Tag": "noindex"/.test(nfRoute))
     check("the address cannot collide with a page a creator makes", pageKeyFromSegment("not_found") === null)
     check("a missing page is still a real 404 from the page route", /if \(!key\) notFound\(\)/.test(read("app/(site)/w/[username]/[page]/page.tsx")))
   }
@@ -427,7 +427,7 @@ function main() {
     check(
       "account goes to the website's own sign in page, or its account page once signed in, both of which exist",
       /const ACCOUNT_PATH = "\/account"/.test(code) && /const SIGN_IN_PATH = "\/account\/login"/.test(code) &&
-        /signedIn \? \{ href: ACCOUNT_PATH, label: "Account" \} : \{ href: SIGN_IN_PATH, label: "Sign in" \}/.test(code) &&
+        /* Changed on purpose (translation coverage): the labels are shop words, in the page's language. */ /signedIn \? \{ href: ACCOUNT_PATH, label: w\("account"\) \} : \{ href: SIGN_IN_PATH, label: w\("sign_in"\) \}/.test(code) &&
         (code.match(/href=\{account\.href\}/g) ?? []).length === 2 &&
         existsSync("app/(site)/w/[username]/account/page.tsx") && existsSync("app/(site)/w/[username]/account/login/page.tsx"),
     )

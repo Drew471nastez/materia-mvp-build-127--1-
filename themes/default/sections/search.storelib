@@ -23,7 +23,7 @@
     {% if settings.show_filters and page.filters %}
       {# Filters beside what was found, kept with the words searched for:
          lib/products/catalog-filters.ts. The bar says how many. #}
-      {% if page.query %}<p class="s__sub">Results for "{{ page.query }}"</p>{% elsif settings.intro %}<p class="s__sub">{{ settings.intro }}</p>{% endif %}
+      {% if page.query %}<p class="s__sub">{{ words.results_for }} "{{ page.query }}"</p>{% elsif settings.intro %}<p class="s__sub">{{ settings.intro }}</p>{% endif %}
       <div class="cat{% if page.filters.price.show or page.filters.groups.size > 0 %}{% else %} cat--bare{% endif %}">
         <form class="cat__form" action="{{ page.filters.path | url }}" method="get" data-storelib-filters>
           {% if page.filters.q %}<input type="hidden" name="q" value="{{ page.filters.q }}">{% endif %}
@@ -38,11 +38,11 @@
           <div class="cat__panel" role="group" aria-label="{{ settings.filter_label }}">
             {% if page.filters.price.show %}
             <fieldset class="cat__group">
-              <legend class="cat__legend">Price</legend>
+              <legend class="cat__legend">{{ words.price }}</legend>
               <div class="cat__range">
-                <label class="cat__num"><span>$</span><input type="number" name="price_min" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.min }}" value="{{ page.filters.price.from }}" aria-label="Lowest price"></label>
-                <span class="cat__to">to</span>
-                <label class="cat__num"><span>$</span><input type="number" name="price_max" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.max }}" value="{{ page.filters.price.to }}" aria-label="Highest price"></label>
+                <label class="cat__num"><span>$</span><input type="number" name="price_min" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.min }}" value="{{ page.filters.price.from }}" aria-label="{{ words.lowest_price }}"></label>
+                <span class="cat__to">{{ words.price_to }}</span>
+                <label class="cat__num"><span>$</span><input type="number" name="price_max" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.max }}" value="{{ page.filters.price.to }}" aria-label="{{ words.highest_price }}"></label>
               </div>
             </fieldset>
             {% endif %}
@@ -62,14 +62,14 @@
         </form>
         <div class="cat__results">
           {% if page.filters.chips.size > 0 %}
-          <div class="cat__chips">{% for c in page.filters.chips %}<a class="cat__chip" href="{{ c.url | url }}" aria-label="Remove {{ c.label }}">{{ c.label }}<span aria-hidden="true">×</span></a>{% endfor %}<a class="cat__chip cat__chip--clear" href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a></div>
+          <div class="cat__chips">{% for c in page.filters.chips %}<a class="cat__chip" href="{{ c.url | url }}" aria-label="{{ words.remove }} {{ c.label }}">{{ c.label }}<span aria-hidden="true">×</span></a>{% endfor %}<a class="cat__chip cat__chip--clear" href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a></div>
           {% endif %}
           {% if products.size == 0 %}
             {% if page.filters.active %}
             <div class="none"><p class="none__h">{{ settings.no_match }}</p><a class="none__a" href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a></div>
             {% else %}
       <div class="none">
-        <p class="none__h">{% if page.query %}No results for "{{ page.query }}"{% else %}{{ settings.empty_text }}{% endif %}</p>
+        <p class="none__h">{% if page.query %}{{ words.no_results_for }} "{{ page.query }}"{% else %}{{ settings.empty_text }}{% endif %}</p>
         {% if page.query %}<p class="none__p">{{ settings.empty_text }}</p><a class="none__a" href="{{ settings.all_url | default: '/products' | url }}">{{ settings.all_label }}</a>{% endif %}
       </div>
             {% endif %}
@@ -80,7 +80,7 @@
           <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
             {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% else %}<span class="card__none" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>{% endif %}
             {# Theme settings › Badges, the way the shop's grid draws them: Sale on a discounted product, then the card's own tag. #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
-            {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
+            {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="{{ words.save }} {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
           </div>
           <h3 class="card__title">{{ block.settings.title }}</h3>
           {% if settings.show_price and block.settings.price %}
@@ -95,13 +95,13 @@
       </div>
     {% else %}
       {% if page.query %}
-        {% if products.size > 0 %}<p class="s__sub" aria-live="polite">{{ products.size }} {% if products.size == 1 %}result{% else %}results{% endif %} for "{{ page.query }}"</p>{% endif %}
+        {% if products.size > 0 %}<p class="s__sub" aria-live="polite">{{ products.size }} {% if products.size == 1 %}{{ words.result }}{% else %}{{ words.results }}{% endif %} {{ words.search_for }} "{{ page.query }}"</p>{% endif %}
       {% elsif settings.intro %}
         <p class="s__sub">{{ settings.intro }}</p>
       {% endif %}
       {% if products.size == 0 %}
       <div class="none">
-        <p class="none__h">{% if page.query %}No results for "{{ page.query }}"{% else %}{{ settings.empty_text }}{% endif %}</p>
+        <p class="none__h">{% if page.query %}{{ words.no_results_for }} "{{ page.query }}"{% else %}{{ settings.empty_text }}{% endif %}</p>
         {% if page.query %}<p class="none__p">{{ settings.empty_text }}</p><a class="none__a" href="{{ settings.all_url | default: '/products' | url }}">{{ settings.all_label }}</a>{% endif %}
       </div>
       {% else %}
@@ -111,7 +111,7 @@
           <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
             {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% else %}<span class="card__none" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>{% endif %}
             {# Theme settings › Badges, the way the shop's grid draws them: Sale on a discounted product, then the card's own tag. #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
-            {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
+            {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="{{ words.save }} {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
           </div>
           <h3 class="card__title">{{ block.settings.title }}</h3>
           {% if settings.show_price and block.settings.price %}

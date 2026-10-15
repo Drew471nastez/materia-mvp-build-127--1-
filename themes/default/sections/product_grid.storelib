@@ -29,11 +29,11 @@
           <div class="cat__panel" role="group" aria-label="{{ settings.filter_label }}">
             {% if page.filters.price.show %}
             <fieldset class="cat__group">
-              <legend class="cat__legend">Price</legend>
+              <legend class="cat__legend">{{ words.price }}</legend>
               <div class="cat__range">
-                <label class="cat__num"><span>$</span><input type="number" name="price_min" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.min }}" value="{{ page.filters.price.from }}" aria-label="Lowest price"></label>
-                <span class="cat__to">to</span>
-                <label class="cat__num"><span>$</span><input type="number" name="price_max" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.max }}" value="{{ page.filters.price.to }}" aria-label="Highest price"></label>
+                <label class="cat__num"><span>$</span><input type="number" name="price_min" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.min }}" value="{{ page.filters.price.from }}" aria-label="{{ words.lowest_price }}"></label>
+                <span class="cat__to">{{ words.price_to }}</span>
+                <label class="cat__num"><span>$</span><input type="number" name="price_max" min="0" step="1" inputmode="numeric" placeholder="{{ page.filters.price.max }}" value="{{ page.filters.price.to }}" aria-label="{{ words.highest_price }}"></label>
               </div>
             </fieldset>
             {% endif %}
@@ -53,7 +53,7 @@
         </form>
         <div class="cat__results">
           {% if page.filters.chips.size > 0 %}
-          <div class="cat__chips">{% for c in page.filters.chips %}<a class="cat__chip" href="{{ c.url | url }}" aria-label="Remove {{ c.label }}">{{ c.label }}<span aria-hidden="true">×</span></a>{% endfor %}<a class="cat__chip cat__chip--clear" href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a></div>
+          <div class="cat__chips">{% for c in page.filters.chips %}<a class="cat__chip" href="{{ c.url | url }}" aria-label="{{ words.remove }} {{ c.label }}">{{ c.label }}<span aria-hidden="true">×</span></a>{% endfor %}<a class="cat__chip cat__chip--clear" href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a></div>
           {% endif %}
           {% if products.size == 0 %}
             <div class="cat__empty"><p>{{ settings.no_match }}</p>{% if page.filters.active %}<a href="{{ page.filters.clear_url | url }}">{{ settings.clear_label }}</a>{% endif %}</div>
@@ -64,10 +64,10 @@
             <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
               {% if block.settings.tag %}<span class="tag">{{ block.settings.tag }}</span>{% endif %}
-              {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
+              {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="{{ words.save }} {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
-            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
+            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -88,10 +88,10 @@
             <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
-              {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
+              {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="{{ words.save }} {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
-            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
+            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -115,7 +115,7 @@
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
-            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
+            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -140,7 +140,7 @@
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
-            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
+            {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.rating.count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -167,7 +167,7 @@
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
-            {% if settings.show_rating and block.settings.url.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="Rated {{ block.settings.url.rating.value }} out of 5" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.settings.url.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.settings.url.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.settings.url.rating.count }})</span></p>{% endif %}
+            {% if settings.show_rating and block.settings.url.rating.count > 0 %}<p class="card__rating" style="margin:6px 0 0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:1;color:var(--s-para)"><span role="img" aria-label="{{ words.rated }} {{ block.settings.url.rating.value }} {{ words.out_of_five }}" style="position:relative;letter-spacing:1px;color:var(--s-border)">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ block.settings.url.rating.percent }}%;overflow:hidden;white-space:nowrap;color:{{ block.settings.url.rating.color | default: '#f5a623' }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><span>({{ block.settings.url.rating.count }})</span></p>{% endif %}
             {% if settings.show_price and (block.settings.price or block.settings.url.price) %}
               <p class="card__price">{{ block.settings.url.price | default: block.settings.price }}{% if block.settings.url.title %}{% if block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}{% elsif block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -182,7 +182,7 @@
     {% endif %}
     {# Pages of a long shop or collection: page.pagination (lib/products/catalog-filters.ts), only on the shop's own listing. #}
     {% if settings.source == 'shop' and page.pagination.pages > 1 %}
-      <nav class="pager" aria-label="Pages">
+      <nav class="pager" aria-label="{{ words.pages }}">
         {% if page.pagination.prev_url %}<a class="pager__step" href="{{ page.pagination.prev_url | url }}" rel="prev">{{ settings.prev_label | default: 'Previous' }}</a>{% endif %}
         <ol class="pager__list">
           {% for link in page.pagination.links %}

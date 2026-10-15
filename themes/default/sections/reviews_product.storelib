@@ -27,51 +27,51 @@
           {% if reviews.here.summary.count > 0 %}
             <p class="rv__avg">{{ reviews.here.summary.average_label }}</p>
             <div>
-              <span class="rv-stars rv-stars--lg" style="--rv: {{ reviews.here.summary.percent }}%;" role="img" aria-label="{{ reviews.here.summary.average_label }} out of 5 stars"></span>
-              <p class="rv__count">Based on {{ reviews.here.summary.count_label }}</p>
+              <span class="rv-stars rv-stars--lg" style="--rv: {{ reviews.here.summary.percent }}%;" role="img" aria-label="{{ reviews.here.summary.average_label }} {{ words.out_of_five_stars }}"></span>
+              <p class="rv__count">{{ words.based_on }} {{ reviews.here.summary.count }} {% if reviews.here.summary.count == 1 %}{{ words.review }}{% else %}{{ words.reviews }}{% endif %}</p>
             </div>
           {% else %}
-            <p class="rv__none">No reviews yet</p>
+            <p class="rv__none">{{ words.no_reviews_yet }}</p>
           {% endif %}
         </div>
         {% if settings.show_bars and reviews.here.summary.count > 0 %}
-          <ul class="rv__bars" aria-label="Reviews by rating">
+          <ul class="rv__bars" aria-label="{{ words.reviews_by_rating }}">
             {% for b in reviews.here.summary.bars %}<li><span class="rv__bar-n">{{ b.stars }}<span aria-hidden="true"> &#9733;</span></span><span class="rv__bar"><span style="width: {{ b.percent }}%;"></span></span><span class="rv__bar-c">{{ b.count }}</span></li>{% endfor %}
           </ul>
         {% endif %}
       {% endif %}
     </div>
 
-    <p class="rv-note" id="review-posted">Thanks. Your review is up.</p>
-    <p class="rv-note" id="review-waiting">Thanks. Your review shows once the store has read it.</p>
-    <p class="rv-note" id="review-check-email">Thanks. Check your email and open the link in it to post your review.</p>
-    <p class="rv-note rv-note--error" id="review-error">That didn't go through. Check the form and try again.</p>
+    <p class="rv-note" id="review-posted">{{ words.review_posted }}</p>
+    <p class="rv-note" id="review-waiting">{{ words.review_waiting }}</p>
+    <p class="rv-note" id="review-check-email">{{ words.review_check_email }}</p>
+    <p class="rv-note rv-note--error" id="review-error">{{ words.review_error }}</p>
 
     {% if settings.show_write and reviews.can_write and reviews.here.scope == 'product' %}
       <details class="rv-write">
-        <summary class="rv-btn">Write a review</summary>
+        <summary class="rv-btn">{{ words.write_a_review }}</summary>
         <form class="rv-form" method="post" action="{{ reviews.form_action }}" enctype="multipart/form-data" data-storelib-form="native">
           <input type="hidden" name="productId" value="{{ reviews.here.product_id }}">
           <fieldset class="rv-form__rate">
-            <legend>Your rating</legend>
+            <legend>{{ words.your_rating }}</legend>
             <div class="rv-rate">
-              <input type="radio" id="rv-r5" name="rating" value="5" required><label for="rv-r5" title="5 stars"><span class="sr">5 stars</span></label>
-              <input type="radio" id="rv-r4" name="rating" value="4"><label for="rv-r4" title="4 stars"><span class="sr">4 stars</span></label>
-              <input type="radio" id="rv-r3" name="rating" value="3"><label for="rv-r3" title="3 stars"><span class="sr">3 stars</span></label>
-              <input type="radio" id="rv-r2" name="rating" value="2"><label for="rv-r2" title="2 stars"><span class="sr">2 stars</span></label>
-              <input type="radio" id="rv-r1" name="rating" value="1"><label for="rv-r1" title="1 star"><span class="sr">1 star</span></label>
+              <input type="radio" id="rv-r5" name="rating" value="5" required><label for="rv-r5" title="5 {{ words.stars }}"><span class="sr">5 {{ words.stars }}</span></label>
+              <input type="radio" id="rv-r4" name="rating" value="4"><label for="rv-r4" title="4 {{ words.stars }}"><span class="sr">4 {{ words.stars }}</span></label>
+              <input type="radio" id="rv-r3" name="rating" value="3"><label for="rv-r3" title="3 {{ words.stars }}"><span class="sr">3 {{ words.stars }}</span></label>
+              <input type="radio" id="rv-r2" name="rating" value="2"><label for="rv-r2" title="2 {{ words.stars }}"><span class="sr">2 {{ words.stars }}</span></label>
+              <input type="radio" id="rv-r1" name="rating" value="1"><label for="rv-r1" title="1 {{ words.star }}"><span class="sr">1 {{ words.star }}</span></label>
             </div>
           </fieldset>
-          <label class="rv-form__f"><span>Title <span class="rv-form__opt">(optional)</span></span><input name="title" maxlength="120"></label>
-          <label class="rv-form__f">Your review<textarea name="content" rows="4" required minlength="2" maxlength="2000"></textarea></label>
+          <label class="rv-form__f"><span>{{ words.review_title }} <span class="rv-form__opt">{{ words.optional }}</span></span><input name="title" maxlength="120"></label>
+          <label class="rv-form__f">{{ words.your_review }}<textarea name="content" rows="4" required minlength="2" maxlength="2000"></textarea></label>
           <div class="rv-form__two">
-            <label class="rv-form__f">Name<input name="name" required maxlength="40" autocomplete="given-name"></label>
-            <label class="rv-form__f">Email<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
+            <label class="rv-form__f">{{ words.your_name }}<input name="name" required maxlength="40" autocomplete="given-name"></label>
+            <label class="rv-form__f">{{ words.email }}<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
           </div>
-          {% if reviews.photos_allowed %}<label class="rv-form__f"><span>Photos <span class="rv-form__opt">(optional, up to 4)</span></span><input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>{% endif %}
+          {% if reviews.photos_allowed %}<label class="rv-form__f"><span>{{ words.photos }} <span class="rv-form__opt">{{ words.optional_up_to_four }}</span></span><input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>{% endif %}
           <div class="rv-hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
-          <p class="rv-form__note">Only your first name and last initial are shown. Your email is not.</p>
-          <button class="rv-btn" type="submit">Post review</button>
+          <p class="rv-form__note">{{ words.review_privacy }}</p>
+          <button class="rv-btn" type="submit">{{ words.post_review }}</button>
         </form>
       </details>
     {% endif %}
@@ -81,34 +81,34 @@
         {% for r in reviews.here.items limit: settings.per_page %}
           <article class="rv-card" data-review-id="{{ r.id }}">
             <div class="rv-card__top">
-              <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>
+              <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
               {% if reviews.show_date %}<span class="rv-card__date">{{ r.date }}</span>{% endif %}
             </div>
             {% if r.title %}<h3 class="rv-card__title">{{ r.title }}</h3>{% endif %}
             <p class="rv-card__body">{{ r.body }}</p>
-            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
-            <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">Verified buyer</span>{% endif %}</p>
-            {% if reviews.here.scope == 'shop' and r.product_title %}<p class="rv-card__product">On {% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}{{ r.product_title }}{% endif %}</p>{% endif %}
-            {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">Reply from {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
+            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
+            <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>
+            {% if reviews.here.scope == 'shop' and r.product_title %}<p class="rv-card__product">{{ words.review_on }} {% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}{{ r.product_title }}{% endif %}</p>{% endif %}
+            {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">{{ words.reply_from }} {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
           </article>
         {% endfor %}
       </div>
       {% if reviews.here.items.size > settings.per_page %}
         <details class="rv-more">
-          <summary class="rv-btn rv-btn--quiet">Show more reviews</summary>
+          <summary class="rv-btn rv-btn--quiet">{{ words.show_more_reviews }}</summary>
           <div class="rv__list rv__list--{{ settings.layout }}">
             {% for r in reviews.here.items offset: settings.per_page %}
               <article class="rv-card" data-review-id="{{ r.id }}">
                 <div class="rv-card__top">
-                  <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>
+                  <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
                   {% if reviews.show_date %}<span class="rv-card__date">{{ r.date }}</span>{% endif %}
                 </div>
                 {% if r.title %}<h3 class="rv-card__title">{{ r.title }}</h3>{% endif %}
                 <p class="rv-card__body">{{ r.body }}</p>
-                {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
-                <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">Verified buyer</span>{% endif %}</p>
-                {% if reviews.here.scope == 'shop' and r.product_title %}<p class="rv-card__product">On {% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}{{ r.product_title }}{% endif %}</p>{% endif %}
-                {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">Reply from {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
+                {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
+                <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>
+                {% if reviews.here.scope == 'shop' and r.product_title %}<p class="rv-card__product">{{ words.review_on }} {% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}{{ r.product_title }}{% endif %}</p>{% endif %}
+                {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">{{ words.reply_from }} {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
               </article>
             {% endfor %}
           </div>

@@ -174,7 +174,7 @@ import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
 import { ColorSchemeControl } from "@/components/website-builder/editor/controls/color-scheme-control"
-import { localizeCards, localizeMenus, localizeOptions, localizeSections, localizeTheme } from "@/lib/markets/translate"
+import { localizeCards, localizeMenus, localizeOptions, localizeRecord, localizeSections, localizeTheme } from "@/lib/markets/translate"
 import { pricesInMarket, storefrontDisplay, type StorefrontDisplay } from "@/lib/markets/pricing"
 import { languageChoiceOf } from "@/lib/markets/choice"
 import { chargeCurrencyFor } from "@/lib/markets/checkout-charge"
@@ -190,6 +190,8 @@ import type { PickerCollection, PickerCommunity } from "@/components/website-bui
 type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
 /** And about their collections: every one to pick, the published ones as a section reads them. */
 type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
+/** The theme settings schema's fields, so a setting never set (the cookie banner's sentence) is drawn translated, as on the website (lib/markets/live.ts). */
+const THEME_TEXT_FIELDS = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? [])
 
 /** An imported Shopify theme's pages, by the theme's own names for its templates, in the order a shop reads. */
 const COMPAT_PAGE_NAMES: [string, string, string][] = [
@@ -7987,16 +7989,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }),
     [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
   )
+  /*
+    THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
+    the page switcher): the approved translations laid over the page, its
+    menus and its products, as /fr draws them on the website. Drawn only;
+    what is edited and saved is always the website's own language. Read
+    before the page's product and shop facts below, which are drawn in it too.
+  */
+  const previewLang = usePreviewLanguage(installId)
+  const previewMap = previewLang.map
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
-    const p = (selectedProductId ? products.find((x) => x.id === selectedProductId) : undefined) ?? products.find((x) => x.title === selectedProductPage) ?? products[0]
+    const found = (selectedProductId ? products.find((x) => x.id === selectedProductId) : undefined) ?? products.find((x) => x.title === selectedProductPage) ?? products[0]
+    /* Its title and description in the language previewed, as the live product page lays them over (lib/markets/live.ts product). */
+    const p = found && previewMap ? localizeRecord(found as unknown as Record<string, unknown>, `product:${found.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof found : found
     return p
       ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included, faqs: p.faqs })
       : null
-  }, [currentPage, products, selectedProductPage, selectedProductId])
+  }, [currentPage, products, selectedProductPage, selectedProductId, previewMap])
   const canvasDynamic = useMemo(
     () => dynamicContext({
-      theme: activeThemeSettings,
+      /* The brand headline, description and search engine text a placeholder fills in, in the language previewed, as the live site's theme is (localizeTheme). */
+      theme: previewMap ? localizeTheme(activeThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true, fresh: true }, THEME_TEXT_FIELDS) : activeThemeSettings,
       creator: creatorFacts,
       siteUrl: websiteUrl,
       productCount: products.length,
@@ -8004,18 +8018,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       pageTitle: pageTitleFromKey(currentPage),
       template: templateForPage(currentPage),
     }),
-    [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
+    [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage, previewMap],
   )
   /* Storelib Reviews: a page with a review section draws the store's reviews, or samples (components/website-builder/use-canvas-reviews.ts). */
   const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_") || (s.type === "product" && (s.blocks ?? []).some((b) => b.type === "rating"))), previewedProduct?.id ?? null)
-  /*
-    THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
-    the page switcher): the approved translations laid over the page, its
-    menus and its products, as /fr draws them on the website. Drawn only;
-    what is edited and saved is always the website's own language.
-  */
-  const previewLang = usePreviewLanguage(installId)
-  const previewMap = previewLang.map
   /*
     AND WITH PRICES IN A MARKET'S CURRENCY (the same button): every price
     the page draws converted, rounded and written as a visitor in that
@@ -8110,14 +8116,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [previewMarket.saved, previewMarket.options, previewMarket.base, previewMarket.home.country, previewPricing, previewCountry, previewLang.defaultLanguage, switchLanguages, pickInTheme])
   /* The theme's settings as the website draws them in the language and the market: its menus translated (the header's and footer's links), and the currency a section reads as theme.currency.code. */
   const canvasThemeShown = useMemo(() => {
-    const localized = previewMap ? (localizeTheme(canvasThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true, fresh: true }) as ThemeSettingsValues) : canvasThemeSettings
+    const localized = previewMap ? (localizeTheme(canvasThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true, fresh: true }, THEME_TEXT_FIELDS) as ThemeSettingsValues) : canvasThemeSettings
     return previewPricing ? ({ ...localized, [DISPLAY_CURRENCY_KEY]: previewPricing.currency } as ThemeSettingsValues) : localized
   }, [canvasThemeSettings, previewMap, previewPricing])
   const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
   const catalogCardsShown = useMemo(() => cardsInMarket(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true })), [catalogCardsForCanvas, previewMap, cardsInMarket])
+  /* Each collection's name and description in the language previewed, and its products as the page's cards, as the live site's dressPage draws them. */
+  const collectionCardsShown = useMemo(() => {
+    const cards = builderCollections?.cards
+    if (!cards || (!previewMap && !previewPricing)) return cards
+    return Object.fromEntries(
+      Object.entries(cards).map(([id, c]) => [
+        id,
+        {
+          ...(previewMap ? (localizeRecord(c as unknown as Record<string, unknown>, `collection:${c.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof c) : c),
+          products: cardsInMarket(localizeCards(c.products as unknown as ProductCard[], previewMap, { approvedOnly: true, fresh: true })) as unknown as typeof c.products,
+        },
+      ]),
+    )
+  }, [builderCollections, previewMap, previewPricing, cardsInMarket])
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
-    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderCollections, canvasReviews],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, words: previewLang.words }),
+    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
@@ -8136,7 +8156,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             drawnSections,
             previewMap,
             (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
-            (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields,
+            /* The section's own blocks, else the theme's (a heading in a Blocks section), as the website lays them over (custom-schemas.ts textFieldsFrom). */
+            (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields ?? blockCatalog[bt]?.fields,
             { approvedOnly: true, fresh: true },
           ).map((s) => {
             /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx). */
@@ -8145,7 +8166,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           })
         : drawnSections,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawnSections, previewMap, storelibSources, librarySchemas],
+    [drawnSections, previewMap, storelibSources, librarySchemas, blockCatalog],
   )
   /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
   /* The product's real stars for the Star rating block, as the website hands them over (lib/reviews/storefront.ts productRating): none while it has only sample reviews. */

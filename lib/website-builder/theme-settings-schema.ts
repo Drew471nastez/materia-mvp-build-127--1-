@@ -339,7 +339,7 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       },
       { id: "badge_radius", label: "Corner radius", type: "range", min: 0, max: 40, step: 1, default: 40, unit: "px" },
       { id: "badge_sale_show", label: "Show Sale on discounted products", type: "toggle", default: true },
-      { id: "badge_sale_text", label: "Sale label", type: "text", placeholder: "Sale" },
+      { id: "badge_sale_text", label: "Sale label", type: "text", placeholder: "Sale", default: "Sale" },
       { id: "badge_sale_bg", label: "Sale background", type: "color", default: "#dc2626" },
       { id: "badge_sale_color", label: "Sale text", type: "color", default: "#ffffff" },
       { id: "badge_soldout_bg", label: "Sold out background", type: "color", default: "#1a1a2e" },

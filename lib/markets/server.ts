@@ -24,10 +24,9 @@ import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { pageSections } from "@/lib/website-builder/preview-link"
 import { sectionSources } from "@/lib/website-builder/storefront-render"
-import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
-import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { textFieldsFrom } from "@/lib/website-builder/custom-schemas"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
-import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
+import type { SectionInstance } from "@/lib/website-builder/types"
 import { defaultLocalization, validateLocalization, type Localization } from "./model"
 import { normalizeLocale } from "./locales"
 import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, optionTranslatables, themeWordKey, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
@@ -346,9 +345,8 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     ])
     const themeRow = themeRead?.data as { settings?: Record<string, unknown> | null; draft_settings?: Record<string, unknown> | null } | null
     const themeValues = (chosen.status === "published" ? themeRow?.settings : (themeRow?.draft_settings ?? themeRow?.settings)) ?? null
-    const lookup = schemaLookupFrom(sources) ?? ((t: string) => SECTION_SCHEMAS[t])
-    let fieldsOf = (t: string) => lookup(t)?.fields
-    let blockFieldsOf = (st: string, bt: string) => (lookup(st) as SectionSchema | undefined)?.blocks?.find((b) => b.type === bt)?.fields
+    /* A section's own blocks and the theme's (a heading in a Blocks section), as the live site lays them over (live.ts). */
+    let { fieldsOf, blockFieldsOf } = textFieldsFrom(sources)
     /* A theme imported from Shopify: its texts read with its own section and block schemas (lib/markets/compat.ts), as the live website lays them over. */
     if (compatOf(themeValues)) {
       const files = await installFiles(db, chosen.id, chosen.status !== "published").catch(() => null)

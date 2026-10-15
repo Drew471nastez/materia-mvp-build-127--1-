@@ -83,7 +83,7 @@ export function editorGlobals(template: string, products: Card[], now = Date.now
 export function editorPageExtras(template: string, products: Card[], data?: StorefrontData): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   if (template === "page.products" || template === "page.search") {
-    out.filters = catalogPage(products as never, {}, template === "page.search" ? "/search" : "/products").filters
+    out.filters = catalogPage(products as never, {}, template === "page.search" ? "/search" : "/products", { words: data?.words }).filters
   }
   out.breadcrumbs = breadcrumbTrail({ template, product: data?.product ?? null, title: template.startsWith("page") ? "This page" : null })
   return out

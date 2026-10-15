@@ -41,8 +41,11 @@ export function SiteNotFound({ fallback }: { fallback: ReactNode }) {
       setPlain(true)
     }
     const timer = window.setTimeout(giveUp, WAIT_MS)
+    const ask = (path: string) => fetch(path, { headers: { accept: "application/json" }, credentials: "omit" }).then((r) => (r.ok ? r.json() : null))
+    /* At /fr/…, the page in French (/fr/not_found); an address that only looks like a language answers nothing there, and the website's own is asked. */
+    const lang = window.location.pathname.match(/^\/([a-z]{2,3}(?:-[a-z0-9]{2,8})*)(?:\/|$)/i)?.[1]
     Promise.all([
-      fetch("/not_found", { headers: { accept: "application/json" }, credentials: "omit" }).then((r) => (r.ok ? r.json() : null)),
+      (lang ? ask(`/${lang}/not_found`).catch(() => null) : Promise.resolve(null)).then((d) => (isPayload(d) ? d : ask("/not_found"))),
       import("@/components/website-builder/site-not-found-page"),
     ])
       .then(([data, mod]) => {

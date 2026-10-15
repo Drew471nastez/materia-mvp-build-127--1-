@@ -333,6 +333,8 @@ export function storefrontData(input: {
   collections?: StorefrontData["collections"]
   /** Storelib Reviews for the page (lib/reviews/storefront.ts); absent means none. */
   reviews?: StorefrontData["reviews"]
+  /** The shop's own words in the page's language (lib/markets/ui-words.ts); absent, English. */
+  words?: StorefrontData["words"]
 }): StorefrontData {
   return {
     catalog: input.catalog,
@@ -340,6 +342,7 @@ export function storefrontData(input: {
     ...(input.communities ? { communities: input.communities } : {}),
     ...(input.collections ? { collections: input.collections } : {}),
     ...(input.reviews ? { reviews: input.reviews } : {}),
+    ...(input.words && Object.keys(input.words).length ? { words: input.words } : {}),
     shop: input.dynamic.shop,
     creator: input.dynamic.creator,
     product: input.dynamic.product ?? null,

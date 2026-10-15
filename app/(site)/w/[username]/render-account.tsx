@@ -104,7 +104,8 @@ export async function renderAccountPage(
   const linked = pageWithLiveLinks(base, new Set(Object.keys(published.pages)))
   const template = templateForPage(key)
   /* In the page's language: its texts, the header and footer, the shop's own words and the language switch (lib/markets/live.ts). */
-  const [localizer, language] = extras.lang ? await Promise.all([siteLocalizer(published.creatorId, extras.lang.locale, extras.lang.market), languageChoice(published.creatorId, extras.lang.locale, extras.lang.market)]) : [null, undefined]
+  /* A page with no language of its own (reviews, password) is still drawn in the website's default language's translations. */
+  const [localizer, language] = await Promise.all([siteLocalizer(published.creatorId, extras.lang?.locale ?? null, extras.lang?.market ?? null).catch(() => null), extras.lang ? languageChoice(published.creatorId, extras.lang.locale, extras.lang.market) : undefined])
   /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
   const site = localizer ? { ...published, themeSettings: localizer.theme(published.themeSettings as Record<string, unknown>) as typeof published.themeSettings } : published
   const shown = localizer ? localizer.sections(linked, site.sources) : linked
