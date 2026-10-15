@@ -35,7 +35,8 @@ console.log("\nTHE GLASS: thinner, and on the compositor")
   check("in on a spring that runs a hair past whole, out on a calm ease out", /const LENS_SPRING = "cubic-bezier\(0\.3, 1\.32, 0\.5, 1\)"/.test(bar) && /const LENS_OUT = `\$\{LENS_OUT_MS\}ms cubic-bezier\(0\.32, 0\.72, 0, 1\)`/.test(bar) && /const LENS_REST = 0\.9/.test(bar))
   check("a tap holds it long enough to arrive", /export const LENS_HOLD_MS = 200/.test(bar) && /const shows = lit \|\| holding/.test(bar) && /setTimeout\(\(\) => setHolding\(false\), LENS_HOLD_MS\)/.test(bar) && /window\.clearTimeout\(holdTimer\.current\)/.test(bar))
   check("changing slot it is moved unseen, then comes in", /transition: arriving\s*\?\s*`\$\{NO_TRAVEL\}, scale 0s, opacity 0s, transform 0s`/.test(lensEl) && /opacity: shows && !arriving \? \(slide\.following \? LENS_DRAG_STRENGTH : LENS_TAP_STRENGTH\) : 0,/.test(lensEl))
-  check("the drop settles in one wobble: damping 13 on the same stiffness", /const DROP_SPRING = \{ stiffness: 360, damping: 13 \}/.test(lens))
+  /* Changed on purpose (round 31): 600 and 30, tighter, because the follow spring carries the give now (tests/app-mobile-nav.test.ts). */
+  check("the drop settles in at most one soft wobble: 0.61 of critical", /const DROP_SPRING = \{ stiffness: 600, damping: 30 \}/.test(lens))
   /* Changed on purpose (round 30): fainter in the dark, and no glass on a tap there. */
   check("the dark look's glass: a few per cent of white and a faint hairline, never a white highlight", /--sl-tab-lens: rgba\(255,255,255,0\.045\);/.test(gen) && /--sl-tab-lens-sheen: linear-gradient\(180deg, rgba\(255,255,255,0\.05\)/.test(gen) && /--sl-tab-lens-tap: 0;/.test(gen) && /--sl-tab-lens-edge: inset 0 0\.5px 0 rgba\(255,255,255,0\.1\)/.test(gen))
   check("and the generated sheet carries them (node scripts/gen-theme-dark.mjs)", /--sl-tab-lens: rgba\(255,255,255,0\.045\);/.test(dark) && /--sl-tab-lens-sheen:/.test(dark) && /--sl-tab-lens-edge:/.test(dark))

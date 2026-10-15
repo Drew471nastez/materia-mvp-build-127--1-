@@ -2181,7 +2181,10 @@ console.log(`              stretched to ${glass.widestStretch}x its width, lande
 console.log(`              the glyphs' centres moved ${glass.glyphMovedPx}px at most; the links' opacity never went below ${glass.linkOpacityMin}`)
 console.log(`              the icon touched gave to ${glass.pulse.min}x, sprang to ${glass.pulse.max}x and rested at ${glass.pulse.end}x; the others changed size by ${glass.othersResizedPx}px\n`)
 must(glass.trackedFrames >= 5, "the slide was long enough to read the tracking", `only ${glass.trackedFrames} frames of it`)
-must(glass.trackingMedianPx <= 1, "under a finger the lens is where the finger is, one to one",
+/* Changed on purpose (round 31): "too solid ... more like liquid iOS". The lens chases the finger on a critically damped
+   spring (components/nav/tab-lens.tsx FOLLOW_SPRING), a few pixels behind a moving finger rather than one to one; the
+   worst case below is unchanged. scripts/check-lens-round31.mjs measures the follow at three speeds. */
+must(glass.trackingMedianPx <= 5, "under a finger the lens follows the finger closely, a few pixels behind it on a spring",
   `it was ${glass.trackingMedianPx}px from the finger at the median`)
 must(glass.trackingWorstPx <= 7, "and never more than a frame of the finger's own travel behind it",
   `it was ${glass.trackingWorstPx}px behind at worst`)
@@ -2192,8 +2195,10 @@ must(glass.widestStretch >= 1.05 && glass.widestStretch <= 1.16, "it stretches a
   `it was ${glass.widestStretch}x as wide as it is round`)
 if (glass.trace) console.log(glass.trace)
 console.log(`              the drop's own shape: ${glass.squash.widest}x at its widest, ${glass.squash.narrowest}x at its narrowest once the finger stopped, ${glass.squash.last}x at rest`)
-must(glass.squash.narrowest < 0.998 && glass.squash.narrowest >= 0.97 && glass.squash.last === 1,
-  "and when the finger stops it runs on into a slight squash and settles round, like a drop, not a stamp",
+/* Changed on purpose (round 31): the drop's spring is tighter (0.61 of critical), so a slow stop like this one relaxes
+   straight back to round, and a fast one leaves at most a soft squash of under 1% (scripts/check-lens-round31.mjs). */
+must(glass.squash.narrowest <= 1 && glass.squash.narrowest >= 0.985 && glass.squash.last === 1,
+  "and when the finger stops it relaxes back to round, at most a soft squash on the way, not a stamp",
   `narrowest ${glass.squash.narrowest}x after the finger stopped, ${glass.squash.last}x at rest`)
 console.log(`  a flick     released at speed 18px past Products\u0027 centre: went to ${flick.went}, landed on slot ${flick.landedSlot + 1} ${flick.landedOffPx}px off its centre`)
 console.log(`              ${flick.pastSlotPx}px past it, still after ${flick.settledMs}ms, widest ${flick.widest}x, biggest step after the lift ${flick.stepAfter}px\n`)
