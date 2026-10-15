@@ -25,8 +25,8 @@
  *             its full colour while it waits, the sheet goes down over many
  *             frames, the page then glides up (no frame jumps more than a
  *             quarter of the way), and the post lands with its highlight
- *   SOUND     the post's chime rendered offline: quiet, about half a second,
- *             no click at its start, no noise
+ *   (SOUND, the post's chime, is measured in check-composer-round30.mjs
+ *   since round 30 made it one soft pop)
  *
  *   PROBE_CSS=source node scripts/check-composer-round29.mjs [part ...]
  *   SHOTS_DIR=/tmp/r29 to keep the pictures somewhere chosen (a temp folder otherwise, printed at the end)
@@ -649,38 +649,7 @@ export const isNativePlatform = () => false
     await p.close()
   }
 
-  if (want("SOUND")) {
-    console.log("\nSOUND: the post's chime, rendered offline")
-    const { p, errors } = await open(DESK)
-    const m = await p.evaluate(async () => {
-      const { postChime } = window.__chime
-      const rate = 48000
-      const ctx = new OfflineAudioContext(1, rate, rate)
-      const end = postChime(ctx, 0, ctx.destination)
-      const buf = await ctx.startRendering()
-      const d = buf.getChannelData(0)
-      let peak = 0
-      let sum = 0
-      let lastLoud = 0
-      let crossings = 0
-      for (let i = 0; i < d.length; i++) {
-        const v = Math.abs(d[i])
-        peak = Math.max(peak, v)
-        sum += d[i] * d[i]
-        if (v > 0.0005) lastLoud = i
-        if (i && Math.sign(d[i]) !== Math.sign(d[i - 1])) crossings++
-      }
-      let first5 = 0
-      for (let i = 0; i < rate * 0.005; i++) first5 = Math.max(first5, Math.abs(d[i]))
-      return { peak: +peak.toFixed(4), rms: +Math.sqrt(sum / d.length).toFixed(5), audibleMs: Math.round((lastLoud / rate) * 1000), endMs: Math.round(end * 1000), first5ms: +first5.toFixed(4), crossingsPerSec: crossings }
-    })
-    expect(m.peak > 0.01 && m.peak < 0.06, "quiet: its peak well under a like's", m.peak)
-    expect(m.audibleMs >= 300 && m.audibleMs <= 600, "about half a second", m.audibleMs)
-    expect(m.first5ms < m.peak * 0.6, "no click at its start (a 12ms rise)", m)
-    expect(m.crossingsPerSec < 4000, "tonal, not noise (zero crossings a second)", m.crossingsPerSec)
-    expect(errors.length === 0, "no page errors", errors)
-    await p.close()
-  }
+  /* SOUND moved to scripts/check-composer-round30.mjs (round 30: the chime became one soft pop). */
 
   await browser.close()
 } finally {

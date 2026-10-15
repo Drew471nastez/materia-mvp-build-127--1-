@@ -140,7 +140,7 @@
  *   THE SPACE'S GLYPH beside its name in the space picker (space-glyph.ts).
  */
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { flushSync } from "react-dom"
 import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Paperclip, Plus, X } from "lucide-react"
@@ -168,6 +168,7 @@ import { spaceGlyph } from "./space-glyph"
 import { toast } from "./toast"
 import { BTN, BTN_GHOST, BTN_PRIMARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
 import { hapticTap } from "@/lib/native-bridge"
+import { tt } from "@/lib/i18n/text"
 import { MEMBER_VIDEO_MAX_BYTES } from "@/lib/video/types"
 import type { ComposerSpace, LinkPreview } from "./view-types"
 import { useComposeRequests } from "@/lib/communities/client/compose-intent"
@@ -464,6 +465,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const [title, setTitle] = useState(was?.title ?? "")
   const [body, setBody] = useState(was?.bodyText ?? "")
   const [spaceId, setSpaceId] = useState<string | null>(was ? (was.space?.id ?? null) : (fixedSpaceId ?? (spaces.length === 1 ? spaces[0].id : null)))
+  /* Round 30: Post was pressed before a space was chosen; the picker says so until one is. */
+  const [spaceAsk, setSpaceAsk] = useState(false)
+  const spaceOpener = useRef<(() => void) | null>(null)
+  const hintId = useId()
+  if (spaceAsk && (spaceId || !open)) setSpaceAsk(false)
   const [poll, setPoll] = useState<PollDraft | null>(() => pollDraftOf(was?.poll ?? null))
   const [items, setItems] = useState<Attachment[]>(() => (was ? was.media.filter((m) => m.type !== "link").map((m, i) => attachmentOf(m, `kept-${i}`)) : []))
   const [preview, setPreview] = useState<LinkPreview | null>(wasLink ? { url: wasLink.url, title: wasLink.title ?? null, image: wasLink.image ?? null, site: null } : null)
@@ -697,6 +703,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const pollReady = !poll || (poll.question.trim() && poll.options.filter((o) => o.trim()).length >= 2)
   const space = spaces.find((s) => s.id === spaceId) ?? null
   const ready = !!title.trim() && !!body.trim() && !!spaceId && !uploading && !items.some((u) => u.error) && !!pollReady
+  /* What Post says it is waiting for, when that is only the space (round 30). */
+  const why = !ready && title.trim() && body.trim() && !spaceId ? tt("Choose a space first") : undefined
   const nudgeRing = (el: HTMLElement | null) => {
     if (!el || typeof el.animate !== "function") return
     el.animate(
@@ -717,10 +725,26 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       return
     }
     if (!spaceId) {
-      /* On a phone the picker is on the screen (portalled), not in the card. */
+      /*
+        NO SPACE YET (round 30, the owner: "pressing Post does nothing"). The faint ring alone was not seen. Now the picker
+        gives one soft shake (a translate only, on the compositor; none for reduced motion), takes an amber ring and a short
+        line beside it ("Choose a space first"), and opens once the shake has settled, so the next step is in front of them.
+        Post itself stays as it was: it says why in its label, never greyed out.
+        On a phone the picker is on the screen (portalled), not in the card.
+      */
       const btn = (sheetRef.current ?? cardRef.current)?.querySelector<HTMLButtonElement>("button[data-composer-space]") ?? null
-      nudgeRing(btn)
+      setSpaceAsk(true)
+      const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (btn && !still && typeof btn.animate === "function") {
+        btn.animate(SPACE_SHAKE, { duration: SPACE_SHAKE_MS, easing: "cubic-bezier(0.36, 0.07, 0.19, 0.97)" })
+      }
       btn?.focus({ preventScroll: true })
+      window.setTimeout(
+        () => {
+          if (openRef.current) spaceOpener.current?.()
+        },
+        still ? 0 : SPACE_SHAKE_MS + 60,
+      )
       return
     }
     if (!pollReady) {
@@ -1222,9 +1246,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   const spacePicker =
     !fixedSpaceId && spaces.length > 1 ? (
+      <span className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-y-1.5">
       <ResponsiveActionMenu
         title="Post in"
         align="start"
+        opener={spaceOpener}
         items={spaces.map((s) => ({
           label: s.name,
           icon: (
@@ -1237,8 +1263,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         trigger={
           <button
             type="button"
-            className={`inline-flex h-10 max-w-[200px] shrink-0 items-center gap-1 rounded-[10px] ${DEPTH} ${DEPTH_PRESS} px-3 text-[14px] font-medium outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 ${space ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
+            className={`inline-flex h-10 max-w-[200px] shrink-0 items-center gap-1 rounded-[10px] ${DEPTH} ${DEPTH_PRESS} px-3 text-[14px] font-medium outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 sm:h-9 ${space ? "text-[#1a1a2e]" : "text-[#6b7280]"} ${spaceAsk ? "ring-2 ring-[#d97706]/35" : "focus-visible:ring-[#1a1a2e]/15"}`}
             data-composer-space={space ? space.id : ""}
+            data-composer-space-ask={spaceAsk ? "" : undefined}
+            aria-describedby={spaceAsk ? hintId : undefined}
           >
             {space ? (
               <span aria-hidden className="shrink-0 text-[13px] leading-none" data-space-glyph="">
@@ -1250,6 +1278,15 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           </button>
         }
       />
+      {/* Always there, so a screen reader hears the line when it is written into it. Beside the picker when there is room, under it on a narrow phone (never cut short). */}
+      <span aria-live="polite" className="min-w-0 max-w-full">
+        {spaceAsk ? (
+          <span ref={hintIn} id={hintId} className="ml-2 block truncate text-[13px] font-medium text-[#b45309]" data-composer-space-hint="">
+            {tt("Choose a space first")}
+          </span>
+        ) : null}
+      </span>
+      </span>
     ) : space ? (
       <span className="inline-flex min-w-0 items-center gap-1.5 truncate px-2 text-[14px] font-medium text-[#4b5563]" data-composer-space={space.id}>
         <span aria-hidden className="shrink-0 text-[13px] leading-none" data-space-glyph="">
@@ -1383,7 +1420,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           <button type="button" className={CANCEL_BTN} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
             Cancel
           </button>
-          <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} label={actionLabel} />
+          <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} label={actionLabel} why={why} />
         </div>
       </div>
     </div>
@@ -1448,7 +1485,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                 </button>
                 <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{editing ? "Edit post" : "New post"}</span>
                 {/* Round 29: Post keeps the caret through the press too, so the keyboard goes down with the sheet, in one move. */}
-                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} keepCaret />
+                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} keepCaret why={why} />
               </div>
             </div>
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="" data-composer-filled={filled ? "" : undefined}>
@@ -1457,7 +1494,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                   <div className="mb-3 flex min-w-0 items-center gap-2">
                     <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={32} />
                     <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
-                    <span className="min-w-0">{spacePicker}</span>
+                    <span className="flex min-w-0">{spacePicker}</span>
                   </div>
                   {fields}
                 </>
@@ -1484,7 +1521,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
  * is never `disabled` (it says so to assistive tech with aria-disabled and
  * ignores a press), so nothing dims or jumps while it waits.
  */
-function PostButton({ busy, sent, ready, onClick, className = "", label = "Post", keepCaret = false }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string; label?: "Post" | "Save"; keepCaret?: boolean }) {
+function PostButton({ busy, sent, ready, onClick, className = "", label = "Post", keepCaret = false, why }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string; label?: "Post" | "Save"; keepCaret?: boolean; why?: string }) {
   const face = (on: boolean) => `col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-200 ease-out motion-reduce:transition-none ${on ? "opacity-100" : "opacity-0"}`
   const state = sent ? "sent" : busy ? "busy" : "idle"
   const said = label === "Save" ? { sent: "Saved", busy: "Saving" } : { sent: "Posted", busy: "Posting" }
@@ -1498,7 +1535,7 @@ function PostButton({ busy, sent, ready, onClick, className = "", label = "Post"
         if (state === "idle") onClick()
       }}
       aria-disabled={state !== "idle" || undefined}
-      aria-label={sent ? said.sent : busy ? said.busy : !ready ? `${label}: add what's missing` : undefined}
+      aria-label={sent ? said.sent : busy ? said.busy : !ready ? `${label}: ${why ?? "add what's missing"}` : undefined}
       data-composer-post=""
       data-post-state={state}
       data-post-ready={ready ? "true" : "false"}
@@ -1517,6 +1554,26 @@ function PostButton({ busy, sent, ready, onClick, className = "", label = "Post"
       </span>
     </button>
   )
+}
+
+/**
+ * THE NO SPACE CUE (round 30). One soft shake of the space picker, side to side and settling, on translate only: about
+ * a third of a second, never more than 4px, so it reads as "here" and not as an error.
+ */
+const SPACE_SHAKE_MS = 340
+const SPACE_SHAKE: Keyframe[] = [
+  { translate: "0 0" },
+  { translate: "-4px 0", offset: 0.18 },
+  { translate: "3.5px 0", offset: 0.4 },
+  { translate: "-2px 0", offset: 0.62 },
+  { translate: "1px 0", offset: 0.8 },
+  { translate: "0 0" },
+]
+/** The line beside the picker fades in as it is written (opacity and a 3px slide; opacity only for reduced motion). */
+function hintIn(el: HTMLElement | null) {
+  if (!el || typeof el.animate !== "function") return
+  const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  el.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, translate: "-3px 0" }, { opacity: 1, translate: "0 0" }], { duration: 200, easing: "ease-out" })
 }
 
 /** The poll's fields: the Storelib field with its hairline and 1px shadow. */

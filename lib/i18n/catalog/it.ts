@@ -2096,6 +2096,7 @@ const words: Record<string, string> = {
  "Collapse sidebar": "Comprimi la barra laterale",
  "Ctrl": "Ctrl",
  "Expand sidebar": "Espandi la barra laterale",
+ "Choose a space first": "Scegli prima uno spazio",
  "Earlier visits": "Visite precedenti",
  "Earnings summary (CSV)": "Riepilogo guadagni (CSV)",
  "EasyPost": "EasyPost",
