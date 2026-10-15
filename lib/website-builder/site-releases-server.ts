@@ -40,7 +40,7 @@
  */
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { blobGroups, buildManifest, filesOf, readManifest, RELEASES_KEPT, sha256Hex, type ReleaseManifest, type ReleasePage } from "./site-releases"
+import { blobGroups, buildManifest, filesOf, readManifest, releaseList, RELEASES_KEPT, rollbackFailure, sha256Hex, type ReleaseListItem, type ReleaseManifest, type ReleasePage, type RollbackFailure } from "./site-releases"
 
 type DbError = { code?: string; message?: string } | null
 type Result<T = unknown> = { data: T; error: DbError }
@@ -323,5 +323,67 @@ export async function pruneReleases(db: Db, installId: string, keep = RELEASES_K
     return del.error ? 0 : doomed.length
   } catch {
     return 0
+  }
+}
+
+// ── Going back to one (SQL part 186) ────────────────────────────────────────
+
+export type ReleaseListResult = { available: false } | { available: true; releases: ReleaseListItem[] }
+
+/**
+ * A website's published versions, newest first, for Backups & Versions.
+ * `available: false` until parts 180 and 186 have both run (the list reads
+ * part 186's `restored_from`), so the list hides itself rather than offering
+ * a restore that cannot happen. Not noted as missing for the live website's
+ * reads (noteMissing): part 180 alone is enough for those. Throws when the
+ * database did not answer.
+ */
+export async function listReleases(db: Db, installId: string, installLive: boolean): Promise<ReleaseListResult> {
+  const [rows, live] = await Promise.all([
+    db
+      .from("site_releases")
+      .select("id, created_at, file_count, restored_from")
+      .eq("install_id", installId)
+      .order("created_at", { ascending: false })
+      .limit(RELEASES_KEPT) as Promise<Result<{ id: string; created_at: string; file_count: number | null; restored_from: string | null }[] | null>>,
+    db.from("site_live_releases").select("release_id").eq("install_id", installId).maybeSingle() as Promise<Result<{ release_id?: string | null } | null>>,
+  ])
+  if (rows.error) {
+    if (releasesMissing(rows.error)) return { available: false }
+    throw new Error(`releases: ${rows.error.message ?? rows.error.code ?? "the read failed"}`)
+  }
+  if (live.error && !releasesMissing(live.error)) throw new Error(`release pointer: ${live.error.message ?? live.error.code ?? "the read failed"}`)
+  return { available: true, releases: releaseList(rows.data ?? [], live.data?.release_id ?? null, installLive) }
+}
+
+export type RollbackResult =
+  | { ok: true; releaseId: string; wasLive: string[]; files: { path: string; content: string }[] }
+  | { ok: false; reason: RollbackFailure; detail: string }
+
+type RpcDb = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<Result> }
+
+/**
+ * An earlier release put live again, in one transaction
+ * (`rollback_site_release`, SQL part 186): its settings, pages and files
+ * written back into the live rows with the drafts cleared, this website
+ * switched live as Publish switches it, and the same manifest kept as a new
+ * release the website is pointed at. The rows and the pointer then say the
+ * same thing, so an edit afterwards that clears the pointer changes nothing
+ * a visitor sees. Under Publish's own lock, so the two wait for each other.
+ * Never throws.
+ */
+export async function rollbackRelease(db: RpcDb, input: { installId: string; creatorId: string; releaseId: string }): Promise<RollbackResult> {
+  try {
+    const r = await db.rpc("rollback_site_release", { p_install: input.installId, p_creator: input.creatorId, p_release: input.releaseId })
+    if (r.error) return { ok: false, reason: rollbackFailure(r.error), detail: r.error.message ?? r.error.code ?? "refused" }
+    const data = (r.data ?? {}) as { release_id?: unknown; was_live?: unknown; files?: unknown }
+    if (typeof data.release_id !== "string") return { ok: false, reason: "failed", detail: "no release id" }
+    const files = (Array.isArray(data.files) ? data.files : []).filter(
+      (f): f is { path: string; content: string } => !!f && typeof (f as { path?: unknown }).path === "string" && typeof (f as { content?: unknown }).content === "string",
+    )
+    const wasLive = (Array.isArray(data.was_live) ? data.was_live : []).filter((id): id is string => typeof id === "string")
+    return { ok: true, releaseId: data.release_id, wasLive, files }
+  } catch (e) {
+    return { ok: false, reason: "failed", detail: e instanceof Error ? e.message : String(e) }
   }
 }

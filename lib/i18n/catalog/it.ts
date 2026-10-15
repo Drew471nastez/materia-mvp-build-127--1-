@@ -5,6 +5,18 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Could not load published versions": "Impossibile caricare le versioni pubblicate",
+ "Could not restore this version": "Impossibile ripristinare questa versione",
+ "Published versions": "Versioni pubblicate",
+ "The newest 20 are kept.": "Vengono conservate le 20 più recenti.",
+ "No published versions yet.": "Ancora nessuna versione pubblicata.",
+ "Live now": "Online ora",
+ "Restored from an earlier version": "Ripristinata da una versione precedente",
+ "Restore this version": "Ripristina questa versione",
+ "Restore this version?": "Ripristinare questa versione?",
+ "Your website goes back to the version published on": "Il tuo sito torna alla versione pubblicata il",
+ "Your current draft will be replaced. A backup of it is saved first.": "La bozza attuale verrà sostituita. Prima ne viene salvato un backup.",
+ "This version goes live right away.": "Questa versione va online subito.",
  "  ·  not published yet": "  ·  non ancora pubblicata",
  " (buyer's reference {orderRef})": " (riferimento dell'acquirente {orderRef})",
  " (free for them)": " (gratis per loro)",

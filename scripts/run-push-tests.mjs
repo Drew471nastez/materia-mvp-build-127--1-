@@ -641,6 +641,8 @@ const SUITES = [
   "tests/publishing-cache.test.ts",
   /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
   "tests/site-releases.test.ts",
+  /* An earlier publish live again (SQL part 186) */
+  "tests/release-rollback.test.ts",
 ]
 
 /**
