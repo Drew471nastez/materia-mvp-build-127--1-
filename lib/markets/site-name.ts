@@ -10,6 +10,8 @@
  * split is never ambiguous.
  */
 
+import { knownCountry, readCountryCookie } from "./visitor-country"
+
 export const LOCALE_MARK = "~"
 
 /** The header the proxy names an imported theme's page language in (/fr/… → "fr"); stripped from every request that arrives with it. */
@@ -23,14 +25,16 @@ export const SITE_COUNTRY_HEADER = "x-storelib-site-country"
 
 /**
  * The country an imported theme's page is drawn for: the one the proxy
- * names (SITE_COUNTRY_HEADER), else the one picked in the theme
- * (sl_country), else where the connection is. "home", the store's own
+ * names (SITE_COUNTRY_HEADER), else the one chosen in a selector
+ * (`chosen`, the sl_country cookie's raw value, read by
+ * lib/markets/visitor-country.ts: a cookie from before choices were marked
+ * is no choice), else where the connection is. "home", the store's own
  * prices chosen, is no country: the page shows the store's own.
  */
 export function siteVisitorCountry(input: { chosen: string | null | undefined; told: string | null | undefined; seen: string | null | undefined }): string | null {
-  const two = (v: string | null | undefined) => (v && /^[A-Za-z]{2}$/.test(v) ? v.toUpperCase() : null)
-  if (input.chosen === "home") return null
-  return two(input.told) ?? two(input.chosen) ?? two(input.seen)
+  const { choice } = readCountryCookie(input.chosen)
+  if (choice === "home") return null
+  return knownCountry(input.told) ?? choice ?? knownCountry(input.seen)
 }
 
 /** A market id as the settings write it (lib/markets/model validateLocalization). */

@@ -108,7 +108,7 @@ section("Nothing in the rail is declared during a render")
   )
 
   check(
-    "and the rail is 240px, or 68 collapsed, one width (--app-rail-w) with everything beside it moved to match",
+    "and the rail is 240px, or 63 collapsed, one width (--app-rail-w) with everything beside it moved to match",
     /w-\[var\(--app-rail-w,240px\)\]/.test(shellSource) &&
       /md:pl-\[var\(--app-rail-w,240px\)\]/.test(untt(readFileSync(join(root, "app/app/layout.tsx"), "utf8"), "app/app/layout.tsx")) &&
       /RAIL_OPEN_PX = 240/.test(readFileSync(join(root, "lib/ui/app-rail.ts"), "utf8")),
@@ -538,6 +538,44 @@ section("The sidebar advertises nothing that does not exist")
   check("  a row's picture is drawn on desktop and phone alike", /child\.thumb \?/.test(r("components/app/sidebar-desktop-nav.tsx")) && /child\.thumb \?/.test(r("components/app/sidebar-mobile-nav.tsx")))
   check("the page: yours first, then everything to add, the same directory as Settings", /<IntegrationsDirectory page \/>/.test(r("app/app/integrations/integrations-client.tsx")) && /data-installed-integrations=""/.test(r("components/app/settings/integrations-directory.tsx")))
   check("  links that went to Settings › Integrations open the page", /"\/app\/integrations\?integration=storelib-reviews"/.test(r("app/app/reviews/reviews-client.tsx")) && /door\("\/app\/integrations", "Integrations"\)/.test(r("components/website-builder/website-settings/commerce.tsx")))
+}
+
+/*
+  Round 31: the collapse toggle is a row above the Upgrade card, always there.
+  Changed on purpose (the owner: "I don't like the collapsible one that
+  appears on hover. Put the collapse toggle above the 'Upgrade to Pro' card
+  in the sidebar, as a line/row. It must not be a hover thing: just an icon
+  like Shopify has, always visible, I click it to collapse and click again to
+  expand."). Round 30's pins were a 24px handle on the border, hidden until
+  the pointer was on the sidebar. scripts/check-sidebar-round31.mjs measures
+  it in a browser.
+*/
+section("The collapse toggle: a row above the Upgrade card, not a hover thing")
+{
+  const r = (f: string) => untt(readFileSync(join(root, f), "utf8"))
+  const nav = stripComments(r("components/app/sidebar-desktop-nav.tsx"))
+  const shell = stripComments(r("components/app/sidebar.tsx"))
+  const toggle = stripComments(r("components/app/rail-toggle.tsx"))
+  const css = r("app/globals.css")
+  const at = (re: RegExp) => nav.search(re)
+  check("the shell no longer hangs a handle on the sidebar's border", !/RailToggle/.test(shell) && !/-right-\[12px\]/.test(toggle))
+  check("  it is in the sidebar's foot, before the Upgrade card and Settings",
+    at(/<RailToggle rowClassName=\{ROW\} paint=\{\(hovered\) => rowStyle\(false, hovered\)\} \/>/) > at(/<\/nav>/) &&
+      at(/<RailToggle /) < at(/data-upgrade-card=""/) &&
+      at(/data-upgrade-card=""/) < at(/href="\/app\/settings"/))
+  check("  drawn as a row: the rows' geometry and colours, an icon in the icon column, a word that fades",
+    /className=\{`\$\{rowClassName\} /.test(toggle) && /style=\{\{ \.\.\.paint\(hovered\), boxShadow: undefined \}\}/.test(toggle) &&
+      /data-nav-icon="outline" className="relative flex h-5 w-5 min-w-5 shrink-0/.test(toggle) &&
+      /<span data-nav-label="" className="whitespace-nowrap">Collapse<\/span>/.test(toggle))
+  check("  named, with aria-expanded, aria-controls and the shortcut",
+    /aria-label=\{label\}/.test(toggle) && /aria-expanded=\{open\}/.test(toggle) && /aria-controls="app-rail"/.test(toggle) && /aria-keyshortcuts=/.test(toggle) && /toggleAppRail\(\)/.test(toggle))
+  check("  nothing in the CSS hides it or brings it out on hover",
+    !/\[data-rail-toggle\]/.test(css) && !/\[data-rail-aside\]:hover/.test(css))
+  check("  the 240ms curve the sidebar and the page share is unchanged",
+    /--rail-ms: 240ms;/.test(css) && /--rail-ease: cubic-bezier\(0\.2, 0, 0, 1\);/.test(css))
+  check("  the card's breathing room folds with it, so collapsed the toggle sits over Settings like a row",
+    /<div className="space-y-\[2px\] px-\[7px\] pb-\[calc\(0\.75rem\+env\(safe-area-inset-bottom,_0px\)\)\]">/.test(nav) &&
+      /<div data-rail-fold="">\s*<div>\s*<div className="py-2">\s*<Link\s+href=\{UPGRADE_HREF\}/.test(nav))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

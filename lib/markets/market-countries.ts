@@ -40,6 +40,14 @@ export function storeHomeCountry(storeCountry: string | null | undefined, market
   return code(storeCountry) ?? code(markets.find((m) => m.primary)?.countries?.[0]) ?? null
 }
 
+/** The one country whose own currency this is (RON: Romania), or null when several share it (EUR) or none: a store with no country set is placed by it. */
+export function countryOfCurrency(currency: unknown): string | null {
+  const cur = typeof currency === "string" ? currency.trim().toUpperCase() : ""
+  if (!/^[A-Z]{3}$/.test(cur)) return null
+  const all = Object.entries(COUNTRY_CURRENCY).filter(([, k]) => k === cur).map(([c]) => c)
+  return all.length === 1 ? all[0] : null
+}
+
 /** The country a market's visitors are most naturally from: the one whose own currency it is (Brazil for BRL), else its first. */
 export function naturalCountry(currency: string | null | undefined, countries: readonly string[]): string | null {
   if (countries.length === 0) return null

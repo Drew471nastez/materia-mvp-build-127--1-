@@ -32,7 +32,6 @@ import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/acco
 import { BusinessSwitcher, type BusinessRow, type TeamStoreRow } from "@/components/app/business-switcher"
 import { memberSees, type MemberRole } from "@/lib/team/roles"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
-import { RailToggle } from "@/components/app/rail-toggle"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 /* The header draws it directly; the bar below does not carry it any more. */
@@ -984,13 +983,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       {/*
         ITS WIDTH IS THE ONE THING THAT ANIMATES (round 29), on the curve the
         page's padding beside it uses (--rail-ms and --rail-ease, app/globals.css),
-        so the two edges never part (scripts/check-sidebar-round30 measures
-        them within 0.02px on every frame). What happens to the rows inside
-        while it moves is in the same place in globals.css.
+        so the two edges never part (scripts/check-sidebar-round31 measures
+        them on every frame). What happens to the rows inside while it moves
+        is in the same place in globals.css.
 
-        THE CLIP IS ONE LAYER IN (round 30), so the collapse handle can sit
-        on the border, half over the page, without being cut in half. The
-        aside itself no longer clips; the layer filling it does.
+        The collapse toggle is a row at the sidebar's foot, above the Upgrade
+        card (round 31, components/app/sidebar-desktop-nav), so nothing hangs
+        over the border any more and the layer filling the aside clips.
       */}
       <aside
         id="app-rail"
@@ -1002,7 +1001,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           height: 'calc(100svh - 58px - env(safe-area-inset-top, 0px))',
         }}
       >
-        <RailToggle />
         <div className="absolute inset-0 overflow-hidden">
         {/*
           THE DESKTOP NAV LIVES AT MODULE SCOPE — see sidebar-desktop-nav.tsx.

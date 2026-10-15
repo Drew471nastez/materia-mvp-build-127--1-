@@ -52,6 +52,7 @@ import { siteTabTitle, withTabTitle, type TabPage } from "@/lib/website-builder/
 import { ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
 import { withProductPageReviews } from "./storelib-reviews"
+import { countryCookieHeader } from "@/lib/markets/visitor-country"
 
 type O = Record<string, unknown>
 
@@ -252,12 +253,26 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const i18n = site.i18n
     /*
       A COUNTRY CHOSEN (country_code): remembered for a year (sl_country, read
-      by the proxy), and the page again, its prices in that country's
-      market's currency. A country the website does not list changes nothing.
+      by the proxy, lib/markets/visitor-country.ts), and the page again, its
+      prices in that country's market's currency. A country the website does
+      not list changes nothing.
+
+      ONLY A COUNTRY THE VISITOR CHANGED TO. A theme's language selector
+      posts the country it shows as well (Dawn's hidden country_code), so
+      changing the language "chose" whatever country the page showed. When
+      that was a market's first country in the alphabet, a visitor in
+      Romania kept "Åland Islands (BRL)" for a year (the owner). The country
+      the page showed is in the form (storelib_country, formMarkup), else it
+      is the one this request would show; posting that one back keeps
+      things as they are, so where the visitor really is still decides.
     */
     const country = typeof req.body?.country_code === "string" ? req.body.country_code.toUpperCase() : null
+    const shownField = typeof req.body?.storelib_country === "string" ? req.body.storelib_country.toUpperCase() : null
+    /* A form from a page drawn before the field was there, posting a language too: the country was not what changed. */
+    const shown = shownField && /^[A-Z]{2}$/.test(shownField) ? shownField : asked ? country : (i18n?.country?.code ?? null)
     const cookies: string[] = []
-    if (country && /^[A-Z]{2}$/.test(country) && i18n?.countries?.some((c) => c.code === country)) cookies.push(`sl_country=${country}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`)
+    const remember = country && country !== shown && i18n?.countries?.some((c) => c.code === country) ? countryCookieHeader(country) : null
+    if (remember) cookies.push(remember)
     const chosen = i18n && asked ? i18n.languages.find((l) => l.toLowerCase() === asked.toLowerCase()) : undefined
     if (!i18n || !chosen) return { ...redirect(back), cookies }
     /* The language chosen is the visitor's from now on: a market's own language no longer greets them (the proxy's marketLanguageStart). */

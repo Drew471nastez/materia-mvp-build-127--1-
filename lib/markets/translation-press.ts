@@ -18,6 +18,7 @@ import { editorLanguages } from "./model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "./server"
 import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, statusOf, translationMap } from "./translate"
 import { draftReusing } from "./translate-ai"
+import { defaultLanguageScope, writtenLanguage } from "./detect-language"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -34,7 +35,8 @@ export const AI_UNAVAILABLE = "Automatic translation isn't available right now. 
 /** Whether `locale` is one this store may translate into: one of its languages, or its own when that is not English (the shop's own words only). */
 export async function translatableLocale(db: Db, creatorId: string, locale: string | null): Promise<{ ok: true; own: boolean; defaultLanguage: string } | { ok: false }> {
   const loc = (await localizationOf(db, creatorId, (await readStoreCurrency(db, creatorId)).currency)).value
-  const own = !!locale && locale === loc.defaultLanguage && !isEnglish(locale)
+  /* The default language itself: always one to translate into (its built-in words, or every text when the website is written in another). */
+  const own = !!locale && locale === loc.defaultLanguage
   if (!locale || (!own && (locale === loc.defaultLanguage || !editorLanguages(loc).includes(locale)))) return { ok: false }
   return { ok: true, own, defaultLanguage: loc.defaultLanguage }
 }
@@ -48,8 +50,19 @@ export async function draftRound(db: Db, creatorId: string, locale: string, user
   const where = await translatableLocale(db, creatorId, locale)
   if (!where.ok) return { ok: false, status: 400, error: "Add this language to your website first." }
   const [allGroups, saved, store] = await Promise.all([siteTexts(db, creatorId), translationsOf(db, creatorId, locale), storeIdentity(db, creatorId).catch(() => null)])
-  /* The website's own language, when it is not English: the shop's own words and the checkout's only (translate.ts BUILT_IN_GROUPS). */
-  const groups = where.own ? allGroups.filter((g) => BUILT_IN_GROUPS.has(g.id)) : allGroups
+  /*
+    WHAT IT COVERS, AND FROM WHAT. The language the website's text is
+    really written in is read from the texts (./detect-language.ts). Into
+    the default language: every text when the website is written in
+    another (the owner's "default French means everything in French"), else
+    the shop's built-in words only. Every translation goes from the language
+    the text is written in, not from the default.
+  */
+  const writtenIn = writtenLanguage(allGroups)
+  const scope = where.own ? defaultLanguageScope(where.defaultLanguage, writtenIn) : "all"
+  if (where.own && scope === "builtIn" && isEnglish(locale)) return { ok: true, drafted: 0, left: 0, done: 0, total: 0 }
+  const groups = where.own && scope === "builtIn" ? allGroups.filter((g) => BUILT_IN_GROUPS.has(g.id)) : allGroups
+  const from = writtenIn ?? (where.own ? "en" : where.defaultLanguage)
   /* Each key once: the same text read on more than one page is translated, counted and saved once. */
   const all = [...new Map(groups.flatMap((g) => g.items).map((t) => [t.key, t])).values()]
   const map = translationMap(saved.rows)
@@ -63,7 +76,7 @@ export async function draftRound(db: Db, creatorId: string, locale: string, user
   const counted = (drafted: Set<string>) => all.filter((t) => drafted.has(t.key) || statusOf(map.get(t.key), t.source) === "done" || statusOf(map.get(t.key), t.source) === "draft").length
   if (todo.length === 0) return { ok: true, drafted: 0, left: 0, done: counted(new Set()), total: all.length }
   /* One already translated under another key is reused (translate-ai.ts draftReusing); the rest go to Storelib AI. */
-  const { drafts, unavailable, reason, busy } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, where.defaultLanguage, locale, store?.name || "the store", { deadlineAt })
+  const { drafts, unavailable, reason, busy } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, from, locale, store?.name || "the store", { deadlineAt })
   /* 429: every translator is out of allowance for now; the background job waits and carries on. */
   if (unavailable && drafts.size === 0) return { ok: false, status: busy ? 429 : 503, error: reason ?? AI_UNAVAILABLE }
   /* LIVE AT ONCE (the owner: "I have to click approve"): a translation goes on the website as soon as it is written, still marked as automatic, so a later run may improve it and a person's edit always wins. */

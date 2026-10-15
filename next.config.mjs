@@ -80,9 +80,16 @@ const nextConfig = {
         hostname: process.env.NEXT_PUBLIC_MAIN_DOMAIN || 'storelib.com',
         pathname: '/media/**',
       },
+      /*
+        Supabase only for its storage files. Without a pathname any address on
+        any Supabase project could be pushed through Storelib's optimizer, and
+        each one is a billed image transformation; Storelib's own pictures are
+        all under /storage/v1/ (object/public, object/sign, render).
+      */
       {
         protocol: 'https',
         hostname: 'skgtqglupjcnfhfscink.supabase.co',
+        pathname: '/storage/v1/**',
       },
       {
         protocol: 'https',
@@ -91,6 +98,7 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '*.supabase.co',
+        pathname: '/storage/v1/**',
       },
       {
         protocol: 'https',
@@ -124,6 +132,20 @@ const nextConfig = {
     qualities: [75, 88],
   },
   experimental: {
+    /**
+     * NO SOURCE MAPS FROM TURBOPACK'S PRODUCTION BUILD.
+     *
+     * Measured on a 4 CPU machine (Vercel's Standard build size), cold
+     * `pnpm build`: with Turbopack's source maps on (its default) the build
+     * peaked at 8.5 GB and compiled in 2.6 to 3.3 minutes, which is what
+     * Standard's 8 GB machine ran out of memory on; with them off it peaks at
+     * 7.0 GB and compiles in 2.3 minutes. What they made was 6,144 .map files
+     * (374 MB) for the server bundles only: the browser's were never shipped
+     * (productionBrowserSourceMaps is off), so nobody's page changes. The
+     * cost is that a server error's stack in Vercel's runtime logs names the
+     * built chunk and line, not the source file. `next dev` is untouched.
+     */
+    turbopackSourceMaps: false,
     serverActions: {
       bodySizeLimit: '10mb',
     },

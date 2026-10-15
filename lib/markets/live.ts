@@ -32,7 +32,7 @@ import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRe
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { currencyCode, type PriceRounding } from "./money"
 import { languageChoiceOf } from "./choice"
-import { resolveMarketCountries, storeHomeCountry } from "./market-countries"
+import { countryOfCurrency, resolveMarketCountries, storeHomeCountry } from "./market-countries"
 import { chargeCurrencyFor } from "./checkout-charge"
 import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import { cachedRates } from "./fx-server"
@@ -67,12 +67,14 @@ const NONE: SiteLanguages = { saved: false, defaultLanguage: "en", others: [], m
 
 /** The store's own country (Settings › Store currency): where a visitor whose country is unknown starts, and the builder's preview. */
 async function storeCountry(creatorId: string): Promise<string | null> {
-  const { data } = await createAdminClient().from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle().then(
+  const { data } = await createAdminClient().from("store_settings").select("default_country, currency").eq("creator_id", creatorId).maybeSingle().then(
     (r: { data: unknown }) => r,
     () => ({ data: null }),
   )
-  const c = (data as { default_country?: unknown } | null)?.default_country
-  return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : null
+  const d = data as { default_country?: unknown; currency?: unknown } | null
+  const c = d?.default_country
+  /* No country set: the one whose currency the store sells in (RON: Romania). */
+  return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : countryOfCurrency(d?.currency)
 }
 
 async function readLanguages(creatorId: string): Promise<SiteLanguages> {
@@ -135,9 +137,16 @@ export async function marketPricing(creatorId: string, marketId: string | null |
   return pricingFor(market, base, await cachedRates().catch(() => null))
 }
 
-/** The website's languages, held until the store saves Markets and languages again. */
+/**
+ * The website's languages, held until the store saves Markets and languages
+ * again. The key names the shape read: a copy held by a deploy that still
+ * put the store's own country in a market (or had no homeCountry) is never
+ * served by this one. The data cache outlives a deploy, and a stale copy
+ * is served once more while it is read again.
+ */
+const LANGUAGES_SHAPE = "v2-home-country"
 export function siteLanguages(creatorId: string): Promise<SiteLanguages> {
-  return unstable_cache(() => readLanguages(creatorId), ["site-languages", creatorId], { tags: [localizationTag(creatorId)], revalidate: 300 })().catch(() => NONE)
+  return unstable_cache(() => readLanguages(creatorId), ["site-languages", LANGUAGES_SHAPE, creatorId], { tags: [localizationTag(creatorId)], revalidate: 300 })().catch(() => NONE)
 }
 
 const PRODUCT_FIELDS = ["title", "description", "seo_title", "seo_description"] as const
@@ -174,10 +183,14 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
   const langs = await siteLanguages(creatorId)
   const code = locale ? (langs.others.find((l) => l.toLowerCase() === locale.toLowerCase()) ?? null) : null
   const pricing = market ? await marketPricing(creatorId, market, base) : null
-  /* In the website's own language, when it is not English: the shop's own words in it (translate.ts BUILT_IN_GROUPS), and nothing else to lay over. */
-  const ownWords = !code && !isEnglish(langs.defaultLanguage)
-  if (!code && !pricing && !ownWords) return null
-  const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : ownWords ? (await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => isBuiltInWordKey(r.key)) : []
+  /*
+    IN THE WEBSITE'S DEFAULT LANGUAGE: every translation into it is laid
+    over. A website written in English whose default is Spanish shows
+    Spanish at its own address (lib/markets/detect-language.ts
+    defaultLanguageScope); one written in its default has only the shop's
+    built-in words translated, so only those are there to lay over.
+  */
+  const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])
   if (!code && !pricing && rows.length === 0) return null
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
   const opts = { approvedOnly: true, fresh: true }

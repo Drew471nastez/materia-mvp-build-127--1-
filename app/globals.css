@@ -8357,13 +8357,16 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
   edge, and Settings jumped as the card under it vanished. Now nothing leaves
   the layout and nothing is re-centred.
 
-  ROUND 30, THE ICONS DO NOT MOVE AT ALL. The owner did not want the control
-  in a band of its own above Dashboard. It is a small round handle on the
-  sidebar's edge now, level with Dashboard, shown while the pointer is over
-  the sidebar (always on a touch screen, and on keyboard focus), so it costs
-  the rows nothing. And the collapsed width is 63px, twice the icons' 31px
-  from the left plus the border, so the column's centre is where the icons
-  already are: no transform, no last 2.5px.
+  ROUND 30, THE ICONS DO NOT MOVE AT ALL. The collapsed width is 63px,
+  twice the icons' 31px from the left plus the border, so the column's
+  centre is where the icons already are: no transform, no last 2.5px.
+
+  ROUND 31, THE TOGGLE IS A ROW. Round 30's handle on the border only showed
+  while the pointer was over the sidebar, and the owner did not want a
+  control that appears on hover. It is a row now, always there, directly
+  above the Upgrade card (components/app/rail-toggle), with its icon in the
+  same column as every other icon, so the rules for rows below are its
+  rules too: its word fades, its icon stays put.
 
     the sidebar     its width, on one curve, with the page's padding beside it
                     on the same one (--rail-ms, --rail-ease, read by both)
@@ -8372,8 +8375,7 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
                     are clipped by the sidebar's edge, never reflowed
     the cards       fold: their row closes from 1fr to 0fr as they fade
     the submenus    close the same way, and open again with the sidebar
-    the handle      sits on the border, so it travels with the edge; its
-                    chevron turns over on the same curve
+    the toggle      a row like the others: its icon stays, its word fades
 */
 [data-app-rail] {
   --rail-ms: 240ms;
@@ -8406,23 +8408,6 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
     overflow: hidden;
   }
 
-  /* The handle: out of sight and out of the pointer's way until the pointer is on the sidebar. */
-  [data-rail-aside] [data-rail-toggle] {
-    opacity: 0;
-    pointer-events: none;
-    transition-property: opacity, background-color, color, border-color;
-    transition-duration: 160ms, 140ms, 140ms, 140ms;
-    transition-timing-function: ease, ease-out, ease-out, ease-out;
-  }
-  [data-rail-aside]:hover [data-rail-toggle],
-  [data-rail-aside] [data-rail-toggle]:focus-visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  [data-rail-aside] [data-rail-toggle] svg {
-    transition: transform var(--rail-ms) var(--rail-ease);
-  }
-
   [data-app-rail="collapsed"] [data-rail-aside] [data-nav-label] {
     opacity: 0;
     transition: opacity 90ms ease;
@@ -8432,9 +8417,6 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
     visibility: hidden;
     pointer-events: none;
     transition: opacity 90ms ease, visibility 0s linear 90ms;
-  }
-  [data-app-rail="collapsed"] [data-rail-aside] [data-rail-toggle] svg {
-    transform: rotate(180deg);
   }
   /* !important over the submenu's own inline open state (components/app/sidebar-desktop-nav Collapsible). */
   [data-app-rail="collapsed"] [data-rail-aside] [data-nav-submenu] {
@@ -8450,18 +8432,10 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
     transition: grid-template-rows var(--rail-ms) var(--rail-ease), opacity 90ms ease, visibility 0s linear var(--rail-ms);
   }
 }
-/* A touch screen has no hover to bring the handle out: it stays. */
-@media (min-width: 768px) and (hover: none) and (pointer: coarse) {
-  [data-rail-aside] [data-rail-toggle] {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
 @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
   [data-rail-aside] [data-nav-label],
   [data-rail-aside] [data-nav-chevron],
   [data-rail-aside] [data-rail-fold],
-  [data-rail-aside] [data-rail-toggle] svg,
   [data-app-rail="collapsed"] [data-rail-aside] [data-nav-label],
   [data-app-rail="collapsed"] [data-rail-aside] [data-nav-chevron],
   [data-app-rail="collapsed"] [data-rail-aside] [data-nav-submenu],

@@ -18,20 +18,17 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { cachedRates } from "./fx-server"
 import { marketOfCountry, siteLanguages } from "./live"
 import { pricingFor, type Pricing } from "./pricing"
+import { countryCookieIn, seenCountry, visitorCountryFrom } from "./visitor-country"
 import { chargingPricing, marketCharge, type MarketCharge } from "./checkout-charge"
 
-/** The visitor's country as the website reads it: their choice in its selector, else where their connection is. Null for "home" or unknown. */
+/** The visitor's country as the website reads it: their choice in its selector (the sl_country cookie's raw value), else where their connection is. Null for "home" or unknown (lib/markets/visitor-country.ts). */
 export function checkoutVisitorCountry(chosen: string | null | undefined, seen: string | null | undefined): string | null {
-  if (chosen === "home") return null
-  if (chosen && /^[A-Za-z]{2}$/.test(chosen)) return chosen.toUpperCase()
-  return seen && /^[A-Za-z]{2}$/.test(seen) ? seen.toUpperCase() : null
+  return visitorCountryFrom(chosen, seen)
 }
 
 /** The visitor's country from a request's cookies and headers (the site checkout's API calls come from the site's own host, with its cookies). */
 export function countryOfRequest(request: Request): string | null {
-  const cookie = request.headers.get("cookie") ?? ""
-  const chosen = /(?:^|;\s*)sl_country=([^;]+)/.exec(cookie)?.[1]
-  return checkoutVisitorCountry(chosen ? decodeURIComponent(chosen) : null, request.headers.get("x-vercel-ip-country") || request.headers.get("cf-ipcountry"))
+  return visitorCountryFrom(countryCookieIn(request.headers.get("cookie")), seenCountry(request.headers))
 }
 
 /**

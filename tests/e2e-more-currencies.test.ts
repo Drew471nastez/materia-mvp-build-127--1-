@@ -50,6 +50,8 @@ async function main() {
   const j = await Journey.start()
   const { siteLanguages, siteLocalizer, languageChoice, marketOfCountry } = await import("@/lib/markets/live")
   const { checkoutVisitorCountry, deliveryCountryGuess } = await import("@/lib/markets/checkout-market-server")
+  /* A choice in the website's selector, as its cookie holds it ("2.DE", "2.home"; lib/markets/visitor-country.ts). */
+  const { countryCookieValue: chose } = await import("@/lib/markets/visitor-country")
   const { pricingFor } = await import("@/lib/markets/pricing")
   const { cartAmounts } = await import("@/lib/markets/cart-money")
   const { shopProducts } = await import("@/lib/website-builder/shop-products")
@@ -130,7 +132,7 @@ async function main() {
   j.db.insert("store_theme_installs", { creator_id: creator.id, status: "published", published_at: new Date().toISOString(), sort_order: 0, name: "Storelib" }, {})
   const langs = await siteLanguages(creator.id)
   /* The proxy's visitorMarket: the visitor's choice (sl_country), else where they are. */
-  const marketFor = (cookie: string | null, ip: string) => marketOfCountry(langs, checkoutVisitorCountry(cookie, ip))?.id ?? null
+  const marketFor = (picked: string | null, ip: string) => marketOfCountry(langs, checkoutVisitorCountry(chose(picked), ip))?.id ?? null
 
   section("3. A visitor from Germany: euros on the card, the product page and the cart")
   check("a visitor in Germany is in the Europe market", marketFor(null, "DE") === "eu" && marketFor(null, "RO") === null && marketFor(null, "US") === null)
@@ -162,15 +164,15 @@ async function main() {
   check("  each says its mark: \"RON lei\", \"Europe (EUR €)\", \"Poland (PLN zł)\"", opts.map((o) => o.label).join("|") === "RON lei|Europe (EUR €)|Poland (PLN zł)", opts.map((o) => o.label))
   const homePick = opts.find((o) => o.id === "home")!
   check("picking lei: the page is in lei, the card 99.00 lei", marketFor(homePick.country, "DE") === null && (await listCards(creator.id)).find((c) => c.id === mugId)?.settings.price === `99.00${NBSP}lei`)
-  const homeQuote = await j.call("POST /api/checkout/site", { host, headers: { "x-vercel-ip-country": "DE", origin: `https://${host}` }, cookies: { sl_country: homePick.country }, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 2 }], country: "DE" } })
+  const homeQuote = await j.call("POST /api/checkout/site", { host, headers: { "x-vercel-ip-country": "DE", origin: `https://${host}` }, cookies: { sl_country: chose(homePick.country)! }, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 2 }], country: "DE" } })
   check("  and the checkout too: 2 × 99 lei and 25 lei delivery, in RON", homeQuote.status === 200 && !homeQuote.json?.currency && homeQuote.json?.totals?.itemsSubtotalCents === 19800 && homeQuote.json?.totals?.shippingCents === 2500, { status: homeQuote.status, cur: homeQuote.json?.currency, totals: homeQuote.json?.totals })
   const euPick = opts.find((o) => o.id === "eu")!
   check("picking euros again: the visitor's own Germany, the Europe market", marketFor(euPick.country, "DE") === "eu", euPick)
-  check("  a visitor in France who picks euros starts checkout in France, not the market's first country", deliveryCountryGuess(langs.markets, euPick.country, "FR") === "FR" && deliveryCountryGuess(langs.markets, homePick.country, "DE") === "DE" && deliveryCountryGuess(langs.markets, "PL", "DE") === "PL", [deliveryCountryGuess(langs.markets, euPick.country, "FR"), deliveryCountryGuess(langs.markets, homePick.country, "DE")])
+  check("  a visitor in France who picks euros starts checkout in France, not the market's first country", deliveryCountryGuess(langs.markets, chose(euPick.country), "FR") === "FR" && deliveryCountryGuess(langs.markets, chose(homePick.country), "DE") === "DE" && deliveryCountryGuess(langs.markets, chose("PL"), "DE") === "PL", [deliveryCountryGuess(langs.markets, chose(euPick.country), "FR"), deliveryCountryGuess(langs.markets, chose(homePick.country), "DE")])
 
   section("5. Checkout in euros: the quote is what the pages showed")
   const visitor = { "x-vercel-ip-country": "DE", origin: `https://${host}`, "x-forwarded-for": "192.0.2.44" }
-  const cookies = { sl_country: euPick.country }
+  const cookies = { sl_country: chose(euPick.country)! }
   const items = [
     { productId: mugId, variantId: small?.id, quantity: 2 },
     { productId: mugId, variantId: large?.id, quantity: 1 },
@@ -306,7 +308,7 @@ async function main() {
   /* Saved before this rule, straight in the table: Romania in the reais market. */
   j.db.update("store_localization", { markets: [homeMarket, { id: "brl", name: "Brasil", countries: everyCountry, currency: "BRL", language: null, active: true, primary: false, rounding: "none", adjustBps: 0 }] }, [{ path: "creator_id", op: "eq", value: creator.id as string, not: false }])
   const old = await siteLanguages(creator.id)
-  const oldFor = (cookie: string | null, ip: string | null) => marketOfCountry(old, checkoutVisitorCountry(cookie, ip))?.id ?? null
+  const oldFor = (picked: string | null, ip: string | null) => marketOfCountry(old, checkoutVisitorCountry(chose(picked), ip))?.id ?? null
   check("already saved with Romania: a visitor from Romania still sees lei", oldFor(null, "RO") === null && oldFor(null, "BR") === "brl" && !old.markets[0]?.countries.includes("RO"), { ro: oldFor(null, "RO"), br: oldFor(null, "BR") })
   check("  the market's own country comes first: Brazil, not the Åland Islands", old.markets[0]?.countries[0] === "BR", old.markets[0]?.countries.slice(0, 3))
   check("  and checkout charges a visitor from Romania in lei", (await checkoutMarket(creator.id, "RO")).pricing === null && (await checkoutMarket(creator.id, "BR")).pricing?.currency === "BRL")
@@ -333,7 +335,7 @@ async function main() {
   const langs12 = await siteLanguages(creator.id)
   const live = langs12.markets.find((m) => m.id === "brl")
   check("on the live site it is every country but Romania, Germany and France", !!live && live.countries.length === COUNTRY_CODES.size - 3 && !["RO", "DE", "FR"].some((c) => live.countries.includes(c)) && live.countries.includes("AX") && live.countries[0] === "BR", live && { n: live.countries.length, first: live.countries[0] })
-  const for12 = (cookie: string | null, ip: string | null) => marketOfCountry(langs12, checkoutVisitorCountry(cookie, ip))?.id ?? null
+  const for12 = (picked: string | null, ip: string | null) => marketOfCountry(langs12, checkoutVisitorCountry(chose(picked), ip))?.id ?? null
   check("a visitor from Romania sees lei", for12(null, "RO") === null)
   check("a visitor from Brazil sees reais", for12(null, "BR") === "brl")
   check("a visitor from Germany sees euros, not reais", for12(null, "DE") === "eu")
@@ -356,7 +358,7 @@ async function main() {
   check("  written with R$ in every language: R$ 123,31 in Portuguese, 123,31 R$ in Romanian, never BRL", formatMinor(12331, "BRL", "pt-BR").replace(/\s/g, " ") === "R$ 123,31" && formatMinor(12331, "BRL", "ro").replace(/\s/g, " ") === "123,31 R$" && brlPricing?.format(9900, "ro")?.includes("R$") === true, [formatMinor(12331, "BRL", "pt-BR"), formatMinor(12331, "BRL", "ro"), brlPricing?.format(9900, "ro")])
 
   section("14. The imported theme's country selector is the visitor's own country")
-  check("the proxy names the visitor's country to the theme; a choice of lei is no country", siteVisitorCountry({ chosen: null, told: "RO", seen: null }) === "RO" && siteVisitorCountry({ chosen: "BR", told: null, seen: "RO" }) === "BR" && siteVisitorCountry({ chosen: "home", told: null, seen: "BR" }) === null && siteVisitorCountry({ chosen: null, told: null, seen: null }) === null)
+  check("the proxy names the visitor's country to the theme; a choice of lei is no country", siteVisitorCountry({ chosen: null, told: "RO", seen: null }) === "RO" && siteVisitorCountry({ chosen: "2.BR", told: null, seen: "RO" }) === "BR" && siteVisitorCountry({ chosen: "2.home", told: null, seen: "BR" }) === null && siteVisitorCountry({ chosen: null, told: null, seen: null }) === null)
   const site = { creatorId: creator.id, theme: { language: "en", defaultWords: () => [], schemaOf: () => ({}), schemaLabel: () => "" }, shop: { name: "Lia Shop", currency: "RON", moneyFormat: "{{amount}} lei" }, pages: {}, products: [], collections: [], menus: {}, host } as any
   const drawn = async (country: string | null) => {
     const market = marketOfCountry(langs12, country)?.id ?? null
@@ -373,6 +375,29 @@ async function main() {
   check("  a page in reais with no country known: Brazil, the market's own, never its first in the alphabet", noCountry.country?.code === "BR", noCountry.country)
   const homeInBrazil = themeCountries({ markets: [live!], base: "RON", marketId: null, visitorCountry: "BR", homeCountry: "RO", fresh: true })
   check("  lei chosen by a visitor in Brazil: the selector says Romania (RON), as the prices are", homeInBrazil.country?.code === "RO" && homeInBrazil.country?.currency === "RON", homeInBrazil.country)
+
+  section("15. After the deploy: the owner in Romania still saw Åland Islands (BRL), from a cookie")
+  /*
+    The selector before the fix showed the reais market's first country,
+    Åland Islands. The theme's language form posts the country it shows
+    with every language change (Dawn's hidden country_code), so the site
+    remembered sl_country=AX for a year, and every page after the fix still
+    read it: Åland Islands is in the reais market, so the page was in
+    reais. The cookie the owner's browser carries is that one, unmarked.
+  */
+  const { readCountryCookie, seenCountry } = await import("@/lib/markets/visitor-country")
+  const stale = "AX"
+  check("read as before the fix, that cookie put a visitor in Romania in reais (the report)", marketOfCountry(langs12, stale)?.id === "brl")
+  check("now it is no choice: the visitor's real country, Romania, and lei", readCountryCookie(stale).stale && for12(null, "RO") === null && marketOfCountry(langs12, checkoutVisitorCountry(stale, "RO")) === null && checkoutVisitorCountry(stale, "RO") === "RO")
+  check("  the imported theme is told Romania, and its selector says Romania (RON)", siteVisitorCountry({ chosen: stale, told: null, seen: "RO" }) === "RO" && (await drawn(siteVisitorCountry({ chosen: stale, told: null, seen: "RO" })))?.code === "RO")
+  check("  a Brazilian visitor with the same old cookie: Brazil (BRL); an unknown one: Romania (RON)", (await drawn(checkoutVisitorCountry(stale, "BR")))?.currency === "BRL" && (await drawn(checkoutVisitorCountry(stale, null)))?.code === "RO" && (await drawn(checkoutVisitorCountry(stale, null)))?.currency === "RON")
+  check("  a real choice made since still counts: Romania picks reais (2.BR)", for12("BR", "RO") === "brl" && (await drawn(checkoutVisitorCountry(chose("BR"), "RO")))?.code === "BR")
+  check("  where they are: Vercel's header, else Cloudflare's; XX and T1 are unknown", seenCountry(new Headers({ "x-vercel-ip-country": "RO" })) === "RO" && seenCountry(new Headers({ "cf-ipcountry": "BR" })) === "BR" && seenCountry(new Headers({ "cf-ipcountry": "XX" })) === null && seenCountry(new Headers({ "x-vercel-ip-country": "T1" })) === null)
+  const roQuote = await j.call("POST /api/checkout/site", { host, headers: { "x-vercel-ip-country": "RO", origin: `https://${host}` }, cookies: { sl_country: stale }, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 2 }], country: "DE" } })
+  check("checkout, from Romania with the old cookie: lei, not reais", roQuote.status === 200 && !roQuote.json?.currency && roQuote.json?.totals?.itemsSubtotalCents === 19800, { status: roQuote.status, cur: roQuote.json?.currency, totals: roQuote.json?.totals })
+  const { countryOfRequest } = await import("@/lib/markets/checkout-market-server")
+  const asked = (h: Record<string, string>) => countryOfRequest(new Request(`https://${host}/api/checkout/site`, { headers: h }))
+  check("  the checkout's own reading of a request: the old cookie from Romania is Romania; from Brazil, reais shown", asked({ cookie: "sl_country=AX", "x-vercel-ip-country": "RO" }) === "RO" && (await checkoutMarket(creator.id, asked({ "x-vercel-ip-country": "BR" }))).pricing?.currency === "BRL" && asked({ cookie: "sl_country=2.BR", "x-vercel-ip-country": "RO" }) === "BR")
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
   check("no route answered with a server error", j.serverErrors.length === 0, j.serverErrors)

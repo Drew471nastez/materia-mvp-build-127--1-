@@ -1,6 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "ignoreCommand": "bash scripts/vercel/ignore-build.sh",
+  "git": {
+    "deploymentEnabled": {
+      "claude/*": false,
+      "codex/*": false
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/process-scheduled-emails",

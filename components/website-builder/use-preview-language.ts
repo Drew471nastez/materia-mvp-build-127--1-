@@ -54,7 +54,8 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
         return JSON.stringify(prev) === JSON.stringify(next) ? prev : next
       })
       /* An answer for a language no longer picked is not drawn. */
-      if (localeRef.current !== code) return
+      /* The default language's answer comes back named (the canvas opens in it): it belongs to "no language picked". */
+      if (localeRef.current !== code && !(code === null && localeRef.current === null)) return
       if (!d.locale) {
         setValues(null)
         if (code) setLocaleState(null)
@@ -90,16 +91,17 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
       const next = code && code !== info.defaultLanguage ? code : null
       localeRef.current = next
       setLocaleState(next)
-      if (!next) setValues(null)
-      if (next) void read(next)
+      void read(next)
     },
     [info.defaultLanguage, read],
   )
 
+  /* The language drawn: the one picked, else the default, whose translations are laid over too (an English theme on a store whose default is Spanish reads Spanish). */
+  const shown = locale ?? info.defaultLanguage
   const map = useMemo(() => {
-    if (!locale || !values || values.locale !== locale) return null
+    if (!values || values.locale !== shown || Object.keys(values.values).length === 0) return null
     return translationMap(Object.entries(values.values).map(([key, x]) => ({ key, value: x.v, sourceHash: x.h, status: "approved" as const, source: "manual" as const })))
-  }, [locale, values])
+  }, [shown, values])
 
   const words = useMemo(() => {
     const out: Record<string, string> = {}
@@ -111,5 +113,5 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
     return out
   }, [map])
 
-  return { ...info, locale: info.languages.length ? locale : null, setLocale, map: info.languages.length ? map : null, words }
+  return { ...info, locale: info.languages.length ? locale : null, setLocale, map, words }
 }

@@ -12,6 +12,7 @@
  *
  * Pure.
  */
+import { BUILT_IN_GROUPS } from "./translate"
 
 const WORDS: Record<string, string[]> = {
   en: ["the", "and", "of", "to", "in", "is", "for", "with", "you", "your", "our", "on", "are", "this", "that", "from", "it", "we", "be", "all", "shop", "now", "new", "more", "by", "at", "or"],
@@ -53,4 +54,24 @@ export function detectLanguage(texts: string[]): string | null {
   /* Clearly ahead of the next: shared little words ("de", "la", "in") must not decide it. */
   if (second && best[1] < second[1] * 1.6) return null
   return best[0]
+}
+
+/**
+ * WHAT TRANSLATING INTO THE DEFAULT LANGUAGE COVERS. A website written in
+ * the language it shows by default only needs the shop's own built-in words
+ * (they are written in English). One written in another language (an
+ * English theme on a store whose default is Spanish) needs every text
+ * translated, so the default language reads in Spanish everywhere: the owner's
+ * "if they set the default language to French, everything should be French".
+ * `writtenIn` unknown (too few words): treated as written in the default.
+ */
+export function defaultLanguageScope(defaultLanguage: string, writtenIn: string | null): "builtIn" | "all" {
+  if (!writtenIn) return "builtIn"
+  const base = (l: string) => l.split("-")[0].toLowerCase()
+  return base(writtenIn) === base(defaultLanguage) ? "builtIn" : "all"
+}
+
+/** The language a website's own texts are written in: every group but the shop's built-in words, which are English. */
+export function writtenLanguage(groups: { id: string; items: { source: string }[] }[]): string | null {
+  return detectLanguage(groups.filter((g) => !BUILT_IN_GROUPS.has(g.id)).flatMap((g) => g.items.map((t) => t.source)))
 }
