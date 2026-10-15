@@ -166,11 +166,12 @@ const SNAP_PX = 8
  * whole. A section that reads nothing of its own shows at once.
  */
 const TAB_DATA: Partial<Record<TabId, (physical: boolean) => string[]>> = {
-  store: (p) => ["/api/store/settings", ...(p ? ["/api/physical/settings"] : [])],
+  store: (p) => ["/api/store/settings", "/api/store/currency", ...(p ? ["/api/physical/settings"] : [])],
   checkout: () => ["/api/store/settings"],
   channels: () => ["/api/store/channels"],
   taxes: () => ["/api/store/taxes"],
-  markets: () => ["/api/store/markets"],
+  /* The store currency card is the tab's first card: read with it, so the tab never opens on an empty box. */
+  markets: () => ["/api/store/markets", "/api/store/currency"],
   emails: () => ["/api/store/emails"],
   activity: () => ["/api/store/activity"],
   ai_memory: () => ["/api/ai-memory"],

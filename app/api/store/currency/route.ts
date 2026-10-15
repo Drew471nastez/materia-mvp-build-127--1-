@@ -75,6 +75,16 @@ async function catalogCounts(db: Db, creatorId: string) {
   return { products, variants, shippingRates: rates, coupons, total: products + variants + rates + coupons }
 }
 
+/** Whether there is anything priced, cheaply: options belong to products, so they are not counted here. */
+async function quickCounts(db: Db, creatorId: string) {
+  const [products, rates, coupons] = await Promise.all([
+    count(db.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),
+    count(db.from("shipping_rates").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),
+    count(db.from("coupons").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("discount_type", "fixed")),
+  ])
+  return { products, variants: 0, shippingRates: rates, coupons, total: products + rates + coupons }
+}
+
 /** How long the latest change can be undone from the settings: a day, while its prices are still the ones the merchant just made. */
 const UNDO_HOURS = 24
 
@@ -98,7 +108,13 @@ async function undoable(db: Db, creatorId: string) {
 }
 
 async function state(db: Db, creatorId: string, headers: Headers) {
-  const [store, counts, lastChange] = await Promise.all([readStoreCurrency(db, creatorId), catalogCounts(db, creatorId), undoable(db, creatorId)])
+  /*
+    THE CARD AT ONCE. Opening Settings only needs to know whether the store
+    has prices at all (whether a change asks keep or convert); the exact
+    counts, with the options join that made this slow, are read by the
+    preview when a new currency is picked.
+  */
+  const [store, counts, lastChange] = await Promise.all([readStoreCurrency(db, creatorId), quickCounts(db, creatorId), undoable(db, creatorId)])
   return {
     ready: store.ready,
     country: store.country,
@@ -170,6 +186,12 @@ export async function PUT(request: Request) {
     if (body.country && !code) return physicalJson({ error: "Choose a country from the list." }, 400)
     const saved = await saveStoreSettings(c.db, c.creatorId, { defaultCountry: code })
     if (!saved.ok) return physicalJson({ error: saved.error }, saved.status)
+    /* The theme's country selector starts on the store's country (lib/markets/live.ts siteLanguages): read again now. */
+    try {
+      revalidateTag(localizationTag(c.creatorId), "max")
+    } catch {
+      /* caught up within five minutes */
+    }
   }
 
   if ("currency" in body) {

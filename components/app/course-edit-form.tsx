@@ -17,13 +17,15 @@ import { ArrowLeft, Trash2 } from "lucide-react"
 import Link from "next/link"
 import type { Product } from "@/lib/types"
 import { tt } from "@/lib/i18n/text"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 
 interface CourseEditFormProps {
   product: Product
 }
 
 export function CourseEditForm({ product }: CourseEditFormProps) {
+  /* The store's own currency (/app layout, Settings › Languages & Currency): never the platform's. */
+  const storeCurrency = useStoreCurrency()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,7 +134,7 @@ export function CourseEditForm({ product }: CourseEditFormProps) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="price">{tt("Price ({currency})", { currency: SHOP_CURRENCY })}</Label>
+              <Label htmlFor="price">{tt("Price ({currency})", { currency: storeCurrency })}</Label>
               <Input
                 id="price"
                 type="number"

@@ -52,6 +52,8 @@ const items = (n: number, prefix = "k") => Array.from({ length: n }, (_, i) => (
 async function main() {
   const server = createServer(answer)
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r))
+  /* The paid model is reached only with no free translator: the keyless fallback is off here. */
+  process.env.TRANSLATE_FREE_FALLBACK = "off"
   process.env.OPENAI_API_KEY = "test-key"
   process.env.OPENAI_BASE_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`
   const { draftTranslations } = await import("../lib/markets/translate-ai")

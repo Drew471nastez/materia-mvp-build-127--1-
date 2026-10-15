@@ -59,7 +59,23 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
     const p = b.parameters as { tgt_lang: string }
     return send(res, 200, (b.inputs as string[]).map((t) => ({ translation_text: `${p.tgt_lang} ${t}` })))
   }
+  if (path === "/hfr/chat/completions") {
+    const model = b.model as string
+    if (model !== "meta-llama/Llama-3.3-70B-Instruct") return send(res, 400, { error: { message: `Model ${model} is not supported by any provider you have enabled.` } })
+    const list = JSON.parse((b.messages as { content: string }[])[1].content) as string[]
+    return send(res, 200, { choices: [{ message: { content: "Here you go:\n```json\n" + JSON.stringify(list.map((t) => `CHAT ${t}`)) + "\n```" } }] })
+  }
   return send(res, 404, { error: "not here" })
+}
+
+function answerGet(req: IncomingMessage, res: ServerResponse): boolean {
+  const url = new URL(req.url ?? "", "http://x")
+  if (url.pathname !== "/mm") return false
+  const q = url.searchParams.get("q") ?? ""
+  seen.push({ path: "/mm", body: { q, langpair: url.searchParams.get("langpair") } })
+  if (q === "Over quota") send(res, 200, { responseStatus: 429, responseData: { translatedText: "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY" } })
+  else send(res, 200, { responseStatus: 200, responseData: { translatedText: `MM ${q}` } })
+  return true
 }
 
 async function main() {
@@ -75,7 +91,7 @@ async function main() {
   check("a run with no letters is not sent", wordsOf(cut("€ 12.00 — 50%")).length === 0)
   check("a run the translator dropped leaves the text untranslated, not half done", join(cut("Hello <b>world</b>"), (w) => (w === "Hello" ? "Bonjour" : "")) === null)
 
-  const server = createServer((req, res) => void answer(req, res))
+  const server = createServer((req, res) => void (req.method === "GET" && answerGet(req, res) ? null : answer(req, res)))
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r))
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   process.env.OPENAI_API_KEY = "test-key"
@@ -87,8 +103,19 @@ async function main() {
   console.log("\nNothing set up")
   delete process.env.LIBRETRANSLATE_URL
   delete process.env.HF_TOKEN
+  process.env.TRANSLATE_FREE_FALLBACK = "off"
+  process.env.MYMEMORY_URL = `${base}/mm`
   let r = await mod.translateOpen(["Hello"], "en", "fr")
-  check("said in the merchant's words", r.out.size === 0 && r.unavailable === mod.OPEN_NOT_SET_UP)
+  check("with the free fallback turned off, said in the merchant's words", r.out.size === 0 && r.unavailable === mod.OPEN_NOT_SET_UP)
+
+  console.log("\nThe free fallback, with nothing set up")
+  delete process.env.TRANSLATE_FREE_FALLBACK
+  seen.length = 0
+  r = await mod.translateOpen(["Add to cart", "<b>Free</b> shipping"], "en", "fr")
+  check("MyMemory translates before any key is set", r.out.get(0) === "MM Add to cart" && r.out.get(1) === "<b>MM Free</b> MM shipping" && seen.some((x) => x.body.langpair === "en|fr"), JSON.stringify([...r.out]))
+  r = await mod.translateOpen(["Over quota"], "en", "fr")
+  check("its daily allowance used up is said, naming it", r.out.size === 0 && /MyMemory is busy or out of allowance/.test(r.unavailable ?? ""), r.unavailable ?? "")
+  process.env.TRANSLATE_FREE_FALLBACK = "off"
 
   console.log("\nLibreTranslate")
   process.env.LIBRETRANSLATE_URL = `${base}/lt/`
@@ -120,12 +147,25 @@ async function main() {
   delete process.env.LIBRETRANSLATE_URL
   process.env.HF_TOKEN = "hf_test"
   process.env.HF_INFERENCE_URL = `${base}/hf`
+  process.env.HF_ROUTER_URL = `${base}/hfr`
+  seen.length = 0
+  r = await mod.translateOpen(["Hello", "Shop <i>now</i>"], "en", "fr")
+  check("an open chat model through the router first, its JSON read even inside a code fence", r.out.get(0) === "CHAT Hello" && r.out.get(1) === "CHAT Shop <i>CHAT now</i>" && seen.some((x) => x.path === "/hfr/chat/completions"), JSON.stringify([...r.out]))
+  check("the prompt names both languages", seen.some((x) => /from English into French/.test(String((x.body.messages as { content: string }[] | undefined)?.[0]?.content))))
+  process.env.HF_CHAT_MODEL = "acme/not-served"
   seen.length = 0
   r = await mod.translateOpen(["Hello"], "en", "de")
   check("the pair's opus-mt model when there is one", r.out.get(0) === "DE Hello" && seen.some((s) => s.path === "/hf/Helsinki-NLP/opus-mt-en-de"))
   seen.length = 0
   r = await mod.translateOpen(["Hello <b>there</b>"], "en", "ro")
   check("NLLB 200 when there is none, with its language codes", r.out.get(0) === "ron_Latn Hello <b>ron_Latn there</b>" && seen.some((s) => s.path === "/hf/facebook/nllb-200-distilled-600M" && (s.body.parameters as { src_lang: string }).src_lang === "eng_Latn"), r.out.get(0))
+
+  delete process.env.HF_INFERENCE_URL
+  process.env.HF_INFERENCE_URL = `${base}/nowhere`
+  r = await mod.translateOpen(["Something new"], "en", "it")
+  check("when nothing answers, the failure names Hugging Face and what it said, not a guess about the language", r.out.size === 0 && /^Couldn't translate\. Hugging Face/.test(r.unavailable ?? "") && /HTTP 4\d\d/.test(r.unavailable ?? "") && !/can't be translated automatically/.test(r.unavailable ?? ""), r.unavailable ?? "")
+  delete process.env.HF_TOKEN
+  delete process.env.HF_CHAT_MODEL
 
   console.log("\nThe paid model is not used")
   process.env.LIBRETRANSLATE_URL = `${base}/lt`

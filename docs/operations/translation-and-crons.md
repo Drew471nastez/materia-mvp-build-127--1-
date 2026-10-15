@@ -32,11 +32,19 @@ Production (and Preview if you test there), then redeploy.
 | `CRON_SECRET` | any long random string, for example the output of `openssl rand -hex 32` | Vercel sends it to every scheduled job, and a translation that runs out of time uses it to start its next run straight away |
 | `LIBRETRANSLATE_URL` | the address of a LibreTranslate server, for example `https://translate.yourdomain.com` | the free, open source translator (option A below) |
 | `LIBRETRANSLATE_API_KEY` | only if that server asks for a key | |
-| `HF_TOKEN` | a Hugging Face access token, `hf_...` | the second free translator (option B below) |
+| `HF_TOKEN` | a Hugging Face access token, `hf_...` | open chat models (Llama, Qwen) through Hugging Face (option B below) |
+| `TRANSLATE_LLM_URL`, `TRANSLATE_LLM_MODEL`, `TRANSLATE_LLM_KEY` | any OpenAI-compatible host serving an open model, for example `https://api.groq.com/openai/v1` with `llama-3.3-70b-versatile` | option C below |
+| `MYMEMORY_EMAIL` | your email | raises the free fallback's daily allowance from 5,000 to 50,000 characters |
 
-Set at least one translator. With both, LibreTranslate is used first and
-Hugging Face takes over a batch LibreTranslate refuses. `OPENAI_API_KEY` is
-used only when neither is set.
+Translators are tried in this order: LibreTranslate, your own model host,
+Hugging Face, then MyMemory. MyMemory is free, needs no key and is always the
+last resort, so translating works before anything is set up; its daily
+allowance runs out on a large website. `TRANSLATE_FREE_FALLBACK=off` turns it
+off. `OPENAI_API_KEY` is used only when every free translator is off.
+
+When a translation fails, the Languages page now says which translator
+refused and what it answered (for example "Hugging Face refused the key
+(HTTP 401)"), so the fix is the one it names.
 
 ### Option A: LibreTranslate on your own server (recommended)
 
@@ -65,10 +73,19 @@ curl -s https://translate.yourdomain.com/translate \
    type "Read" (tick "Make calls to Inference Providers").
 2. Set `HF_TOKEN` to it.
 
-Storelib uses Helsinki-NLP's opus-mt model for the language pair when there
-is one, and Meta's NLLB 200 for the rest. `HF_TRANSLATE_MODEL` picks another
-model if you want one. The free tier has a monthly limit; the translation
-memory (part 178) means each sentence is only ever sent once.
+Storelib asks an open chat model through Hugging Face's router first
+(`meta-llama/Llama-3.3-70B-Instruct`, then Qwen 2.5 72B, then Llama 3.1 8B;
+`HF_CHAT_MODEL` picks others, comma separated), then the older translation
+models (opus-mt, NLLB 200) where Hugging Face still serves them. The free
+tier has a small monthly allowance; the translation memory (part 178) means
+each sentence is only ever sent once.
+
+### Option C: your own model host
+
+Any host with an OpenAI-compatible `/chat/completions` endpoint serving an
+open model works: Groq and OpenRouter have free tiers, Together is cheap, or
+run Ollama yourself (`TRANSLATE_LLM_URL=http://your-server:11434/v1`,
+`TRANSLATE_LLM_MODEL=llama3.1`, no key).
 
 ## 3. The scheduled jobs (crons)
 

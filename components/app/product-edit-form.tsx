@@ -52,7 +52,7 @@ import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-uploa
 import { DescriptionField as DescriptionRichEditor } from "@/components/store-builder/description-field"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { tt, msg } from "@/lib/i18n/text"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 
 interface ProductEditFormProps {
   product: Product & {
@@ -80,6 +80,8 @@ const REFUND_POLICY_OPTIONS = [
 const DEFAULT_WHATS_INCLUDED = [msg("Instant download access"), msg("All included files"), msg("Lifetime access")]
 
 export function ProductEditForm({ product, assets: initialAssets, creatorId, creatorUsername }: ProductEditFormProps) {
+  /* The store's own currency (/app layout, Settings › Languages & Currency): never the platform's. */
+  const storeCurrency = useStoreCurrency()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -466,7 +468,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="price">{tt("Price ({currency})", { currency: SHOP_CURRENCY })}</Label>
+                <Label htmlFor="price">{tt("Price ({currency})", { currency: storeCurrency })}</Label>
                 <Input
                   id="price"
                   type="number"

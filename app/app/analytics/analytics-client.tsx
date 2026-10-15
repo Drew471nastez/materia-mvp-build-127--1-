@@ -55,6 +55,8 @@ import { HoverNote } from "@/components/app/help-label"
 import { LoadingLine } from "@/components/app/loading-line"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { useStoreCurrency } from "@/lib/store/currency-context"
+import { formatCurrency } from "@/lib/markets/money"
 
 /* The four figures in order, for the strip that scrolls them on a phone. "views" is the Visitors tab. */
 const TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
@@ -93,7 +95,6 @@ const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
 export const COUNTING_NOTE_MS = 2500
 
 /** One formatter for the page. Constructing an Intl.NumberFormat is not free. */
-const USD_FORMAT = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
 
 /**
  * What the percentages are measured against: "Dec 1–Dec 31, 2025", the
@@ -396,7 +397,9 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
     A new function identity on every render would re-render recharts each
     time anything on this page changed.
   */
-  const formatPrice = useCallback((cents: number) => USD_FORMAT.format(cents / 100), [])
+  /* In the store's own currency (Settings › Languages & Currency), as its prices and orders are: a store in lei reads lei, never dollars. */
+  const storeCurrency = useStoreCurrency()
+  const formatPrice = useCallback((cents: number) => formatCurrency(cents / 100, storeCurrency, appLocale()), [storeCurrency])
   const formatCompactNumber = (num: number) => {
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
     if (num >= 10_000) return `${Math.round(num / 1000)}k`
