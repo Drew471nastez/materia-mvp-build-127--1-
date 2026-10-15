@@ -352,7 +352,7 @@ async function main() {
     check("not held: one that sets a cookie or changes the cart", !publicAnswer({ ...page, setsCookie: true }) && !publicAnswer({ ...page, changesCart: true }))
     check("not held: the cart, checkout, account and password pages (no-store)", !publicAnswer({ ...page, cacheControl: "private, no-store" }))
     check("not held: a 404, a redirect, JSON, a POST", !publicAnswer({ ...page, status: 404 }) && !publicAnswer({ ...page, status: 303 }) && !publicAnswer({ ...page, type: "application/json" }) && !publicAnswer({ ...page, method: "POST" }))
-    check("held a minute, stale for five while it is drawn again, by cookie and country", PUBLIC_PAGE_CACHE === "public, s-maxage=60, stale-while-revalidate=300" && PUBLIC_PAGE_VARY === "Cookie, X-Vercel-IP-Country, CF-IPCountry")
+    check("held a minute, never served stale (a background refresh would miss the proxy), by cookie and country", /* Changed on purpose (no stale-while-revalidate on compat pages). */ PUBLIC_PAGE_CACHE === "public, s-maxage=60" && PUBLIC_PAGE_VARY === "Cookie, X-Vercel-IP-Country, CF-IPCountry")
 
     /* A stranger's page, drawn twice, is the same page; a visitor's cart is drawn into it, which is why a cart cookie keeps a page private. */
     const section = (type: string, markup: string) => `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify({ type, name: type, settings: [] })}\n</schema>\n`

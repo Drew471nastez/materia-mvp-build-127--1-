@@ -48,7 +48,8 @@
  */
 
 /** What a stranger's page is sent with. */
-export const PUBLIC_PAGE_CACHE = "public, s-maxage=60, stale-while-revalidate=300"
+/* No stale-while-revalidate: a background refresh on the CDN does not pass through the proxy again, so the handler would refuse it (its seal expired) and could replace a good copy with a 404. A minute, then drawn fresh. */
+export const PUBLIC_PAGE_CACHE = "public, s-maxage=60"
 /** And what it varies by, for a CDN that keys on the address the browser asked for. */
 export const PUBLIC_PAGE_VARY = "Cookie, X-Vercel-IP-Country, CF-IPCountry"
 
