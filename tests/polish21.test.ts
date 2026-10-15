@@ -86,7 +86,8 @@ check("it opens from the feed's data already in hand, and says no without it", /
 check("the place host draws it for a member who may post", /\{viewer && !readOnly \? <ComposeAnywhere communityId=\{communityId\} \/> : null\}/.test(host))
 check("away from the feed the composer opens at once, with no field of its own in a list", /useState\(editing \|\| !!away\)/.test(composer) && /\) : away && phone \? null : \(/.test(composer))
 check("its owner takes it out once the sheet is down", /if \(awayRef\.current\) \{\s*\n\s*awayRef\.current\.onClosed\(\)\s*\n\s*return\s*\n\s*\}/.test(composer))
-check("posted away: a toast says so, not the feed's arrival", /if \(awayRef\.current\) toast\("Posted"\)\s*\n\s*else arrive\(/.test(composer))
+/* Changed on purpose (round 29): away from the feed the toast and the post handed over, in a block of its own; the feed's arrival waits for the page's glide. */
+check("posted away: a toast says so, not the feed's arrival", /if \(awayRef\.current\) \{\s*toast\("Posted"\)\s*onPosted\(post\)\s*return\s*\}/.test(composer) && /glideIntoSight\(spot, land\)/.test(composer))
 
 /* The feed's side: the post waits, and goes in where a post written there would. */
 const post = (id: string, extra: Partial<FeedPostView> = {}) => ({ id, pinned: false, space: null, ...extra }) as unknown as FeedPostView

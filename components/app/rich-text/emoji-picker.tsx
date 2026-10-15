@@ -24,7 +24,8 @@
  *     tap that opens it only slides it up;
  *   - a group's buttons are made only when the list scrolls near it (or a
  *     tab jumps to it), in order, so nothing above what is shown ever
- *     changes height; the first two are there from the start;
+ *     changes height; the first two are there from the start, and the rest
+ *     are made one by one while the page is idle after it opens;
  *   - each group is `content-visibility: auto`, so the ones off screen are
  *     neither laid out nor drawn;
  *   - the grids are memoised and one listener on the list takes every pick,
@@ -32,6 +33,17 @@
  *     never render a grid again;
  *   - hover and a pressed shrink are for a mouse only, so a swipe through
  *     the grid lights nothing up.
+ *
+ * ROUND 29 (the owner: "while scrolling, some categories show no emoji at
+ * all until I press their tab"). The next group was made only when ONE
+ * marker after the last group came within 480px of the list's foot, and
+ * every group not made yet still kept its full height as a blank block, so
+ * the marker stayed far below until the very end of the list: whole groups
+ * scrolled past empty. Now each group not made yet is watched itself (one
+ * observer on the list, a screen of margin above and below), and the one
+ * that comes near is made with every group above it; the rest fill in while
+ * the page is idle. A group waiting is an empty grid of the same cells, so
+ * making it changes no height at all, and nothing moves under the finger.
  */
 
 import * as React from "react"
@@ -57,22 +69,36 @@ function usePhone(query = "(max-width: 639px)") {
 
 /** Groups there from the start, before any scroll. */
 const EAGER_GROUPS = 2
+/** How far beyond the list's edges a group not made yet is made: about a screen of the list. */
+const BUILD_MARGIN = "100% 0px 100% 0px"
 
 const GROUP_ITEMS = EMOJI_GROUPS.map((g) => g.items.map(([e]) => e))
 
 /** One grid of emoji. Picks are taken by the list's one listener (data-emoji). */
 const EmojiGrid = React.memo(function EmojiGrid({ list, phone }: { list: string[]; phone: boolean }) {
   const cell = cn(
+    /* `hover:` is a mouse's only in this app (app/globals.css), and a plain colour class follows the dark look. */
     "flex aspect-square w-full cursor-pointer select-none items-center justify-center rounded-lg leading-none outline-none transition-[background-color,scale] duration-100 focus-visible:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
-    "[@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#f1f2f4] [@media(hover:hover)_and_(pointer:fine)]:active:scale-90",
+    "hover:bg-[#f1f2f4] pointer-fine:active:scale-90",
     phone ? "text-[26px]" : "text-[22px]",
   )
   return (
-    <div className={cn("grid gap-0.5", phone ? "grid-cols-8" : "grid-cols-9")}>
+    <div className={cn("grid gap-0.5", phone ? "grid-cols-8" : "grid-cols-9")} data-emoji-grid="">
       {list.map((e, i) => (
         <button key={`${e}-${i}`} type="button" aria-label={e} data-emoji={e} className={cell}>
           {e}
         </button>
+      ))}
+    </div>
+  )
+})
+
+/** A group not made yet: the same grid of the same cells, empty, so making it changes no height. */
+const EmptyGrid = React.memo(function EmptyGrid({ count, phone }: { count: number; phone: boolean }) {
+  return (
+    <div aria-hidden className={cn("grid gap-0.5", phone ? "grid-cols-8" : "grid-cols-9")} data-emoji-waiting="">
+      {Array.from({ length: count }, (_, i) => (
+        <span key={i} className="aspect-square w-full" />
       ))}
     </div>
   )
@@ -85,13 +111,15 @@ const GroupSection = React.memo(function GroupSection({ index, phone, built }: {
   return (
     <section
       data-emoji-group={group.id}
+      data-emoji-index={index}
+      data-emoji-built={built ? "true" : "false"}
       className="pb-1"
       /* Off screen, a group is neither laid out nor drawn; its height is
          kept at a guess of its rows until it is first measured. */
       style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${rows * (phone ? 42 : 36) + 30}px` }}
     >
       <p className="px-1.5 pb-1 pt-2 text-[12px] font-medium text-[#6b7280]">{group.name}</p>
-      {built ? <EmojiGrid list={list} phone={phone} /> : <div aria-hidden style={{ height: rows * (phone ? 42 : 36) }} />}
+      {built ? <EmojiGrid list={list} phone={phone} /> : <EmptyGrid count={list.length} phone={phone} />}
     </section>
   )
 })
@@ -110,9 +138,7 @@ const GroupTabs = React.memo(function GroupTabs({ phone, active, onJump }: { pho
           className={cn(
             "flex flex-1 items-center justify-center rounded-md leading-none transition-[background-color,filter,opacity] duration-150 [-webkit-tap-highlight-color:transparent]",
             phone ? "h-10 text-[20px]" : "h-8 text-[17px]",
-            active === group.id
-              ? "bg-[#f1f2f4] opacity-100"
-              : "opacity-55 grayscale [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-90 [@media(hover:hover)_and_(pointer:fine)]:hover:grayscale-0",
+            active === group.id ? "bg-[#f1f2f4] opacity-100" : "opacity-55 grayscale hover:opacity-90 hover:grayscale-0",
           )}
         >
           {group.icon}
@@ -126,7 +152,6 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
   const [query, setQuery] = React.useState("")
   const [recent, setRecent] = React.useState<string[]>([])
   const listRef = React.useRef<HTMLDivElement>(null)
-  const sentinelRef = React.useRef<HTMLDivElement>(null)
   const [activeGroup, setActiveGroup] = React.useState(EMOJI_GROUPS[0].id)
   /* How many groups have their buttons, counted from the top. */
   const [built, setBuilt] = React.useState(EAGER_GROUPS)
@@ -140,20 +165,38 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
 
   const found = query.trim() ? searchEmoji(query) : null
 
-  /* The next group is made when the list scrolls near the end of what is made. */
+  /* A group not made yet that comes within a screen of the list is made, with every group above it (ROUND 29). */
   React.useEffect(() => {
     const list = listRef.current
-    const sentinel = sentinelRef.current
-    if (!list || !sentinel || built >= EMOJI_GROUPS.length || found || typeof IntersectionObserver === "undefined") return
+    if (!list || built >= EMOJI_GROUPS.length || found) return
+    if (typeof IntersectionObserver === "undefined") {
+      setBuilt(EMOJI_GROUPS.length)
+      return
+    }
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) setBuilt((n) => Math.min(EMOJI_GROUPS.length, n + 1))
+        let want = 0
+        for (const e of entries) if (e.isIntersecting) want = Math.max(want, Number((e.target as HTMLElement).dataset.emojiIndex) + 1)
+        if (want) setBuilt((n) => Math.max(n, Math.min(EMOJI_GROUPS.length, want)))
       },
-      { root: list, rootMargin: "0px 0px 480px 0px" },
+      { root: list, rootMargin: BUILD_MARGIN },
     )
-    io.observe(sentinel)
+    for (const section of list.querySelectorAll<HTMLElement>('[data-emoji-group][data-emoji-built="false"]')) io.observe(section)
     return () => io.disconnect()
   }, [built, found])
+
+  /* And the rest one by one while the page is idle, once the panel is in use, so a fast fling finds them made. */
+  React.useEffect(() => {
+    if (!active || built >= EMOJI_GROUPS.length || found) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const next = () => setBuilt((n) => Math.min(EMOJI_GROUPS.length, n + 1))
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(next, { timeout: 600 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(next, 120)
+    return () => window.clearTimeout(t)
+  }, [active, built, found])
 
   const onPickRef = React.useRef(onPick)
   React.useEffect(() => {
@@ -217,7 +260,7 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
             className={cn("min-w-0 flex-1 bg-transparent text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden", phone ? "text-[16px]" : "text-[14px]")}
           />
           {query ? (
-            <button type="button" aria-label={tt("Clear search")} onClick={() => setQuery("")} className="-mr-1 flex h-7 w-7 items-center justify-center rounded-full text-[#6b7280] [@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e]">
+            <button type="button" aria-label={tt("Clear search")} onClick={() => setQuery("")} className="-mr-1 flex h-7 w-7 items-center justify-center rounded-full text-[#6b7280] hover:text-[#1a1a2e]">
               <X className="h-4 w-4" />
             </button>
           ) : null}
@@ -251,7 +294,6 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
             {EMOJI_GROUPS.map((group, i) => (
               <GroupSection key={group.id} index={i} phone={phone} built={i < built} />
             ))}
-            <div ref={sentinelRef} aria-hidden className="h-px" />
           </>
         )}
       </div>

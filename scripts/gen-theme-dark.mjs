@@ -377,6 +377,10 @@ html[data-sl-dark] body {
 }
 ${SCOPE} {
   color-scheme: dark;
+  /* Round 29: the surface tokens inside a community frame set dark too (the comment pill, its typing ground: comments.tsx PILL_BOX). */
+  --sl-surface: ${P.surface};
+  --sl-raised: ${P.raised};
+  --sl-line: ${L(P.line)};
 }
 [data-community-theme="dark"] {
   background-color: ${P.page};
