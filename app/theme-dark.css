@@ -140,7 +140,7 @@ html[data-theme-swap]::view-transition-new(root) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 758 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 762 of them ─────────────── */
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#000000\]:active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#0f0f1c\]:active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#10101d\]:active { background-color: #35353c; }
@@ -480,6 +480,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=checked\]\:bg-\[\#111113\][data-state="checked"] { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:bg-\[\#f1f2f4\][data-state="open"] { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:border-\[\#1a1a2e\][data-state="open"] { border-color: rgba(255,255,255,0.24); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:border-\[\#eceef1\][data-state="open"] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:text-\[\#1a1a2e\][data-state="open"] { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=unchecked\]\:bg-\[\#e4e5e9\][data-state="unchecked"] { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-\[\#1a1a2e\]\/25 { text-decoration-color: rgba(255,255,255,0.06); }
@@ -518,6 +519,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f4f5f7\]:focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f6f7f8\]:focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f6f7f9\]:focus-visible { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f7f7f8\]:focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f8f9fa\]:focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#fafafb\]:focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-black\/\[0\.04\]:focus-visible { background-color: rgba(53,53,60,0.04); }
@@ -526,6 +528,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-red-50:focus-visible { background-color: hsla(0,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-white:focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-\[\#1a1a2e\]:focus-visible { border-color: rgba(255,255,255,0.24); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-\[\#eceef1\]:focus-visible { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-neutral-300:focus-visible { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-white\/25:focus-visible { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:decoration-\[\#1a1a2e\]\/30:focus-visible { text-decoration-color: rgba(255,255,255,0.072); }
@@ -554,6 +557,7 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:bg-\[\#fafbfb\]:focus-within { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:bg-white:focus-within { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#1a1a2e\]\/50:focus-within { border-color: rgba(255,255,255,0.12); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#1a1a2e\]\/55:focus-within { border-color: rgba(255,255,255,0.132); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#c9ccd2\]:focus-within { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#c9ccd3\]:focus-within { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#d9dce1\]:focus-within { border-color: rgba(255,255,255,0.07); }
