@@ -8162,7 +8162,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [drawnInLanguage, previewPricing, moneyLocale, canvasRating])
   const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true })), [shopCards, previewMap, cardsInMarket])
   const compatLanguage = useMemo(
-    () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
+    /* The default language too: an English theme on a store whose default is Spanish is drawn in Spanish, as the live site draws it. */
+    () => (previewLang.locale || previewMap ? { locale: previewLang.locale ?? previewLang.defaultLanguage, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
     [previewLang.locale, previewLang.defaultLanguage, previewLang.languages, previewMap],
   )
 
