@@ -62,6 +62,13 @@ export const LANDING_HOLD_MS = LANDING_MS + 120
  * on the page that arrived, the class has nothing to do and is not set (components/ui/nav-landing.tsx, round 29).
  */
 export const LANDING_SURFACES = "[data-member-profile], [data-storefront-root], .explore-ground"
+/**
+ * Round 31: the surfaces on screen when a navigation commits carry this, and <html> carries LANDING_MARKED_CLASS, so a
+ * surface that replaces them inside the hold (a page after its loading.tsx) is simply there instead of fading from
+ * nothing a second time (app/globals.css, components/ui/nav-landing.tsx).
+ */
+export const LANDED_ATTR = "data-nav-land"
+export const LANDING_MARKED_CLASS = "nav-landing-marked"
 
 /**
  * Whether an address lands this way. The seller dashboard has a landing of

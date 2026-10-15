@@ -88,6 +88,8 @@ import type { ShellCommunity, SpaceView, TopBarData, WallData } from "@/componen
 import { MembershipPage } from "@/components/community/member/membership"
 import { CommunityContributions } from "@/components/profile/community-contributions"
 import type { ContributionSection } from "@/lib/profile/shared-view"
+import { LeaveCopy } from "@/components/navigation/leave-copy"
+import { noteHeadingIntoCommunity } from "@/lib/navigation/arrival-still"
 
 const NOW = Date.now()
 const HOUR = 3_600_000
@@ -626,6 +628,8 @@ const root = createRoot(document.getElementById("app")!)
 function ExploreStandIn() {
   return (
     <div className="explore-ground min-h-svh bg-[#f8f9fa]" data-probe-explore="">
+      {/* Round 31: Explore's own leaving copy (app/(marketing)/explore/page.tsx). */}
+      <LeaveCopy surface=".explore-ground" />
       <div className="mx-auto max-w-[1200px] px-4 py-6">
         <h1 className="text-[24px] font-bold text-[#1a1a2e]">Explore</h1>
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -641,6 +645,8 @@ function Arrival() {
   const [there, setThere] = React.useState(false)
   React.useEffect(() => {
     ;(window as unknown as { __go?: () => void }).__go = () => {
+      /* The press on a community card, as Explore's capture listener hears it (round 31); ?still=0 leaves it out. */
+      if (params.get("still") !== "0") noteHeadingIntoCommunity(`/community/${community.slug}`)
       history.pushState(null, "", `/community/${community.slug}${which === "about-visitor" || which === "about" ? "/about" : ""}`)
       React.startTransition(() => setThere(true))
     }

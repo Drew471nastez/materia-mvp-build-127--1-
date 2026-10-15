@@ -34,17 +34,15 @@
  * the frame. A read that fails is tried once more, then says so with a
  * retry; nothing reloads the page.
  *
- * ARRIVING. A place the member moved to rises 6px and fades in from 35%
- * over 180ms (opacity and translate, on the compositor; from 35% so its
- * first frame is never an empty middle); Back and Forward put the place
- * back as it was, with no motion. None for reduced motion.
- * ON A COMPUTER, SOFTER (round J, the owner: switching between Community,
- * Learn, Calendar, Members and About "things are a little too bumpy. Reduce
- * them just a little, not so much"). From 1024px, where the left column
- * holds the places, it rises 3px from 55% over 150ms on an ease out that
- * does not front load the move (the phone's curve covers most of its 6px in
- * the first two frames, which read as a hop on a big screen). Measured in
- * scratchpad j2/probe-tabs.mjs. A phone keeps its own numbers.
+ * ARRIVING, A CROSSFADE (round 31, the owner: switching Community, Learn,
+ * Calendar, Members and About "feels too snappy, too direct"). The place
+ * being left used to go in one frame and the next one lifted from 35%, which
+ * read as a cut. Now a copy of what was in the window goes out over 120ms
+ * while the next place comes up from nothing with a 4px rise over 180ms
+ * (3px over 160ms from 1024px), opacity and translate only, on the
+ * compositor (place-crossfade.ts). The bar and the columns do not move.
+ * Back and Forward put the place back as it was, with no motion. None for
+ * reduced motion.
  *
  * READ AHEAD. Once the first screen has painted and the phone is idle, every
  * place's first screen (and its code) is read, two at a time, never on
@@ -65,6 +63,7 @@ import { preloadPlaceView, preloadPlaceViews, PlaceView, PlaceWaiting } from "./
 import { BTN_SECONDARY } from "./ui"
 import { PostOpener } from "./post-opener"
 import { ComposeAnywhere } from "./compose-anywhere"
+import { playPlaceCrossfade, takePlaceStill, type PlaceStill } from "./place-crossfade"
 import type { ViewerView } from "@/lib/communities/types"
 import { hardNavigationAllowed, loadingFailure } from "@/lib/communities/client/resume"
 
@@ -75,17 +74,10 @@ import { hardNavigationAllowed, loadingFailure } from "@/lib/communities/client/
 */
 const Activity = (ReactRuntime as unknown as { Activity: React.ComponentType<{ mode: "visible" | "hidden"; children: React.ReactNode }> }).Activity
 
-/** The arrival: a few px up and in, on the compositor. */
-export const ARRIVE_MS = 180
+/** The arrival's curve, for a place's waiting screen handing over to the place (below). The move itself: place-crossfade.ts. */
 const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
-export const ARRIVE_RISE_PX = 6
-export const ARRIVE_FROM_OPACITY = 0.35
-/** From 1024px (the frame's left column, lg): the same arrival, a little quieter. */
+/** From 1024px (the frame's left column, lg): the same crossfade, a little quieter. */
 export const ARRIVE_WIDE = "(min-width: 1024px)"
-export const ARRIVE_WIDE_MS = 150
-export const ARRIVE_WIDE_RISE_PX = 3
-export const ARRIVE_WIDE_FROM_OPACITY = 0.55
-const ARRIVE_WIDE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 
 /* ── The seed a place's route page renders ── */
 
@@ -304,6 +296,8 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
   const intent = useRef<{ scroll: "top" | "keep" | "auto"; history: boolean } | null>(null)
   const painted = useRef(false)
   const screenEls = useRef(new Map<string, HTMLElement>())
+  /* The place on screen as the member tapped away from it, copied for the crossfade (place-crossfade.ts). */
+  const leaving = useRef<PlaceStill | null>(null)
   /*
     THE SHELL PUTS SCROLL BACK, NOT THE BROWSER. With the browser's own restoration on, Back and Forward moved the window to
     the entry's old place before the host had noted where the place being left was, so that place came back at the other's
@@ -334,15 +328,17 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
     shownRef.current = shown.key
     const how = intent.current ?? { scroll: "auto", history: false }
     intent.current = null
+    const still = leaving.current
+    leaving.current = null
+    const scrollBefore = window.scrollY
     const y = how.scroll === "top" ? 0 : wasKept ? (scrolls.current.get(shown.key) ?? 0) : 0
     window.scrollTo(0, y)
     scrolls.current.set(shown.key, y)
     if (how.history) return
     const el = routedOwns(shown.key) ? routedRef.current : screenEls.current.get(shown.key)
-    if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    /* From 35%, not from nothing: the first frame after the tap already shows the place (a fade from 0 is a blank frame). */
-    if (window.matchMedia?.(ARRIVE_WIDE).matches) el.animate([{ opacity: ARRIVE_WIDE_FROM_OPACITY, translate: `0 ${ARRIVE_WIDE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }], { duration: ARRIVE_WIDE_MS, easing: ARRIVE_WIDE_EASE })
-    else el.animate([{ opacity: ARRIVE_FROM_OPACITY, translate: `0 ${ARRIVE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
+    if (!el) return
+    /* The place left goes out over the place that came (ARRIVING, A CROSSFADE, above): never a frame with neither. */
+    playPlaceCrossfade(still, el.parentElement, el, scrollBefore, !!window.matchMedia?.(ARRIVE_WIDE).matches)
   }, [shown.key])
 
   /*
@@ -370,6 +366,9 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
     (_from: Place, to: Place, opts: GoOptions & { history?: boolean }) => {
       scrolls.current.set(shownRef.current, window.scrollY)
       intent.current = { scroll: opts.scroll ?? "auto", history: !!opts.history }
+      /* A tap away from a place: what is in the window now, for it to go out on (Back and Forward have no motion). */
+      const from = shownRef.current
+      leaving.current = opts.history ? null : takePlaceStill(routedOwns(from) ? routedRef.current : screenEls.current.get(from))
       setWaitedFor(null)
       /* On the tap itself, before React draws anything: the place's code and, when it is not in hand, its data. */
       preloadPlaceView(to)

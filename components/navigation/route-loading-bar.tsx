@@ -297,6 +297,32 @@ function sameCommunityPlace(a: string, b: string): boolean {
   return !!m && !!n && m[1] === n[1]
 }
 
+/*
+  THE GROUND THE SURFACE IS DRAWN IN (round 31, the owner: "the iOS style spinner sits on a white screen even in dark
+  mode"). It was read from the first <main> up, and on the marketing pages that <main> is the layout's own, which has no
+  colour: the read went on to <body>, which is not the page's ground (white in a browser where Explore is #f8f9fa, and
+  #f5f5f5 in the app whatever the look until round 31). The page's own ground is read now: Explore's, the community's
+  frame, a person's page, the account's; and in the dark look a light answer is never taken, the look's own ground is.
+*/
+const PAGE_GROUNDS = ".explore-ground, [data-community-shell], [data-community-public], [data-member-profile], [data-storefront-root], [data-page]"
+
+function pageGround(): string {
+  const html = document.documentElement
+  const dark = html.hasAttribute("data-sl-dark")
+  const darkGround = () => getComputedStyle(html).getPropertyValue("--sl-page").trim() || "#111113"
+  const under = document.querySelector(PAGE_GROUNDS) ?? document.querySelector("main") ?? document.body
+  for (let n: Element | null = under; n !== null; n = (n as Element).parentElement) {
+    const c = getComputedStyle(n).backgroundColor
+    if (!c || /rgba\(0, 0, 0, 0\)|transparent/.test(c)) continue
+    if (dark) {
+      const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c)
+      if (m && (0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3]) / 255 > 0.5) return darkGround()
+    }
+    return c
+  }
+  return dark ? darkGround() : "#ffffff"
+}
+
 function SlowPage({ pendingSince, from, cover, lineOnly = false }: { pendingSince: number | null; from: string; cover: boolean; lineOnly?: boolean }) {
   const [shown, setShown] = useState(false)
   const [look, setLook] = useState<{ top: number; background: string }>({ top: 0, background: "#ffffff" })
@@ -313,13 +339,7 @@ function SlowPage({ pendingSince, from, cover, lineOnly = false }: { pendingSinc
       /* Measured now, not at mount: the header is sticky and the ground under it is the page's own. */
       const header = document.querySelector("header")
       const box = header?.getBoundingClientRect()
-      const under = document.querySelector("main") ?? document.body
-      let background = "#ffffff"
-      for (let n: Element | null = under; n; n = n.parentElement) {
-        const c = getComputedStyle(n).backgroundColor
-        if (c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) { background = c; break }
-      }
-      setLook({ top: Math.max(0, box && box.bottom > 0 ? box.bottom : 0), background })
+      setLook({ top: Math.max(0, box && box.bottom > 0 ? box.bottom : 0), background: pageGround() })
       setShown(true)
     }, Math.max(0, wait - (Date.now() - pendingSince)))
     return () => window.clearTimeout(t)

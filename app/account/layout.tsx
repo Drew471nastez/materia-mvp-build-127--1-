@@ -13,6 +13,7 @@ import { AccountHeaderSwitch } from "@/components/account/account-header-switch"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
+import { LeaveIntoApp } from "@/components/navigation/leave-into-app"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { AccountHub, type AccountIdentity } from "@/components/account/account-hub"
 import { AccountNavFade } from "@/components/account/account-nav-fade"
@@ -134,6 +135,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
       {/* The same line the library and Explore carry, so leaving Profile for
           another tab says so when the next page is slow. */}
       <RouteLoadingBar />
+      {/* A Dashboard press: this page fades off the dashboard rather than being cut away (round 31). */}
+      <LeaveIntoApp />
       <LibraryBgFix />
       <AccountHeaderSwitch initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
       {/* overflow-x-CLIP, not hidden: the cover runs edge to edge and must not

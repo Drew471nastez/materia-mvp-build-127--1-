@@ -7,6 +7,7 @@ import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
+import { LeaveIntoApp } from "@/components/navigation/leave-into-app"
 
 export default async function MarketingLayout({
   children,
@@ -50,6 +51,8 @@ export default async function MarketingLayout({
       {/* Nothing until a navigation has been slow for 220ms; see the
           component for why it cannot block and cannot get stuck. */}
       <RouteLoadingBar />
+      {/* A Dashboard press: this page fades off the dashboard rather than being cut away (round 31). */}
+      <LeaveIntoApp />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
 
       {/*
