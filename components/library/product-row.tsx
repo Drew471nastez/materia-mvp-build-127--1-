@@ -12,7 +12,7 @@ import type { LibraryCreator, LibraryItem } from "@/lib/library/library-view"
 import { contactOf, productPageOf } from "./creator-links"
 import { LibraryFileRow } from "./file-row"
 import { useStoreLinkProps } from "./use-store-link"
-import { ICON_BUTTON, PRIMARY, SECONDARY, SMALL, shortDate } from "./library-ui"
+import { ROW_ACTION, ROW_ICON_ACTION, shortDate } from "./library-ui"
 import { cn } from "@/lib/utils"
 
 /**
@@ -33,7 +33,26 @@ import { cn } from "@/lib/utils"
  *
  * A refunded or unpaid purchase keeps its row, says so, and offers the
  * receipt instead of a Download that could only say no.
+ *
+ * ROUND 31, THE OWNER: the row's buttons looked "too light, washed grey,
+ * especially in dark". Every action on a row (Download, the files switch,
+ * Open, Receipt and More) is one calm secondary now, ROW_ACTION in
+ * library-ui.ts, with its own dark colours. And "7 files" opens and closes
+ * smoothly and exactly: the list is a row of the grid of its own, under the
+ * actions on a phone and under the words from 640px, so the switch never
+ * moves under the finger that pressed it; its height goes from 0fr to 1fr
+ * (FILES_OPEN below), its content fades and settles by four pixels on the
+ * compositor, the chevron turns on the same curve, and a closed list is
+ * inert, so a keyboard never lands on a Download nobody can see.
  */
+
+/*
+  The list's motion: the app's sheet curves (components/ui/bottom-sheet.tsx SHEET_EASE and SHEET_CLOSE_EASE), opening a
+  little slower than it closes, as a sheet does. Written out as classes so Tailwind compiles them; the chevron turns with
+  the height.
+*/
+const FILES_OPEN = "duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+const FILES_CLOSE = "duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
 
 const STATE_LINE: Record<Exclude<LibraryItem["state"], "open">, { text: string; tone: string }> = {
   pending: { text: "Waiting for payment", tone: "text-[#b45309]" },
@@ -71,7 +90,7 @@ function OneFileButton({ item, className }: { item: LibraryItem; className: stri
   }
   return (
     <>
-      <button type="button" onClick={go} disabled={busy} aria-busy={busy || undefined} data-row-download="" className={cn(PRIMARY, SMALL, `tabular-nums ${className}`)}>
+      <button type="button" onClick={go} disabled={busy} aria-busy={busy || undefined} data-row-download="" className={cn(ROW_ACTION, `tabular-nums ${className}`)}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />}
         {busy ? (pct !== null ? `${pct}%` : "Preparing") : "Download"}
       </button>
@@ -102,6 +121,7 @@ export function ProductRow({
   const href = `/account/library/products/${item.productId}`
   const status = item.state === "open" ? null : STATE_LINE[item.state]
   const many = item.state === "open" && item.files.length > 1
+  const listId = `files-${item.productId}`
 
   const menu = useMemo<ActionMenuItem[]>(() => {
     const rows: ActionMenuItem[] = [{ label: "Open", icon: <Package className="h-4 w-4" />, href }]
@@ -120,7 +140,7 @@ export function ProductRow({
   const primary =
     item.state !== "open" ? (
       item.receiptToken ? (
-        <Link href={`/receipt/${encodeURIComponent(item.receiptToken)}`} className={cn(SECONDARY, SMALL, "flex-1 sm:flex-none sm:min-w-[120px]")}>
+        <Link href={`/receipt/${encodeURIComponent(item.receiptToken)}`} className={cn(ROW_ACTION, "flex-1 sm:flex-none sm:min-w-[120px]")}>
           Receipt
         </Link>
       ) : null
@@ -131,15 +151,16 @@ export function ProductRow({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-controls={listId}
         data-row-files=""
-        className={cn(SECONDARY, SMALL, "flex-1 sm:w-[120px] sm:flex-none sm:shrink-0")}
+        className={cn(ROW_ACTION, "flex-1 sm:w-[120px] sm:flex-none sm:shrink-0")}
       >
         <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span className="tabular-nums">{item.files.length} files</span>
-        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden />
+        <ChevronDown data-row-files-chevron="" className={cn("h-3.5 w-3.5 shrink-0 transition-[rotate] motion-reduce:transition-none", open ? `rotate-180 ${FILES_OPEN}` : FILES_CLOSE)} aria-hidden />
       </button>
     ) : (
-      <Link href={href} className={cn(SECONDARY, SMALL, "flex-1 sm:flex-none sm:min-w-[120px]")}>
+      <Link href={href} className={cn(ROW_ACTION, "flex-1 sm:flex-none sm:min-w-[120px]")}>
         Open
       </Link>
     )
@@ -149,7 +170,7 @@ export function ProductRow({
       title={item.title}
       items={menu}
       trigger={
-        <button type="button" aria-label={`More for ${item.title}`} data-row-more="" className={`${ICON_BUTTON} border border-[#e4e7ec] bg-white`}>
+        <button type="button" aria-label={`More for ${item.title}`} data-row-more="" className={ROW_ICON_ACTION}>
           <MoreHorizontal className="h-4 w-4" aria-hidden />
         </button>
       }
@@ -180,27 +201,46 @@ export function ProductRow({
             </time>
           </p>
           {status ? <p className={`mt-1 text-[13px] font-medium ${status.tone}`}>{status.text}</p> : null}
-          {many ? (
-            <div
-              className={cn(
-                "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-                open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-              )}
-            >
-              <div className="min-h-0 overflow-hidden">
-                <ul data-row-file-list="" className="mt-3 border-t border-[#eef0f3]">
+        </div>
+        <div data-row-actions="" className="col-span-2 mt-3 flex flex-nowrap items-center gap-2 sm:col-span-1 sm:mt-0 sm:max-w-[280px] sm:justify-end sm:self-start">
+          {primary}
+          {more}
+        </div>
+        {many ? (
+          /*
+            THE FILES, A ROW OF THEIR OWN: the whole width under the actions on a phone, under the words and the actions
+            from 640px. Only this box changes height; its content is drawn once, at its own size, and only fades.
+            The box itself clips, not the row inside it: between 0fr and 1fr Chromium lays the row out at a fraction
+            of the box's own height again (0.3 of 0.3), so a clipping row showed less list than the room it had made
+            (measured in scripts/check-library-round31.mjs). The box reaches 4px past each side, so a focused
+            Download's ring is not cut off.
+          */
+          <div
+            id={listId}
+            data-row-file-panel={open ? "open" : "closed"}
+            inert={!open}
+            className={cn(
+              "col-span-2 -mx-1 grid grid-cols-[minmax(0,1fr)] overflow-hidden px-1 transition-[grid-template-rows] motion-reduce:transition-none sm:col-start-2",
+              open ? `grid-rows-[1fr] ${FILES_OPEN}` : `grid-rows-[0fr] ${FILES_CLOSE}`,
+            )}
+          >
+            <div className="min-h-0">
+              <div
+                data-row-file-content=""
+                className={cn(
+                  "pt-3 transition-[opacity,translate] motion-reduce:transition-none",
+                  open ? "translate-y-0 opacity-100 delay-[40ms] duration-[260ms] ease-out" : "-translate-y-1 opacity-0 duration-[140ms] ease-in",
+                )}
+              >
+                <ul data-row-file-list="" aria-label={`Files in ${item.title}`} className="border-t border-[#eef0f3]">
                   {item.files.map((f) => (
                     <LibraryFileRow key={f.id} file={f} receiptToken={item.receiptToken} tone="secondary" />
                   ))}
                 </ul>
               </div>
             </div>
-          ) : null}
-        </div>
-        <div data-row-actions="" className="col-span-2 mt-3 flex flex-nowrap items-center gap-2 sm:col-span-1 sm:mt-0 sm:max-w-[280px] sm:justify-end sm:self-start">
-          {primary}
-          {more}
-        </div>
+          </div>
+        ) : null}
       </div>
     </li>
   )
