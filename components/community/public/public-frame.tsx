@@ -24,7 +24,7 @@
  * the page under it fades in (opacity only, on what is inserted, so the
  * same page drawn again does not flash).
  */
-import { CommunityTopBar } from "@/components/community/member/top-bar"
+import { CommunityTopBar, TOP_BAR_GROUND } from "@/components/community/member/top-bar"
 import type { ShellCommunity, TopBarData, WallCardData } from "@/components/community/member/view-types"
 import { WallCommunityCard } from "@/components/community/member/wall"
 import { useLightChrome } from "@/lib/ui/light-chrome"
@@ -53,7 +53,7 @@ export interface PublicFrameCard {
 export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
   const { appearance } = useCommunityAppearance(card?.community.appearance === "dark" ? "dark" : "light")
   useCommunityTheme(appearance)
-  useLightChrome(true, appearance === "dark" ? "#111113" : "#f8f9fa")
+  useLightChrome(true, TOP_BAR_GROUND[appearance === "dark" ? "dark" : "light"])
   const slug = card?.community.slug ?? topBar.community.slug
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
   const landing = useCommunityLanding()

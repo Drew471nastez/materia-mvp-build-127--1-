@@ -20,10 +20,12 @@
  *
  * NO BUMP ON A TAP. "I don't really like the bump when I click an icon." So
  * this bar asks the lens for no give (`give: false`): the icon you press does
- * not squeeze and spring back, and the glass does not grow in from a smaller
- * size either. What a press does here is colour only: the icon fills on the
- * frame the finger lands and the glass lights under it. The slide keeps its
- * lift and stretch, because that is a finger dragging the glass, not a tap.
+ * not squeeze and spring back, and nothing in the tab moves. The icon fills on
+ * the frame the finger lands. The glass under it, since round 29 ("smoother in
+ * and out, on a spring"), swells in place from nine tenths on a
+ * soft spring and sinks back as it fades (IT COMES AND GOES ON THE COMPOSITOR,
+ * below): never the old grow from 55%, never a move. The slide keeps its lift
+ * and stretch, because that is a finger dragging the glass, not a tap.
  *
  * AND A TAB IS ALREADY ON ITS WAY BEFORE IT IS PRESSED. Once the page has
  * settled, the other tabs' pages are prefetched while the phone is idle, so
@@ -79,20 +81,7 @@ import { NAV_ICONS, FILL_MS, FILL_CURVE, type NavIconPair } from "@/components/a
 import { PERSON_ICONS, SEARCH_ICONS } from "@/components/nav/buyer-tab-icons"
 import { SearchOverlay, openSearchOverlay, refocusSearchOverlay } from "@/components/search/search-overlay"
 import { startRouteLoading } from "@/components/navigation/route-loading-bar"
-import {
-  ARRIVING_FILL,
-  DROP,
-  INK_EASE,
-  LENS_GLASS,
-  LENS_LIGHT,
-  LIFT,
-  LIFT_EASE,
-  NO_TRAVEL,
-  NavIcon,
-  PRESS_EDGE,
-  PRESS_ON,
-  useTabLens,
-} from "@/components/nav/tab-lens"
+import { LIFT, NO_TRAVEL, NavIcon, useTabLens } from "@/components/nav/tab-lens"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf, discoverHomeHref, discoverModeFromCookie, type BuyerTabKey } from "@/lib/nav/buyer-tabs"
@@ -134,15 +123,66 @@ const GLYPH = "24px"
 const LENS_W = 70
 const LENS_H = 44
 /**
- * The lens's glass, on white. The pill's is white over a frosted white bar
- * and holds its shape by its edge; on a white bar white glass has no edge to
- * speak of, so this one carries the faintest cool grey in it, the colour a
- * thick piece of glass takes on over paper.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE LENS IS A THIN PIECE OF GLASS, NOT A GREY STONE (round 29)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * "Too visible, too light, too white, too solid. A subtler, better liquid
+ * glass: translucent, soft, a thin highlight, in light and dark." It was 92%
+ * of a pale grey with a full white rim along its top, a lit band low inside
+ * it and a drop shadow under it: a solid capsule set on the bar, and in the
+ * dark look a white highlight on a dark bar.
+ *
+ * Now it is three quiet layers, every one a variable the dark look sets
+ * (scripts/gen-theme-dark.mjs, html[data-sl-dark]):
+ *
+ *   --sl-tab-lens        the glass itself, a tenth of a cool grey on white
+ *                        (a few per cent of white on the dark bar), so the
+ *                        bar shows through it
+ *   --sl-tab-lens-sheen  light falling on its upper half and gone by the
+ *                        middle, which is what makes a tint read as glass
+ *   --sl-tab-lens-edge   a hairline of light along the top, a rim you see
+ *                        only where it meets the bar, and a shadow soft
+ *                        enough to lift it without setting it down
+ *
+ * No backdrop blur: the bar under it is one opaque colour, so a blur showed
+ * nothing and cost a render surface on every frame the glass moved.
  */
-const LENS_FILL = "var(--sl-tab-lens, rgba(238,239,242,0.92))"
-/** Clear: the same list as the lit one with nothing in it, so the shadow eases out rather than switching off. */
-const EDGE_CLEAR = "inset 0 1px 0.5px rgba(255,255,255,0), inset 0 -1px 1px rgba(16,18,27,0), inset 0 0 0 0.5px rgba(16,18,27,0)"
-const DROP_CLEAR = "0 1px 1.5px rgba(16,18,27,0), 0 4px 12px -2px rgba(16,18,27,0)"
+const LENS_FILL = "var(--sl-tab-lens, rgba(120,128,150,0.1))"
+const LENS_SHEEN = "var(--sl-tab-lens-sheen, linear-gradient(180deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.18) 48%, rgba(255,255,255,0) 72%))"
+const LENS_EDGE = "var(--sl-tab-lens-edge, inset 0 0.5px 0 rgba(255,255,255,0.95), inset 0 0 0 0.5px rgba(16,18,27,0.06), 0 1px 6px -1px rgba(16,18,27,0.08))"
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  IT COMES AND GOES ON THE COMPOSITOR, ON A SPRING
+ * ═══════════════════════════════════════════════════════════════════════════
+ * "Its motion when tapping and when dragging must be smoother in and out, not
+ * direct." The glass used to switch its colour on in the frame a finger
+ * landed and fade its colour and its shadow out, which is paint on every
+ * frame of the fade, and it read as a light switched on. Now its look never
+ * changes; only its opacity and its size do, and both run on the compositor:
+ *
+ *   IN    it swells from LENS_REST to full under the finger on a curve that
+ *         runs a hair past and settles (LENS_SPRING), while it clears up to
+ *         full strength a little quicker (LENS_FADE_IN), so it arrives as a
+ *         drop of glass rather than a shape switched on
+ *   OUT   it sinks back to LENS_REST and fades on one calm ease out
+ *         (LENS_OUT), longer than it took to come, the way a phone's own
+ *         bar lets go
+ *
+ * AND A TAP SHOWS IT WHOLE. A tap is over in about sixty milliseconds, which
+ * cut the coming in short at a different point on every tap. So the glass
+ * stays for LENS_HOLD_MS after a finger lands however short the touch, long
+ * enough to arrive, and then goes: the same in and out on every tap.
+ *
+ * The slide is untouched: under a finger the glass is where the finger is,
+ * lifts by LIFT on the same spring, and a release lands it on its slot on
+ * the spring in components/nav/tab-lens.tsx, all of it on the compositor too.
+ */
+const LENS_REST = 0.9
+const LENS_SPRING = "cubic-bezier(0.3, 1.32, 0.5, 1)"
+const LENS_FADE_IN = "opacity 200ms cubic-bezier(0.3, 0.7, 0.4, 1)"
+const LENS_OUT_MS = 340
+const LENS_OUT = `${LENS_OUT_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
+export const LENS_HOLD_MS = 200
 /**
  * THE BAR'S EDGE AND DEPTH. A hairline where it meets the page, then two
  * soft shadows falling upward: close and faint, wide and fainter. "A little
@@ -490,7 +530,11 @@ function TabBar({
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
-  const { slide, pick, linkRefs, shown, arriving, filling } = useTabLens({
+  /* A tap's glass held for LENS_HOLD_MS from the touch (A TAP SHOWS IT WHOLE, above). */
+  const [holding, setHolding] = useState(false)
+  const holdTimer = useRef(0)
+  useEffect(() => () => window.clearTimeout(holdTimer.current), [])
+  const { slide, pick, linkRefs, shown, arriving } = useTabLens({
     count: tabs.length,
     current,
     heading: toward,
@@ -596,6 +640,10 @@ function TabBar({
       if (index !== current && key !== "search" && key !== "compose" && !(navHere && key === "home")) prefetchHref(router, hrefOf(index), "press")
       /* The profile's cover, decoded by the time the page arrives (components/account/cover-warm.ts). */
       if (index !== current && key === "profile" && signedIn) void warmAccountCover()
+      /* The glass stays long enough to arrive, however short the tap (A TAP SHOWS IT WHOLE, above). */
+      window.clearTimeout(holdTimer.current)
+      setHolding(true)
+      holdTimer.current = window.setTimeout(() => setHolding(false), LENS_HOLD_MS)
     },
     /* No squeeze on a tap: see NO BUMP ON A TAP above. */
     give: false,
@@ -669,8 +717,9 @@ function TabBar({
     return restoreTabScroll(a.y)
   }, [pathname])
 
-  /* A finger is on the bar: the only time the glass is there. */
+  /* A finger is on the bar: the only time the glass is there, and a tap's moment after it. */
   const lit = slide.pressed || slide.following
+  const shows = lit || holding
 
   /*
     ── THE BAR'S HEIGHT, TOLD TO THE PAGE ───────────────────────────────────
@@ -783,42 +832,33 @@ function TabBar({
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          {/* ── THE LENS ── see "WHAT THE GLASS DOES HERE" above. */}
+          {/* ── THE LENS ── see "WHAT THE GLASS DOES HERE" and "IT COMES AND GOES ON THE COMPOSITOR" above. */}
           <span
             ref={slide.dotRef}
             aria-hidden="true"
-            data-buyer-tabs-lens={lit ? "lit" : "clear"}
+            data-buyer-tabs-lens={shows ? "lit" : "clear"}
             className="pointer-events-none absolute rounded-full"
             style={{
               width: LENS_W,
               height: LENS_H,
               top: `calc((var(--buyer-tabs-bar) - ${LENS_H}px) / 2)`,
               left: 0,
-              /* Only a drag lifts it. A tap never changes its size: on a
-                 page with no tab of its own it used to grow in from 55%
-                 under the finger, which was a bump of its own. */
-              scale: String(slide.following ? LIFT : 1),
-              backgroundColor: arriving ? ARRIVING_FILL : lit ? LENS_FILL : ARRIVING_FILL,
-              backdropFilter: LENS_GLASS,
-              WebkitBackdropFilter: LENS_GLASS,
-              boxShadow: lit && !arriving ? `${PRESS_EDGE}, ${DROP}` : `${EDGE_CLEAR}, ${DROP_CLEAR}`,
-              /* On the instant a finger lands, off over the ink's curve;
-                 emptied for the frame it changes slot and filled back
-                 (the pill's rules, components/nav/tab-lens.tsx). */
-              transition: `${NO_TRAVEL}, ${LIFT_EASE}, transform 0s, ${arriving || (lit && !filling) ? PRESS_ON : `background-color ${INK_EASE}, box-shadow ${INK_EASE}`}`,
-              willChange: "translate, scale, transform",
+              /* A drag lifts it; under a finger it is whole; gone, it has sunk a little, so it comes back by swelling. */
+              scale: String(slide.following ? LIFT : shows && !arriving ? 1 : LENS_REST),
+              opacity: shows && !arriving ? 1 : 0,
+              backgroundColor: LENS_FILL,
+              backgroundImage: LENS_SHEEN,
+              boxShadow: LENS_EDGE,
+              /* Changing slot, it is moved and set back to where it swells from in one frame, unseen (the pill's rule:
+                 emptied for the frame it changes slot, components/nav/tab-lens.tsx). Then in on the spring, out on the ease. */
+              transition: arriving
+                ? `${NO_TRAVEL}, scale 0s, opacity 0s, transform 0s`
+                : shows
+                  ? `${NO_TRAVEL}, scale 420ms ${LENS_SPRING}, ${LENS_FADE_IN}, transform 0s`
+                  : `${NO_TRAVEL}, scale ${LENS_OUT}, opacity ${LENS_OUT}, transform 0s`,
+              willChange: "opacity, translate, scale, transform",
             }}
-          >
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-full"
-              style={{
-                background: LENS_LIGHT,
-                opacity: lit && !arriving ? 1 : 0,
-                transition: arriving || (lit && !filling) ? "opacity 0s" : `opacity ${INK_EASE}`,
-              }}
-            />
-          </span>
+          />
 
           {tabs.map((tab, i) => {
             const on = i === shown

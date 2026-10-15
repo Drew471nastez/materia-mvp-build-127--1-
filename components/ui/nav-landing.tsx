@@ -18,7 +18,7 @@
 import { useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 
-import { LANDING_HOLD_MS, LANDING_HTML_CLASS, landsWithPageFade, prefersReducedMotion } from "@/lib/ui/landing"
+import { LANDING_HOLD_MS, LANDING_HTML_CLASS, LANDING_SURFACES, landsWithPageFade, prefersReducedMotion } from "@/lib/ui/landing"
 
 export function NavLanding() {
   const pathname = usePathname()
@@ -43,6 +43,16 @@ export function NavLanding() {
     at.current = pathname
     if (!landsWithPageFade(pathname)) return
     if (prefersReducedMotion()) return
+    /*
+      ROUND 29: NOT ON A PAGE THE RULE HAS NOTHING TO LAND. A class on <html> restyles the whole document twice (on, and off
+      LANDING_HOLD_MS later), and inside a community every tab (Community, Learn, Calendar, Members, Leaderboards) is a new
+      pathname with none of the three surfaces on it: two whole-page restyles per tap, landing nothing, on the phone the
+      header was reported to flicker on (scripts/check-mobile-round29.mjs counts the writes on <html>). The surfaces are
+      the ones app/globals.css names; the page that just committed is in the DOM already, so a look now is a look at it.
+      Only under /community/: elsewhere a page can commit as its loading.tsx first (a person's page does) and its surface
+      arrive inside the hold, which is the case the hold is for.
+    */
+    if ((pathname ?? "").startsWith("/community/") && !document.querySelector(LANDING_SURFACES)) return
 
     const html = document.documentElement
     html.classList.add(LANDING_HTML_CLASS)

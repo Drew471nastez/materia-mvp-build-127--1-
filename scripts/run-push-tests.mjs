@@ -171,6 +171,8 @@ const SUITES = [
   "tests/buyer-tab-bar.test.ts",
   "tests/nav-tabs15.test.ts",
   "tests/nav-feel.test.ts",
+  /* Round 29: the tab bar's glass, a community's header across its tabs, pictures arriving (scripts/check-mobile-round29.mjs measures them). */
+  "tests/mobile-round29.test.ts",
   "tests/app-nav-round10.test.ts",
   "tests/buyer-chrome.test.ts",
   "tests/buyer-qa.test.ts",

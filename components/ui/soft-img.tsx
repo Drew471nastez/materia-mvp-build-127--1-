@@ -28,6 +28,7 @@
 import { useLayoutEffect, useRef, useState } from "react"
 import type React from "react"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
+import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
 
 /** The first arrival's fade: short enough to read as the picture being there, long enough not to blink. */
 export const SOFT_IN_MS = 180
@@ -58,6 +59,7 @@ export function SoftImg({
   src,
   width,
   sizes,
+  widths,
   alt = "",
   eager = false,
   className,
@@ -68,6 +70,8 @@ export function SoftImg({
   src: string
   /** The CSS width of the slot the picture fills (its largest, when it changes with the screen). */
   width: number
+  /** The files to offer, when the caller knows its slot better than 1x, 2x and 3x of `width` (a grid whose columns change). */
+  widths?: number[]
   /** The slot's width rule for the browser's pick, when it is not simply `width`px. */
   sizes?: string
   alt?: string
@@ -78,13 +82,26 @@ export function SoftImg({
 } & Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet" | "sizes" | "width" | "loading" | "decoding" | "style">) {
   const file = optimizedImageUrl(src, width)
   /* Already a file of the route's, inline or a local preview: offered as it is (the route never wraps itself). */
-  const srcSet = /^(data:|blob:|\/_next\/image)/.test(src) ? "" : optimizedSrcSet(src, routeWidths(width))
-  const [state, setState] = useState<"seen" | "wait" | "in">(() => (SEEN.has(file) ? "seen" : "wait"))
+  const srcSet = /^(data:|blob:|\/_next\/image)/.test(src) ? "" : optimizedSrcSet(src, widths ?? routeWidths(width))
+  /*
+    ROUND 29: IN THE PAGE'S HTML, SHOWN AS THE BROWSER HAS IT (lib/ui/drawn-by-server.ts, as the product card and the post
+    pictures already do). Drawn on the server this started hidden, so a server rendered list (the library, the wishlist, a
+    community's cards) kept every picture at nothing until the scripts had run, however long ago the file had arrived: on a
+    phone that is the picture appearing late, after the page. Shown from the HTML, it paints as it loads, and never fades.
+  */
+  const fromServer = useDrawnByServer()
+  const [state, setState] = useState<"seen" | "wait" | "in">(() => (SEEN.has(file) || fromServer ? "seen" : "wait"))
   const ref = useRef<HTMLImageElement | null>(null)
+  const serverFile = useRef<string | null>(fromServer ? file : null)
 
   /* A new picture in the same element: shown at once if this tab has shown it, else waits for its own arrival. */
   useLayoutEffect(() => {
     const img = ref.current
+    /* The server's own picture: already on screen from the HTML, never hidden again. */
+    if (serverFile.current === file) {
+      setState("seen")
+      return
+    }
     if (SEEN.has(file)) {
       setState("seen")
       return

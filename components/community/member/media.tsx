@@ -132,6 +132,10 @@ export function warmPostMedia(media: PostMedia[], communityId: string, postId: s
   }
 }
 
+/** Round 29: a picture that arrives after its box was painted comes up over this, on opacity alone; one already drawn never fades. */
+export const SOFT_ARRIVE_MS = 160
+const SOFT_ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+
 /** The placeholder's copy: the optimizer's smallest file at its lowest listed quality, for our own pictures only (slots.ts). */
 export function blurSrc(url: string, local: boolean): string | null {
   if (!local || !url || /^(data|blob):/.test(url)) return null
@@ -195,7 +199,7 @@ export function SoftImg({
   })
   /* In the page's HTML: shown as soon as the browser has it, never hidden until the scripts run (lib/ui/drawn-by-server.ts). */
   const fromServer = useDrawnByServer()
-  /* "cached": drawn at once; "wait": the box's own colour until the picture is loaded and decoded; "html": in the HTML, shown as it arrives. ("in" is no longer used: nothing fades.) */
+  /* "cached": drawn at once; "wait": the box's own colour until the picture is loaded and decoded; "html": in the HTML, shown as it arrives. "in": it arrived after its box was painted, and comes up over SOFT_ARRIVE_MS (round 29). */
   const [state, setState] = useState<"cached" | "wait" | "in" | "html">(() => (src && painted.has(src) ? "cached" : fromServer ? "html" : "wait"))
   const [prevSrc, setPrevSrc] = useState(src)
   if (src !== prevSrc) {
@@ -238,20 +242,28 @@ export function SoftImg({
         onLoad={(e) => {
           painted.add(src)
           /*
-            NO BLUR, NO FADE (the owner: "the images don't have that blur thing... no blur or fade, just optimised images, clean").
-            The box keeps its quiet colour until the picture is whole, then the picture is there in one frame: decoded first, so
-            it is never painted in strips, and never a blurred copy or a fade before it.
+            NO BLUR (the owner: "the images don't have that blur thing... just optimised images, clean"). The box keeps its
+            quiet colour until the picture is whole, decoded first, so it is never painted in strips or over a blurred copy.
+            ROUND 29, AND A SHORT FADE FOR A FIRST ARRIVAL ONLY ("load without abrupt popping"). A picture already drawn in
+            this tab, complete in the cache before the first paint, or in the page's HTML is there in its first frame, so
+            nothing fades on Back. One that arrives after its box was painted comes up over SOFT_ARRIVE_MS on opacity alone.
           */
           const el = e.currentTarget
           const show = () => {
             note(el)
-            setState((s) => (s === "wait" ? "cached" : s === "in" ? "cached" : s))
+            const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+            setState((s) => (s === "wait" ? (still ? "cached" : "in") : s))
           }
           if (typeof el.decode === "function") el.decode().then(show, show)
           else show()
         }}
+        /* The fade done, the caller's own transition (a hover's scale) is the element's again. */
+        onTransitionEnd={(e) => {
+          if (e.propertyName === "opacity") setState((s) => (s === "in" ? "cached" : s))
+        }}
         onError={onError}
         className={`${className} ${SDR} ${shown ? "opacity-100" : "opacity-0"}`}
+        style={state === "in" ? { transition: `opacity ${SOFT_ARRIVE_MS}ms ${SOFT_ARRIVE_EASE}` } : undefined}
         data-soft-img={state}
       />
   )
@@ -795,7 +807,7 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, onOpen }: {
       data-media-tile={item.kind}
       data-media-index={index}
       className={`group/tile relative block w-full overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/25 ${
-        single ? "max-h-[min(560px,72vh)] rounded-xl" : `${shape} bg-[#f8f9fa]`
+        single ? "max-h-[min(560px,72vh)] rounded-xl bg-[#f8f9fa]" : `${shape} bg-[#f8f9fa]`
       } ${isMotion(item) ? "cursor-pointer" : "cursor-zoom-in"}`}
       style={single ? { aspectRatio: String(ratioOf(item)) } : undefined}
     >

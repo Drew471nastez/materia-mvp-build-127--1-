@@ -31,11 +31,11 @@ export function membershipMatches(card: MembershipCard, query: string): boolean 
   return card.title.toLowerCase().includes(q) || card.creator.name.toLowerCase().includes(q)
 }
 
-function Thumb({ card }: { card: MembershipCard }) {
+function Thumb({ card, eager = false }: { card: MembershipCard; eager?: boolean }) {
   return (
     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f1f3f5] ring-1 ring-inset ring-black/[0.04] sm:h-[72px] sm:w-[72px]">
       {card.cover ? (
-        <SoftImg src={card.cover} width={72} sizes="(min-width: 640px) 72px, 64px" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
+        <SoftImg src={card.cover} width={72} sizes="(min-width: 640px) 72px, 64px" eager={eager} className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center">
           <AppAvatar src={card.creator.avatarUrl} name={card.creator.name} alt="" size={40} markWhileLoading />
@@ -45,13 +45,14 @@ function Thumb({ card }: { card: MembershipCard }) {
   )
 }
 
-export function LibraryMembershipRow({ card }: { card: MembershipCard }) {
+/** `eager`: a row on the first screen (round 29), whose picture is asked for at once rather than when the browser gets to it. */
+export function LibraryMembershipRow({ card, eager = false }: { card: MembershipCard; eager?: boolean }) {
   const href = libraryMembershipPath(card.id)
   return (
     <li data-library-membership={card.id} className="px-4 py-4 sm:px-5">
       <div className="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-3.5 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-x-4">
         <Link href={href} tabIndex={-1} aria-hidden className="shrink-0">
-          <Thumb card={card} />
+          <Thumb card={card} eager={eager} />
         </Link>
         <div className="min-w-0">
           <div className="flex min-w-0 items-start gap-2">

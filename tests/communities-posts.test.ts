@@ -279,7 +279,8 @@ async function main() {
   check("pictures at the size the screen needs, videos only on press", /optimizedSrcSet\(item\.url, \[640, 828, 1080, 1200, 1920, 2048\]\)/.test(lb) && /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} key=/.test(lb) && /play \? \(\s*<iframe/.test(lb))
   const media = code("components/community/member/media.tsx")
   /* Round 8 changed this on purpose (the owner asked): one thing is large, two sit side by side, more are a grid. */
-  check("inside a post: one thing at the post's full width within the screen's height, lazy, in a box of its own shape", /single \? "max-h-\[min\(560px,72vh\)\] rounded-xl"/.test(media) && /style=\{single \? \{ aspectRatio: String\(ratioOf\(item\)\) \} : undefined\}/.test(media) && /loading="lazy"/.test(media) && !/max-w-\[min\(360px,82%\)\]/.test(media))
+  /* Changed on purpose (round 29): the single picture's box carries the quiet ground the grid's tiles have, while it loads. */
+  check("inside a post: one thing at the post's full width within the screen's height, lazy, in a box of its own shape", /single \? "max-h-\[min\(560px,72vh\)\] rounded-xl bg-\[#f8f9fa\]"/.test(media) && /style=\{single \? \{ aspectRatio: String\(ratioOf\(item\)\) \} : undefined\}/.test(media) && /loading="lazy"/.test(media) && !/max-w-\[min\(360px,82%\)\]/.test(media))
 
   /* ── Round 8: media in an opened post ───────────────────────────────── */
   console.log("\nRound 8: media in an opened post")

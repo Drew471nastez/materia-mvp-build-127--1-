@@ -145,7 +145,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       current: tabs.findIndex((t) => t.getAttribute("aria-current") === "page"),
       inks: tabs.map((t) => { const ink = t.querySelector('[data-part="ink"]'); return ink ? +getComputedStyle(ink).opacity : null }),
       slots: tabs.map((t) => { const b = t.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width } }),
-      lens: { state: lens.getAttribute("data-buyer-tabs-lens"), cx: lr.left + lr.width / 2, w: lr.width, bg: getComputedStyle(lens).backgroundColor, scale: getComputedStyle(lens).scale, transform: getComputedStyle(lens).transform },
+      lens: { state: lens.getAttribute("data-buyer-tabs-lens"), cx: lr.left + lr.width / 2, w: lr.width, bg: getComputedStyle(lens).backgroundColor, opacity: +getComputedStyle(lens).opacity, scale: getComputedStyle(lens).scale, transform: getComputedStyle(lens).transform },
       html: document.documentElement.getAttribute("data-buyer-tabs"),
       h: (() => { const probe = document.createElement("div"); probe.style.cssText = "position:absolute;height:var(--buyer-tabs-h, 0px)"; document.body.appendChild(probe); const v = probe.getBoundingClientRect().height; probe.remove(); return v })(),
     }
@@ -164,7 +164,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(s.bg === "rgb(255, 255, 255)" && s.shadow, "white, with a shadow along its top", { bg: s.bg, shadow: s.shadow })
     expect(s.labels.join() === "Home,Search,Library,Log in", "Home, Search, Library, then Profile (Log in while signed out)", s.labels)
     expect(s.current === 0 && s.inks[0] === 1 && s.inks.slice(1, 3).every((o) => o === 0), "Home is the page you are on: its icon filled, the others line", { current: s.current, inks: s.inks })
-    expect(s.lens.state === "clear" && alpha(s.lens.bg) === 0, "no glass at rest", s.lens)
+    /* Changed on purpose (round 29): the glass keeps its look and comes and goes by opacity (components/nav/buyer-tab-bar.tsx). */
+    expect(s.lens.state === "clear" && s.lens.opacity === 0, "no glass at rest", s.lens)
     expect(s.html === "shown" && s.h === 56, "it tells the page how tall it is", { html: s.html, h: s.h })
     await shotBar(p, "phone-rest-explore.png")
     /* ── IDLE ── */
@@ -204,6 +205,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           scaled: cs.filter((c) => (c.scale !== "none" && c.scale !== "1") || c.transform !== "none").map((c) => [c.scale, c.transform]),
           lens: [lc.scale, lc.transform],
           bg: lc.backgroundColor,
+          op: +lc.opacity,
+          at: lc.translate,
           box: [Math.round(g.width * 100) / 100, Math.round(g.height * 100) / 100, Math.round(g.left * 100) / 100, Math.round(g.top * 100) / 100],
           ink: +getComputedStyle(tab.querySelector('[data-part="ink"]')).opacity,
           anims: els.reduce((n, e) => n + e.getAnimations().filter((a) => a.id === "tap").length, 0),
@@ -224,13 +227,20 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     if (process.env.PROBE_VERBOSE) console.log(JSON.stringify(press))
     expect(down.lens.state === "lit" && Math.abs(down.lens.cx - lib.x) < 1, "PRESS: the glass is under the finger on the slot it landed on, on its centre", { state: down.lens.state, off: Math.round((down.lens.cx - lib.x) * 100) / 100 })
     expect(down.inks[2] > 0, "the icon starts filling on the press, before the page changes", down.inks)
-    const bumps = press.filter((f) => f.scaled.length > 0 || f.anims > 0 || f.lens[0] !== "1" || f.lens[1] !== "none")
+    /*
+      Changed on purpose (round 29: "smoother in and out, a spring-like transform"). Nothing in the tab scales or moves and the
+      icon's box never changes, as before; the glass now swells from 0.9 to whole on a spring and sinks back as it fades, in
+      place: its size stays between 0.9 and a hair past 1, and its position never moves on a tap.
+    */
+    const bumps = press.filter((f) => f.scaled.length > 0 || f.anims > 0 || f.lens[1] !== "none" || Number(f.lens[0]) < 0.9 || Number(f.lens[0]) > 1.02)
     const boxes = new Set(press.map((f) => f.box.join()))
-    expect(press.length >= 10 && bumps.length === 0 && boxes.size === 1, "NO BUMP: over every frame of the tap, nothing in the tab and not the glass is scaled or moved, and the icon's box never changes", { frames: press.length, bumped: bumps.slice(0, 3), boxes: [...boxes] })
-    const glassAlphas = press.map((f) => alpha(f.bg))
+    /* Where it is seen: it is moved to the pressed slot on a frame it is not drawn (the pill's rule), never while it shows. */
+    const places = new Set(press.filter((f) => f.op > 0).map((f) => f.at))
+    expect(press.length >= 10 && bumps.length === 0 && boxes.size === 1 && places.size === 1, "NO BUMP: over every frame of the tap, nothing in the tab is scaled or moved, the glass only swells in place, and the icon's box never changes", { frames: press.length, bumped: bumps.slice(0, 3), boxes: [...boxes], places: [...places] })
+    const glassAlphas = press.map((f) => f.op)
     const peak = Math.max(...glassAlphas)
     const easing = glassAlphas.slice(glassAlphas.indexOf(peak)).filter((a) => a > 0.02 && a < peak - 0.02)
-    expect(peak > 0.5 && easing.length >= 2 && glassAlphas[glassAlphas.length - 1] === 0, "let go, the glass clears over the ink's curve rather than vanishing", { peak, between: easing.length, last: glassAlphas[glassAlphas.length - 1] })
+    expect(peak > 0.5 && easing.length >= 2 && glassAlphas[glassAlphas.length - 1] === 0, "let go, the glass clears over a curve rather than vanishing", { peak, between: easing.length, last: glassAlphas[glassAlphas.length - 1] })
     await shotBar(p, "phone-release-library.png")
     const after = await barState(p)
     const log = await p.evaluate(() => window.__router)
@@ -243,7 +253,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     */
     expect(warm.includes("/account/library") || log.some(([k, h]) => k === "prefetch" && h === "/account/library"), "and it was asked for before the finger lifted (whole, when the bar came up, or on the press)", { warm, press: log.filter(([k]) => k === "prefetch") })
 
-    expect(after.current === 2 && after.inks[2] === 1 && after.inks[0] === 0 && alpha(after.lens.bg) === 0, "the page arrives, Library fills, and the glass is gone", { current: after.current, inks: after.inks, alpha: alpha(after.lens.bg) })
+    expect(after.current === 2 && after.inks[2] === 1 && after.inks[0] === 0 && after.lens.opacity === 0, "the page arrives, Library fills, and the glass is gone", { current: after.current, inks: after.inks, opacity: after.lens.opacity })
     await shotBar(p, "phone-rest-library.png")
 
     /* ── SLIDE ── from Library across to Home, slowly, then let go on Search. */

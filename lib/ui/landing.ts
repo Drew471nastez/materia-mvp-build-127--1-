@@ -57,6 +57,11 @@ export const LANDING_EASE = NAV_ENTER_EASE
  * fade, which is the hard cut this exists to remove.
  */
 export const LANDING_HOLD_MS = LANDING_MS + 120
+/**
+ * The surfaces html.nav-landing plays its fade on (app/globals.css, "the same selectors, to the letter"). With none of them
+ * on the page that arrived, the class has nothing to do and is not set (components/ui/nav-landing.tsx, round 29).
+ */
+export const LANDING_SURFACES = "[data-member-profile], [data-storefront-root], .explore-ground"
 
 /**
  * Whether an address lands this way. The seller dashboard has a landing of
