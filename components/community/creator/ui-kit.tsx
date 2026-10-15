@@ -1,0 +1,205 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  THE COMMUNITY ADMIN'S LISTS, DRAWN THE WAY ORDERS DRAWS ITS (round 32)
+ * ===========================================================================
+ * The owner, on a computer: the community admin "looks horrible, too shrunk".
+ * Each list was one column of words with a long grey line under every name,
+ * so a 1000px card held a 300px column and empty white beside it. From 768px
+ * a list is now a table, as Orders and Products draw one (app/app/orders/
+ * orders-list.tsx): a grey head row of 36px with the column names, rows of
+ * one height each, a hairline between them, the row's menu in the last
+ * column, a check box first where rows can be picked together, and a foot
+ * that says how many are shown with Show more in it. A phone keeps the list
+ * it had: one row per thing, its words in two lines.
+ *
+ * The pieces here hold only what two or more sections share: the table's
+ * classes, the sort pick (the Products view pick with the sort glyph), the
+ * selection, the bar that acts on it, the foot, a CSV made in the browser,
+ * and the facts list of a detail sheet. parts.tsx keeps the fields, the
+ * dialogs and the list card itself.
+ */
+import * as React from "react"
+import { ArrowUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Checkbox } from "@/app/app/orders/order-parts"
+import { PickSheet, type PickOption } from "@/app/app/products/pick-sheet"
+import { csvRow } from "./logic"
+import { buttonSecondary } from "./parts"
+import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
+
+export { Checkbox }
+
+/* ── The table ──────────────────────────────────────────────────────────── */
+
+/** The table itself: shown from 768px, its columns set by the head's widths. */
+export const TABLE = "hidden w-full table-fixed border-separate border-spacing-0 md:table"
+/** A head cell: Orders' grey row, 36px, the names in 12px. */
+export const TH = "h-9 whitespace-nowrap bg-[#f7f7f8] px-3 text-left text-[12px] font-medium text-[#4b5563] first:pl-5 last:pr-4"
+/** A body cell: a hairline above, the words in 13.5px, nothing wraps. */
+export const TD = "border-t border-[#f0f1f3] px-3 align-middle text-[13.5px] text-[#303036] first:pl-5 last:pr-4"
+/** A row that opens what it is: the pointer, a soft grey under it, the same grey while its check box is on. */
+export const TR = "group/row cursor-pointer transition-colors duration-100 hover:bg-[#fafafb] data-[picked]:bg-[#f6f6f8] [-webkit-tap-highlight-color:transparent]"
+/** The phone's list under the table, hidden from 768px. */
+export const PHONE_LIST = "divide-y divide-[#f1f2f4] md:hidden"
+/** Quiet words in a cell (a date, a count). */
+export const MUTED = "text-[#6b7280]"
+
+/** "1,284", in the chosen language. */
+export const count = (n: number) => n.toLocaleString(appLocale())
+
+/* ── Sort ───────────────────────────────────────────────────────────────── */
+
+/**
+ * The order of a list: the sort glyph and the order's name, opening the
+ * Products pick (the app's dropdown from 768px, the shared bottom sheet on a
+ * phone). On a phone only the glyph shows, the name is in its label.
+ */
+export function SortPick({ value, options, onPick, name = "sort" }: { value: string; options: readonly PickOption[]; onPick: (v: string) => void; name?: string }) {
+  const current = options.find((o) => o.value === value)?.label ?? options[0]?.label ?? ""
+  return (
+    <PickSheet
+      name={name}
+      title={tt("Sort by")}
+      options={options}
+      value={value}
+      onPick={onPick}
+      align="end"
+      trigger={
+        <button
+          type="button"
+          data-pick={name}
+          aria-label={tt("Sort by: {current}. Change", { current })}
+          className="flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] md:h-8 md:min-w-0 md:px-2 md:text-[13px] md:hover:bg-[#f4f4f6] md:data-open:bg-[#ececef]"
+        >
+          <ArrowUpDown aria-hidden className="h-4 w-4 text-[#6b7280] md:h-[15px] md:w-[15px]" />
+          <span className="max-md:hidden">{current}</span>
+        </button>
+      }
+    />
+  )
+}
+
+/* ── Picking rows ───────────────────────────────────────────────────────── */
+
+/** Which rows are picked, by id. Rows that leave the list leave the selection. */
+export function useSelection(ids: string[]) {
+  const [picked, setPicked] = React.useState<Set<string>>(() => new Set())
+  const key = ids.join(",")
+  React.useEffect(() => {
+    setPicked((s) => {
+      if (s.size === 0) return s
+      const here = new Set(key ? key.split(",") : [])
+      const next = new Set([...s].filter((id) => here.has(id)))
+      return next.size === s.size ? s : next
+    })
+  }, [key])
+  const set = React.useCallback((list: string[], on: boolean) => {
+    setPicked((s) => {
+      const next = new Set(s)
+      for (const id of list) {
+        if (on) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  }, [])
+  const clear = React.useCallback(() => setPicked(new Set()), [])
+  const all = ids.length > 0 && ids.every((id) => picked.has(id))
+  const some = !all && ids.some((id) => picked.has(id))
+  return { picked, set, clear, all, some, size: picked.size }
+}
+
+/** The head's check box: all of the rows shown, or none. */
+export function PickAll({ sel, ids }: { sel: ReturnType<typeof useSelection>; ids: string[] }) {
+  return (
+    <label className="flex h-9 w-full cursor-pointer items-center">
+      <Checkbox label={sel.all ? tt("Deselect all") : tt("Select all")} checked={sel.all} indeterminate={sel.some} onChange={(on) => sel.set(ids, on)} />
+    </label>
+  )
+}
+
+/** A row's check box, with a press area the size of the cell, that never opens the row. */
+export function PickOne({ on, label, onChange }: { on: boolean; label: string; onChange: (on: boolean) => void }) {
+  return (
+    <label className="-my-2 flex h-14 w-full cursor-pointer items-center" onClick={(e) => e.stopPropagation()}>
+      <Checkbox label={label} checked={on} onChange={onChange} />
+    </label>
+  )
+}
+
+/**
+ * What to do with the picked rows, in the card's toolbar row while any are
+ * picked: how many, the actions, Clear. The same height as the toolbar it
+ * stands in for, so nothing under it moves.
+ */
+export function BulkBar({ size, onClear, children }: { size: number; onClear: () => void; children: React.ReactNode }) {
+  return (
+    <div data-bulk-bar="" className="flex min-h-12 items-center gap-2 border-b border-[#eef0f2] bg-[#f7f7f8] py-1.5 pl-4 pr-2 md:min-h-11 md:pl-5 md:pr-3">
+      <span className="shrink-0 text-[13.5px] font-medium tabular-nums text-[#1a1a2e]">{tt("{size} selected", { size })}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto scrollbar-hide">{children}</div>
+      <button type="button" onClick={onClear} className="h-10 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#ececef] md:h-8">
+        {tt("Clear")}
+      </button>
+    </div>
+  )
+}
+
+/** A bulk action's button: the secondary button, a little shorter on a computer to sit in the bar. */
+export const bulkButton = cn(buttonSecondary, "shrink-0 md:h-7 md:px-2.5 md:text-[12.5px]")
+
+/* ── The foot ───────────────────────────────────────────────────────────── */
+
+/**
+ * The last row of a list card: how many are shown (and of how many, when the
+ * total is known), and Show more while there are more. Orders' foot: 44px,
+ * the faint grey, the words in 12px.
+ */
+export function ListFoot({ shown, total, more, loading, onMore, noun }: { shown: number; total?: number | null; more: boolean; loading?: boolean; onMore?: () => void; noun?: string }) {
+  if (shown === 0) return null
+  return (
+    <div data-list-foot="" className="flex min-h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] py-1.5 pl-4 pr-2 md:pl-5 md:pr-3">
+      <span className="truncate text-[12.5px] tabular-nums text-[#6b7280]">
+        {typeof total === "number" && total >= shown ? tt("{shown} of {total}", { shown: count(shown), total: count(total) }) : noun ? `${count(shown)} ${noun}` : count(shown)}
+      </span>
+      {more ? (
+        <button type="button" onClick={onMore} disabled={loading} className={cn(buttonSecondary, "shrink-0 md:h-7 md:text-[12.5px]")} data-load-more="">
+          {loading ? tt("Loading") : tt("Show more")}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+/* ── A CSV from rows already on screen ──────────────────────────────────── */
+
+/** Hands the browser a CSV made of these rows (the selection's export: nothing is asked of the server). */
+export function downloadCsv(fileName: string, head: string[], rows: unknown[][]) {
+  const text = [csvRow(head), ...rows.map((r) => csvRow(r))].join("")
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }))
+  const a = document.createElement("a")
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
+
+/* ── A detail sheet's facts ─────────────────────────────────────────────── */
+
+/** Label and value pairs, two to a row from 480px: what a detail sheet knows about one thing. */
+export function Facts({ items }: { items: { label: string; value: React.ReactNode }[] }) {
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-[#eef0f2] bg-[#fafafb] px-4 py-3.5" data-facts="">
+      {items.map((x) => (
+        <div key={x.label} className="min-w-0">
+          <dt className="text-[12px] font-medium text-[#6b7280]">{x.label}</dt>
+          <dd className="mt-0.5 truncate text-[14px] text-[#1a1a2e]">{x.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}

@@ -23,6 +23,16 @@
  *               reads them here.
  *   AUDIT LOG   every action anybody took, kept for good.
  *
+ * ROUND 32 (the owner: the admin "looks horrible, too shrunk" on a computer;
+ * Moderation should be "a queue with clear actions, reasons, history"). On a
+ * computer a report is three columns: why and when on the left (the reason,
+ * what kind of thing, how long ago), what was said in the middle, and its
+ * buttons on the right, top aligned, so the eye runs down one column of
+ * reasons and one of actions. The queue can be narrowed to one reason and to
+ * one kind of thing (posts, comments, chat, members), read on the server.
+ * Restricted and the audit log are tables (./ui-kit.tsx) from 768px, and
+ * every list ends in the card's own foot with Show more.
+ *
  * People are acted on through ./member-actions, the same rules and routes
  * as the Members list.
  */
@@ -41,14 +51,22 @@ import type { AuditView, BadgeView, CommunityHead, MemberPage, MemberRowView, Re
 import { checkRules, moveItem, systemReportKind, takenAwayLine, type MemberChoice } from "./logic"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { BlockedWords } from "@/components/community/creator/blocked-words"
+import { ListFoot, MUTED, PHONE_LIST, TABLE, TD, TH, count } from "./ui-kit"
 import type { WordSettings } from "@/lib/communities/word-filter"
-import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, ListLoading, Notice, RemoveButton, RowMenu, SelectField, buttonPrimary, buttonSecondary, card, errorText, field, send, shortDate, useToast } from "./parts"
+import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, ListLoading, Notice, PickButton, RemoveButton, RowMenu, SelectField, buttonPrimary, buttonSecondary, card, errorText, field, send, shortDate, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 
 const REASON: Record<ReportReason, string> = { get spam() { return tt("Spam") }, get abuse() { return tt("Abuse") }, get harassment() { return tt("Harassment") }, get off_topic() { return tt("Off topic") }, get illegal() { return tt("Illegal") }, get other() { return tt("Other") } }
 const TARGET: Record<ReportView["targetType"], string> = { get post() { return tt("Post") }, get comment() { return tt("Comment") }, get message() { return tt("Chat message") }, get member() { return tt("Member") } }
+const TARGET_PLURAL: Record<ReportView["targetType"], string> = { get post() { return tt("Posts") }, get comment() { return tt("Comments") }, get message() { return tt("Chat messages") }, get member() { return tt("Members") } }
 
 export type ModerationTab = "reports" | "resolved" | "restricted" | "rules" | "audit"
+
+/** The remove button of a report, in one phrase each so every language can say it its own way. */
+const REMOVE_LABEL: Record<ReportView["targetType"], string> = { get post() { return tt("Remove post") }, get comment() { return tt("Remove comment") }, get message() { return tt("Remove message") }, get member() { return tt("Remove") } }
+
+/** Who did it, in the log. */
+const actorOf = (a: AuditView): string => a.actorName ?? (a.actorKind === "system" ? tt("Storelib, automatically") : tt("Somebody"))
 
 /** "post.removed" -> "Removed a post", for the log. */
 export function auditSentence(action: string): string {
@@ -166,12 +184,19 @@ export function ModerationSection({
   const [loading, setLoading] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [removing, setRemoving] = React.useState<ReportView | null>(null)
+  /* Round 32: the queue narrowed to one reason, one kind of thing, or both (read on the server). */
+  const [reason, setReason] = React.useState("")
+  const [kind, setKind] = React.useState("")
   /* The report an author action came from, so it is resolved once the action is done. */
   const fromReport = React.useRef<ReportView | null>(null)
 
-  const loadReports = async (status: "open" | "closed", cursor?: string | null) => {
+  const loadReports = async (status: "open" | "closed", cursor?: string | null, filters: { reason: string; kind: string } = { reason, kind }) => {
     setLoading(true)
-    const res = await send<{ rows: ReportView[]; next: string | null }>(`${base}/moderation?status=${status}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, "GET")
+    const u = new URLSearchParams({ status })
+    if (filters.reason) u.set("reason", filters.reason)
+    if (filters.kind) u.set("type", filters.kind)
+    if (cursor) u.set("cursor", cursor)
+    const res = await send<{ rows: ReportView[]; next: string | null }>(`${base}/moderation?${u.toString()}`, "GET")
     setLoading(false)
     if (!res.ok) return toast(errorText(res.data.error, tt("The reports could not be loaded.")))
     setReports((x) => ({ rows: cursor ? [...x.rows, ...(res.data.rows ?? [])] : (res.data.rows ?? []), next: res.data.next ?? null }))
@@ -313,7 +338,16 @@ export function ModerationSection({
     return items
   }
 
-  const restrictedCount = restricted ? (restricted.muted.rows.length + restricted.paused.rows.length + restricted.banned.rows.length) : undefined
+  /* Everybody in the list below it, the removed included (round 32: the count left them out). */
+  const restrictedCount = restricted ? restricted.muted.rows.length + restricted.paused.rows.length + restricted.banned.rows.length + restricted.removed.rows.length : undefined
+  const reasonOptions = [{ value: "", label: tt("Every reason") }, ...(Object.keys(REASON) as ReportReason[]).map((r) => ({ value: r, label: REASON[r] }))]
+  const kindOptions = [{ value: "", label: tt("Everything") }, ...(Object.keys(TARGET) as ReportView["targetType"][]).map((t) => ({ value: t, label: TARGET_PLURAL[t] }))]
+  const filter = (next: { reason: string; kind: string }) => {
+    setReason(next.reason)
+    setKind(next.kind)
+    void loadReports(view, null, next)
+  }
+  const queue = tab === "reports" || tab === "resolved"
   const tabs = [
     { value: "reports" as const, label: tt("Reports"), count: openCount, attention: true },
     { value: "resolved" as const, label: tt("Resolved") },
@@ -327,30 +361,54 @@ export function ModerationSection({
       <ListCard
         busy={loading}
         head={<FilterTabs label={tt("Moderation")} value={tab} onChange={choose} tabs={tabs} />}
+        toolbar={
+          queue ? (
+            <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide" data-report-filters="">
+              <PickButton name="report-reason" title={tt("Reason")} options={reasonOptions} value={reason} onPick={(v) => filter({ reason: v, kind })} />
+              <PickButton name="report-kind" title={tt("What was reported")} options={kindOptions} value={kind} onPick={(v) => filter({ reason, kind: v })} />
+              {reason || kind ? (
+                <button type="button" onClick={() => filter({ reason: "", kind: "" })} className="ml-auto h-11 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#f4f4f6] md:h-8">
+                  {tt("Clear filters")}
+                </button>
+              ) : null}
+            </div>
+          ) : undefined
+        }
       >
-        {tab === "reports" || tab === "resolved" ? (
+        {queue ? (
           reports.rows.length === 0 ? (
-            loading ? <ListLoading /> : <Empty icon={ShieldCheck} title={view === "open" ? tt("All clear.") : tt("Nothing closed yet.")} detail={view === "open" ? tt("When members report a post, a comment or somebody, it lands here.") : undefined} />
+            loading ? <ListLoading /> : reason || kind ? <Empty title={tt("No reports like that.")} /> : <Empty icon={ShieldCheck} title={view === "open" ? tt("All clear.") : tt("Nothing closed yet.")} detail={view === "open" ? tt("When members report a post, a comment or somebody, it lands here.") : undefined} />
           ) : (
-            <ul className="divide-y divide-[#f1f2f4]">
+            <ul className="divide-y divide-[#f1f2f4]" data-report-list="">
               {reports.rows.map((r) => {
                 const authorAbove = Boolean(r.subject?.member && r.subject.userId !== meId && !canActOn(head.role, r.subject.member.role))
                 const canRemove = view === "open" && r.targetType !== "member" && r.targetState === "published" && head.can.moderate_content && !authorAbove
                 const held = view === "open" && (r.targetType === "post" || r.targetType === "comment") && r.targetState === "removed"
                 const system = !r.reporterName ? systemReportKind(r.note) : null
+                const alarmHere = system === "join_alarm" && head.can.manage_settings
+                const heldHere = held && head.can.moderate_content && !authorAbove
                 return (
-                  <li key={r.id} className="py-3.5 pl-4 pr-2 sm:pl-5 sm:pr-3" data-report="">
-                    <div className="flex items-start gap-2">
+                  <li key={r.id} className="py-3.5 pl-4 pr-2 md:grid md:grid-cols-[176px_minmax(0,1fr)_auto] md:gap-x-6 md:py-4 md:pl-5 md:pr-3" data-report="">
+                    {/* Why and when: the reason first, the kind of thing, how long ago; on a phone one line above the words. */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#6b7280] md:flex-col md:items-start md:gap-y-1.5" data-report-why="">
+                      {system === "join_alarm" ? <StatusBadge tone="attention">{tt("Join alarm")}</StatusBadge> : system === "invite_paused" ? <StatusBadge tone="attention">{tt("Invite link turned off")}</StatusBadge> : <StatusBadge tone={r.reason === "illegal" || r.reason === "harassment" || r.reason === "abuse" ? "critical" : "attention"}>{REASON[r.reason]}</StatusBadge>}
+                      <span className="md:hidden" aria-hidden>
+                        ·
+                      </span>
+                      <span>
+                        <span className="font-medium text-[#1a1a2e]">{TARGET[r.targetType]}</span>
+                        <span className="text-[#9ca3af]"> · </span>
+                        <span className="tabular-nums">{relativeTime(r.createdAt)}</span>
+                      </span>
+                      {r.status === "reviewing" ? <StatusBadge tone="neutral">{tt("Reviewing")}</StatusBadge> : null}
+                    </div>
+                    <div className="mt-1.5 flex min-w-0 items-start gap-2 md:mt-0">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#6b7280]">
-                          {system === "join_alarm" ? <StatusBadge tone="attention">{tt("Join alarm")}</StatusBadge> : system === "invite_paused" ? <StatusBadge tone="attention">{tt("Invite link turned off")}</StatusBadge> : <StatusBadge tone={r.reason === "illegal" || r.reason === "harassment" || r.reason === "abuse" ? "critical" : "attention"}>{REASON[r.reason]}</StatusBadge>}
-                          <span className="font-medium text-[#1a1a2e]">{TARGET[r.targetType]}</span>
                           {r.subject && r.targetType !== "member" ? <span>{tt("by {name}", { name: r.subject.name })}</span> : null}
-                          <span>{relativeTime(r.createdAt)}</span>
-                          {r.status === "reviewing" ? <StatusBadge tone="neutral">{tt("Reviewing")}</StatusBadge> : null}
                           {held ? <StatusBadge tone="attention">{tt("Held for review")}</StatusBadge> : r.targetState === "removed" ? <StatusBadge tone="neutral">{tt("Already removed")}</StatusBadge> : r.targetState === "deleted" || r.targetState === "missing" ? <StatusBadge tone="neutral">{tt("Deleted")}</StatusBadge> : null}
                         </div>
-                        {system ? null : <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-[#1a1a2e]">{r.preview || tt("(no text)")}</p>}
+                        {system ? null : <p className="mt-1 line-clamp-3 text-[14px] leading-relaxed text-[#1a1a2e]" data-report-preview="">{r.preview || tt("(no text)")}</p>}
                         {r.note && !r.reporterName ? (
                           <p className="mt-1 text-[13px] text-[#4b5563]" data-report-system="">
                             {held ? r.note.replace(/^Held for review: /, "").replace(/^./, (c) => c.toUpperCase()) : system ? r.note.replace(/^(Join alarm|Invite link turned off): /, "").replace(/^./, (c) => c.toUpperCase()) : r.note}
@@ -362,44 +420,52 @@ export function ModerationSection({
                         ) : r.reporterName ? (
                           <p className="mt-1 text-[12.5px] text-[#9ca3af]">{tt("Reported by {reporterName}", { reporterName: r.reporterName })}</p>
                         ) : null}
-                        {view === "closed" && r.resolution ? <p className="mt-1 text-[12.5px] text-[#6b7280]">{r.status === "dismissed" ? tt("Dismissed") : tt("Resolved")}: {r.resolution}</p> : null}
+                        {view === "closed" && r.resolution ? <p className="mt-1 text-[12.5px] text-[#6b7280]" data-report-resolution="">{r.status === "dismissed" ? tt("Dismissed") : tt("Resolved")}: {r.resolution}</p> : null}
                         {authorAbove && view === "open" ? <p className="mt-1 text-[12px] text-[#9ca3af]">{tt("Written by somebody ranked at or above you: an owner or admin decides.")}</p> : null}
-                        {view === "open" ? (
-                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                            {system === "join_alarm" && head.can.manage_settings ? (
-                              <>
-                                <button type="button" disabled={busy === r.id} onClick={() => void settleAlarm(r, true)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-alarm-off="">
-                                  {tt("Turn approval off")}
-                                </button>
-                                <button type="button" disabled={busy === r.id} onClick={() => void settleAlarm(r, false)} className={cn(buttonSecondary, "h-10 sm:h-8")} data-alarm-keep="">
-                                  {tt("Keep it on")}
-                                </button>
-                              </>
-                            ) : null}
-                            {held && head.can.moderate_content && !authorAbove ? (
-                              <>
-                                <button type="button" disabled={busy === r.id} onClick={() => void settleHeld(r, true)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-report-approve="">
-                                  {tt("Approve")}
-                                </button>
-                                <button type="button" disabled={busy === r.id} onClick={() => void settleHeld(r, false)} className={cn(buttonSecondary, "h-10 sm:h-8")} data-report-keep="">
-                                  {tt("Keep hidden")}
-                                </button>
-                              </>
-                            ) : null}
-                            {canRemove ? (
-                              <button type="button" disabled={busy === r.id} onClick={() => setRemoving(r)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-report-remove="">
-                                {tt("Remove")} {TARGET[r.targetType].toLowerCase()}
-                              </button>
-                            ) : null}
-                            {(held && head.can.moderate_content && !authorAbove) || (system === "join_alarm" && head.can.manage_settings) ? null : (
-                              <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "dismissed")} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-                                {tt("Dismiss")}
-                              </button>
-                            )}
-                          </div>
-                        ) : null}
                       </div>
-                      <RowMenu items={reportMenu(r)} label={tt("Report actions")} />
+                      <span className="md:hidden">
+                        <RowMenu items={reportMenu(r)} label={tt("Report actions")} />
+                      </span>
+                    </div>
+                    {/* The buttons: under the words on a phone, their own column on a computer, top aligned with the menu last. */}
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 md:mt-0 md:flex-nowrap md:justify-end md:self-start" data-report-actions="">
+                      {view === "open" ? (
+                        <>
+                          {alarmHere ? (
+                            <>
+                              <button type="button" disabled={busy === r.id} onClick={() => void settleAlarm(r, true)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-alarm-off="">
+                                {tt("Turn approval off")}
+                              </button>
+                              <button type="button" disabled={busy === r.id} onClick={() => void settleAlarm(r, false)} className={cn(buttonSecondary, "h-10 sm:h-8")} data-alarm-keep="">
+                                {tt("Keep it on")}
+                              </button>
+                            </>
+                          ) : null}
+                          {heldHere ? (
+                            <>
+                              <button type="button" disabled={busy === r.id} onClick={() => void settleHeld(r, true)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-report-approve="">
+                                {tt("Approve")}
+                              </button>
+                              <button type="button" disabled={busy === r.id} onClick={() => void settleHeld(r, false)} className={cn(buttonSecondary, "h-10 sm:h-8")} data-report-keep="">
+                                {tt("Keep hidden")}
+                              </button>
+                            </>
+                          ) : null}
+                          {canRemove ? (
+                            <button type="button" disabled={busy === r.id} onClick={() => setRemoving(r)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-report-remove="">
+                              {REMOVE_LABEL[r.targetType]}
+                            </button>
+                          ) : null}
+                          {heldHere || alarmHere ? null : (
+                            <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "dismissed")} className={cn(buttonSecondary, "h-10 sm:h-8")} data-report-dismiss="">
+                              {tt("Dismiss")}
+                            </button>
+                          )}
+                        </>
+                      ) : null}
+                      <span className="max-md:hidden">
+                        <RowMenu keepSpace items={reportMenu(r)} label={tt("Report actions")} />
+                      </span>
                     </div>
                   </li>
                 )
@@ -422,33 +488,57 @@ export function ModerationSection({
           !audit || audit.rows.length === 0 ? (
             loading ? <ListLoading /> : <Empty title={tt("Nothing logged yet.")} />
           ) : (
-            <ul className="divide-y divide-[#f1f2f4]" data-audit="">
-              {audit.rows.map((a) => (
-                <li key={a.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] leading-snug text-[#1a1a2e]">
-                      <span className="font-medium">{a.actorName ?? (a.actorKind === "system" ? tt("Storelib, automatically") : tt("Somebody"))}</span> <span className="text-[#4b5563]">{auditSentence(a.action).replace(/^./, (c) => c.toLowerCase())}</span>
-                      {a.targetLabel ? <span className="text-[#1a1a2e]">: {a.targetLabel}</span> : null}
-                    </p>
-                    {a.reason ? <p className="mt-0.5 truncate text-[12.5px] text-[#6b7280]">{a.reason}</p> : null}
-                  </div>
-                  <time dateTime={a.createdAt} className="shrink-0 text-[12px] tabular-nums text-[#9ca3af]">
-                    {relativeTime(a.createdAt)}
-                  </time>
-                </li>
-              ))}
-            </ul>
+            <div data-audit="">
+              <table className={TABLE}>
+                <thead>
+                  <tr>
+                    <th className={cn(TH, "w-[132px]")}>{tt("When")}</th>
+                    <th className={cn(TH, "w-[22%]")}>{tt("Who")}</th>
+                    <th className={TH}>{tt("What")}</th>
+                    <th className={cn(TH, "w-[30%]")}>{tt("Reason")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.rows.map((a) => (
+                    <tr key={a.id} data-audit-row="">
+                      <td className={cn(TD, "h-12 whitespace-nowrap tabular-nums", MUTED)}>
+                        <time dateTime={a.createdAt} title={shortDate(a.createdAt)}>
+                          {relativeTime(a.createdAt)}
+                        </time>
+                      </td>
+                      <td className={cn(TD, "truncate font-medium text-[#1a1a2e]")}>{actorOf(a)}</td>
+                      <td className={cn(TD, "truncate")} title={`${auditSentence(a.action)}${a.targetLabel ? `: ${a.targetLabel}` : ""}`}>
+                        {auditSentence(a.action)}
+                        {a.targetLabel ? <span className="text-[#1a1a2e]">: {a.targetLabel}</span> : null}
+                      </td>
+                      <td className={cn(TD, "truncate", a.reason ? "text-[#4b5563]" : "text-[#c4c7cd]")} title={a.reason ?? undefined}>{a.reason ?? "–"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <ul className={PHONE_LIST}>
+                {audit.rows.map((a) => (
+                  <li key={a.id} className="flex items-start gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13.5px] leading-snug text-[#1a1a2e]">
+                        <span className="font-medium">{actorOf(a)}</span> <span className="text-[#4b5563]">{auditSentence(a.action).replace(/^./, (c) => c.toLowerCase())}</span>
+                        {a.targetLabel ? <span className="text-[#1a1a2e]">: {a.targetLabel}</span> : null}
+                      </p>
+                      {a.reason ? <p className="mt-0.5 truncate text-[12.5px] text-[#6b7280]">{a.reason}</p> : null}
+                    </div>
+                    <time dateTime={a.createdAt} className="shrink-0 text-[12px] tabular-nums text-[#9ca3af]">
+                      {relativeTime(a.createdAt)}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )
         ) : null}
+        {queue ? <ListFoot shown={reports.rows.length} more={Boolean(reports.next)} loading={loading} onMore={() => void loadReports(view, reports.next)} noun={tt("reports")} /> : null}
+        {tab === "audit" && audit ? <ListFoot shown={audit.rows.length} more={Boolean(audit.next)} loading={loading} onMore={() => void loadAudit(audit.next)} noun={tt("entries")} /> : null}
       </ListCard>
 
-      {(tab === "audit" ? audit?.next : tab === "reports" || tab === "resolved" ? reports.next : null) ? (
-        <div className="flex justify-center">
-          <button type="button" disabled={loading} onClick={() => (tab === "audit" ? void loadAudit(audit?.next) : void loadReports(view, reports.next))} className={cn(buttonSecondary, "h-10 px-5")}>
-            {loading ? tt("Loading") : tt("Show more")}
-          </button>
-        </div>
-      ) : null}
       {tab === "reports" && !head.can.moderate_content ? <Notice tone="info">{tt("Your role can review reports but not remove content.")}</Notice> : null}
 
       <Confirm
@@ -456,7 +546,7 @@ export function ModerationSection({
         onClose={() => setRemoving(null)}
         title={tt("Remove this {value}?", { value: removing ? TARGET[removing.targetType].toLowerCase() : "content" })}
         detail={tt("Members stop seeing it, and every open report about it is closed. You can restore it from the Feed.")}
-        action="Remove"
+        action={tt("Remove")}
         danger
         reason
         busy={busy !== null}
@@ -485,8 +575,8 @@ function Restricted({ lists, loading, people }: { lists: RestrictedLists | null;
       {groups.map((g) =>
         lists[g.key].rows.length ? (
           <section key={g.key} aria-label={g.title}>
-            <h3 className="border-b border-[#f1f2f4] bg-[#fafbfb] px-4 py-2 text-[12px] font-medium text-[#6b7280] sm:px-5">
-              {g.title} <span className="tabular-nums text-[#9ca3af]">{lists[g.key].rows.length}{lists[g.key].next ? "+" : ""}</span>
+            <h3 className="border-b border-[#f1f2f4] bg-[#fafbfb] px-4 py-2 text-[12px] font-medium text-[#6b7280] md:px-5">
+              {g.title} <span className="tabular-nums text-[#9ca3af]">{count(lists[g.key].rows.length)}{lists[g.key].next ? "+" : ""}</span>
             </h3>
             <ul className="divide-y divide-[#f1f2f4]">
               {lists[g.key].rows.map((m) => {
@@ -494,18 +584,26 @@ function Restricted({ lists, loading, people }: { lists: RestrictedLists | null;
                 const choices = people.choicesFor(who)
                 const undo = choices.find((c) => c.action === g.undo)
                 return (
-                  <li key={m.userId} className="flex min-h-[60px] items-center gap-3 py-2 pl-4 pr-2 sm:pl-5 sm:pr-3" data-restricted-row={g.key}>
-                    <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" lazy />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{m.name}</p>
-                      <p className="truncate text-[12.5px] text-[#6b7280]">{g.line(m)}</p>
+                  <li key={m.userId} className="flex min-h-[60px] items-center gap-3 py-2 pl-4 pr-2 md:grid md:min-h-14 md:grid-cols-[minmax(0,32%)_minmax(0,1fr)_auto] md:gap-x-4 md:pl-5 md:pr-3" data-restricted-row={g.key}>
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" lazy />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-medium text-[#1a1a2e] md:text-[13.5px]">{m.name}</p>
+                        <p className="truncate text-[12.5px] text-[#6b7280] md:hidden">{g.line(m)}</p>
+                        {m.email ? <p className="truncate text-[12.5px] text-[#6b7280] max-md:hidden">{m.email}</p> : null}
+                      </div>
                     </div>
-                    {undo ? (
-                      <button type="button" disabled={people.busy} onClick={() => people.run(undo, who)} className={cn(buttonSecondary, "h-10 sm:h-8")}>
-                        {g.undoLabel}
-                      </button>
-                    ) : null}
-                    <RowMenu keepSpace items={people.menuItems(who, [undo?.key ?? ""])} label={tt("Actions for {name}", { name: m.name })} />
+                    <p className="truncate text-[13.5px] text-[#4b5563] max-md:hidden" title={g.line(m)}>
+                      {g.line(m)}
+                    </p>
+                    <div className="flex shrink-0 items-center justify-end gap-1.5">
+                      {undo ? (
+                        <button type="button" disabled={people.busy} onClick={() => people.run(undo, who)} className={cn(buttonSecondary, "h-10 sm:h-8")} data-undo="">
+                          {g.undoLabel}
+                        </button>
+                      ) : null}
+                      <RowMenu keepSpace items={people.menuItems(who, [undo?.key ?? ""])} label={tt("Actions for {name}", { name: m.name })} />
+                    </div>
                   </li>
                 )
               })}

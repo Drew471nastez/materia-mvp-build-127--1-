@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * GET   /api/app/community/<id>/moderation?status=open|closed|...&cursor= -> { rows, next }: the report queue.
+ * GET   /api/app/community/<id>/moderation?status=open|closed|...&reason=&type=&cursor= -> { rows, next }: the report queue.
  * PATCH /api/app/community/<id>/moderation { id, status, resolution? }: a report reviewed, resolved or dismissed.
  * POST  /api/app/community/<id>/moderation { action, targetType, targetId, reason?, spaceId? }: act on a post,
  *       comment or message (the same rules as the member side's /api/community/<id>/moderation/act).
@@ -26,7 +26,7 @@ export async function GET(request: Request, { params }: Params) {
   if (gate instanceof NextResponse) return gate
   const url = new URL(request.url)
   const status = url.searchParams.get("status") || "open"
-  return NextResponse.json(await listReports(gate.ctx.admin, gate.community.id, { status: status as "open", cursor: url.searchParams.get("cursor") }), { headers: noStore })
+  return NextResponse.json(await listReports(gate.ctx.admin, gate.community.id, { status: status as "open", cursor: url.searchParams.get("cursor"), reason: url.searchParams.get("reason"), type: url.searchParams.get("type") }), { headers: noStore })
 }
 
 export async function PATCH(request: Request, { params }: Params) {
