@@ -32,6 +32,7 @@ import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRe
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { currencyCode, type PriceRounding } from "./money"
 import { languageChoiceOf } from "./choice"
+import { resolveMarketCountries, storeHomeCountry } from "./market-countries"
 import { chargeCurrencyFor } from "./checkout-charge"
 import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import { cachedRates } from "./fx-server"
@@ -39,8 +40,11 @@ import { pricesInMarket, pricingFor, storefrontDisplay, type MarketPrice, type P
 
 /** A market as the live website reads it: active ones only. */
 export interface LiveMarket extends MarketPrice {
+  /** Every country it holds, its most natural first (Brazil for BRL); never the store's own. */
   countries: string[]
   primary: boolean
+  /** All other countries: `countries` is every one not the store's and not in another market. */
+  rest?: boolean
   /** Null: the store's own currency. */
   currency: string
 }
@@ -53,7 +57,7 @@ export interface SiteLanguages {
   others: string[]
   /** The active markets that show their own currency (the home market never does). */
   markets: LiveMarket[]
-  /** The home market's first country: the one a visitor whose country is unknown starts in. */
+  /** The store's own country (Settings › Store currency), else the home market's first: where a visitor whose country is unknown starts. */
   homeCountry?: string | null
   /** The home market's name (Settings › Markets and languages), for the builder's currency preview. */
   homeName?: string | null
@@ -91,24 +95,35 @@ async function readLanguages(creatorId: string): Promise<SiteLanguages> {
     const code = normalizeLocale((l as { code?: unknown })?.code)
     if (code && code !== def && (l as { published?: unknown }).published === true && !others.includes(code)) others.push(code)
   }
-  const markets: LiveMarket[] = []
-  let homeCountry: string | null = null
   let homeName: string | null = null
+  const all: (Record<string, unknown> & { countries: string[]; primary: boolean; active: boolean; rest: boolean; currency: string | null })[] = []
   for (const m of Array.isArray(row.markets) ? (row.markets as Record<string, unknown>[]) : []) {
-    if (m?.primary === true && typeof m.name === "string") homeName = m.name
-    if (m?.primary === true && Array.isArray(m.countries)) homeCountry = (m.countries as unknown[]).find((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c)) ?? null
-    const currency = currencyCode(m?.currency)
-    if (!m || m.primary === true || m.active === false || !currency || typeof m.id !== "string") continue
+    if (!m || typeof m !== "object") continue
+    if (m.primary === true && typeof m.name === "string") homeName = m.name
     const countries = (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c))
-    markets.push({ id: m.id, name: typeof m.name === "string" ? m.name : m.id, countries, currency, primary: false, rounding: (["none", "whole", "nine_nine"].includes(String(m.rounding)) ? m.rounding : "none") as PriceRounding, adjustBps: Number(m.adjustBps) || 0, ...(typeof m.rate === "number" && m.rate > 0 ? { rate: m.rate } : {}) })
+    all.push({ ...m, countries, primary: m.primary === true, active: m.active !== false, rest: m.rest === true, currency: currencyCode(m.currency) })
   }
-  return { saved: true, defaultLanguage: def, others, markets, homeCountry: homeCountry ?? own, homeName }
+  /*
+    THE STORE'S OWN COUNTRY, FIRST. Its visitors see the store currency
+    whatever a market lists, and All other countries is worked out here
+    (lib/markets/market-countries.ts), so a market saved before either rule
+    (the owner: "BRL for 239 countries", Romania among them) reads right.
+  */
+  const homeCountry = storeHomeCountry(own, all)
+  const markets: LiveMarket[] = []
+  for (const m of resolveMarketCountries(all, homeCountry)) {
+    if (m.primary || !m.active || !m.currency || typeof m.id !== "string") continue
+    markets.push({ id: m.id, name: typeof m.name === "string" ? m.name : m.id, countries: m.countries, currency: m.currency, primary: false, ...(m.rest ? { rest: true } : {}), rounding: (["none", "whole", "nine_nine"].includes(String(m.rounding)) ? m.rounding : "none") as PriceRounding, adjustBps: Number(m.adjustBps) || 0, ...(typeof m.rate === "number" && m.rate > 0 ? { rate: m.rate } : {}) })
+  }
+  return { saved: true, defaultLanguage: def, others, markets, homeCountry, homeName }
 }
 
 /** The market a country's visitors see prices in, when it shows its own currency (lib/markets/model marketForCountry, active markets only). */
 export function marketOfCountry(langs: SiteLanguages, country: string | null | undefined): LiveMarket | null {
   const code = typeof country === "string" ? country.toUpperCase() : ""
-  return code ? (langs.markets.find((m) => m.countries.includes(code)) ?? null) : null
+  /* The store's own country is never in one (readLanguages already leaves it out; asked again for a list built elsewhere). */
+  if (!code || code === langs.homeCountry) return null
+  return langs.markets.find((m) => m.countries.includes(code)) ?? null
 }
 
 /** A market's prices, converted from `base` at today's rates; null when it shows the store's own. */

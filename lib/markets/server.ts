@@ -126,27 +126,28 @@ export async function readAutoTranslate(db: Db, creatorId: string): Promise<{ on
   return { on: row?.auto_translate === true, run, ready: true }
 }
 
-export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization; autoTranslateRun?: AutoTranslateRun | null }> {
-  const [{ data, error }, auto] = await Promise.all([readLocalizationRow(db, creatorId), readAutoTranslate(db, creatorId)])
-  const fresh = async () => defaultLocalization(...(await Promise.all([homeCountryOf(db, creatorId), websiteLanguageOf(db, creatorId)])))
-  if (error) return { ready: !marketsMissing(error), value: await fresh() }
-  if (!data) return { ready: true, value: await fresh() }
+export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization; autoTranslateRun?: AutoTranslateRun | null; homeCountry: string | null }> {
+  const [{ data, error }, auto, homeCountry] = await Promise.all([readLocalizationRow(db, creatorId), readAutoTranslate(db, creatorId), homeCountryOf(db, creatorId)])
+  const fresh = async () => defaultLocalization(homeCountry, await websiteLanguageOf(db, creatorId))
+  if (error) return { ready: !marketsMissing(error), value: await fresh(), homeCountry }
+  if (!data) return { ready: true, value: await fresh(), homeCountry }
   const row = data
-  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
-  if (checked.ok) return { ready: true, value: checked.value, autoTranslateRun: auto.run }
+  /* The store's own country is never in a More currencies market: a list saved with it in reads without it (lib/markets/market-countries.ts). */
+  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency, homeCountry })
+  if (checked.ok) return { ready: true, value: checked.value, autoTranslateRun: auto.run, homeCountry }
   /*
     A SAVED LIST NEVER LOST. Markets saved under another store currency can
     stop passing the check after the currency changes; the languages did not
     change, so they are kept and only the markets start again from the home
     one. Losing them read as "French isn't saved on your website yet".
   */
-  const home = defaultLocalization(await homeCountryOf(db, creatorId), row.default_language)
-  const kept = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: home.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
-  return { ready: true, value: kept.ok ? kept.value : home, autoTranslateRun: auto.run }
+  const home = defaultLocalization(homeCountry, row.default_language)
+  const kept = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: home.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency, homeCountry })
+  return { ready: true, value: kept.ok ? kept.value : home, autoTranslateRun: auto.run, homeCountry }
 }
 
 export async function saveLocalization(db: Db, creatorId: string, input: unknown, baseCurrency: string): Promise<{ ok: true; value: Localization } | { ok: false; status: number; error: string }> {
-  const checked = validateLocalization(input, { baseCurrency })
+  const checked = validateLocalization(input, { baseCurrency, homeCountry: await homeCountryOf(db, creatorId) })
   if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
   const v = checked.value
   const row = { creator_id: creatorId, default_language: v.defaultLanguage, languages: v.languages, markets: v.markets, updated_at: new Date().toISOString() }

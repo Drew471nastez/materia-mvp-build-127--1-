@@ -36,6 +36,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { cn } from "@/lib/utils"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, Pill, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { REGIONS } from "@/lib/markets/regions"
+import { naturalCountry } from "@/lib/markets/market-countries"
 import { SITE_LANGUAGE_CODES, languageFlag, languageName } from "@/lib/markets/locales"
 import { CountryFlag } from "./country-picker"
 import type { Localization, Market } from "@/lib/markets/model"
@@ -65,6 +66,8 @@ interface Loaded {
   /** Translate changes automatically: its last run (lib/markets/auto-translate.ts), and whether Storelib AI is on for this deployment. */
   autoTranslate?: { run: { at: string; translated: number; left: number; error?: string } | null; available: boolean }
   baseCurrency: string
+  /** The store's own country (Store currency): it always sees the store currency, so no extra currency holds it. */
+  homeCountry?: string | null
   chargeCurrency: string
   fx: { asOf: string; fresh: boolean; currencies: string[]; rates?: Record<string, number> } | null
 }
@@ -439,7 +442,7 @@ export function MarketsPanel() {
       <Card
         title={tt("More currencies")}
         help="markets"
-        description={tt("Optional. Visitors in these countries see your prices in their currency, can switch with your website's currency selector, and pay in it.")}
+        description={tt("Optional. Visitors in the countries you list see prices in that currency and pay in it. Everyone else sees {currency}. Anyone can switch with your website's currency selector.", { currency: data.baseCurrency })}
       >
         {draft.markets.some((m) => !m.primary) ? (
           <ul className="mb-3 divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
@@ -449,18 +452,19 @@ export function MarketsPanel() {
                 <li key={m.id} data-market={m.id}>
                   <button type="button" onClick={() => setEditing(m)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#fafafb] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]">
                     <span aria-hidden className="flex w-7 shrink-0 justify-center">
-                      {m.countries.length ? <CountryFlag code={m.countries[0]} className="h-[16px] w-[24px]" /> : <Globe2 className="h-[18px] w-[18px] text-[#6b7280]" strokeWidth={1.8} />}
+                      {!m.rest && m.countries.length ? <CountryFlag code={naturalCountry(m.currency, m.countries) ?? m.countries[0]} className="h-[16px] w-[24px]" /> : <Globe2 className="h-[18px] w-[18px] text-[#6b7280]" strokeWidth={1.8} />}
                     </span>
                     <span className="min-w-0 flex-1">
+                      {/* "BRL · Brazil", "EUR · Germany and 3 more", "BRL · All other countries": the currency and where it is seen, in one line. */}
                       <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                        <span className="truncate">{m.currency ?? data.baseCurrency}</span>
+                        <span className="truncate" data-market-summary="">{`${m.currency ?? data.baseCurrency} · ${marketWhere(m)}`}</span>
                         {!m.active ? <Pill tone="gray">{tt("Off")}</Pill> : null}
                       </span>
-                      <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">
-                        {m.countries.length === 0 ? tt("No countries yet") : m.countries.length <= 3 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}
-                        {m.language ? ` · ${languageName(m.language, activeLocale())}` : ""}
-                        {m.currency && m.currency !== data.chargeCurrency && !chargeableCurrency(m.currency) ? ` · ${tt("Shown only, paid in {currency}", { currency: data.chargeCurrency })}` : ""}
-                      </span>
+                      {m.language || (m.currency && m.currency !== data.chargeCurrency && !chargeableCurrency(m.currency)) ? (
+                        <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">
+                          {[m.language ? languageName(m.language, activeLocale()) : null, m.currency && m.currency !== data.chargeCurrency && !chargeableCurrency(m.currency) ? tt("Shown only, paid in {currency}", { currency: data.chargeCurrency }) : null].filter(Boolean).join(" · ")}
+                        </span>
+                      ) : null}
                     </span>
                     <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
                   </button>
@@ -508,6 +512,7 @@ export function MarketsPanel() {
         market={editing}
         localization={draft}
         baseCurrency={data.baseCurrency}
+        homeCountry={data.homeCountry ?? draft.markets.find((x) => x.primary)?.countries[0] ?? null}
         chargeCurrency={data.chargeCurrency}
         currencies={data.fx?.currencies ?? []}
         rates={data.fx?.fresh ? data.fx.rates ?? null : null}
@@ -595,11 +600,23 @@ function LanguagePicker({ open, options, onClose, onPick }: { open: boolean; opt
   )
 }
 
+/** Where an extra currency is seen, in a few words: "Brazil", "Germany and France", "Germany and 3 more", "All other countries". */
+function marketWhere(m: Market): string {
+  if (m.rest) return tt("All other countries")
+  if (m.countries.length === 0) return tt("No countries yet")
+  const first = naturalCountry(m.currency, m.countries) ?? m.countries[0]
+  const rest = m.countries.filter((c) => c !== first)
+  if (rest.length === 0) return countryName(first)
+  if (rest.length === 1) return tt("{first} and {second}", { first: countryName(first), second: countryName(rest[0]) })
+  return tt("{first} and {count} more", { first: countryName(first), count: rest.length })
+}
+
 /** One market: its name, its countries (a region at a time, or searched), its currency and language; rounding and adjustment folded away. */
 function MarketEditor({
   market,
   localization,
   baseCurrency,
+  homeCountry,
   chargeCurrency,
   currencies,
   rates,
@@ -610,6 +627,8 @@ function MarketEditor({
   market: Market | "new" | null
   localization: Localization
   baseCurrency: string
+  /** The store's own country: never in an extra currency, shown disabled with why. */
+  homeCountry: string | null
   chargeCurrency: string
   currencies: string[]
   /** The day's rates per euro, for the exchange rate field's hint; null when they are not in. */
@@ -643,6 +662,10 @@ function MarketEditor({
   const perEuro = (c: string) => (c === "EUR" ? 1 : rates?.[c] ?? null)
   const todays = m.currency && perEuro(baseCurrency) && perEuro(m.currency) ? Number((perEuro(m.currency)! / perEuro(baseCurrency)!).toPrecision(4)) : null
   const elsewhere = new Map(localization.markets.filter((x) => x.id !== m.id).flatMap((x) => x.countries.map((c) => [c, x.name] as const)))
+  /* The store's own country sees the store currency, always (lib/markets/market-countries.ts). */
+  if (homeCountry && !m.primary) elsewhere.set(homeCountry, "")
+  /* Another currency already for all other countries: this one picks its countries. */
+  const restElsewhere = localization.markets.find((x) => x.id !== m.id && !x.primary && x.rest)
   const q = query.trim().toLowerCase()
   const shown = q ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q) : []
   const toggle = (code: string) => setM((x) => ({ ...x, countries: x.countries.includes(code) ? x.countries.filter((c) => c !== code) : [...x.countries, code] }))
@@ -655,7 +678,7 @@ function MarketEditor({
       open={market !== null}
       onClose={onClose}
       wide
-      title={market === "new" ? tt("Add a market") : tt("Edit {value}", { value: marketName(m) || tt("market") })}
+      title={market === "new" ? tt("Add a currency") : tt("Edit {value}", { value: marketName(m) || tt("market") })}
       footer={
         <div className="flex items-center gap-2">
           {existing ? (
@@ -674,8 +697,8 @@ function MarketEditor({
           <button type="button" className={cn(BTN_SECONDARY, !existing && "ml-auto")} onClick={onClose}>
             {tt("Cancel")}
           </button>
-          <button type="button" className={BTN_PRIMARY} disabled={!m.name.trim() || (!m.primary && m.countries.length === 0)} onClick={() => onDone({ ...m, name: m.name.trim() })}>
-            {market === "new" ? tt("Add market") : tt("Done")}
+          <button type="button" className={BTN_PRIMARY} disabled={!m.name.trim() || (!m.primary && !m.rest && m.countries.length === 0)} onClick={() => onDone(m.rest ? { ...m, name: m.name.trim(), countries: [] } : { ...m, name: m.name.trim() })}>
+            {market === "new" ? tt("Add a currency") : tt("Done")}
           </button>
         </div>
       }
@@ -688,6 +711,46 @@ function MarketEditor({
         {!m.primary ? (
           <div className="space-y-3">
             <p className="text-[13.5px] font-medium text-[#1a1a2e]">{tt("Countries")}</p>
+            {/* WHO SEES IT: a list, or everyone else in one choice, instead of ticking 239 countries (the owner). */}
+            <div role="radiogroup" aria-label={tt("Countries")} className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-market-scope="">
+              {[
+                { rest: false, label: tt("Countries you pick"), hint: null as string | null },
+                {
+                  rest: true,
+                  label: tt("All other countries"),
+                  hint: restElsewhere
+                    ? tt("{name} is already for all other countries.", { name: restElsewhere.currency ?? restElsewhere.name })
+                    : homeCountry
+                      ? tt("Every country except {country} and the ones in your other currencies.", { country: countryName(homeCountry) })
+                      : tt("Every country not in your other currencies."),
+                },
+              ].map((o) => {
+                const on = !!m.rest === o.rest
+                const off = o.rest && !!restElsewhere && !m.rest
+                return (
+                  <button
+                    key={String(o.rest)}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    disabled={off}
+                    onClick={() => setM((x) => ({ ...x, rest: o.rest || undefined }))}
+                    className={cn("flex w-full items-start gap-3 px-3.5 py-3 text-left", off ? "cursor-not-allowed opacity-50" : "hover:bg-[#fafafb]")}
+                    data-scope={o.rest ? "rest" : "pick"}
+                  >
+                    <span aria-hidden className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border", on ? "border-[#1a1a2e]" : "border-[#d1d5db]")}>
+                      {on ? <span className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] text-[#1a1a2e]">{o.label}</span>
+                      {o.hint ? <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{o.hint}</span> : null}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {m.rest ? null : (
+            <>
             <div className="flex flex-wrap gap-1.5" data-market-regions="">
               {REGIONS.map((r) => {
                 const full = regionFull(r.countries)
@@ -717,10 +780,10 @@ function MarketEditor({
                   const on = m.countries.includes(c.code)
                   return (
                     <li key={c.code}>
-                      <button type="button" disabled={!!other} onClick={() => toggle(c.code)} className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left text-[14px]", other ? "cursor-not-allowed opacity-50" : "hover:bg-[#fafafb]")}>
+                      <button type="button" disabled={other !== undefined} onClick={() => toggle(c.code)} className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left text-[14px]", other !== undefined ? "cursor-not-allowed opacity-50" : "hover:bg-[#fafafb]")} data-country-home={c.code === homeCountry ? "" : undefined}>
                         <CountryFlag code={c.code} near={false} />
                         <span className="flex-1 text-[#1a1a2e]">{c.name}</span>
-                        {other ? <span className="text-[12px] text-[#9ca3af]">{tt("In {other}", { other })}</span> : on ? <Check className="h-4 w-4 text-[#1a1a2e]" /> : <Plus className="h-4 w-4 text-[#9ca3af]" />}
+                        {c.code === homeCountry ? <span className="text-[12px] text-[#9ca3af]">{tt("Your store's country")}</span> : other ? <span className="text-[12px] text-[#9ca3af]">{tt("In {other}", { other })}</span> : on ? <Check className="h-4 w-4 text-[#1a1a2e]" /> : <Plus className="h-4 w-4 text-[#9ca3af]" />}
                       </button>
                     </li>
                   )
@@ -753,6 +816,13 @@ function MarketEditor({
             ) : (
               <p className="text-[12.5px] text-[#6b7280]">{tt("Pick a region or search for a country. A country can be in one market only.")}</p>
             )}
+            </>
+            )}
+            {homeCountry ? (
+              <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-market-home-note="">
+                {tt("{country} is your store's country: its visitors always see {currency}.", { country: countryName(homeCountry), currency: baseCurrency })}
+              </p>
+            ) : null}
           </div>
         ) : (
           <p className="text-[13.5px] leading-5 text-[#4b5563]">{tt("Your home market: every country not in another market, at your own prices in {baseCurrency}.", { baseCurrency })}</p>
