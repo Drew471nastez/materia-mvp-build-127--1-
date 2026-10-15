@@ -73,6 +73,8 @@ const SUITES = [
   "tests/integrations-settings-sheet.test.ts",
   "tests/settings-sheet-desktop.test.ts",
   "tests/integrations-i4.test.ts",
+  /* Round 30: the Integrations page's pill order, All mixed, the pill in the address, a return with no landing (scripts/check-integrations-round30.mjs measures them). */
+  "tests/integrations-round30.test.ts",
   "tests/settings-r1.test.ts",
   "tests/settings20.test.ts",
   "tests/limit21.test.ts",

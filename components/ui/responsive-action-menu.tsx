@@ -103,9 +103,15 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
   title,
   align = "end",
   menuWidth = "w-56",
+  opener,
 }: {
   trigger: React.ReactElement
   items: ActionMenuItem[]
+  /**
+   * Round 30: filled with a function that opens the menu (or the sheet), for a caller that opens it on its own: the
+   * composer's Post pressed before a space is chosen opens the space picker.
+   */
+  opener?: React.MutableRefObject<(() => void) | null>
   /** Heads the phone sheet, and names it for a screen reader. */
   title?: string
   align?: "start" | "end" | "center"
@@ -113,6 +119,7 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
 }) {
   const [isMobile, setIsMobile] = React.useState(false)
   const [sheetOpen, setSheetOpen] = React.useState(false)
+  const [menuOpen, setMenuOpen] = React.useState(false)
   const groups = React.useMemo(() => groupsOf(items), [items])
   /** The row pressed, run once the sheet has finished leaving. */
   const pendingRef = React.useRef<(() => void) | null>(null)
@@ -129,6 +136,18 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
     mql.addEventListener("change", check)
     return () => mql.removeEventListener("change", check)
   }, [])
+
+  React.useEffect(() => {
+    if (!opener) return
+    opener.current = () => {
+      pendingRef.current = null
+      if (isMobile) setSheetOpen(true)
+      else setMenuOpen(true)
+    }
+    return () => {
+      opener.current = null
+    }
+  }, [opener, isMobile])
 
   if (isMobile) {
     // Inject onClick into the provided trigger element so it opens the sheet.
@@ -174,7 +193,7 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
      * reloaded. A row's action menu should never do that; it is not a dialog,
      * and you should be able to scroll the page it sits on.
      */
-    <DropdownMenu modal={false}>
+    <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <ActionDropdownContent groups={groups} align={align} menuWidth={menuWidth} />
     </DropdownMenu>

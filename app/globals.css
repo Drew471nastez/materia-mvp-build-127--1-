@@ -237,6 +237,39 @@ html.app-arriving {
   }
 }
 
+/*
+  INTO THE DASHBOARD FROM THE DARK LOOK (round 30, lib/appearance/site-appearance
+  APP_FROM_DARK_BOOT). The canvas above is the header's colour over a light
+  field, and after a dark page that field was a white flash. A dashboard opened
+  after a dark page in this tab starts under a veil of the header's own colour,
+  over everything (html::after, before the body is parsed), and once the shell
+  is on the screen the veil fades off it: opacity only, on the compositor,
+  APP_FROM_DARK_MS (240ms). The header under it is the veil's colour, so only
+  the page below it comes up. It takes no presses at any point.
+*/
+html.app-from-dark::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background-color: #111111;
+  pointer-events: none;
+  transition: opacity 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+@media (min-width: 768px) {
+  html.app-from-dark::after {
+    background-color: #131316;
+  }
+}
+html.app-from-dark.app-from-dark-out::after {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.app-from-dark::after {
+    transition: none;
+  }
+}
+
 /* The body's own white would cover the bar's colour on the frames where the
    canvas is all there is. The screen's surface is opaque, so nothing under
    it changes. */

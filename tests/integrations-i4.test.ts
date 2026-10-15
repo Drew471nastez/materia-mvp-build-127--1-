@@ -70,13 +70,17 @@ console.log("\nThe directory\n")
 {
   const ui = read("components/app/settings/integrations-directory.tsx")
   /* Changed on purpose (the owner: "make the Storelib integrations the main thing there, and don't mix them in All"): Storelib apps first and where the page opens, Essentials after it. */
-  check("All is the first pill and where the page opens, then Installed (changed on purpose: the owner, \"Storelib apps should not be the first pill\")", /useState<Filter>\("all"\)/.test(ui) && /* Changed on purpose (the owner: "get rid of the Essential pill"). */ /\["all", "installed", "storelib"/.test(ui))
+  /* Changed on purpose (round 30): the page opens on the pill its address names (?c=), All when it names none, and the pills are in the owner's order (lib/integrations/directory-order). */
+  const order = read("lib/integrations/directory-order.ts")
+  check("All is the first pill and where the page opens unless ?c= names another; then Reviews, Analytics, Installed, Storelib apps, Advertising, Email marketing, Automation", /useState<Filter>\(\(\) => pillFrom\(params\?\.get\(PILL_PARAM\)\)\)/.test(ui) && /: "all"\)/.test(ui) && /* Changed on purpose (the owner: "get rid of the Essential pill"). */ /PILL_HEAD: DirectoryPill\[\] = \["all", "reviews", "analytics", "installed", "storelib", "advertising", "email", "automation"\]/.test(order) && /pillOrder\(\(c\) => counts\.get\(c\) \?\? 0\)/.test(ui))
   /* Changed on purpose (round 29): one test per pill (inPill) gives both its count and its cards, so the number on a pill is always the cards under it. */
   check("  All is everything; Storelib's core settings (payments, taxes...) are never listed as integrations", /pill === "all" \? true/.test(ui) && /\["all", entries\.length\]/.test(ui) && /apps\.filter\(\(a\) => !a\.core\)/.test(ui))
-  check("  one test per pill, for its count and its cards alike", /counts\.set\(c, entries\.filter\(\(e\) => inPill\(e, c\)\)\.length\)/.test(ui) && /entries\.filter\(\(e\) => inPill\(e, filter\)\)/.test(ui))
+  /* Changed on purpose (round 30): the cards follow `active`, the pill pressed or named by ?c=, or All when that names a category with nothing in it. */
+  check("  one test per pill, for its count and its cards alike", /counts\.set\(c, entries\.filter\(\(e\) => inPill\(e, c\)\)\.length\)/.test(ui) && /entries\.filter\(\(e\) => inPill\(e, active\)\)/.test(ui) && /const active: Filter = pills\.includes\(filter\) \? filter : "all"/.test(ui))
   /* Changed on purpose (the owner: "in the integrations get rid of the Essential pill"): no Essentials pill, nor the checklist it opened. */
   check("no Essentials pill, nor its checklist", !/"essentials"/.test(ui) && !/data-integration-essentials/.test(ui) && !/EssentialsPanel/.test(ui))
-  check("a Storelib app card goes straight to where it is set up, with its state", /<Link href=\{hrefOf\(e\.app\)\} data-integration-card=\{e\.id\} data-storelib-app=\{e\.id\}/.test(ui) && /<AppBadge state=\{appState\(e\.id\)\} \/>/.test(ui))
+  /* Changed on purpose (round 30): the Link also fetches its page in full on a hover, a focus or a touch (warmApp). */
+  check("a Storelib app card goes straight to where it is set up, with its state", /<Link\s+href=\{hrefOf\(e\.app\)\}\s+data-integration-card=\{e\.id\}\s+data-storelib-app=\{e\.id\}/.test(ui) && /onPointerEnter=\{\(\) => warmApp\(hrefOf\(e\.app\)\)\}/.test(ui) && /<AppBadge state=\{appState\(e\.id\)\} \/>/.test(ui))
   check("a search looks through everything whatever pill is on", /const shown = q\s*\? entries\.filter\(matches\)/.test(ui))
   /* Changed on purpose (round 29): every card is in the list from the start and a pill only hides or shows it, so the phone's hairline is on each row shown after the first rather than divide-y (which drew one under the last row shown). */
   check("on a phone one list of rows, from 640px a grid of cards", /overflow-hidden sm:grid sm:grid-cols-2/.test(ui) && /e\.id === firstShown \? undefined : "border-t border-\[#f1f2f4\] sm:border-t-0"/.test(ui) && /sm:h-full sm:flex-col/.test(ui))

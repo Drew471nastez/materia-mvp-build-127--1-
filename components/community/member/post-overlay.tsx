@@ -86,9 +86,9 @@ const OUT_MS = 180
 const SETTLE_MS = 80
 /** The open counts as arrived after this at the latest, even when its animation was cancelled (a finger on the sheet). */
 export const SETTLE_LATEST_MS = 650
-/** The panel's scrollbar: thin, a light grey thumb, no track (standard properties, and WebKit's own for Safari). */
+/** The panel's scrollbar: thin, a light grey thumb, no track (standard properties, and WebKit's own for Safari). The thumb is a variable so the dark look can step it down (round 30). */
 export const SLIM_SCROLL =
-  "[scrollbar-width:thin] [scrollbar-color:#d3d6db_transparent] [&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-white [&::-webkit-scrollbar-thumb]:bg-[#d3d6db] hover:[&::-webkit-scrollbar-thumb]:bg-[#b9bdc4]"
+  "[scrollbar-width:thin] [scrollbar-color:var(--sl-scroll-thumb,#d3d6db)_transparent] [&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-white [&::-webkit-scrollbar-thumb]:bg-[#d3d6db] hover:[&::-webkit-scrollbar-thumb]:bg-[#b9bdc4]"
 
 function usePhone(): boolean {
   const [phone, setPhone] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches)

@@ -2097,6 +2097,7 @@ const words: Record<string, string> = {
  "Each sale becomes available after a short settlement wait set by our payment partner for your country.": "Jeder Verkauf wird nach einer kurzen Abrechnungsfrist verfügbar, die unser Zahlungspartner für dein Land festlegt.",
  "Each variant has its own quantity, in Variants below.": "Jede Variante hat ihre eigene Menge, unten bei Varianten.",
  "Earlier": "Früher",
+ "Choose a space first": "Wähle zuerst einen Bereich",
  "Earlier visits": "Frühere Besuche",
  "Earnings summary (CSV)": "Einnahmenübersicht (CSV)",
  "EasyPost": "EasyPost",

@@ -1,5 +1,5 @@
 import type React from "react"
-import { APPEARANCE_BOOT } from "@/lib/appearance/site-appearance"
+import { APPEARANCE_BOOT, APP_FROM_DARK_BOOT } from "@/lib/appearance/site-appearance"
 import { SiteAppearance } from "@/components/platform/site-appearance"
 import { AppRouterHandle } from "@/lib/navigation/app-router-handle"
 import "./theme-dark.css"
@@ -257,6 +257,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
         {/* The person's light or dark look on Storelib's own pages, before the first paint (lib/appearance/site-appearance.ts). */}
         <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
+        {/* The dashboard opened after a dark page starts under a veil of its header's colour, never on a light field (round 30). */}
+        <script dangerouslySetInnerHTML={{ __html: APP_FROM_DARK_BOOT }} />
         {/* ONE PAGE INTO THE NEXT, INSIDE THE APP (app/globals.css, round 16): a page load between /app and the rest crossfades
             in the app; a browser keeps its plain load. Read before the first frame, as pagereveal must be heard. */}
         <script

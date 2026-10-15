@@ -481,7 +481,8 @@ console.log("\nYour own system (webhook): signed, retried, its failures shown, a
 console.log("\nEntering and leaving an integration's page\n")
 {
   const dir = read("components/app/settings/integrations-directory.tsx")
-  check("no sideways slide: a 120ms fade only", /const SWAP_MS = 120/.test(dir) && !/translate3d\(\$\{dx\}px/.test(dir) && !/PAGE_SHIFT/.test(dir))
+  /* Changed on purpose (round 30): "no white flash", so not even the 120ms fade from 0.55; a cut, the page whole on its first frame (scripts/check-integrations-round30.mjs films it). */
+  check("no sideways slide and no fade: a cut", !/SWAP_MS/.test(dir) && !/SWAP_FROM/.test(dir) && !/translate3d\(\$\{dx\}px/.test(dir) && !/PAGE_SHIFT/.test(dir))
   check("opening is a history entry, so the phone's Back returns to the list", /writeIntegrationParam\(id, "push"\)/.test(dir) && /window\.history\.pushState\(null, "", url\.toString\(\)\)/.test(dir))
   check("its own Back goes back through that entry, never piling them up", /if \(pushed\.current\) \{[\s\S]{0,300}backThen\(\(\) => writeIntegrationParam\(null, "replace"\)\)/.test(dir))
   check("the list comes back where it was: its scroll, and the card focused", /box\.scrollTop = at\.scroll/.test(dir) && /focus\(\{ preventScroll: true \}\)/.test(dir))

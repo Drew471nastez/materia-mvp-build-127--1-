@@ -106,7 +106,7 @@ import { CLICK_AFTER_MS, isTap, pressShowsAtOnce, type Press } from "./chip-hit"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { onCommunityUpdated } from "@/lib/communities/updated-signal"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallUpcoming, type PlaceState } from "./wall"
-import { useCommunityLanding } from "./landing"
+import { holdLandingGround, useCommunityLanding } from "./landing"
 import { scrollKeyFor, useReturnScroll, useSectionTop } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -118,8 +118,7 @@ import { openPostOver } from "@/lib/communities/client/open-post"
 import { parsePostParam } from "@/lib/communities/post-url"
 import { quietRouterRefresh } from "@/lib/communities/client/resume"
 import { usePlaceScreens } from "./place-host"
-import { holdLeavingStill } from "@/lib/navigation/leaving-still"
-import { arriveWithPageMotion, PAGE_PHONE } from "@/lib/navigation/page-push"
+import { arriveWithPageMotion } from "@/lib/navigation/page-push"
 import { NAV_ENTER_EASE, NAV_ENTER_MS } from "@/lib/ui/app-navigation"
 import { arrivedByTab, tabSwapInProgress } from "@/lib/nav/tab-swap"
 import type { MemberProfileData } from "@/lib/communities/member-profile-view"
@@ -545,15 +544,6 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const a = anchor(e)
-      /* Out to Explore (the community menu's row, any link there): the frame pops away as it goes (LEAVING, below). */
-      if (a && !a.target) {
-        try {
-          const to = new URL(a.href, window.location.href)
-          if (to.origin === window.location.origin && /^\/explore(\/|$)/.test(to.pathname)) leavingRef.current = "pop"
-        } catch {
-          /* Not an address: nothing to do. */
-        }
-      }
       const p = a ? placeOf(a) : null
       /*
         A POST OF THIS COMMUNITY OPENS OVER THE PLACE (round 16): a notification, a mention, a link in a post. A card on screen
@@ -590,31 +580,31 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
 
   /*
     ENTERING AND LEAVING LIKE A NATIVE PUSH AND POP (round 15, the owner: "from a community I click the hamburger, then
-    Explore: Explore appears too fast, too direct"). Arriving from outside (Explore, a card), the frame slides in from the
-    right and settles (300ms, translate and opacity on the compositor). Leaving for Explore, a copy of the frame as it stood
-    is laid over the page in the commit that takes it away and slides off to the right, under the tab bar, with Explore
-    already drawn beneath it (lib/navigation/leaving-still.ts: never a view transition, which would freeze the screen while
-    Explore loads). Neither under reduced motion, nor inside the app's own tab swap (it already moves the page).
+    Explore: Explore appears too fast, too direct"). Arriving from outside (Explore, a card), the frame slid in from the
+    right; leaving for Explore, a copy of it slid off to the right over Explore.
 
     A PHONE'S MOTION, NOT A COMPUTER'S (round 25, the owner: "on desktop, opening a community slides in from left/right:
-    replace with something regular, smooth, clean and simple"). The push and the pop are how a phone moves between screens;
-    in a wide window a page sliding sideways reads as a glitch. From PAGE_PHONE up the community comes in the way every other
-    page of the site lands (html.nav-landing, app-page-enter): opacity only, NAV_ENTER_MS on NAV_ENTER_EASE, nothing that
-    moves; and leaving for Explore is a plain swap, Explore landing on its own fade, with no copy sliding off over it.
+    replace with something regular, smooth, clean and simple"). From PAGE_PHONE up the community came in on the landing
+    fade every other page of the site has (html.nav-landing, app-page-enter): opacity only, NAV_ENTER_MS on NAV_ENTER_EASE.
+
+    ROUND 30, THE OWNER, ON THE PHONE TOO: "opening a community, it slides in from the left or right, there is a flash and a
+    white space during it, in dark mode too." The push started 36px to the right at 60% opacity: for 300ms the page under
+    it showed through the whole frame and down a strip at its left edge, which is the flash and the space. Now every width
+    lands the way the computer does: the frame fades up from nothing over the page's own ground (the dark ground in the
+    dark look, html[data-sl-dark] in app/theme-dark.css), NAV_ENTER_MS, opacity only, nothing that moves. Leaving for
+    Explore is a plain swap at every width too, Explore landing on its own fade, with no copy sliding off over it.
+    scripts/check-transitions-round30.mjs films it: the frame never moved sideways on any frame, and no light
+    field in the dark look.
   */
-  const leavingRef = useRef<"pop" | null>(null)
   useLayoutEffect(() => {
     const el = rootRef.current
-    const wide = !window.matchMedia?.(PAGE_PHONE).matches
     /* Back from a full page opened with Visit page: it comes from the left under the page popping off (lib/navigation/page-push.ts), not with the push in from outside. */
     const popped = landing && arriveWithPageMotion(el)
     /* Not for Home pressed on the tab bar either (round 18, lib/nav/tab-swap.ts arrivedByTab): a tab shows its page whole. */
     if (!popped && landing && el && typeof el.animate === "function" && !tabSwapInProgress() && !arrivedByTab() && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      if (wide) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
-      else el.animate([{ translate: "36px 0", opacity: 0.6 }, { translate: "0 0", opacity: 1 }], { duration: 300, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
-    }
-    return () => {
-      if (leavingRef.current === "pop" && el && window.matchMedia?.(PAGE_PHONE).matches) holdLeavingStill(el, 320, { motion: "pop", under: true })
+      /* The document under the fade is the frame's own ground for its length (landing.ts holdLandingGround). */
+      holdLandingGround(el)
+      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

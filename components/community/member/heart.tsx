@@ -295,8 +295,8 @@ function soundContext(): AudioContext | null {
  * ===========================================================================
  * The same switch, the same rules, the same quiet: a comment sent is a soft
  * two note "tick" (a little under a tenth of a second, lower than a like);
- * a post sent is a soft two note chime (round 29, POST_CHIME below; it was a
- * whoosh). Both are made on the spot (no file).
+ * a post sent is one soft falling pop (round 30, POST_POP below; it was a
+ * whoosh, then a two note chime). Both are made on the spot (no file).
  */
 export function commentSound(): boolean {
   const ctx = soundContext()
@@ -334,66 +334,80 @@ export function primeSounds(): void {
 }
 
 /*
-  ROUND 29, THE OWNER: "I don't like the post sound". The whoosh (filtered noise sweeping up, a chime on top, and a tap on
-  the press before it) was three sounds for one act. A post sent is now ONE soft two note chime and nothing on the press:
-  two sine notes a fifth apart (E5, then B5 75ms later), each struck like a felt mallet (a 12ms rise, so no click, and a
-  long soft fall), with a faint octave over the first that is gone in a tenth of a second, all through a gentle low pass so
-  nothing is bright. Peaks well under a like's, about half a second long. POST_CHIME is the shape, for the probe to render
-  offline and measure (scripts/check-composer-round29.mjs).
+  ROUND 30, THE OWNER: the post sound "needs to be more smooth and clean, it doesn't really make sense". Round 29's two
+  note chime was still a little tune, and a tune asks to be listened to. A post sent is now ONE soft, round pop, like a
+  drop landing in water: a sine that glides down from 600Hz to 420Hz over its first 90ms, so it is a single falling
+  "bloop" and not a note; a faint second partial an octave over it for the first 60ms, so a phone's small speaker
+  still has something to play; a 9ms eased rise (a raised cosine, so no click) and an exponential fall, the last 12ms
+  brought to exactly zero (so no click at the end either); all through a low pass at 1800Hz, so nothing in it is bright.
+  About a fifth of a second, peaking near a like's quiet. POST_POP is the shape, for the probe to render offline and
+  measure (scripts/check-composer-round30.mjs).
 */
-export const POST_CHIME = {
-  notes: [
-    { freq: 659.25, at: 0, peak: 0.03, length: 0.3 },
-    { freq: 987.77, at: 0.075, peak: 0.024, length: 0.44 },
-  ],
-  /** The first note's faint octave, for a little shimmer, gone quickly. */
-  overtone: { ratio: 2, peak: 0.006, length: 0.11 },
-  rise: 0.012,
-  lowpass: 2600,
+export const POST_POP = {
+  /** The glide: where the pop starts, where it settles, and how long it takes to get there (seconds). */
+  from: 600,
+  to: 420,
+  glide: 0.09,
+  /** The eased rise, the peak, and the whole length (seconds). */
+  rise: 0.009,
+  peak: 0.026,
+  length: 0.19,
+  /** The last stretch, ramped to exactly zero. */
+  tail: 0.012,
+  /** The faint octave partial: its share of the peak and how long it lasts. */
+  partial: { share: 0.14, length: 0.06 },
+  lowpass: 1800,
 } as const
 
-/** The chime, drawn into any context (a live one, or an offline one for a test) from `at`, into `out`. */
-export function postChime(ctx: BaseAudioContext, at: number, out: AudioNode): number {
+/** The pop, drawn into any context (a live one, or an offline one for a test) from `at`, into `out`. Answers when it is over. */
+export function postPop(ctx: BaseAudioContext, at: number, out: AudioNode): number {
+  const P = POST_POP
   const soften = ctx.createBiquadFilter()
   soften.type = "lowpass"
-  soften.frequency.setValueAtTime(POST_CHIME.lowpass, at)
-  soften.Q.setValueAtTime(0.5, at)
+  soften.frequency.setValueAtTime(P.lowpass, at)
+  soften.Q.setValueAtTime(0.4, at)
   soften.connect(out)
-  let end = at
+  /* A raised cosine from 0 to 1: the rise has no corner at its start or its top. */
+  const ease = (n: number, peak: number) => {
+    const c = new Float32Array(n)
+    for (let i = 0; i < n; i++) c[i] = peak * 0.5 * (1 - Math.cos((Math.PI * i) / (n - 1)))
+    return c
+  }
   let live = 0
-  const strike = (freq: number, start: number, peak: number, length: number) => {
+  let end = at
+  const voice = (ratio: number, peak: number, length: number) => {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.type = "sine"
-    osc.frequency.setValueAtTime(freq, start)
-    gain.gain.setValueAtTime(0.0001, start)
-    gain.gain.exponentialRampToValueAtTime(peak, start + POST_CHIME.rise)
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + length)
+    osc.frequency.setValueAtTime(P.from * ratio, at)
+    osc.frequency.exponentialRampToValueAtTime(P.to * ratio, at + P.glide)
+    gain.gain.setValueCurveAtTime(ease(32, peak), at, P.rise)
+    gain.gain.exponentialRampToValueAtTime(peak * 0.02, at + length - P.tail)
+    gain.gain.linearRampToValueAtTime(0, at + length)
     osc.connect(gain)
     gain.connect(soften)
-    osc.start(start)
-    osc.stop(start + length + 0.02)
-    end = Math.max(end, start + length + 0.02)
+    osc.start(at)
+    osc.stop(at + length + 0.005)
+    end = Math.max(end, at + length + 0.005)
     live++
     osc.onended = () => {
       osc.disconnect()
       gain.disconnect()
-      /* The filter goes with the last note. */
+      /* The filter goes with the last voice. */
       if (--live === 0) soften.disconnect()
     }
   }
-  for (const n of POST_CHIME.notes) strike(n.freq, at + n.at, n.peak, n.length)
-  const first = POST_CHIME.notes[0]
-  strike(first.freq * POST_CHIME.overtone.ratio, at, POST_CHIME.overtone.peak, POST_CHIME.overtone.length)
+  voice(1, P.peak, P.length)
+  voice(2, P.peak * P.partial.share, P.partial.length)
   return end
 }
 
-/** A post sent: the soft two note chime (POST_CHIME), played once the server has the post. */
+/** A post sent: the one soft pop (POST_POP), played once the server has the post. */
 export function postSound(): boolean {
   const ctx = soundContext()
   if (!ctx) return false
   try {
-    postChime(ctx, ctx.currentTime + 0.004, ctx.destination)
+    postPop(ctx, ctx.currentTime + 0.004, ctx.destination)
     return true
   } catch {
     return false

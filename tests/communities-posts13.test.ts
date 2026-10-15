@@ -219,7 +219,8 @@ async function main() {
   /* ── 15 ────────────────────────────────────────────────────────────── */
   console.log("\n15. The composer")
   /* Changed on purpose (round 29): the owner disliked the whoosh; a post sent is one soft two note chime (sines through a low pass), with no tap on the press and no noise. */
-  check("a soft chime on Post: primed in the press, played once the post is up", /primeSounds\(\)/.test(composer) && !/postPressSound/.test(composer) && /const post = r\.data\.post\s*postSound\(\)/.test(composer) && /export function postChime\(ctx: BaseAudioContext/.test(heart) && /osc\.type = "sine"/.test(heart) && /soften\.type = "lowpass"/.test(heart) && !/createBufferSource\(\)/.test(heart))
+  /* Changed on purpose (round 30): the owner still disliked it; a post sent is one soft falling pop (postPop: a sine gliding 600 to 420Hz, through a low pass), no tune. */
+  check("a soft pop on Post: primed in the press, played once the post is up", /primeSounds\(\)/.test(composer) && !/postPressSound/.test(composer) && /const post = r\.data\.post\s*postSound\(\)/.test(composer) && /export function postPop\(ctx: BaseAudioContext/.test(heart) && /osc\.type = "sine"/.test(heart) && /soften\.type = "lowpass"/.test(heart) && !/createBufferSource\(\)/.test(heart))
   check("the same Sounds switch and rules as a like", /function soundContext\(\)[\s\S]{0,300}!soundsOn\(\)/.test(heart) && /export function postSound\(\): boolean \{\s*const ctx = soundContext\(\)/.test(heart))
   check("the space picker and the card's space line show the space's glyph", /spaceGlyph\(s\.icon, s\.kind\)/.test(composer) && /spaceGlyph\(post\.space\.icon, post\.space\.kind\)/.test(card))
 

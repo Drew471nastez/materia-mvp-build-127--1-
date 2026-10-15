@@ -31,10 +31,38 @@ export interface ProductPageToneInput {
   headerSettings?: any
 }
 
-export function productPageTone(config: ProductPageToneInput | null | undefined) {
+/*
+  A LOOK OF THE CREATOR'S OWN, OR STORELIB'S (round 30). The product page follows the person's light or dark look on
+  Storelib (lib/appearance) unless its creator gave it a look of their own: a scheme other than the default, a page colour
+  that is not the default white, colours of their own on any part of it, or a page they arranged in the builder. Those
+  keep exactly what the creator chose, in either look (data-own-look). A creator who never designed anything has the
+  platform's default page, and that page is Storelib's, drawn in the person's look.
+*/
+const OWN_COLOUR_SETTINGS = ["colors", "faqColors", "reviewsColors", "productCardColors", "priceContainerColors", "wishlistButtonColors", "viewInLibraryButtonColors", "buyButtonColor", "buyButtonTextColor"] as const
+const DEFAULT_WHITE = new Set(["", "#fff", "#ffffff", "white"])
+
+export function productHasOwnLook(config: ProductPageToneInput | null | undefined, arranged = false): boolean {
+  if (!config) return false
+  if (arranged) return true
+  if ((config.globalSettings?.themePreset || "default") !== "default") return true
+  if (!DEFAULT_WHITE.has(String(config.globalColors?.backgroundColor ?? "").trim().toLowerCase())) return true
+  const header = config.headerSettings as Record<string, unknown> | null | undefined
+  return OWN_COLOUR_SETTINGS.some((k) => {
+    const v = header?.[k]
+    return typeof v === "string" ? v.trim() !== "" : !!v && typeof v === "object" && Object.values(v as Record<string, unknown>).some((x) => typeof x === "string" && x.trim() !== "")
+  })
+}
+
+export function productPageTone(config: ProductPageToneInput | null | undefined, opts: { site?: boolean } = {}) {
   const headerSettings = config?.headerSettings
   const themePreset = config?.globalSettings?.themePreset || "default"
-  const themeConfig = themePresets[themePreset as ThemePreset]
+  /*
+    STORELIB'S OWN LOOK (opts.site, a page with no look of the creator's: productHasOwnLook). No scheme's literal colours:
+    every part falls back to the design system's tokens (var(--background), var(--card), var(--foreground), the border
+    and muted tokens), which are the default scheme's white, near black and hairline in the light look, and which
+    app/theme-dark.css turns dark under html[data-sl-dark]. The buy button keeps its blue either way.
+  */
+  const themeConfig = opts.site ? undefined : themePresets[themePreset as ThemePreset]
   const isDarkTheme = isDarkScheme(themePreset)
   const stored = config?.globalColors?.backgroundColor || undefined
 
