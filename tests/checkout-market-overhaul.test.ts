@@ -119,7 +119,7 @@ console.log("\nCHECKOUT: at once, from the right country, back where it came fro
   check("the first quote is not asked for again for the same country", /firstAsk\.current && shipsKey === pricedWith\.current/.test(site))
   check("the delivery country is there from the first frame, and a pick is remembered", /country: initialCountry \?\? ""/.test(site) && /rememberCheckoutCountry\(address\.country\)/.test(site))
   const page = code("app/checkout/site/page.tsx")
-  check("  the page knows it: the last pick, the website's selector, then where they are", /countryCode\(jar\.get\(CHECKOUT_COUNTRY_COOKIE\)\?\.value\) \?\? countryCode\(visitorCountry\)/.test(page) && /\.\.\.\(initialCountry \? \{ country: initialCountry \} : \{\}\)/.test(page))
+  check("  the page knows it: the last pick, the website's selector, then where they are", /* Changed on purpose (more currencies): where they are wins over the selector's first country of the same market (deliveryCountryGuess). */ /countryCode\(jar\.get\(CHECKOUT_COUNTRY_COOKIE\)\?\.value\) \?\? countryCode\(deliveryCountryGuess\(/.test(page) && /\.\.\.\(initialCountry \? \{ country: initialCountry \} : \{\}\)/.test(page))
   check("the last line removed goes back to the page it came from", /<BackToShop to=\{backTo\} orReferrer=\{backIsDefault\} \/>/.test(site) && /from\.host === window\.location\.host && !from\.pathname\.startsWith\("\/checkout"\)/.test(site))
   const physical = code("app/checkout/physical/physical-checkout.tsx")
   check("  the shop's own checkout too, never an empty page", /emptiedHere\.current && \(backUrl \|\| shopUrl\)\) return <LeaveTo/.test(physical) && /optimisticQuote\(q, next\)/.test(physical))

@@ -6,7 +6,7 @@
  *
  * Pure.
  */
-import { convertOrder, type MarketCharge } from "@/lib/markets/checkout-charge"
+import { amountsInMarket, convertOrder, type MarketCharge } from "@/lib/markets/checkout-charge"
 import type { SiteQuote } from "./site-quote-server"
 
 export function quoteInMarket(quote: SiteQuote, charge: MarketCharge): SiteQuote & { currency: string } {
@@ -17,6 +17,11 @@ export function quoteInMarket(quote: SiteQuote, charge: MarketCharge): SiteQuote
     totals,
     delivery: { ...quote.delivery, options: quote.delivery.options.map((o) => ({ ...o, priceCents: charge.amount(o.priceCents) })) },
     ...(quote.offers ? { offers: quote.offers.map((o) => ({ ...o, savedCents: charge.amount(o.savedCents) })) } : {}),
+    /* The other options a line can be changed to, priced as their cards are; the store's price kept beside it for the website's cart. */
+    ...(quote.choices ? { choices: Object.fromEntries(Object.entries(quote.choices).map(([id, c]) => [id, { ...c, variants: c.variants.map((v) => ({ ...v, priceCents: charge.price(v.priceCents), storeCents: v.priceCents })) }])) } : {}),
+    /* A code's words with their amounts in the market's currency too: "at least €30.14", never lei on a checkout in euros. */
+    coupon: quote.coupon ? { ...quote.coupon, label: quote.coupon.label ? amountsInMarket(quote.coupon.label, charge) : quote.coupon.label } : quote.coupon,
+    couponError: quote.couponError ? amountsInMarket(quote.couponError, charge) : quote.couponError,
     currency: charge.currency,
   }
 }

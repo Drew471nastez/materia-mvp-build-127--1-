@@ -1064,7 +1064,7 @@ export function SiteCheckout({
     if (!to) return
     setLimitNote(null)
     setError(null)
-    commitItems(setLineVariant(items, line, variantId), { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.priceCents } })
+    commitItems(setLineVariant(items, line, variantId), { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.storeCents ?? to.priceCents } })
   }
   const discountCents = t?.discountCents ?? 0
   const shippingPaid = t ? t.shippingCents - t.shippingDiscountCents : 0
