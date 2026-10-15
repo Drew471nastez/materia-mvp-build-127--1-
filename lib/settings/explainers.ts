@@ -167,7 +167,7 @@ export const EXPLAINERS = {
     get lines() { return [
       tt("Each language gets its own address, like yourstore.com/fr."),
       tt("Visitors switch with your theme's language selector. Turn on Show visitors their own language to open a first visit in their browser's language."),
-      tt("Only approved translations go live, once the language is published. The rest shows in your default language."),
+      tt("A translation goes live as soon as it is done. Anything not translated yet shows in your default language."),
     ] },
     guide: "/help/physical-products/translate-your-website",
   },
