@@ -1713,7 +1713,7 @@ section("Two at once still make five, and an import that says what went wrong")
       && /<AppTopCorners \/>/.test(read("app/app/cold-start.tsx")))
   const stage = read("components/app/app-stage.tsx")
   check("the stage measures nothing in React's commit that can wait: the landing starts on the frame that paints the page",
-    /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{/.test(stage)
+    /* Changed on purpose (round 26): a section of the same community skips the landing (sameStageFrame) before the frame is asked for. */ /const layered = !!document\.documentElement\.dataset\.layerMotion\s*(?:\/\*[^*]*\*\/\s*if \(sameStageFrame\(from, pathname\)\) return\s*)?requestAnimationFrame\(\(\) => \{/.test(stage)
       && /if \(saved \|\| traversal \|\| anyAwayFromTop\(\)\) \{/.test(stage))
 }
 

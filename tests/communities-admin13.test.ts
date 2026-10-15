@@ -315,7 +315,8 @@ async function main() {
   const settings = code("components/community/creator/settings-section.tsx")
   const parts = code("components/community/creator/parts.tsx")
   check("Settings forms have the editor's save foot: Cancel and Save, always there", /export function EditorFoot/.test(parts) && /<SaveButton/.test(parts) && /Cancel/.test(parts) && /<EditorFoot/.test(settings))
-  check("the Page tab is two columns from 1024px with the editor's cards", /lg:grid-cols-\[minmax\(0,1fr\)_320px\]/.test(settings) && /<EditorCard title="About"/.test(settings) && /<EditorCard title="Address"/.test(settings))
+  /* Changed on purpose (round 26): the settings column takes 196px beside the panel, so the Page tab's two columns start at 1280px. */
+  check("the Page tab is two columns from 1280px with the editor's cards", /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(settings) && /<EditorCard title="About"/.test(settings) && /<EditorCard title="Address"/.test(settings))
   check("Settings has Rules and policies and, for the owner, Roles", /value: "policies", label: "Rules and policies"/.test(settings) && /value: "roles", label: "Roles", needs: "transfer_ownership"/.test(settings) && /<RulesEditor/.test(settings) && /PERMISSION_GROUPS\.map/.test(settings))
   check("old links to the rules land on the new tab", settingsTabOf("rules") === "policies" && settingsTabOf("roles") === "roles" && settingsTabOf("policies") === "policies" && settingsTabOf("page") === "page")
   const patch = code("app/api/app/community/[id]/route.ts")

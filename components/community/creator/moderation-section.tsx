@@ -28,7 +28,7 @@
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Plus, ShieldCheck, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
@@ -42,7 +42,7 @@ import { checkRules, moveItem, systemReportKind, takenAwayLine, type MemberChoic
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { BlockedWords } from "@/components/community/creator/blocked-words"
 import type { WordSettings } from "@/lib/communities/word-filter"
-import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
+import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, ListLoading, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 
 const REASON: Record<ReportReason, string> = { get spam() { return tt("Spam") }, get abuse() { return tt("Abuse") }, get harassment() { return tt("Harassment") }, get off_topic() { return tt("Off topic") }, get illegal() { return tt("Illegal") }, get other() { return tt("Other") } }
@@ -330,7 +330,7 @@ export function ModerationSection({
       >
         {tab === "reports" || tab === "resolved" ? (
           reports.rows.length === 0 ? (
-            loading ? <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">{tt("Loading")}</p> : <Empty title={view === "open" ? tt("All clear.") : tt("Nothing closed yet.")} detail={view === "open" ? tt("When members report a post, a comment or somebody, it lands here.") : undefined} />
+            loading ? <ListLoading /> : <Empty icon={ShieldCheck} title={view === "open" ? tt("All clear.") : tt("Nothing closed yet.")} detail={view === "open" ? tt("When members report a post, a comment or somebody, it lands here.") : undefined} />
           ) : (
             <ul className="divide-y divide-[#f1f2f4]">
               {reports.rows.map((r) => {
@@ -420,7 +420,7 @@ export function ModerationSection({
 
         {tab === "audit" ? (
           !audit || audit.rows.length === 0 ? (
-            loading ? <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">{tt("Loading")}</p> : <Empty title={tt("Nothing logged yet.")} />
+            loading ? <ListLoading /> : <Empty title={tt("Nothing logged yet.")} />
           ) : (
             <ul className="divide-y divide-[#f1f2f4]" data-audit="">
               {audit.rows.map((a) => (

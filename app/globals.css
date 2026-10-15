@@ -6004,6 +6004,14 @@ html[data-account-community-pending] [data-page="account"]::before {
   }
 }
 
+/* And the tab bar's third slot is the community's Create post from the first paint, not Library for a frame (lib/nav/buyer-tabs.ts). */
+html[data-account-community-pending] [data-third-slot="library"] {
+  opacity: 0 !important;
+}
+html[data-account-community-pending] [data-third-slot="compose"] {
+  opacity: 1 !important;
+}
+
 /* After a sliding settings sheet closes, iOS may echo the back tap onto the header menu (lib/navigation/swallow-ghost-taps.ts). */
 html[data-ghost-tap-guard] #platform-header-root,
 html[data-ghost-tap-guard] [data-buyer-tab-bar] {

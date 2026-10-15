@@ -299,7 +299,14 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
           <div className="xl:mx-auto xl:grid xl:max-w-[1120px] xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7">
             <main className="min-w-0">
               <article className="overflow-hidden border-b border-[#e5e7eb]/70 bg-white sm:rounded-2xl sm:border sm:shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-community-sheet="">
-                <header className={cn(PAD, "pt-6 sm:pt-8")}>
+                {/* Round 27, the owner: the pictures first, the name and its line under them. */}
+                {c.gallery.length ? (
+                  <div className={cn(PAD, "pt-4 sm:pt-6", coverOnly && "lg:hidden")} data-gallery-cover-only={coverOnly ? "" : undefined}>
+                    <CommunityGallery communityId={c.id} name={c.name} items={c.gallery} />
+                  </div>
+                ) : null}
+
+                <header className={cn(PAD, c.gallery.length ? cn("pt-5 sm:pt-6", coverOnly && "lg:pt-8") : "pt-6 sm:pt-8")}>
                   <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[32px]">{c.name}</h1>
                   {c.tagline ? (
                     <p className="mt-2 max-w-[60ch] text-[16px] leading-relaxed text-[#4b5563] sm:text-[17px]" data-community-tagline="">
@@ -315,12 +322,6 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                     </a>
                   ) : null}
                 </header>
-
-                {c.gallery.length ? (
-                  <div className={cn(PAD, c.reviews ? "mt-4 sm:mt-5" : "mt-5 sm:mt-6", coverOnly && "lg:hidden")} data-gallery-cover-only={coverOnly ? "" : undefined}>
-                    <CommunityGallery communityId={c.id} name={c.name} items={c.gallery} />
-                  </div>
-                ) : null}
 
                 {/* On a phone, under the media: only what happened (an error, a request waiting), when there is something. */}
                 <div className={cn(PAD, "mt-5 empty:hidden xl:hidden")}>

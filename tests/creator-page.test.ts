@@ -1909,7 +1909,7 @@ function main() {
         the dim; "clear" is opt-in and the editor is the one that opts in.
       */
       const bottom = code("components/ui/bottom-sheet.tsx")
-      check("every other sheet keeps its dim by default", /scrim = "dim",/.test(bottom) && /scrim === "clear" \? "bg-transparent" : "bg-black\/40"/.test(bottom))
+      check("every other sheet keeps its dim by default", /scrim = "dim",/.test(bottom) && /scrim === "clear" \? "bg-transparent" : SCRIM/.test(bottom) && /export const SCRIM = "bg-black\/40"/.test(readFileSync(join(process.cwd(), "components/ui/scrim.ts"), "utf8"))) /* Changed on purpose (round 27): the dim is the one every overlay shares, components/ui/scrim.ts. */
     }
 
     /*

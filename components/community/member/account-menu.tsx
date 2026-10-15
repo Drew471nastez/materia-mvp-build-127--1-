@@ -13,8 +13,9 @@
  * /account), Settings, Language, Help, Discover, and Log out last, which ends
  * the session the same way the header does (endStorelibSession).
  *
- * Round 9: the button is FLAT (FLAT_ICON_BTN): no ground, no hairline, no
- * shadow, a soft tint under a pointer and while open. And the menu carries
+ * Round 27: the button is the person's own picture (it was a "..."), as in
+ * Storelib's header; their name at the top of the menu opens their profile,
+ * and the light and dark switch is a row of it (components/platform/appearance-switch). And the menu carries
  * the community's own two rows above Storelib's, "Invite people" (the
  * invite sheet, which used to be a button on the card and at the end of the
  * tabs) and "Saved posts" (which used to be a chip beside the sort button),
@@ -37,12 +38,12 @@
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
-import { Bookmark, IdCard, MoreHorizontal, UserPlus } from "lucide-react"
+import { Bookmark, IdCard, UserPlus } from "lucide-react"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { SHEET_CLOSE_MS } from "@/components/ui/bottom-sheet"
 import { AccountSheet, DesktopAccountMenu, endStorelibSession, type AccountExtraRow, type HeaderLink } from "@/components/platform/platform-header-client"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { cn } from "@/lib/utils"
-import { FLAT_ICON_BTN } from "./ui"
 import type { TopBarData } from "./view-types"
 
 /** Paths inside storelib.com: a community is always on the main address, so a link is just its path. */
@@ -103,8 +104,7 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
           onLanguage={noop}
           onLogout={() => void logOut()}
           rows="community"
-          trigger="more"
-          triggerClassName={FLAT_ICON_BTN}
+          avatarSize={36}
           extra={desktopRows}
         />
       </div>
@@ -117,9 +117,9 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
         aria-expanded={sheet}
         data-account-more=""
         data-state={sheet ? "open" : "closed"}
-        className={cn(FLAT_ICON_BTN, "md:hidden")}
+        className="grid h-10 w-10 place-items-center rounded-full outline-none [-webkit-tap-highlight-color:transparent] active:opacity-80 md:hidden"
       >
-        <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={2} />
+        <AppAvatar src={avatarUrl} name={me.name.trim()} alt="" size={32} className="ring-1 ring-[rgba(16,18,27,0.1)]" />
       </button>
       <AccountSheet
         open={sheet}

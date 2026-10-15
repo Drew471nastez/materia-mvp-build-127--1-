@@ -160,6 +160,7 @@
  *   slide first, the parent a frame later.
  */
 
+import { SCRIM } from "@/components/ui/scrim"
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
@@ -1214,7 +1215,7 @@ export function BottomSheet({
         ref={scrimRef}
         onClick={requestClose}
         /* Fixed in its own right, not only through the root (SAFARI'S FLOATING BAR below). */
-        className={cn(atRest ? "absolute inset-0" : "fixed inset-0", scrim === "clear" ? "bg-transparent" : "bg-black/40")}
+        className={cn(atRest ? "absolute inset-0" : "fixed inset-0", scrim === "clear" ? "bg-transparent" : SCRIM)}
         /* Below the screen and invisible on the very first paint, before any
            script has run: there is no frame in which the sheet is at rest.
            Its own layer, so a drag's dimming is the compositor's (THE DIM IS

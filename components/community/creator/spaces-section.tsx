@@ -7,13 +7,13 @@
  * The rooms of a community, in the order members see them: a discussion
  * feed, a chat, announcements (admins post), resources. Each has a name,
  * an icon (an emoji), a line about it, who may start a post, whether
- * comments are on, and who can see it. Reorder with the arrows (each move
+ * comments are on, and who can see it. Reorder by dragging a row (round 27) or with the arrows (each move
  * is saved), archive one to hide it with everything in it kept, delete one
  * only while nothing was ever posted in it.
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowDown, ArrowUp, Plus } from "lucide-react"
+import { ArrowDown, ArrowUp, GripVertical, LayoutGrid, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import type { AccessRuleJson, PostRole, SpaceKind } from "@/lib/communities/types"
@@ -75,16 +75,44 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     router.refresh()
   }
 
-  const move = async (index: number, by: -1 | 1) => {
-    const next = [...spaces]
-    const [s] = next.splice(index, 1)
-    next.splice(index + by, 0, s)
-    setSpaces(next)
+  const saveOrder = async (next: SpaceView[]) => {
     const res = await send(base, "PUT", { ids: next.map((x) => x.id) })
     if (!res.ok) {
       toast(errorText(res.data.error, tt("The order was not saved.")))
       await reload()
     }
+  }
+  const move = async (index: number, by: -1 | 1) => {
+    const next = [...spaces]
+    const [s] = next.splice(index, 1)
+    next.splice(index + by, 0, s)
+    setSpaces(next)
+    await saveOrder(next)
+  }
+
+  /*
+    ROUND 27: DRAG A SPACE INTO PLACE on a computer (the arrows stay, for the keyboard and a phone). The row moves in the
+    list as it is dragged over the others, and the order is saved once, when it is let go.
+  */
+  const [dragging, setDragging] = React.useState<string | null>(null)
+  const dragStart = React.useRef<string>("")
+  const dragOver = (overId: string) => {
+    if (!dragging || overId === dragging) return
+    setSpaces((list) => {
+      const from = list.findIndex((x) => x.id === dragging)
+      const to = list.findIndex((x) => x.id === overId)
+      if (from < 0 || to < 0) return list
+      const next = [...list]
+      const [s] = next.splice(from, 1)
+      next.splice(to, 0, s)
+      return next
+    })
+  }
+  const dragEnd = () => {
+    const was = dragStart.current
+    setDragging(null)
+    const now = spaces.map((x) => x.id).join()
+    if (was && was !== now) void saveOrder(spaces)
   }
 
   const setArchived = async (s: SpaceView, archived: boolean) => {
@@ -131,11 +159,31 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
         }
       >
         {spaces.length === 0 ? (
-          <Empty title={tt("No spaces yet.")} detail={tt("Add a space for members to post in.")} />
+          <Empty title={tt("No spaces yet.")} detail={tt("Add a space for members to post in.")} icon={LayoutGrid}>
+            <button type="button" onClick={() => { setError(null); setDraft({ ...blank }) }} className={buttonPrimary}>
+              {tt("New space")}
+            </button>
+          </Empty>
         ) : (
           <ul className="divide-y divide-[#f1f2f4]">
             {spaces.map((s, i) => (
-              <li key={s.id} className="flex min-h-[64px] items-center gap-3 px-4 py-2.5 sm:px-5" data-space-row="">
+              <li
+                key={s.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move"
+                  dragStart.current = spaces.map((x) => x.id).join()
+                  setDragging(s.id)
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  dragOver(s.id)
+                }}
+                onDragEnd={dragEnd}
+                className={cn("group/space flex min-h-[64px] items-center gap-3 px-4 py-2.5 transition-[background-color,opacity] duration-150 sm:px-5", dragging === s.id && "bg-[#f6f7f8] opacity-70")}
+                data-space-row=""
+              >
+                <GripVertical aria-hidden className="-ml-1.5 hidden h-4 w-4 shrink-0 cursor-grab text-[#c4c6cc] opacity-0 transition-opacity duration-150 group-hover/space:opacity-100 sm:block" />
                 <span aria-hidden className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#f3f4f6] text-[17px]", s.archived && "opacity-50")}>
                   {spaceGlyph(s)}
                 </span>

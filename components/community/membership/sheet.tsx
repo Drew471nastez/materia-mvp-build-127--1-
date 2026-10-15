@@ -10,6 +10,7 @@
  * the keyboard), a small dialog in the middle on a computer that fades and
  * settles. One place, so both feel the same.
  */
+import { SCRIM } from "@/components/ui/scrim"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useEffect, useState, type ReactNode } from "react"
 import { X } from "lucide-react"
@@ -64,7 +65,7 @@ export function MembershipSheet({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => (!o ? close() : undefined)}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[140] bg-[#0f1115]/35 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none" />
+        <DialogPrimitive.Overlay className={`fixed inset-0 z-[140] ${SCRIM} duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none`} />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           onOpenAutoFocus={(e) => {

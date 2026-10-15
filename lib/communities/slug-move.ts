@@ -22,6 +22,14 @@
 /** The request header the proxy writes the asked for path and query into, for /community/ pages. */
 export const COMMUNITY_PATH_HEADER = "x-storelib-community-path"
 
+/**
+ * The two places a community has an address: its own pages, and the screens
+ * its owner runs it from. /app/community/<slug>/feed is the readable one;
+ * the id it used to be (/app/community/7f98...) is sent on to it the same
+ * way an old public address is, by the community's management layout.
+ */
+export type CommunityBase = "/community/" | "/app/community/"
+
 /** Query keys that belong to the framework's own requests, never to the page: an RSC fetch's cache buster. */
 const FRAMEWORK_KEYS = ["_rsc"]
 
@@ -38,13 +46,13 @@ function decoded(segment: string): string {
  * address is `current`: the same path and query under the current address.
  * `asked` is the proxy's header (the path and query as asked for), or null.
  */
-export function movedCommunityPath(requested: string, current: string, asked: string | null | undefined): string {
-  const home = `/community/${current}`
-  if (!asked || !asked.startsWith("/community/")) return home
+export function movedCommunityPath(requested: string, current: string, asked: string | null | undefined, base: CommunityBase = "/community/"): string {
+  const home = `${base}${current}`
+  if (!asked || !asked.startsWith(base)) return home
   const q = asked.indexOf("?")
   const path = q === -1 ? asked : asked.slice(0, q)
   const query = q === -1 ? "" : asked.slice(q + 1)
-  const rest = path.slice("/community/".length)
+  const rest = path.slice(base.length)
   const cut = rest.indexOf("/")
   const first = cut === -1 ? rest : rest.slice(0, cut)
   /* Only this community's own address: a header that names another page is not followed anywhere but home. */

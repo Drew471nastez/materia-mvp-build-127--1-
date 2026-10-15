@@ -203,7 +203,9 @@ async function main() {
     check("inside: Home (the community), Search, Create post in Library's place, Profile (the account page, as anywhere)",
       inside.map((t) => t.key).join() === "home,search,compose,profile" && inside[0].href === "/community/clay-studio" && inside[2].label === "Create post" && inside[3].href === "/account")
     const kept = tabs.buyerTabsAt("/account", true, "clay-studio")
-    check("outside with a community kept as Home: only Home is the community's; Library and Profile are the site's", kept.map((t) => t.key).join() === "home,search,library,profile" && kept[0].href === "/community/clay-studio" && kept[3].href === "/account")
+    /* Changed on purpose (round 26, the owner: the post icon must not turn into Library on the profile page opened from a community): your profile keeps Create post; Library's own pages are the site's. */
+    const library = tabs.buyerTabsAt("/account/library", true, "clay-studio")
+    check("outside with a community kept as Home: your profile keeps Create post; Library's pages are the site's", kept.map((t) => t.key).join() === "home,search,compose,profile" && kept[0].href === "/community/clay-studio" && kept[3].href === "/account" && library.map((t) => t.key).join() === "home,search,library,profile" && library[0].href === "/community/clay-studio")
     check("your own profile in the community lights Profile; every other place lights Home; Create post is never lit",
       tabs.buyerTabFor("/community/clay-studio", { profile: "me" }) === 3 && tabs.buyerTabFor("/community/clay-studio", { profile: "maria" }) === 0 && tabs.buyerTabFor("/community/clay-studio/learn") === 0)
     check("a person's profile keeps the bar (R's item 22: arriving from a community, the bar is still there), with no tab lit", tabs.buyerTabsBelongOn("/u/maria") && tabs.buyerTabFor("/u/maria") === -1 && !tabs.buyerTabsBelongOn("/u/maria/edit"))

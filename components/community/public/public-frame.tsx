@@ -29,6 +29,7 @@ import type { ShellCommunity, TopBarData, WallCardData } from "@/components/comm
 import { WallCommunityCard } from "@/components/community/member/wall"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
+import { useCommunityAppearance } from "@/lib/communities/client/appearance-choice"
 import "../community-theme.css"
 import { useCommunityLanding } from "@/components/community/member/landing"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
@@ -50,7 +51,7 @@ export interface PublicFrameCard {
 }
 
 export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
-  const appearance = card?.community.appearance === "dark" ? "dark" : "light"
+  const { appearance } = useCommunityAppearance(card?.community.appearance === "dark" ? "dark" : "light")
   useCommunityTheme(appearance)
   useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
   const slug = card?.community.slug ?? topBar.community.slug

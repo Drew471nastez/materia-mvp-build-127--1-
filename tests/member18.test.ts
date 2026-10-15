@@ -243,16 +243,19 @@ async function main() {
     check("the newest week first in a reversed row, so it opens at today with no script", /flex-row-reverse/.test(html) && html.indexOf('data-activity-week="2026-10-04"') < html.indexOf('data-activity-week="2025-10-12"'))
     /* Round 25, the owner: "too much text". The level's name and points stay; the sentence to the next level and its bar went. */
     check("level and points, without the way to the next (round 25)", /Level 3/.test(html) && /Contributor/.test(html) && !/points to level 4/.test(html) && !/aria-valuenow/.test(html))
-    check("posts, comments, joined", /data-activity-fact="posts"/.test(html) && /data-activity-fact="comments"/.test(html) && /data-activity-fact="joined"/.test(html) && /Mar 2026/.test(html))
+    /* Changed on purpose (round 27, the owner: "simpler, less text"): the facts are one quiet line, not three boxes. */
+    check("posts, comments, joined, on one line", /data-activity-facts=""/.test(html) && /[\d,k]+ posts? · [\d,k]+ comments? · Joined Mar 2026/.test(html))
     /* Round 25: no sentence under the grid any more; the year is still said to a screen reader. */
     check("the year said to a screen reader", /aria-label="1 post, 2 comments, 4 likes in the last year"/.test(html))
     const before = renderToStaticMarkup(createElement(ActivityBoard, { board: { ...full, grid: null, comments: null }, name: "Sam" }))
-    check("before part 125: no grid and no comment count, the rest there", !/data-activity-grid/.test(before) && !/data-activity-fact="comments"/.test(before) && /data-activity-fact="posts"/.test(before) && /data-activity-standing/.test(before))
+    check("before part 125: no grid and no comment count, the rest there", !/data-activity-grid/.test(before) && !/comment/.test(before.replace(/aria-label="[^"]*"/g, "")) && /[\d,k]+ posts?/.test(before) && /data-activity-standing/.test(before))
     const noPoints = renderToStaticMarkup(createElement(ActivityBoard, { board: { ...full, standing: null }, name: "Sam" }))
     check("points off: no level", !/data-activity-standing/.test(noPoints))
     const board = code("components/community/member/activity-board.tsx")
-    check("the shades and the dark community's in one place, by attribute", /\[data-community-theme="dark"\] \[data-activity-board\]\{--ab-0/.test(board) && /\[data-activity-cell="4"\]\{background:var\(--ab-4\)\}/.test(board))
-    check("12px squares on a phone; from 640px the whole year fits", /\[data-activity-card\]\{--ab-cell:12px;--ab-gap:3px\}/.test(board) && /@media \(min-width:640px\)\{\[data-activity-card\]\{--ab-gap:2px;--ab-cell:clamp\(8px,calc\(\(100cqw - 40px - 26px - 102px\) \/ 52\),13px\)\}\}/.test(board))
+    /* Changed on purpose (round 27): the dark shades follow the person's dark look anywhere (html[data-sl-dark]) as well as a dark community. */
+    check("the shades and the dark look's in one place, by attribute", /:is\(html\[data-sl-dark\],\[data-community-theme="dark"\]\) \[data-activity-board\]\{--ab-0/.test(board) && /\[data-activity-cell="4"\]\{background:var\(--ab-4\)\}/.test(board))
+    /* Changed on purpose (round 27): no day names beside the grid, so their 26px goes back to the squares. */
+    check("12px squares on a phone; from 640px the whole year fits", /\[data-activity-card\]\{--ab-cell:12px;--ab-gap:3px\}/.test(board) && /@media \(min-width:640px\)\{\[data-activity-card\]\{--ab-gap:2px;--ab-cell:clamp\(8px,calc\(\(100cqw - 40px - 102px\) \/ 52\),13px\)\}\}/.test(board))
     check("days are kept in this device's zone for the next read when there is no cookie yet", /rememberTimeZone\(viewerTimeZone\(\)\)/.test(board))
   }
 

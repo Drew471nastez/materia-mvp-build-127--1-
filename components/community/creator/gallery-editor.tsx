@@ -117,7 +117,15 @@ export function GalleryEditor({
     setUploading((u) => [...u, ...jobs.map((j) => ({ key: j.key, kind: "image" as const, name: j.file.name, percent: 0, preview: URL.createObjectURL(j.file) }))])
     /* One after another: a phone on a slow line finishes the first picture before it starts the next. */
     for (const j of jobs) {
-      const uploader = new DirectUploader({ file: j.file, folder: "product-images", onProgress: (p) => progress(j.key, p) })
+      /* Round 27: made the size the gallery shows (2000px on its long edge, no HDR or location in it) before it leaves the device. */
+      let file = j.file
+      try {
+        const { compressPostPicture } = await import("@/components/community/member/media-compress")
+        file = await compressPostPicture(j.file, { maxEdge: 2000, quality: 0.86 })
+      } catch {
+        /* A picture the browser cannot redraw goes up as it is. */
+      }
+      const uploader = new DirectUploader({ file, folder: "product-images", onProgress: (p) => progress(j.key, p) })
       try {
         const result = await uploader.start()
         if (result.publicUrl) add({ type: "image", url: result.publicUrl })

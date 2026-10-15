@@ -123,7 +123,8 @@ console.log("\nSPINNER: the app's own")
 console.log("\nMENU: the picture beside the name")
 {
   const h = code("components/platform/platform-header-client.tsx")
-  check("the dropdown opened by a community's \"...\" shows the real picture, 36px, in a hairline ring", /\{trigger === "more" \? \(\s*<span className="flex shrink-0" data-account-who-avatar="">\s*<AppAvatar src=\{avatarUrl\} name=\{name\.trim\(\)\} alt="" size=\{36\}/.test(h))
+  /* Changed on purpose (round 27): the picture is beside the name in every account menu, and that row opens the profile. */
+  check("the account menu shows the real picture, 36px, in a hairline ring, beside the name", /data-account-who="">\s*<span className="flex shrink-0" data-account-who-avatar="">\s*<AppAvatar src=\{avatarUrl\} name=\{name\.trim\(\)\} alt="" size=\{36\}/.test(h))
   const a = code("components/community/member/account-menu.tsx")
   check("from the shell's avatar store, so a new picture shows at once", /const avatarUrl = useShellAvatar\(me\.avatarUrl\) \|\| undefined/.test(a) && (a.match(/avatarUrl=\{avatarUrl\}/g) ?? []).length === 2)
   check("still the community's short list on both", (a.match(/rows="community"/g) ?? []).length === 2)

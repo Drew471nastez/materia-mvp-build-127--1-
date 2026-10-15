@@ -192,18 +192,18 @@ export async function upcomingEvent(db: Db, community: Pick<CommunityRow, "id" |
  * it: the owner, or staff with a creator account (/app is a creator's), the
  * same test as the top bar's Manage community.
  */
-function appBase(community: Pick<CommunityRow, "id">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount">): string | null {
-  return viewer.isOwner || viewer.isCreatorAccount ? `/app/community/${community.id}` : null
+function appBase(community: Pick<CommunityRow, "id" | "slug">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount">): string | null {
+  return viewer.isOwner || viewer.isCreatorAccount ? `/app/community/${community.slug}` : null
 }
 
 /** The creator side's settings, for somebody who may change them; null hides the card's Settings. */
-export function settingsHrefFor(community: Pick<CommunityRow, "id">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role">): string | null {
+export function settingsHrefFor(community: Pick<CommunityRow, "id" | "slug">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role">): string | null {
   const app = appBase(community, viewer)
   return app && can(viewer.active ? viewer.role : null, "manage_settings") ? `${app}/settings` : null
 }
 
 /** The creator side's new event form, for somebody who may run events here; null hides the composer's Event. */
-export function eventHrefFor(community: Pick<CommunityRow, "id" | "events_enabled">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role">): string | null {
+export function eventHrefFor(community: Pick<CommunityRow, "id" | "slug" | "events_enabled">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role">): string | null {
   const app = appBase(community, viewer)
   return app && community.events_enabled && can(viewer.active ? viewer.role : null, "manage_events") ? `${app}/events?new=1` : null
 }

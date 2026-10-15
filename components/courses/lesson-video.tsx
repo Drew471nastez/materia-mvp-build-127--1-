@@ -586,7 +586,8 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
         playsInline
         webkit-playsinline="true"
         x-webkit-airplay="allow"
-        preload="auto"
+        /* Round 27, the owner: "loads faster, doesn't take so much". A lesson that will play at once fills its buffer; one waiting for a press reads only its length and first frame until it is pressed. */
+        preload={autoPlay ? "auto" : "metadata"}
         onLoadedMetadata={onLoaded}
         onDurationChange={() => setDuration(v()?.duration || 0)}
         onTimeUpdate={onTimeUpdate}
@@ -749,7 +750,7 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
         >
           <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/25 transition-[height] group-hover/bar:h-1.5">
             <div data-buffered className="absolute inset-y-0 left-0 bg-white/45" style={{ width: `${loaded}%` }} />
-            <div data-played className="absolute inset-y-0 left-0 bg-[#8b5cf6]" style={{ width: `${played}%` }} />
+            <div data-played className="absolute inset-y-0 left-0 bg-[var(--course-accent,#8b5cf6)]" style={{ width: `${played}%` }} />
           </div>
           <div
             className={`absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow ${touch || scrub !== null ? "scale-100" : "scale-0 group-hover/bar:scale-100"} transition-[scale]`}
@@ -819,7 +820,7 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
                       className={`flex h-9 w-full items-center justify-between px-3 text-left text-[13px] tabular-nums hover:bg-white/10 ${s === prefs.rate ? "font-semibold text-white" : "text-white/80"}`}
                     >
                       {speedLabel(s)}
-                      {s === prefs.rate ? <span className="h-1.5 w-1.5 rounded-full bg-[#8b5cf6]" /> : null}
+                      {s === prefs.rate ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--course-accent,#8b5cf6)]" /> : null}
                     </button>
                   ))}
                 </div>

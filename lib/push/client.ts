@@ -1,5 +1,7 @@
 "use client"
 
+import { navigateInApp } from "@/lib/native-bridge"
+import { appRouter } from "@/lib/navigation/app-router-handle"
 import { Capacitor } from "@capacitor/core"
 import { pushTapTarget } from "./tap"
 
@@ -142,7 +144,8 @@ export async function registerDevice(): Promise<void> {
     const to = pushTapTarget(data)
     if (!to) return
     ;(window as unknown as { __storelibPushTap?: string }).__storelibPushTap = to
-    window.location.href = to
+    /* With the app open, through the router like a link (no white page load); on a cold start, before the router is up, as a page load. */
+    if (!navigateInApp(to, appRouter())) window.location.href = to
   })
 
   if (platform === "ios") {

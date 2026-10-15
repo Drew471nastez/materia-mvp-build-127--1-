@@ -141,7 +141,24 @@ export function waitsWithSpinner(href: string | null): boolean {
   /* The coupon editor, new or saved: the same frame as the product editor's (app/app/coupons/coupon-editor.tsx). */
   if (/^\/app\/coupons\/[^/]+(\/|$)/.test(path)) return false
   if (path === "/app/settings/billing/upgrade") return false
+  /* A section of the community already open: its header and tabs stay, the tab lights on the press, and the section swaps in place. */
+  if (typeof window !== "undefined" && sameStageFrame(window.location.pathname, path)) return false
   return true
+}
+
+/**
+ * ONE FRAME, TWO SECTIONS. Moving between the sections of one community
+ * (/app/community/<slug>/feed to .../members) keeps its header and its row
+ * of tabs on screen: the stage neither fades the frame in again nor covers
+ * it with the slow page's surface. "Every tab flashes like a new page."
+ */
+export function sameStageFrame(from: string | null | undefined, to: string | null | undefined): boolean {
+  const frame = (p: string | null | undefined) => {
+    const m = /^\/app\/community\/([^/?#]+)/.exec(p ?? "")
+    return m && m[1] !== "new" ? m[1] : null
+  }
+  const a = frame(from)
+  return !!a && a === frame(to)
 }
 
 /**

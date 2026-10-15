@@ -4,7 +4,7 @@
  * ===========================================================================
  *  EVERY COURSE, FROM EVERY CREATOR
  * ===========================================================================
- * /library/courses. One row per course: its picture, who made it, how far
+ * /library/courses. One card per course: its picture, who made it, how far
  * through, and Continue, which opens the lesson they are on at the second
  * they left it. Several courses from several creators side by side, each
  * counted from its own lessons (lib/courses/progress), so one never moves
@@ -19,7 +19,7 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 import { BookOpen, Check, ChevronDown, Play } from "lucide-react"
 import { LibraryEmptyState } from "@/components/library/library-empty-state"
-import { CARD, SECONDARY, SMALL, VIOLET } from "@/components/library/library-ui"
+import { CARD, SECONDARY, SMALL } from "@/components/library/library-ui"
 import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { lengthInWords, type CourseStatus } from "@/lib/courses/progress"
@@ -124,9 +124,9 @@ export function CoursesIndex({ courses }: { courses: MyCourse[] }) {
           </button>
         </div>
       ) : (
-        <ul className={`${CARD} overflow-hidden`} data-course-list>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3" data-course-list>
           {shown.map((c) => (
-            <CourseRow key={c.productId} course={c} onCreator={creators.length > 1 ? () => setCreator(c.creator.id) : null} />
+            <CourseCard key={c.productId} course={c} onCreator={creators.length > 1 ? () => setCreator(c.creator.id) : null} />
           ))}
         </ul>
       )}
@@ -134,84 +134,87 @@ export function CoursesIndex({ courses }: { courses: MyCourse[] }) {
   )
 }
 
-function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => void) | null }) {
+/*
+  ROUND 26: A COURSE IS A CARD (the owner's reference: a warm orange accent, "smooth clean good, minimal"). The picture,
+  the title and who made it, then one line that says where you are: a ring with the percentage, the state in words
+  (Not started, In progress, Completed) and the lesson Continue opens. The whole card is the way in; orange is kept for
+  the ring and the action, so a shelf of courses reads as pictures and words, not as colour.
+*/
+const STATE: Record<CourseStatus, string> = { not_started: "Not started", in_progress: "In progress", completed: "Completed" }
+
+function CourseCard({ course, onCreator }: { course: MyCourse; onCreator: (() => void) | null }) {
   const href = `/account/library/courses/${course.productId}${course.resume ? `?lesson=${course.resume.lessonId}` : ""}`
   const length = lengthInWords(course.totalSeconds)
   const action = course.status === "completed" ? "Watch again" : course.status === "not_started" ? "Start" : "Continue"
   return (
-    <li className="border-b border-[#eef0f3] last:border-0" data-course-row={course.status}>
-      <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
-        <Link href={href} className="relative aspect-video w-[112px] shrink-0 overflow-hidden rounded-lg bg-[#f1f1f4] sm:w-[168px]" tabIndex={-1} aria-hidden>
-          {course.thumbnailUrl ? (
-            <SoftImg src={course.thumbnailUrl} width={168} sizes="(min-width: 640px) 168px, 112px" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center">
-              <BookOpen className="h-6 w-6 text-[#c4c6cc]" />
-            </span>
-          )}
-          {course.status === "completed" ? (
-            <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#8b5cf6] text-white">
-              <Check className="h-3 w-3" strokeWidth={3} />
-            </span>
-          ) : null}
-        </Link>
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Link href={href} className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1a1a2e] hover:text-[#6d28d9] sm:text-[16px]">
-            {course.title}
-          </Link>
-          <div className="mt-1 flex min-w-0 items-center gap-1.5">
-            <AppAvatar src={course.creator.avatarUrl} name={course.creator.name} size={18} alt="" />
-            {onCreator ? (
-              <button type="button" onClick={onCreator} className="-my-2 truncate py-2 text-[13px] text-[#6b7280] hover:text-[#1a1a2e]" title={`Only ${course.creator.name}`}>
-                {course.creator.name}
-              </button>
-            ) : (
-              <span className="truncate text-[13px] text-[#6b7280]">{course.creator.name}</span>
-            )}
-          </div>
-
-          <div className="mt-auto pt-2.5">
-            <div className="flex items-center justify-between gap-3 text-[12px] tabular-nums text-[#6b7280]">
-              <span>
-                {course.total === 0 ? "No lessons yet" : `${course.completed} of ${course.total} lessons`}
-                {length ? <span className="hidden sm:inline"> · {length}</span> : null}
-              </span>
-              <span className="font-semibold text-[#1a1a2e]">{course.percent}%</span>
-            </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#ede9fe]" role="progressbar" aria-valuenow={course.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${course.title} progress`}>
-              <div className="h-full rounded-full bg-[#8b5cf6]" style={{ width: `${course.percent}%` }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="hidden shrink-0 flex-col items-end justify-center gap-1 sm:flex sm:w-[200px]">
-          <Link
-            href={href}
-            className={cn(VIOLET, "max-w-full")}
-            data-continue
-          >
-            <Play className="h-3.5 w-3.5 shrink-0" fill="currentColor" />
-            {action}
-          </Link>
-          {course.resume && course.status !== "completed" ? (
-            <p className="max-w-full truncate text-[12px] text-[#9ca3af]">
-              Lesson {course.resume.number}: {course.resume.title}
-            </p>
-          ) : null}
-        </div>
+    <li className="group/course relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-200 hover:border-[#e5e7eb] hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_10px_24px_-14px_rgba(16,24,40,0.18)]" data-course-row={course.status}>
+      <div className="relative aspect-video w-full overflow-hidden bg-[#f1f1f4]">
+        {course.thumbnailUrl ? (
+          <SoftImg src={course.thumbnailUrl} width={480} sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw" className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/course:scale-[1.02] motion-reduce:transition-none" />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center">
+            <BookOpen className="h-7 w-7 text-[#c4c6cc]" />
+          </span>
+        )}
+        {course.status === "completed" ? (
+          <span className="absolute left-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#f26b1d] text-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]" aria-hidden>
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          </span>
+        ) : null}
       </div>
 
-      {/* On a phone, Continue is a full row of its own under the course. */}
-      <div className="px-3 pb-3 sm:hidden">
-        <Link href={href} className={cn(VIOLET, "flex w-full px-3")} data-continue-phone>
-          <Play className="h-3.5 w-3.5 shrink-0" fill="currentColor" />
-          <span className="truncate">
-            {action}
-            {course.resume && course.status === "in_progress" ? `: Lesson ${course.resume.number}` : ""}
-          </span>
+      <div className="flex min-w-0 flex-1 flex-col px-4 pb-4 pt-3.5">
+        {/* The card's own link covers it all; the creator's name stays its own button above it. */}
+        <Link href={href} className="line-clamp-2 text-[15.5px] font-semibold leading-[1.3] text-[#1a1a2e] outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-[#f26b1d]/40" data-continue>
+          {course.title}
         </Link>
+        <div className="relative z-[1] mt-1.5 flex min-w-0 items-center gap-1.5 self-start">
+          <AppAvatar src={course.creator.avatarUrl} name={course.creator.name} size={18} alt="" />
+          {onCreator ? (
+            <button type="button" onClick={onCreator} className="-my-2 truncate py-2 text-[13px] text-[#6b7280] hover:text-[#1a1a2e]" title={`Only ${course.creator.name}`}>
+              {course.creator.name}
+            </button>
+          ) : (
+            <span className="truncate text-[13px] text-[#6b7280]">{course.creator.name}</span>
+          )}
+        </div>
+
+        <div className="mt-auto flex items-center gap-3 pt-4">
+          <CourseRing percent={course.percent} label={`${course.title} progress`} />
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-[13px] font-semibold", course.status === "not_started" ? "text-[#6b7280]" : "text-[#1a1a2e]")} data-course-state="">
+              {STATE[course.status]}
+            </p>
+            <p className="truncate text-[12.5px] tabular-nums text-[#9ca3af]">
+              {course.total === 0
+                ? "No lessons yet"
+                : course.resume && course.status === "in_progress"
+                  ? `Lesson ${course.resume.number}: ${course.resume.title}`
+                  : `${course.completed} of ${course.total} lessons${length ? ` · ${length}` : ""}`}
+            </p>
+          </div>
+          <span className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-[13.5px] font-semibold text-[#c2510f] transition-colors duration-150 group-hover/course:bg-[#fff4ec]" aria-hidden>
+            {action}
+            <Play className="h-3 w-3" fill="currentColor" />
+          </span>
+        </div>
       </div>
     </li>
+  )
+}
+
+/** How far through, as a ring with the number in it: orange on a pale orange track. */
+export function CourseRing({ percent, label, size = 40 }: { percent: number; label: string; size?: number }) {
+  const p = Math.max(0, Math.min(100, Math.round(percent)))
+  const r = 16
+  const c = 2 * Math.PI * r
+  return (
+    <span className="relative inline-flex shrink-0" style={{ width: size, height: size }} role="progressbar" aria-valuenow={p} aria-valuemin={0} aria-valuemax={100} aria-label={label} data-course-ring="">
+      <svg viewBox="0 0 40 40" className="h-full w-full -rotate-90" aria-hidden>
+        <circle cx="20" cy="20" r={r} fill="none" stroke="#fde7d9" strokeWidth="3.5" />
+        {p > 0 ? <circle cx="20" cy="20" r={r} fill="none" stroke="#f26b1d" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)} /> : null}
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[10.5px] font-semibold tabular-nums text-[#1a1a2e]">{p}%</span>
+    </span>
   )
 }

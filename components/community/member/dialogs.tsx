@@ -6,6 +6,7 @@
  * drawn as a white card in the middle on a computer and resting on the bottom
  * edge on a phone, where a thumb is.
  */
+import { SCRIM } from "@/components/ui/scrim"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useEffect, useState } from "react"
 import { REPORT_REASONS, type ReportReason, type ReportTarget } from "@/lib/communities/types"
@@ -17,7 +18,7 @@ export function Modal({ open, onClose, title, children, label }: { open: boolean
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-[#0f1115]/42 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay className={`fixed inset-0 z-[80] ${SCRIM} data-[state=open]:animate-in data-[state=open]:fade-in-0`} />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           aria-label={label}

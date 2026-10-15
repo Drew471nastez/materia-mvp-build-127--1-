@@ -67,12 +67,12 @@ export const DAY_LABELS_PX = 26
  */
 const BOARD_CSS = `
 [data-activity-board]{--ab-0:#eff0f3;--ab-1:rgba(139,92,246,.2);--ab-2:rgba(139,92,246,.42);--ab-3:rgba(139,92,246,.7);--ab-4:#7c3aed;--ab-ring:#1a1a2e;--ab-track:#eef0f3}
-[data-community-theme="dark"] [data-activity-board]{--ab-0:#242833;--ab-1:rgba(167,139,250,.24);--ab-2:rgba(167,139,250,.46);--ab-3:rgba(167,139,250,.72);--ab-4:#a78bfa;--ab-ring:#f4f5f7;--ab-track:#242833}
+:is(html[data-sl-dark],[data-community-theme="dark"]) [data-activity-board]{--ab-0:#232327;--ab-1:rgba(167,139,250,.22);--ab-2:rgba(167,139,250,.42);--ab-3:rgba(167,139,250,.68);--ab-4:#a78bfa;--ab-ring:#ececee;--ab-track:#232327}
 [data-activity-cell]{background:var(--ab-0);transition:box-shadow 120ms ease-out}
 [data-activity-cell="1"]{background:var(--ab-1)}[data-activity-cell="2"]{background:var(--ab-2)}[data-activity-cell="3"]{background:var(--ab-3)}[data-activity-cell="4"]{background:var(--ab-4)}
 [data-activity-cell][data-picked]{box-shadow:0 0 0 1.5px var(--ab-ring)}
 [data-activity-card]{--ab-cell:12px;--ab-gap:3px}
-@media (min-width:640px){[data-activity-card]{--ab-gap:2px;--ab-cell:clamp(8px,calc((100cqw - 40px - 26px - 102px) / 52),13px)}}
+@media (min-width:640px){[data-activity-card]{--ab-gap:2px;--ab-cell:clamp(8px,calc((100cqw - 40px - 102px) / 52),13px)}}
 [data-activity-days]{scrollbar-width:none;-webkit-overflow-scrolling:touch}
 [data-activity-days]::-webkit-scrollbar{display:none}
 [data-activity-days][data-more-before]{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 28px);mask-image:linear-gradient(to right,transparent 0,#000 28px)}
@@ -90,7 +90,7 @@ const monthYear = (iso: string | null) => {
 
 function Standing({ s }: { s: MemberStanding }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 sm:px-5" data-activity-standing="">
+    <div className="flex items-center gap-3 px-4 pb-1.5 pt-3.5 sm:px-5" data-activity-standing="">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-[14px] font-semibold tabular-nums text-white" aria-hidden>
         {s.level}
       </span>
@@ -110,26 +110,20 @@ function Standing({ s }: { s: MemberStanding }) {
 
 function Facts({ board }: { board: MemberBoard }) {
   const joined = monthYear(board.joinedAt)
-  const facts: { label: string; value: string; key: string }[] = []
-  if (board.posts !== null) facts.push({ key: "posts", value: compact(board.posts), label: board.posts === 1 ? "Post" : "Posts" })
-  if (board.comments !== null) facts.push({ key: "comments", value: compact(board.comments), label: board.comments === 1 ? "Comment" : "Comments" })
-  if (joined) facts.push({ key: "joined", value: joined, label: "Joined" })
+  const facts: string[] = []
+  if (board.posts !== null) facts.push(`${compact(board.posts)} ${board.posts === 1 ? "post" : "posts"}`)
+  if (board.comments !== null) facts.push(`${compact(board.comments)} ${board.comments === 1 ? "comment" : "comments"}`)
+  if (joined) facts.push(`Joined ${joined}`)
   if (!facts.length) return null
+  /* Round 27, the owner: "simpler, less text": the numbers on one quiet line, not a row of boxes. */
   return (
-    <dl className="grid" style={{ gridTemplateColumns: `repeat(${facts.length}, minmax(0, 1fr))` }} data-activity-facts="">
-      {facts.map((f, i) => (
-        <div key={f.key} className={cn("flex min-w-0 flex-col-reverse items-center px-2 py-2.5", i ? "border-l border-[#eceef1]" : "")} data-activity-fact={f.key}>
-          <dt className="truncate text-[12px] leading-4 text-[#6b7280]">{f.label}</dt>
-          <dd className="truncate text-[15px] font-semibold leading-5 tabular-nums text-[#1a1a2e]">{f.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <p className="truncate px-4 pb-3 text-[13px] tabular-nums text-[#6b7280] first:pt-3.5 sm:px-5" data-activity-facts="">
+      {facts.join(" · ")}
+    </p>
   )
 }
 
 /* ── The days ─────────────────────────────────────────────────────────── */
-
-const DAY_NAMES = ["", "Mon", "", "Wed", "", "Fri", ""]
 
 function Days({ grid }: { grid: ActivityGrid }) {
   const weeks = useMemo(() => boardWeeks(grid), [grid])
@@ -181,32 +175,16 @@ function Days({ grid }: { grid: ActivityGrid }) {
   return (
     <div className="px-4 pb-3.5 pt-3 sm:px-5" data-activity-grid="">
       {/* One line: the title, and across from it the shades, or what the pressed day held, in the same place (nothing moves). */}
+      {/* One fixed line: the year's name, or what the pressed day held, in the same place (nothing moves). No legend, no day names. */}
       <div className="mb-2 flex h-5 items-center justify-between gap-3">
-        <p className="shrink-0 text-[13px] font-medium leading-5 text-[#1a1a2e]">Last 12 months</p>
+        <p className="shrink-0 text-[12.5px] leading-5 text-[#9ca3af]">Last 12 months</p>
         {shown ? (
           <p className="min-w-0 truncate text-right text-[12.5px] leading-5 text-[#6b7280]" aria-live="polite" data-activity-line="">
             {cellLabel(shown, grid.today)}
           </p>
-        ) : (
-          <span className="flex shrink-0 items-center gap-[3px]" aria-hidden data-activity-legend="">
-            {[0, 1, 2, 3, 4].map((s) => (
-              <span key={s} className="block h-[10px] w-[10px] rounded-[2.5px]" data-activity-cell={s} />
-            ))}
-          </span>
-        )}
+        ) : null}
       </div>
       <div className="flex">
-        {/* The day names, on the rows they name: the month row's height, then the squares'. */}
-        <div className="shrink-0 pr-1 text-[10.5px] leading-none text-[#8a8f98]" style={{ width: DAY_LABELS_PX }} aria-hidden>
-          <div className="h-[18px]" />
-          <div className="flex flex-col" style={{ gap: "var(--ab-gap)" }}>
-            {DAY_NAMES.map((d, i) => (
-              <span key={i} className="flex items-center" style={{ height: "var(--ab-cell)" }}>
-                {d}
-              </span>
-            ))}
-          </div>
-        </div>
         <div
           ref={scroller}
           className="flex min-w-0 flex-1 flex-row-reverse justify-start overflow-x-auto overscroll-x-contain outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
@@ -285,7 +263,6 @@ export function ActivityBoard({ board, name }: { board: MemberBoard; name: strin
         data-activity-card=""
       >
         {board.standing ? <Standing s={board.standing} /> : null}
-        {board.standing ? <div className="mx-4 h-px bg-[#eef0f3] sm:mx-5" aria-hidden /> : null}
         {facts}
         {board.grid ? (
           <>

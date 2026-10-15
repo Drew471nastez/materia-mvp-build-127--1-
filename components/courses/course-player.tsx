@@ -23,7 +23,7 @@
 
 import { cleanStoredHtml, looksLikeHtml } from "@/lib/rich-text/html"
 import Link from "next/link"
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, FileText, ListVideo, Loader2, Lock, Mail, Paperclip, Play, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { LessonVideo, type VideoSource } from "./lesson-video"
@@ -42,8 +42,18 @@ type Play =
   | { state: "error"; message: string }
 
 /** The one radius every rectangular button here uses: the header's Log in button's. */
-const BTN = "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-3.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/50"
-const PRIMARY = `${BTN} bg-[#8b5cf6] text-white hover:bg-[#7c3aed]`
+const BTN = "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-3.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f26b1d]/40"
+/*
+  THE LIBRARY'S COURSES ARE ORANGE (round 26, the owner's reference: a warm orange accent, "smooth clean good, minimal").
+  One colour for what moves you on (the main button, the ring, the bar, a finished lesson's check), everything else ink and
+  grey. A course inside a community keeps the community's ink (embedded below), so a creator's community never wears it.
+*/
+const ACCENT = "#f26b1d"
+const ACCENT_TRACK = "#fde7d9"
+const PRIMARY = `${BTN} bg-[#f26b1d] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(194,81,15,0.25)] hover:bg-[#e2600f] active:bg-[#c9550d]`
+const PRIMARY_DONE = `${BTN} border border-[#f26b1d]/25 bg-[#fff4ec] text-[#b4500e] hover:bg-[#ffeadb]`
+/** Whether the curriculum wears the library's orange (true) or the community's ink. */
+const Orange = createContext(false)
 const QUIET = `${BTN} border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa]`
 /* In a community the action is the community's ink, and Completed is the quiet face with the check filled. */
 const INK_BOX = "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25"
@@ -325,13 +335,36 @@ export function CoursePlayer({
             {lesson ? (
               <>
                 <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
-                  <p className="truncate text-[12.5px] font-medium tabular-nums text-[#6b7280]">
-                    {lessons.length > 1 ? `Lesson ${lessonNumber(outline, lesson.id)} of ${lessons.length}` : "Lesson"}
-                    {moduleTitle ? <span className="text-[#9ca3af]"> · {moduleTitle}</span> : null}
-                  </p>
-                  <h2 className="mt-1 text-[20px] font-bold leading-[1.25] tracking-[-0.015em] text-[#1a1a2e] sm:text-[24px]" data-lesson-title="">
-                    {lesson.title}
-                  </h2>
+                  {/*
+                    ROUND 27, THE LESSON'S HEAD: where it sits and how long it is, its title, and Mark as complete beside the
+                    title from 640px (under it on a phone, the full width), so finishing a lesson is where the eye already is.
+                  */}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6" data-lesson-head="">
+                    <div className="min-w-0">
+                      <p className="truncate text-[12.5px] font-medium tabular-nums text-[#6b7280]">
+                        {lessons.length > 1 ? `Lesson ${lessonNumber(outline, lesson.id)} of ${lessons.length}` : "Lesson"}
+                        {moduleTitle ? <span className="text-[#9ca3af]"> · {moduleTitle}</span> : null}
+                        {lesson.durationSeconds ? <span className="text-[#9ca3af]"> · {lengthInWords(lesson.durationSeconds) || clock(lesson.durationSeconds)}</span> : null}
+                      </p>
+                      <h2 className="mt-1 text-[20px] font-bold leading-[1.25] tracking-[-0.015em] text-[#1a1a2e] sm:text-[24px]" data-lesson-title="">
+                        {lesson.title}
+                      </h2>
+                    </div>
+                    {keeps && !lesson.locked ? (
+                      <button
+                        type="button"
+                        data-mark-complete
+                        aria-pressed={done}
+                        onClick={() => setComplete(lesson.id, !done)}
+                        className={`${done ? INK_DONE : INK} h-11 w-full shrink-0 sm:mt-1 sm:h-10 sm:w-auto sm:px-4`}
+                      >
+                        <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full transition-colors duration-200 ${done ? "bg-[#1a1a2e] text-white" : "border-[1.5px] border-white/70"}`}>
+                          <Check className={`h-3 w-3 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${done ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} strokeWidth={3} />
+                        </span>
+                        {done ? "Completed" : "Mark as complete"}
+                      </button>
+                    ) : null}
+                  </div>
                   {lesson.notes ? (
                     <div className="mt-3 max-w-[68ch] sm:mt-4" data-lesson-text="">
                       <Notes text={lesson.notes} />
@@ -343,30 +376,15 @@ export function CoursePlayer({
                   ) : null}
                   {lesson.attachments.length > 0 ? <Attachments lesson={lesson} embedded /> : null}
                 </div>
-                <footer className="border-t border-[#eef0f2] px-4 py-4 sm:px-6" data-lesson-foot="">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    {keeps && !lesson.locked ? (
-                      <button
-                        type="button"
-                        data-mark-complete
-                        aria-pressed={done}
-                        onClick={() => setComplete(lesson.id, !done)}
-                        className={`${done ? INK_DONE : INK} h-12 w-full shrink-0 sm:w-auto sm:px-5`}
-                      >
-                        <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full transition-colors duration-200 ${done ? "bg-[#1a1a2e] text-white" : "border-[1.5px] border-white/70"}`}>
-                          <Check className={`h-3 w-3 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${done ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} strokeWidth={3} />
-                        </span>
-                        {done ? "Completed" : "Mark as complete"}
-                      </button>
-                    ) : null}
-                    {prev || next ? (
-                      <nav aria-label="Lessons either side" className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:ml-auto sm:max-w-[440px]">
-                        <PagerCell side="prev" lesson={prev} alone={!next} onPick={() => goTo(prev, false)} />
-                        <PagerCell side="next" lesson={next} alone={!prev} onPick={() => goTo(next, false)} />
-                      </nav>
-                    ) : null}
-                  </div>
-                </footer>
+                {/* The foot: the lessons either side, named, across the card. */}
+                {prev || next ? (
+                  <footer className="border-t border-[#eef0f2] px-4 py-4 sm:px-6" data-lesson-foot="">
+                    <nav aria-label="Lessons either side" className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
+                      <PagerCell side="prev" lesson={prev} alone={!next} onPick={() => goTo(prev, false)} />
+                      <PagerCell side="next" lesson={next} alone={!prev} onPick={() => goTo(next, false)} />
+                    </nav>
+                  </footer>
+                ) : null}
               </>
             ) : null}
             {data.contact !== false ? (
@@ -398,7 +416,8 @@ export function CoursePlayer({
   }
 
   return (
-    <div data-course-player={embedded ? "embedded" : ""} className={`pb-8 sm:pb-10 ${shell} ${embedded ? "mx-auto max-w-[1120px]" : ""}`}>
+    <Orange.Provider value={!embedded}>
+    <div data-course-player={embedded ? "embedded" : ""} style={{ ["--course-accent" as string]: embedded ? "#8b5cf6" : ACCENT }} className={`pb-8 sm:pb-10 ${shell} ${embedded ? "mx-auto max-w-[1120px]" : ""}`}>
       {/* The course, who made it, how far through */}
       <div className="mb-4 flex items-start gap-3 sm:mb-5">
         <Link
@@ -475,7 +494,7 @@ export function CoursePlayer({
                     data-mark-complete
                     aria-pressed={done}
                     onClick={() => setComplete(lesson.id, !done)}
-                    className={`${embedded ? (done ? INK_DONE : INK) : done ? `${BTN} border border-[#8b5cf6]/30 bg-[#f5f3ff] text-[#6d28d9] hover:bg-[#ede9fe]` : PRIMARY} max-sm:flex-1`}
+                    className={`${embedded ? (done ? INK_DONE : INK) : done ? PRIMARY_DONE : PRIMARY} max-sm:flex-1`}
                   >
                     {embedded ? (
                       <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full transition-colors duration-200 ${done ? "bg-[#1a1a2e] text-white" : "border-[1.5px] border-white/70"}`}>
@@ -547,6 +566,7 @@ export function CoursePlayer({
         <Curriculum data={data} progress={progress} currentId={lessonId} onPick={(l) => goTo(l, true)} />
       </LessonSheet>
     </div>
+    </Orange.Provider>
   )
 }
 
@@ -735,13 +755,13 @@ function ProgressRing({ percent }: { percent: number }) {
   return (
     <div className="relative h-11 w-11 shrink-0" role="img" aria-label={`${percent}% complete`} data-progress-ring>
       <svg viewBox="0 0 44 44" className="h-11 w-11 -rotate-90">
-        <circle cx="22" cy="22" r={r} fill="none" stroke="#f0f1f3" strokeWidth="3.5" />
+        <circle cx="22" cy="22" r={r} fill="none" stroke={ACCENT_TRACK} strokeWidth="3.5" />
         <circle
           cx="22"
           cy="22"
           r={r}
           fill="none"
-          stroke="#1a1a2e"
+          stroke={ACCENT}
           strokeWidth="3.5"
           strokeLinecap="round"
           strokeDasharray={c}
@@ -755,6 +775,7 @@ function ProgressRing({ percent }: { percent: number }) {
 }
 
 function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summarize>; keeps: boolean }) {
+  const orange = useContext(Orange)
   const length = lengthInWords(summary.totalSeconds)
   const doneLabel = keeps ? `${summary.completed} of ${summary.total}` : `${summary.total}`
   return (
@@ -767,9 +788,9 @@ function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summari
         </p>
       </div>
       {keeps ? (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#eceef1]" data-progress-bar>
+        <div className={`mt-3 h-1.5 overflow-hidden rounded-full ${orange ? "bg-[#fde7d9]" : "bg-[#eceef1]"}`} data-progress-bar>
           <div
-            className="h-full origin-left rounded-full bg-[#1a1a2e] motion-safe:transition-[scale] motion-safe:duration-[600ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            className={`h-full origin-left rounded-full ${orange ? "bg-[#f26b1d]" : "bg-[#1a1a2e]"} motion-safe:transition-[scale] motion-safe:duration-[600ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]`}
             style={{ scale: `${Math.max(0, Math.min(100, summary.percent)) / 100} 1` }}
           />
         </div>
@@ -779,6 +800,7 @@ function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summari
 }
 
 function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; progress: Map<string, LessonProgress>; currentId: string | null; onPick: (l: PlayerLesson) => void }) {
+  const orange = useContext(Orange)
   const multiModule = data.modules.length > 1
   let n = 0
   return (
@@ -792,7 +814,13 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
               <div className="flex items-center justify-between gap-2 px-2.5 pb-1.5 pt-3">
                 <p className="min-w-0 truncate text-[12.5px] font-semibold text-[#6b7280]">{m.title}</p>
                 {data.access !== "preview" && m.lessons.length > 1 ? (
-                  <span className="shrink-0 text-[11px] tabular-nums text-[#9ca3af]">{doneCount}/{m.lessons.length}</span>
+                  <span className="flex shrink-0 items-center gap-2" data-module-progress="">
+                    {/* Round 27: each module's own progress, a hairline bar beside its count. */}
+                    <span aria-hidden className="h-1 w-10 overflow-hidden rounded-full bg-[#eceef1]">
+                      <span className={`block h-full rounded-full ${orange ? "bg-[#f26b1d]" : "bg-[#1a1a2e]"}`} style={{ width: `${Math.round((doneCount / m.lessons.length) * 100)}%` }} />
+                    </span>
+                    <span className="text-[11px] tabular-nums text-[#9ca3af]">{doneCount}/{m.lessons.length}</span>
+                  </span>
                 ) : null}
               </div>
             ) : null}
@@ -812,7 +840,7 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                       data-lesson-row={l.id}
                       data-lesson-current={current ? "" : undefined}
                       className={`group/lesson flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${
-                        current ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
+                        current ? (orange ? "bg-[#fff4ec] shadow-[inset_2px_0_0_#f26b1d]" : "bg-[#f3f4f6] shadow-[inset_2px_0_0_#1a1a2e]") : "hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
                       } ${l.locked ? "cursor-default" : "cursor-pointer"}`}
                     >
                       {/* The lesson's place in the course: its number, a check once done, a lock while closed. */}
@@ -821,9 +849,13 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                           l.locked
                             ? "bg-[#f3f4f6] text-[#9ca3af]"
                             : finished
-                              ? "bg-[#1a1a2e] text-white"
+                              ? orange
+                                ? "bg-[#f26b1d] text-white"
+                                : "bg-[#1a1a2e] text-white"
                               : current
-                                ? "bg-white text-[#1a1a2e] shadow-[0_0_0_1.5px_#1a1a2e]"
+                                ? orange
+                                  ? "bg-white text-[#c2510f] shadow-[0_0_0_1.5px_#f26b1d]"
+                                  : "bg-white text-[#1a1a2e] shadow-[0_0_0_1.5px_#1a1a2e]"
                                 : "bg-white text-[#6b7280] shadow-[0_0_0_1px_#e3e5e9]"
                         }`}
                         data-done={finished ? "" : undefined}
@@ -842,7 +874,7 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                           </span>
                         ) : null}
                       </span>
-                      {current ? <Play className="h-3.5 w-3.5 shrink-0 text-[#1a1a2e]" fill="currentColor" aria-hidden /> : null}
+                      {current ? <Play className={`h-3.5 w-3.5 shrink-0 ${orange ? "text-[#f26b1d]" : "text-[#1a1a2e]"}`} fill="currentColor" aria-hidden /> : null}
                     </button>
                   </li>
                 )
@@ -902,6 +934,7 @@ function LessonSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 /** The lesson's text: its own line breaks kept, and its web addresses made links. */
 function Notes({ text }: { text: string }) {
+  const orange = useContext(Orange)
   /* Written in the rich text editor: its cleaned HTML, laid out as written text. */
   if (looksLikeHtml(text)) return <div className="storelib-prose break-words text-[15px] leading-7 text-[#374151] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2" dangerouslySetInnerHTML={{ __html: cleanStoredHtml(text) }} />
   const parts = text.split(/(https?:\/\/[^\s<>"')]+)/g)
@@ -909,7 +942,7 @@ function Notes({ text }: { text: string }) {
     <div className="whitespace-pre-wrap break-words text-[15px] leading-7 text-[#374151]">
       {parts.map((p, i) =>
         /^https?:\/\//.test(p) ? (
-          <a key={i} href={p} target="_blank" rel="noopener noreferrer nofollow" className="font-medium text-[#6d28d9] underline decoration-[#c4b5fd] underline-offset-2">
+          <a key={i} href={p} target="_blank" rel="noopener noreferrer nofollow" className={orange ? "font-medium text-[#c2510f] underline decoration-[#f9c6a5] underline-offset-2" : "font-medium text-[#6d28d9] underline decoration-[#c4b5fd] underline-offset-2"}>
             {p}
           </a>
         ) : (
@@ -1068,7 +1101,7 @@ function CreatorBlock({ data, lessonTitle, emailsOff, onToggleEmails, embedded }
             rows={4}
             maxLength={2000}
             placeholder={lessonTitle ? `A question about "${lessonTitle}"?` : "Your question"}
-            className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2.5 text-[16px] leading-6 text-[#1a1a2e] outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20 sm:text-[15px]"
+            className="w-full resize-y rounded-lg border border-[#e5e7eb] bg-white px-3 py-2.5 text-[16px] leading-6 text-[#1a1a2e] outline-none focus:border-[#f26b1d] focus:ring-2 focus:ring-[#f26b1d]/20 sm:text-[15px]"
           />
           <div className="mt-2 flex items-center justify-between gap-3">
             <p className="text-[12px] text-[#9ca3af]">Their reply comes to your email.</p>
@@ -1085,7 +1118,7 @@ function CreatorBlock({ data, lessonTitle, emailsOff, onToggleEmails, embedded }
       {onToggleEmails ? (
         <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 border-t border-[#f0f0f2] pt-3">
           <span className="text-[13px] text-[#4b5563]">Email me about my progress in this course</span>
-          <input type="checkbox" checked={!emailsOff} onChange={onToggleEmails} className="h-4 w-4 shrink-0 accent-[#8b5cf6]" />
+          <input type="checkbox" checked={!emailsOff} onChange={onToggleEmails} className="h-4 w-4 shrink-0 accent-[#f26b1d]" />
         </label>
       ) : null}
     </section>

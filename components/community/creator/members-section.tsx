@@ -35,7 +35,7 @@ import { MEMBER_STATUS_FILTERS, ROLE_LABEL, takenAwayLine, type MemberStatusFilt
 import { joinCosts, needsInvite } from "@/lib/communities/access-model"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
-import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast } from "./parts"
+import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast, ListLoading } from "./parts"
 import { tt, ttx } from "@/lib/i18n/text"
 
 const STATUS_LABEL: Record<MemberStatusFilter, string> = {
@@ -220,11 +220,11 @@ export function MembersSection(p: Props) {
       >
         {rows.length === 0 ? (
           loading ? (
-            <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">{tt("Loading")}</p>
+            <ListLoading />
           ) : q ? (
             <Empty title={tt("Nobody by that name")} detail={tt("Check the spelling, or search by part of the name.")} />
           ) : status === "active" ? (
-            <Empty title={tt("Invite your first members.")} detail={tt("Send an invite by email or share a link.")}>
+            <Empty icon={UserPlus} title={tt("Invite your first members.")} detail={tt("Send an invite by email or share a link.")}>
               {p.head.can.invite ? (
                 <button type="button" onClick={() => setInviteOpen(true)} className={cn(buttonPrimary, "h-10 px-4")}>
                   {tt("Invite")}

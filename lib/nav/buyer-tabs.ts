@@ -1,3 +1,5 @@
+import { showsProfileHeader } from "@/lib/profile/owner-pills"
+
 /**
  * ===========================================================================
  *  WHERE THE BUYER'S TAB BAR IS, AND WHICH TAB A PAGE BELONGS TO
@@ -123,7 +125,13 @@ export function buyerTabsAt(pathname: string, exploreMarketplaceEnabled = true, 
   if (inside) return communityTabs(inside, true)
   /* With Discover off the bar outside a community is Library and Profile alone (no Home to keep), so the context waits for inside. */
   const kept = exploreMarketplaceEnabled && homeCommunity && COMMUNITY_SLUG.test(homeCommunity) ? homeCommunity : null
-  return kept ? communityTabs(kept, false) : buyerTabsForMarketplace(exploreMarketplaceEnabled)
+  /*
+    YOUR PROFILE, OPENED FROM A COMMUNITY, KEEPS CREATE POST (round 26, the owner: "going to the profile account page make
+    sure the post icon there doesn't change into the library one"). The account page draws the community's own bar over
+    itself there (components/account/account-community-chrome.tsx, the same showsProfileHeader test), so it is still the
+    community's bar underneath: Create post in the third slot, and its press goes back to the community's composer.
+  */
+  return kept ? communityTabs(kept, showsProfileHeader(pathname)) : buyerTabsForMarketplace(exploreMarketplaceEnabled)
 }
 
 /** The search screen's own address. A static route under /explore, so no new root word is taken from creators' handles. */

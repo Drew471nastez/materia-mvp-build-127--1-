@@ -29,7 +29,7 @@ import { CopyIcon as CopyLine } from "@solar-icons/react/linear/copy"
 import { CupStarIcon as CupBold } from "@solar-icons/react/bold/cup-star"
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { MemberAvatar } from "./member-avatar"
-import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
+import { SoftImg } from "@/components/ui/soft-img"
 import { compactCount, eventDateBadge } from "@/lib/communities/format"
 import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
 import { PlaceIcon } from "./place-icons"
@@ -125,20 +125,14 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
   return (
     <section className={`${CARD} overflow-hidden`} data-wall-card="">
       {community.coverUrl ? (
-        <Link href={base} tabIndex={-1} aria-hidden className="block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={optimizedImageUrl(community.coverUrl, 560)}
-            srcSet={optimizedSrcSet(community.coverUrl, [320, 480, 560, 720, 960]) || undefined}
-            sizes="(max-width: 1023px) 100vw, 280px"
-            alt=""
-            width={560}
-            height={315}
-            loading="lazy"
-            decoding="async"
-            className="aspect-[16/9] w-full bg-[#f1f2f4] object-cover"
-            data-wall-cover=""
-          />
+        /*
+          ROUND 27, THE COVER ARRIVES SOFTLY AND AT ITS SIZE. It sits at the top of the left column on every place, so it
+          is asked for at once (it was lazy: a beat late, then a cut), at the column's 280px from the optimiser (the
+          browser picks 560 on a sharp screen, never the full upload), and it fades in once decoded over a ground of its
+          own size (SoftImg), so nothing jumps and nothing pops.
+        */
+        <Link href={base} tabIndex={-1} aria-hidden className="block aspect-[16/9] w-full overflow-hidden bg-[#f1f2f4]">
+          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 100vw, 280px" eager fetchPriority="high" className="h-full w-full object-cover" data-wall-cover="" />
         </Link>
       ) : null}
       <div className="px-4 pb-4 pt-3.5">

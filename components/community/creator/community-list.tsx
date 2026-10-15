@@ -124,12 +124,12 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
     async (r: CommunityListRow) => {
       if (!room) return setUpgrade(true)
       setBusy(true)
-      const res = await send<{ id?: string }>(`/api/app/community/${r.id}/duplicate`, "POST")
+      const res = await send<{ id?: string; slug?: string }>(`/api/app/community/${r.id}/duplicate`, "POST")
       setBusy(false)
       if (res.status === 402) return setUpgrade(true)
       if (!res.ok || !res.data.id) return toast(errorText(res.data.error, tt("The copy could not be made. Try again.")))
       toast(tt("Copied as a new draft"))
-      router.push(`/app/community/${res.data.id}/settings`)
+      router.push(`/app/community/${res.data.slug || res.data.id}/settings`)
     },
     [room, router, toast],
   )
@@ -229,7 +229,7 @@ const CommunityCard = React.memo(function CommunityCard({
   onArchive: (r: CommunityListRow) => void
 }) {
   const state = stateOf(r)
-  const base = `/app/community/${r.id}`
+  const base = `/app/community/${r.slug}`
   const items = React.useMemo<ActionMenuItem[]>(() => {
     const out: ActionMenuItem[] = [{ label: tt("Open"), icon: <ExternalLink className="h-4 w-4" />, href: `/community/${r.slug}`, target: "_blank" }]
     if (r.can.edit) out.push({ label: tt("Edit"), icon: <Pencil className="h-4 w-4" />, href: `${base}/settings` })

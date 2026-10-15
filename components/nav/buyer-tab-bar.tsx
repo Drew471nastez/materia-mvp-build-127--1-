@@ -526,6 +526,15 @@ function TabBar({
         else router.push(`/community/${community}`, { scroll: false })
         return
       }
+      /* From your profile, opened from a community (lib/nav/buyer-tabs.ts): the request waits for that community's feed, whose composer takes it as it mounts. */
+      if (tab.key === "compose") {
+        const kept = communityContext()
+        if (kept) {
+          requestCompose()
+          router.push(`/community/${kept}`, { scroll: false })
+          return
+        }
+      }
       /*
         Home inside a community is its feed, a place of its shell: the navigator moves there, no server page (a second tap
         goes to its top). Profile is the account page, inside a community as anywhere (round 16, lib/nav/buyer-tabs.ts

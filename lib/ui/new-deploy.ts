@@ -240,5 +240,25 @@ export function loadFullyIfBehind(href: string, type: NavigationType) {
     tabAgeMs: typeof performance !== "undefined" && performance.timeOrigin ? Date.now() - performance.timeOrigin : undefined,
     inBack: backJustStarted(),
   })
-  if (how === "assign") window.location.assign(href)
+  if (how !== "assign") return
+  /*
+    NOT ON A TAP IN THE APP (round 27 review). The phone keeps the app's web view for days, so the first tap after coming
+    back turned white for a whole page load. In the app the newer code is taken while nobody is looking instead
+    (takeNewDeployWhileAway, below); this tap moves in place, and a chunk that fails is still healed by stale-code.ts.
+  */
+  if (document.documentElement.classList.contains("capacitor")) {
+    takeNewDeployWhileAway()
+    return
+  }
+  window.location.assign(href)
+}
+
+let awayArmed = false
+/** In the app: the next time it goes to the background, the page reloads there, so it comes back already new. */
+function takeNewDeployWhileAway() {
+  if (awayArmed || typeof document === "undefined") return
+  awayArmed = true
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && !leaveGuard()) window.location.reload()
+  })
 }

@@ -8,5 +8,5 @@ export default async function CommunityGamificationPage({ params }: { params: Pr
   const { id } = await params
   const ctx = await sectionPage(id, "manage_gamification")
   if (!ctx) return null
-  redirect(`/app/community/${ctx.community.id}/settings?tab=gamification`)
+  redirect(`/app/community/${ctx.community.slug}/settings?tab=gamification`)
 }

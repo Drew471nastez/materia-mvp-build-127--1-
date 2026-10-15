@@ -9,6 +9,7 @@ import {
   forgetCommitted,
   getAppNavigation,
   isLandingHeld,
+  sameStageFrame,
   loadsAsDocumentWhenStalled,
   markCommitted,
   markLanded,
@@ -329,6 +330,8 @@ export function AppStage() {
        standing in for itself at a new address (holdLayerLanding) has none.
        Read on the commit, where the layer sets it. */
     const layered = !!document.documentElement.dataset.layerMotion
+    /* Another section of the same community: the frame stays and the section swaps in place, with no landing. */
+    if (sameStageFrame(from, pathname)) return
     requestAnimationFrame(() => {
       const s = scrollers()
       /* A page that comes back exactly as it was left asked for no landing

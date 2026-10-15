@@ -114,7 +114,8 @@ async function main() {
   check("  before it draws anything (the bar, the member frame)", layout.indexOf("permanentRedirect(") < layout.indexOf("<CommunityShell") && layout.indexOf("permanentRedirect(") < layout.indexOf("<CommunityPublicShell"))
   check("  so the member area, About, the invite landing and a post all sit under it", ["about/page.tsx", "join/page.tsx", "(member)/layout.tsx", "(member)/post/[postId]/page.tsx"].every((f) => existsSync(`app/(marketing)/community/[slug]/${f}`)))
   const proxy = code("proxy.ts")
-  check("the proxy writes the asked for path and query for /community/ requests, before anything else", /if \(pathname\.startsWith\("\/community\/"\)\) request\.headers\.set\(COMMUNITY_PATH_HEADER, `\$\{pathname\}\$\{search\}`\)/.test(proxy) && proxy.indexOf("COMMUNITY_PATH_HEADER, `") < proxy.indexOf("mcpHostRoute(bareHost"))
+  /* Changed on purpose (round 26): /app/community/ requests too, so the owner's screens can send an old id on to the slug. */
+  check("the proxy writes the asked for path and query for /community/ requests, before anything else", /if \(pathname\.startsWith\("\/community\/"\) \|\| pathname\.startsWith\("\/app\/community\/"\)\) request\.headers\.set\(COMMUNITY_PATH_HEADER, `\$\{pathname\}\$\{search\}`\)/.test(proxy) && proxy.indexOf("COMMUNITY_PATH_HEADER, `") < proxy.indexOf("mcpHostRoute(bareHost"))
   check("  and passes the request (with it) on", /NextResponse\.next\(\{ request \}\)/.test(proxy) && COMMUNITY_PATH_HEADER === "x-storelib-community-path")
 
   /* ── Part 94 ─────────────────────────────────────────────────────────── */
@@ -197,7 +198,8 @@ async function main() {
   const frame = code("components/community/member/shell-frame.tsx")
   /* Round 9, ask 19: Invite moved into the bar's "..." menu ("Invite people"); the tabs and the card no longer carry it. */
   check("the frame: Invite people in the bar's \"...\" menu, one sheet, staff by can(\"invite\")", /onInvite: community\.archived \? null : openInvite/.test(frame) && !/InviteTab|data-community-invite/.test(frame) && /<InviteSheet open=\{inviting\}/.test(frame) && /const canInvite = !!viewer\.can\.invite && !community\.archived/.test(frame) && /label: "Invite people"/.test(code("components/community/member/account-menu.tsx")))
-  check("  Manage invites only for the owner or a creator account", /canInvite && \(viewer\.isOwner \|\| viewer\.isCreatorAccount\) \? `\/app\/community\/\$\{community\.id\}\/members` : null/.test(frame))
+  /* Changed on purpose (round 26): the creator side's address is the community's slug. */
+  check("  Manage invites only for the owner or a creator account", /canInvite && \(viewer\.isOwner \|\| viewer\.isCreatorAccount\) \? `\/app\/community\/\$\{community\.slug\}\/members` : null/.test(frame))
   check("the card: no Invite any more, Settings for staff", !/onInvite/.test(code("components/community/member/wall.tsx")) && /className=\{CARD_ACTION\} data-wall-settings=""/.test(code("components/community/member/wall.tsx")))
   const inviteRoute = code("app/api/community/[communityId]/invites/route.ts")
   check("POST /api/community/<id>/invites: the switch first, a member who may invite, rate limited, the existing invites code", inviteRoute.indexOf("requireCommunitiesOn()") < inviteRoute.indexOf("requireMember(") && /requireMember\(db, communityId, await sessionUserId\(\), "invite"\)/.test(inviteRoute) && /rateLimit\(\{\s*bucket: rateBucket\("invite"\)/.test(inviteRoute) && /createInvite\(db, \{ community: gate\.community, createdBy: userId/.test(inviteRoute) && /checkInvite\(await readJson\(request\)\)/.test(inviteRoute))

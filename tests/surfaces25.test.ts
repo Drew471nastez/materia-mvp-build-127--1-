@@ -169,11 +169,12 @@ async function main() {
     const text = html.replace(/<style>[\s\S]*?<\/style>/, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
     check("one standing line: the level's name, its number, the points", /Contributor · Level 3/.test(text) && /1,240 points/.test(text))
     check("  no sentence to the next level and no bar", !/to level 4/.test(text) && !/role="progressbar"/.test(html))
-    check("three compact facts", /data-activity-fact="posts"/.test(html) && /data-activity-fact="comments"/.test(html) && /data-activity-fact="joined"/.test(html))
+    /* Changed on purpose (round 27): one quiet line of facts. */
+    check("the facts on one compact line", /data-activity-facts=""/.test(html) && /posts? · .*comments? · Joined/.test(text))
     check("the grid's words: its title only, no Less and More, no sentence under it", /Last 12 months/.test(text) && !/\bLess\b/.test(text) && !/\bMore\b/.test(text) && !/1 post, 2 comments/.test(text))
     check("  the year still said to a screen reader", /aria-label="1 post, 2 comments, 6 likes in the last year"/.test(html))
     const board = code("components/community/member/activity-board.tsx")
-    check("the squares in the accent's steps over a cool grey, the dark community's in its light violet", /--ab-0:#eff0f3;--ab-1:rgba\(139,92,246,\.2\);--ab-2:rgba\(139,92,246,\.42\);--ab-3:rgba\(139,92,246,\.7\);--ab-4:#7c3aed/.test(board) && /\[data-community-theme="dark"\] \[data-activity-board\]\{--ab-0:#242833;--ab-1:rgba\(167,139,250/.test(board))
+    check("the squares in the accent's steps over a cool grey, the dark community's in its light violet", /--ab-0:#eff0f3;--ab-1:rgba\(139,92,246,\.2\);--ab-2:rgba\(139,92,246,\.42\);--ab-3:rgba\(139,92,246,\.7\);--ab-4:#7c3aed/.test(board) && /:is\(html\[data-sl-dark\],\[data-community-theme="dark"\]\) \[data-activity-board\]\{--ab-0:#232327;--ab-1:rgba\(167,139,250/.test(board)) /* Changed on purpose (round 27): the charcoal dark look's ground. */
     check("  steps, never a gradient", !/gradient\([^)]*(139,92,246|8b5cf6|7c3aed)/i.test(board))
     check("a pressed day is said in the title row, in place of the shades", /\{shown \? \(\s*<p[^>]*data-activity-line=""/.test(board))
   }

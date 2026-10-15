@@ -155,14 +155,16 @@ export interface CreatorPageContext {
  * between them.
  */
 export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPageContext | "no-session" | null> => {
-  if (!isUuid(id)) return null
+  /* The readable address (/app/community/<slug>) or the id it used to be; the layout sends the id on to the slug. */
+  const key = isUuid(id) ? { id } : /^[a-z0-9-]{1,64}$/i.test(id) ? { slug: id } : null
+  if (!key) return null
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return "no-session"
-  const creator = await creatorForRequest(user.id)
-  if (!creator) return null
   const db = admin()
-  const community = await loadCommunity(db, { id })
+  /* Who is asking and which community, at once: two answers that do not wait on each other. */
+  const [creator, community] = await Promise.all([creatorForRequest(user.id), loadCommunity(db, key)])
+  if (!creator) return null
   if (!community) return null
   const viewer = await viewerContext(db, community, user.id)
   const ownsIt = community.creator_id === creator.id || community.owner_user_id === user.id
@@ -418,7 +420,7 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
   ])
   /* AN EVENT WITH A PRICE NOBODY CAN PAY (round 14): said once, where the creator will see it. */
   const pricedEvents = ctx.paymentsReady ? 0 : await pricedEventCount(db, c.id)
-  const base = `/app/community/${c.id}`
+  const base = `/app/community/${c.slug}`
   const upcoming: UpcomingEvent[] = ((upcomingRows.data as { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string; going_count: number; capacity: number | null; kind: UpcomingEvent["kind"] }[] | null) ?? []).map((e) => ({
     id: e.id,
     title: e.title,

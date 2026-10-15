@@ -8,7 +8,8 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { AccountSettings } from "@/components/account/account-settings"
+import dynamic from "next/dynamic"
+import type { AccountSettings as AccountSettingsType } from "@/components/account/account-settings"
 import { PageSpinner } from "@/components/ui/activity-spinner"
 import { isNativeApp } from "@/lib/platform-utils"
 import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
@@ -39,7 +40,22 @@ export type SettingsSection = "profile" | "account" | "privacy" | "notifications
 /** `full`: the data is the whole settings read, not the copy made from the profile while it loads. */
 type Open = { section: SettingsSection; id: number; data: Loaded | null; full?: boolean }
 
-type Loaded = React.ComponentProps<typeof AccountSettings>
+type Loaded = React.ComponentProps<typeof AccountSettingsType>
+
+/*
+  THE SETTINGS SCREEN IS FETCHED WHEN IT IS WANTED (round 27, the app speed review: its 1,300 lines were in every page's
+  bundle, the app's first screen included, because this host is mounted at the root). Its code is asked for with its
+  data (warmSettings, on the press that opens it), so the sheet still arrives whole.
+*/
+const loadSettingsCode = () => import("@/components/account/account-settings")
+const AccountSettings = dynamic(() => loadSettingsCode().then((m) => m.AccountSettings), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[min(52vh,420px)] items-center justify-center" aria-busy="true">
+      <PageSpinner />
+    </div>
+  ),
+})
 
 type Cache = { data: Loaded; at: number; complete: boolean }
 
@@ -111,6 +127,7 @@ function peekCache(section: SettingsSection): Loaded | null {
 
 /** Start the settings read before the finger lifts, so the screen can arrive whole. */
 export function warmSettings(section: SettingsSection = "profile") {
+  void loadSettingsCode().catch(() => {})
   if (!inflight) {
     inflight = loadOwnSettings(section).then((data) => {
       inflight = null
@@ -122,6 +139,7 @@ export function warmSettings(section: SettingsSection = "profile") {
 }
 
 export function openSettingsSubpage(section: SettingsSection = "profile") {
+  void loadSettingsCode().catch(() => {})
   const id = ++seq
   const data = peekCache(section)
   const open: Open = { section, id, data, full: !!cached?.complete && !!data }

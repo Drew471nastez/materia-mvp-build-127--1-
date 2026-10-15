@@ -1,4 +1,8 @@
 import type React from "react"
+import { APPEARANCE_BOOT } from "@/lib/appearance/site-appearance"
+import { SiteAppearance } from "@/components/platform/site-appearance"
+import { AppRouterHandle } from "@/lib/navigation/app-router-handle"
+import "./theme-dark.css"
 import type { Metadata, Viewport } from "next"
 /**
  * ===========================================================================
@@ -251,6 +255,8 @@ export default function RootLayout({
           }}
         />
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
+        {/* The person's light or dark look on Storelib's own pages, before the first paint (lib/appearance/site-appearance.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         {/* ONE PAGE INTO THE NEXT, INSIDE THE APP (app/globals.css, round 16): a page load between /app and the rest crossfades
             in the app; a browser keeps its plain load. Read before the first frame, as pagereveal must be heard. */}
         <script
@@ -265,6 +271,8 @@ export default function RootLayout({
             <ExploreMarketplaceRoot>
               {/* Community bar for /account, already mounted, so a tab to Profile does not paint the page and then the header.
                   Inside the providers: its account menu reads the locale, and outside LocaleProvider it threw and took /account down. */}
+              <SiteAppearance />
+              <AppRouterHandle />
               <AccountCommunityChrome />
               {children}
               {/* Settings over the profile on a phone, an iPad and in the apps: no address of its own. Inside the providers
