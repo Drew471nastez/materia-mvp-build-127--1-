@@ -318,7 +318,8 @@ async function main() {
   /* Changed on purpose (round 31): the foot sat in the form and rode over it mid page on a phone; it is the /app Settings save bar now, fixed above the navigation pill and up only while there is something to save. */
   check("Settings forms have a save bar: Cancel and Save, up while there is a change", /export function EditorFoot/.test(parts) && /<SaveButton/.test(parts) && /Cancel/.test(parts) && /<EditorFoot/.test(settings) && /fixed inset-x-0 bottom-\[calc\(var\(--app-nav-top,0px\)\+10px\)\]/.test(parts))
   /* Changed on purpose (round 26): the settings column takes 196px beside the panel, so the Page tab's two columns start at 1280px. */
-  check("the Page tab is two columns from 1280px with the editor's cards", /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(settings) && /<EditorCard title="About"/.test(settings) && /<EditorCard title="Address"/.test(settings))
+  /* Changed on purpose (round 32): "too shrunk on a computer". The Page tab's 300px side column squeezed the domain and the address; every panel is now one column of the editor's cards at the panel's full width, and the address is a panel of its own. */
+  check("the Page tab is one column of the editor's cards, the address in its own panel", !/xl:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(settings) && /<EditorCard title="About"/.test(settings) && /<EditorCard title="Storelib address"/.test(settings))
   check("Settings has Rules and policies and, for the owner, Roles", /value: "policies", label: "Rules and policies"/.test(settings) && /value: "roles", label: "Roles", needs: "transfer_ownership"/.test(settings) && /<RulesEditor/.test(settings) && /PERMISSION_GROUPS\.map/.test(settings))
   check("old links to the rules land on the new tab", settingsTabOf("rules") === "policies" && settingsTabOf("roles") === "roles" && settingsTabOf("policies") === "policies" && settingsTabOf("page") === "page")
   const patch = code("app/api/app/community/[id]/route.ts")
