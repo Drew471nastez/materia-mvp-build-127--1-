@@ -20,12 +20,12 @@
  */
 import * as React from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Search, Check, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { backThen } from "@/lib/navigation/go-back"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet, prefetchGet } from "@/components/physical/ui"
 import { IntegrationCard, type IntegrationState } from "@/components/physical/integrations-marketplace"
 import { Mark } from "@/components/app/settings/integration-mark"
 import { CATEGORY_NAMES, CATEGORY_ORDER, STATUS_LABEL, searchIntegrations, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
@@ -39,15 +39,57 @@ import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/compo
 import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
 import { APP_STATE_LABEL, storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
 import { tt } from "@/lib/i18n/text"
+import { pillOrder, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
+import { holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
 
-/* Storelib's own apps first (the page opens on them), then the Essentials, every service, what is installed, and each category. */
-type Filter = "all" | "installed" | "storelib" | IntegrationCategory
+/* All, then the pills the owner placed, then every other category (lib/integrations/directory-order). */
+type Filter = DirectoryPill
 
 /** A card in the directory: an integration with a page of its own, or one of Storelib's apps that opens where it is set up. */
 type Entry = { kind: "integration"; id: string; item: Integration } | { kind: "app"; id: string; app: StorelibApp }
 
 const APPS_PATH = "/api/store/integrations/apps"
 const TRACKING_APP_PATH = "/api/store/tracking-app"
+const REVIEWS_APP_PATH = "/api/store/reviews-app"
+
+/*
+  WHAT THE DIRECTORY AND ITS PAGES READ, KEPT (round 30). Read through the
+  shared cache (components/physical/ui prefetchGet), so a page opened from a
+  card draws its settings at once (peekGet) instead of a grey box that fills
+  a beat later, and coming back to /app/integrations from one of Storelib's
+  apps draws every badge and the Connected list on its first frame, the
+  page as tall as it was, so its scroll can be put back.
+*/
+const keptReads = (physical: boolean) => [
+  "/api/store/integrations",
+  "/api/store/integrations/catalog",
+  APPS_PATH,
+  MARKETING_PATH,
+  REVIEWS_APP_PATH,
+  ...(physical ? ["/api/physical/integrations", TRACKING_APP_PATH] : []),
+]
+
+/*
+  THE PILL IS IN THE ADDRESS (round 30): ?c=analytics. Written in place
+  (replaceState, no new history entry), so Back from an integration's page
+  or from one of Storelib's apps comes back to the same pill, and the
+  stage's scroll memory (components/app/app-stage.tsx), keyed by the
+  address, puts the list back where it was under it. All is the plain
+  address, and a visit from the sidebar has no ?c=, so it opens on All.
+*/
+const PILL_PARAM = "c"
+const pillFrom = (value: string | null | undefined): Filter => (value === "installed" || value === "storelib" || CATEGORY_ORDER.includes(value as IntegrationCategory) ? (value as Filter) : "all")
+function writePillParam(f: Filter) {
+  try {
+    const url = new URL(window.location.href)
+    if (f === "all") url.searchParams.delete(PILL_PARAM)
+    else url.searchParams.set(PILL_PARAM, f)
+    if (url.href === window.location.href) return
+    window.history.replaceState(window.history.state, "", url.toString())
+  } catch {
+    /* An address that can't be written: the pill still changes. */
+  }
+}
 
 /*
   WHERE STORELIB'S OWN APPS SIT AMONG THE CATEGORIES (round 29). The ones
@@ -67,11 +109,13 @@ const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px
 
 /*
   ENTERING AND LEAVING AN INTEGRATION'S PAGE (round 23). "No slide delay, no flash, back returns to where you
-  were." The new view is there on the very next frame; the only motion is a short fade from 0.55, on the
-  compositor, so the swap reads as one surface changing and never as a blank frame. No sideways travel.
+  were." The new view is there on the very next frame. No sideways travel.
+
+  A CUT, NOT A FADE (round 30, the owner: "no white flash"). The new view used to come up from 0.55: its
+  first frame was the whole page washed out over the grey, a pale flash on every open and every Back, the
+  same dip round 29 took out of the pills. Now it is whole on its first frame, its scroll placed in that same
+  frame, as a tab changes page in the app (app/globals.css data-tab-swap, "a cut, not a dissolve").
 */
-const SWAP_MS = 120
-const SWAP_FROM = 0.55
 
 /* A category switch (round 29): the cards crossfade in this long, and a shorter list eases to its height in this long. */
 const CROSSFADE_MS = 180
@@ -138,6 +182,9 @@ function takesOrders(i: Integration): boolean {
  */
 export function IntegrationsDirectory({ page = false }: { page?: boolean } = {}) {
   const physical = usePhysicalCommerceEnabled()
+  const router = useRouter()
+  /* First, so every read below finds its answer kept (or on its way) and shares it. */
+  React.useEffect(() => prefetchGet(keptReads(physical)), [physical])
   const all = React.useMemo(() => visibleIntegrations(physical), [physical])
   const [tracking, setTracking] = React.useState<Tracking | null>(() => peekGet<{ tracking: Tracking }>("/api/store/integrations")?.tracking ?? null)
   const [trackingReady, setTrackingReady] = React.useState(() => peekGet<{ ready: boolean }>("/api/store/integrations")?.ready ?? true)
@@ -165,11 +212,25 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   }, [physical])
   React.useEffect(() => readOwnTracking(), [readOwnTracking])
   const [query, setQuery] = React.useState("")
-  const [filter, setFilter] = React.useState<Filter>("all")
+  const params = useSearchParams()
+  /* The pill the address names (?c=), read on the first render: Back to the list lands on the pill it left. */
+  const [filter, setFilter] = React.useState<Filter>(() => pillFrom(params?.get(PILL_PARAM)))
+  /*
+    BACK TO THE LIST IS THE LIST, AS IT WAS (round 30). Back from one of
+    Storelib's apps is a return: the pill comes from the address, the cards
+    and badges from the kept reads, and the stage puts the scroll back. So
+    the page asks the stage for no landing (lib/ui/app-navigation
+    holdLanding), as the Emails and Orders lists do: no fade from nothing,
+    no 2px rise. Only on the page; a visit from the sidebar lands as usual.
+  */
+  const [returning] = React.useState(() => page && isTraversing())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
      another integration, Back and Forward (show() below, so Back by the browser lands where you were too).
      Read before the first paint, so a link to a page never shows the list for a frame first. */
-  const wanted = useSearchParams()?.get("integration") ?? null
+  const wanted = params?.get("integration") ?? null
   const [openId, setOpenId] = React.useState<string | null>(wanted)
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -340,8 +401,6 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       if (box && at) box.scrollTop = at.scroll
       if (at?.card) el.querySelector<HTMLElement>(`[data-integration-card="${CSS.escape(at.card)}"]`)?.focus({ preventScroll: true })
     }
-    if (reduced() || typeof el.animate !== "function") return
-    el.animate([{ opacity: SWAP_FROM }, { opacity: 1 }], { duration: SWAP_MS, easing: "ease-out" })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey])
 
@@ -403,6 +462,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     crossfade.current = grid && !reduced() && typeof grid.animate === "function" ? stillOf(grid) : null
     filterChanged.current = true
     setFilter(f)
+    writePillParam(f)
   }
   React.useLayoutEffect(() => {
     if (!filterChanged.current) return
@@ -485,6 +545,8 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
+  /* The app pages already asked for (warmApp, below): a hook, so above the page's early return. */
+  const warmed = React.useRef(new Set<string>())
   const current = shownAll.find((i) => i.id === openId) ?? null
   if (current) {
     return (
@@ -534,20 +596,28 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     place among the others whichever pill is on. A search looks through all
     of them whatever pill is on, so typing never finds nothing because of a pill.
   */
-  const storelibIntegrations = shownAll.filter((i) => hasBuiltInArt(i.id))
-  const later = (i: Integration) => (i.comingSoon || i.paused ? 1 : 0)
-  const services = shownAll
-    .filter((i) => !hasBuiltInArt(i.id))
-    .map((item, at) => ({ item, at }))
-    .sort((a, b) => later(a.item) - later(b.item) || CATEGORY_ORDER.indexOf(a.item.category) - CATEGORY_ORDER.indexOf(b.item.category) || a.at - b.at)
-    .map(({ item }) => item)
+  /*
+    ALL IS MIXED (round 30, the owner: Storelib's own apps all came first in
+    a block). Still one order for every pill, so a press never moves a card
+    (round 29): each lane (a category, or Storelib apps for one of
+    Storelib's own with none) in its own order, Storelib's own first, then
+    the services in the catalog's order, and the lanes woven together
+    (lib/integrations/directory-order weave): the first of each lane in the
+    pills' order, the rest spread evenly. Working ones are woven first and
+    Coming soon after them, so Coming soon stays last in All, and a
+    category's cards, read off this list, are that category in its own order.
+  */
+  const later = (e: Entry) => e.kind === "integration" && !!(e.item.comingSoon || e.item.paused)
   /* Storelib's core settings (payments, shipping, taxes...) are not integrations: only the Essentials checklist names them. */
   const appEntry = (a: StorelibApp): Entry => ({ kind: "app", id: a.id, app: a })
-  const entries: Entry[] = [
-    ...storelibIntegrations.map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
-    ...apps.filter((a) => !a.core).map(appEntry),
-    ...services.map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
-  ]
+  const ownRank = (e: Entry) => (e.kind === "integration" ? (hasBuiltInArt(e.id) ? 0 : 2) : 1)
+  const listed: Entry[] = [...shownAll.map((i): Entry => ({ kind: "integration", id: i.id, item: i })), ...apps.filter((a) => !a.core).map(appEntry)]
+    .map((e, at) => ({ e, at }))
+    .sort((a, b) => ownRank(a.e) - ownRank(b.e) || a.at - b.at)
+    .map(({ e }) => e)
+  const categoryOf = (e: Entry): IntegrationCategory | null => (e.kind === "integration" ? e.item.category : (APP_CATEGORY[e.id] ?? null))
+  const laneOf = (e: Entry): Lane => categoryOf(e) ?? "storelib"
+  const entries: Entry[] = [...weave(listed.filter((e) => !later(e)), laneOf), ...weave(listed.filter(later), laneOf)]
   /* Storelib's own: its apps and the parts of Storelib shown as integrations (Reviews, Courier tracking, the webhook). All holds them as well as every service. */
   const isStorelib = (e: Entry) => e.kind === "app" || hasBuiltInArt(e.id)
   /*
@@ -558,7 +628,6 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     counted as installed in every store, sending nothing anywhere.
   */
   const isInstalled = (e: Entry) => (e.kind === "integration" ? installed(e.item) || (e.item.builtIn && e.item.kind === "app") : appState(e.id) === "on")
-  const categoryOf = (e: Entry): IntegrationCategory | null => (e.kind === "integration" ? e.item.category : (APP_CATEGORY[e.id] ?? null))
   /* One test per pill, for its count and for the cards it shows alike, so the number on a pill is always the cards under it. */
   const inPill = (e: Entry, pill: Filter) => (pill === "all" ? true : pill === "installed" ? isInstalled(e) : pill === "storelib" ? isStorelib(e) : categoryOf(e) === pill)
   const counts = new Map<Filter, number>([
@@ -567,16 +636,38 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     ["storelib", entries.filter(isStorelib).length],
   ])
   for (const c of CATEGORY_ORDER) counts.set(c, entries.filter((e) => inPill(e, c)).length)
-  /* All first, then what is installed, then the rest. No Essentials pill (the owner: "get rid of the Essential pill"): payments, shipping and taxes are under Settings, the apps under Storelib apps. */
-  const pills: Filter[] = ["all", "installed", "storelib", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
+  /*
+    THE PILLS' ORDER (round 30, the owner): All, Reviews, Analytics,
+    Installed, Storelib apps, Advertising, Email marketing, Automation, then
+    every other category as the catalog lists them (lib/integrations/
+    directory-order pillOrder). No Essentials pill (the owner: "get rid of
+    the Essential pill"): payments, shipping and taxes are under Settings.
+  */
+  const pills: Filter[] = pillOrder((c) => counts.get(c) ?? 0)
+  /* A ?c= naming a category with nothing in it in this store is All. */
+  const active: Filter = pills.includes(filter) ? filter : "all"
   const q = query.trim()
   const matches = (e: Entry) => (e.kind === "integration" ? searchIntegrations([e.item], q).length > 0 : `${e.app.name} ${e.app.summary} storelib`.toLowerCase().includes(q.toLowerCase()))
   const shown = q
     ? entries.filter(matches)
-    : entries.filter((e) => inPill(e, filter))
+    : entries.filter((e) => inPill(e, active))
   const showing = new Set(shown.map((e) => e.id))
   const firstShown = shown[0]?.id ?? null
   const hrefOf = (a: StorelibApp) => appStates?.hrefs[a.id] ?? a.href
+  /*
+    THE NEXT PAGE IS ALREADY HERE (round 30). One of Storelib's apps is a page
+    of its own: fetched in full on a hover, a focus or a touch (lib/ui/
+    app-navigation prefetchAppPage, as the rail does), on top of what the
+    link fetches by itself once it is on screen. An integration's page is
+    drawn here, from the reads kept above: a hover only reads again one
+    that has gone stale.
+  */
+  const warmApp = (href: string) => {
+    if (warmed.current.has(href)) return
+    warmed.current.add(href)
+    prefetchAppPage(router, href)
+  }
+  const warmPages = () => prefetchGet(keptReads(physical))
 
   /* Installed by the store (not the built in ones every store has), for the page's own list at the top. */
   const mine = page ? shownAll.filter((i) => installed(i)) : []
@@ -630,7 +721,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
 
       <div ref={pillsRef} hidden={!!q} className="relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={tt("Categories")} data-integration-pills="">
         {pills.map((f) => {
-          const on = filter === f
+          const on = active === f
           return (
             <button
               key={f}
@@ -655,7 +746,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       {/* Isolated, so the crossfade's two layers add up inside it and nowhere else. */}
       <div ref={gridBox} className="relative isolate" data-integration-grid-box="">
         <div hidden={shown.length > 0} className={cn(CARD, "px-5 py-10 text-center")} data-integration-empty="">
-          <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "installed" && !q ? tt("Nothing installed yet") : tt("Nothing matches")}</p>
+          <p className="text-[14px] font-medium text-[#1a1a2e]">{active === "installed" && !q ? tt("Nothing installed yet") : tt("Nothing matches")}</p>
           <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setRequesting(true)}>
             {tt("Request integration")}
           </button>
@@ -667,11 +758,19 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
           {entries.map((e) => (
             <li key={e.id} hidden={!showing.has(e.id)} className={e.id === firstShown ? undefined : "border-t border-[#f1f2f4] sm:border-t-0"}>
               {e.kind === "app" ? (
-                <Link href={hrefOf(e.app)} data-integration-card={e.id} data-storelib-app={e.id} className={ENTRY}>
+                <Link
+                  href={hrefOf(e.app)}
+                  data-integration-card={e.id}
+                  data-storelib-app={e.id}
+                  className={ENTRY}
+                  onPointerEnter={() => warmApp(hrefOf(e.app))}
+                  onFocus={() => warmApp(hrefOf(e.app))}
+                  onTouchStart={() => warmApp(hrefOf(e.app))}
+                >
                   <EntryBody mark={<Mark item={{ id: e.id, name: e.app.name, logo: null }} />} name={e.app.name} summary={e.app.summary} badge={<AppBadge state={appState(e.id)} />} />
                 </Link>
               ) : (
-                <button type="button" onClick={() => open(e.id)} data-integration-card={e.id} className={ENTRY}>
+                <button type="button" onClick={() => open(e.id)} onPointerEnter={warmPages} onFocus={warmPages} data-integration-card={e.id} className={ENTRY}>
                   <EntryBody
                     mark={<Mark item={e.item} />}
                     name={e.item.name}

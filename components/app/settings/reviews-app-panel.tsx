@@ -15,7 +15,7 @@
  */
 import * as React from "react"
 import Link from "next/link"
-import { BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, Toggle, api } from "@/components/physical/ui"
+import { BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { cn } from "@/lib/utils"
 import { REVIEWS_APP_DEFAULTS, cleanHexColor, type ReviewsAppSettings } from "@/lib/reviews/app-settings"
 import { tt } from "@/lib/i18n/text"
@@ -26,8 +26,9 @@ const SECTION = "border-t border-[#f1f2f4] pt-5"
 const H = "text-[14px] font-semibold text-[#1a1a2e]"
 
 export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSettings) => void }) {
-  const [loaded, setLoaded] = React.useState<Loaded | null>(null)
-  const [draft, setDraft] = React.useState<ReviewsAppSettings>(REVIEWS_APP_DEFAULTS)
+  /* Drawn at once from what the Integrations page already read (peekGet), never a grey box first when it is there (round 30). */
+  const [loaded, setLoaded] = React.useState<Loaded | null>(() => peekGet<Loaded>("/api/store/reviews-app"))
+  const [draft, setDraft] = React.useState<ReviewsAppSettings>(() => peekGet<Loaded>("/api/store/reviews-app")?.settings ?? REVIEWS_APP_DEFAULTS)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
