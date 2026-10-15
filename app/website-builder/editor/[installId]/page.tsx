@@ -8136,8 +8136,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     )
   }, [builderCollections, previewMap, previewPricing, cardsInMarket])
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews }),
-    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, words: previewLang.words }),
+    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
@@ -8156,7 +8156,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             drawnSections,
             previewMap,
             (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
-            (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields,
+            /* The section's own blocks, else the theme's (a heading in a Blocks section), as the website lays them over (custom-schemas.ts textFieldsFrom). */
+            (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields ?? blockCatalog[bt]?.fields,
             { approvedOnly: true, fresh: true },
           ).map((s) => {
             /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx). */
@@ -8165,7 +8166,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           })
         : drawnSections,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawnSections, previewMap, storelibSources, librarySchemas],
+    [drawnSections, previewMap, storelibSources, librarySchemas, blockCatalog],
   )
   /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
   /* The product's real stars for the Star rating block, as the website hands them over (lib/reviews/storefront.ts productRating): none while it has only sample reviews. */

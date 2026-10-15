@@ -497,6 +497,8 @@ export interface RenderContext {
   product?: StorefrontData["product"]
   /** Storelib Reviews, as StorefrontData.reviews: read by sections/reviews_*.storelib. */
   reviews?: Record<string, unknown> | null
+  /** The words a section draws itself (Price, Verified buyer), in the page's language: `words` in a template (lib/markets/ui-words.ts). */
+  words?: Record<string, string>
   /**
    * The collection this page is about, on /collections/<handle>: title,
    * handle, description, image, url, products_count and its products,
@@ -630,6 +632,12 @@ export interface StorefrontData {
    * on a live page.
    */
   reviews?: Record<string, unknown> | null
+  /**
+   * The shop's own words in the page's language (lib/markets/ui-words.ts),
+   * the approved translations only: `words` in a template. Absent, each
+   * word is its English.
+   */
+  words?: Record<string, string>
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────

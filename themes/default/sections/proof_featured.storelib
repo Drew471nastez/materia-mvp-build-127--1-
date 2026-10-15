@@ -4,7 +4,7 @@
     {% if settings.image %}<img class="fq__photo" src="{{ settings.image | asset }}" alt="" loading="lazy" decoding="async">{% endif %}
     <figure class="fq">
       {% if settings.show_stars %}
-        <div class="stars" aria-label="{{ settings.rating }} out of 5">
+        <div class="stars" aria-label="{{ settings.rating }} {{ words.out_of_five }}">
           <span class="{% if settings.rating > 0 %}on{% endif %}">★</span><span class="{% if settings.rating > 1 %}on{% endif %}">★</span><span class="{% if settings.rating > 2 %}on{% endif %}">★</span><span class="{% if settings.rating > 3 %}on{% endif %}">★</span><span class="{% if settings.rating > 4 %}on{% endif %}">★</span>
         </div>
       {% endif %}

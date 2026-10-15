@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { publishedNotFoundPage } from "@/lib/website-builder/published-site"
+import { splitSiteName } from "@/lib/markets/site-name"
 
 /**
  * ===========================================================================
@@ -27,8 +28,9 @@ const HEADERS = {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ username: string }> }) {
-  const { username } = await params
-  const page = await publishedNotFoundPage(username).catch((error: unknown) => {
+  /* "andrew~fr": the page in French (/fr/not_found, lib/markets/site-name.ts); "andrew", the website's default language. */
+  const { name, locale } = splitSiteName((await params).username)
+  const page = await publishedNotFoundPage(name, locale).catch((error: unknown) => {
     console.error("[site 404] could not draw the page", { name: error instanceof Error ? error.name : "unknown" })
     return null
   })

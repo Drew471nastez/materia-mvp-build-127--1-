@@ -21,9 +21,8 @@ import "server-only"
 import { UI_WORDS, uiKey, type UiWord } from "./ui-words"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
-import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
-import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
+import { textFieldsFrom } from "@/lib/website-builder/custom-schemas"
+import type { SectionInstance } from "@/lib/website-builder/types"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import { localizationTag, marketsMissing, cachedTranslations } from "./server"
@@ -213,14 +212,9 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
     words,
     sections(list, sources) {
       if (map.size === 0) return list
-      const lookup = schemaLookupFrom(sources) ?? ((t: string) => SECTION_SCHEMAS[t])
-      return localizeSections(
-        list,
-        map,
-        (t) => lookup(t)?.fields,
-        (st, bt) => (lookup(st) as SectionSchema | undefined)?.blocks?.find((b) => b.type === bt)?.fields,
-        opts,
-      )
+      /* A section's own blocks and the theme's (a heading in a Blocks section), as they are listed (server.ts siteTexts). */
+      const { fieldsOf, blockFieldsOf } = textFieldsFrom(sources)
+      return localizeSections(list, map, fieldsOf, blockFieldsOf, opts)
     },
     product(p) {
       if (map.size === 0 || typeof p.id !== "string") return p

@@ -6,7 +6,7 @@
          contact page says who it is for without anybody typing it. The same
          for the box's label below: the words in quotes are only the fallback
          for a setting the creator can change. #}
-      <h2 class="s__h">{% if settings.heading %}{{ settings.heading }}{% elsif shop.name %}Contact {{ shop.name }}{% else %}Contact{% endif %}</h2>
+      <h2 class="s__h">{% if settings.heading %}{{ settings.heading }}{% elsif shop.name %}{{ words.contact }} {{ shop.name }}{% else %}{{ words.contact }}{% endif %}</h2>
       {% if settings.text %}<p class="s__sub">{{ settings.text }}</p>{% endif %}
 
       {% if settings.show_email %}
@@ -38,7 +38,7 @@
       <label class="cf__field"><span class="cf__label">{{ settings.message_label }}</span><textarea class="cf__input cf__area" name="message" rows="6" maxlength="5000" placeholder="{{ settings.message_placeholder }}" required></textarea></label>
       <div class="cf__trap" aria-hidden="true"><label>Company <input name="company" type="text" tabindex="-1" autocomplete="off"></label></div>
       {% if settings.show_consent %}
-        <label class="cf__check"><input class="cf__box" type="checkbox" name="consent" value="yes"><span>{% if settings.consent_label %}{{ settings.consent_label }}{% elsif shop.name %}{{ 'Email me news from ' | append: shop.name }}{% else %}{{ 'Email me news from this store' }}{% endif %}</span></label>
+        <label class="cf__check"><input class="cf__box" type="checkbox" name="consent" value="yes"><span>{% if settings.consent_label %}{{ settings.consent_label }}{% elsif shop.name %}{{ words.email_me_news_from | append: ' ' | append: shop.name }}{% else %}{{ words.email_me_news }}{% endif %}</span></label>
       {% endif %}
       <button class="cf__send" type="submit">{{ settings.button_text }}</button>
       <p class="cf__done" data-storelib-success hidden>{{ settings.success_message }}</p>

@@ -559,6 +559,8 @@ export async function dressPage(
     /* In the page's language: each collection's approved name and description (lib/markets/live.ts collection). */
     collections: collections && opts.localizer ? Object.fromEntries(Object.entries(collections).map(([k, c]) => [k, opts.localizer!.collection(c as never)])) : collections,
     reviews,
+    /* The words a section draws itself (Price, Verified buyer), in the page's language: `words` in a template. */
+    words: localizer?.words,
   })
   return { sections: filled, data }
 }
@@ -582,19 +584,24 @@ export interface NotFoundPage {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
   prerendered: Record<string, RenderedSection>
-  storefront: { creatorId: string; installId: string }
+  storefront: { creatorId: string; installId: string; words?: Record<string, string> }
 }
 
-export async function publishedNotFoundPage(name: string): Promise<NotFoundPage | null> {
+/** `locale`: the page's language (/fr/not_found); null, the website's default, whose translations are laid over too. */
+export async function publishedNotFoundPage(name: string, locale: string | null = null): Promise<NotFoundPage | null> {
   const found = await resolveSite(name)
   if (found.kind !== "site") return null
-  const { site, products, productCount } = found
+  /* In the visitor's language, as every other page of the site: its texts, menus, products and the shop's own words (lib/markets/live.ts). */
+  const localizer = await siteLocalizer(found.site.creatorId, locale).catch(() => null)
+  const site = localizer ? { ...found.site, themeSettings: localizer.theme(found.site.themeSettings as Record<string, unknown>) as typeof found.site.themeSettings } : found.site
+  const products = localizer ? localizer.cards(found.products) : found.products
+  const { productCount } = found
   const stored = site.pages[NOT_FOUND_PAGE_KEY]
   const arranged = stored && stored.length > 0 ? stored : notFoundSections(site.pages.home ?? site.sections)
-  const linked = pageWithLiveLinks(arranged, new Set(Object.keys(site.pages)))
+  const linked = pageWithLiveLinks(localizer ? localizer.sections(arranged, site.sources) : arranged, new Set(Object.keys(site.pages)))
   const template = templateForPage(NOT_FOUND_PAGE_KEY)
   const title = pageTitleFromKey(NOT_FOUND_PAGE_KEY)
-  const { sections, data } = await dressPage(site, linked, products, productCount, template, title)
+  const { sections, data } = await dressPage(site, linked, products, productCount, template, title, undefined, { cached: true, localizer })
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, { shop: { name: site.profile?.storeName || site.displayName } })
   return {
     template,
@@ -603,7 +610,7 @@ export async function publishedNotFoundPage(name: string): Promise<NotFoundPage 
     theme: site.themeSettings,
     sections,
     prerendered,
-    storefront: { creatorId: site.creatorId, installId: site.installId },
+    storefront: { creatorId: site.creatorId, installId: site.installId, ...(localizer && Object.keys(localizer.words).length ? { words: localizer.words } : {}) },
   }
 }
 

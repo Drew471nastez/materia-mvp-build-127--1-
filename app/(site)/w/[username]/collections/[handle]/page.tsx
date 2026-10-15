@@ -101,7 +101,7 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   const sections = dressed.sections
   /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
-  const { listed, filters, pagination } = catalogPage(cards, asked, `/collections/${handle}`)
+  const { listed, filters, pagination } = catalogPage(cards, asked, `/collections/${handle}`, { words: localizer?.words })
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters, pagination }, data)
 
   return (
