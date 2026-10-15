@@ -272,7 +272,7 @@ export function ScheduledPostsPanel({ head }: { head: CommunityHead }) {
             </div>
             <div>
               <label htmlFor="scheduled-body" className={label}>
-                {tt("Post")}
+                {tt("Text")}
               </label>
               <textarea id="scheduled-body" value={form.body} rows={7} onChange={(e) => setForm({ ...form, body: e.target.value.slice(0, LENGTHS.postBody.max) })} aria-invalid={bad("body") || undefined} className={cn(field, "resize-y py-2.5 leading-relaxed", bad("body") && "border-[#dc2626]")} />
             </div>
