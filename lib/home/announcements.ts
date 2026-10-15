@@ -40,6 +40,7 @@
  * Pure and client safe, so tests/home-announcements.test.ts runs every rule
  * against fixture states without a browser.
  */
+import { formatCurrency } from "@/lib/markets/money"
 import type { HomePaymentsState } from "@/lib/payments/stripe/readiness"
 import { groupOrders, isSale, type OrderRow } from "../orders/order-view"
 import { moneyOf } from "../analytics/reports"
@@ -112,6 +113,8 @@ export interface HomeProgress {
   websitePublished: boolean
   hasDomain: boolean
   sales: SalesSummary
+  /** The store's own currency, which its sales are in (Settings › Languages & Currency); the platform's plan prices stay in dollars. */
+  currency?: string
   /** Everybody on the list, or null when it could not be read. */
   subscribers: number | null
   /** Automations switched on, or null when they could not be read. */
@@ -211,11 +214,12 @@ export const NO_SALES: SalesSummary = { count: 0, cents: 0, first: null, last30:
 /* ─── Words ────────────────────────────────────────────────────────────── */
 
 /** $29, $29.50, $1,240: cents only when there are some, and never on $1,000 or more, where they are noise. */
-export function money(cents: number): string {
+export function money(cents: number, currency = "USD"): string {
   const whole = Math.round(cents) % 100 === 0 || Math.abs(cents) >= 100_000
   const dollars = whole ? Math.round(cents / 100) : cents / 100
   /* Intl places the sign where the language does: $1,240 in English, 1.240 $ in German. */
-  return dollars.toLocaleString(appLocale(), { style: "currency", currency: "USD", minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })
+  /* Written the store currency's own way: lei after the number ("1,240 lei"), never "RON" (lib/markets/money formatCurrency). */
+  return formatCurrency(dollars, currency, appLocale(), { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })
 }
 
 /** How long ago, in the words a person uses. Hours and days since, never a weekday, so it reads the same in every time zone. */
@@ -346,7 +350,7 @@ export const RULES: readonly Rule[] = [
         tone: "celebrate",
         eyebrow: tt("First sale"),
         title: tt("You made your first sale"),
-        line: tt("{amount}, {when}. See who bought it.", { amount: money(first.cents), when: ago(first.at, now) }),
+        line: tt("{amount}, {when}. See who bought it.", { amount: money(first.cents, p.currency), when: ago(first.at, now) }),
         cta: tt("View order"),
         href: `/app/orders/${encodeURIComponent(first.id)}`,
       }
@@ -361,10 +365,10 @@ export const RULES: readonly Rule[] = [
       return {
         tone: "celebrate",
         eyebrow: tt("Milestone"),
-        title: m.kind === "money" ? tt("You passed {amount} in sales", { amount: money(m.value) }) : tt("Your {nth} sale", { nth: ordinal(m.value) }),
+        title: m.kind === "money" ? tt("You passed {amount} in sales", { amount: money(m.value, p.currency) }) : tt("Your {nth} sale", { nth: ordinal(m.value) }),
         line: m.kind === "money"
           ? tt("It happened {when}, across {count, plural, one {# sale} other {# sales}}.", { when: ago(m.at, now), count: p.sales.count })
-          : tt("It came in {when}. {amount} so far.", { when: ago(m.at, now), amount: money(p.sales.cents) }),
+          : tt("It came in {when}. {amount} so far.", { when: ago(m.at, now), amount: money(p.sales.cents, p.currency) }),
         cta: tt("See analytics"),
         href: "/app/analytics",
       }

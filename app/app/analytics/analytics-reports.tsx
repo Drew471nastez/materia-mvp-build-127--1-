@@ -36,12 +36,15 @@ import { SourceIcon, type IconFor } from "@/components/analytics/source-icon"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { useStoreCurrency } from "@/lib/store/currency-context"
+import { formatCurrency } from "@/lib/markets/money"
 
 /** The funnel's steps, in steps of the accent every /app screen uses. */
 const FUNNEL = ["#6d28d9", "#8b5cf6", "#a78bfa", "#c4b5fd"]
 
-const money = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "USD" })
-const fmtMoney = (cents: number) => money.format((cents || 0) / 100)
+/* The store's own currency (Settings › Languages & Currency), set by AnalyticsReports from the /app layout's: lei for a store in lei. */
+let reportCurrency = "USD"
+const fmtMoney = (cents: number) => formatCurrency((cents || 0) / 100, reportCurrency, appLocale())
 const fmtCount = (n: number) => Math.round(n).toLocaleString(appLocale())
 const fmtPct = (f: number) => `${(f * 100).toFixed(f > 0 && f < 0.1 ? 1 : 0).replace(/\.0+$/, "")}%`
 const plural = (n: number, one: string, many: string) => `${fmtCount(n)} ${n === 1 ? one : many}`
@@ -722,6 +725,7 @@ export function AnalyticsReports({
   property?: PropertySelector
   state?: ReportsState
 }) {
+  reportCurrency = useStoreCurrency()
   return state ? (
     <ReportsView state={state} property={property} />
   ) : (

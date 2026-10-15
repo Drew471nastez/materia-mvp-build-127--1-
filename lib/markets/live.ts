@@ -61,13 +61,29 @@ export interface SiteLanguages {
 
 const NONE: SiteLanguages = { saved: false, defaultLanguage: "en", others: [], markets: [] }
 
+/** The store's own country (Settings › Store currency): where a visitor whose country is unknown starts, and the builder's preview. */
+async function storeCountry(creatorId: string): Promise<string | null> {
+  const { data } = await createAdminClient().from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle().then(
+    (r: { data: unknown }) => r,
+    () => ({ data: null }),
+  )
+  const c = (data as { default_country?: unknown } | null)?.default_country
+  return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : null
+}
+
 async function readLanguages(creatorId: string): Promise<SiteLanguages> {
-  const { data, error } = await createAdminClient().from("store_localization").select("default_language, languages, markets").eq("creator_id", creatorId).maybeSingle()
+  /*
+    THE STORE'S COUNTRY, NOT THE UNITED STATES. A home market lists no
+    countries unless the merchant added some, so the theme's country
+    selector fell through to "United States (RON)" for a store in Romania.
+    The store's own country is the next answer.
+  */
+  const [{ data, error }, own] = await Promise.all([createAdminClient().from("store_localization").select("default_language, languages, markets").eq("creator_id", creatorId).maybeSingle(), storeCountry(creatorId)])
   if (error) {
     if (!marketsMissing(error)) throw error
-    return NONE
+    return { ...NONE, homeCountry: own }
   }
-  if (!data) return NONE
+  if (!data) return { ...NONE, homeCountry: own }
   const row = data as { default_language?: unknown; languages?: unknown; markets?: unknown }
   const def = normalizeLocale(row.default_language) ?? "en"
   const others: string[] = []
@@ -86,7 +102,7 @@ async function readLanguages(creatorId: string): Promise<SiteLanguages> {
     const countries = (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string" && /^[A-Z]{2}$/.test(c))
     markets.push({ id: m.id, name: typeof m.name === "string" ? m.name : m.id, countries, currency, primary: false, rounding: (["none", "whole", "nine_nine"].includes(String(m.rounding)) ? m.rounding : "none") as PriceRounding, adjustBps: Number(m.adjustBps) || 0, ...(typeof m.rate === "number" && m.rate > 0 ? { rate: m.rate } : {}) })
   }
-  return { saved: true, defaultLanguage: def, others, markets, homeCountry, homeName }
+  return { saved: true, defaultLanguage: def, others, markets, homeCountry: homeCountry ?? own, homeName }
 }
 
 /** The market a country's visitors see prices in, when it shows its own currency (lib/markets/model marketForCountry, active markets only). */

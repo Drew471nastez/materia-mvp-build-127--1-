@@ -88,6 +88,7 @@
  * Buttons go where the sidebar's rows go and the same way
  * (components/app/app-link).
  */
+import { useStoreCurrency } from "@/lib/store/currency-context"
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import Swiper from "swiper"
 import type { Swiper as SwiperClass, SwiperOptions } from "swiper/types"
@@ -209,7 +210,8 @@ export interface HomeBannerProps {
 export const HomeBanner = memo(function HomeBanner({ facts, planId, sales, onShare, onGuide }: HomeBannerProps) {
   /* One clock for the page view: the same on the server and in the browser to the second, so the words agree. */
   const [now] = useState(() => Date.now())
-  const list = useMemo(() => announcementsFor(fromFacts(facts, sales, planId, !!onShare), now), [facts, sales, planId, onShare, now])
+  const storeCurrency = useStoreCurrency()
+  const list = useMemo(() => announcementsFor({ ...fromFacts(facts, sales, planId, !!onShare), currency: storeCurrency }, now), [facts, sales, planId, onShare, now, storeCurrency])
   return <BannerView list={list} onShare={onShare} onGuide={onGuide} />
 })
 
