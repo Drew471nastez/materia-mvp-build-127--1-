@@ -12,7 +12,7 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { localizeCompatSite } from "@/lib/markets/compat"
-import { SITE_LOCALE_HEADER, SITE_MARKET_HEADER } from "@/lib/markets/site-name"
+import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteVisitorCountry } from "@/lib/markets/site-name"
 import { localeRoot } from "@/lib/storelib-theme/compat/objects"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
@@ -129,10 +129,18 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const locale = token ? null : (req.headers.get(SITE_LOCALE_HEADER) || null)
   /* And in the visitor's market's currency, when their country is in one that shows its own (the proxy's visitorMarket). */
   const market = token ? null : (req.headers.get(SITE_MARKET_HEADER) || null)
-  /* The visitor's country, for the theme's own country selector: the one they picked (sl_country), else where they are. */
-  const picked = req.headers.get("cookie")?.match(/(?:^|;\s*)sl_country=([A-Za-z]{2})(?:;|$)/)?.[1] ?? null
-  const seen = req.headers.get("x-vercel-ip-country")
-  const visitorCountry = picked ?? (seen && /^[A-Za-z]{2}$/.test(seen) ? seen : null)
+  /*
+    The visitor's country, for the theme's own country selector: the one
+    the proxy names (they chose it, or it is where they are; a header only
+    the proxy sets, like the language's), else the one they picked here
+    (sl_country), else where they are. "home" (the store's own prices) is
+    no country: the selector shows the store's own (themeCountries).
+  */
+  const visitorCountry = siteVisitorCountry({
+    chosen: req.headers.get("cookie")?.match(/(?:^|;\s*)sl_country=([^;]*)/)?.[1] ?? null,
+    told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
+    seen: req.headers.get("x-vercel-ip-country"),
+  })
   found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry) }
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]

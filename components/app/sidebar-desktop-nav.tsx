@@ -34,7 +34,6 @@
  * fixed 20×20 box, so nothing an icon does can move the label beside it.
  */
 
-import { RailToggle } from "./rail-toggle"
 import Link from "next/link"
 import { isPlainClick, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import type * as React from "react"
@@ -831,15 +830,13 @@ export function DesktopSidebarContent({
           sidebar's own gutter is only the gap between a row's rounded edge
           and the border. */}
       {/*
-        THE COLLAPSE CONTROL, AN ICON IN THE TOP CORNER (round 29). It sat
-        under Settings as a full row reading "Collapse"; up here it is out of
-        the rows' way, where Linear, Notion and Vercel keep theirs. Its
-        tooltip says what it does and the shortcut (components/app/rail-toggle).
+        NO BAND ABOVE DASHBOARD (round 30). The collapse control had a 40px
+        strip of its own up here; the owner did not want the empty space.
+        It is a handle on the sidebar's edge now (components/app/rail-toggle,
+        placed by components/app/sidebar), and Dashboard is the first thing
+        in the sidebar again, 12px from its top.
       */}
-      <div className="relative h-[40px] shrink-0">
-        <RailToggle />
-      </div>
-      <nav className="sidebar-nav min-h-0 flex-1 overflow-y-auto px-[7px] pb-3 pt-[2px]">
+      <nav className="sidebar-nav min-h-0 flex-1 overflow-y-auto px-[7px] py-3">
         <div className="space-y-[2px]">
           {items.map((item) => (
             <DesktopNavItem

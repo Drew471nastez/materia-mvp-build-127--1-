@@ -126,27 +126,28 @@ export async function readAutoTranslate(db: Db, creatorId: string): Promise<{ on
   return { on: row?.auto_translate === true, run, ready: true }
 }
 
-export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization; autoTranslateRun?: AutoTranslateRun | null }> {
-  const [{ data, error }, auto] = await Promise.all([readLocalizationRow(db, creatorId), readAutoTranslate(db, creatorId)])
-  const fresh = async () => defaultLocalization(...(await Promise.all([homeCountryOf(db, creatorId), websiteLanguageOf(db, creatorId)])))
-  if (error) return { ready: !marketsMissing(error), value: await fresh() }
-  if (!data) return { ready: true, value: await fresh() }
+export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization; autoTranslateRun?: AutoTranslateRun | null; homeCountry: string | null }> {
+  const [{ data, error }, auto, homeCountry] = await Promise.all([readLocalizationRow(db, creatorId), readAutoTranslate(db, creatorId), homeCountryOf(db, creatorId)])
+  const fresh = async () => defaultLocalization(homeCountry, await websiteLanguageOf(db, creatorId))
+  if (error) return { ready: !marketsMissing(error), value: await fresh(), homeCountry }
+  if (!data) return { ready: true, value: await fresh(), homeCountry }
   const row = data
-  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
-  if (checked.ok) return { ready: true, value: checked.value, autoTranslateRun: auto.run }
+  /* The store's own country is never in a More currencies market: a list saved with it in reads without it (lib/markets/market-countries.ts). */
+  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency, homeCountry })
+  if (checked.ok) return { ready: true, value: checked.value, autoTranslateRun: auto.run, homeCountry }
   /*
     A SAVED LIST NEVER LOST. Markets saved under another store currency can
     stop passing the check after the currency changes; the languages did not
     change, so they are kept and only the markets start again from the home
     one. Losing them read as "French isn't saved on your website yet".
   */
-  const home = defaultLocalization(await homeCountryOf(db, creatorId), row.default_language)
-  const kept = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: home.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency })
-  return { ready: true, value: kept.ok ? kept.value : home, autoTranslateRun: auto.run }
+  const home = defaultLocalization(homeCountry, row.default_language)
+  const kept = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: home.markets, visitorLanguage: row.visitor_language === true, autoTranslate: auto.on }, { baseCurrency, homeCountry })
+  return { ready: true, value: kept.ok ? kept.value : home, autoTranslateRun: auto.run, homeCountry }
 }
 
 export async function saveLocalization(db: Db, creatorId: string, input: unknown, baseCurrency: string): Promise<{ ok: true; value: Localization } | { ok: false; status: number; error: string }> {
-  const checked = validateLocalization(input, { baseCurrency })
+  const checked = validateLocalization(input, { baseCurrency, homeCountry: await homeCountryOf(db, creatorId) })
   if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
   const v = checked.value
   const row = { creator_id: creatorId, default_language: v.defaultLanguage, languages: v.languages, markets: v.markets, updated_at: new Date().toISOString() }
@@ -250,6 +251,18 @@ export async function saveTranslations(
     }
     upserts.push({ creator_id: creatorId, locale: lang, key: raw.key, value, source_hash: sourceHash(source), status: raw.approved === false ? "draft" : "approved", source: raw.ai ? "ai" : "manual", updated_by: userId, updated_at: now })
   }
+  /*
+    ONE ROW PER KEY. The same text can come in twice in one write (a header
+    or footer read on more than one page, a product in two collections), and
+    Postgres refuses an upsert that touches a row twice ("cannot affect row a
+    second time"): the whole write failed with "Could not save the
+    translations". The last one wins.
+  */
+  for (let i = upserts.length - 1, seen = new Set<string>(); i >= 0; i--) {
+    const k = upserts[i].key as string
+    if (seen.has(k)) upserts.splice(i, 1)
+    else seen.add(k)
+  }
   if (upserts.length && opts.keepManual) {
     const { data: theirs } = await db.from("site_translations").select("key").eq("creator_id", creatorId).eq("locale", lang).eq("source", "manual").in("key", upserts.map((u) => u.key as string))
     const kept = new Set(((theirs ?? []) as { key: string }[]).map((r) => r.key))
@@ -257,7 +270,10 @@ export async function saveTranslations(
   }
   if (upserts.length) {
     const { error } = await db.from("site_translations").upsert(upserts, { onConflict: "creator_id,locale,key" })
-    if (error) return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save the translations. Try again." }
+    if (error) {
+      console.error(`[translations] save ${lang}: ${error.code ?? ""} ${String(error.message ?? "").slice(0, 200)}`)
+      return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save the translations. Try again." }
+    }
   }
   if (removals.length) {
     const { error } = await db.from("site_translations").delete().eq("creator_id", creatorId).eq("locale", lang).in("key", removals)

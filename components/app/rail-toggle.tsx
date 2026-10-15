@@ -10,12 +10,19 @@ import { tt } from "@/lib/i18n/text"
  *  THE SIDEBAR'S COLLAPSE CONTROL (round 29)
  * ===========================================================================
  * The owner: the full "Collapse" button under Settings should be an icon,
- * somewhere better, out of the way of the rows. It is a 30px icon in the
- * sidebar's top corner now (components/app/sidebar-desktop-nav), lined up
- * with the rows' chevrons while the sidebar is open. It is anchored to the
- * sidebar's right edge, so it travels with that edge as the sidebar closes
- * and ends over the column of icons (the last few pixels are a transform,
- * app/globals.css), never jumping between two places.
+ * somewhere better, out of the way of the rows. Round 29 put it in a 40px
+ * band above Dashboard, and the owner did not like the empty space that
+ * made: "another solution, more smooth, subtle, clean".
+ *
+ * ROUND 30, A HANDLE ON THE EDGE. A 24px round button centred on the
+ * sidebar's border, level with Dashboard, the way Atlassian's products and
+ * Shopify's admin keep theirs. It takes no room from the rows at all. It
+ * shows while the pointer is anywhere over the sidebar and on keyboard
+ * focus, stays on a touch screen, and otherwise is out of sight and lets
+ * clicks through to the page under it (app/globals.css). It is a child of
+ * the sidebar, placed against its right edge, so it travels with that edge
+ * every frame; its chevron points the way the sidebar will go and turns
+ * over on the sidebar's own curve.
  *
  * Under the pointer, after a short wait, a small tooltip says what it does
  * and its shortcut: ⌘B on a Mac, Ctrl+B elsewhere, read from the platform
@@ -39,16 +46,11 @@ function typingIn(target: EventTarget | null): boolean {
   return el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || !!el.closest?.("[contenteditable=''], [contenteditable='true']")
 }
 
-/** The sidebar drawn as a panel with its divider on the left, at the rail's 1.5 stroke. */
-function PanelIcon() {
+/** A small chevron pointing left, to close; globals.css turns it over while the sidebar is collapsed. */
+function EdgeChevron() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M2 11C2 7.22876 2 5.34315 3.17157 4.17157C4.34315 3 6.22876 3 10 3H14C17.7712 3 19.6569 3 20.8284 4.17157C22 5.34315 22 7.22876 22 11V13C22 16.7712 22 18.6569 20.8284 19.8284C19.6569 21 17.7712 21 14 21H10C6.22876 21 4.34315 21 3.17157 19.8284C2 18.6569 2 16.7712 2 13V11Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path d="M9 21L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <path d="M7.25 3L4.25 6L7.25 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -131,9 +133,10 @@ export function RailToggle() {
         aria-controls="app-rail"
         aria-keyshortcuts={mac === null ? undefined : mac ? "Meta+B" : "Control+B"}
         data-rail-toggle=""
-        className="absolute right-[12px] top-[8px] flex h-[30px] w-[30px] items-center justify-center rounded-[8px] text-[#8a8a8a] outline-none transition-[background-color,color] duration-[140ms] ease-out hover:bg-[#f3f3f3] hover:text-[#333333] active:bg-[#e8e8e8] focus-visible:ring-2 focus-visible:ring-neutral-300 [-webkit-tap-highlight-color:transparent]"
+        /* On the 1px border (its centre on the border's inner edge, whole pixels so its own hairline stays crisp), its centre level with Dashboard's (12px of gutter + half a 38px row). A 32px hit area round a 24px circle. */
+        className="absolute -right-[12px] top-[19px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white text-[#8a8a8a] shadow-[0_1px_2px_rgba(16,18,27,0.06)] outline-none before:absolute before:-inset-1 before:content-[''] hover:border-neutral-300 hover:text-[#333333] active:bg-[#f3f3f3] focus-visible:ring-2 focus-visible:ring-neutral-300 [-webkit-tap-highlight-color:transparent]"
       >
-        <PanelIcon />
+        <EdgeChevron />
       </button>
       {tip && keys
         ? createPortal(

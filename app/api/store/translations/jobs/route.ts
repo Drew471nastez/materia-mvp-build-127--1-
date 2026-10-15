@@ -5,7 +5,7 @@ import { normalizeLocale } from "@/lib/markets/locales"
 import { canDraftWithAi } from "@/lib/markets/translate-ai"
 import { OPEN_NOT_SET_UP } from "@/lib/markets/open-translate"
 import { translatableLocale } from "@/lib/markets/translation-press"
-import { askNextRun, readJobs, runJob, startJob } from "@/lib/markets/translation-jobs"
+import { askNextRun, continueJobs, idleJobs, readJobs, runJob, startJob } from "@/lib/markets/translation-jobs"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
@@ -27,8 +27,17 @@ const RUN_MS = 270_000
  * `ready: false` without SQL part 177: the page presses round by round itself.
  */
 export async function GET() {
+  const started = Date.now()
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
+  /*
+    NEVER STUCK. A job whose run was cut off waits for the cron, which needs
+    CRON_SECRET; while Settings is open and reading its progress, the read
+    itself picks it up and carries on after answering, so a translation
+    keeps going with or without the cron.
+  */
+  const idle = await idleJobs(c.db, c.creatorId).catch(() => [] as string[])
+  if (idle.length) after(() => continueJobs(started + RUN_MS, { creatorId: c.creatorId, locale: idle[0] }).then(() => undefined))
   return physicalJson(await readJobs(c.db, c.creatorId))
 }
 

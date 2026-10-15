@@ -173,7 +173,14 @@ export function convertedCents(minorBase: number, pricing: Pricing): number | nu
 
 /** A Shopify money format for a currency: "€{{amount}}", "{{amount}} lei", "¥{{amount_no_decimals}}". */
 export function moneyFormatFor(currency: string, locale = "en"): string {
-  const amount = minorUnits(currency) === 0 ? "{{amount_no_decimals}}" : "{{amount}}"
+  /* With the language's own decimal comma ("5,02 R$" in Romanian, never "5.02 R$"): Shopify's comma separator format, which every theme reads. */
+  let comma = false
+  try {
+    comma = new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === "decimal")?.value === ","
+  } catch {
+    comma = false
+  }
+  const amount = minorUnits(currency) === 0 ? (comma ? "{{amount_no_decimals_with_comma_separator}}" : "{{amount_no_decimals}}") : comma ? "{{amount_with_comma_separator}}" : "{{amount}}"
   try {
     const parts = new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: "narrowSymbol" }).formatToParts(1)
     const i = parts.findIndex((p) => p.type === "currency")

@@ -7,9 +7,9 @@
  * The background job writes its count after each batch, and the page reads
  * it every two seconds, so the number arrives in steps of forty. Drawn as it
  * comes it jumped; here the bar eases to each new width and the count rolls
- * up to it, and a soft light passes along the bar while the work goes on, so
- * a pause between two batches still reads as working. Reduced motion: the
- * bar and the number are simply set.
+ * up to it. Nothing sweeps or flickers over it (the owner found a passing
+ * light glitchy): the motion is the fill itself. Reduced motion: the bar and
+ * the number are simply set.
  *
  * Shared by the Languages list and the translation sheet, so both move alike.
  */
@@ -51,8 +51,7 @@ export function TranslateBar({ done, total, running, tone = "violet", className,
   const width = running ? Math.max(3, share) : share
   return (
     <div className={cn("relative h-1.5 overflow-hidden rounded-full bg-[#eef0f2]", className)} role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label={label}>
-      <div className={cn("relative h-full overflow-hidden rounded-full transition-[width] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]", tone === "violet" ? "bg-[#8b5cf6]" : "bg-[#1a1a2e]")} style={{ width: `${width}%` }}>
-        {running ? <span aria-hidden className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/45 to-transparent motion-safe:animate-[media-sheen_1.6s_ease-in-out_infinite]" /> : null}
+      <div className={cn("relative h-full overflow-hidden rounded-full transition-[width] duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", tone === "violet" ? "bg-[#8b5cf6]" : "bg-[#1a1a2e]")} style={{ width: `${width}%` }}>
       </div>
     </div>
   )

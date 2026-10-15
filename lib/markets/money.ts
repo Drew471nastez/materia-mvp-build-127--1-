@@ -140,6 +140,29 @@ export function currencyWord(currency: string): string | null {
   return word
 }
 
+/*
+  A CURRENCY'S SIGN WHERE A LANGUAGE HAS NONE FOR IT. Romanian writes the
+  Brazilian real as "5,02 BRL", where Portuguese and English write R$. A
+  currency with a sign of its own ("R$", "CA$", "MX$", never a bare "$" or
+  one letter) keeps it in every language, in the place that language puts a
+  currency: "5,02 R$" in Romanian, "R$ 5,02" in Portuguese.
+*/
+const signsOf = new Map<string, string | null>()
+/** "R$" for BRL, "CA$" for CAD; null when the currency's sign is its code, a bare "$" or one letter. */
+export function currencySign(currency: string): string | null {
+  const code = currency.toUpperCase()
+  if (signsOf.has(code)) return signsOf.get(code) ?? null
+  let sign: string | null = null
+  try {
+    const symbol = new Intl.NumberFormat("en", { style: "currency", currency: code }).formatToParts(1).find((p) => p.type === "currency")?.value ?? ""
+    sign = symbol && symbol !== code && symbol !== "$" && !/^\p{L}$/u.test(symbol) ? symbol : null
+  } catch {
+    sign = null
+  }
+  signsOf.set(code, sign)
+  return sign
+}
+
 const numberFormats = new Map<string, Intl.NumberFormat>()
 /**
  * An amount in major units ("48.5") written in `locale`'s way, with the
@@ -160,7 +183,11 @@ export function formatCurrency(major: number, currency: string, locale = "en", o
     const parts = f.formatToParts(value)
     const mark = parts.find((p) => p.type === "currency")
     const word = mark && mark.value === code ? currencyWord(code) : null
-    if (!word) return parts.map((p) => p.value).join("")
+    if (!word) {
+      /* The language writes the code where the currency has a sign ("5,02 BRL" in Romanian): the sign, in the same place. */
+      const sign = mark && mark.value === code ? currencySign(code) : null
+      return parts.map((p) => (p === mark && sign ? sign : p.value)).join("")
+    }
     /* The code and the space beside it out, the word after the amount. */
     const amount = parts
       .filter((p) => p.type !== "currency")
@@ -182,7 +209,8 @@ export function currencyMarkOf(currency: string, locale = "en"): { mark: string;
   try {
     const parts = new Intl.NumberFormat(locale, { style: "currency", currency: code }).formatToParts(1)
     const at = parts.findIndex((p) => p.type === "currency")
-    return { mark: parts[at]?.value ?? code, after: at > parts.findIndex((p) => p.type === "integer") }
+    const mark = parts[at]?.value ?? code
+    return { mark: mark === code ? (currencySign(code) ?? code) : mark, after: at > parts.findIndex((p) => p.type === "integer") }
   } catch {
     return { mark: code, after: true }
   }

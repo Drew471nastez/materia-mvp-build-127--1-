@@ -50,8 +50,15 @@ export async function draftRound(db: Db, creatorId: string, locale: string, user
   const [allGroups, saved, store] = await Promise.all([siteTexts(db, creatorId), translationsOf(db, creatorId, locale), storeIdentity(db, creatorId).catch(() => null)])
   /* The website's own language, when it is not English: the shop's own words and the checkout's only (translate.ts BUILT_IN_GROUPS). */
   const groups = where.own ? allGroups.filter((g) => BUILT_IN_GROUPS.has(g.id)) : allGroups
-  const all = groups.flatMap((g) => g.items)
+  /* Each key once: the same text read on more than one page is translated, counted and saved once. */
+  const all = [...new Map(groups.flatMap((g) => g.items).map((t) => [t.key, t])).values()]
   const map = translationMap(saved.rows)
+  /* Drafts Storelib wrote before translations went live at once: put live now, as they are, rather than left waiting for an Approve press. */
+  const waiting = all.filter((t) => map.get(t.key)?.source === "ai" && statusOf(map.get(t.key), t.source) === "draft").map((t) => ({ key: t.key, value: map.get(t.key)!.value, source: t.source, approved: true, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
+  if (waiting.length) {
+    const live = await saveTranslations(db, creatorId, locale, waiting.slice(0, 500), userId, { keepManual: true })
+    if (live.ok) for (const w of waiting.slice(0, 500)) map.set(w.key, { ...map.get(w.key)!, status: "approved" })
+  }
   const todo = all.filter((t) => aiMayWrite(map.get(t.key), t.source)).slice(0, PER_PRESS)
   const counted = (drafted: Set<string>) => all.filter((t) => drafted.has(t.key) || statusOf(map.get(t.key), t.source) === "done" || statusOf(map.get(t.key), t.source) === "draft").length
   if (todo.length === 0) return { ok: true, drafted: 0, left: 0, done: counted(new Set()), total: all.length }
@@ -59,7 +66,8 @@ export async function draftRound(db: Db, creatorId: string, locale: string, user
   const { drafts, unavailable, reason, busy } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, where.defaultLanguage, locale, store?.name || "the store", { deadlineAt })
   /* 429: every translator is out of allowance for now; the background job waits and carries on. */
   if (unavailable && drafts.size === 0) return { ok: false, status: busy ? 429 : 503, error: reason ?? AI_UNAVAILABLE }
-  const items = todo.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: false, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
+  /* LIVE AT ONCE (the owner: "I have to click approve"): a translation goes on the website as soon as it is written, still marked as automatic, so a later run may improve it and a person's edit always wins. */
+  const items = todo.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: true, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
   /* keepManual: one the merchant saved while this was drafting is read again just before the write and left alone. */
   const done = await saveTranslations(db, creatorId, locale, items, userId, { keepManual: true })
   if (done.ok === false) return { ok: false, status: done.status, error: done.error }
